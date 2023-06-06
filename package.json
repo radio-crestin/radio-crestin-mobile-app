@@ -1,0 +1,9 @@
+{
+  "dependencies": {
+    "@graphql-cli/introspect": "^2.1.0",
+    "@graphql-inspector/graphql-cli-common": "^2.9.0",
+    "global": "^4.4.0",
+    "graphql": "^16.6.0",
+    "graphql-cli": "^4.1.0"
+  }
+}
