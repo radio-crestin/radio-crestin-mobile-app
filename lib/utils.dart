@@ -43,27 +43,46 @@ class Utils {
     return stationThumbnailUrl;
   }
 
-  static String getStationStreamUrl(Query$GetStations$stations? station) {
-    return station?.proxy_stream_url ?? station?.stream_url ?? "";
+  static List<String> getStationStreamUrls(Query$GetStations$stations? station) {
+    List<String>  availableStreamUrls = [];
+    if (station == null) {
+      return availableStreamUrls;
+    }
+    if (station.hls_stream_url != null &&
+        station.hls_stream_url != "") {
+      availableStreamUrls.add(station.hls_stream_url!);
+    }
+    if (station.proxy_stream_url != null &&
+        station.proxy_stream_url != "") {
+      availableStreamUrls.add(station.proxy_stream_url!);
+    }
+    if (station.stream_url != "") {
+      availableStreamUrls.add(station.stream_url);
+    }
+    return availableStreamUrls;
   }
 
   static MediaItem getStationMetadata(Query$GetStations$stations? station) {
     return MediaItem(
-      id: getStationStreamUrl(station) ?? "",
+      id: station?.id.toString() ?? "0",
       title: station?.title.toString() ?? "",
       displayTitle: station?.title.toString(),
       displaySubtitle: Utils.getCurrentPlayedSongTitle(station),
       artist: Utils.getCurrentPlayedSongTitle(station),
+      duration: null,
       artUri: Uri.parse(Utils.getStationThumbnailUrl(station)),
     );
   }
 
   static displayImage(String url, {bool cache = false}) {
+    if(url == "") {
+      return null;
+    }
     if (cache) {
       return FastCachedImage(
         url: url,
         fit: BoxFit.cover,
-        gaplessPlayback: true,
+        gaplessPlayback: false,
         fadeInDuration: Duration.zero,
         errorBuilder: (context, exception, stacktrace) {
           developer.log("Error loading image: $exception");
@@ -81,7 +100,7 @@ class Utils {
       return Image.network(
         url,
         fit: BoxFit.cover,
-        gaplessPlayback: true,
+        gaplessPlayback: false,
         errorBuilder: (context, exception, stacktrace) {
           developer.log("Error loading image: $exception");
           return Container(

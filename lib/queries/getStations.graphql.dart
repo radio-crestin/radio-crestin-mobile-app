@@ -7,22 +7,16 @@ import 'package:graphql_flutter/graphql_flutter.dart' as graphql_flutter;
 class Query$GetStations {
   Query$GetStations({
     required this.stations,
-    required this.station_groups,
     this.$__typename = 'query_root',
   });
 
   factory Query$GetStations.fromJson(Map<String, dynamic> json) {
     final l$stations = json['stations'];
-    final l$station_groups = json['station_groups'];
     final l$$__typename = json['__typename'];
     return Query$GetStations(
       stations: (l$stations as List<dynamic>)
           .map((e) =>
               Query$GetStations$stations.fromJson((e as Map<String, dynamic>)))
-          .toList(),
-      station_groups: (l$station_groups as List<dynamic>)
-          .map((e) => Query$GetStations$station_groups.fromJson(
-              (e as Map<String, dynamic>)))
           .toList(),
       $__typename: (l$$__typename as String),
     );
@@ -30,17 +24,12 @@ class Query$GetStations {
 
   final List<Query$GetStations$stations> stations;
 
-  final List<Query$GetStations$station_groups> station_groups;
-
   final String $__typename;
 
   Map<String, dynamic> toJson() {
     final _resultData = <String, dynamic>{};
     final l$stations = stations;
     _resultData['stations'] = l$stations.map((e) => e.toJson()).toList();
-    final l$station_groups = station_groups;
-    _resultData['station_groups'] =
-        l$station_groups.map((e) => e.toJson()).toList();
     final l$$__typename = $__typename;
     _resultData['__typename'] = l$$__typename;
     return _resultData;
@@ -49,11 +38,9 @@ class Query$GetStations {
   @override
   int get hashCode {
     final l$stations = stations;
-    final l$station_groups = station_groups;
     final l$$__typename = $__typename;
     return Object.hashAll([
       Object.hashAll(l$stations.map((v) => v)),
-      Object.hashAll(l$station_groups.map((v) => v)),
       l$$__typename,
     ]);
   }
@@ -75,18 +62,6 @@ class Query$GetStations {
       final l$stations$entry = l$stations[i];
       final lOther$stations$entry = lOther$stations[i];
       if (l$stations$entry != lOther$stations$entry) {
-        return false;
-      }
-    }
-    final l$station_groups = station_groups;
-    final lOther$station_groups = other.station_groups;
-    if (l$station_groups.length != lOther$station_groups.length) {
-      return false;
-    }
-    for (int i = 0; i < l$station_groups.length; i++) {
-      final l$station_groups$entry = l$station_groups[i];
-      final lOther$station_groups$entry = lOther$station_groups[i];
-      if (l$station_groups$entry != lOther$station_groups$entry) {
         return false;
       }
     }
@@ -118,7 +93,6 @@ abstract class CopyWith$Query$GetStations<TRes> {
 
   TRes call({
     List<Query$GetStations$stations>? stations,
-    List<Query$GetStations$station_groups>? station_groups,
     String? $__typename,
   });
   TRes stations(
@@ -126,12 +100,6 @@ abstract class CopyWith$Query$GetStations<TRes> {
               Iterable<
                   CopyWith$Query$GetStations$stations<
                       Query$GetStations$stations>>)
-          _fn);
-  TRes station_groups(
-      Iterable<Query$GetStations$station_groups> Function(
-              Iterable<
-                  CopyWith$Query$GetStations$station_groups<
-                      Query$GetStations$station_groups>>)
           _fn);
 }
 
@@ -150,16 +118,12 @@ class _CopyWithImpl$Query$GetStations<TRes>
 
   TRes call({
     Object? stations = _undefined,
-    Object? station_groups = _undefined,
     Object? $__typename = _undefined,
   }) =>
       _then(Query$GetStations(
         stations: stations == _undefined || stations == null
             ? _instance.stations
             : (stations as List<Query$GetStations$stations>),
-        station_groups: station_groups == _undefined || station_groups == null
-            ? _instance.station_groups
-            : (station_groups as List<Query$GetStations$station_groups>),
         $__typename: $__typename == _undefined || $__typename == null
             ? _instance.$__typename
             : ($__typename as String),
@@ -176,18 +140,6 @@ class _CopyWithImpl$Query$GetStations<TRes>
                     e,
                     (i) => i,
                   ))).toList());
-  TRes station_groups(
-          Iterable<Query$GetStations$station_groups> Function(
-                  Iterable<
-                      CopyWith$Query$GetStations$station_groups<
-                          Query$GetStations$station_groups>>)
-              _fn) =>
-      call(
-          station_groups: _fn(_instance.station_groups
-              .map((e) => CopyWith$Query$GetStations$station_groups(
-                    e,
-                    (i) => i,
-                  ))).toList());
 }
 
 class _CopyWithStubImpl$Query$GetStations<TRes>
@@ -198,12 +150,10 @@ class _CopyWithStubImpl$Query$GetStations<TRes>
 
   call({
     List<Query$GetStations$stations>? stations,
-    List<Query$GetStations$station_groups>? station_groups,
     String? $__typename,
   }) =>
       _res;
   stations(_fn) => _res;
-  station_groups(_fn) => _res;
 }
 
 const documentNodeQueryGetStations = DocumentNode(definitions: [
@@ -223,7 +173,11 @@ const documentNodeQueryGetStations = DocumentNode(definitions: [
               ObjectFieldNode(
                 name: NameNode(value: 'order'),
                 value: EnumValueNode(name: NameNode(value: 'asc')),
-              )
+              ),
+              ObjectFieldNode(
+                name: NameNode(value: 'title'),
+                value: EnumValueNode(name: NameNode(value: 'asc')),
+              ),
             ]),
           )
         ],
@@ -300,7 +254,7 @@ const documentNodeQueryGetStations = DocumentNode(definitions: [
             selectionSet: null,
           ),
           FieldNode(
-            name: NameNode(value: 'radio_crestin_listeners'),
+            name: NameNode(value: 'total_listeners'),
             alias: null,
             arguments: [],
             directives: [],
@@ -462,13 +416,6 @@ const documentNodeQueryGetStations = DocumentNode(definitions: [
                 selectionSet: null,
               ),
               FieldNode(
-                name: NameNode(value: 'listeners'),
-                alias: null,
-                arguments: [],
-                directives: [],
-                selectionSet: null,
-              ),
-              FieldNode(
                 name: NameNode(value: 'song'),
                 alias: null,
                 arguments: [],
@@ -571,88 +518,6 @@ const documentNodeQueryGetStations = DocumentNode(definitions: [
               ),
               FieldNode(
                 name: NameNode(value: 'message'),
-                alias: null,
-                arguments: [],
-                directives: [],
-                selectionSet: null,
-              ),
-              FieldNode(
-                name: NameNode(value: '__typename'),
-                alias: null,
-                arguments: [],
-                directives: [],
-                selectionSet: null,
-              ),
-            ]),
-          ),
-          FieldNode(
-            name: NameNode(value: '__typename'),
-            alias: null,
-            arguments: [],
-            directives: [],
-            selectionSet: null,
-          ),
-        ]),
-      ),
-      FieldNode(
-        name: NameNode(value: 'station_groups'),
-        alias: null,
-        arguments: [
-          ArgumentNode(
-            name: NameNode(value: 'order_by'),
-            value: ObjectValueNode(fields: [
-              ObjectFieldNode(
-                name: NameNode(value: 'order'),
-                value: EnumValueNode(name: NameNode(value: 'asc')),
-              )
-            ]),
-          )
-        ],
-        directives: [],
-        selectionSet: SelectionSetNode(selections: [
-          FieldNode(
-            name: NameNode(value: 'id'),
-            alias: null,
-            arguments: [],
-            directives: [],
-            selectionSet: null,
-          ),
-          FieldNode(
-            name: NameNode(value: 'slug'),
-            alias: null,
-            arguments: [],
-            directives: [],
-            selectionSet: null,
-          ),
-          FieldNode(
-            name: NameNode(value: 'name'),
-            alias: null,
-            arguments: [],
-            directives: [],
-            selectionSet: null,
-          ),
-          FieldNode(
-            name: NameNode(value: 'order'),
-            alias: null,
-            arguments: [],
-            directives: [],
-            selectionSet: null,
-          ),
-          FieldNode(
-            name: NameNode(value: 'station_to_station_groups'),
-            alias: null,
-            arguments: [],
-            directives: [],
-            selectionSet: SelectionSetNode(selections: [
-              FieldNode(
-                name: NameNode(value: 'station_id'),
-                alias: null,
-                arguments: [],
-                directives: [],
-                selectionSet: null,
-              ),
-              FieldNode(
-                name: NameNode(value: 'order'),
                 alias: null,
                 arguments: [],
                 directives: [],
@@ -835,7 +700,7 @@ class Query$GetStations$stations {
     this.proxy_stream_url,
     this.hls_stream_url,
     this.thumbnail_url,
-    this.radio_crestin_listeners,
+    this.total_listeners,
     this.description,
     this.description_action_title,
     this.description_link,
@@ -859,7 +724,7 @@ class Query$GetStations$stations {
     final l$proxy_stream_url = json['proxy_stream_url'];
     final l$hls_stream_url = json['hls_stream_url'];
     final l$thumbnail_url = json['thumbnail_url'];
-    final l$radio_crestin_listeners = json['radio_crestin_listeners'];
+    final l$total_listeners = json['total_listeners'];
     final l$description = json['description'];
     final l$description_action_title = json['description_action_title'];
     final l$description_link = json['description_link'];
@@ -881,7 +746,7 @@ class Query$GetStations$stations {
       proxy_stream_url: (l$proxy_stream_url as String?),
       hls_stream_url: (l$hls_stream_url as String?),
       thumbnail_url: (l$thumbnail_url as String?),
-      radio_crestin_listeners: (l$radio_crestin_listeners as int?),
+      total_listeners: (l$total_listeners as int?),
       description: (l$description as String?),
       description_action_title: (l$description_action_title as String?),
       description_link: (l$description_link as String?),
@@ -927,7 +792,7 @@ class Query$GetStations$stations {
 
   final String? thumbnail_url;
 
-  final int? radio_crestin_listeners;
+  final int? total_listeners;
 
   final String? description;
 
@@ -971,8 +836,8 @@ class Query$GetStations$stations {
     _resultData['hls_stream_url'] = l$hls_stream_url;
     final l$thumbnail_url = thumbnail_url;
     _resultData['thumbnail_url'] = l$thumbnail_url;
-    final l$radio_crestin_listeners = radio_crestin_listeners;
-    _resultData['radio_crestin_listeners'] = l$radio_crestin_listeners;
+    final l$total_listeners = total_listeners;
+    _resultData['total_listeners'] = l$total_listeners;
     final l$description = description;
     _resultData['description'] = l$description;
     final l$description_action_title = description_action_title;
@@ -1008,7 +873,7 @@ class Query$GetStations$stations {
     final l$proxy_stream_url = proxy_stream_url;
     final l$hls_stream_url = hls_stream_url;
     final l$thumbnail_url = thumbnail_url;
-    final l$radio_crestin_listeners = radio_crestin_listeners;
+    final l$total_listeners = total_listeners;
     final l$description = description;
     final l$description_action_title = description_action_title;
     final l$description_link = description_link;
@@ -1030,7 +895,7 @@ class Query$GetStations$stations {
       l$proxy_stream_url,
       l$hls_stream_url,
       l$thumbnail_url,
-      l$radio_crestin_listeners,
+      l$total_listeners,
       l$description,
       l$description_action_title,
       l$description_link,
@@ -1103,9 +968,9 @@ class Query$GetStations$stations {
     if (l$thumbnail_url != lOther$thumbnail_url) {
       return false;
     }
-    final l$radio_crestin_listeners = radio_crestin_listeners;
-    final lOther$radio_crestin_listeners = other.radio_crestin_listeners;
-    if (l$radio_crestin_listeners != lOther$radio_crestin_listeners) {
+    final l$total_listeners = total_listeners;
+    final lOther$total_listeners = other.total_listeners;
+    if (l$total_listeners != lOther$total_listeners) {
       return false;
     }
     final l$description = description;
@@ -1205,7 +1070,7 @@ abstract class CopyWith$Query$GetStations$stations<TRes> {
     String? proxy_stream_url,
     String? hls_stream_url,
     String? thumbnail_url,
-    int? radio_crestin_listeners,
+    int? total_listeners,
     String? description,
     String? description_action_title,
     String? description_link,
@@ -1257,7 +1122,7 @@ class _CopyWithImpl$Query$GetStations$stations<TRes>
     Object? proxy_stream_url = _undefined,
     Object? hls_stream_url = _undefined,
     Object? thumbnail_url = _undefined,
-    Object? radio_crestin_listeners = _undefined,
+    Object? total_listeners = _undefined,
     Object? description = _undefined,
     Object? description_action_title = _undefined,
     Object? description_link = _undefined,
@@ -1298,9 +1163,9 @@ class _CopyWithImpl$Query$GetStations$stations<TRes>
         thumbnail_url: thumbnail_url == _undefined
             ? _instance.thumbnail_url
             : (thumbnail_url as String?),
-        radio_crestin_listeners: radio_crestin_listeners == _undefined
-            ? _instance.radio_crestin_listeners
-            : (radio_crestin_listeners as int?),
+        total_listeners: total_listeners == _undefined
+            ? _instance.total_listeners
+            : (total_listeners as int?),
         description: description == _undefined
             ? _instance.description
             : (description as String?),
@@ -1392,7 +1257,7 @@ class _CopyWithStubImpl$Query$GetStations$stations<TRes>
     String? proxy_stream_url,
     String? hls_stream_url,
     String? thumbnail_url,
-    int? radio_crestin_listeners,
+    int? total_listeners,
     String? description,
     String? description_action_title,
     String? description_link,
@@ -1786,7 +1651,6 @@ class Query$GetStations$stations$now_playing {
   Query$GetStations$stations$now_playing({
     required this.id,
     required this.timestamp,
-    this.listeners,
     this.song,
     this.$__typename = 'stations_now_playing',
   });
@@ -1795,13 +1659,11 @@ class Query$GetStations$stations$now_playing {
       Map<String, dynamic> json) {
     final l$id = json['id'];
     final l$timestamp = json['timestamp'];
-    final l$listeners = json['listeners'];
     final l$song = json['song'];
     final l$$__typename = json['__typename'];
     return Query$GetStations$stations$now_playing(
       id: (l$id as int),
       timestamp: (l$timestamp as String),
-      listeners: (l$listeners as int?),
       song: l$song == null
           ? null
           : Query$GetStations$stations$now_playing$song.fromJson(
@@ -1814,8 +1676,6 @@ class Query$GetStations$stations$now_playing {
 
   final String timestamp;
 
-  final int? listeners;
-
   final Query$GetStations$stations$now_playing$song? song;
 
   final String $__typename;
@@ -1826,8 +1686,6 @@ class Query$GetStations$stations$now_playing {
     _resultData['id'] = l$id;
     final l$timestamp = timestamp;
     _resultData['timestamp'] = l$timestamp;
-    final l$listeners = listeners;
-    _resultData['listeners'] = l$listeners;
     final l$song = song;
     _resultData['song'] = l$song?.toJson();
     final l$$__typename = $__typename;
@@ -1839,13 +1697,11 @@ class Query$GetStations$stations$now_playing {
   int get hashCode {
     final l$id = id;
     final l$timestamp = timestamp;
-    final l$listeners = listeners;
     final l$song = song;
     final l$$__typename = $__typename;
     return Object.hashAll([
       l$id,
       l$timestamp,
-      l$listeners,
       l$song,
       l$$__typename,
     ]);
@@ -1868,11 +1724,6 @@ class Query$GetStations$stations$now_playing {
     final l$timestamp = timestamp;
     final lOther$timestamp = other.timestamp;
     if (l$timestamp != lOther$timestamp) {
-      return false;
-    }
-    final l$listeners = listeners;
-    final lOther$listeners = other.listeners;
-    if (l$listeners != lOther$listeners) {
       return false;
     }
     final l$song = song;
@@ -1911,7 +1762,6 @@ abstract class CopyWith$Query$GetStations$stations$now_playing<TRes> {
   TRes call({
     int? id,
     String? timestamp,
-    int? listeners,
     Query$GetStations$stations$now_playing$song? song,
     String? $__typename,
   });
@@ -1934,7 +1784,6 @@ class _CopyWithImpl$Query$GetStations$stations$now_playing<TRes>
   TRes call({
     Object? id = _undefined,
     Object? timestamp = _undefined,
-    Object? listeners = _undefined,
     Object? song = _undefined,
     Object? $__typename = _undefined,
   }) =>
@@ -1943,8 +1792,6 @@ class _CopyWithImpl$Query$GetStations$stations$now_playing<TRes>
         timestamp: timestamp == _undefined || timestamp == null
             ? _instance.timestamp
             : (timestamp as String),
-        listeners:
-            listeners == _undefined ? _instance.listeners : (listeners as int?),
         song: song == _undefined
             ? _instance.song
             : (song as Query$GetStations$stations$now_playing$song?),
@@ -1971,7 +1818,6 @@ class _CopyWithStubImpl$Query$GetStations$stations$now_playing<TRes>
   call({
     int? id,
     String? timestamp,
-    int? listeners,
     Query$GetStations$stations$now_playing$song? song,
     String? $__typename,
   }) =>
@@ -2507,406 +2353,6 @@ class _CopyWithStubImpl$Query$GetStations$stations$reviews<TRes>
     int? id,
     int? stars,
     String? message,
-    String? $__typename,
-  }) =>
-      _res;
-}
-
-class Query$GetStations$station_groups {
-  Query$GetStations$station_groups({
-    required this.id,
-    required this.slug,
-    required this.name,
-    required this.order,
-    required this.station_to_station_groups,
-    this.$__typename = 'station_groups',
-  });
-
-  factory Query$GetStations$station_groups.fromJson(Map<String, dynamic> json) {
-    final l$id = json['id'];
-    final l$slug = json['slug'];
-    final l$name = json['name'];
-    final l$order = json['order'];
-    final l$station_to_station_groups = json['station_to_station_groups'];
-    final l$$__typename = json['__typename'];
-    return Query$GetStations$station_groups(
-      id: (l$id as int),
-      slug: (l$slug as String),
-      name: (l$name as String),
-      order: (l$order as int),
-      station_to_station_groups: (l$station_to_station_groups as List<dynamic>)
-          .map((e) => Query$GetStations$station_groups$station_to_station_groups
-              .fromJson((e as Map<String, dynamic>)))
-          .toList(),
-      $__typename: (l$$__typename as String),
-    );
-  }
-
-  final int id;
-
-  final String slug;
-
-  final String name;
-
-  final int order;
-
-  final List<Query$GetStations$station_groups$station_to_station_groups>
-      station_to_station_groups;
-
-  final String $__typename;
-
-  Map<String, dynamic> toJson() {
-    final _resultData = <String, dynamic>{};
-    final l$id = id;
-    _resultData['id'] = l$id;
-    final l$slug = slug;
-    _resultData['slug'] = l$slug;
-    final l$name = name;
-    _resultData['name'] = l$name;
-    final l$order = order;
-    _resultData['order'] = l$order;
-    final l$station_to_station_groups = station_to_station_groups;
-    _resultData['station_to_station_groups'] =
-        l$station_to_station_groups.map((e) => e.toJson()).toList();
-    final l$$__typename = $__typename;
-    _resultData['__typename'] = l$$__typename;
-    return _resultData;
-  }
-
-  @override
-  int get hashCode {
-    final l$id = id;
-    final l$slug = slug;
-    final l$name = name;
-    final l$order = order;
-    final l$station_to_station_groups = station_to_station_groups;
-    final l$$__typename = $__typename;
-    return Object.hashAll([
-      l$id,
-      l$slug,
-      l$name,
-      l$order,
-      Object.hashAll(l$station_to_station_groups.map((v) => v)),
-      l$$__typename,
-    ]);
-  }
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) {
-      return true;
-    }
-    if (!(other is Query$GetStations$station_groups) ||
-        runtimeType != other.runtimeType) {
-      return false;
-    }
-    final l$id = id;
-    final lOther$id = other.id;
-    if (l$id != lOther$id) {
-      return false;
-    }
-    final l$slug = slug;
-    final lOther$slug = other.slug;
-    if (l$slug != lOther$slug) {
-      return false;
-    }
-    final l$name = name;
-    final lOther$name = other.name;
-    if (l$name != lOther$name) {
-      return false;
-    }
-    final l$order = order;
-    final lOther$order = other.order;
-    if (l$order != lOther$order) {
-      return false;
-    }
-    final l$station_to_station_groups = station_to_station_groups;
-    final lOther$station_to_station_groups = other.station_to_station_groups;
-    if (l$station_to_station_groups.length !=
-        lOther$station_to_station_groups.length) {
-      return false;
-    }
-    for (int i = 0; i < l$station_to_station_groups.length; i++) {
-      final l$station_to_station_groups$entry = l$station_to_station_groups[i];
-      final lOther$station_to_station_groups$entry =
-          lOther$station_to_station_groups[i];
-      if (l$station_to_station_groups$entry !=
-          lOther$station_to_station_groups$entry) {
-        return false;
-      }
-    }
-    final l$$__typename = $__typename;
-    final lOther$$__typename = other.$__typename;
-    if (l$$__typename != lOther$$__typename) {
-      return false;
-    }
-    return true;
-  }
-}
-
-extension UtilityExtension$Query$GetStations$station_groups
-    on Query$GetStations$station_groups {
-  CopyWith$Query$GetStations$station_groups<Query$GetStations$station_groups>
-      get copyWith => CopyWith$Query$GetStations$station_groups(
-            this,
-            (i) => i,
-          );
-}
-
-abstract class CopyWith$Query$GetStations$station_groups<TRes> {
-  factory CopyWith$Query$GetStations$station_groups(
-    Query$GetStations$station_groups instance,
-    TRes Function(Query$GetStations$station_groups) then,
-  ) = _CopyWithImpl$Query$GetStations$station_groups;
-
-  factory CopyWith$Query$GetStations$station_groups.stub(TRes res) =
-      _CopyWithStubImpl$Query$GetStations$station_groups;
-
-  TRes call({
-    int? id,
-    String? slug,
-    String? name,
-    int? order,
-    List<Query$GetStations$station_groups$station_to_station_groups>?
-        station_to_station_groups,
-    String? $__typename,
-  });
-  TRes station_to_station_groups(
-      Iterable<Query$GetStations$station_groups$station_to_station_groups> Function(
-              Iterable<
-                  CopyWith$Query$GetStations$station_groups$station_to_station_groups<
-                      Query$GetStations$station_groups$station_to_station_groups>>)
-          _fn);
-}
-
-class _CopyWithImpl$Query$GetStations$station_groups<TRes>
-    implements CopyWith$Query$GetStations$station_groups<TRes> {
-  _CopyWithImpl$Query$GetStations$station_groups(
-    this._instance,
-    this._then,
-  );
-
-  final Query$GetStations$station_groups _instance;
-
-  final TRes Function(Query$GetStations$station_groups) _then;
-
-  static const _undefined = <dynamic, dynamic>{};
-
-  TRes call({
-    Object? id = _undefined,
-    Object? slug = _undefined,
-    Object? name = _undefined,
-    Object? order = _undefined,
-    Object? station_to_station_groups = _undefined,
-    Object? $__typename = _undefined,
-  }) =>
-      _then(Query$GetStations$station_groups(
-        id: id == _undefined || id == null ? _instance.id : (id as int),
-        slug: slug == _undefined || slug == null
-            ? _instance.slug
-            : (slug as String),
-        name: name == _undefined || name == null
-            ? _instance.name
-            : (name as String),
-        order: order == _undefined || order == null
-            ? _instance.order
-            : (order as int),
-        station_to_station_groups: station_to_station_groups == _undefined ||
-                station_to_station_groups == null
-            ? _instance.station_to_station_groups
-            : (station_to_station_groups as List<
-                Query$GetStations$station_groups$station_to_station_groups>),
-        $__typename: $__typename == _undefined || $__typename == null
-            ? _instance.$__typename
-            : ($__typename as String),
-      ));
-  TRes station_to_station_groups(
-          Iterable<Query$GetStations$station_groups$station_to_station_groups> Function(
-                  Iterable<
-                      CopyWith$Query$GetStations$station_groups$station_to_station_groups<
-                          Query$GetStations$station_groups$station_to_station_groups>>)
-              _fn) =>
-      call(
-          station_to_station_groups: _fn(_instance.station_to_station_groups
-              .map((e) =>
-                  CopyWith$Query$GetStations$station_groups$station_to_station_groups(
-                    e,
-                    (i) => i,
-                  ))).toList());
-}
-
-class _CopyWithStubImpl$Query$GetStations$station_groups<TRes>
-    implements CopyWith$Query$GetStations$station_groups<TRes> {
-  _CopyWithStubImpl$Query$GetStations$station_groups(this._res);
-
-  TRes _res;
-
-  call({
-    int? id,
-    String? slug,
-    String? name,
-    int? order,
-    List<Query$GetStations$station_groups$station_to_station_groups>?
-        station_to_station_groups,
-    String? $__typename,
-  }) =>
-      _res;
-  station_to_station_groups(_fn) => _res;
-}
-
-class Query$GetStations$station_groups$station_to_station_groups {
-  Query$GetStations$station_groups$station_to_station_groups({
-    required this.station_id,
-    this.order,
-    this.$__typename = 'station_to_station_group',
-  });
-
-  factory Query$GetStations$station_groups$station_to_station_groups.fromJson(
-      Map<String, dynamic> json) {
-    final l$station_id = json['station_id'];
-    final l$order = json['order'];
-    final l$$__typename = json['__typename'];
-    return Query$GetStations$station_groups$station_to_station_groups(
-      station_id: (l$station_id as int),
-      order: (l$order as int?),
-      $__typename: (l$$__typename as String),
-    );
-  }
-
-  final int station_id;
-
-  final int? order;
-
-  final String $__typename;
-
-  Map<String, dynamic> toJson() {
-    final _resultData = <String, dynamic>{};
-    final l$station_id = station_id;
-    _resultData['station_id'] = l$station_id;
-    final l$order = order;
-    _resultData['order'] = l$order;
-    final l$$__typename = $__typename;
-    _resultData['__typename'] = l$$__typename;
-    return _resultData;
-  }
-
-  @override
-  int get hashCode {
-    final l$station_id = station_id;
-    final l$order = order;
-    final l$$__typename = $__typename;
-    return Object.hashAll([
-      l$station_id,
-      l$order,
-      l$$__typename,
-    ]);
-  }
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) {
-      return true;
-    }
-    if (!(other
-            is Query$GetStations$station_groups$station_to_station_groups) ||
-        runtimeType != other.runtimeType) {
-      return false;
-    }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
-    if (l$station_id != lOther$station_id) {
-      return false;
-    }
-    final l$order = order;
-    final lOther$order = other.order;
-    if (l$order != lOther$order) {
-      return false;
-    }
-    final l$$__typename = $__typename;
-    final lOther$$__typename = other.$__typename;
-    if (l$$__typename != lOther$$__typename) {
-      return false;
-    }
-    return true;
-  }
-}
-
-extension UtilityExtension$Query$GetStations$station_groups$station_to_station_groups
-    on Query$GetStations$station_groups$station_to_station_groups {
-  CopyWith$Query$GetStations$station_groups$station_to_station_groups<
-          Query$GetStations$station_groups$station_to_station_groups>
-      get copyWith =>
-          CopyWith$Query$GetStations$station_groups$station_to_station_groups(
-            this,
-            (i) => i,
-          );
-}
-
-abstract class CopyWith$Query$GetStations$station_groups$station_to_station_groups<
-    TRes> {
-  factory CopyWith$Query$GetStations$station_groups$station_to_station_groups(
-    Query$GetStations$station_groups$station_to_station_groups instance,
-    TRes Function(Query$GetStations$station_groups$station_to_station_groups)
-        then,
-  ) = _CopyWithImpl$Query$GetStations$station_groups$station_to_station_groups;
-
-  factory CopyWith$Query$GetStations$station_groups$station_to_station_groups.stub(
-          TRes res) =
-      _CopyWithStubImpl$Query$GetStations$station_groups$station_to_station_groups;
-
-  TRes call({
-    int? station_id,
-    int? order,
-    String? $__typename,
-  });
-}
-
-class _CopyWithImpl$Query$GetStations$station_groups$station_to_station_groups<
-        TRes>
-    implements
-        CopyWith$Query$GetStations$station_groups$station_to_station_groups<
-            TRes> {
-  _CopyWithImpl$Query$GetStations$station_groups$station_to_station_groups(
-    this._instance,
-    this._then,
-  );
-
-  final Query$GetStations$station_groups$station_to_station_groups _instance;
-
-  final TRes Function(
-      Query$GetStations$station_groups$station_to_station_groups) _then;
-
-  static const _undefined = <dynamic, dynamic>{};
-
-  TRes call({
-    Object? station_id = _undefined,
-    Object? order = _undefined,
-    Object? $__typename = _undefined,
-  }) =>
-      _then(Query$GetStations$station_groups$station_to_station_groups(
-        station_id: station_id == _undefined || station_id == null
-            ? _instance.station_id
-            : (station_id as int),
-        order: order == _undefined ? _instance.order : (order as int?),
-        $__typename: $__typename == _undefined || $__typename == null
-            ? _instance.$__typename
-            : ($__typename as String),
-      ));
-}
-
-class _CopyWithStubImpl$Query$GetStations$station_groups$station_to_station_groups<
-        TRes>
-    implements
-        CopyWith$Query$GetStations$station_groups$station_to_station_groups<
-            TRes> {
-  _CopyWithStubImpl$Query$GetStations$station_groups$station_to_station_groups(
-      this._res);
-
-  TRes _res;
-
-  call({
-    int? station_id,
-    int? order,
     String? $__typename,
   }) =>
       _res;

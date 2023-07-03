@@ -17532,7 +17532,6 @@ class Input$stations_bool_exp {
     Input$Int_comparison_exp? order,
     Input$posts_bool_exp? posts,
     Input$String_comparison_exp? proxy_stream_url,
-    Input$Int_comparison_exp? radio_crestin_listeners,
     Input$reviews_bool_exp? reviews,
     Input$String_comparison_exp? rss_feed,
     Input$String_comparison_exp? slug,
@@ -17541,6 +17540,7 @@ class Input$stations_bool_exp {
     Input$String_comparison_exp? thumbnail,
     Input$String_comparison_exp? thumbnail_url,
     Input$String_comparison_exp? title,
+    Input$Int_comparison_exp? total_listeners,
     Input$timestamptz_comparison_exp? updated_at,
     Input$stations_uptime_bool_exp? uptime,
     Input$stations_uptime_bool_exp? uptime_history,
@@ -17571,8 +17571,6 @@ class Input$stations_bool_exp {
         if (order != null) r'order': order,
         if (posts != null) r'posts': posts,
         if (proxy_stream_url != null) r'proxy_stream_url': proxy_stream_url,
-        if (radio_crestin_listeners != null)
-          r'radio_crestin_listeners': radio_crestin_listeners,
         if (reviews != null) r'reviews': reviews,
         if (rss_feed != null) r'rss_feed': rss_feed,
         if (slug != null) r'slug': slug,
@@ -17582,6 +17580,7 @@ class Input$stations_bool_exp {
         if (thumbnail != null) r'thumbnail': thumbnail,
         if (thumbnail_url != null) r'thumbnail_url': thumbnail_url,
         if (title != null) r'title': title,
+        if (total_listeners != null) r'total_listeners': total_listeners,
         if (updated_at != null) r'updated_at': updated_at,
         if (uptime != null) r'uptime': uptime,
         if (uptime_history != null) r'uptime_history': uptime_history,
@@ -17726,13 +17725,6 @@ class Input$stations_bool_exp {
           : Input$String_comparison_exp.fromJson(
               (l$proxy_stream_url as Map<String, dynamic>));
     }
-    if (data.containsKey('radio_crestin_listeners')) {
-      final l$radio_crestin_listeners = data['radio_crestin_listeners'];
-      result$data['radio_crestin_listeners'] = l$radio_crestin_listeners == null
-          ? null
-          : Input$Int_comparison_exp.fromJson(
-              (l$radio_crestin_listeners as Map<String, dynamic>));
-    }
     if (data.containsKey('reviews')) {
       final l$reviews = data['reviews'];
       result$data['reviews'] = l$reviews == null
@@ -17789,6 +17781,13 @@ class Input$stations_bool_exp {
           ? null
           : Input$String_comparison_exp.fromJson(
               (l$title as Map<String, dynamic>));
+    }
+    if (data.containsKey('total_listeners')) {
+      final l$total_listeners = data['total_listeners'];
+      result$data['total_listeners'] = l$total_listeners == null
+          ? null
+          : Input$Int_comparison_exp.fromJson(
+              (l$total_listeners as Map<String, dynamic>));
     }
     if (data.containsKey('updated_at')) {
       final l$updated_at = data['updated_at'];
@@ -17860,8 +17859,6 @@ class Input$stations_bool_exp {
   Input$posts_bool_exp? get posts => (_$data['posts'] as Input$posts_bool_exp?);
   Input$String_comparison_exp? get proxy_stream_url =>
       (_$data['proxy_stream_url'] as Input$String_comparison_exp?);
-  Input$Int_comparison_exp? get radio_crestin_listeners =>
-      (_$data['radio_crestin_listeners'] as Input$Int_comparison_exp?);
   Input$reviews_bool_exp? get reviews =>
       (_$data['reviews'] as Input$reviews_bool_exp?);
   Input$String_comparison_exp? get rss_feed =>
@@ -17879,6 +17876,8 @@ class Input$stations_bool_exp {
       (_$data['thumbnail_url'] as Input$String_comparison_exp?);
   Input$String_comparison_exp? get title =>
       (_$data['title'] as Input$String_comparison_exp?);
+  Input$Int_comparison_exp? get total_listeners =>
+      (_$data['total_listeners'] as Input$Int_comparison_exp?);
   Input$timestamptz_comparison_exp? get updated_at =>
       (_$data['updated_at'] as Input$timestamptz_comparison_exp?);
   Input$stations_uptime_bool_exp? get uptime =>
@@ -17968,11 +17967,6 @@ class Input$stations_bool_exp {
       final l$proxy_stream_url = proxy_stream_url;
       result$data['proxy_stream_url'] = l$proxy_stream_url?.toJson();
     }
-    if (_$data.containsKey('radio_crestin_listeners')) {
-      final l$radio_crestin_listeners = radio_crestin_listeners;
-      result$data['radio_crestin_listeners'] =
-          l$radio_crestin_listeners?.toJson();
-    }
     if (_$data.containsKey('reviews')) {
       final l$reviews = reviews;
       result$data['reviews'] = l$reviews?.toJson();
@@ -18005,6 +17999,10 @@ class Input$stations_bool_exp {
     if (_$data.containsKey('title')) {
       final l$title = title;
       result$data['title'] = l$title?.toJson();
+    }
+    if (_$data.containsKey('total_listeners')) {
+      final l$total_listeners = total_listeners;
+      result$data['total_listeners'] = l$total_listeners?.toJson();
     }
     if (_$data.containsKey('updated_at')) {
       final l$updated_at = updated_at;
@@ -18227,15 +18225,6 @@ class Input$stations_bool_exp {
     if (l$proxy_stream_url != lOther$proxy_stream_url) {
       return false;
     }
-    final l$radio_crestin_listeners = radio_crestin_listeners;
-    final lOther$radio_crestin_listeners = other.radio_crestin_listeners;
-    if (_$data.containsKey('radio_crestin_listeners') !=
-        other._$data.containsKey('radio_crestin_listeners')) {
-      return false;
-    }
-    if (l$radio_crestin_listeners != lOther$radio_crestin_listeners) {
-      return false;
-    }
     final l$reviews = reviews;
     final lOther$reviews = other.reviews;
     if (_$data.containsKey('reviews') != other._$data.containsKey('reviews')) {
@@ -18305,6 +18294,15 @@ class Input$stations_bool_exp {
     if (l$title != lOther$title) {
       return false;
     }
+    final l$total_listeners = total_listeners;
+    final lOther$total_listeners = other.total_listeners;
+    if (_$data.containsKey('total_listeners') !=
+        other._$data.containsKey('total_listeners')) {
+      return false;
+    }
+    if (l$total_listeners != lOther$total_listeners) {
+      return false;
+    }
     final l$updated_at = updated_at;
     final lOther$updated_at = other.updated_at;
     if (_$data.containsKey('updated_at') !=
@@ -18363,7 +18361,6 @@ class Input$stations_bool_exp {
     final l$order = order;
     final l$posts = posts;
     final l$proxy_stream_url = proxy_stream_url;
-    final l$radio_crestin_listeners = radio_crestin_listeners;
     final l$reviews = reviews;
     final l$rss_feed = rss_feed;
     final l$slug = slug;
@@ -18372,6 +18369,7 @@ class Input$stations_bool_exp {
     final l$thumbnail = thumbnail;
     final l$thumbnail_url = thumbnail_url;
     final l$title = title;
+    final l$total_listeners = total_listeners;
     final l$updated_at = updated_at;
     final l$uptime = uptime;
     final l$uptime_history = uptime_history;
@@ -18414,9 +18412,6 @@ class Input$stations_bool_exp {
       _$data.containsKey('order') ? l$order : const {},
       _$data.containsKey('posts') ? l$posts : const {},
       _$data.containsKey('proxy_stream_url') ? l$proxy_stream_url : const {},
-      _$data.containsKey('radio_crestin_listeners')
-          ? l$radio_crestin_listeners
-          : const {},
       _$data.containsKey('reviews') ? l$reviews : const {},
       _$data.containsKey('rss_feed') ? l$rss_feed : const {},
       _$data.containsKey('slug') ? l$slug : const {},
@@ -18427,6 +18422,7 @@ class Input$stations_bool_exp {
       _$data.containsKey('thumbnail') ? l$thumbnail : const {},
       _$data.containsKey('thumbnail_url') ? l$thumbnail_url : const {},
       _$data.containsKey('title') ? l$title : const {},
+      _$data.containsKey('total_listeners') ? l$total_listeners : const {},
       _$data.containsKey('updated_at') ? l$updated_at : const {},
       _$data.containsKey('uptime') ? l$uptime : const {},
       _$data.containsKey('uptime_history') ? l$uptime_history : const {},
@@ -18464,7 +18460,6 @@ abstract class CopyWith$Input$stations_bool_exp<TRes> {
     Input$Int_comparison_exp? order,
     Input$posts_bool_exp? posts,
     Input$String_comparison_exp? proxy_stream_url,
-    Input$Int_comparison_exp? radio_crestin_listeners,
     Input$reviews_bool_exp? reviews,
     Input$String_comparison_exp? rss_feed,
     Input$String_comparison_exp? slug,
@@ -18473,6 +18468,7 @@ abstract class CopyWith$Input$stations_bool_exp<TRes> {
     Input$String_comparison_exp? thumbnail,
     Input$String_comparison_exp? thumbnail_url,
     Input$String_comparison_exp? title,
+    Input$Int_comparison_exp? total_listeners,
     Input$timestamptz_comparison_exp? updated_at,
     Input$stations_uptime_bool_exp? uptime,
     Input$stations_uptime_bool_exp? uptime_history,
@@ -18505,7 +18501,6 @@ abstract class CopyWith$Input$stations_bool_exp<TRes> {
   CopyWith$Input$Int_comparison_exp<TRes> get order;
   CopyWith$Input$posts_bool_exp<TRes> get posts;
   CopyWith$Input$String_comparison_exp<TRes> get proxy_stream_url;
-  CopyWith$Input$Int_comparison_exp<TRes> get radio_crestin_listeners;
   CopyWith$Input$reviews_bool_exp<TRes> get reviews;
   CopyWith$Input$String_comparison_exp<TRes> get rss_feed;
   CopyWith$Input$String_comparison_exp<TRes> get slug;
@@ -18515,6 +18510,7 @@ abstract class CopyWith$Input$stations_bool_exp<TRes> {
   CopyWith$Input$String_comparison_exp<TRes> get thumbnail;
   CopyWith$Input$String_comparison_exp<TRes> get thumbnail_url;
   CopyWith$Input$String_comparison_exp<TRes> get title;
+  CopyWith$Input$Int_comparison_exp<TRes> get total_listeners;
   CopyWith$Input$timestamptz_comparison_exp<TRes> get updated_at;
   CopyWith$Input$stations_uptime_bool_exp<TRes> get uptime;
   CopyWith$Input$stations_uptime_bool_exp<TRes> get uptime_history;
@@ -18554,7 +18550,6 @@ class _CopyWithImpl$Input$stations_bool_exp<TRes>
     Object? order = _undefined,
     Object? posts = _undefined,
     Object? proxy_stream_url = _undefined,
-    Object? radio_crestin_listeners = _undefined,
     Object? reviews = _undefined,
     Object? rss_feed = _undefined,
     Object? slug = _undefined,
@@ -18563,6 +18558,7 @@ class _CopyWithImpl$Input$stations_bool_exp<TRes>
     Object? thumbnail = _undefined,
     Object? thumbnail_url = _undefined,
     Object? title = _undefined,
+    Object? total_listeners = _undefined,
     Object? updated_at = _undefined,
     Object? uptime = _undefined,
     Object? uptime_history = _undefined,
@@ -18611,9 +18607,6 @@ class _CopyWithImpl$Input$stations_bool_exp<TRes>
         if (proxy_stream_url != _undefined)
           'proxy_stream_url':
               (proxy_stream_url as Input$String_comparison_exp?),
-        if (radio_crestin_listeners != _undefined)
-          'radio_crestin_listeners':
-              (radio_crestin_listeners as Input$Int_comparison_exp?),
         if (reviews != _undefined)
           'reviews': (reviews as Input$reviews_bool_exp?),
         if (rss_feed != _undefined)
@@ -18630,6 +18623,8 @@ class _CopyWithImpl$Input$stations_bool_exp<TRes>
           'thumbnail_url': (thumbnail_url as Input$String_comparison_exp?),
         if (title != _undefined)
           'title': (title as Input$String_comparison_exp?),
+        if (total_listeners != _undefined)
+          'total_listeners': (total_listeners as Input$Int_comparison_exp?),
         if (updated_at != _undefined)
           'updated_at': (updated_at as Input$timestamptz_comparison_exp?),
         if (uptime != _undefined)
@@ -18795,14 +18790,6 @@ class _CopyWithImpl$Input$stations_bool_exp<TRes>
             local$proxy_stream_url, (e) => call(proxy_stream_url: e));
   }
 
-  CopyWith$Input$Int_comparison_exp<TRes> get radio_crestin_listeners {
-    final local$radio_crestin_listeners = _instance.radio_crestin_listeners;
-    return local$radio_crestin_listeners == null
-        ? CopyWith$Input$Int_comparison_exp.stub(_then(_instance))
-        : CopyWith$Input$Int_comparison_exp(local$radio_crestin_listeners,
-            (e) => call(radio_crestin_listeners: e));
-  }
-
   CopyWith$Input$reviews_bool_exp<TRes> get reviews {
     final local$reviews = _instance.reviews;
     return local$reviews == null
@@ -18870,6 +18857,14 @@ class _CopyWithImpl$Input$stations_bool_exp<TRes>
             local$title, (e) => call(title: e));
   }
 
+  CopyWith$Input$Int_comparison_exp<TRes> get total_listeners {
+    final local$total_listeners = _instance.total_listeners;
+    return local$total_listeners == null
+        ? CopyWith$Input$Int_comparison_exp.stub(_then(_instance))
+        : CopyWith$Input$Int_comparison_exp(
+            local$total_listeners, (e) => call(total_listeners: e));
+  }
+
   CopyWith$Input$timestamptz_comparison_exp<TRes> get updated_at {
     final local$updated_at = _instance.updated_at;
     return local$updated_at == null
@@ -18929,7 +18924,6 @@ class _CopyWithStubImpl$Input$stations_bool_exp<TRes>
     Input$Int_comparison_exp? order,
     Input$posts_bool_exp? posts,
     Input$String_comparison_exp? proxy_stream_url,
-    Input$Int_comparison_exp? radio_crestin_listeners,
     Input$reviews_bool_exp? reviews,
     Input$String_comparison_exp? rss_feed,
     Input$String_comparison_exp? slug,
@@ -18938,6 +18932,7 @@ class _CopyWithStubImpl$Input$stations_bool_exp<TRes>
     Input$String_comparison_exp? thumbnail,
     Input$String_comparison_exp? thumbnail_url,
     Input$String_comparison_exp? title,
+    Input$Int_comparison_exp? total_listeners,
     Input$timestamptz_comparison_exp? updated_at,
     Input$stations_uptime_bool_exp? uptime,
     Input$stations_uptime_bool_exp? uptime_history,
@@ -18980,8 +18975,6 @@ class _CopyWithStubImpl$Input$stations_bool_exp<TRes>
       CopyWith$Input$posts_bool_exp.stub(_res);
   CopyWith$Input$String_comparison_exp<TRes> get proxy_stream_url =>
       CopyWith$Input$String_comparison_exp.stub(_res);
-  CopyWith$Input$Int_comparison_exp<TRes> get radio_crestin_listeners =>
-      CopyWith$Input$Int_comparison_exp.stub(_res);
   CopyWith$Input$reviews_bool_exp<TRes> get reviews =>
       CopyWith$Input$reviews_bool_exp.stub(_res);
   CopyWith$Input$String_comparison_exp<TRes> get rss_feed =>
@@ -18999,6 +18992,8 @@ class _CopyWithStubImpl$Input$stations_bool_exp<TRes>
       CopyWith$Input$String_comparison_exp.stub(_res);
   CopyWith$Input$String_comparison_exp<TRes> get title =>
       CopyWith$Input$String_comparison_exp.stub(_res);
+  CopyWith$Input$Int_comparison_exp<TRes> get total_listeners =>
+      CopyWith$Input$Int_comparison_exp.stub(_res);
   CopyWith$Input$timestamptz_comparison_exp<TRes> get updated_at =>
       CopyWith$Input$timestamptz_comparison_exp.stub(_res);
   CopyWith$Input$stations_uptime_bool_exp<TRes> get uptime =>
@@ -20846,13 +20841,11 @@ class _CopyWithStubImpl$Input$stations_now_playing_aggregate_order_by<TRes>
 class Input$stations_now_playing_avg_order_by {
   factory Input$stations_now_playing_avg_order_by({
     Enum$order_by? id,
-    Enum$order_by? listeners,
     Enum$order_by? song_id,
     Enum$order_by? station_id,
   }) =>
       Input$stations_now_playing_avg_order_by._({
         if (id != null) r'id': id,
-        if (listeners != null) r'listeners': listeners,
         if (song_id != null) r'song_id': song_id,
         if (station_id != null) r'station_id': station_id,
       });
@@ -20866,12 +20859,6 @@ class Input$stations_now_playing_avg_order_by {
       final l$id = data['id'];
       result$data['id'] =
           l$id == null ? null : fromJson$Enum$order_by((l$id as String));
-    }
-    if (data.containsKey('listeners')) {
-      final l$listeners = data['listeners'];
-      result$data['listeners'] = l$listeners == null
-          ? null
-          : fromJson$Enum$order_by((l$listeners as String));
     }
     if (data.containsKey('song_id')) {
       final l$song_id = data['song_id'];
@@ -20891,7 +20878,6 @@ class Input$stations_now_playing_avg_order_by {
   Map<String, dynamic> _$data;
 
   Enum$order_by? get id => (_$data['id'] as Enum$order_by?);
-  Enum$order_by? get listeners => (_$data['listeners'] as Enum$order_by?);
   Enum$order_by? get song_id => (_$data['song_id'] as Enum$order_by?);
   Enum$order_by? get station_id => (_$data['station_id'] as Enum$order_by?);
   Map<String, dynamic> toJson() {
@@ -20899,11 +20885,6 @@ class Input$stations_now_playing_avg_order_by {
     if (_$data.containsKey('id')) {
       final l$id = id;
       result$data['id'] = l$id == null ? null : toJson$Enum$order_by(l$id);
-    }
-    if (_$data.containsKey('listeners')) {
-      final l$listeners = listeners;
-      result$data['listeners'] =
-          l$listeners == null ? null : toJson$Enum$order_by(l$listeners);
     }
     if (_$data.containsKey('song_id')) {
       final l$song_id = song_id;
@@ -20941,15 +20922,6 @@ class Input$stations_now_playing_avg_order_by {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$listeners = listeners;
-    final lOther$listeners = other.listeners;
-    if (_$data.containsKey('listeners') !=
-        other._$data.containsKey('listeners')) {
-      return false;
-    }
-    if (l$listeners != lOther$listeners) {
-      return false;
-    }
     final l$song_id = song_id;
     final lOther$song_id = other.song_id;
     if (_$data.containsKey('song_id') != other._$data.containsKey('song_id')) {
@@ -20973,12 +20945,10 @@ class Input$stations_now_playing_avg_order_by {
   @override
   int get hashCode {
     final l$id = id;
-    final l$listeners = listeners;
     final l$song_id = song_id;
     final l$station_id = station_id;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
-      _$data.containsKey('listeners') ? l$listeners : const {},
       _$data.containsKey('song_id') ? l$song_id : const {},
       _$data.containsKey('station_id') ? l$station_id : const {},
     ]);
@@ -20996,7 +20966,6 @@ abstract class CopyWith$Input$stations_now_playing_avg_order_by<TRes> {
 
   TRes call({
     Enum$order_by? id,
-    Enum$order_by? listeners,
     Enum$order_by? song_id,
     Enum$order_by? station_id,
   });
@@ -21017,14 +20986,12 @@ class _CopyWithImpl$Input$stations_now_playing_avg_order_by<TRes>
 
   TRes call({
     Object? id = _undefined,
-    Object? listeners = _undefined,
     Object? song_id = _undefined,
     Object? station_id = _undefined,
   }) =>
       _then(Input$stations_now_playing_avg_order_by._({
         ..._instance._$data,
         if (id != _undefined) 'id': (id as Enum$order_by?),
-        if (listeners != _undefined) 'listeners': (listeners as Enum$order_by?),
         if (song_id != _undefined) 'song_id': (song_id as Enum$order_by?),
         if (station_id != _undefined)
           'station_id': (station_id as Enum$order_by?),
@@ -21039,7 +21006,6 @@ class _CopyWithStubImpl$Input$stations_now_playing_avg_order_by<TRes>
 
   call({
     Enum$order_by? id,
-    Enum$order_by? listeners,
     Enum$order_by? song_id,
     Enum$order_by? station_id,
   }) =>
@@ -21052,7 +21018,6 @@ class Input$stations_now_playing_bool_exp {
     Input$stations_now_playing_bool_exp? $_not,
     List<Input$stations_now_playing_bool_exp>? $_or,
     Input$Int_comparison_exp? id,
-    Input$Int_comparison_exp? listeners,
     Input$songs_bool_exp? song,
     Input$Int_comparison_exp? song_id,
     Input$stations_bool_exp? station,
@@ -21065,7 +21030,6 @@ class Input$stations_now_playing_bool_exp {
         if ($_not != null) r'_not': $_not,
         if ($_or != null) r'_or': $_or,
         if (id != null) r'id': id,
-        if (listeners != null) r'listeners': listeners,
         if (song != null) r'song': song,
         if (song_id != null) r'song_id': song_id,
         if (station != null) r'station': station,
@@ -21105,13 +21069,6 @@ class Input$stations_now_playing_bool_exp {
       result$data['id'] = l$id == null
           ? null
           : Input$Int_comparison_exp.fromJson((l$id as Map<String, dynamic>));
-    }
-    if (data.containsKey('listeners')) {
-      final l$listeners = data['listeners'];
-      result$data['listeners'] = l$listeners == null
-          ? null
-          : Input$Int_comparison_exp.fromJson(
-              (l$listeners as Map<String, dynamic>));
     }
     if (data.containsKey('song')) {
       final l$song = data['song'];
@@ -21167,8 +21124,6 @@ class Input$stations_now_playing_bool_exp {
       (_$data['_or'] as List<Input$stations_now_playing_bool_exp>?);
   Input$Int_comparison_exp? get id =>
       (_$data['id'] as Input$Int_comparison_exp?);
-  Input$Int_comparison_exp? get listeners =>
-      (_$data['listeners'] as Input$Int_comparison_exp?);
   Input$songs_bool_exp? get song => (_$data['song'] as Input$songs_bool_exp?);
   Input$Int_comparison_exp? get song_id =>
       (_$data['song_id'] as Input$Int_comparison_exp?);
@@ -21197,10 +21152,6 @@ class Input$stations_now_playing_bool_exp {
     if (_$data.containsKey('id')) {
       final l$id = id;
       result$data['id'] = l$id?.toJson();
-    }
-    if (_$data.containsKey('listeners')) {
-      final l$listeners = listeners;
-      result$data['listeners'] = l$listeners?.toJson();
     }
     if (_$data.containsKey('song')) {
       final l$song = song;
@@ -21298,15 +21249,6 @@ class Input$stations_now_playing_bool_exp {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$listeners = listeners;
-    final lOther$listeners = other.listeners;
-    if (_$data.containsKey('listeners') !=
-        other._$data.containsKey('listeners')) {
-      return false;
-    }
-    if (l$listeners != lOther$listeners) {
-      return false;
-    }
     final l$song = song;
     final lOther$song = other.song;
     if (_$data.containsKey('song') != other._$data.containsKey('song')) {
@@ -21367,7 +21309,6 @@ class Input$stations_now_playing_bool_exp {
     final l$$_not = $_not;
     final l$$_or = $_or;
     final l$id = id;
-    final l$listeners = listeners;
     final l$song = song;
     final l$song_id = song_id;
     final l$station = station;
@@ -21387,7 +21328,6 @@ class Input$stations_now_playing_bool_exp {
               : Object.hashAll(l$$_or.map((v) => v))
           : const {},
       _$data.containsKey('id') ? l$id : const {},
-      _$data.containsKey('listeners') ? l$listeners : const {},
       _$data.containsKey('song') ? l$song : const {},
       _$data.containsKey('song_id') ? l$song_id : const {},
       _$data.containsKey('station') ? l$station : const {},
@@ -21412,7 +21352,6 @@ abstract class CopyWith$Input$stations_now_playing_bool_exp<TRes> {
     Input$stations_now_playing_bool_exp? $_not,
     List<Input$stations_now_playing_bool_exp>? $_or,
     Input$Int_comparison_exp? id,
-    Input$Int_comparison_exp? listeners,
     Input$songs_bool_exp? song,
     Input$Int_comparison_exp? song_id,
     Input$stations_bool_exp? station,
@@ -21434,7 +21373,6 @@ abstract class CopyWith$Input$stations_now_playing_bool_exp<TRes> {
                       Input$stations_now_playing_bool_exp>>?)
           _fn);
   CopyWith$Input$Int_comparison_exp<TRes> get id;
-  CopyWith$Input$Int_comparison_exp<TRes> get listeners;
   CopyWith$Input$songs_bool_exp<TRes> get song;
   CopyWith$Input$Int_comparison_exp<TRes> get song_id;
   CopyWith$Input$stations_bool_exp<TRes> get station;
@@ -21461,7 +21399,6 @@ class _CopyWithImpl$Input$stations_now_playing_bool_exp<TRes>
     Object? $_not = _undefined,
     Object? $_or = _undefined,
     Object? id = _undefined,
-    Object? listeners = _undefined,
     Object? song = _undefined,
     Object? song_id = _undefined,
     Object? station = _undefined,
@@ -21478,8 +21415,6 @@ class _CopyWithImpl$Input$stations_now_playing_bool_exp<TRes>
         if ($_or != _undefined)
           '_or': ($_or as List<Input$stations_now_playing_bool_exp>?),
         if (id != _undefined) 'id': (id as Input$Int_comparison_exp?),
-        if (listeners != _undefined)
-          'listeners': (listeners as Input$Int_comparison_exp?),
         if (song != _undefined) 'song': (song as Input$songs_bool_exp?),
         if (song_id != _undefined)
           'song_id': (song_id as Input$Int_comparison_exp?),
@@ -21529,14 +21464,6 @@ class _CopyWithImpl$Input$stations_now_playing_bool_exp<TRes>
     return local$id == null
         ? CopyWith$Input$Int_comparison_exp.stub(_then(_instance))
         : CopyWith$Input$Int_comparison_exp(local$id, (e) => call(id: e));
-  }
-
-  CopyWith$Input$Int_comparison_exp<TRes> get listeners {
-    final local$listeners = _instance.listeners;
-    return local$listeners == null
-        ? CopyWith$Input$Int_comparison_exp.stub(_then(_instance))
-        : CopyWith$Input$Int_comparison_exp(
-            local$listeners, (e) => call(listeners: e));
   }
 
   CopyWith$Input$songs_bool_exp<TRes> get song {
@@ -21598,7 +21525,6 @@ class _CopyWithStubImpl$Input$stations_now_playing_bool_exp<TRes>
     Input$stations_now_playing_bool_exp? $_not,
     List<Input$stations_now_playing_bool_exp>? $_or,
     Input$Int_comparison_exp? id,
-    Input$Int_comparison_exp? listeners,
     Input$songs_bool_exp? song,
     Input$Int_comparison_exp? song_id,
     Input$stations_bool_exp? station,
@@ -21612,8 +21538,6 @@ class _CopyWithStubImpl$Input$stations_now_playing_bool_exp<TRes>
       CopyWith$Input$stations_now_playing_bool_exp.stub(_res);
   $_or(_fn) => _res;
   CopyWith$Input$Int_comparison_exp<TRes> get id =>
-      CopyWith$Input$Int_comparison_exp.stub(_res);
-  CopyWith$Input$Int_comparison_exp<TRes> get listeners =>
       CopyWith$Input$Int_comparison_exp.stub(_res);
   CopyWith$Input$songs_bool_exp<TRes> get song =>
       CopyWith$Input$songs_bool_exp.stub(_res);
@@ -21632,14 +21556,12 @@ class _CopyWithStubImpl$Input$stations_now_playing_bool_exp<TRes>
 class Input$stations_now_playing_max_order_by {
   factory Input$stations_now_playing_max_order_by({
     Enum$order_by? id,
-    Enum$order_by? listeners,
     Enum$order_by? song_id,
     Enum$order_by? station_id,
     Enum$order_by? timestamp,
   }) =>
       Input$stations_now_playing_max_order_by._({
         if (id != null) r'id': id,
-        if (listeners != null) r'listeners': listeners,
         if (song_id != null) r'song_id': song_id,
         if (station_id != null) r'station_id': station_id,
         if (timestamp != null) r'timestamp': timestamp,
@@ -21654,12 +21576,6 @@ class Input$stations_now_playing_max_order_by {
       final l$id = data['id'];
       result$data['id'] =
           l$id == null ? null : fromJson$Enum$order_by((l$id as String));
-    }
-    if (data.containsKey('listeners')) {
-      final l$listeners = data['listeners'];
-      result$data['listeners'] = l$listeners == null
-          ? null
-          : fromJson$Enum$order_by((l$listeners as String));
     }
     if (data.containsKey('song_id')) {
       final l$song_id = data['song_id'];
@@ -21685,7 +21601,6 @@ class Input$stations_now_playing_max_order_by {
   Map<String, dynamic> _$data;
 
   Enum$order_by? get id => (_$data['id'] as Enum$order_by?);
-  Enum$order_by? get listeners => (_$data['listeners'] as Enum$order_by?);
   Enum$order_by? get song_id => (_$data['song_id'] as Enum$order_by?);
   Enum$order_by? get station_id => (_$data['station_id'] as Enum$order_by?);
   Enum$order_by? get timestamp => (_$data['timestamp'] as Enum$order_by?);
@@ -21694,11 +21609,6 @@ class Input$stations_now_playing_max_order_by {
     if (_$data.containsKey('id')) {
       final l$id = id;
       result$data['id'] = l$id == null ? null : toJson$Enum$order_by(l$id);
-    }
-    if (_$data.containsKey('listeners')) {
-      final l$listeners = listeners;
-      result$data['listeners'] =
-          l$listeners == null ? null : toJson$Enum$order_by(l$listeners);
     }
     if (_$data.containsKey('song_id')) {
       final l$song_id = song_id;
@@ -21741,15 +21651,6 @@ class Input$stations_now_playing_max_order_by {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$listeners = listeners;
-    final lOther$listeners = other.listeners;
-    if (_$data.containsKey('listeners') !=
-        other._$data.containsKey('listeners')) {
-      return false;
-    }
-    if (l$listeners != lOther$listeners) {
-      return false;
-    }
     final l$song_id = song_id;
     final lOther$song_id = other.song_id;
     if (_$data.containsKey('song_id') != other._$data.containsKey('song_id')) {
@@ -21782,13 +21683,11 @@ class Input$stations_now_playing_max_order_by {
   @override
   int get hashCode {
     final l$id = id;
-    final l$listeners = listeners;
     final l$song_id = song_id;
     final l$station_id = station_id;
     final l$timestamp = timestamp;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
-      _$data.containsKey('listeners') ? l$listeners : const {},
       _$data.containsKey('song_id') ? l$song_id : const {},
       _$data.containsKey('station_id') ? l$station_id : const {},
       _$data.containsKey('timestamp') ? l$timestamp : const {},
@@ -21807,7 +21706,6 @@ abstract class CopyWith$Input$stations_now_playing_max_order_by<TRes> {
 
   TRes call({
     Enum$order_by? id,
-    Enum$order_by? listeners,
     Enum$order_by? song_id,
     Enum$order_by? station_id,
     Enum$order_by? timestamp,
@@ -21829,7 +21727,6 @@ class _CopyWithImpl$Input$stations_now_playing_max_order_by<TRes>
 
   TRes call({
     Object? id = _undefined,
-    Object? listeners = _undefined,
     Object? song_id = _undefined,
     Object? station_id = _undefined,
     Object? timestamp = _undefined,
@@ -21837,7 +21734,6 @@ class _CopyWithImpl$Input$stations_now_playing_max_order_by<TRes>
       _then(Input$stations_now_playing_max_order_by._({
         ..._instance._$data,
         if (id != _undefined) 'id': (id as Enum$order_by?),
-        if (listeners != _undefined) 'listeners': (listeners as Enum$order_by?),
         if (song_id != _undefined) 'song_id': (song_id as Enum$order_by?),
         if (station_id != _undefined)
           'station_id': (station_id as Enum$order_by?),
@@ -21853,7 +21749,6 @@ class _CopyWithStubImpl$Input$stations_now_playing_max_order_by<TRes>
 
   call({
     Enum$order_by? id,
-    Enum$order_by? listeners,
     Enum$order_by? song_id,
     Enum$order_by? station_id,
     Enum$order_by? timestamp,
@@ -21864,14 +21759,12 @@ class _CopyWithStubImpl$Input$stations_now_playing_max_order_by<TRes>
 class Input$stations_now_playing_min_order_by {
   factory Input$stations_now_playing_min_order_by({
     Enum$order_by? id,
-    Enum$order_by? listeners,
     Enum$order_by? song_id,
     Enum$order_by? station_id,
     Enum$order_by? timestamp,
   }) =>
       Input$stations_now_playing_min_order_by._({
         if (id != null) r'id': id,
-        if (listeners != null) r'listeners': listeners,
         if (song_id != null) r'song_id': song_id,
         if (station_id != null) r'station_id': station_id,
         if (timestamp != null) r'timestamp': timestamp,
@@ -21886,12 +21779,6 @@ class Input$stations_now_playing_min_order_by {
       final l$id = data['id'];
       result$data['id'] =
           l$id == null ? null : fromJson$Enum$order_by((l$id as String));
-    }
-    if (data.containsKey('listeners')) {
-      final l$listeners = data['listeners'];
-      result$data['listeners'] = l$listeners == null
-          ? null
-          : fromJson$Enum$order_by((l$listeners as String));
     }
     if (data.containsKey('song_id')) {
       final l$song_id = data['song_id'];
@@ -21917,7 +21804,6 @@ class Input$stations_now_playing_min_order_by {
   Map<String, dynamic> _$data;
 
   Enum$order_by? get id => (_$data['id'] as Enum$order_by?);
-  Enum$order_by? get listeners => (_$data['listeners'] as Enum$order_by?);
   Enum$order_by? get song_id => (_$data['song_id'] as Enum$order_by?);
   Enum$order_by? get station_id => (_$data['station_id'] as Enum$order_by?);
   Enum$order_by? get timestamp => (_$data['timestamp'] as Enum$order_by?);
@@ -21926,11 +21812,6 @@ class Input$stations_now_playing_min_order_by {
     if (_$data.containsKey('id')) {
       final l$id = id;
       result$data['id'] = l$id == null ? null : toJson$Enum$order_by(l$id);
-    }
-    if (_$data.containsKey('listeners')) {
-      final l$listeners = listeners;
-      result$data['listeners'] =
-          l$listeners == null ? null : toJson$Enum$order_by(l$listeners);
     }
     if (_$data.containsKey('song_id')) {
       final l$song_id = song_id;
@@ -21973,15 +21854,6 @@ class Input$stations_now_playing_min_order_by {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$listeners = listeners;
-    final lOther$listeners = other.listeners;
-    if (_$data.containsKey('listeners') !=
-        other._$data.containsKey('listeners')) {
-      return false;
-    }
-    if (l$listeners != lOther$listeners) {
-      return false;
-    }
     final l$song_id = song_id;
     final lOther$song_id = other.song_id;
     if (_$data.containsKey('song_id') != other._$data.containsKey('song_id')) {
@@ -22014,13 +21886,11 @@ class Input$stations_now_playing_min_order_by {
   @override
   int get hashCode {
     final l$id = id;
-    final l$listeners = listeners;
     final l$song_id = song_id;
     final l$station_id = station_id;
     final l$timestamp = timestamp;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
-      _$data.containsKey('listeners') ? l$listeners : const {},
       _$data.containsKey('song_id') ? l$song_id : const {},
       _$data.containsKey('station_id') ? l$station_id : const {},
       _$data.containsKey('timestamp') ? l$timestamp : const {},
@@ -22039,7 +21909,6 @@ abstract class CopyWith$Input$stations_now_playing_min_order_by<TRes> {
 
   TRes call({
     Enum$order_by? id,
-    Enum$order_by? listeners,
     Enum$order_by? song_id,
     Enum$order_by? station_id,
     Enum$order_by? timestamp,
@@ -22061,7 +21930,6 @@ class _CopyWithImpl$Input$stations_now_playing_min_order_by<TRes>
 
   TRes call({
     Object? id = _undefined,
-    Object? listeners = _undefined,
     Object? song_id = _undefined,
     Object? station_id = _undefined,
     Object? timestamp = _undefined,
@@ -22069,7 +21937,6 @@ class _CopyWithImpl$Input$stations_now_playing_min_order_by<TRes>
       _then(Input$stations_now_playing_min_order_by._({
         ..._instance._$data,
         if (id != _undefined) 'id': (id as Enum$order_by?),
-        if (listeners != _undefined) 'listeners': (listeners as Enum$order_by?),
         if (song_id != _undefined) 'song_id': (song_id as Enum$order_by?),
         if (station_id != _undefined)
           'station_id': (station_id as Enum$order_by?),
@@ -22085,7 +21952,6 @@ class _CopyWithStubImpl$Input$stations_now_playing_min_order_by<TRes>
 
   call({
     Enum$order_by? id,
-    Enum$order_by? listeners,
     Enum$order_by? song_id,
     Enum$order_by? station_id,
     Enum$order_by? timestamp,
@@ -22096,7 +21962,6 @@ class _CopyWithStubImpl$Input$stations_now_playing_min_order_by<TRes>
 class Input$stations_now_playing_order_by {
   factory Input$stations_now_playing_order_by({
     Enum$order_by? id,
-    Enum$order_by? listeners,
     Input$songs_order_by? song,
     Enum$order_by? song_id,
     Input$stations_order_by? station,
@@ -22106,7 +21971,6 @@ class Input$stations_now_playing_order_by {
   }) =>
       Input$stations_now_playing_order_by._({
         if (id != null) r'id': id,
-        if (listeners != null) r'listeners': listeners,
         if (song != null) r'song': song,
         if (song_id != null) r'song_id': song_id,
         if (station != null) r'station': station,
@@ -22125,12 +21989,6 @@ class Input$stations_now_playing_order_by {
       final l$id = data['id'];
       result$data['id'] =
           l$id == null ? null : fromJson$Enum$order_by((l$id as String));
-    }
-    if (data.containsKey('listeners')) {
-      final l$listeners = data['listeners'];
-      result$data['listeners'] = l$listeners == null
-          ? null
-          : fromJson$Enum$order_by((l$listeners as String));
     }
     if (data.containsKey('song')) {
       final l$song = data['song'];
@@ -22176,7 +22034,6 @@ class Input$stations_now_playing_order_by {
   Map<String, dynamic> _$data;
 
   Enum$order_by? get id => (_$data['id'] as Enum$order_by?);
-  Enum$order_by? get listeners => (_$data['listeners'] as Enum$order_by?);
   Input$songs_order_by? get song => (_$data['song'] as Input$songs_order_by?);
   Enum$order_by? get song_id => (_$data['song_id'] as Enum$order_by?);
   Input$stations_order_by? get station =>
@@ -22190,11 +22047,6 @@ class Input$stations_now_playing_order_by {
     if (_$data.containsKey('id')) {
       final l$id = id;
       result$data['id'] = l$id == null ? null : toJson$Enum$order_by(l$id);
-    }
-    if (_$data.containsKey('listeners')) {
-      final l$listeners = listeners;
-      result$data['listeners'] =
-          l$listeners == null ? null : toJson$Enum$order_by(l$listeners);
     }
     if (_$data.containsKey('song')) {
       final l$song = song;
@@ -22247,15 +22099,6 @@ class Input$stations_now_playing_order_by {
       return false;
     }
     if (l$id != lOther$id) {
-      return false;
-    }
-    final l$listeners = listeners;
-    final lOther$listeners = other.listeners;
-    if (_$data.containsKey('listeners') !=
-        other._$data.containsKey('listeners')) {
-      return false;
-    }
-    if (l$listeners != lOther$listeners) {
       return false;
     }
     final l$song = song;
@@ -22315,7 +22158,6 @@ class Input$stations_now_playing_order_by {
   @override
   int get hashCode {
     final l$id = id;
-    final l$listeners = listeners;
     final l$song = song;
     final l$song_id = song_id;
     final l$station = station;
@@ -22324,7 +22166,6 @@ class Input$stations_now_playing_order_by {
     final l$timestamp = timestamp;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
-      _$data.containsKey('listeners') ? l$listeners : const {},
       _$data.containsKey('song') ? l$song : const {},
       _$data.containsKey('song_id') ? l$song_id : const {},
       _$data.containsKey('station') ? l$station : const {},
@@ -22348,7 +22189,6 @@ abstract class CopyWith$Input$stations_now_playing_order_by<TRes> {
 
   TRes call({
     Enum$order_by? id,
-    Enum$order_by? listeners,
     Input$songs_order_by? song,
     Enum$order_by? song_id,
     Input$stations_order_by? station,
@@ -22376,7 +22216,6 @@ class _CopyWithImpl$Input$stations_now_playing_order_by<TRes>
 
   TRes call({
     Object? id = _undefined,
-    Object? listeners = _undefined,
     Object? song = _undefined,
     Object? song_id = _undefined,
     Object? station = _undefined,
@@ -22387,7 +22226,6 @@ class _CopyWithImpl$Input$stations_now_playing_order_by<TRes>
       _then(Input$stations_now_playing_order_by._({
         ..._instance._$data,
         if (id != _undefined) 'id': (id as Enum$order_by?),
-        if (listeners != _undefined) 'listeners': (listeners as Enum$order_by?),
         if (song != _undefined) 'song': (song as Input$songs_order_by?),
         if (song_id != _undefined) 'song_id': (song_id as Enum$order_by?),
         if (station != _undefined)
@@ -22431,7 +22269,6 @@ class _CopyWithStubImpl$Input$stations_now_playing_order_by<TRes>
 
   call({
     Enum$order_by? id,
-    Enum$order_by? listeners,
     Input$songs_order_by? song,
     Enum$order_by? song_id,
     Input$stations_order_by? station,
@@ -22451,13 +22288,11 @@ class _CopyWithStubImpl$Input$stations_now_playing_order_by<TRes>
 class Input$stations_now_playing_stddev_order_by {
   factory Input$stations_now_playing_stddev_order_by({
     Enum$order_by? id,
-    Enum$order_by? listeners,
     Enum$order_by? song_id,
     Enum$order_by? station_id,
   }) =>
       Input$stations_now_playing_stddev_order_by._({
         if (id != null) r'id': id,
-        if (listeners != null) r'listeners': listeners,
         if (song_id != null) r'song_id': song_id,
         if (station_id != null) r'station_id': station_id,
       });
@@ -22471,12 +22306,6 @@ class Input$stations_now_playing_stddev_order_by {
       final l$id = data['id'];
       result$data['id'] =
           l$id == null ? null : fromJson$Enum$order_by((l$id as String));
-    }
-    if (data.containsKey('listeners')) {
-      final l$listeners = data['listeners'];
-      result$data['listeners'] = l$listeners == null
-          ? null
-          : fromJson$Enum$order_by((l$listeners as String));
     }
     if (data.containsKey('song_id')) {
       final l$song_id = data['song_id'];
@@ -22496,7 +22325,6 @@ class Input$stations_now_playing_stddev_order_by {
   Map<String, dynamic> _$data;
 
   Enum$order_by? get id => (_$data['id'] as Enum$order_by?);
-  Enum$order_by? get listeners => (_$data['listeners'] as Enum$order_by?);
   Enum$order_by? get song_id => (_$data['song_id'] as Enum$order_by?);
   Enum$order_by? get station_id => (_$data['station_id'] as Enum$order_by?);
   Map<String, dynamic> toJson() {
@@ -22504,11 +22332,6 @@ class Input$stations_now_playing_stddev_order_by {
     if (_$data.containsKey('id')) {
       final l$id = id;
       result$data['id'] = l$id == null ? null : toJson$Enum$order_by(l$id);
-    }
-    if (_$data.containsKey('listeners')) {
-      final l$listeners = listeners;
-      result$data['listeners'] =
-          l$listeners == null ? null : toJson$Enum$order_by(l$listeners);
     }
     if (_$data.containsKey('song_id')) {
       final l$song_id = song_id;
@@ -22546,15 +22369,6 @@ class Input$stations_now_playing_stddev_order_by {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$listeners = listeners;
-    final lOther$listeners = other.listeners;
-    if (_$data.containsKey('listeners') !=
-        other._$data.containsKey('listeners')) {
-      return false;
-    }
-    if (l$listeners != lOther$listeners) {
-      return false;
-    }
     final l$song_id = song_id;
     final lOther$song_id = other.song_id;
     if (_$data.containsKey('song_id') != other._$data.containsKey('song_id')) {
@@ -22578,12 +22392,10 @@ class Input$stations_now_playing_stddev_order_by {
   @override
   int get hashCode {
     final l$id = id;
-    final l$listeners = listeners;
     final l$song_id = song_id;
     final l$station_id = station_id;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
-      _$data.containsKey('listeners') ? l$listeners : const {},
       _$data.containsKey('song_id') ? l$song_id : const {},
       _$data.containsKey('station_id') ? l$station_id : const {},
     ]);
@@ -22601,7 +22413,6 @@ abstract class CopyWith$Input$stations_now_playing_stddev_order_by<TRes> {
 
   TRes call({
     Enum$order_by? id,
-    Enum$order_by? listeners,
     Enum$order_by? song_id,
     Enum$order_by? station_id,
   });
@@ -22622,14 +22433,12 @@ class _CopyWithImpl$Input$stations_now_playing_stddev_order_by<TRes>
 
   TRes call({
     Object? id = _undefined,
-    Object? listeners = _undefined,
     Object? song_id = _undefined,
     Object? station_id = _undefined,
   }) =>
       _then(Input$stations_now_playing_stddev_order_by._({
         ..._instance._$data,
         if (id != _undefined) 'id': (id as Enum$order_by?),
-        if (listeners != _undefined) 'listeners': (listeners as Enum$order_by?),
         if (song_id != _undefined) 'song_id': (song_id as Enum$order_by?),
         if (station_id != _undefined)
           'station_id': (station_id as Enum$order_by?),
@@ -22644,7 +22453,6 @@ class _CopyWithStubImpl$Input$stations_now_playing_stddev_order_by<TRes>
 
   call({
     Enum$order_by? id,
-    Enum$order_by? listeners,
     Enum$order_by? song_id,
     Enum$order_by? station_id,
   }) =>
@@ -22654,13 +22462,11 @@ class _CopyWithStubImpl$Input$stations_now_playing_stddev_order_by<TRes>
 class Input$stations_now_playing_stddev_pop_order_by {
   factory Input$stations_now_playing_stddev_pop_order_by({
     Enum$order_by? id,
-    Enum$order_by? listeners,
     Enum$order_by? song_id,
     Enum$order_by? station_id,
   }) =>
       Input$stations_now_playing_stddev_pop_order_by._({
         if (id != null) r'id': id,
-        if (listeners != null) r'listeners': listeners,
         if (song_id != null) r'song_id': song_id,
         if (station_id != null) r'station_id': station_id,
       });
@@ -22674,12 +22480,6 @@ class Input$stations_now_playing_stddev_pop_order_by {
       final l$id = data['id'];
       result$data['id'] =
           l$id == null ? null : fromJson$Enum$order_by((l$id as String));
-    }
-    if (data.containsKey('listeners')) {
-      final l$listeners = data['listeners'];
-      result$data['listeners'] = l$listeners == null
-          ? null
-          : fromJson$Enum$order_by((l$listeners as String));
     }
     if (data.containsKey('song_id')) {
       final l$song_id = data['song_id'];
@@ -22699,7 +22499,6 @@ class Input$stations_now_playing_stddev_pop_order_by {
   Map<String, dynamic> _$data;
 
   Enum$order_by? get id => (_$data['id'] as Enum$order_by?);
-  Enum$order_by? get listeners => (_$data['listeners'] as Enum$order_by?);
   Enum$order_by? get song_id => (_$data['song_id'] as Enum$order_by?);
   Enum$order_by? get station_id => (_$data['station_id'] as Enum$order_by?);
   Map<String, dynamic> toJson() {
@@ -22707,11 +22506,6 @@ class Input$stations_now_playing_stddev_pop_order_by {
     if (_$data.containsKey('id')) {
       final l$id = id;
       result$data['id'] = l$id == null ? null : toJson$Enum$order_by(l$id);
-    }
-    if (_$data.containsKey('listeners')) {
-      final l$listeners = listeners;
-      result$data['listeners'] =
-          l$listeners == null ? null : toJson$Enum$order_by(l$listeners);
     }
     if (_$data.containsKey('song_id')) {
       final l$song_id = song_id;
@@ -22749,15 +22543,6 @@ class Input$stations_now_playing_stddev_pop_order_by {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$listeners = listeners;
-    final lOther$listeners = other.listeners;
-    if (_$data.containsKey('listeners') !=
-        other._$data.containsKey('listeners')) {
-      return false;
-    }
-    if (l$listeners != lOther$listeners) {
-      return false;
-    }
     final l$song_id = song_id;
     final lOther$song_id = other.song_id;
     if (_$data.containsKey('song_id') != other._$data.containsKey('song_id')) {
@@ -22781,12 +22566,10 @@ class Input$stations_now_playing_stddev_pop_order_by {
   @override
   int get hashCode {
     final l$id = id;
-    final l$listeners = listeners;
     final l$song_id = song_id;
     final l$station_id = station_id;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
-      _$data.containsKey('listeners') ? l$listeners : const {},
       _$data.containsKey('song_id') ? l$song_id : const {},
       _$data.containsKey('station_id') ? l$station_id : const {},
     ]);
@@ -22805,7 +22588,6 @@ abstract class CopyWith$Input$stations_now_playing_stddev_pop_order_by<TRes> {
 
   TRes call({
     Enum$order_by? id,
-    Enum$order_by? listeners,
     Enum$order_by? song_id,
     Enum$order_by? station_id,
   });
@@ -22826,14 +22608,12 @@ class _CopyWithImpl$Input$stations_now_playing_stddev_pop_order_by<TRes>
 
   TRes call({
     Object? id = _undefined,
-    Object? listeners = _undefined,
     Object? song_id = _undefined,
     Object? station_id = _undefined,
   }) =>
       _then(Input$stations_now_playing_stddev_pop_order_by._({
         ..._instance._$data,
         if (id != _undefined) 'id': (id as Enum$order_by?),
-        if (listeners != _undefined) 'listeners': (listeners as Enum$order_by?),
         if (song_id != _undefined) 'song_id': (song_id as Enum$order_by?),
         if (station_id != _undefined)
           'station_id': (station_id as Enum$order_by?),
@@ -22848,7 +22628,6 @@ class _CopyWithStubImpl$Input$stations_now_playing_stddev_pop_order_by<TRes>
 
   call({
     Enum$order_by? id,
-    Enum$order_by? listeners,
     Enum$order_by? song_id,
     Enum$order_by? station_id,
   }) =>
@@ -22858,13 +22637,11 @@ class _CopyWithStubImpl$Input$stations_now_playing_stddev_pop_order_by<TRes>
 class Input$stations_now_playing_stddev_samp_order_by {
   factory Input$stations_now_playing_stddev_samp_order_by({
     Enum$order_by? id,
-    Enum$order_by? listeners,
     Enum$order_by? song_id,
     Enum$order_by? station_id,
   }) =>
       Input$stations_now_playing_stddev_samp_order_by._({
         if (id != null) r'id': id,
-        if (listeners != null) r'listeners': listeners,
         if (song_id != null) r'song_id': song_id,
         if (station_id != null) r'station_id': station_id,
       });
@@ -22878,12 +22655,6 @@ class Input$stations_now_playing_stddev_samp_order_by {
       final l$id = data['id'];
       result$data['id'] =
           l$id == null ? null : fromJson$Enum$order_by((l$id as String));
-    }
-    if (data.containsKey('listeners')) {
-      final l$listeners = data['listeners'];
-      result$data['listeners'] = l$listeners == null
-          ? null
-          : fromJson$Enum$order_by((l$listeners as String));
     }
     if (data.containsKey('song_id')) {
       final l$song_id = data['song_id'];
@@ -22903,7 +22674,6 @@ class Input$stations_now_playing_stddev_samp_order_by {
   Map<String, dynamic> _$data;
 
   Enum$order_by? get id => (_$data['id'] as Enum$order_by?);
-  Enum$order_by? get listeners => (_$data['listeners'] as Enum$order_by?);
   Enum$order_by? get song_id => (_$data['song_id'] as Enum$order_by?);
   Enum$order_by? get station_id => (_$data['station_id'] as Enum$order_by?);
   Map<String, dynamic> toJson() {
@@ -22911,11 +22681,6 @@ class Input$stations_now_playing_stddev_samp_order_by {
     if (_$data.containsKey('id')) {
       final l$id = id;
       result$data['id'] = l$id == null ? null : toJson$Enum$order_by(l$id);
-    }
-    if (_$data.containsKey('listeners')) {
-      final l$listeners = listeners;
-      result$data['listeners'] =
-          l$listeners == null ? null : toJson$Enum$order_by(l$listeners);
     }
     if (_$data.containsKey('song_id')) {
       final l$song_id = song_id;
@@ -22953,15 +22718,6 @@ class Input$stations_now_playing_stddev_samp_order_by {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$listeners = listeners;
-    final lOther$listeners = other.listeners;
-    if (_$data.containsKey('listeners') !=
-        other._$data.containsKey('listeners')) {
-      return false;
-    }
-    if (l$listeners != lOther$listeners) {
-      return false;
-    }
     final l$song_id = song_id;
     final lOther$song_id = other.song_id;
     if (_$data.containsKey('song_id') != other._$data.containsKey('song_id')) {
@@ -22985,12 +22741,10 @@ class Input$stations_now_playing_stddev_samp_order_by {
   @override
   int get hashCode {
     final l$id = id;
-    final l$listeners = listeners;
     final l$song_id = song_id;
     final l$station_id = station_id;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
-      _$data.containsKey('listeners') ? l$listeners : const {},
       _$data.containsKey('song_id') ? l$song_id : const {},
       _$data.containsKey('station_id') ? l$station_id : const {},
     ]);
@@ -23009,7 +22763,6 @@ abstract class CopyWith$Input$stations_now_playing_stddev_samp_order_by<TRes> {
 
   TRes call({
     Enum$order_by? id,
-    Enum$order_by? listeners,
     Enum$order_by? song_id,
     Enum$order_by? station_id,
   });
@@ -23030,14 +22783,12 @@ class _CopyWithImpl$Input$stations_now_playing_stddev_samp_order_by<TRes>
 
   TRes call({
     Object? id = _undefined,
-    Object? listeners = _undefined,
     Object? song_id = _undefined,
     Object? station_id = _undefined,
   }) =>
       _then(Input$stations_now_playing_stddev_samp_order_by._({
         ..._instance._$data,
         if (id != _undefined) 'id': (id as Enum$order_by?),
-        if (listeners != _undefined) 'listeners': (listeners as Enum$order_by?),
         if (song_id != _undefined) 'song_id': (song_id as Enum$order_by?),
         if (station_id != _undefined)
           'station_id': (station_id as Enum$order_by?),
@@ -23052,7 +22803,6 @@ class _CopyWithStubImpl$Input$stations_now_playing_stddev_samp_order_by<TRes>
 
   call({
     Enum$order_by? id,
-    Enum$order_by? listeners,
     Enum$order_by? song_id,
     Enum$order_by? station_id,
   }) =>
@@ -23220,14 +22970,12 @@ class _CopyWithStubImpl$Input$stations_now_playing_stream_cursor_input<TRes>
 class Input$stations_now_playing_stream_cursor_value_input {
   factory Input$stations_now_playing_stream_cursor_value_input({
     int? id,
-    int? listeners,
     int? song_id,
     int? station_id,
     String? timestamp,
   }) =>
       Input$stations_now_playing_stream_cursor_value_input._({
         if (id != null) r'id': id,
-        if (listeners != null) r'listeners': listeners,
         if (song_id != null) r'song_id': song_id,
         if (station_id != null) r'station_id': station_id,
         if (timestamp != null) r'timestamp': timestamp,
@@ -23241,10 +22989,6 @@ class Input$stations_now_playing_stream_cursor_value_input {
     if (data.containsKey('id')) {
       final l$id = data['id'];
       result$data['id'] = (l$id as int?);
-    }
-    if (data.containsKey('listeners')) {
-      final l$listeners = data['listeners'];
-      result$data['listeners'] = (l$listeners as int?);
     }
     if (data.containsKey('song_id')) {
       final l$song_id = data['song_id'];
@@ -23264,7 +23008,6 @@ class Input$stations_now_playing_stream_cursor_value_input {
   Map<String, dynamic> _$data;
 
   int? get id => (_$data['id'] as int?);
-  int? get listeners => (_$data['listeners'] as int?);
   int? get song_id => (_$data['song_id'] as int?);
   int? get station_id => (_$data['station_id'] as int?);
   String? get timestamp => (_$data['timestamp'] as String?);
@@ -23273,10 +23016,6 @@ class Input$stations_now_playing_stream_cursor_value_input {
     if (_$data.containsKey('id')) {
       final l$id = id;
       result$data['id'] = l$id;
-    }
-    if (_$data.containsKey('listeners')) {
-      final l$listeners = listeners;
-      result$data['listeners'] = l$listeners;
     }
     if (_$data.containsKey('song_id')) {
       final l$song_id = song_id;
@@ -23317,15 +23056,6 @@ class Input$stations_now_playing_stream_cursor_value_input {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$listeners = listeners;
-    final lOther$listeners = other.listeners;
-    if (_$data.containsKey('listeners') !=
-        other._$data.containsKey('listeners')) {
-      return false;
-    }
-    if (l$listeners != lOther$listeners) {
-      return false;
-    }
     final l$song_id = song_id;
     final lOther$song_id = other.song_id;
     if (_$data.containsKey('song_id') != other._$data.containsKey('song_id')) {
@@ -23358,13 +23088,11 @@ class Input$stations_now_playing_stream_cursor_value_input {
   @override
   int get hashCode {
     final l$id = id;
-    final l$listeners = listeners;
     final l$song_id = song_id;
     final l$station_id = station_id;
     final l$timestamp = timestamp;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
-      _$data.containsKey('listeners') ? l$listeners : const {},
       _$data.containsKey('song_id') ? l$song_id : const {},
       _$data.containsKey('station_id') ? l$station_id : const {},
       _$data.containsKey('timestamp') ? l$timestamp : const {},
@@ -23385,7 +23113,6 @@ abstract class CopyWith$Input$stations_now_playing_stream_cursor_value_input<
 
   TRes call({
     int? id,
-    int? listeners,
     int? song_id,
     int? station_id,
     String? timestamp,
@@ -23409,7 +23136,6 @@ class _CopyWithImpl$Input$stations_now_playing_stream_cursor_value_input<TRes>
 
   TRes call({
     Object? id = _undefined,
-    Object? listeners = _undefined,
     Object? song_id = _undefined,
     Object? station_id = _undefined,
     Object? timestamp = _undefined,
@@ -23417,7 +23143,6 @@ class _CopyWithImpl$Input$stations_now_playing_stream_cursor_value_input<TRes>
       _then(Input$stations_now_playing_stream_cursor_value_input._({
         ..._instance._$data,
         if (id != _undefined) 'id': (id as int?),
-        if (listeners != _undefined) 'listeners': (listeners as int?),
         if (song_id != _undefined) 'song_id': (song_id as int?),
         if (station_id != _undefined) 'station_id': (station_id as int?),
         if (timestamp != _undefined) 'timestamp': (timestamp as String?),
@@ -23435,7 +23160,6 @@ class _CopyWithStubImpl$Input$stations_now_playing_stream_cursor_value_input<
 
   call({
     int? id,
-    int? listeners,
     int? song_id,
     int? station_id,
     String? timestamp,
@@ -23446,13 +23170,11 @@ class _CopyWithStubImpl$Input$stations_now_playing_stream_cursor_value_input<
 class Input$stations_now_playing_sum_order_by {
   factory Input$stations_now_playing_sum_order_by({
     Enum$order_by? id,
-    Enum$order_by? listeners,
     Enum$order_by? song_id,
     Enum$order_by? station_id,
   }) =>
       Input$stations_now_playing_sum_order_by._({
         if (id != null) r'id': id,
-        if (listeners != null) r'listeners': listeners,
         if (song_id != null) r'song_id': song_id,
         if (station_id != null) r'station_id': station_id,
       });
@@ -23466,12 +23188,6 @@ class Input$stations_now_playing_sum_order_by {
       final l$id = data['id'];
       result$data['id'] =
           l$id == null ? null : fromJson$Enum$order_by((l$id as String));
-    }
-    if (data.containsKey('listeners')) {
-      final l$listeners = data['listeners'];
-      result$data['listeners'] = l$listeners == null
-          ? null
-          : fromJson$Enum$order_by((l$listeners as String));
     }
     if (data.containsKey('song_id')) {
       final l$song_id = data['song_id'];
@@ -23491,7 +23207,6 @@ class Input$stations_now_playing_sum_order_by {
   Map<String, dynamic> _$data;
 
   Enum$order_by? get id => (_$data['id'] as Enum$order_by?);
-  Enum$order_by? get listeners => (_$data['listeners'] as Enum$order_by?);
   Enum$order_by? get song_id => (_$data['song_id'] as Enum$order_by?);
   Enum$order_by? get station_id => (_$data['station_id'] as Enum$order_by?);
   Map<String, dynamic> toJson() {
@@ -23499,11 +23214,6 @@ class Input$stations_now_playing_sum_order_by {
     if (_$data.containsKey('id')) {
       final l$id = id;
       result$data['id'] = l$id == null ? null : toJson$Enum$order_by(l$id);
-    }
-    if (_$data.containsKey('listeners')) {
-      final l$listeners = listeners;
-      result$data['listeners'] =
-          l$listeners == null ? null : toJson$Enum$order_by(l$listeners);
     }
     if (_$data.containsKey('song_id')) {
       final l$song_id = song_id;
@@ -23541,15 +23251,6 @@ class Input$stations_now_playing_sum_order_by {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$listeners = listeners;
-    final lOther$listeners = other.listeners;
-    if (_$data.containsKey('listeners') !=
-        other._$data.containsKey('listeners')) {
-      return false;
-    }
-    if (l$listeners != lOther$listeners) {
-      return false;
-    }
     final l$song_id = song_id;
     final lOther$song_id = other.song_id;
     if (_$data.containsKey('song_id') != other._$data.containsKey('song_id')) {
@@ -23573,12 +23274,10 @@ class Input$stations_now_playing_sum_order_by {
   @override
   int get hashCode {
     final l$id = id;
-    final l$listeners = listeners;
     final l$song_id = song_id;
     final l$station_id = station_id;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
-      _$data.containsKey('listeners') ? l$listeners : const {},
       _$data.containsKey('song_id') ? l$song_id : const {},
       _$data.containsKey('station_id') ? l$station_id : const {},
     ]);
@@ -23596,7 +23295,6 @@ abstract class CopyWith$Input$stations_now_playing_sum_order_by<TRes> {
 
   TRes call({
     Enum$order_by? id,
-    Enum$order_by? listeners,
     Enum$order_by? song_id,
     Enum$order_by? station_id,
   });
@@ -23617,14 +23315,12 @@ class _CopyWithImpl$Input$stations_now_playing_sum_order_by<TRes>
 
   TRes call({
     Object? id = _undefined,
-    Object? listeners = _undefined,
     Object? song_id = _undefined,
     Object? station_id = _undefined,
   }) =>
       _then(Input$stations_now_playing_sum_order_by._({
         ..._instance._$data,
         if (id != _undefined) 'id': (id as Enum$order_by?),
-        if (listeners != _undefined) 'listeners': (listeners as Enum$order_by?),
         if (song_id != _undefined) 'song_id': (song_id as Enum$order_by?),
         if (station_id != _undefined)
           'station_id': (station_id as Enum$order_by?),
@@ -23639,7 +23335,6 @@ class _CopyWithStubImpl$Input$stations_now_playing_sum_order_by<TRes>
 
   call({
     Enum$order_by? id,
-    Enum$order_by? listeners,
     Enum$order_by? song_id,
     Enum$order_by? station_id,
   }) =>
@@ -23649,13 +23344,11 @@ class _CopyWithStubImpl$Input$stations_now_playing_sum_order_by<TRes>
 class Input$stations_now_playing_var_pop_order_by {
   factory Input$stations_now_playing_var_pop_order_by({
     Enum$order_by? id,
-    Enum$order_by? listeners,
     Enum$order_by? song_id,
     Enum$order_by? station_id,
   }) =>
       Input$stations_now_playing_var_pop_order_by._({
         if (id != null) r'id': id,
-        if (listeners != null) r'listeners': listeners,
         if (song_id != null) r'song_id': song_id,
         if (station_id != null) r'station_id': station_id,
       });
@@ -23669,12 +23362,6 @@ class Input$stations_now_playing_var_pop_order_by {
       final l$id = data['id'];
       result$data['id'] =
           l$id == null ? null : fromJson$Enum$order_by((l$id as String));
-    }
-    if (data.containsKey('listeners')) {
-      final l$listeners = data['listeners'];
-      result$data['listeners'] = l$listeners == null
-          ? null
-          : fromJson$Enum$order_by((l$listeners as String));
     }
     if (data.containsKey('song_id')) {
       final l$song_id = data['song_id'];
@@ -23694,7 +23381,6 @@ class Input$stations_now_playing_var_pop_order_by {
   Map<String, dynamic> _$data;
 
   Enum$order_by? get id => (_$data['id'] as Enum$order_by?);
-  Enum$order_by? get listeners => (_$data['listeners'] as Enum$order_by?);
   Enum$order_by? get song_id => (_$data['song_id'] as Enum$order_by?);
   Enum$order_by? get station_id => (_$data['station_id'] as Enum$order_by?);
   Map<String, dynamic> toJson() {
@@ -23702,11 +23388,6 @@ class Input$stations_now_playing_var_pop_order_by {
     if (_$data.containsKey('id')) {
       final l$id = id;
       result$data['id'] = l$id == null ? null : toJson$Enum$order_by(l$id);
-    }
-    if (_$data.containsKey('listeners')) {
-      final l$listeners = listeners;
-      result$data['listeners'] =
-          l$listeners == null ? null : toJson$Enum$order_by(l$listeners);
     }
     if (_$data.containsKey('song_id')) {
       final l$song_id = song_id;
@@ -23744,15 +23425,6 @@ class Input$stations_now_playing_var_pop_order_by {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$listeners = listeners;
-    final lOther$listeners = other.listeners;
-    if (_$data.containsKey('listeners') !=
-        other._$data.containsKey('listeners')) {
-      return false;
-    }
-    if (l$listeners != lOther$listeners) {
-      return false;
-    }
     final l$song_id = song_id;
     final lOther$song_id = other.song_id;
     if (_$data.containsKey('song_id') != other._$data.containsKey('song_id')) {
@@ -23776,12 +23448,10 @@ class Input$stations_now_playing_var_pop_order_by {
   @override
   int get hashCode {
     final l$id = id;
-    final l$listeners = listeners;
     final l$song_id = song_id;
     final l$station_id = station_id;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
-      _$data.containsKey('listeners') ? l$listeners : const {},
       _$data.containsKey('song_id') ? l$song_id : const {},
       _$data.containsKey('station_id') ? l$station_id : const {},
     ]);
@@ -23799,7 +23469,6 @@ abstract class CopyWith$Input$stations_now_playing_var_pop_order_by<TRes> {
 
   TRes call({
     Enum$order_by? id,
-    Enum$order_by? listeners,
     Enum$order_by? song_id,
     Enum$order_by? station_id,
   });
@@ -23820,14 +23489,12 @@ class _CopyWithImpl$Input$stations_now_playing_var_pop_order_by<TRes>
 
   TRes call({
     Object? id = _undefined,
-    Object? listeners = _undefined,
     Object? song_id = _undefined,
     Object? station_id = _undefined,
   }) =>
       _then(Input$stations_now_playing_var_pop_order_by._({
         ..._instance._$data,
         if (id != _undefined) 'id': (id as Enum$order_by?),
-        if (listeners != _undefined) 'listeners': (listeners as Enum$order_by?),
         if (song_id != _undefined) 'song_id': (song_id as Enum$order_by?),
         if (station_id != _undefined)
           'station_id': (station_id as Enum$order_by?),
@@ -23842,7 +23509,6 @@ class _CopyWithStubImpl$Input$stations_now_playing_var_pop_order_by<TRes>
 
   call({
     Enum$order_by? id,
-    Enum$order_by? listeners,
     Enum$order_by? song_id,
     Enum$order_by? station_id,
   }) =>
@@ -23852,13 +23518,11 @@ class _CopyWithStubImpl$Input$stations_now_playing_var_pop_order_by<TRes>
 class Input$stations_now_playing_var_samp_order_by {
   factory Input$stations_now_playing_var_samp_order_by({
     Enum$order_by? id,
-    Enum$order_by? listeners,
     Enum$order_by? song_id,
     Enum$order_by? station_id,
   }) =>
       Input$stations_now_playing_var_samp_order_by._({
         if (id != null) r'id': id,
-        if (listeners != null) r'listeners': listeners,
         if (song_id != null) r'song_id': song_id,
         if (station_id != null) r'station_id': station_id,
       });
@@ -23872,12 +23536,6 @@ class Input$stations_now_playing_var_samp_order_by {
       final l$id = data['id'];
       result$data['id'] =
           l$id == null ? null : fromJson$Enum$order_by((l$id as String));
-    }
-    if (data.containsKey('listeners')) {
-      final l$listeners = data['listeners'];
-      result$data['listeners'] = l$listeners == null
-          ? null
-          : fromJson$Enum$order_by((l$listeners as String));
     }
     if (data.containsKey('song_id')) {
       final l$song_id = data['song_id'];
@@ -23897,7 +23555,6 @@ class Input$stations_now_playing_var_samp_order_by {
   Map<String, dynamic> _$data;
 
   Enum$order_by? get id => (_$data['id'] as Enum$order_by?);
-  Enum$order_by? get listeners => (_$data['listeners'] as Enum$order_by?);
   Enum$order_by? get song_id => (_$data['song_id'] as Enum$order_by?);
   Enum$order_by? get station_id => (_$data['station_id'] as Enum$order_by?);
   Map<String, dynamic> toJson() {
@@ -23905,11 +23562,6 @@ class Input$stations_now_playing_var_samp_order_by {
     if (_$data.containsKey('id')) {
       final l$id = id;
       result$data['id'] = l$id == null ? null : toJson$Enum$order_by(l$id);
-    }
-    if (_$data.containsKey('listeners')) {
-      final l$listeners = listeners;
-      result$data['listeners'] =
-          l$listeners == null ? null : toJson$Enum$order_by(l$listeners);
     }
     if (_$data.containsKey('song_id')) {
       final l$song_id = song_id;
@@ -23947,15 +23599,6 @@ class Input$stations_now_playing_var_samp_order_by {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$listeners = listeners;
-    final lOther$listeners = other.listeners;
-    if (_$data.containsKey('listeners') !=
-        other._$data.containsKey('listeners')) {
-      return false;
-    }
-    if (l$listeners != lOther$listeners) {
-      return false;
-    }
     final l$song_id = song_id;
     final lOther$song_id = other.song_id;
     if (_$data.containsKey('song_id') != other._$data.containsKey('song_id')) {
@@ -23979,12 +23622,10 @@ class Input$stations_now_playing_var_samp_order_by {
   @override
   int get hashCode {
     final l$id = id;
-    final l$listeners = listeners;
     final l$song_id = song_id;
     final l$station_id = station_id;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
-      _$data.containsKey('listeners') ? l$listeners : const {},
       _$data.containsKey('song_id') ? l$song_id : const {},
       _$data.containsKey('station_id') ? l$station_id : const {},
     ]);
@@ -24002,7 +23643,6 @@ abstract class CopyWith$Input$stations_now_playing_var_samp_order_by<TRes> {
 
   TRes call({
     Enum$order_by? id,
-    Enum$order_by? listeners,
     Enum$order_by? song_id,
     Enum$order_by? station_id,
   });
@@ -24023,14 +23663,12 @@ class _CopyWithImpl$Input$stations_now_playing_var_samp_order_by<TRes>
 
   TRes call({
     Object? id = _undefined,
-    Object? listeners = _undefined,
     Object? song_id = _undefined,
     Object? station_id = _undefined,
   }) =>
       _then(Input$stations_now_playing_var_samp_order_by._({
         ..._instance._$data,
         if (id != _undefined) 'id': (id as Enum$order_by?),
-        if (listeners != _undefined) 'listeners': (listeners as Enum$order_by?),
         if (song_id != _undefined) 'song_id': (song_id as Enum$order_by?),
         if (station_id != _undefined)
           'station_id': (station_id as Enum$order_by?),
@@ -24045,7 +23683,6 @@ class _CopyWithStubImpl$Input$stations_now_playing_var_samp_order_by<TRes>
 
   call({
     Enum$order_by? id,
-    Enum$order_by? listeners,
     Enum$order_by? song_id,
     Enum$order_by? station_id,
   }) =>
@@ -24055,13 +23692,11 @@ class _CopyWithStubImpl$Input$stations_now_playing_var_samp_order_by<TRes>
 class Input$stations_now_playing_variance_order_by {
   factory Input$stations_now_playing_variance_order_by({
     Enum$order_by? id,
-    Enum$order_by? listeners,
     Enum$order_by? song_id,
     Enum$order_by? station_id,
   }) =>
       Input$stations_now_playing_variance_order_by._({
         if (id != null) r'id': id,
-        if (listeners != null) r'listeners': listeners,
         if (song_id != null) r'song_id': song_id,
         if (station_id != null) r'station_id': station_id,
       });
@@ -24075,12 +23710,6 @@ class Input$stations_now_playing_variance_order_by {
       final l$id = data['id'];
       result$data['id'] =
           l$id == null ? null : fromJson$Enum$order_by((l$id as String));
-    }
-    if (data.containsKey('listeners')) {
-      final l$listeners = data['listeners'];
-      result$data['listeners'] = l$listeners == null
-          ? null
-          : fromJson$Enum$order_by((l$listeners as String));
     }
     if (data.containsKey('song_id')) {
       final l$song_id = data['song_id'];
@@ -24100,7 +23729,6 @@ class Input$stations_now_playing_variance_order_by {
   Map<String, dynamic> _$data;
 
   Enum$order_by? get id => (_$data['id'] as Enum$order_by?);
-  Enum$order_by? get listeners => (_$data['listeners'] as Enum$order_by?);
   Enum$order_by? get song_id => (_$data['song_id'] as Enum$order_by?);
   Enum$order_by? get station_id => (_$data['station_id'] as Enum$order_by?);
   Map<String, dynamic> toJson() {
@@ -24108,11 +23736,6 @@ class Input$stations_now_playing_variance_order_by {
     if (_$data.containsKey('id')) {
       final l$id = id;
       result$data['id'] = l$id == null ? null : toJson$Enum$order_by(l$id);
-    }
-    if (_$data.containsKey('listeners')) {
-      final l$listeners = listeners;
-      result$data['listeners'] =
-          l$listeners == null ? null : toJson$Enum$order_by(l$listeners);
     }
     if (_$data.containsKey('song_id')) {
       final l$song_id = song_id;
@@ -24150,15 +23773,6 @@ class Input$stations_now_playing_variance_order_by {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$listeners = listeners;
-    final lOther$listeners = other.listeners;
-    if (_$data.containsKey('listeners') !=
-        other._$data.containsKey('listeners')) {
-      return false;
-    }
-    if (l$listeners != lOther$listeners) {
-      return false;
-    }
     final l$song_id = song_id;
     final lOther$song_id = other.song_id;
     if (_$data.containsKey('song_id') != other._$data.containsKey('song_id')) {
@@ -24182,12 +23796,10 @@ class Input$stations_now_playing_variance_order_by {
   @override
   int get hashCode {
     final l$id = id;
-    final l$listeners = listeners;
     final l$song_id = song_id;
     final l$station_id = station_id;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
-      _$data.containsKey('listeners') ? l$listeners : const {},
       _$data.containsKey('song_id') ? l$song_id : const {},
       _$data.containsKey('station_id') ? l$station_id : const {},
     ]);
@@ -24205,7 +23817,6 @@ abstract class CopyWith$Input$stations_now_playing_variance_order_by<TRes> {
 
   TRes call({
     Enum$order_by? id,
-    Enum$order_by? listeners,
     Enum$order_by? song_id,
     Enum$order_by? station_id,
   });
@@ -24226,14 +23837,12 @@ class _CopyWithImpl$Input$stations_now_playing_variance_order_by<TRes>
 
   TRes call({
     Object? id = _undefined,
-    Object? listeners = _undefined,
     Object? song_id = _undefined,
     Object? station_id = _undefined,
   }) =>
       _then(Input$stations_now_playing_variance_order_by._({
         ..._instance._$data,
         if (id != _undefined) 'id': (id as Enum$order_by?),
-        if (listeners != _undefined) 'listeners': (listeners as Enum$order_by?),
         if (song_id != _undefined) 'song_id': (song_id as Enum$order_by?),
         if (station_id != _undefined)
           'station_id': (station_id as Enum$order_by?),
@@ -24248,7 +23857,6 @@ class _CopyWithStubImpl$Input$stations_now_playing_variance_order_by<TRes>
 
   call({
     Enum$order_by? id,
-    Enum$order_by? listeners,
     Enum$order_by? song_id,
     Enum$order_by? station_id,
   }) =>
@@ -24274,7 +23882,6 @@ class Input$stations_order_by {
     Enum$order_by? order,
     Input$posts_aggregate_order_by? posts_aggregate,
     Enum$order_by? proxy_stream_url,
-    Enum$order_by? radio_crestin_listeners,
     Input$reviews_aggregate_order_by? reviews_aggregate,
     Enum$order_by? rss_feed,
     Enum$order_by? slug,
@@ -24284,6 +23891,7 @@ class Input$stations_order_by {
     Enum$order_by? thumbnail,
     Enum$order_by? thumbnail_url,
     Enum$order_by? title,
+    Enum$order_by? total_listeners,
     Enum$order_by? updated_at,
     Input$stations_uptime_order_by? uptime,
     Input$stations_uptime_aggregate_order_by? uptime_history_aggregate,
@@ -24311,8 +23919,6 @@ class Input$stations_order_by {
         if (order != null) r'order': order,
         if (posts_aggregate != null) r'posts_aggregate': posts_aggregate,
         if (proxy_stream_url != null) r'proxy_stream_url': proxy_stream_url,
-        if (radio_crestin_listeners != null)
-          r'radio_crestin_listeners': radio_crestin_listeners,
         if (reviews_aggregate != null) r'reviews_aggregate': reviews_aggregate,
         if (rss_feed != null) r'rss_feed': rss_feed,
         if (slug != null) r'slug': slug,
@@ -24323,6 +23929,7 @@ class Input$stations_order_by {
         if (thumbnail != null) r'thumbnail': thumbnail,
         if (thumbnail_url != null) r'thumbnail_url': thumbnail_url,
         if (title != null) r'title': title,
+        if (total_listeners != null) r'total_listeners': total_listeners,
         if (updated_at != null) r'updated_at': updated_at,
         if (uptime != null) r'uptime': uptime,
         if (uptime_history_aggregate != null)
@@ -24437,12 +24044,6 @@ class Input$stations_order_by {
           ? null
           : fromJson$Enum$order_by((l$proxy_stream_url as String));
     }
-    if (data.containsKey('radio_crestin_listeners')) {
-      final l$radio_crestin_listeners = data['radio_crestin_listeners'];
-      result$data['radio_crestin_listeners'] = l$radio_crestin_listeners == null
-          ? null
-          : fromJson$Enum$order_by((l$radio_crestin_listeners as String));
-    }
     if (data.containsKey('reviews_aggregate')) {
       final l$reviews_aggregate = data['reviews_aggregate'];
       result$data['reviews_aggregate'] = l$reviews_aggregate == null
@@ -24493,6 +24094,12 @@ class Input$stations_order_by {
       final l$title = data['title'];
       result$data['title'] =
           l$title == null ? null : fromJson$Enum$order_by((l$title as String));
+    }
+    if (data.containsKey('total_listeners')) {
+      final l$total_listeners = data['total_listeners'];
+      result$data['total_listeners'] = l$total_listeners == null
+          ? null
+          : fromJson$Enum$order_by((l$total_listeners as String));
     }
     if (data.containsKey('updated_at')) {
       final l$updated_at = data['updated_at'];
@@ -24555,8 +24162,6 @@ class Input$stations_order_by {
       (_$data['posts_aggregate'] as Input$posts_aggregate_order_by?);
   Enum$order_by? get proxy_stream_url =>
       (_$data['proxy_stream_url'] as Enum$order_by?);
-  Enum$order_by? get radio_crestin_listeners =>
-      (_$data['radio_crestin_listeners'] as Enum$order_by?);
   Input$reviews_aggregate_order_by? get reviews_aggregate =>
       (_$data['reviews_aggregate'] as Input$reviews_aggregate_order_by?);
   Enum$order_by? get rss_feed => (_$data['rss_feed'] as Enum$order_by?);
@@ -24570,6 +24175,8 @@ class Input$stations_order_by {
   Enum$order_by? get thumbnail_url =>
       (_$data['thumbnail_url'] as Enum$order_by?);
   Enum$order_by? get title => (_$data['title'] as Enum$order_by?);
+  Enum$order_by? get total_listeners =>
+      (_$data['total_listeners'] as Enum$order_by?);
   Enum$order_by? get updated_at => (_$data['updated_at'] as Enum$order_by?);
   Input$stations_uptime_order_by? get uptime =>
       (_$data['uptime'] as Input$stations_uptime_order_by?);
@@ -24667,12 +24274,6 @@ class Input$stations_order_by {
           ? null
           : toJson$Enum$order_by(l$proxy_stream_url);
     }
-    if (_$data.containsKey('radio_crestin_listeners')) {
-      final l$radio_crestin_listeners = radio_crestin_listeners;
-      result$data['radio_crestin_listeners'] = l$radio_crestin_listeners == null
-          ? null
-          : toJson$Enum$order_by(l$radio_crestin_listeners);
-    }
     if (_$data.containsKey('reviews_aggregate')) {
       final l$reviews_aggregate = reviews_aggregate;
       result$data['reviews_aggregate'] = l$reviews_aggregate?.toJson();
@@ -24713,6 +24314,12 @@ class Input$stations_order_by {
       final l$title = title;
       result$data['title'] =
           l$title == null ? null : toJson$Enum$order_by(l$title);
+    }
+    if (_$data.containsKey('total_listeners')) {
+      final l$total_listeners = total_listeners;
+      result$data['total_listeners'] = l$total_listeners == null
+          ? null
+          : toJson$Enum$order_by(l$total_listeners);
     }
     if (_$data.containsKey('updated_at')) {
       final l$updated_at = updated_at;
@@ -24895,15 +24502,6 @@ class Input$stations_order_by {
     if (l$proxy_stream_url != lOther$proxy_stream_url) {
       return false;
     }
-    final l$radio_crestin_listeners = radio_crestin_listeners;
-    final lOther$radio_crestin_listeners = other.radio_crestin_listeners;
-    if (_$data.containsKey('radio_crestin_listeners') !=
-        other._$data.containsKey('radio_crestin_listeners')) {
-      return false;
-    }
-    if (l$radio_crestin_listeners != lOther$radio_crestin_listeners) {
-      return false;
-    }
     final l$reviews_aggregate = reviews_aggregate;
     final lOther$reviews_aggregate = other.reviews_aggregate;
     if (_$data.containsKey('reviews_aggregate') !=
@@ -24977,6 +24575,15 @@ class Input$stations_order_by {
     if (l$title != lOther$title) {
       return false;
     }
+    final l$total_listeners = total_listeners;
+    final lOther$total_listeners = other.total_listeners;
+    if (_$data.containsKey('total_listeners') !=
+        other._$data.containsKey('total_listeners')) {
+      return false;
+    }
+    if (l$total_listeners != lOther$total_listeners) {
+      return false;
+    }
     final l$updated_at = updated_at;
     final lOther$updated_at = other.updated_at;
     if (_$data.containsKey('updated_at') !=
@@ -25032,7 +24639,6 @@ class Input$stations_order_by {
     final l$order = order;
     final l$posts_aggregate = posts_aggregate;
     final l$proxy_stream_url = proxy_stream_url;
-    final l$radio_crestin_listeners = radio_crestin_listeners;
     final l$reviews_aggregate = reviews_aggregate;
     final l$rss_feed = rss_feed;
     final l$slug = slug;
@@ -25042,6 +24648,7 @@ class Input$stations_order_by {
     final l$thumbnail = thumbnail;
     final l$thumbnail_url = thumbnail_url;
     final l$title = title;
+    final l$total_listeners = total_listeners;
     final l$updated_at = updated_at;
     final l$uptime = uptime;
     final l$uptime_history_aggregate = uptime_history_aggregate;
@@ -25073,9 +24680,6 @@ class Input$stations_order_by {
       _$data.containsKey('order') ? l$order : const {},
       _$data.containsKey('posts_aggregate') ? l$posts_aggregate : const {},
       _$data.containsKey('proxy_stream_url') ? l$proxy_stream_url : const {},
-      _$data.containsKey('radio_crestin_listeners')
-          ? l$radio_crestin_listeners
-          : const {},
       _$data.containsKey('reviews_aggregate') ? l$reviews_aggregate : const {},
       _$data.containsKey('rss_feed') ? l$rss_feed : const {},
       _$data.containsKey('slug') ? l$slug : const {},
@@ -25086,6 +24690,7 @@ class Input$stations_order_by {
       _$data.containsKey('thumbnail') ? l$thumbnail : const {},
       _$data.containsKey('thumbnail_url') ? l$thumbnail_url : const {},
       _$data.containsKey('title') ? l$title : const {},
+      _$data.containsKey('total_listeners') ? l$total_listeners : const {},
       _$data.containsKey('updated_at') ? l$updated_at : const {},
       _$data.containsKey('uptime') ? l$uptime : const {},
       _$data.containsKey('uptime_history_aggregate')
@@ -25123,7 +24728,6 @@ abstract class CopyWith$Input$stations_order_by<TRes> {
     Enum$order_by? order,
     Input$posts_aggregate_order_by? posts_aggregate,
     Enum$order_by? proxy_stream_url,
-    Enum$order_by? radio_crestin_listeners,
     Input$reviews_aggregate_order_by? reviews_aggregate,
     Enum$order_by? rss_feed,
     Enum$order_by? slug,
@@ -25133,6 +24737,7 @@ abstract class CopyWith$Input$stations_order_by<TRes> {
     Enum$order_by? thumbnail,
     Enum$order_by? thumbnail_url,
     Enum$order_by? title,
+    Enum$order_by? total_listeners,
     Enum$order_by? updated_at,
     Input$stations_uptime_order_by? uptime,
     Input$stations_uptime_aggregate_order_by? uptime_history_aggregate,
@@ -25180,7 +24785,6 @@ class _CopyWithImpl$Input$stations_order_by<TRes>
     Object? order = _undefined,
     Object? posts_aggregate = _undefined,
     Object? proxy_stream_url = _undefined,
-    Object? radio_crestin_listeners = _undefined,
     Object? reviews_aggregate = _undefined,
     Object? rss_feed = _undefined,
     Object? slug = _undefined,
@@ -25189,6 +24793,7 @@ class _CopyWithImpl$Input$stations_order_by<TRes>
     Object? thumbnail = _undefined,
     Object? thumbnail_url = _undefined,
     Object? title = _undefined,
+    Object? total_listeners = _undefined,
     Object? updated_at = _undefined,
     Object? uptime = _undefined,
     Object? uptime_history_aggregate = _undefined,
@@ -25230,9 +24835,6 @@ class _CopyWithImpl$Input$stations_order_by<TRes>
               (posts_aggregate as Input$posts_aggregate_order_by?),
         if (proxy_stream_url != _undefined)
           'proxy_stream_url': (proxy_stream_url as Enum$order_by?),
-        if (radio_crestin_listeners != _undefined)
-          'radio_crestin_listeners':
-              (radio_crestin_listeners as Enum$order_by?),
         if (reviews_aggregate != _undefined)
           'reviews_aggregate':
               (reviews_aggregate as Input$reviews_aggregate_order_by?),
@@ -25248,6 +24850,8 @@ class _CopyWithImpl$Input$stations_order_by<TRes>
         if (thumbnail_url != _undefined)
           'thumbnail_url': (thumbnail_url as Enum$order_by?),
         if (title != _undefined) 'title': (title as Enum$order_by?),
+        if (total_listeners != _undefined)
+          'total_listeners': (total_listeners as Enum$order_by?),
         if (updated_at != _undefined)
           'updated_at': (updated_at as Enum$order_by?),
         if (uptime != _undefined)
@@ -25349,7 +24953,6 @@ class _CopyWithStubImpl$Input$stations_order_by<TRes>
     Enum$order_by? order,
     Input$posts_aggregate_order_by? posts_aggregate,
     Enum$order_by? proxy_stream_url,
-    Enum$order_by? radio_crestin_listeners,
     Input$reviews_aggregate_order_by? reviews_aggregate,
     Enum$order_by? rss_feed,
     Enum$order_by? slug,
@@ -25359,6 +24962,7 @@ class _CopyWithStubImpl$Input$stations_order_by<TRes>
     Enum$order_by? thumbnail,
     Enum$order_by? thumbnail_url,
     Enum$order_by? title,
+    Enum$order_by? total_listeners,
     Enum$order_by? updated_at,
     Input$stations_uptime_order_by? uptime,
     Input$stations_uptime_aggregate_order_by? uptime_history_aggregate,
@@ -32538,7 +32142,6 @@ Enum$station_to_station_group_select_column
 
 enum Enum$stations_now_playing_select_column {
   id,
-  listeners,
   song_id,
   station_id,
   timestamp,
@@ -32550,8 +32153,6 @@ String toJson$Enum$stations_now_playing_select_column(
   switch (e) {
     case Enum$stations_now_playing_select_column.id:
       return r'id';
-    case Enum$stations_now_playing_select_column.listeners:
-      return r'listeners';
     case Enum$stations_now_playing_select_column.song_id:
       return r'song_id';
     case Enum$stations_now_playing_select_column.station_id:
@@ -32568,8 +32169,6 @@ Enum$stations_now_playing_select_column
   switch (value) {
     case r'id':
       return Enum$stations_now_playing_select_column.id;
-    case r'listeners':
-      return Enum$stations_now_playing_select_column.listeners;
     case r'song_id':
       return Enum$stations_now_playing_select_column.song_id;
     case r'station_id':
@@ -32736,6 +32335,177 @@ Enum$stations_uptime_select_column fromJson$Enum$stations_uptime_select_column(
       return Enum$stations_uptime_select_column.timestamp;
     default:
       return Enum$stations_uptime_select_column.$unknown;
+  }
+}
+
+enum Enum$__TypeKind {
+  SCALAR,
+  OBJECT,
+  INTERFACE,
+  UNION,
+  ENUM,
+  INPUT_OBJECT,
+  LIST,
+  NON_NULL,
+  $unknown
+}
+
+String toJson$Enum$__TypeKind(Enum$__TypeKind e) {
+  switch (e) {
+    case Enum$__TypeKind.SCALAR:
+      return r'SCALAR';
+    case Enum$__TypeKind.OBJECT:
+      return r'OBJECT';
+    case Enum$__TypeKind.INTERFACE:
+      return r'INTERFACE';
+    case Enum$__TypeKind.UNION:
+      return r'UNION';
+    case Enum$__TypeKind.ENUM:
+      return r'ENUM';
+    case Enum$__TypeKind.INPUT_OBJECT:
+      return r'INPUT_OBJECT';
+    case Enum$__TypeKind.LIST:
+      return r'LIST';
+    case Enum$__TypeKind.NON_NULL:
+      return r'NON_NULL';
+    case Enum$__TypeKind.$unknown:
+      return r'$unknown';
+  }
+}
+
+Enum$__TypeKind fromJson$Enum$__TypeKind(String value) {
+  switch (value) {
+    case r'SCALAR':
+      return Enum$__TypeKind.SCALAR;
+    case r'OBJECT':
+      return Enum$__TypeKind.OBJECT;
+    case r'INTERFACE':
+      return Enum$__TypeKind.INTERFACE;
+    case r'UNION':
+      return Enum$__TypeKind.UNION;
+    case r'ENUM':
+      return Enum$__TypeKind.ENUM;
+    case r'INPUT_OBJECT':
+      return Enum$__TypeKind.INPUT_OBJECT;
+    case r'LIST':
+      return Enum$__TypeKind.LIST;
+    case r'NON_NULL':
+      return Enum$__TypeKind.NON_NULL;
+    default:
+      return Enum$__TypeKind.$unknown;
+  }
+}
+
+enum Enum$__DirectiveLocation {
+  QUERY,
+  MUTATION,
+  SUBSCRIPTION,
+  FIELD,
+  FRAGMENT_DEFINITION,
+  FRAGMENT_SPREAD,
+  INLINE_FRAGMENT,
+  VARIABLE_DEFINITION,
+  SCHEMA,
+  SCALAR,
+  OBJECT,
+  FIELD_DEFINITION,
+  ARGUMENT_DEFINITION,
+  INTERFACE,
+  UNION,
+  ENUM,
+  ENUM_VALUE,
+  INPUT_OBJECT,
+  INPUT_FIELD_DEFINITION,
+  $unknown
+}
+
+String toJson$Enum$__DirectiveLocation(Enum$__DirectiveLocation e) {
+  switch (e) {
+    case Enum$__DirectiveLocation.QUERY:
+      return r'QUERY';
+    case Enum$__DirectiveLocation.MUTATION:
+      return r'MUTATION';
+    case Enum$__DirectiveLocation.SUBSCRIPTION:
+      return r'SUBSCRIPTION';
+    case Enum$__DirectiveLocation.FIELD:
+      return r'FIELD';
+    case Enum$__DirectiveLocation.FRAGMENT_DEFINITION:
+      return r'FRAGMENT_DEFINITION';
+    case Enum$__DirectiveLocation.FRAGMENT_SPREAD:
+      return r'FRAGMENT_SPREAD';
+    case Enum$__DirectiveLocation.INLINE_FRAGMENT:
+      return r'INLINE_FRAGMENT';
+    case Enum$__DirectiveLocation.VARIABLE_DEFINITION:
+      return r'VARIABLE_DEFINITION';
+    case Enum$__DirectiveLocation.SCHEMA:
+      return r'SCHEMA';
+    case Enum$__DirectiveLocation.SCALAR:
+      return r'SCALAR';
+    case Enum$__DirectiveLocation.OBJECT:
+      return r'OBJECT';
+    case Enum$__DirectiveLocation.FIELD_DEFINITION:
+      return r'FIELD_DEFINITION';
+    case Enum$__DirectiveLocation.ARGUMENT_DEFINITION:
+      return r'ARGUMENT_DEFINITION';
+    case Enum$__DirectiveLocation.INTERFACE:
+      return r'INTERFACE';
+    case Enum$__DirectiveLocation.UNION:
+      return r'UNION';
+    case Enum$__DirectiveLocation.ENUM:
+      return r'ENUM';
+    case Enum$__DirectiveLocation.ENUM_VALUE:
+      return r'ENUM_VALUE';
+    case Enum$__DirectiveLocation.INPUT_OBJECT:
+      return r'INPUT_OBJECT';
+    case Enum$__DirectiveLocation.INPUT_FIELD_DEFINITION:
+      return r'INPUT_FIELD_DEFINITION';
+    case Enum$__DirectiveLocation.$unknown:
+      return r'$unknown';
+  }
+}
+
+Enum$__DirectiveLocation fromJson$Enum$__DirectiveLocation(String value) {
+  switch (value) {
+    case r'QUERY':
+      return Enum$__DirectiveLocation.QUERY;
+    case r'MUTATION':
+      return Enum$__DirectiveLocation.MUTATION;
+    case r'SUBSCRIPTION':
+      return Enum$__DirectiveLocation.SUBSCRIPTION;
+    case r'FIELD':
+      return Enum$__DirectiveLocation.FIELD;
+    case r'FRAGMENT_DEFINITION':
+      return Enum$__DirectiveLocation.FRAGMENT_DEFINITION;
+    case r'FRAGMENT_SPREAD':
+      return Enum$__DirectiveLocation.FRAGMENT_SPREAD;
+    case r'INLINE_FRAGMENT':
+      return Enum$__DirectiveLocation.INLINE_FRAGMENT;
+    case r'VARIABLE_DEFINITION':
+      return Enum$__DirectiveLocation.VARIABLE_DEFINITION;
+    case r'SCHEMA':
+      return Enum$__DirectiveLocation.SCHEMA;
+    case r'SCALAR':
+      return Enum$__DirectiveLocation.SCALAR;
+    case r'OBJECT':
+      return Enum$__DirectiveLocation.OBJECT;
+    case r'FIELD_DEFINITION':
+      return Enum$__DirectiveLocation.FIELD_DEFINITION;
+    case r'ARGUMENT_DEFINITION':
+      return Enum$__DirectiveLocation.ARGUMENT_DEFINITION;
+    case r'INTERFACE':
+      return Enum$__DirectiveLocation.INTERFACE;
+    case r'UNION':
+      return Enum$__DirectiveLocation.UNION;
+    case r'ENUM':
+      return Enum$__DirectiveLocation.ENUM;
+    case r'ENUM_VALUE':
+      return Enum$__DirectiveLocation.ENUM_VALUE;
+    case r'INPUT_OBJECT':
+      return Enum$__DirectiveLocation.INPUT_OBJECT;
+    case r'INPUT_FIELD_DEFINITION':
+      return Enum$__DirectiveLocation.INPUT_FIELD_DEFINITION;
+    default:
+      return Enum$__DirectiveLocation.$unknown;
   }
 }
 

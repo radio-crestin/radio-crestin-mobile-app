@@ -1291,11 +1291,6 @@ type stations {
   """
   proxy_stream_url: String
 
-  """
-  A computed field, executes function "radio_crestin_listeners"
-  """
-  radio_crestin_listeners: Int
-
   """An array relationship"""
   reviews(
     """distinct select on columns"""
@@ -1337,6 +1332,11 @@ type stations {
   thumbnail: String
   thumbnail_url: String
   title: String!
+
+  """
+  A computed field, executes function "stations_total_listeners"
+  """
+  total_listeners: Int
   updated_at: timestamptz!
 
   """An object relationship"""
@@ -1412,7 +1412,6 @@ input stations_bool_exp {
   order: Int_comparison_exp
   posts: posts_bool_exp
   proxy_stream_url: String_comparison_exp
-  radio_crestin_listeners: Int_comparison_exp
   reviews: reviews_bool_exp
   rss_feed: String_comparison_exp
   slug: String_comparison_exp
@@ -1421,6 +1420,7 @@ input stations_bool_exp {
   thumbnail: String_comparison_exp
   thumbnail_url: String_comparison_exp
   title: String_comparison_exp
+  total_listeners: Int_comparison_exp
   updated_at: timestamptz_comparison_exp
   uptime: stations_uptime_bool_exp
   uptime_history: stations_uptime_bool_exp
@@ -1480,7 +1480,6 @@ columns and relationships of "stations_now_playing"
 """
 type stations_now_playing {
   id: Int!
-  listeners: Int
 
   """An object relationship"""
   song: songs
@@ -1532,7 +1531,6 @@ order by avg() on columns of table "stations_now_playing"
 """
 input stations_now_playing_avg_order_by {
   id: order_by
-  listeners: order_by
   song_id: order_by
   station_id: order_by
 }
@@ -1545,7 +1543,6 @@ input stations_now_playing_bool_exp {
   _not: stations_now_playing_bool_exp
   _or: [stations_now_playing_bool_exp!]
   id: Int_comparison_exp
-  listeners: Int_comparison_exp
   song: songs_bool_exp
   song_id: Int_comparison_exp
   station: stations_bool_exp
@@ -1559,7 +1556,6 @@ order by max() on columns of table "stations_now_playing"
 """
 input stations_now_playing_max_order_by {
   id: order_by
-  listeners: order_by
   song_id: order_by
   station_id: order_by
   timestamp: order_by
@@ -1570,7 +1566,6 @@ order by min() on columns of table "stations_now_playing"
 """
 input stations_now_playing_min_order_by {
   id: order_by
-  listeners: order_by
   song_id: order_by
   station_id: order_by
   timestamp: order_by
@@ -1579,7 +1574,6 @@ input stations_now_playing_min_order_by {
 """Ordering options when selecting data from "stations_now_playing"."""
 input stations_now_playing_order_by {
   id: order_by
-  listeners: order_by
   song: songs_order_by
   song_id: order_by
   station: stations_order_by
@@ -1596,9 +1590,6 @@ enum stations_now_playing_select_column {
   id
 
   """column name"""
-  listeners
-
-  """column name"""
   song_id
 
   """column name"""
@@ -1613,7 +1604,6 @@ order by stddev() on columns of table "stations_now_playing"
 """
 input stations_now_playing_stddev_order_by {
   id: order_by
-  listeners: order_by
   song_id: order_by
   station_id: order_by
 }
@@ -1623,7 +1613,6 @@ order by stddev_pop() on columns of table "stations_now_playing"
 """
 input stations_now_playing_stddev_pop_order_by {
   id: order_by
-  listeners: order_by
   song_id: order_by
   station_id: order_by
 }
@@ -1633,7 +1622,6 @@ order by stddev_samp() on columns of table "stations_now_playing"
 """
 input stations_now_playing_stddev_samp_order_by {
   id: order_by
-  listeners: order_by
   song_id: order_by
   station_id: order_by
 }
@@ -1652,7 +1640,6 @@ input stations_now_playing_stream_cursor_input {
 """Initial value of the column from where the streaming should start"""
 input stations_now_playing_stream_cursor_value_input {
   id: Int
-  listeners: Int
   song_id: Int
   station_id: Int
   timestamp: timestamptz
@@ -1663,7 +1650,6 @@ order by sum() on columns of table "stations_now_playing"
 """
 input stations_now_playing_sum_order_by {
   id: order_by
-  listeners: order_by
   song_id: order_by
   station_id: order_by
 }
@@ -1673,7 +1659,6 @@ order by var_pop() on columns of table "stations_now_playing"
 """
 input stations_now_playing_var_pop_order_by {
   id: order_by
-  listeners: order_by
   song_id: order_by
   station_id: order_by
 }
@@ -1683,7 +1668,6 @@ order by var_samp() on columns of table "stations_now_playing"
 """
 input stations_now_playing_var_samp_order_by {
   id: order_by
-  listeners: order_by
   song_id: order_by
   station_id: order_by
 }
@@ -1693,7 +1677,6 @@ order by variance() on columns of table "stations_now_playing"
 """
 input stations_now_playing_variance_order_by {
   id: order_by
-  listeners: order_by
   song_id: order_by
   station_id: order_by
 }
@@ -1716,7 +1699,6 @@ input stations_order_by {
   order: order_by
   posts_aggregate: posts_aggregate_order_by
   proxy_stream_url: order_by
-  radio_crestin_listeners: order_by
   reviews_aggregate: reviews_aggregate_order_by
   rss_feed: order_by
   slug: order_by
@@ -1725,6 +1707,7 @@ input stations_order_by {
   thumbnail: order_by
   thumbnail_url: order_by
   title: order_by
+  total_listeners: order_by
   updated_at: order_by
   uptime: stations_uptime_order_by
   uptime_history_aggregate: stations_uptime_aggregate_order_by
