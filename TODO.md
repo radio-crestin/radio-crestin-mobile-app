@@ -1,0 +1,25 @@
+-  Highlight statia selectata in lista de optiuni - DONE
+- Creaza o iconita pentru notificare - DONE
+- adauga prioritate la notificarea audio - DONE (kind of)
+-  Fixeaza butoanele de start si stop din notificare - DONE (kind of)
+-  Adauga 3 surse audio cu fallback automat - DONE
+-  Scoate HLS din Bunny - DONE
+- Trimite date catre api-ul nostru cand se asculta prin proxy/HLS - DONE
+- afiseaza numarul de ascultatori - DONE
+- afiseaza cand o statie e down - DONE
+- fixeaza bug-ul cu ordinea statiilor - DONE
+- fa iconita patrata - DONE
+- identifica de ce homepage-ul e alb cateodata - DONE
+- fa splash screen-ul cu background-ul alb - DONE
+-  Adauga optiune de a forta utilizatorul sa faca upgrade - DONE
+   - eventual adauga si un buton pe care sa il afisam pentru a face upgrade
+   - https://pub.dev/packages/upgrader
+-  Testeaza flow-ul de notificari personalizate - DONE
+- Afiseaza in-app notifications - DONE
+-  Nu uita sa modifici link-ul de share din Firebase - DONE
+-  Listeaza aplicatia in Play Store
+
+Pe viitor:
+- cand aplicatia este inchisa din task manager, opreste player-ul si request-urile de refresh metadata
+- adauga deep links cu site-ul www.radio-crestin.com ca sa deschida aplicatia
+- adauga optiune sa faci search la o statie

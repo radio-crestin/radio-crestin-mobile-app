@@ -8,9 +8,10 @@ generate-graphql-types:
 	dart run build_runner build
 
 generate-launcher-icons:
-	dart run flutter_launcher_icons
-
+	flutter pub run flutter_launcher_icons
 
 generate-new-play-store-keystore:
-	keytool -genkey -v -keystore ~/radio-crestin-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+	keytool -genkey -v -keystore ~/radio-crestin-app-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload
 
+build-android-release:
+	flutter build appbundle --release --no-tree-shake-icons

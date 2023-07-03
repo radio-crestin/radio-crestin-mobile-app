@@ -1,5 +1,5 @@
 query GetStations {
-  stations(order_by: {order: asc}) {
+  stations(order_by: {order: asc, title: asc}) {
     id
     slug
     order
@@ -10,7 +10,7 @@ query GetStations {
     proxy_stream_url
     hls_stream_url
     thumbnail_url
-    radio_crestin_listeners
+    total_listeners
     description
     description_action_title
     description_link
@@ -31,7 +31,6 @@ query GetStations {
     now_playing {
       id
       timestamp
-      listeners
       song {
         id
         name
@@ -47,16 +46,6 @@ query GetStations {
       id
       stars
       message
-    }
-  }
-  station_groups(order_by: {order: asc}) {
-    id
-    slug
-    name
-    order
-    station_to_station_groups {
-      station_id
-      order
     }
   }
 }

@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+1
+version: 1.0.0+2
 
 environment:
   sdk: '>=3.0.3 <4.0.0'
@@ -47,8 +47,16 @@ dependencies:
   package_info: ^2.0.2
   hy_device_id: ^1.0.0
   shared_preferences: ^2.1.1
-  flutter_launcher_icons: ^0.13.1
   flutter_spinkit: ^5.2.0
+  share_plus: ^7.0.2
+  firebase_core: ^2.13.1
+  firebase_messaging: ^14.6.2
+  firebase_analytics: ^10.4.2
+  firebase_crashlytics: ^3.3.2
+  firebase_remote_config: ^4.2.2
+  firebase_in_app_messaging: ^0.7.3+3
+  flutter_launcher_icons: ^0.13.1
+  upgrader: ^7.1.0
 
 dev_dependencies:
   flutter_test:
@@ -60,7 +68,7 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^2.0.0
-  graphql_codegen: ^0.12.2
+  graphql_codegen: ^0.13.5
   build_runner: ^2.4.4
 
 # For information on the generic Dart part of this file, see the
@@ -106,26 +114,28 @@ flutter:
   # see https://flutter.dev/custom-fonts/#from-packages
 
   assets:
-    - assets/icons/ic_launcher.png
-
+    - assets/icons/ic_foreground.png
 
 flutter_launcher_icons:
-  android: true
-  image_path_android: "assets/icons/ic_launcher.png"
-  ios: true
-  image_path_ios: "assets/icons/ic_launcher.png"
-  remove_alpha_ios: true
-  background_color_ios: "#FFFFFF"
+  #  image_path: "assets/images/icon-128x128.png"
+  image_path_android: "assets/icons/ic_logo_filled.png"
+  image_path_ios: "assets/icons/ic_logo_filled.png"
+  android: true # can specify file name here e.g. "ic_launcher"
+  ios: true # can specify file name here e.g. "My-Launcher-Icon"
+  adaptive_icon_background: "assets/icons/ic_logo_filled.png" # only available for Android 8.0 devices and above
+  adaptive_icon_foreground: "assets/icons/ic_foreground.png" # only available for Android 8.0 devices and above
   min_sdk_android: 21 # android min sdk min:16, default 21
+  remove_alpha_ios: true
+  background_color_ios: "#FD0057"
   web:
     generate: true
-    image_path: "assets/icons/ic_launcher.png"
-    background_color: "#FFFFFF"
-    theme_color: "#FF0057"
+    image_path: "assets/icons/ic_logo_filled.png"
+    background_color: "#FD0057"
+    theme_color: "#FD0057"
   windows:
     generate: true
-    image_path: "assets/icons/ic_launcher.png"
+    image_path: "assets/icons/ic_logo_filled.png"
     icon_size: 48 # min:48, max:256, default: 48
   macos:
     generate: true
-    image_path: "assets/icons/ic_launcher.png"
+    image_path: "assets/icons/ic_logo_filled.png"
