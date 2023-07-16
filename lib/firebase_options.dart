@@ -72,12 +72,12 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyDEfuUSIPJLV4j9QqRbHlcRC5HRSGPRRuY',
-    appId: '1:1067346595846:ios:8d529f9b490f14693e7387',
+    apiKey: 'AIzaSyB8an2f1oFqTL1__VN3egr71Eka4xULb_A',
+    appId: '1:1067346595846:ios:8673f5b250c4020e3e7387',
     messagingSenderId: '1067346595846',
     projectId: 'radio-crestin-aea7e',
     storageBucket: 'radio-crestin-aea7e.appspot.com',
-    iosClientId: '1067346595846-m2ltklek9uldlitqtennaqk18f1h48sd.apps.googleusercontent.com',
-    iosBundleId: 'com.radiocrestin.radioCrestin.RunnerTests',
+    iosClientId: '1067346595846-dq8tmk746ukq02pr0681ralegmvc6j26.apps.googleusercontent.com',
+    iosBundleId: 'com.radiocrestinsoftware.macosApp',
   );
 }
