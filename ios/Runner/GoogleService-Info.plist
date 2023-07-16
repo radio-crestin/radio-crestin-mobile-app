@@ -3,17 +3,17 @@
 <plist version="1.0">
 <dict>
 	<key>CLIENT_ID</key>
-	<string>1067346595846-mibhqrd0v06jafus0gp6jc2pfa025a9s.apps.googleusercontent.com</string>
+	<string>1067346595846-vhsuuj67grmigu773o9dbdhv2s75vt9e.apps.googleusercontent.com</string>
 	<key>REVERSED_CLIENT_ID</key>
-	<string>com.googleusercontent.apps.1067346595846-mibhqrd0v06jafus0gp6jc2pfa025a9s</string>
+	<string>com.googleusercontent.apps.1067346595846-vhsuuj67grmigu773o9dbdhv2s75vt9e</string>
 	<key>API_KEY</key>
-	<string>AIzaSyDEfuUSIPJLV4j9QqRbHlcRC5HRSGPRRuY</string>
+	<string>AIzaSyB8an2f1oFqTL1__VN3egr71Eka4xULb_A</string>
 	<key>GCM_SENDER_ID</key>
 	<string>1067346595846</string>
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.radiocrestin.radioCrestin</string>
+	<string>com.radiocrestinsoftware.radioApp</string>
 	<key>PROJECT_ID</key>
 	<string>radio-crestin-aea7e</string>
 	<key>STORAGE_BUCKET</key>
@@ -29,6 +29,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:1067346595846:ios:e988e723395dc75c3e7387</string>
+	<string>1:1067346595846:ios:f35180434dabf50f3e7387</string>
 </dict>
 </plist>

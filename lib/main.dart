@@ -49,11 +49,6 @@ void main() async {
   // );
   // developer.log('User granted permission: ${settings.authorizationStatus}');
 
-  String? fcmToken = await messaging.getToken(
-    vapidKey: "BFYrRk168C5k4q9h4-01z1tr6rQxplERMVolnqqSMXjLNIEnCTA_oL2Lb1OI5kOu9C_tLyWd0jorBgt7ChW3Lxg",
-  );
-  globals.fcmToken = fcmToken ?? "";
-  developer.log('fcmToken: $fcmToken');
   final prefs = await SharedPreferences.getInstance();
   if(prefs.getBool('_notificationsEnabled') ?? true) {
     await FirebaseAnalytics.instance.setUserProperty(name: 'personalized_n', value: 'true');
