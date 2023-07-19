@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://github.com/iosifnicolae2/radio-crestin.com">
+  <a href="https://github.com/iosifnicolae2/radio-crestin-app">
     <img src="https://github.com/iosifnicolae2/radio-crestin-app/blob/main/assets/icons/ic_logo_filled.png" alt="Radio Crestin logo" width="200" />
   </a>
 </p>
