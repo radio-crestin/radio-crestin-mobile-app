@@ -38,7 +38,7 @@ class AppTracking {
     );
   }
   static trackListenStation(Query$GetStations$stations station, String currentStreamUrl) async {
-    developer.log("trackListenStation");
+    developer.log("trackListenStation $currentStreamUrl");
     await FirebaseAnalytics.instance.logEvent(name: "listen_radio_listening", parameters: {
       "station_id": station.id,
       "station_name": station.title,

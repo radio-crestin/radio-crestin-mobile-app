@@ -64,13 +64,21 @@ class Utils {
 
   static MediaItem getStationMetadata(Query$GetStations$stations? station) {
     return MediaItem(
-      id: station?.id.toString() ?? "0",
+      // id: station?.id.toString() ?? "0",
+      id: getStationStreamUrls(station).first,
       title: station?.title.toString() ?? "",
       displayTitle: station?.title.toString(),
       displaySubtitle: Utils.getCurrentPlayedSongTitle(station),
       artist: Utils.getCurrentPlayedSongTitle(station),
       duration: null,
       artUri: Uri.parse(Utils.getStationThumbnailUrl(station)),
+      extras: {
+        "station_id": station?.id,
+        "total_listeners": station?.total_listeners,
+        "station_is_up": station?.uptime?.is_up,
+        "thumbnail_url": station?.thumbnail_url,
+        "station_streams": Utils.getStationStreamUrls(station),
+      },
     );
   }
 

@@ -51,16 +51,16 @@ void main() async {
 
   final prefs = await SharedPreferences.getInstance();
   if(prefs.getBool('_notificationsEnabled') ?? true) {
-    await FirebaseAnalytics.instance.setUserProperty(name: 'personalized_n', value: 'true');
+    FirebaseAnalytics.instance.setUserProperty(name: 'personalized_n', value: 'true');
   }
 
   final remoteConfig = FirebaseRemoteConfig.instance;
-  await remoteConfig.setConfigSettings(RemoteConfigSettings(
+  remoteConfig.setConfigSettings(RemoteConfigSettings(
     fetchTimeout: const Duration(minutes: 1),
     minimumFetchInterval: const Duration(hours: 1),
   ));
 
-  await remoteConfig.fetchAndActivate();
+  remoteConfig.fetchAndActivate();
 
   await FastCachedImageConfig.init(clearCacheAfter: const Duration(days: 30));
 
@@ -91,13 +91,14 @@ void main() async {
   // // Only call clearSavedSettings() during testing to reset internal values.
   // await Upgrader.clearSavedSettings(); // REMOVE this for release builds
 
-  runApp(MultiProvider(
-    providers: [
-      ChangeNotifierProvider(
-          create: (_) => getIt<AppAudioHandler>()),
-    ],
-    child: const RadioCrestinApp(),
-  ));
+  // runApp(MultiProvider(
+  //   providers: [
+  //     ChangeNotifierProvider(
+  //         create: (_) => getIt<AppAudioHandler>()),
+  //   ],
+  //   child: const RadioCrestinApp(),
+  // ));
+  runApp(const RadioCrestinApp());
 
 }
 

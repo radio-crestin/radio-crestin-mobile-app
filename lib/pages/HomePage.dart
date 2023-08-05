@@ -1,15 +1,18 @@
+import 'package:audio_service/audio_service.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:provider/provider.dart';
 import 'package:radio_crestin/appAudioHandler.dart';
 import 'package:radio_crestin/components/BottomNavigationAudioPlayer.dart';
 import 'package:radio_crestin/pages/SettingsPage.dart';
-import 'package:radio_crestin/components/StationsList.dart';
+import 'package:radio_crestin/components/QueueList.dart';
+import 'package:rxdart/rxdart.dart';
 import 'package:share_plus/share_plus.dart';
 import 'dart:developer' as developer;
 
 import 'package:upgrader/upgrader.dart';
+
+import '../main.dart';
 
 final remoteConfig = FirebaseRemoteConfig.instance;
 
@@ -24,6 +27,17 @@ class _HomePageState extends State<HomePage> {
   late ScrollController _hideButtonController;
 
   var _isVisible;
+  final AppAudioHandler _audioHandler = getIt<AppAudioHandler>();
+
+  _HomePageState();
+
+  /// A stream reporting the combined state of the current queue and the current
+  /// media item within that queue.
+  Stream<QueueState> get _queueStateStream =>
+      Rx.combineLatest2<List<MediaItem>, MediaItem?, QueueState>(
+          _audioHandler.queue,
+          _audioHandler.mediaItem,
+              (queue, mediaItem) => QueueState(queue, mediaItem));
 
   @override
   initState() {
@@ -52,9 +66,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final audioHandler = context.watch<AppAudioHandler>();
-    developer.log(
-        "appPlaybackState?.processingState: ${audioHandler.appPlaybackState?.processingState}");
+
     return UpgradeAlert(
       upgrader: Upgrader(showIgnore: false),
         child: Scaffold(
@@ -105,30 +117,40 @@ class _HomePageState extends State<HomePage> {
             ),
             body: Stack(
               children: [
-                StationsList(
-                  stations: audioHandler.stations,
-                  selectedStationIdx: audioHandler.stationIdx ?? 0,
-                  onStationSelected: (stationIdx) {
-                    audioHandler.setStationIdx(stationIdx);
-                    audioHandler.play();
+                StreamBuilder<QueueState>(
+                  stream: _queueStateStream,
+                  builder: (context, snapshot) {
+                    final queue = snapshot.data?.queue ?? [];
+                    final mediaItem = snapshot.data?.mediaItem;
+                    return QueueList(
+                        queue: queue,
+                        mediaItem: mediaItem,
+                        audioHandler: _audioHandler,
+                        hideButtonController: _hideButtonController,
+                      );
                   },
-                  hideButtonController: _hideButtonController,
                 ),
-                Positioned(
-                    left: 6,
-                    right: 6,
-                    bottom: 14,
-                    child: BottomNavigationAudioPlayer(
-                      isElevated: true,
-                      isVisible: audioHandler.stationIdx != null,
-                      stationIdx: audioHandler.stationIdx ?? 0,
-                      displayTitle: audioHandler.metadata.displayTitle ?? "",
-                      displaySubtitle:
-                          audioHandler.metadata.displaySubtitle ?? "",
-                      displayThumbnailUrl:
-                          audioHandler.metadata.artUri.toString() ?? "",
-                      audioHandler: audioHandler,
-                    ))
+                StreamBuilder<QueueState>(
+                  stream: _queueStateStream,
+                  builder: (context, snapshot) {
+                    final mediaItem = snapshot.data?.mediaItem;
+                    return Positioned(
+                        left: 6,
+                        right: 6,
+                        bottom: 14,
+                        child: BottomNavigationAudioPlayer(
+                          isElevated: true,
+                          isVisible: mediaItem != null,
+                          // stationIdx: _audioHandler.stationIdx ?? 0,
+                          stationIdx: 0,
+                          displayTitle: mediaItem?.displayTitle ?? "",
+                          displaySubtitle: mediaItem?.displaySubtitle ?? "",
+                          displayThumbnailUrl: mediaItem?.artUri.toString() ?? "",
+                          audioHandler: _audioHandler,
+                        ));
+                  },
+                ),
+
               ],
             )));
   }
