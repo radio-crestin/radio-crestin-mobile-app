@@ -46,6 +46,7 @@ class AppAudioHandler extends BaseAudioHandler with QueueHandler {
   List<Query$GetStations$stations> stations =
       List<Query$GetStations$stations>.empty(growable: true);
   List<MediaItem> stationsMediaItems = List<MediaItem>.empty(growable: true);
+  var _timer;
 
   Object? error;
   int errorRetryCount = 0;
@@ -88,8 +89,6 @@ class AppAudioHandler extends BaseAudioHandler with QueueHandler {
     });
 
     await _player.setLoopMode(LoopMode.off);
-
-    startListeningTracker();
   }
 
   @override
@@ -141,7 +140,7 @@ class AppAudioHandler extends BaseAudioHandler with QueueHandler {
       AppTracking.trackPlayStation(currentStation!);
       AppTracking.trackListenStation(currentStation!, currentStreamUrl);
     }
-    // _player.stop();
+    startListeningTracker();
     return _player.play();
   }
 
@@ -155,6 +154,7 @@ class AppAudioHandler extends BaseAudioHandler with QueueHandler {
   Future<void> seek(final Duration? position, {int? index}) {
     developer.log("seek: $position $index");
     _playerIndex = index ?? 0;
+    stopListeningTracker();
     return setAudioSource(index ?? 0);
   }
 
@@ -304,7 +304,7 @@ class AppAudioHandler extends BaseAudioHandler with QueueHandler {
   }
 
   void startListeningTracker() {
-    Timer.periodic(
+    _timer = Timer.periodic(
         const Duration(seconds: 5),
         (Timer t) => {
               if (currentStation != null && _player.playing)
@@ -313,6 +313,10 @@ class AppAudioHandler extends BaseAudioHandler with QueueHandler {
                       currentStation!, currentStreamUrl)
                 }
             });
+  }
+
+  void stopListeningTracker() {
+    _timer?.cancel();
   }
 
   String get currentStreamUrl {
