@@ -1,0 +1,84 @@
+name: Generated Android Build
+
+env:
+  # The name of the main module repository
+  main_project_module: app
+
+  # The name of the Play Store
+  playstore_name: Radio Crestin
+
+on:
+
+  push:
+    branches:
+      - 'release/**'
+
+  release:
+    types: [ published ]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      # Set Repository Name As Env Variable
+      - name: Set repository name as env variable
+        run: echo "repository_name=$(echo '${{ github.repository }}' | awk -F '/' '{print $2}')" >> $GITHUB_ENV
+
+      # Set Current Date As Env Variable
+      - name: Set current date as env variable
+        run: echo "date_today=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
+
+      - name: Install 1Password Cli
+        run: |
+          curl https://cache.agilebits.com/dist/1P/op2/pkg/v2.18.0/op_linux_amd64_v2.18.0.zip > op.zip
+          unzip op.zip
+          sudo mv op /usr/local/bin
+          rm op.zip
+
+      - name: Get 1Password Secrets
+        run: |
+          op read op://radio-crestin-app/key.properties/notesPlain -o android/key.properties
+          op read op://radio-crestin-app/local.properties/notesPlain -o android/local.properties
+          op read op://radio-crestin-app/radio-crestin-app-keystore.jks/radio-crestin-app-keystore.jks -o android/app/radio-crestin-app-keystore.jks
+
+        working-directory: ./
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+
+      - uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '11'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.10.3'
+          channel: 'stable'
+          architecture: x64
+      - name: Get dependencies
+        run: flutter pub get
+
+#      - name: Test the application
+#        run: flutter test
+
+      - name: Build android apk
+        run: flutter build apk
+
+      - name: Build android AppBundle
+        run: flutter build appbundle
+
+      - name: Upload APK Release - ${{ env.repository_name }}
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ env.date_today }}_${{ env.playstore_name }}_${{ env.repository_name }}.apk
+          path: build/outputs/flutter-apk/app-release.apk
+
+      - name: Upload AAB (App Bundle) Release - ${{ env.repository_name }}
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ env.date_today }} - ${{ env.playstore_name }} - ${{ env.repository_name }} - App bundle(s) AAB release generated
+          path: build/app/outputs/bundle/release/app-release.aab

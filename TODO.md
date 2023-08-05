@@ -17,9 +17,14 @@
 -  Testeaza flow-ul de notificari personalizate - DONE
 - Afiseaza in-app notifications - DONE
 -  Nu uita sa modifici link-ul de share din Firebase - DONE
--  Listeaza aplicatia in Play Store
+-  Listeaza aplicatia in Play Store - DONE
 
 Pe viitor:
 - cand aplicatia este inchisa din task manager, opreste player-ul si request-urile de refresh metadata
-- adauga deep links cu site-ul www.radio-crestin.com ca sa deschida aplicatia
+- adauga deep links cu site-ul www.radio-crestin.com ca sa deschida aplicatia - DONE partial
 - adauga optiune sa faci search la o statie
+- listeaza aplicatia pe IOS - DONE
+- listeaza aplicatia in Huawei Store
+- listeaza aplicatia in Windows Store
+- listeaza aplicatia in Amazon Store
+- listeaza aplicatia in Android Auto
