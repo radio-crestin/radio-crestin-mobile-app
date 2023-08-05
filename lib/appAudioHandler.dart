@@ -148,8 +148,7 @@ class AppAudioHandler extends BaseAudioHandler with QueueHandler {
   @override
   Future<void> pause() {
     developer.log("pause");
-    AppTracking.trackStopStation(currentStation!);
-    return _player.pause();
+    return stop();
   }
 
   @override
@@ -162,9 +161,9 @@ class AppAudioHandler extends BaseAudioHandler with QueueHandler {
   @override
   Future<void> stop() async {
     AppTracking.trackStopStation(currentStation!);
+    await _player.pause();
     await _player.stop();
-    await playbackState.firstWhere(
-        (state) => state.processingState == AudioProcessingState.idle);
+    await playbackState.firstWhere((state) => state.processingState == AudioProcessingState.idle);
   }
 
   /// Broadcasts the current state to all clients.
