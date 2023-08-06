@@ -27,6 +27,12 @@ if (flutterVersionName == null) {
     flutterVersionName = '1.0'
 }
 
+// Get VersionCode from AppCenter if auto build
+def appCenterVersionCode = System.getenv('APPCENTER_BUILD_ID')
+if (appCenterVersionCode != null) {
+    flutterVersionCode = appCenterVersionCode
+}
+
 apply plugin: 'com.android.application'
 // START: FlutterFire Configuration
 apply plugin: 'com.google.gms.google-services'

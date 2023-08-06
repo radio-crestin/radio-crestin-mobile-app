@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+##############################################################################
+##
+##  Gradle start up script for UN*X
+##
+##############################################################################
+
+if [[ "$@" != *"-Ptarget"* ]]; then
+  echo "Not found target in arguments when call gradlew, force skip gradle."
+  exit 0
+fi
