@@ -19,6 +19,8 @@ flutter doctor
 
 echo "Installed flutter to `pwd`/flutter"
 
+echo "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+
 # build APK
 flutter -v build apk --release --target-platform android-arm64 --target $APP_TARGET
 
