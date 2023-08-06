@@ -42,7 +42,7 @@ jobs:
           op read op://radio-crestin-app/key.properties/notesPlain -o android/key.properties
           op read op://radio-crestin-app/local.properties/notesPlain -o android/local.properties
           op read op://radio-crestin-app/google-services.json/notesPlain -o android/app/google-services.json
-          op read op://radio-crestin-app/radio-crestin-app-keystore.jks/radio-crestin-app-keystore.jks -o android/app/radio-crestin-app-keystore.jks
+          op read op://radio-crestin-app/radio-crestin-app-keystore.jks/radio-crestin-app-keystore.jks -o /radio-crestin-app-keystore.jks
 
         working-directory: ./
         env:
