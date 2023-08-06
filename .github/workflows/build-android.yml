@@ -72,11 +72,11 @@ jobs:
       - name: Upload APK Release - ${{ env.repository_name }}
         uses: actions/upload-artifact@v3
         with:
-          name: ${{ env.date_today }}_${{ env.playstore_name }}_${{ env.repository_name }}.apk
-          path: build/outputs/flutter-apk/app-release.apk
+          name: app-release.apk
+          path: build/app/outputs/flutter-apk/app-release.apk
 
       - name: Upload AAB (App Bundle) Release - ${{ env.repository_name }}
         uses: actions/upload-artifact@v3
         with:
-          name: ${{ env.date_today }} - ${{ env.playstore_name }} - ${{ env.repository_name }} - App bundle(s) AAB release generated
+          name: app-release.aab
           path: build/app/outputs/bundle/release/app-release.aab
