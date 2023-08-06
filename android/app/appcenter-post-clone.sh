@@ -25,7 +25,7 @@ echo "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
 flutter -v build apk --release
 
 # copy the APK where AppCenter will find it
-mkdir -p android/app/build/outputs/apk/; mv build/app/outputs/apk/release/app-release.apk $_
+mkdir -p android/app/build/outputs/apk/; mv build/app/outputs/flutter-apk/app-release.apk $_
 
 # build bundle (AAB)
 if [ "$BUILD_AAB" = "true" ] ; then

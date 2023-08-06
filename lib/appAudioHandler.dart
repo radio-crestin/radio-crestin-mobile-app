@@ -23,11 +23,11 @@ Future<AppAudioHandler> initAudioService({required graphqlClient}) async {
       // androidNotificationChannelId: 'com.radiocrestin.radiocrestin.channel.audio',
       androidNotificationChannelName: 'Radio Crestin',
       androidNotificationIcon: "drawable/ic_launcher_foreground",
-      // androidNotificationOngoing: true,
+      androidNotificationOngoing: true,
       notificationColor: Color(0xffe91e63),
       preloadArtwork: true,
       androidShowNotificationBadge: true,
-      androidStopForegroundOnPause: false,
+      androidStopForegroundOnPause: true,
     ),
   );
 }
