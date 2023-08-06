@@ -22,37 +22,35 @@ class QueueList extends StatelessWidget {
       itemCount: queue.length,
       itemBuilder: (context, itemIdx) {
         final item = queue[itemIdx];
-        final itemMetadata = item;
         final isSelected = item.id == mediaItem?.id;
         return ListTile(
             tileColor: isSelected ? appTheme.highlightColor : null,
             leading: SizedBox(
             width: 50,
             height: 50,
-            child: Utils.displayImage(itemMetadata.artUri.toString(), cache: itemMetadata.artUri.toString() == itemMetadata.extras?["thumbnail_url"]),
+            child: Utils.displayImage(item.artUri.toString(), cache: item.artUri.toString() == item.extras?["thumbnail_url"]),
           ),
           title: Row(
             children: [
-              Text(itemMetadata.displayTitle ?? ""),
+              Text(item.displayTitle ?? ""),
               const Spacer(),
-              Text("${itemMetadata.extras?["total_listeners"] ?? 0}", style: const TextStyle(color: Colors.grey, fontSize: 12)),
+              Text("${item.extras?["total_listeners"] ?? 0}", style: const TextStyle(color: Colors.grey, fontSize: 12)),
               const SizedBox(width: 4),
               const Icon(Icons.visibility, size: 14, color: Colors.grey),
             ],
           ),
-          subtitle: itemMetadata.extras?["station_is_up"] == false ? Text(
+          subtitle: item.extras?["station_is_up"] == false ? Text(
             "Statie offline",
             style: TextStyle(color: appTheme.primaryColor),
           ): TextScroll(
-            itemMetadata.displaySubtitle ?? "",
+            item.displaySubtitle ?? "",
             textAlign: TextAlign.left,
             mode: TextScrollMode.endless,
             velocity: const Velocity(pixelsPerSecond: Offset(10, 0)),
             numberOfReps: 5,
           ),
-          onTap: () {
-            audioHandler.skipToQueueItem(itemIdx);
-            audioHandler.play();
+          onTap: () async {
+            audioHandler.playMediaItem(item);
           }
         );
       },

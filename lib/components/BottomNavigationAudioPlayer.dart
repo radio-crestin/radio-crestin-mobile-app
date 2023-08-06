@@ -6,7 +6,6 @@ import 'package:text_scroll/text_scroll.dart';
 import '../utils.dart';
 
 class BottomNavigationAudioPlayer extends StatelessWidget {
-  final int stationIdx;
   final String displayTitle;
   final String displaySubtitle;
   final String displayThumbnailUrl;
@@ -18,7 +17,6 @@ class BottomNavigationAudioPlayer extends StatelessWidget {
     super.key,
     required this.isElevated,
     required this.isVisible,
-    required this.stationIdx,
     required this.displayTitle,
     required this.displaySubtitle,
     required this.displayThumbnailUrl,

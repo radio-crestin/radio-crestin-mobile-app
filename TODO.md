@@ -30,3 +30,5 @@ Pe viitor:
 - listeaza aplicatia in Android Auto
 - listeaza aplicatia in Android TV
 - listeaza aplicatia in Apple TV
+- salveaza ultima statie redata si porneste cu respectiva statie
+- adauga o optiune prin care marchezi statiile ca favorite si le adaugi intr-o lista separata

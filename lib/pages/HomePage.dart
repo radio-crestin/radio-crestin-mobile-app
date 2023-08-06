@@ -35,7 +35,7 @@ class _HomePageState extends State<HomePage> {
   /// media item within that queue.
   Stream<QueueState> get _queueStateStream =>
       Rx.combineLatest2<List<MediaItem>, MediaItem?, QueueState>(
-          _audioHandler.queue,
+          _audioHandler.stationsMediaItems,
           _audioHandler.mediaItem,
               (queue, mediaItem) => QueueState(queue, mediaItem));
 
@@ -43,7 +43,7 @@ class _HomePageState extends State<HomePage> {
   initState() {
     super.initState();
     _isVisible = true;
-    _hideButtonController = new ScrollController();
+    _hideButtonController = ScrollController();
     _hideButtonController.addListener(() {
       if (_hideButtonController.position.userScrollDirection ==
           ScrollDirection.reverse) {
@@ -77,7 +77,7 @@ class _HomePageState extends State<HomePage> {
                       width: 30,
                       height: 30)),
               title: Container(
-                child: Text('Radio Crestin'),
+                child: const Text('Radio Crestin'),
                 transform: Matrix4.translationValues(-16, 0, 0.0),
               ),
               titleTextStyle: const TextStyle(
@@ -120,7 +120,7 @@ class _HomePageState extends State<HomePage> {
                 StreamBuilder<QueueState>(
                   stream: _queueStateStream,
                   builder: (context, snapshot) {
-                    final queue = snapshot.data?.queue ?? [];
+                    final queue = snapshot.data?.stationsMediaItems ?? [];
                     final mediaItem = snapshot.data?.mediaItem;
                     return QueueList(
                         queue: queue,
@@ -141,8 +141,6 @@ class _HomePageState extends State<HomePage> {
                         child: BottomNavigationAudioPlayer(
                           isElevated: true,
                           isVisible: mediaItem != null,
-                          // stationIdx: _audioHandler.stationIdx ?? 0,
-                          stationIdx: 0,
                           displayTitle: mediaItem?.displayTitle ?? "",
                           displaySubtitle: mediaItem?.displaySubtitle ?? "",
                           displayThumbnailUrl: mediaItem?.artUri.toString() ?? "",

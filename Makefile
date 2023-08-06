@@ -18,4 +18,4 @@ build-android-release:
 
 start-android-auto:
 	# Connect your phone via USB
-	~/Library/Android/sdk/extras/google/auto/desktop-head-unit --usb -c ./dhu/portrait.ini
+	~/Library/Android/sdk/extras/google/auto/desktop-head-unit --usb -c ./dhu/landscape.ini
