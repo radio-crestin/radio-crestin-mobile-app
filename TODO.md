@@ -28,3 +28,5 @@ Pe viitor:
 - listeaza aplicatia in Windows Store
 - listeaza aplicatia in Amazon Store
 - listeaza aplicatia in Android Auto
+- listeaza aplicatia in Android TV
+- listeaza aplicatia in Apple TV
