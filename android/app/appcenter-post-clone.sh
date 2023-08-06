@@ -22,14 +22,14 @@ echo "Installed flutter to `pwd`/flutter"
 echo "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
 
 # build APK
-flutter -v build apk --release --target-platform android-arm64 --target $APP_TARGET
+flutter -v build apk --release
 
 # copy the APK where AppCenter will find it
 mkdir -p android/app/build/outputs/apk/; mv build/app/outputs/apk/release/app-release.apk $_
 
 # build bundle (AAB)
 if [ "$BUILD_AAB" = "true" ] ; then
-    flutter -v build appbundle --target $APP_TARGET --target-platform android-arm,android-arm64,android-x64
+    flutter -v build appbundle --release
 
     # copy the AAB where AppCenter will find it
     mkdir -p android/app/build/outputs/bundle/; mv build/app/outputs/bundle/release/app-release.aab $_
