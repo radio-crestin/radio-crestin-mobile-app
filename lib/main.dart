@@ -84,6 +84,33 @@ void main() async {
   GraphQLClient graphqlClient = GraphQLClient(
     link: graphqlLink,
     cache: graphQlCache,
+    defaultPolicies: DefaultPolicies(
+      query: Policies(
+        fetch: FetchPolicy.cacheAndNetwork,
+        error: ErrorPolicy.none,
+        cacheReread: CacheRereadPolicy.mergeOptimistic,
+      ),
+      watchQuery: Policies(
+        fetch: FetchPolicy.cacheAndNetwork,
+        error: ErrorPolicy.none,
+        cacheReread: CacheRereadPolicy.mergeOptimistic,
+      ),
+      mutate: Policies(
+        fetch: FetchPolicy.cacheAndNetwork,
+        error: ErrorPolicy.none,
+        cacheReread: CacheRereadPolicy.mergeOptimistic,
+      ),
+      watchMutation: Policies(
+        fetch: FetchPolicy.cacheAndNetwork,
+        error: ErrorPolicy.none,
+        cacheReread: CacheRereadPolicy.mergeOptimistic,
+      ),
+      subscribe: Policies(
+        fetch: FetchPolicy.cacheAndNetwork,
+        error: ErrorPolicy.none,
+        cacheReread: CacheRereadPolicy.mergeOptimistic,
+      ),
+    ),
   );
 
   getIt.registerSingleton<AppAudioHandler>(await initAudioService(graphqlClient: graphqlClient));
