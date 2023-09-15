@@ -66,7 +66,6 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-
     return UpgradeAlert(
       upgrader: Upgrader(showIgnore: false),
         child: Scaffold(

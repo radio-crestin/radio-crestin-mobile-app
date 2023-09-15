@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:radio_crestin/appAudioHandler.dart';
 import 'package:radio_crestin/theme.dart';
 import 'package:radio_crestin/utils.dart';
-import 'package:text_scroll/text_scroll.dart';
 
 class QueueList extends StatelessWidget {
 
@@ -42,12 +41,9 @@ class QueueList extends StatelessWidget {
           subtitle: item.extras?["station_is_up"] == false ? Text(
             "Statie offline",
             style: TextStyle(color: appTheme.primaryColor),
-          ): TextScroll(
+          ): Text(
             item.displaySubtitle ?? "",
             textAlign: TextAlign.left,
-            mode: TextScrollMode.endless,
-            velocity: const Velocity(pixelsPerSecond: Offset(10, 0)),
-            numberOfReps: 5,
           ),
           onTap: () async {
             audioHandler.playMediaItem(item);

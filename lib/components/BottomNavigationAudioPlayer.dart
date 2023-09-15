@@ -1,7 +1,6 @@
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:swipe/swipe.dart';
-import 'package:text_scroll/text_scroll.dart';
 
 import '../utils.dart';
 
@@ -60,7 +59,7 @@ class BottomNavigationAudioPlayer extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  TextScroll(
+                  Text(
                     displayTitle,
                     style: const TextStyle(
                       color: Colors.white,
@@ -68,9 +67,6 @@ class BottomNavigationAudioPlayer extends StatelessWidget {
                       fontSize: 16,
                     ),
                     textAlign: TextAlign.left,
-                    mode: TextScrollMode.endless,
-                    velocity: const Velocity(pixelsPerSecond: Offset(10, 0)),
-                    numberOfReps: 5,
                   ),
                   displaySubtitle.isNotEmpty
                       ? Flexible(

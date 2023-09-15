@@ -46,9 +46,7 @@ final ThemeData appTheme = ThemeData(
     hoverColor: Color(0x0a000000),
     colorScheme: ColorScheme(
       primary: Color(0xffe91e63),
-      primaryVariant: Color(0xffc2185b),
       secondary: Color(0xffe91e63),
-      secondaryVariant: Color(0xffc2185b),
       surface: Color(0xffffffff),
       background: Color(0xfff48fb1),
       error: Color(0xffd32f2f),
