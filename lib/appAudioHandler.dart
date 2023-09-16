@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:audio_service/audio_service.dart';
 import 'package:fast_cached_network_image/fast_cached_network_image.dart';
 import 'package:flutter/services.dart';
+import 'package:fuzzywuzzy/fuzzywuzzy.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:radio_crestin/queries/getStations.graphql.dart';
@@ -174,6 +175,13 @@ class AppAudioHandler extends BaseAudioHandler {
   }
 
   @override
+  Future<void> skipToQueueItem(int index) {
+    _log("skipToQueueItem: $index");
+    playMediaItem(stationsMediaItems.value[index]);
+    return super.skipToQueueItem(index);
+  }
+
+  @override
   Future<void> play() {
     _log("play");
     if(currentStation != null) {
@@ -185,11 +193,16 @@ class AppAudioHandler extends BaseAudioHandler {
   }
 
   @override
-  Future<void> pause() {
+  Future<void> pause() async {
     _log("pause");
-    return stop();
-  }
+    if(currentStation != null) {
+      AppTracking.trackStopStation(currentStation!);
+    }
+    // mediaItem.add(null);
 
+    await _player.stop();
+    return super.stop();
+  }
 
   @override
   Future<void> stop() async {
@@ -197,18 +210,16 @@ class AppAudioHandler extends BaseAudioHandler {
     if(currentStation != null) {
       AppTracking.trackStopStation(currentStation!);
     }
-    // mediaItem.add(null);
-    // We're pausing because there is a bug with the notification if we don't do this
-    await _player.pause();
-
     await _player.stop();
-    await playbackState.firstWhere((state) => state.processingState == AudioProcessingState.idle);
+    // mediaItem.add(null);
     return super.stop();
   }
 
+
+
   /// Broadcasts the current state to all clients.
   void _broadcastState(PlaybackEvent event) {
-    _log("_broadcastState: $event");
+    _log("_broadcastState: $event, _player.processingState: ${_player.processingState}");
     final playing = _player.playing;
     playbackState.add(playbackState.value.copyWith(
       controls: [
@@ -301,7 +312,12 @@ class AppAudioHandler extends BaseAudioHandler {
   }
 
   Query$GetStations$stations? get currentStation {
-    return stations.firstWhere((element) => element.id == mediaItem.value!.extras?["station_id"]);
+    if (mediaItem.value != null) {
+      return stations.firstWhere((element) => element.id == mediaItem.value!.extras?["station_id"]);
+    } else {
+      // Handle the case when either 'stations' or 'mediaItem.value' is null
+      return null; // Or provide a default value or error handling as needed
+    }
   }
 
   void startListeningTracker() {
@@ -329,7 +345,31 @@ class AppAudioHandler extends BaseAudioHandler {
   @override
   Future<void> playFromSearch(String query, [Map<String, dynamic>? extras]) {
     _log('playFromSearch($query, $extras)');
-    return super.playFromSearch(query, extras);
+
+    var maxR = 0;
+    var selectedStationMediaItem;
+    for(var v in stationsMediaItems.value) {
+      var r = partialRatio(v.title, query);
+      if(r>maxR) {
+        maxR = r;
+        selectedStationMediaItem = v;
+      }
+    }
+    if(maxR > 0) {
+      return playMediaItem(selectedStationMediaItem);
+    } else {
+      return playMediaItem(stationsMediaItems.value[0]);
+    }
+  }
+
+  @override
+  Future<void> playFromUri(Uri uri, [Map<String, dynamic>? extras]) {
+    for(var v in stationsMediaItems.value) {
+      if(v.id.toString() == uri.toString()) {
+        return playMediaItem(v);
+      }
+    }
+    return super.playFromUri(uri);
   }
 
   @override
