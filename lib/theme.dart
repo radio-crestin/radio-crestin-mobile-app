@@ -18,12 +18,11 @@ final ThemeData appTheme = ThemeData(
   dialogBackgroundColor: Color(0xffffffff),
   indicatorColor: Color(0xffe91e63),
   appBarTheme: const AppBarTheme(
-      surfaceTintColor: null,
+    surfaceTintColor: null,
   ),
   bottomAppBarTheme: BottomAppBarTheme(
-      color: Colors.grey[900],
-),
-
+    color: Colors.grey[900],
+  ),
   buttonTheme: const ButtonThemeData(
     textTheme: ButtonTextTheme.normal,
     minWidth: 88,
@@ -270,8 +269,7 @@ final ThemeData appTheme = ThemeData(
     borderRadius: BorderRadius.all(Radius.circular(0.0)),
   )),
   checkboxTheme: CheckboxThemeData(
-    fillColor:
-        MaterialStateProperty.resolveWith<Color?>((Set<MaterialState> states) {
+    fillColor: MaterialStateProperty.resolveWith<Color?>((Set<MaterialState> states) {
       if (states.contains(MaterialState.disabled)) {
         return null;
       }
@@ -282,8 +280,7 @@ final ThemeData appTheme = ThemeData(
     }),
   ),
   radioTheme: RadioThemeData(
-    fillColor:
-        MaterialStateProperty.resolveWith<Color?>((Set<MaterialState> states) {
+    fillColor: MaterialStateProperty.resolveWith<Color?>((Set<MaterialState> states) {
       if (states.contains(MaterialState.disabled)) {
         return null;
       }
@@ -294,8 +291,7 @@ final ThemeData appTheme = ThemeData(
     }),
   ),
   switchTheme: SwitchThemeData(
-    thumbColor:
-        MaterialStateProperty.resolveWith<Color?>((Set<MaterialState> states) {
+    thumbColor: MaterialStateProperty.resolveWith<Color?>((Set<MaterialState> states) {
       if (states.contains(MaterialState.disabled)) {
         return null;
       }
@@ -304,8 +300,7 @@ final ThemeData appTheme = ThemeData(
       }
       return null;
     }),
-    trackColor:
-        MaterialStateProperty.resolveWith<Color?>((Set<MaterialState> states) {
+    trackColor: MaterialStateProperty.resolveWith<Color?>((Set<MaterialState> states) {
       if (states.contains(MaterialState.disabled)) {
         return null;
       }

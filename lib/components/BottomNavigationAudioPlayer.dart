@@ -30,7 +30,6 @@ class BottomNavigationAudioPlayer extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         height: isVisible ? 80.0 : 0,
-
         decoration: BoxDecoration(
           color: Theme.of(context).bottomAppBarTheme.color!,
           border: Border.all(
@@ -70,17 +69,17 @@ class BottomNavigationAudioPlayer extends StatelessWidget {
                   ),
                   displaySubtitle.isNotEmpty
                       ? Flexible(
-                      child: Text(
-                        displaySubtitle,
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.7),
-                          fontSize: 12,
-                        ),
-                        textAlign: TextAlign.left,
-                      ))
+                          child: Text(
+                          displaySubtitle,
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.7),
+                            fontSize: 12,
+                          ),
+                          textAlign: TextAlign.left,
+                        ))
                       : const SizedBox(
-                    height: 0,
-                  ),
+                          height: 0,
+                        ),
                 ],
               ),
             ),
@@ -125,21 +124,21 @@ class BottomNavigationAudioPlayer extends StatelessWidget {
                           Center(
                             child: playing
                                 ? IconButton(
-                              tooltip: "Pauza",
-                              onPressed: audioHandler.stop,
-                              icon: const Icon(
-                                Icons.pause_rounded,
-                              ),
-                              color: Theme.of(context).iconTheme.color!,
-                            )
+                                    tooltip: "Pauza",
+                                    onPressed: audioHandler.stop,
+                                    icon: const Icon(
+                                      Icons.pause_rounded,
+                                    ),
+                                    color: Theme.of(context).iconTheme.color!,
+                                  )
                                 : IconButton(
-                              tooltip: "Start",
-                              onPressed: audioHandler.play,
-                              icon: const Icon(
-                                Icons.play_arrow_rounded,
-                              ),
-                              color: Theme.of(context).iconTheme.color!,
-                            ),
+                                    tooltip: "Start",
+                                    onPressed: audioHandler.play,
+                                    icon: const Icon(
+                                      Icons.play_arrow_rounded,
+                                    ),
+                                    color: Theme.of(context).iconTheme.color!,
+                                  ),
                           )
                         ],
                       );

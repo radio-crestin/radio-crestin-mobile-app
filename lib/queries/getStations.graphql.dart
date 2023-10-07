@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:flutter/widgets.dart' as widgets;
 import 'package:gql/ast.dart';
 import 'package:graphql/client.dart' as graphql;
@@ -16,7 +17,7 @@ class Query$GetStations {
     return Query$GetStations(
       stations: (l$stations as List<dynamic>)
           .map((e) =>
-              Query$GetStations$stations.fromJson((e as Map<String, dynamic>)))
+          Query$GetStations$stations.fromJson((e as Map<String, dynamic>)))
           .toList(),
       $__typename: (l$$__typename as String),
     );
@@ -78,37 +79,33 @@ extension UtilityExtension$Query$GetStations on Query$GetStations {
   CopyWith$Query$GetStations<Query$GetStations> get copyWith =>
       CopyWith$Query$GetStations(
         this,
-        (i) => i,
+            (i) => i,
       );
 }
 
 abstract class CopyWith$Query$GetStations<TRes> {
-  factory CopyWith$Query$GetStations(
-    Query$GetStations instance,
-    TRes Function(Query$GetStations) then,
-  ) = _CopyWithImpl$Query$GetStations;
+  factory CopyWith$Query$GetStations(Query$GetStations instance,
+      TRes Function(Query$GetStations) then,) = _CopyWithImpl$Query$GetStations;
 
   factory CopyWith$Query$GetStations.stub(TRes res) =
-      _CopyWithStubImpl$Query$GetStations;
+  _CopyWithStubImpl$Query$GetStations;
 
   TRes call({
     List<Query$GetStations$stations>? stations,
     String? $__typename,
   });
-  TRes stations(
-      Iterable<Query$GetStations$stations> Function(
-              Iterable<
-                  CopyWith$Query$GetStations$stations<
-                      Query$GetStations$stations>>)
-          _fn);
+
+  TRes stations(Iterable<Query$GetStations$stations> Function(
+      Iterable<
+          CopyWith$Query$GetStations$stations<
+              Query$GetStations$stations>>)
+  _fn);
 }
 
 class _CopyWithImpl$Query$GetStations<TRes>
     implements CopyWith$Query$GetStations<TRes> {
-  _CopyWithImpl$Query$GetStations(
-    this._instance,
-    this._then,
-  );
+  _CopyWithImpl$Query$GetStations(this._instance,
+      this._then,);
 
   final Query$GetStations _instance;
 
@@ -128,17 +125,18 @@ class _CopyWithImpl$Query$GetStations<TRes>
             ? _instance.$__typename
             : ($__typename as String),
       ));
-  TRes stations(
-          Iterable<Query$GetStations$stations> Function(
-                  Iterable<
-                      CopyWith$Query$GetStations$stations<
-                          Query$GetStations$stations>>)
-              _fn) =>
+
+  TRes stations(Iterable<Query$GetStations$stations> Function(
+      Iterable<
+          CopyWith$Query$GetStations$stations<
+              Query$GetStations$stations>>)
+  _fn) =>
       call(
           stations: _fn(
-              _instance.stations.map((e) => CopyWith$Query$GetStations$stations(
+              _instance.stations.map((e) =>
+                  CopyWith$Query$GetStations$stations(
                     e,
-                    (i) => i,
+                        (i) => i,
                   ))).toList());
 }
 
@@ -153,6 +151,7 @@ class _CopyWithStubImpl$Query$GetStations<TRes>
     String? $__typename,
   }) =>
       _res;
+
   stations(_fn) => _res;
 }
 
@@ -551,15 +550,16 @@ const documentNodeQueryGetStations = DocumentNode(definitions: [
     ]),
   ),
 ]);
+
 Query$GetStations _parserFn$Query$GetStations(Map<String, dynamic> data) =>
     Query$GetStations.fromJson(data);
-typedef OnQueryComplete$Query$GetStations = FutureOr<void> Function(
-  Map<String, dynamic>?,
-  Query$GetStations?,
-);
 
-class Options$Query$GetStations
-    extends graphql.QueryOptions<Query$GetStations> {
+typedef OnQueryComplete$Query$GetStations = FutureOr<void> Function(
+    Map<String, dynamic>?,
+    Query$GetStations?,
+    );
+
+class Options$Query$GetStations extends graphql.QueryOptions<Query$GetStations> {
   Options$Query$GetStations({
     String? operationName,
     graphql.FetchPolicy? fetchPolicy,
@@ -571,30 +571,33 @@ class Options$Query$GetStations
     graphql.Context? context,
     OnQueryComplete$Query$GetStations? onComplete,
     graphql.OnQueryError? onError,
-  })  : onCompleteWithParsed = onComplete,
+  })
+      : onCompleteWithParsed = onComplete,
         super(
-          operationName: operationName,
-          fetchPolicy: fetchPolicy,
-          errorPolicy: errorPolicy,
-          cacheRereadPolicy: cacheRereadPolicy,
-          optimisticResult: optimisticResult ?? typedOptimisticResult?.toJson(),
-          pollInterval: pollInterval,
-          context: context,
-          onComplete: onComplete == null
-              ? null
-              : (data) => onComplete(
-                    data,
-                    data == null ? null : _parserFn$Query$GetStations(data),
-                  ),
-          onError: onError,
-          document: documentNodeQueryGetStations,
-          parserFn: _parserFn$Query$GetStations,
-        );
+        operationName: operationName,
+        fetchPolicy: fetchPolicy,
+        errorPolicy: errorPolicy,
+        cacheRereadPolicy: cacheRereadPolicy,
+        optimisticResult: optimisticResult ?? typedOptimisticResult?.toJson(),
+        pollInterval: pollInterval,
+        context: context,
+        onComplete: onComplete == null
+            ? null
+            : (data) =>
+            onComplete(
+              data,
+              data == null ? null : _parserFn$Query$GetStations(data),
+            ),
+        onError: onError,
+        document: documentNodeQueryGetStations,
+        parserFn: _parserFn$Query$GetStations,
+      );
 
   final OnQueryComplete$Query$GetStations? onCompleteWithParsed;
 
   @override
-  List<Object?> get properties => [
+  List<Object?> get properties =>
+      [
         ...super.onComplete == null
             ? super.properties
             : super.properties.where((property) => property != onComplete),
@@ -602,8 +605,7 @@ class Options$Query$GetStations
       ];
 }
 
-class WatchOptions$Query$GetStations
-    extends graphql.WatchQueryOptions<Query$GetStations> {
+class WatchOptions$Query$GetStations extends graphql.WatchQueryOptions<Query$GetStations> {
   WatchOptions$Query$GetStations({
     String? operationName,
     graphql.FetchPolicy? fetchPolicy,
@@ -617,36 +619,38 @@ class WatchOptions$Query$GetStations
     bool carryForwardDataOnException = true,
     bool fetchResults = false,
   }) : super(
-          operationName: operationName,
-          fetchPolicy: fetchPolicy,
-          errorPolicy: errorPolicy,
-          cacheRereadPolicy: cacheRereadPolicy,
-          optimisticResult: optimisticResult ?? typedOptimisticResult?.toJson(),
-          context: context,
-          document: documentNodeQueryGetStations,
-          pollInterval: pollInterval,
-          eagerlyFetchResults: eagerlyFetchResults,
-          carryForwardDataOnException: carryForwardDataOnException,
-          fetchResults: fetchResults,
-          parserFn: _parserFn$Query$GetStations,
-        );
+    operationName: operationName,
+    fetchPolicy: fetchPolicy,
+    errorPolicy: errorPolicy,
+    cacheRereadPolicy: cacheRereadPolicy,
+    optimisticResult: optimisticResult ?? typedOptimisticResult?.toJson(),
+    context: context,
+    document: documentNodeQueryGetStations,
+    pollInterval: pollInterval,
+    eagerlyFetchResults: eagerlyFetchResults,
+    carryForwardDataOnException: carryForwardDataOnException,
+    fetchResults: fetchResults,
+    parserFn: _parserFn$Query$GetStations,
+  );
 }
 
 class FetchMoreOptions$Query$GetStations extends graphql.FetchMoreOptions {
   FetchMoreOptions$Query$GetStations({required graphql.UpdateQuery updateQuery})
       : super(
-          updateQuery: updateQuery,
-          document: documentNodeQueryGetStations,
-        );
+    updateQuery: updateQuery,
+    document: documentNodeQueryGetStations,
+  );
 }
 
 extension ClientExtension$Query$GetStations on graphql.GraphQLClient {
   Future<graphql.QueryResult<Query$GetStations>> query$GetStations(
-          [Options$Query$GetStations? options]) async =>
+      [Options$Query$GetStations? options]) async =>
       await this.query(options ?? Options$Query$GetStations());
+
   graphql.ObservableQuery<Query$GetStations> watchQuery$GetStations(
-          [WatchOptions$Query$GetStations? options]) =>
+      [WatchOptions$Query$GetStations? options]) =>
       this.watchQuery(options ?? WatchOptions$Query$GetStations());
+
   void writeQuery$GetStations({
     required Query$GetStations data,
     bool broadcast = true,
@@ -654,10 +658,11 @@ extension ClientExtension$Query$GetStations on graphql.GraphQLClient {
       this.writeQuery(
         graphql.Request(
             operation:
-                graphql.Operation(document: documentNodeQueryGetStations)),
+            graphql.Operation(document: documentNodeQueryGetStations)),
         data: data.toJson(),
         broadcast: broadcast,
       );
+
   Query$GetStations? readQuery$GetStations({bool optimistic = true}) {
     final result = this.readQuery(
       graphql.Request(
@@ -669,23 +674,23 @@ extension ClientExtension$Query$GetStations on graphql.GraphQLClient {
 }
 
 graphql_flutter.QueryHookResult<Query$GetStations> useQuery$GetStations(
-        [Options$Query$GetStations? options]) =>
+    [Options$Query$GetStations? options]) =>
     graphql_flutter.useQuery(options ?? Options$Query$GetStations());
+
 graphql.ObservableQuery<Query$GetStations> useWatchQuery$GetStations(
-        [WatchOptions$Query$GetStations? options]) =>
+    [WatchOptions$Query$GetStations? options]) =>
     graphql_flutter.useWatchQuery(options ?? WatchOptions$Query$GetStations());
 
-class Query$GetStations$Widget
-    extends graphql_flutter.Query<Query$GetStations> {
+class Query$GetStations$Widget extends graphql_flutter.Query<Query$GetStations> {
   Query$GetStations$Widget({
     widgets.Key? key,
     Options$Query$GetStations? options,
     required graphql_flutter.QueryBuilder<Query$GetStations> builder,
   }) : super(
-          key: key,
-          options: options ?? Options$Query$GetStations(),
-          builder: builder,
-        );
+    key: key,
+    options: options ?? Options$Query$GetStations(),
+    builder: builder,
+  );
 }
 
 class Query$GetStations$stations {
@@ -753,19 +758,21 @@ class Query$GetStations$stations {
       feature_latest_post: (l$feature_latest_post as bool),
       facebook_page_id: (l$facebook_page_id as String?),
       posts: (l$posts as List<dynamic>)
-          .map((e) => Query$GetStations$stations$posts.fromJson(
+          .map((e) =>
+          Query$GetStations$stations$posts.fromJson(
               (e as Map<String, dynamic>)))
           .toList(),
       uptime: l$uptime == null
           ? null
           : Query$GetStations$stations$uptime.fromJson(
-              (l$uptime as Map<String, dynamic>)),
+          (l$uptime as Map<String, dynamic>)),
       now_playing: l$now_playing == null
           ? null
           : Query$GetStations$stations$now_playing.fromJson(
-              (l$now_playing as Map<String, dynamic>)),
+          (l$now_playing as Map<String, dynamic>)),
       reviews: (l$reviews as List<dynamic>)
-          .map((e) => Query$GetStations$stations$reviews.fromJson(
+          .map((e) =>
+          Query$GetStations$stations$reviews.fromJson(
               (e as Map<String, dynamic>)))
           .toList(),
       $__typename: (l$$__typename as String),
@@ -1042,22 +1049,21 @@ class Query$GetStations$stations {
 }
 
 extension UtilityExtension$Query$GetStations$stations
-    on Query$GetStations$stations {
+on Query$GetStations$stations {
   CopyWith$Query$GetStations$stations<Query$GetStations$stations>
-      get copyWith => CopyWith$Query$GetStations$stations(
-            this,
+  get copyWith =>
+      CopyWith$Query$GetStations$stations(
+        this,
             (i) => i,
-          );
+      );
 }
 
 abstract class CopyWith$Query$GetStations$stations<TRes> {
-  factory CopyWith$Query$GetStations$stations(
-    Query$GetStations$stations instance,
-    TRes Function(Query$GetStations$stations) then,
-  ) = _CopyWithImpl$Query$GetStations$stations;
+  factory CopyWith$Query$GetStations$stations(Query$GetStations$stations instance,
+      TRes Function(Query$GetStations$stations) then,) = _CopyWithImpl$Query$GetStations$stations;
 
   factory CopyWith$Query$GetStations$stations.stub(TRes res) =
-      _CopyWithStubImpl$Query$GetStations$stations;
+  _CopyWithStubImpl$Query$GetStations$stations;
 
   TRes call({
     int? id,
@@ -1082,28 +1088,28 @@ abstract class CopyWith$Query$GetStations$stations<TRes> {
     List<Query$GetStations$stations$reviews>? reviews,
     String? $__typename,
   });
-  TRes posts(
-      Iterable<Query$GetStations$stations$posts> Function(
-              Iterable<
-                  CopyWith$Query$GetStations$stations$posts<
-                      Query$GetStations$stations$posts>>)
-          _fn);
+
+  TRes posts(Iterable<Query$GetStations$stations$posts> Function(
+      Iterable<
+          CopyWith$Query$GetStations$stations$posts<
+              Query$GetStations$stations$posts>>)
+  _fn);
+
   CopyWith$Query$GetStations$stations$uptime<TRes> get uptime;
+
   CopyWith$Query$GetStations$stations$now_playing<TRes> get now_playing;
-  TRes reviews(
-      Iterable<Query$GetStations$stations$reviews> Function(
-              Iterable<
-                  CopyWith$Query$GetStations$stations$reviews<
-                      Query$GetStations$stations$reviews>>)
-          _fn);
+
+  TRes reviews(Iterable<Query$GetStations$stations$reviews> Function(
+      Iterable<
+          CopyWith$Query$GetStations$stations$reviews<
+              Query$GetStations$stations$reviews>>)
+  _fn);
 }
 
 class _CopyWithImpl$Query$GetStations$stations<TRes>
     implements CopyWith$Query$GetStations$stations<TRes> {
-  _CopyWithImpl$Query$GetStations$stations(
-    this._instance,
-    this._then,
-  );
+  _CopyWithImpl$Query$GetStations$stations(this._instance,
+      this._then,);
 
   final Query$GetStations$stations _instance;
 
@@ -1176,9 +1182,9 @@ class _CopyWithImpl$Query$GetStations$stations<TRes>
             ? _instance.description_link
             : (description_link as String?),
         feature_latest_post:
-            feature_latest_post == _undefined || feature_latest_post == null
-                ? _instance.feature_latest_post
-                : (feature_latest_post as bool),
+        feature_latest_post == _undefined || feature_latest_post == null
+            ? _instance.feature_latest_post
+            : (feature_latest_post as bool),
         facebook_page_id: facebook_page_id == _undefined
             ? _instance.facebook_page_id
             : (facebook_page_id as String?),
@@ -1198,24 +1204,26 @@ class _CopyWithImpl$Query$GetStations$stations<TRes>
             ? _instance.$__typename
             : ($__typename as String),
       ));
-  TRes posts(
-          Iterable<Query$GetStations$stations$posts> Function(
-                  Iterable<
-                      CopyWith$Query$GetStations$stations$posts<
-                          Query$GetStations$stations$posts>>)
-              _fn) =>
+
+  TRes posts(Iterable<Query$GetStations$stations$posts> Function(
+      Iterable<
+          CopyWith$Query$GetStations$stations$posts<
+              Query$GetStations$stations$posts>>)
+  _fn) =>
       call(
           posts: _fn(_instance.posts
-              .map((e) => CopyWith$Query$GetStations$stations$posts(
-                    e,
+              .map((e) =>
+              CopyWith$Query$GetStations$stations$posts(
+                e,
                     (i) => i,
-                  ))).toList());
+              ))).toList());
+
   CopyWith$Query$GetStations$stations$uptime<TRes> get uptime {
     final local$uptime = _instance.uptime;
     return local$uptime == null
         ? CopyWith$Query$GetStations$stations$uptime.stub(_then(_instance))
         : CopyWith$Query$GetStations$stations$uptime(
-            local$uptime, (e) => call(uptime: e));
+        local$uptime, (e) => call(uptime: e));
   }
 
   CopyWith$Query$GetStations$stations$now_playing<TRes> get now_playing {
@@ -1223,21 +1231,21 @@ class _CopyWithImpl$Query$GetStations$stations<TRes>
     return local$now_playing == null
         ? CopyWith$Query$GetStations$stations$now_playing.stub(_then(_instance))
         : CopyWith$Query$GetStations$stations$now_playing(
-            local$now_playing, (e) => call(now_playing: e));
+        local$now_playing, (e) => call(now_playing: e));
   }
 
-  TRes reviews(
-          Iterable<Query$GetStations$stations$reviews> Function(
-                  Iterable<
-                      CopyWith$Query$GetStations$stations$reviews<
-                          Query$GetStations$stations$reviews>>)
-              _fn) =>
+  TRes reviews(Iterable<Query$GetStations$stations$reviews> Function(
+      Iterable<
+          CopyWith$Query$GetStations$stations$reviews<
+              Query$GetStations$stations$reviews>>)
+  _fn) =>
       call(
           reviews: _fn(_instance.reviews
-              .map((e) => CopyWith$Query$GetStations$stations$reviews(
-                    e,
+              .map((e) =>
+              CopyWith$Query$GetStations$stations$reviews(
+                e,
                     (i) => i,
-                  ))).toList());
+              ))).toList());
 }
 
 class _CopyWithStubImpl$Query$GetStations$stations<TRes>
@@ -1270,11 +1278,15 @@ class _CopyWithStubImpl$Query$GetStations$stations<TRes>
     String? $__typename,
   }) =>
       _res;
+
   posts(_fn) => _res;
+
   CopyWith$Query$GetStations$stations$uptime<TRes> get uptime =>
       CopyWith$Query$GetStations$stations$uptime.stub(_res);
+
   CopyWith$Query$GetStations$stations$now_playing<TRes> get now_playing =>
       CopyWith$Query$GetStations$stations$now_playing.stub(_res);
+
   reviews(_fn) => _res;
 }
 
@@ -1396,22 +1408,21 @@ class Query$GetStations$stations$posts {
 }
 
 extension UtilityExtension$Query$GetStations$stations$posts
-    on Query$GetStations$stations$posts {
+on Query$GetStations$stations$posts {
   CopyWith$Query$GetStations$stations$posts<Query$GetStations$stations$posts>
-      get copyWith => CopyWith$Query$GetStations$stations$posts(
-            this,
+  get copyWith =>
+      CopyWith$Query$GetStations$stations$posts(
+        this,
             (i) => i,
-          );
+      );
 }
 
 abstract class CopyWith$Query$GetStations$stations$posts<TRes> {
-  factory CopyWith$Query$GetStations$stations$posts(
-    Query$GetStations$stations$posts instance,
-    TRes Function(Query$GetStations$stations$posts) then,
-  ) = _CopyWithImpl$Query$GetStations$stations$posts;
+  factory CopyWith$Query$GetStations$stations$posts(Query$GetStations$stations$posts instance,
+      TRes Function(Query$GetStations$stations$posts) then,) = _CopyWithImpl$Query$GetStations$stations$posts;
 
   factory CopyWith$Query$GetStations$stations$posts.stub(TRes res) =
-      _CopyWithStubImpl$Query$GetStations$stations$posts;
+  _CopyWithStubImpl$Query$GetStations$stations$posts;
 
   TRes call({
     int? id,
@@ -1425,10 +1436,8 @@ abstract class CopyWith$Query$GetStations$stations$posts<TRes> {
 
 class _CopyWithImpl$Query$GetStations$stations$posts<TRes>
     implements CopyWith$Query$GetStations$stations$posts<TRes> {
-  _CopyWithImpl$Query$GetStations$stations$posts(
-    this._instance,
-    this._then,
-  );
+  _CopyWithImpl$Query$GetStations$stations$posts(this._instance,
+      this._then,);
 
   final Query$GetStations$stations$posts _instance;
 
@@ -1489,8 +1498,7 @@ class Query$GetStations$stations$uptime {
     this.$__typename = 'stations_uptime',
   });
 
-  factory Query$GetStations$stations$uptime.fromJson(
-      Map<String, dynamic> json) {
+  factory Query$GetStations$stations$uptime.fromJson(Map<String, dynamic> json) {
     final l$is_up = json['is_up'];
     final l$latency_ms = json['latency_ms'];
     final l$timestamp = json['timestamp'];
@@ -1572,22 +1580,21 @@ class Query$GetStations$stations$uptime {
 }
 
 extension UtilityExtension$Query$GetStations$stations$uptime
-    on Query$GetStations$stations$uptime {
+on Query$GetStations$stations$uptime {
   CopyWith$Query$GetStations$stations$uptime<Query$GetStations$stations$uptime>
-      get copyWith => CopyWith$Query$GetStations$stations$uptime(
-            this,
+  get copyWith =>
+      CopyWith$Query$GetStations$stations$uptime(
+        this,
             (i) => i,
-          );
+      );
 }
 
 abstract class CopyWith$Query$GetStations$stations$uptime<TRes> {
-  factory CopyWith$Query$GetStations$stations$uptime(
-    Query$GetStations$stations$uptime instance,
-    TRes Function(Query$GetStations$stations$uptime) then,
-  ) = _CopyWithImpl$Query$GetStations$stations$uptime;
+  factory CopyWith$Query$GetStations$stations$uptime(Query$GetStations$stations$uptime instance,
+      TRes Function(Query$GetStations$stations$uptime) then,) = _CopyWithImpl$Query$GetStations$stations$uptime;
 
   factory CopyWith$Query$GetStations$stations$uptime.stub(TRes res) =
-      _CopyWithStubImpl$Query$GetStations$stations$uptime;
+  _CopyWithStubImpl$Query$GetStations$stations$uptime;
 
   TRes call({
     bool? is_up,
@@ -1599,10 +1606,8 @@ abstract class CopyWith$Query$GetStations$stations$uptime<TRes> {
 
 class _CopyWithImpl$Query$GetStations$stations$uptime<TRes>
     implements CopyWith$Query$GetStations$stations$uptime<TRes> {
-  _CopyWithImpl$Query$GetStations$stations$uptime(
-    this._instance,
-    this._then,
-  );
+  _CopyWithImpl$Query$GetStations$stations$uptime(this._instance,
+      this._then,);
 
   final Query$GetStations$stations$uptime _instance;
 
@@ -1655,8 +1660,7 @@ class Query$GetStations$stations$now_playing {
     this.$__typename = 'stations_now_playing',
   });
 
-  factory Query$GetStations$stations$now_playing.fromJson(
-      Map<String, dynamic> json) {
+  factory Query$GetStations$stations$now_playing.fromJson(Map<String, dynamic> json) {
     final l$id = json['id'];
     final l$timestamp = json['timestamp'];
     final l$song = json['song'];
@@ -1667,7 +1671,7 @@ class Query$GetStations$stations$now_playing {
       song: l$song == null
           ? null
           : Query$GetStations$stations$now_playing$song.fromJson(
-              (l$song as Map<String, dynamic>)),
+          (l$song as Map<String, dynamic>)),
       $__typename: (l$$__typename as String),
     );
   }
@@ -1741,23 +1745,23 @@ class Query$GetStations$stations$now_playing {
 }
 
 extension UtilityExtension$Query$GetStations$stations$now_playing
-    on Query$GetStations$stations$now_playing {
+on Query$GetStations$stations$now_playing {
   CopyWith$Query$GetStations$stations$now_playing<
-          Query$GetStations$stations$now_playing>
-      get copyWith => CopyWith$Query$GetStations$stations$now_playing(
-            this,
+      Query$GetStations$stations$now_playing>
+  get copyWith =>
+      CopyWith$Query$GetStations$stations$now_playing(
+        this,
             (i) => i,
-          );
+      );
 }
 
 abstract class CopyWith$Query$GetStations$stations$now_playing<TRes> {
   factory CopyWith$Query$GetStations$stations$now_playing(
-    Query$GetStations$stations$now_playing instance,
-    TRes Function(Query$GetStations$stations$now_playing) then,
-  ) = _CopyWithImpl$Query$GetStations$stations$now_playing;
+      Query$GetStations$stations$now_playing instance,
+      TRes Function(Query$GetStations$stations$now_playing) then,) = _CopyWithImpl$Query$GetStations$stations$now_playing;
 
   factory CopyWith$Query$GetStations$stations$now_playing.stub(TRes res) =
-      _CopyWithStubImpl$Query$GetStations$stations$now_playing;
+  _CopyWithStubImpl$Query$GetStations$stations$now_playing;
 
   TRes call({
     int? id,
@@ -1765,15 +1769,14 @@ abstract class CopyWith$Query$GetStations$stations$now_playing<TRes> {
     Query$GetStations$stations$now_playing$song? song,
     String? $__typename,
   });
+
   CopyWith$Query$GetStations$stations$now_playing$song<TRes> get song;
 }
 
 class _CopyWithImpl$Query$GetStations$stations$now_playing<TRes>
     implements CopyWith$Query$GetStations$stations$now_playing<TRes> {
-  _CopyWithImpl$Query$GetStations$stations$now_playing(
-    this._instance,
-    this._then,
-  );
+  _CopyWithImpl$Query$GetStations$stations$now_playing(this._instance,
+      this._then,);
 
   final Query$GetStations$stations$now_playing _instance;
 
@@ -1799,13 +1802,14 @@ class _CopyWithImpl$Query$GetStations$stations$now_playing<TRes>
             ? _instance.$__typename
             : ($__typename as String),
       ));
+
   CopyWith$Query$GetStations$stations$now_playing$song<TRes> get song {
     final local$song = _instance.song;
     return local$song == null
         ? CopyWith$Query$GetStations$stations$now_playing$song.stub(
-            _then(_instance))
+        _then(_instance))
         : CopyWith$Query$GetStations$stations$now_playing$song(
-            local$song, (e) => call(song: e));
+        local$song, (e) => call(song: e));
   }
 }
 
@@ -1822,6 +1826,7 @@ class _CopyWithStubImpl$Query$GetStations$stations$now_playing<TRes>
     String? $__typename,
   }) =>
       _res;
+
   CopyWith$Query$GetStations$stations$now_playing$song<TRes> get song =>
       CopyWith$Query$GetStations$stations$now_playing$song.stub(_res);
 }
@@ -1835,8 +1840,7 @@ class Query$GetStations$stations$now_playing$song {
     this.$__typename = 'songs',
   });
 
-  factory Query$GetStations$stations$now_playing$song.fromJson(
-      Map<String, dynamic> json) {
+  factory Query$GetStations$stations$now_playing$song.fromJson(Map<String, dynamic> json) {
     final l$id = json['id'];
     final l$name = json['name'];
     final l$thumbnail_url = json['thumbnail_url'];
@@ -1849,7 +1853,7 @@ class Query$GetStations$stations$now_playing$song {
       artist: l$artist == null
           ? null
           : Query$GetStations$stations$now_playing$song$artist.fromJson(
-              (l$artist as Map<String, dynamic>)),
+          (l$artist as Map<String, dynamic>)),
       $__typename: (l$$__typename as String),
     );
   }
@@ -1934,23 +1938,23 @@ class Query$GetStations$stations$now_playing$song {
 }
 
 extension UtilityExtension$Query$GetStations$stations$now_playing$song
-    on Query$GetStations$stations$now_playing$song {
+on Query$GetStations$stations$now_playing$song {
   CopyWith$Query$GetStations$stations$now_playing$song<
-          Query$GetStations$stations$now_playing$song>
-      get copyWith => CopyWith$Query$GetStations$stations$now_playing$song(
-            this,
+      Query$GetStations$stations$now_playing$song>
+  get copyWith =>
+      CopyWith$Query$GetStations$stations$now_playing$song(
+        this,
             (i) => i,
-          );
+      );
 }
 
 abstract class CopyWith$Query$GetStations$stations$now_playing$song<TRes> {
   factory CopyWith$Query$GetStations$stations$now_playing$song(
-    Query$GetStations$stations$now_playing$song instance,
-    TRes Function(Query$GetStations$stations$now_playing$song) then,
-  ) = _CopyWithImpl$Query$GetStations$stations$now_playing$song;
+      Query$GetStations$stations$now_playing$song instance,
+      TRes Function(Query$GetStations$stations$now_playing$song) then,) = _CopyWithImpl$Query$GetStations$stations$now_playing$song;
 
   factory CopyWith$Query$GetStations$stations$now_playing$song.stub(TRes res) =
-      _CopyWithStubImpl$Query$GetStations$stations$now_playing$song;
+  _CopyWithStubImpl$Query$GetStations$stations$now_playing$song;
 
   TRes call({
     int? id,
@@ -1959,15 +1963,14 @@ abstract class CopyWith$Query$GetStations$stations$now_playing$song<TRes> {
     Query$GetStations$stations$now_playing$song$artist? artist,
     String? $__typename,
   });
+
   CopyWith$Query$GetStations$stations$now_playing$song$artist<TRes> get artist;
 }
 
 class _CopyWithImpl$Query$GetStations$stations$now_playing$song<TRes>
     implements CopyWith$Query$GetStations$stations$now_playing$song<TRes> {
-  _CopyWithImpl$Query$GetStations$stations$now_playing$song(
-    this._instance,
-    this._then,
-  );
+  _CopyWithImpl$Query$GetStations$stations$now_playing$song(this._instance,
+      this._then,);
 
   final Query$GetStations$stations$now_playing$song _instance;
 
@@ -1995,13 +1998,14 @@ class _CopyWithImpl$Query$GetStations$stations$now_playing$song<TRes>
             ? _instance.$__typename
             : ($__typename as String),
       ));
+
   CopyWith$Query$GetStations$stations$now_playing$song$artist<TRes> get artist {
     final local$artist = _instance.artist;
     return local$artist == null
         ? CopyWith$Query$GetStations$stations$now_playing$song$artist.stub(
-            _then(_instance))
+        _then(_instance))
         : CopyWith$Query$GetStations$stations$now_playing$song$artist(
-            local$artist, (e) => call(artist: e));
+        local$artist, (e) => call(artist: e));
   }
 }
 
@@ -2019,10 +2023,11 @@ class _CopyWithStubImpl$Query$GetStations$stations$now_playing$song<TRes>
     String? $__typename,
   }) =>
       _res;
+
   CopyWith$Query$GetStations$stations$now_playing$song$artist<TRes>
-      get artist =>
-          CopyWith$Query$GetStations$stations$now_playing$song$artist.stub(
-              _res);
+  get artist =>
+      CopyWith$Query$GetStations$stations$now_playing$song$artist.stub(
+          _res);
 }
 
 class Query$GetStations$stations$now_playing$song$artist {
@@ -2033,8 +2038,7 @@ class Query$GetStations$stations$now_playing$song$artist {
     this.$__typename = 'artists',
   });
 
-  factory Query$GetStations$stations$now_playing$song$artist.fromJson(
-      Map<String, dynamic> json) {
+  factory Query$GetStations$stations$now_playing$song$artist.fromJson(Map<String, dynamic> json) {
     final l$id = json['id'];
     final l$name = json['name'];
     final l$thumbnail_url = json['thumbnail_url'];
@@ -2116,26 +2120,24 @@ class Query$GetStations$stations$now_playing$song$artist {
 }
 
 extension UtilityExtension$Query$GetStations$stations$now_playing$song$artist
-    on Query$GetStations$stations$now_playing$song$artist {
+on Query$GetStations$stations$now_playing$song$artist {
   CopyWith$Query$GetStations$stations$now_playing$song$artist<
-          Query$GetStations$stations$now_playing$song$artist>
-      get copyWith =>
-          CopyWith$Query$GetStations$stations$now_playing$song$artist(
-            this,
+      Query$GetStations$stations$now_playing$song$artist>
+  get copyWith =>
+      CopyWith$Query$GetStations$stations$now_playing$song$artist(
+        this,
             (i) => i,
-          );
+      );
 }
 
 abstract class CopyWith$Query$GetStations$stations$now_playing$song$artist<
-    TRes> {
+TRes> {
   factory CopyWith$Query$GetStations$stations$now_playing$song$artist(
-    Query$GetStations$stations$now_playing$song$artist instance,
-    TRes Function(Query$GetStations$stations$now_playing$song$artist) then,
-  ) = _CopyWithImpl$Query$GetStations$stations$now_playing$song$artist;
+      Query$GetStations$stations$now_playing$song$artist instance,
+      TRes Function(Query$GetStations$stations$now_playing$song$artist) then,) = _CopyWithImpl$Query$GetStations$stations$now_playing$song$artist;
 
-  factory CopyWith$Query$GetStations$stations$now_playing$song$artist.stub(
-          TRes res) =
-      _CopyWithStubImpl$Query$GetStations$stations$now_playing$song$artist;
+  factory CopyWith$Query$GetStations$stations$now_playing$song$artist.stub(TRes res) =
+  _CopyWithStubImpl$Query$GetStations$stations$now_playing$song$artist;
 
   TRes call({
     int? id,
@@ -2148,10 +2150,8 @@ abstract class CopyWith$Query$GetStations$stations$now_playing$song$artist<
 class _CopyWithImpl$Query$GetStations$stations$now_playing$song$artist<TRes>
     implements
         CopyWith$Query$GetStations$stations$now_playing$song$artist<TRes> {
-  _CopyWithImpl$Query$GetStations$stations$now_playing$song$artist(
-    this._instance,
-    this._then,
-  );
+  _CopyWithImpl$Query$GetStations$stations$now_playing$song$artist(this._instance,
+      this._then,);
 
   final Query$GetStations$stations$now_playing$song$artist _instance;
 
@@ -2180,8 +2180,7 @@ class _CopyWithImpl$Query$GetStations$stations$now_playing$song$artist<TRes>
 class _CopyWithStubImpl$Query$GetStations$stations$now_playing$song$artist<TRes>
     implements
         CopyWith$Query$GetStations$stations$now_playing$song$artist<TRes> {
-  _CopyWithStubImpl$Query$GetStations$stations$now_playing$song$artist(
-      this._res);
+  _CopyWithStubImpl$Query$GetStations$stations$now_playing$song$artist(this._res);
 
   TRes _res;
 
@@ -2202,8 +2201,7 @@ class Query$GetStations$stations$reviews {
     this.$__typename = 'reviews',
   });
 
-  factory Query$GetStations$stations$reviews.fromJson(
-      Map<String, dynamic> json) {
+  factory Query$GetStations$stations$reviews.fromJson(Map<String, dynamic> json) {
     final l$id = json['id'];
     final l$stars = json['stars'];
     final l$message = json['message'];
@@ -2285,23 +2283,22 @@ class Query$GetStations$stations$reviews {
 }
 
 extension UtilityExtension$Query$GetStations$stations$reviews
-    on Query$GetStations$stations$reviews {
+on Query$GetStations$stations$reviews {
   CopyWith$Query$GetStations$stations$reviews<
-          Query$GetStations$stations$reviews>
-      get copyWith => CopyWith$Query$GetStations$stations$reviews(
-            this,
+      Query$GetStations$stations$reviews>
+  get copyWith =>
+      CopyWith$Query$GetStations$stations$reviews(
+        this,
             (i) => i,
-          );
+      );
 }
 
 abstract class CopyWith$Query$GetStations$stations$reviews<TRes> {
-  factory CopyWith$Query$GetStations$stations$reviews(
-    Query$GetStations$stations$reviews instance,
-    TRes Function(Query$GetStations$stations$reviews) then,
-  ) = _CopyWithImpl$Query$GetStations$stations$reviews;
+  factory CopyWith$Query$GetStations$stations$reviews(Query$GetStations$stations$reviews instance,
+      TRes Function(Query$GetStations$stations$reviews) then,) = _CopyWithImpl$Query$GetStations$stations$reviews;
 
   factory CopyWith$Query$GetStations$stations$reviews.stub(TRes res) =
-      _CopyWithStubImpl$Query$GetStations$stations$reviews;
+  _CopyWithStubImpl$Query$GetStations$stations$reviews;
 
   TRes call({
     int? id,
@@ -2313,10 +2310,8 @@ abstract class CopyWith$Query$GetStations$stations$reviews<TRes> {
 
 class _CopyWithImpl$Query$GetStations$stations$reviews<TRes>
     implements CopyWith$Query$GetStations$stations$reviews<TRes> {
-  _CopyWithImpl$Query$GetStations$stations$reviews(
-    this._instance,
-    this._then,
-  );
+  _CopyWithImpl$Query$GetStations$stations$reviews(this._instance,
+      this._then,);
 
   final Query$GetStations$stations$reviews _instance;
 
@@ -2336,7 +2331,7 @@ class _CopyWithImpl$Query$GetStations$stations$reviews<TRes>
             ? _instance.stars
             : (stars as int),
         message:
-            message == _undefined ? _instance.message : (message as String?),
+        message == _undefined ? _instance.message : (message as String?),
         $__typename: $__typename == _undefined || $__typename == null
             ? _instance.$__typename
             : ($__typename as String),

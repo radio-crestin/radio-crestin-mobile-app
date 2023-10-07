@@ -2,22 +2,19 @@ import 'package:fast_cached_network_image/fast_cached_network_image.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
-import 'package:provider/provider.dart';
 import 'package:radio_crestin/pages/HomePage.dart';
 import 'package:radio_crestin/theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'constants.dart';
+
 import 'appAudioHandler.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
+import 'constants.dart';
 import 'firebase_options.dart';
-import 'package:firebase_in_app_messaging/firebase_in_app_messaging.dart';
-import 'globals.dart' as globals;
-import 'dart:developer' as developer;
 
 final getIt = GetIt.instance;
 
@@ -50,7 +47,7 @@ void main() async {
   // developer.log('User granted permission: ${settings.authorizationStatus}');
 
   final prefs = await SharedPreferences.getInstance();
-  if(prefs.getBool('_notificationsEnabled') ?? true) {
+  if (prefs.getBool('_notificationsEnabled') ?? true) {
     FirebaseAnalytics.instance.setUserProperty(name: 'personalized_n', value: 'true');
   }
 
@@ -126,7 +123,6 @@ void main() async {
   //   child: const RadioCrestinApp(),
   // ));
   runApp(const RadioCrestinApp());
-
 }
 
 class RadioCrestinApp extends StatelessWidget {

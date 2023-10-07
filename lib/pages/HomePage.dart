@@ -4,12 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:radio_crestin/appAudioHandler.dart';
 import 'package:radio_crestin/components/BottomNavigationAudioPlayer.dart';
-import 'package:radio_crestin/pages/SettingsPage.dart';
 import 'package:radio_crestin/components/QueueList.dart';
+import 'package:radio_crestin/pages/SettingsPage.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:share_plus/share_plus.dart';
-import 'dart:developer' as developer;
-
 import 'package:upgrader/upgrader.dart';
 
 import '../main.dart';
@@ -34,10 +32,8 @@ class _HomePageState extends State<HomePage> {
   /// A stream reporting the combined state of the current queue and the current
   /// media item within that queue.
   Stream<QueueState> get _queueStateStream =>
-      Rx.combineLatest2<List<MediaItem>, MediaItem?, QueueState>(
-          _audioHandler.stationsMediaItems,
-          _audioHandler.mediaItem,
-              (queue, mediaItem) => QueueState(queue, mediaItem));
+      Rx.combineLatest2<List<MediaItem>, MediaItem?, QueueState>(_audioHandler.stationsMediaItems,
+          _audioHandler.mediaItem, (queue, mediaItem) => QueueState(queue, mediaItem));
 
   @override
   initState() {
@@ -45,16 +41,14 @@ class _HomePageState extends State<HomePage> {
     _isVisible = true;
     _hideButtonController = ScrollController();
     _hideButtonController.addListener(() {
-      if (_hideButtonController.position.userScrollDirection ==
-          ScrollDirection.reverse) {
+      if (_hideButtonController.position.userScrollDirection == ScrollDirection.reverse) {
         if (_isVisible) {
           setState(() {
             _isVisible = false;
           });
         }
       }
-      if (_hideButtonController.position.userScrollDirection ==
-          ScrollDirection.forward) {
+      if (_hideButtonController.position.userScrollDirection == ScrollDirection.forward) {
         if (!_isVisible) {
           setState(() {
             _isVisible = true;
@@ -67,14 +61,12 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return UpgradeAlert(
-      upgrader: Upgrader(showIgnore: false),
+        upgrader: Upgrader(showIgnore: false),
         child: Scaffold(
             appBar: AppBar(
               leading: const Center(
                   child: Image(
-                      image: AssetImage('assets/icons/ic_foreground.png'),
-                      width: 30,
-                      height: 30)),
+                      image: AssetImage('assets/icons/ic_foreground.png'), width: 30, height: 30)),
               title: Container(
                 child: const Text('Radio Crestin'),
                 transform: Matrix4.translationValues(-16, 0, 0.0),
@@ -122,11 +114,11 @@ class _HomePageState extends State<HomePage> {
                     final queue = snapshot.data?.stationsMediaItems ?? [];
                     final mediaItem = snapshot.data?.mediaItem;
                     return QueueList(
-                        queue: queue,
-                        mediaItem: mediaItem,
-                        audioHandler: _audioHandler,
-                        hideButtonController: _hideButtonController,
-                      );
+                      queue: queue,
+                      mediaItem: mediaItem,
+                      audioHandler: _audioHandler,
+                      hideButtonController: _hideButtonController,
+                    );
                   },
                 ),
                 StreamBuilder<QueueState>(
@@ -147,7 +139,6 @@ class _HomePageState extends State<HomePage> {
                         ));
                   },
                 ),
-
               ],
             )));
   }

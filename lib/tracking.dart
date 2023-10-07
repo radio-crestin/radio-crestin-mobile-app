@@ -1,9 +1,10 @@
 import 'dart:convert';
+import 'dart:developer' as developer;
 
 import 'package:firebase_analytics/firebase_analytics.dart';
-import 'package:radio_crestin/queries/getStations.graphql.dart';
-import 'dart:developer' as developer;
 import 'package:http/http.dart' as http;
+import 'package:radio_crestin/queries/getStations.graphql.dart';
+
 import 'globals.dart' as globals;
 
 FirebaseAnalytics analytics = FirebaseAnalytics.instance;
@@ -23,7 +24,7 @@ class AppTracking {
           itemCategory: "listen_radio_start",
           index: station.id,
           itemName: station.title,
-            quantity: 1,
+          quantity: 1,
         ),
       ],
     );
@@ -37,6 +38,7 @@ class AppTracking {
       },
     );
   }
+
   static trackListenStation(Query$GetStations$stations station, String currentStreamUrl) async {
     developer.log("trackListenStation $currentStreamUrl");
     await FirebaseAnalytics.instance.logEvent(name: "listen_radio_listening", parameters: {
@@ -57,8 +59,8 @@ class AppTracking {
     );
 
     await sendListeningEvent(station, currentStreamUrl);
-
   }
+
   static trackStopStation(Query$GetStations$stations station) async {
     developer.log("trackStopStation");
     await FirebaseAnalytics.instance.logEvent(name: "listen_radio_stop", parameters: {
@@ -77,7 +79,8 @@ class AppTracking {
   }
 
   static sendListeningEvent(Query$GetStations$stations station, String currentStreamUrl) async {
-    if(currentStreamUrl.contains("/hls/") || currentStreamUrl.contains("proxy.radio-crestin.com")) {
+    if (currentStreamUrl.contains("/hls/") ||
+        currentStreamUrl.contains("proxy.radio-crestin.com")) {
       developer.log("sendListeningEvent");
       var response = await http.post(
           Uri.parse('https://www.radio-crestin.com/api/v1/listen'),
