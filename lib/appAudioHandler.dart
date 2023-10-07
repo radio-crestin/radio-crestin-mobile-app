@@ -378,19 +378,10 @@ class AppAudioHandler extends BaseAudioHandler {
             AudioSource.uri(Uri.parse(streamUrl)),
             preload: true,
           );
-
           break;
         } catch (e) {
           _log("playMediaItem: Player Error: $e");
-          if (e is PlayerException) {
-            if (e.message == "Source error") {
-              retry++;
-            } else {
-              rethrow;
-            }
-          } else {
-            rethrow;
-          }
+          retry++;
         }
       } else {
         _log("playMediaItem: max retries reached");
