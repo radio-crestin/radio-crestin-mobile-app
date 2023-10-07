@@ -125,7 +125,7 @@ class BottomNavigationAudioPlayer extends StatelessWidget {
                             child: playing
                                 ? IconButton(
                                     tooltip: "Pauza",
-                                    onPressed: audioHandler.stop,
+                                    onPressed: audioHandler.pause,
                                     icon: const Icon(
                                       Icons.pause_rounded,
                                     ),

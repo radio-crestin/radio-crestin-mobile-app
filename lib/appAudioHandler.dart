@@ -196,10 +196,9 @@ class AppAudioHandler extends BaseAudioHandler {
     if (currentStation != null) {
       AppTracking.trackStopStation(currentStation!);
     }
-    // mediaItem.add(null);
 
-    await _player.stop();
-    return super.stop();
+    await _player.pause();
+    return super.pause();
   }
 
   @override
