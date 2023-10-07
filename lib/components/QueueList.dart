@@ -50,9 +50,14 @@ class QueueList extends StatelessWidget {
                     "Statie offline",
                     style: TextStyle(color: appTheme.primaryColor),
                   )
-                : Text(
-                    item.displaySubtitle ?? "",
-                    textAlign: TextAlign.left,
+                : Padding(
+                    padding: const EdgeInsets.only(right: 20.0),
+                    child: Text(
+                      item.displaySubtitle ?? "",
+                      textAlign: TextAlign.left,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
             onTap: () async {
               audioHandler.playMediaItem(item);
