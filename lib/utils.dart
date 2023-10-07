@@ -2,7 +2,6 @@ import 'dart:developer' as developer;
 
 import 'package:audio_service/audio_service.dart';
 import 'package:fast_cached_network_image/fast_cached_network_image.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:radio_crestin/queries/getStations.graphql.dart';
 
@@ -34,9 +33,6 @@ class Utils {
     }
     if (CONSTANTS.IMAGE_PROXY_PREFIX != "") {
       stationThumbnailUrl = "${CONSTANTS.IMAGE_PROXY_PREFIX}$stationThumbnailUrl";
-    }
-    if (kDebugMode) {
-      stationThumbnailUrl = "https://corsproxy.io/$stationThumbnailUrl";
     }
     return stationThumbnailUrl;
   }
