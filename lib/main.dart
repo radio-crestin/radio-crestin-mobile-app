@@ -12,6 +12,7 @@ import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:package_info/package_info.dart';
 import 'package:radio_crestin/pages/HomePage.dart';
 import 'package:radio_crestin/theme.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'appAudioHandler.dart';
@@ -125,9 +126,23 @@ void main() async {
   //   ],
   //   child: const RadioCrestinApp(),
   // ));
-  FirebaseInstanceId.appInstanceId.then((value) => {globals.deviceId = value ?? ""});
+  FirebaseInstanceId.appInstanceId.then((value) {
+    globals.deviceId = value ?? "";
+    Sentry.configureScope(
+          (scope) => scope.setUser(SentryUser(id: globals.deviceId)),
+    );
+  });
   PackageInfo.fromPlatform().then((value) => {globals.appVersion = value.version});
-  runApp(const RadioCrestinApp());
+
+  await SentryFlutter.init(
+        (options) {
+      options.dsn = 'https://ce263b6ae2cd0d72b3c3d7ded0393d78@o4506275129655296.ingest.sentry.io/4506275131293696';
+      // Set tracesSampleRate to 1.0 to capture 100% of transactions for performance monitoring.
+      // We recommend adjusting this value in production.
+      options.tracesSampleRate = 1.0;
+    },
+    appRunner: () => runApp(const RadioCrestinApp()),
+  );
 }
 
 class RadioCrestinApp extends StatelessWidget {

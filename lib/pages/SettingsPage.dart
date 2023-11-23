@@ -1,6 +1,6 @@
 import 'package:firebase_analytics/firebase_analytics.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -72,29 +72,22 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
                 Spacer(),
                 ListTile(
-                  title: RichText(
-                    text: TextSpan(
-                      text: 'Pentru sugestii va rugam sa ne contactati pe ',
-                      style: TextStyle(color: Colors.black),
-                      children: [
-                        TextSpan(
-                          text: 'WhatsApp',
-                          style: const TextStyle(
-                            decoration: TextDecoration.underline,
-                          ),
-                          recognizer: TapGestureRecognizer()
-                            ..onTap = () {
-                              // https://pub.dev/packages/url_launcher
-                              // TODO: we might need to add some additional details for iOS
-                              launchUrl(Uri.parse("https://wa.me/40773994595?text=Buna%20ziua"),
-                                  mode: LaunchMode.externalApplication);
-                            },
-                        ),
-                        const TextSpan(
-                          text: '.',
-                        ),
-                      ],
-                    ),
+                  title: ElevatedButton(
+                    onPressed: () async {
+                      final event = SentryEvent(
+                        message: SentryMessage("WHATSAPP_CONTACT"),
+                        level: SentryLevel.debug
+                            
+                      );
+
+                      Sentry.captureEvent(event);
+                      
+                      // https://pub.dev/packages/url_launcher
+                      // TODO: we might need to add some additional details for iOS
+                      launchUrl(Uri.parse("https://wa.me/40773994595?text=Buna%20ziua%20%5BRadio%20Crestin%5D"),
+                          mode: LaunchMode.externalApplication);
+                    },
+                    child: Text('Contactează-ne pe WhatsApp'),
                   ),
                 ),
                 Padding(
