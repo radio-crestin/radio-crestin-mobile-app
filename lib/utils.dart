@@ -34,6 +34,11 @@ class Utils {
     if (CONSTANTS.IMAGE_PROXY_PREFIX != "") {
       stationThumbnailUrl = "${CONSTANTS.IMAGE_PROXY_PREFIX}$stationThumbnailUrl";
     }
+    try{
+      stationThumbnailUrl = Uri.parse(stationThumbnailUrl).replace(queryParameters: CONSTANTS.IMAGE_PROXY_QUERY_PARAMETERS).toString();
+    } catch(e) {
+      developer.log("Error setting IMAGE_PROXY_QUERY_PARAMETERS: $e");
+    }
     return stationThumbnailUrl;
   }
 
@@ -66,6 +71,7 @@ class Utils {
       artUri: Uri.parse(Utils.getStationThumbnailUrl(station)),
       extras: {
         "station_id": station?.id,
+        "station_slug": station?.slug,
         "total_listeners": station?.total_listeners,
         "station_is_up": station?.uptime?.is_up,
         "thumbnail_url": station?.thumbnail_url,

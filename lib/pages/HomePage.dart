@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:developer' as developer;
+
 import 'package:audio_service/audio_service.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter/material.dart';
@@ -8,6 +11,7 @@ import 'package:radio_crestin/components/QueueList.dart';
 import 'package:radio_crestin/pages/SettingsPage.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:uni_links_nfc_support/uni_links_nfc_support.dart';
 import 'package:upgrader/upgrader.dart';
 
 import '../main.dart';
@@ -22,12 +26,41 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  late StreamSubscription _sub;
   late ScrollController _hideButtonController;
 
   var _isVisible;
   final AppAudioHandler _audioHandler = getIt<AppAudioHandler>();
 
-  _HomePageState();
+  processIntentUri(Uri? uri) async {
+    try {
+      if(uri == null) {
+        return;
+      }
+      developer.log("processIntentUri:" + uri.toString());
+      var stationSlug = uri.path.replaceAll("/radio/", "").replaceAll("/", "");
+      var stations = await _audioHandler.stationsMediaItems.first;
+      var station = stations.where((item) => item.extras?['station_slug'] == stationSlug).firstOrNull;
+      if(station != null) {
+        developer.log("found station:$station");
+        _audioHandler.playMediaItem(station);
+      }
+    } catch(e) {
+      developer.log("processIntentUri error:$e");
+    }
+  }
+
+  _HomePageState() {
+    getInitialUri().then((value) => {
+      processIntentUri(value)
+    });
+
+    _sub = uriLinkStream.listen((Uri? uri) {
+      processIntentUri(uri);
+    }, onError: (err) {
+      developer.log("initialLink err:" + err.toString());
+    });
+  }
 
   /// A stream reporting the combined state of the current queue and the current
   /// media item within that queue.
@@ -141,5 +174,11 @@ class _HomePageState extends State<HomePage> {
                 ),
               ],
             )));
+  }
+  @override
+  void dispose() {
+    // Clean up resources, subscriptions, controllers, etc.
+    super.dispose();
+    _sub.cancel();
   }
 }
