@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:developer' as developer;
 
+import 'package:android_play_install_referrer/android_play_install_referrer.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter/material.dart';
@@ -29,31 +30,47 @@ class _HomePageState extends State<HomePage> {
   late StreamSubscription _sub;
   late ScrollController _hideButtonController;
 
-  var _isVisible;
+  bool _isVisible = false;
   final AppAudioHandler _audioHandler = getIt<AppAudioHandler>();
 
+  playByStationSlug(String stationSlug) async {
+    developer.log("playByStationSlug:" + stationSlug);
+    var stations = await _audioHandler.stationsMediaItems.first;
+    var station = stations.where((item) => item.extras?['station_slug'] == stationSlug).firstOrNull;
+    if(station != null) {
+      developer.log("found station:$station");
+      _audioHandler.playMediaItem(station);
+    }
+  }
   processIntentUri(Uri? uri) async {
     try {
       if(uri == null) {
         return;
       }
       developer.log("processIntentUri:" + uri.toString());
-      var stationSlug = uri.path.replaceAll("/radio/", "").replaceAll("/", "");
+      var stationSlug = uri.path.replaceAll("/share/", "").replaceAll("/radio/", "").replaceAll("/", "");
       if(stationSlug == "") {
         stationSlug = uri.host;
       }
-      var stations = await _audioHandler.stationsMediaItems.first;
-      var station = stations.where((item) => item.extras?['station_slug'] == stationSlug).firstOrNull;
-      if(station != null) {
-        developer.log("found station:$station");
-        _audioHandler.playMediaItem(station);
-      }
+      playByStationSlug(stationSlug);
+
     } catch(e) {
       developer.log("processIntentUri error:$e");
     }
   }
 
   _HomePageState() {
+    try {
+      AndroidPlayInstallReferrer.installReferrer.then((value) {
+        developer.log("AndroidPlayInstallReferrer:" + value.toString());
+        if(value.installReferrer != null) {
+          playByStationSlug(value.installReferrer!);
+        }
+      });
+    } catch(e) {
+      developer.log("AndroidPlayInstallReferrer err:" + e.toString());
+    }
+
     getInitialUri().then((value) => {
       processIntentUri(value)
     });
@@ -121,12 +138,26 @@ class _HomePageState extends State<HomePage> {
                 //         const SnackBar(content: Text('This is a snackbar')));
                 //   },
                 // ),
-                IconButton(
-                  icon: const Icon(Icons.campaign),
-                  tooltip: 'Trimite aplicatia prietenilor tai',
-                  onPressed: () {
-                    // TODO: adapteaza mesajul in functie de dispozitiv
-                    Share.share(remoteConfig.getString("share_app_message"));
+                StreamBuilder<QueueState>(
+                  stream: _queueStateStream,
+                  builder: (context, snapshot) {
+                    final mediaItem = snapshot.data?.mediaItem;
+                    developer.log("mediaItem" + mediaItem.toString());
+                    return IconButton(
+                      icon: const Icon(Icons.campaign),
+                      tooltip: 'Trimite aplicatia prietenilor tai',
+                      onPressed: () {
+                        if(mediaItem != null) {
+                          var linkMessage = "";
+                          linkMessage += "${mediaItem.title}\n";
+                          linkMessage += "https://share.radiocrestin.ro/${mediaItem.extras?['station_slug']}";
+
+                          Share.share(remoteConfig.getString("share_app_station_message") + linkMessage);
+                        } else {
+                          Share.share(remoteConfig.getString("share_app_message"));
+                        }
+                      },
+                    );
                   },
                 ),
                 IconButton(
