@@ -90,6 +90,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     child: Text('Contactează-ne pe WhatsApp'),
                   ),
                 ),
+                const SizedBox(height: 10),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0),
                   child: Row(

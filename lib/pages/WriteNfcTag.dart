@@ -1,8 +1,12 @@
 import 'dart:developer' as developer;
 
+import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_nfc_kit/flutter_nfc_kit.dart';
 import 'package:ndef/ndef.dart' as ndef;
+import 'package:radio_crestin/appAudioHandler.dart';
+import 'package:radio_crestin/main.dart';
+import 'package:rxdart/rxdart.dart';
 
 class WriteNfcTagPage extends StatefulWidget {
   @override
@@ -14,6 +18,10 @@ class _WriteNfcTagPageState extends State<WriteNfcTagPage> {
   late var availability = false;
   late ScaffoldMessengerState scaffoldMessenger;
   List<ndef.NDEFRecord> _records = [];
+  final AppAudioHandler _audioHandler = getIt<AppAudioHandler>();
+  Stream<QueueState> get _queueStateStream =>
+      Rx.combineLatest2<List<MediaItem>, MediaItem?, QueueState>(_audioHandler.stationsMediaItems,
+          _audioHandler.mediaItem, (queue, mediaItem) => QueueState(queue, mediaItem));
 
   _WriteNfcTagPageState() {
     FlutterNfcKit.nfcAvailability.then((v) {
@@ -36,33 +44,33 @@ class _WriteNfcTagPageState extends State<WriteNfcTagPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            DropdownButton<String>(
-              value: selectedOption,
-              items: [
-                DropdownMenuItem<String>(
-                  value: 'rve-timisoara',
-                  child: Text('RVE Timisoara', style: TextStyle(color: Colors.black)),
-                ),
-                DropdownMenuItem<String>(
-                  value: 'aripi-spre-cer',
-                  child: Text('Aripi Spre Cer', style: TextStyle(color: Colors.black)),
-                ),
-                DropdownMenuItem<String>(
-                  value: 'Option 3',
-                  child: Text('Option 3', style: TextStyle(color: Colors.black)),
-                ),
-              ],
-              onChanged: (value) {
-                setState(() {
-                  selectedOption = value!;
-                  _records = [
-                    // ndef.UriRecord.fromString("android-app://com.radiocrestin.radio_crestin/https/www.radiocrestin.ro/radio/${value}/?nfc_tag=true"),
-                    ndef.UriRecord.fromString("https://www.radiocrestin.ro/${value}/?nfc_tag=true"),
-                  ];
-                });
+
+            StreamBuilder<QueueState>(
+              stream: _queueStateStream,
+              builder: (context, snapshot) {
+                final mediaItems = snapshot.data?.stationsMediaItems ?? [];
+                return DropdownButton<String>(
+                  value: selectedOption,
+                  items: mediaItems.map((e) {
+                    return DropdownMenuItem<String>(
+                      value: e.extras?['station_slug'],
+                      child: Text(e.title, style: TextStyle(color: Colors.black)),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    setState(() {
+                      selectedOption = value!;
+                      _records = [
+                        // ndef.UriRecord.fromString("android-app://com.radiocrestin.radio_crestin/https/www.radiocrestin.ro/radio/${value}/?nfc_tag=true"),
+                        ndef.UriRecord.fromString("https://www.radiocrestin.ro/${value}/?nfc_tag=true"),
+                      ];
+                    });
+                  },
+                  hint: Text('Vă rugam să selectați o stație', style: TextStyle(color: Colors.black)),
+                );
               },
-              hint: Text('Vă rugam să selectați o stație', style: TextStyle(color: Colors.black)),
             ),
+
             SizedBox(height: 20),
             if (!availability) Text(
               'Telefonul dumneavoastră nu suportă scrierea etichetelor NFC.',
