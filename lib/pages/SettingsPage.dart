@@ -1,12 +1,10 @@
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:hy_device_id/hy_device_id.dart';
-import 'package:package_info/package_info.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../globals.dart' as globals;
 import 'WriteNfcTag.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -16,41 +14,19 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   bool? _notificationsEnabled = null;
-  String _version = '';
-  String _deviceId = '';
-  final _hyDeviceIdPlugin = HyDeviceId();
+  String _version = globals.appVersion;
+  String _deviceId = globals.deviceId;
 
   @override
   void initState() {
     super.initState();
     _getNotificationsEnabled();
-    _getAppVersion();
-    _getClientId();
   }
 
   Future<void> _getNotificationsEnabled() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _notificationsEnabled = prefs.getBool('_notificationsEnabled') ?? true;
-    });
-  }
-
-  Future<void> _getClientId() async {
-    var deviceId = '';
-    try {
-      deviceId = await _hyDeviceIdPlugin.getDeviceId() ?? 'Unknown device Id';
-    } on PlatformException {
-      deviceId = 'Failed to get device Id.';
-    }
-    setState(() {
-      _deviceId = deviceId;
-    });
-  }
-
-  Future<void> _getAppVersion() async {
-    final PackageInfo packageInfo = await PackageInfo.fromPlatform();
-    setState(() {
-      _version = packageInfo.version;
     });
   }
 

@@ -58,6 +58,7 @@ dependencies:
   fuzzywuzzy: ^1.1.6
   uni_links_nfc_support: ^0.6.1
   flutter_nfc_kit: ^3.3.3
+  firebase_instance_id: ^1.0.0
 
 dev_dependencies:
   dependency_validator: ^3.2.2

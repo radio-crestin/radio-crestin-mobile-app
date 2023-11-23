@@ -91,7 +91,9 @@ class AppTracking {
             "station_id": station.id,
             "info": {
               "mobile_app": true,
-              "fcmToken": globals.fcmToken
+              "fcmToken": globals.fcmToken,
+              "deviceId": globals.deviceId,
+              "appVersion": globals.appVersion
             }
           })
       );

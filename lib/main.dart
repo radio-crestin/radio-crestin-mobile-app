@@ -2,12 +2,14 @@ import 'package:fast_cached_network_image/fast_cached_network_image.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:firebase_instance_id/firebase_instance_id.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
+import 'package:package_info/package_info.dart';
 import 'package:radio_crestin/pages/HomePage.dart';
 import 'package:radio_crestin/theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -15,6 +17,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'appAudioHandler.dart';
 import 'constants.dart';
 import 'firebase_options.dart';
+import 'globals.dart' as globals;
 
 final getIt = GetIt.instance;
 
@@ -122,6 +125,8 @@ void main() async {
   //   ],
   //   child: const RadioCrestinApp(),
   // ));
+  FirebaseInstanceId.appInstanceId.then((value) => {globals.deviceId = value ?? ""});
+  PackageInfo.fromPlatform().then((value) => {globals.appVersion = value.version});
   runApp(const RadioCrestinApp());
 }
 
