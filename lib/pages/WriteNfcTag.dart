@@ -41,66 +41,69 @@ class _WriteNfcTagPageState extends State<WriteNfcTagPage> {
       ),
       body: Padding(
         padding: const EdgeInsets.symmetric(vertical: 18.0, horizontal: 20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
+        child: Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
 
-            StreamBuilder<QueueState>(
-              stream: _queueStateStream,
-              builder: (context, snapshot) {
-                final mediaItems = snapshot.data?.stationsMediaItems ?? [];
-                return DropdownButton<String>(
-                  value: selectedOption,
-                  items: mediaItems.map((e) {
-                    return DropdownMenuItem<String>(
-                      value: e.extras?['station_slug'],
-                      child: Text(e.title, style: TextStyle(color: Colors.black)),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    setState(() {
-                      selectedOption = value!;
-                      _records = [
-                        // ndef.UriRecord.fromString("android-app://com.radiocrestin.radio_crestin/https/www.radiocrestin.ro/radio/${value}/?nfc_tag=true"),
-                        ndef.UriRecord.fromString("https://www.radiocrestin.ro/${value}/?nfc_tag=true"),
-                      ];
-                    });
-                  },
-                  hint: Text('Vă rugam să selectați o stație', style: TextStyle(color: Colors.black)),
-                );
-              },
-            ),
+              StreamBuilder<QueueState>(
+                stream: _queueStateStream,
+                builder: (context, snapshot) {
+                  final mediaItems = snapshot.data?.stationsMediaItems ?? [];
+                  return DropdownButton<String>(
+                    value: selectedOption,
+                    items: mediaItems.map((e) {
+                      return DropdownMenuItem<String>(
+                        value: e.extras?['station_slug'],
+                        child: Text(e.title, style: TextStyle(color: Colors.black)),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        selectedOption = value!;
+                        _records = [
+                          // ndef.UriRecord.fromString("android-app://com.radiocrestin.radio_crestin/https/www.radiocrestin.ro/radio/${value}/?nfc_tag=true"),
+                          ndef.UriRecord.fromString("https://www.radiocrestin.ro/${value}/?nfc_tag=true"),
+                        ];
+                      });
+                    },
+                    hint: Text('Vă rugăm să selectați o stație', style: TextStyle(color: Colors.black)),
+                  );
+                },
+              ),
 
-            SizedBox(height: 20),
-            if (!availability) Text(
-              'Telefonul dumneavoastră nu suportă scrierea etichetelor NFC.',
-              style: TextStyle(fontSize: 16),
-            ),
-            if (availability && _records.length > 0) (
-                ElevatedButton(
-                  onPressed: () {
-                    scaffoldMessenger.showSnackBar(
-                      const SnackBar(
-                        content: Text("Va rugam sa apropriati eticheta NFC."),
-                        duration: Duration(seconds: 3),
-                      ),
-                    );
-                    FlutterNfcKit.poll().then((value) async {
-                      developer.log("Scanned NFC tag: ${value.toJson()}");
-                      await FlutterNfcKit.writeNDEFRecords(_records);
-                      await FlutterNfcKit.finish();
+              SizedBox(height: 20),
+              if (!availability) Text(
+                'Telefonul dumneavoastră nu suportă scrierea etichetelor NFC.',
+                style: TextStyle(fontSize: 16),
+              ),
+              if (availability && _records.length > 0) (
+                  ElevatedButton(
+                    onPressed: () {
                       scaffoldMessenger.showSnackBar(
                         const SnackBar(
-                          content: Text("Eticheta NFC a fost inscriptionata."),
+                          content: Text("Va rugam sa apropriati eticheta NFC."),
                           duration: Duration(seconds: 3),
                         ),
                       );
-                    });
-                  },
-                  child: Text('Incepe inscriptionarea'),
-                )
-            ),
-          ],
+                      FlutterNfcKit.poll().then((value) async {
+                        developer.log("Scanned NFC tag: ${value.toJson()}");
+                        await FlutterNfcKit.writeNDEFRecords(_records);
+                        await FlutterNfcKit.finish();
+                        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                        scaffoldMessenger.showSnackBar(
+                          const SnackBar(
+                            content: Text("Eticheta NFC a fost inscriptionata."),
+                            duration: Duration(seconds: 3),
+                          ),
+                        );
+                      });
+                    },
+                    child: Text('Incepe inscriptionarea'),
+                  )
+              ),
+            ],
+          ),
         )
       ),
     );
