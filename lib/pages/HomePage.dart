@@ -39,6 +39,9 @@ class _HomePageState extends State<HomePage> {
       }
       developer.log("processIntentUri:" + uri.toString());
       var stationSlug = uri.path.replaceAll("/radio/", "").replaceAll("/", "");
+      if(stationSlug == "") {
+        stationSlug = uri.host;
+      }
       var stations = await _audioHandler.stationsMediaItems.first;
       var station = stations.where((item) => item.extras?['station_slug'] == stationSlug).firstOrNull;
       if(station != null) {

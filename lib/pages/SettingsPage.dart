@@ -7,6 +7,8 @@ import 'package:package_info/package_info.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'WriteNfcTag.dart';
+
 class SettingsPage extends StatefulWidget {
   @override
   _SettingsPageState createState() => _SettingsPageState();
@@ -81,6 +83,17 @@ class _SettingsPageState extends State<SettingsPage> {
                     value: _notificationsEnabled ?? true,
                   ),
                 ),
+                ListTile(
+                  leading: const Icon(Icons.nfc),
+                  title: const Text('Inscripționează o etichetă NFC'),
+                  onTap: () => {
+                  Navigator.push(context, MaterialPageRoute<void>(
+                    builder: (BuildContext context) {
+                      return WriteNfcTagPage();
+                    },
+                  ))
+                },
+                ),
                 Spacer(),
                 ListTile(
                   title: RichText(
@@ -115,7 +128,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     children: [
                       Text(
                         'Versiune aplicatie $_version',
-                        style: TextStyle(color: Colors.grey),
+                        style: const TextStyle(color: Colors.grey),
                       ),
                     ],
                   ),
@@ -128,12 +141,12 @@ class _SettingsPageState extends State<SettingsPage> {
                     children: [
                       Text(
                         'Device ID: $_deviceId',
-                        style: TextStyle(color: Colors.grey),
+                        style: const TextStyle(color: Colors.grey),
                       ),
                     ],
                   ),
                 ),
-                SizedBox(height: 24.0),
+                const SizedBox(height: 24.0),
               ],
             ),
           ),

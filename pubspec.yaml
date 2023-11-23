@@ -43,7 +43,6 @@ dependencies:
   get_it: ^7.6.0
   url_launcher: ^6.1.11
   package_info: ^2.0.2
-  hy_device_id: ^1.0.0
   shared_preferences: ^2.1.1
   share_plus: ^7.0.2
   firebase_core: ^2.13.1
@@ -58,6 +57,7 @@ dependencies:
   swipe: ^0.0.1
   fuzzywuzzy: ^1.1.6
   uni_links_nfc_support: ^0.6.1
+  flutter_nfc_kit: ^3.3.3
 
 dev_dependencies:
   dependency_validator: ^3.2.2
