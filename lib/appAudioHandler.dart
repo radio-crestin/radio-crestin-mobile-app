@@ -286,7 +286,7 @@ class AppAudioHandler extends BaseAudioHandler {
     _log("Done loading thumbnails in cache");
   }
 
-  void updateStationsMediaItems(List<Query$GetStations$stations> stations, bool updateAudioSource) {
+  Future<void> updateStationsMediaItems(List<Query$GetStations$stations> stations, bool updateAudioSource) async {
     _log("updatePlaylistWithStationsData");
 
     // iterate stations and extract metadata
@@ -298,8 +298,12 @@ class AppAudioHandler extends BaseAudioHandler {
     // queue.add(stationsMediaItems);
 
     // Update current played media item
-    if (_playerIndex != null) {
-      mediaItem.add(stationsMediaItems.value[_playerIndex!]);
+    if(mediaItem.value != null) {
+      var newMediaItems = stationsMediaItems.value;
+      var newMediaItem = newMediaItems.where((item) => item.id == mediaItem.value?.id).firstOrNull;
+      if(newMediaItem != null) {
+        mediaItem.add(newMediaItem);
+      }
     }
   }
 
