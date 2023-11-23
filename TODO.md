@@ -32,3 +32,13 @@ Pe viitor:
 - listeaza aplicatia in Apple TV
 - salveaza ultima statie redata si porneste cu respectiva statie
 - adauga o optiune prin care marchezi statiile ca favorite si le adaugi intr-o lista separata
+
+
+Universal LInks on Ios:
+https://github.com/doch2/uni_links_nfc_support/tree/main/uni_links_nfc_support
+https://pub.dev/packages/flutter_nfc_kit
+adb shell 'am start -W -a android.intent.action.VIEW -c android.intent.category.BROWSABLE -d "android-app://com.radiocrestin.radio_crestin/https/www.radiocrestin.ro/radio/rve-timisoara/?mobile=true"'
+adb shell 'am start -W -a android.intent.action.VIEW -c android.intent.category.BROWSABLE -d "https://play.google.com/store/apps/details?id=com.radiocrestin.radio_crestin&referrer=rve-timisoara"'
+
+https://play.google.com/store/apps/details?id=com.radiocrestin.radio_crestin&url=radiocrestin%3A%2F%2Frve-timisoara
+market://details?id=com.radiocrestin.radio_crestin&url=radiocrestin%3A%2F%2Frve-timisoara
