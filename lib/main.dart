@@ -56,10 +56,15 @@ void main() async {
   }
 
   final remoteConfig = FirebaseRemoteConfig.instance;
-  remoteConfig.setConfigSettings(RemoteConfigSettings(
-    fetchTimeout: const Duration(minutes: 1),
+  await remoteConfig.setConfigSettings(RemoteConfigSettings(
+    fetchTimeout: const Duration(minutes: 0),
     minimumFetchInterval: const Duration(hours: 1),
   ));
+
+  await remoteConfig.setDefaults(const {
+    "share_app_message": "Aplicația Radio Creștin:\nhttps://share.radiocrestin.ro",
+    "share_app_station_message": "Ascultă și tu ",
+  });
 
   remoteConfig.fetchAndActivate();
 
