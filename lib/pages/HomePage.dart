@@ -5,16 +5,16 @@ import 'package:android_play_install_referrer/android_play_install_referrer.dart
 import 'package:audio_service/audio_service.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:radio_crestin/appAudioHandler.dart';
-import 'package:radio_crestin/components/BottomNavigationAudioPlayer.dart';
+import 'package:radio_crestin/components/FullAudioPlayer.dart';
 import 'package:radio_crestin/components/QueueList.dart';
 import 'package:radio_crestin/pages/SettingsPage.dart';
 import 'package:rxdart/rxdart.dart';
-import 'package:share_plus/share_plus.dart';
+import 'package:sliding_up_panel/sliding_up_panel.dart';
 import 'package:uni_links_nfc_support/uni_links_nfc_support.dart';
 import 'package:upgrader/upgrader.dart';
 
+import '../components/MiniAudioPlayer.dart';
 import '../main.dart';
 
 final remoteConfig = FirebaseRemoteConfig.instance;
@@ -28,33 +28,33 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   late StreamSubscription _sub;
-  late ScrollController _hideButtonController;
+  PanelController panelController = PanelController();
 
-  bool _isVisible = false;
   final AppAudioHandler _audioHandler = getIt<AppAudioHandler>();
 
   playByStationSlug(String stationSlug) async {
     developer.log("playByStationSlug:" + stationSlug);
     var stations = await _audioHandler.stationsMediaItems.first;
     var station = stations.where((item) => item.extras?['station_slug'] == stationSlug).firstOrNull;
-    if(station != null) {
+    if (station != null) {
       developer.log("found station:$station");
       _audioHandler.playMediaItem(station);
     }
   }
+
   processIntentUri(Uri? uri) async {
     try {
-      if(uri == null) {
+      if (uri == null) {
         return;
       }
       developer.log("processIntentUri:" + uri.toString());
-      var stationSlug = uri.path.replaceAll("/share/", "").replaceAll("/radio/", "").replaceAll("/", "");
-      if(stationSlug == "") {
+      var stationSlug =
+          uri.path.replaceAll("/share/", "").replaceAll("/radio/", "").replaceAll("/", "");
+      if (stationSlug == "") {
         stationSlug = uri.host;
       }
       playByStationSlug(stationSlug);
-
-    } catch(e) {
+    } catch (e) {
       developer.log("processIntentUri error:$e");
     }
   }
@@ -63,17 +63,15 @@ class _HomePageState extends State<HomePage> {
     try {
       AndroidPlayInstallReferrer.installReferrer.then((value) {
         developer.log("AndroidPlayInstallReferrer:" + value.toString());
-        if(value.installReferrer != null) {
+        if (value.installReferrer != null) {
           playByStationSlug(value.installReferrer!);
         }
       });
-    } catch(e) {
+    } catch (e) {
       developer.log("AndroidPlayInstallReferrer err:" + e.toString());
     }
 
-    getInitialUri().then((value) => {
-      processIntentUri(value)
-    });
+    getInitialUri().then((value) => {processIntentUri(value)});
 
     _sub = uriLinkStream.listen((Uri? uri) {
       processIntentUri(uri);
@@ -89,40 +87,25 @@ class _HomePageState extends State<HomePage> {
           _audioHandler.mediaItem, (queue, mediaItem) => QueueState(queue, mediaItem));
 
   @override
-  initState() {
-    super.initState();
-    _isVisible = true;
-    _hideButtonController = ScrollController();
-    _hideButtonController.addListener(() {
-      if (_hideButtonController.position.userScrollDirection == ScrollDirection.reverse) {
-        if (_isVisible) {
-          setState(() {
-            _isVisible = false;
-          });
-        }
-      }
-      if (_hideButtonController.position.userScrollDirection == ScrollDirection.forward) {
-        if (!_isVisible) {
-          setState(() {
-            _isVisible = true;
-          });
-        }
-      }
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
+    double panelMaxHeight = MediaQuery.of(context).size.height * .75;
+
     return UpgradeAlert(
         upgrader: Upgrader(showIgnore: false),
         child: Scaffold(
             appBar: AppBar(
+              // backgroundColor: Colors.white,
+              elevation: 0,
               leading: const Center(
-                  child: Image(
-                      image: AssetImage('assets/icons/ic_foreground.png'), width: 30, height: 30)),
+                child: Image(
+                  image: AssetImage('assets/icons/ic_foreground.png'),
+                  width: 30,
+                  height: 30,
+                ),
+              ),
               title: Container(
+                // transform: Matrix4.translationValues(-16, 0, 0.0),
                 child: const Text('Radio Crestin'),
-                transform: Matrix4.translationValues(-16, 0, 0.0),
               ),
               titleTextStyle: const TextStyle(
                 color: Colors.white,
@@ -130,38 +113,11 @@ class _HomePageState extends State<HomePage> {
                 fontWeight: FontWeight.bold,
               ),
               actions: <Widget>[
-                // IconButton(
-                //   icon: const Icon(Icons.add_alert),
-                //   tooltip: 'Show Snackbar',
-                //   onPressed: () {
-                //     ScaffoldMessenger.of(context).showSnackBar(
-                //         const SnackBar(content: Text('This is a snackbar')));
-                //   },
-                // ),
-                StreamBuilder<QueueState>(
-                  stream: _queueStateStream,
-                  builder: (context, snapshot) {
-                    final mediaItem = snapshot.data?.mediaItem;
-                    developer.log("mediaItem" + mediaItem.toString());
-                    return IconButton(
-                      icon: const Icon(Icons.campaign),
-                      tooltip: 'Trimite aplicatia prietenilor tai',
-                      onPressed: () {
-                        if(mediaItem != null) {
-                          var linkMessage = "";
-                          linkMessage += "${mediaItem.title}\n";
-                          linkMessage += "https://share.radiocrestin.ro/${mediaItem.extras?['station_slug']}";
-
-                          Share.share(remoteConfig.getString("share_app_station_message") + linkMessage);
-                        } else {
-                          Share.share(remoteConfig.getString("share_app_message"));
-                        }
-                      },
-                    );
-                  },
-                ),
                 IconButton(
-                  icon: const Icon(Icons.settings),
+                  icon: const Icon(
+                    Icons.settings,
+                    color: Colors.white,
+                  ),
                   tooltip: 'Setari aplicatie',
                   onPressed: () {
                     Navigator.push(context, MaterialPageRoute<void>(
@@ -173,42 +129,51 @@ class _HomePageState extends State<HomePage> {
                 ),
               ],
             ),
-            body: Stack(
-              children: [
-                StreamBuilder<QueueState>(
-                  stream: _queueStateStream,
-                  builder: (context, snapshot) {
-                    final queue = snapshot.data?.stationsMediaItems ?? [];
-                    final mediaItem = snapshot.data?.mediaItem;
-                    return QueueList(
+            body: StreamBuilder<QueueState>(
+                stream: _queueStateStream,
+                builder: (context, snapshot) {
+                  final queue = snapshot.data?.stationsMediaItems ?? [];
+                  final mediaItem = snapshot.data?.mediaItem;
+                  return SlidingUpPanel(
+                    maxHeight: panelMaxHeight,
+                    // minHeight: 115,
+                    backdropEnabled: true,
+                    // color: Theme.of(context).bottomAppBarTheme.color!,
+                    controller: panelController,
+                    body: QueueList(
                       queue: queue,
                       mediaItem: mediaItem,
                       audioHandler: _audioHandler,
-                      hideButtonController: _hideButtonController,
-                    );
-                  },
-                ),
-                StreamBuilder<QueueState>(
-                  stream: _queueStateStream,
-                  builder: (context, snapshot) {
-                    final mediaItem = snapshot.data?.mediaItem;
-                    return Positioned(
-                        left: 6,
-                        right: 6,
-                        bottom: 14,
-                        child: BottomNavigationAudioPlayer(
-                          isElevated: true,
-                          isVisible: mediaItem != null,
-                          displayTitle: mediaItem?.displayTitle ?? "",
-                          displaySubtitle: mediaItem?.displaySubtitle ?? "",
-                          displayThumbnailUrl: mediaItem?.artUri.toString() ?? "",
-                          audioHandler: _audioHandler,
-                        ));
-                  },
-                ),
-              ],
-            )));
+                      scrollController: null,
+                      panelController: null,
+                    ),
+                    collapsed: MiniAudioPlayer(
+                      mediaItem: mediaItem,
+                      audioHandler: _audioHandler,
+                      panelController: panelController,
+                    ),
+                    panelBuilder: (sc) => Container(
+                      decoration: const BoxDecoration(
+                        color: Colors.transparent, // Set the background color to transparent
+                        borderRadius: BorderRadius.only(
+                          topLeft: Radius.circular(16.0),
+                          topRight: Radius.circular(16.0),
+                        ),
+                      ),
+                      child: FullAudioPlayer(
+                        mediaItem: mediaItem,
+                        audioHandler: _audioHandler,
+                      ),
+                    ),
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(16.0),
+                      topRight: Radius.circular(16.0),
+                    ),
+                    margin: const EdgeInsets.symmetric(horizontal: 4.0),
+                  );
+                })));
   }
+
   @override
   void dispose() {
     // Clean up resources, subscriptions, controllers, etc.

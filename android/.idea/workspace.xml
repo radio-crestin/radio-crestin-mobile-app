@@ -1,26 +1,28 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="AndroidLayouts">
-    <shared>
-      <config />
-    </shared>
-  </component>
   <component name="AutoImportSettings">
     <option name="autoReloadType" value="NONE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="46ab7019-4783-4f5c-bb05-d45de29558ce" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/app/src/main/res/values/strings.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../TODO.md" beforeDir="false" afterPath="$PROJECT_DIR$/../TODO.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/AndroidManifest.xml" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/AndroidManifest.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../ios/Runner.xcodeproj/project.pbxproj" beforeDir="false" afterPath="$PROJECT_DIR$/../ios/Runner.xcodeproj/project.pbxproj" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../lib/main.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/main.dart" afterDir="false" />
+    <list default="true" id="58041931-ad11-42ad-8927-493b20dc1bf9" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/../lib/components/CastButton.dart" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../lib/components/FullAudioPlayer.dart" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../lib/components/MiniAudioPlayer.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/gradle.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/gradle.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/kotlinc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/kotlinc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build.gradle" beforeDir="false" afterPath="$PROJECT_DIR$/app/build.gradle" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/kotlin/com/radiocrestin/radio_crestin/MainActivity.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/kotlin/com/radiocrestin/radio_crestin/MainActivity.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/res/values/strings.xml" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/res/values/strings.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../ios/Runner/AppDelegate.swift" beforeDir="false" afterPath="$PROJECT_DIR$/../ios/Runner/AppDelegate.swift" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../ios/Runner/Info.plist" beforeDir="false" afterPath="$PROJECT_DIR$/../ios/Runner/Info.plist" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../lib/components/BottomNavigationAudioPlayer.dart" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../lib/components/QueueList.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/components/QueueList.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../lib/pages/HomePage.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/pages/HomePage.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../lib/pages/WriteNfcTag.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/pages/WriteNfcTag.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../macos/Runner/Assets.xcassets/AppIcon.appiconset/Contents.json" beforeDir="false" afterPath="$PROJECT_DIR$/../macos/Runner/Assets.xcassets/AppIcon.appiconset/Contents.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../lib/theme.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/theme.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../lib/utils.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/utils.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../pubspec.lock" beforeDir="false" afterPath="$PROJECT_DIR$/../pubspec.lock" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../pubspec.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/../pubspec.yaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../web/manifest.json" beforeDir="false" afterPath="$PROJECT_DIR$/../web/manifest.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -36,23 +38,21 @@
   <component name="MarkdownSettingsMigration">
     <option name="stateVersion" value="1" />
   </component>
-  <component name="ProjectId" id="2YZUtZ0HYJN3X6fDnwqMryInBZm" />
+  <component name="ProjectId" id="2ZWwP2vMJSBlCg506SpIkmxamUt" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.cidr.known.project.marker&quot;: &quot;true&quot;,
-    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
-    &quot;cidr.known.project.marker&quot;: &quot;true&quot;,
-    &quot;dart.analysis.tool.window.visible&quot;: &quot;false&quot;,
-    &quot;recommended.upgrade.do.not.ask.for.project&quot;: &quot;true&quot;,
-    &quot;show.migrate.to.gradle.popup&quot;: &quot;false&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "RunOnceActivity.OpenProjectViewOnStart": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.cidr.known.project.marker": "true",
+    "cidr.known.project.marker": "true",
+    "dart.analysis.tool.window.visible": "false",
+    "show.migrate.to.gradle.popup": "false"
   }
-}</component>
+}]]></component>
   <component name="RunManager">
     <configuration name="app" type="AndroidRunConfigurationType" factoryName="Android App">
       <module name="android.app.main" />
@@ -124,11 +124,11 @@
   <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
   <component name="TaskManager">
     <task active="true" id="Default" summary="Default task">
-      <changelist id="46ab7019-4783-4f5c-bb05-d45de29558ce" name="Changes" comment="" />
-      <created>1700732811437</created>
+      <changelist id="58041931-ad11-42ad-8927-493b20dc1bf9" name="Changes" comment="" />
+      <created>1702551116113</created>
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
-      <updated>1700732811437</updated>
+      <updated>1702551116113</updated>
     </task>
     <servers />
   </component>

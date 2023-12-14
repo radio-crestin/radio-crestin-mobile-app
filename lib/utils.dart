@@ -72,6 +72,10 @@ class Utils {
       extras: {
         "station_id": station?.id,
         "station_slug": station?.slug,
+        "station_title": station?.title,
+        "song_id": station?.now_playing?.song?.id ?? -1,
+        "song_title": station?.now_playing?.song?.name ?? "",
+        "song_artist": station?.now_playing?.song?.artist?.name ?? "",
         "total_listeners": station?.total_listeners,
         "station_is_up": station?.uptime?.is_up,
         "thumbnail_url": station?.thumbnail_url,

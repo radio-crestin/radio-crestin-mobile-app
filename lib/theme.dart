@@ -20,8 +20,8 @@ final ThemeData appTheme = ThemeData(
   appBarTheme: const AppBarTheme(
     surfaceTintColor: null,
   ),
-  bottomAppBarTheme: BottomAppBarTheme(
-    color: Colors.grey[900],
+  bottomAppBarTheme: const BottomAppBarTheme(
+    color: Colors.black,
   ),
   buttonTheme: const ButtonThemeData(
     textTheme: ButtonTextTheme.normal,

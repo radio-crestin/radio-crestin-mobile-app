@@ -3,26 +3,29 @@ import 'package:flutter/material.dart';
 import 'package:radio_crestin/appAudioHandler.dart';
 import 'package:radio_crestin/theme.dart';
 import 'package:radio_crestin/utils.dart';
+import 'package:sliding_up_panel/src/panel.dart';
 
 class QueueList extends StatelessWidget {
   const QueueList(
       {Key? key,
       required this.queue,
       required this.mediaItem,
-      required this.hideButtonController,
-      required this.audioHandler})
+      required this.audioHandler,
+      required this.scrollController,
+      required this.panelController})
       : super(key: key);
   final List<MediaItem> queue;
   final MediaItem? mediaItem;
-  final ScrollController hideButtonController;
+  final ScrollController? scrollController;
   final AppAudioHandler audioHandler;
+  final PanelController? panelController;
 
   @override
   Widget build(BuildContext context) {
     return ListView.builder(
-      padding: const EdgeInsets.only(top: 6, bottom: 100),
-      cacheExtent: 20.0,
-      controller: hideButtonController,
+      padding: const EdgeInsets.only(top: 6, bottom: 6),
+      cacheExtent: 200.0,
+      controller: scrollController,
       itemCount: queue.length,
       itemBuilder: (context, itemIdx) {
         final item = queue[itemIdx];
@@ -47,20 +50,21 @@ class QueueList extends StatelessWidget {
             ),
             subtitle: item.extras?["station_is_up"] == false
                 ? Text(
-                    "Statie offline",
-                    style: TextStyle(color: appTheme.primaryColor),
-                  )
+              "Stație offline",
+              style: TextStyle(color: appTheme.primaryColor),
+            )
                 : Padding(
-                    padding: const EdgeInsets.only(right: 20.0),
-                    child: Text(
-                      item.displaySubtitle ?? "",
-                      textAlign: TextAlign.left,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
+              padding: const EdgeInsets.only(right: 20.0),
+              child: Text(
+                item.displaySubtitle ?? "",
+                textAlign: TextAlign.left,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
             onTap: () async {
               audioHandler.playMediaItem(item);
+              panelController?.close();
             });
       },
     );
