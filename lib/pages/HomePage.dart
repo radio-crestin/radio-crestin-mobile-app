@@ -50,6 +50,8 @@ class _HomePageState extends State<HomePage> {
   CustomPanelController slidingUpPanelController = CustomPanelController();
 
   final AppAudioHandler _audioHandler = getIt<AppAudioHandler>();
+  final BehaviorSubject<bool> panelIsOpened = BehaviorSubject.seeded(false);
+
 
   _HomePageState() {
     try {
@@ -101,6 +103,15 @@ class _HomePageState extends State<HomePage> {
                 topLeft: Radius.circular(16.0),
                 topRight: Radius.circular(16.0),
               ),
+              onPanelOpened: () {
+                panelIsOpened.add(true);
+              },
+              onPanelSlide: (_) {
+                panelIsOpened.add(false);
+              },
+              onPanelClosed: () {
+                panelIsOpened.add(false);
+              },
               gestureSlidingEnabled: (slidingUpPanelController.isAttached && (slidingUpPanelController.isPanelClosed || slidingUpPanelController.isPanelClosed)) || isDraggable,
               body: SafeArea(
                 child: CustomScrollView(
@@ -242,6 +253,7 @@ class _HomePageState extends State<HomePage> {
                 child: FullAudioPlayer(
                   audioHandler: _audioHandler,
                   slidingUpPanelController: slidingUpPanelController,
+                  panelIsOpened: panelIsOpened,
                 ),
               ),
             );

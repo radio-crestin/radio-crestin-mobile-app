@@ -5,6 +5,7 @@ import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:radio_crestin/pages/HomePage.dart';
+import 'package:rxdart/src/subjects/behavior_subject.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -14,11 +15,13 @@ import '../utils.dart';
 class FullAudioPlayer extends StatefulWidget {
   final AppAudioHandler audioHandler;
   final CustomPanelController slidingUpPanelController;
+  final BehaviorSubject<bool> panelIsOpened;
 
   const FullAudioPlayer(
       {super.key,
-        required this.audioHandler,
-        required this.slidingUpPanelController});
+      required this.audioHandler,
+      required this.slidingUpPanelController,
+      required this.panelIsOpened});
 
   @override
   _FullAudioPlayerState createState() => _FullAudioPlayerState();
@@ -29,32 +32,34 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   MediaItem? mediaItem;
   final PageController pageController = PageController();
   final List _subscriptions = [];
+  bool panelIsOpened = false;
 
   @override
   void initState() {
     super.initState();
-    _subscriptions.add(
-        widget.audioHandler.stationsMediaItems.listen((value) {
-          setState(() {
-            stationsMediaItems = value;
-          });
-        })
-    );
-    _subscriptions.add(
-        widget.audioHandler.mediaItem.listen((value) {
-          setState(() {
-            mediaItem = value;
-          });
-          final newPage = stationsMediaItems.indexWhere((item) => item.id == mediaItem?.id);
-          if(pageController.page != null && pageController.page != newPage) {
-            pageController.animateToPage(
-              newPage,
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.ease,
-            );
-          }
-        })
-    );
+    _subscriptions.add(widget.audioHandler.stationsMediaItems.listen((value) {
+      setState(() {
+        stationsMediaItems = value;
+      });
+    }));
+    _subscriptions.add(widget.audioHandler.mediaItem.listen((value) {
+      setState(() {
+        mediaItem = value;
+      });
+      final newPage = stationsMediaItems.indexWhere((item) => item.id == mediaItem?.id);
+      if (pageController.page != null && pageController.page != newPage) {
+        pageController.animateToPage(
+          newPage,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.ease,
+        );
+      }
+    }));
+    _subscriptions.add(widget.panelIsOpened.listen((value) {
+      setState(() {
+        panelIsOpened = value;
+      });
+    }));
   }
 
   @override
@@ -64,11 +69,10 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     }
     super.dispose();
   }
+
   @override
   Widget build(BuildContext context) {
-    final Color primaryColor = Theme
-        .of(context)
-        .primaryColor;
+    final Color primaryColor = Theme.of(context).primaryColor;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -121,6 +125,9 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                 width: 300.0,
                 height: 300.0,
                 child: PageView.builder(
+                  physics: panelIsOpened
+                      ? const AlwaysScrollableScrollPhysics()
+                      : const NeverScrollableScrollPhysics(),
                   controller: pageController,
                   scrollDirection: Axis.horizontal,
                   itemCount: stationsMediaItems.length,
@@ -162,9 +169,11 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
             ),
             const SizedBox(height: 18.0),
             Text(
-              (
-                  mediaItem!= null && mediaItem?.extras?['song_title'] != null && mediaItem?.extras?['song_title'] != ""
-              )? (mediaItem?.extras?['song_title']?? "Metadate indisponibile"): "Metadate indisponibile",
+              (mediaItem != null &&
+                      mediaItem?.extras?['song_title'] != null &&
+                      mediaItem?.extras?['song_title'] != "")
+                  ? (mediaItem?.extras?['song_title'] ?? "Metadate indisponibile")
+                  : "Metadate indisponibile",
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
@@ -208,25 +217,27 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                             child: Padding(
                               padding: const EdgeInsets.all(6.0),
                               child: (processingState == AudioProcessingState.loading ||
-                                  processingState == AudioProcessingState.buffering)
+                                      processingState == AudioProcessingState.buffering)
                                   ? Container(
-                                width: 48,
-                                height: 48,
-                                padding: const EdgeInsets.all(8.0),
-                                child: const CircularProgressIndicator(
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    Colors.white,
-                                  ),
-                                ),
-                              )
+                                      width: 48,
+                                      height: 48,
+                                      padding: const EdgeInsets.all(8.0),
+                                      child: const CircularProgressIndicator(
+                                        valueColor: AlwaysStoppedAnimation<Color>(
+                                          Colors.white,
+                                        ),
+                                      ),
+                                    )
                                   : IconButton(
-                                icon: (playing
-                                    ? const Icon(Icons.pause_rounded, color: Colors.white)
-                                    : const Icon(Icons.play_arrow_rounded,
-                                    color: Colors.white)),
-                                iconSize: 32,
-                                onPressed: playing ? widget.audioHandler.pause : widget.audioHandler.play,
-                              ),
+                                      icon: (playing
+                                          ? const Icon(Icons.pause_rounded, color: Colors.white)
+                                          : const Icon(Icons.play_arrow_rounded,
+                                              color: Colors.white)),
+                                      iconSize: 32,
+                                      onPressed: playing
+                                          ? widget.audioHandler.pause
+                                          : widget.audioHandler.play,
+                                    ),
                             ),
                           ),
                         ),
@@ -259,12 +270,14 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                   },
                 ),
                 IconButton(
-                  icon: mediaItem?.extras?['is_favorite'] == "true" ? const Icon(Icons.favorite_sharp): const Icon(Icons.favorite_border_sharp),
-                  color:  mediaItem?.extras?['is_favorite'] == "true" ? primaryColor :Colors.black,
+                  icon: mediaItem?.extras?['is_favorite'] == "true"
+                      ? const Icon(Icons.favorite_sharp)
+                      : const Icon(Icons.favorite_border_sharp),
+                  color: mediaItem?.extras?['is_favorite'] == "true" ? primaryColor : Colors.black,
                   iconSize: 24,
                   onPressed: () async {
-                    if(mediaItem != null) {
-                      if(mediaItem?.extras?['is_favorite'] == "true") {
+                    if (mediaItem != null) {
+                      if (mediaItem?.extras?['is_favorite'] == "true") {
                         await widget.audioHandler.setMediaItemIsFavorite(mediaItem!, false);
                       } else {
                         await widget.audioHandler.setMediaItemIsFavorite(mediaItem!, true);
@@ -320,7 +333,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                       var linkMessage = "";
                       linkMessage += "${mediaItem?.title ?? "Asculta Radio Crestin"}\n";
                       linkMessage +=
-                      "https://share.radiocrestin.ro/${mediaItem?.extras?['station_slug'] ?? ""}/${mediaItem?.extras?['song_id'] ?? ""}";
+                          "https://share.radiocrestin.ro/${mediaItem?.extras?['station_slug'] ?? ""}/${mediaItem?.extras?['song_id'] ?? ""}";
 
                       Share.share(
                           remoteConfig.getString("share_app_station_message") + linkMessage);
@@ -344,16 +357,19 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
       barrierDismissible: false,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Oprește radioul după:', style: TextStyle(fontSize: 18),),
+          title: const Text(
+            'Oprește radioul după:',
+            style: TextStyle(fontSize: 18),
+          ),
           backgroundColor: Colors.white,
           surfaceTintColor: Colors.transparent,
           content: SingleChildScrollView(
             child: Column(
               children: [5, 10, 30, 60]
                   .map((minutes) => ListTile(
-                title: Text('$minutes minute'),
-                onTap: () => setSleepTimer(context, Duration(minutes: minutes)),
-              ))
+                        title: Text('$minutes minute'),
+                        onTap: () => setSleepTimer(context, Duration(minutes: minutes)),
+                      ))
                   .toList(),
             ),
           ),
