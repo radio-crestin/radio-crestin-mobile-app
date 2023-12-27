@@ -1,11 +1,15 @@
 import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter/material.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../globals.dart' as globals;
 import 'WriteNfcTag.dart';
+
+final remoteConfig = FirebaseRemoteConfig.instance;
 
 class SettingsPage extends StatefulWidget {
   @override
@@ -13,9 +17,9 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  bool? _notificationsEnabled = null;
-  String _version = globals.appVersion;
-  String _deviceId = globals.deviceId;
+  bool? _notificationsEnabled;
+  final String _version = globals.appVersion;
+  final String _deviceId = globals.deviceId;
 
   @override
   void initState() {
@@ -34,7 +38,7 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
         appBar: AppBar(
-          title: Text('Setari'),
+          title: Text('Setări'),
         ),
         body: Container(
           margin: const EdgeInsets.only(top: 10),
@@ -44,8 +48,9 @@ class _SettingsPageState extends State<SettingsPage> {
               children: [
                 ListTile(
                   leading: const Icon(Icons.notification_important_rounded),
-                  title: Text('Notificari personalizate'),
-                  subtitle: Text('Primiti notificari cand incepe o melodie/emisiune preferata.'),
+                  title: const Text('Notificări personalizate'),
+                  subtitle:
+                      const Text('Primiți notificări când începe o melodie/emisiune preferată.'),
                   trailing: Switch(
                     onChanged: (bool? value) async {
                       final prefs = await SharedPreferences.getInstance();
@@ -61,33 +66,48 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
                 ListTile(
                   leading: const Icon(Icons.nfc),
-                  title: const Text('Inscripționează o etichetă NFC'),
+                  title: const Text('Inscripționează un tag NFC'),
                   onTap: () => {
-                  Navigator.push(context, MaterialPageRoute<void>(
-                    builder: (BuildContext context) {
-                      return WriteNfcTagPage();
-                    },
-                  ))
-                },
+                    Navigator.push(context, MaterialPageRoute<void>(
+                      builder: (BuildContext context) {
+                        return WriteNfcTagPage();
+                      },
+                    ))
+                  },
                 ),
-                Spacer(),
+                ListTile(
+                  leading: const Icon(Icons.share_rounded),
+                  title: const Text('Trimite aplicația'),
+                  onTap: () {
+                    Share.share(remoteConfig.getString("share_app_message"));
+                  },
+                ),
+                const Spacer(),
                 ListTile(
                   title: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).primaryColor,
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: BorderRadius.zero, // Makes the button square
+                      ),
+                    ),
                     onPressed: () async {
                       final event = SentryEvent(
-                        message: SentryMessage("WHATSAPP_CONTACT"),
-                        level: SentryLevel.debug
-                            
-                      );
+                          message: SentryMessage("WHATSAPP_CONTACT"), level: SentryLevel.debug);
 
                       Sentry.captureEvent(event);
-                      
+
                       // https://pub.dev/packages/url_launcher
                       // TODO: we might need to add some additional details for iOS
-                      launchUrl(Uri.parse("https://wa.me/40773994595?text=Buna%20ziua%20%5BRadio%20Crestin%5D"),
+                      launchUrl(
+                          Uri.parse(
+                              "https://wa.me/40773994595?text=Buna%20ziua%20%5BRadio%20Crestin%5D"),
                           mode: LaunchMode.externalApplication);
                     },
-                    child: Text('Contactează-ne pe WhatsApp'),
+                    child: const Text(
+                      'Contactează-ne pe WhatsApp',
+                      style: TextStyle(color: Colors.white),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 10),

@@ -1,0 +1,14 @@
+- [x] blocheaza slide down cand se face scroll pe horizontala
+- [x] sincronizeaza Swiper-ul cu audioHandler
+- [x] stocheaza in localStorage statiile favorite
+- [x] afiseaza statiile favorite ca si in Google Podcasts
+- [x] identifica de ce player-ul  porneste greu in anumite conditii (am dat stop inainte de play, sper sa rezolve problema)
+- [x] fix default station
+- [x] imbunatateste design-ul AppBar title
+- [] Adauga buton pentru share aplicatie
+- [] adauga buton like in lista principala
+- [] ? afiseaza statiile grupate dupa categorie
+- [] fa aplicatia mai usor de folosit prin adaugarea unui player central
+- [x] adauga optiune de search
+- [x] imbunatateste thumbnail-urile staiilor
+- [x] dialog-ul de sleep nu e white

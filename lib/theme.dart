@@ -1,27 +1,45 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+
 
 final ThemeData appTheme = ThemeData(
+  useMaterial3: true,
+  // fontFamily: 'Inter',
   brightness: Brightness.light,
-  primaryColor: Color(0xffe91e63),
-  primaryColorLight: Color(0xfff8bbd0),
-  primaryColorDark: Color(0xffc2185b),
-  hintColor: Color(0xffe91e63),
-  canvasColor: Color(0xfffafafa),
-  scaffoldBackgroundColor: Color(0xfffafafa),
-  cardColor: Color(0xffffffff),
-  dividerColor: Color(0x1f000000),
-  highlightColor: Color(0x66bcbcbc),
-  splashColor: Color(0x66c8c8c8),
-  unselectedWidgetColor: Color(0x8a000000),
-  disabledColor: Color(0x61000000),
-  secondaryHeaderColor: Color(0xfffce4ec),
-  dialogBackgroundColor: Color(0xffffffff),
-  indicatorColor: Color(0xffe91e63),
-  appBarTheme: const AppBarTheme(
+  primaryColor: const Color(0xffe91e63),
+  primaryColorLight: const Color(0xfff8bbd0),
+  primaryColorDark: const Color(0xffc2185b),
+  hintColor: const Color(0xffe91e63),
+  canvasColor: const Color(0xfffafafa),
+  scaffoldBackgroundColor: const Color(0xfffafafa),
+  cardColor: const Color(0xffffffff),
+  dividerColor: const Color(0x1f000000),
+  highlightColor: const Color(0x66bcbcbc),
+  splashColor: const Color(0x66c8c8c8),
+  unselectedWidgetColor: const Color(0x8a000000),
+  disabledColor: const Color(0x61000000),
+  secondaryHeaderColor: Colors.white,
+  dialogBackgroundColor: Colors.white,
+  indicatorColor: const Color(0xffe91e63),
+  appBarTheme: AppBarTheme(
+    // backgroundColor: Colors.grey[200],
     surfaceTintColor: null,
+    systemOverlayStyle: const SystemUiOverlayStyle(
+      statusBarColor: Color(0xfffafafa),
+
+      // Status bar brightness (optional)
+      statusBarIconBrightness: Brightness.dark, // For Android (dark icons)
+      statusBarBrightness: Brightness.light, // For iOS (dark icons)
+    ),
+    titleTextStyle: TextStyle(
+      color: Colors.grey.shade800,
+      fontSize: 19,
+      fontWeight: FontWeight.bold,
+    )
   ),
-  bottomAppBarTheme: const BottomAppBarTheme(
-    color: Colors.black,
+  bottomAppBarTheme: BottomAppBarTheme(
+    color: Colors.grey[900],
   ),
   buttonTheme: const ButtonThemeData(
     textTheme: ButtonTextTheme.normal,
@@ -47,7 +65,7 @@ final ThemeData appTheme = ThemeData(
       primary: Color(0xffe91e63),
       secondary: Color(0xffe91e63),
       surface: Color(0xffffffff),
-      background: Color(0xfff48fb1),
+      background: Colors.white,
       error: Color(0xffd32f2f),
       onPrimary: Color(0xffffffff),
       onSecondary: Color(0xffffffff),
@@ -57,7 +75,7 @@ final ThemeData appTheme = ThemeData(
       brightness: Brightness.light,
     ),
   ),
-  textTheme: TextTheme(
+  textTheme: const TextTheme(
     caption: TextStyle(
       color: Color(0x8a000000),
       fontSize: null,
@@ -77,7 +95,7 @@ final ThemeData appTheme = ThemeData(
       fontStyle: FontStyle.normal,
     ),
   ),
-  primaryTextTheme: TextTheme(
+  primaryTextTheme: const TextTheme(
     caption: TextStyle(
       color: Color(0xb3ffffff),
       fontSize: null,
@@ -195,17 +213,17 @@ final ThemeData appTheme = ThemeData(
       borderRadius: BorderRadius.all(Radius.circular(4.0)),
     ),
   ),
-  iconTheme: IconThemeData(
+  iconTheme: const IconThemeData(
     color: Colors.white,
     opacity: 1,
     size: 24,
   ),
-  primaryIconTheme: IconThemeData(
+  primaryIconTheme: const IconThemeData(
     color: Color(0xffffffff),
     opacity: 1,
     size: 24,
   ),
-  sliderTheme: SliderThemeData(
+  sliderTheme: const SliderThemeData(
     activeTrackColor: null,
     inactiveTrackColor: null,
     disabledActiveTrackColor: null,
@@ -226,12 +244,12 @@ final ThemeData appTheme = ThemeData(
       fontStyle: FontStyle.normal,
     ),
   ),
-  tabBarTheme: TabBarTheme(
+  tabBarTheme: const TabBarTheme(
     indicatorSize: TabBarIndicatorSize.tab,
     labelColor: Color(0xffffffff),
     unselectedLabelColor: Color(0xb2ffffff),
   ),
-  chipTheme: ChipThemeData(
+  chipTheme: const ChipThemeData(
     backgroundColor: Color(0x1f000000),
     brightness: Brightness.light,
     deleteIconColor: Color(0xde000000),
@@ -259,7 +277,7 @@ final ThemeData appTheme = ThemeData(
       style: BorderStyle.none,
     )),
   ),
-  dialogTheme: DialogTheme(
+  dialogTheme: const DialogTheme(
       shape: RoundedRectangleBorder(
     side: BorderSide(
       color: Color(0xff000000),
@@ -290,30 +308,10 @@ final ThemeData appTheme = ThemeData(
       return null;
     }),
   ),
-  switchTheme: SwitchThemeData(
-    thumbColor: MaterialStateProperty.resolveWith<Color?>((Set<MaterialState> states) {
-      if (states.contains(MaterialState.disabled)) {
-        return null;
-      }
-      if (states.contains(MaterialState.selected)) {
-        return Color(0xffd81b60);
-      }
-      return null;
-    }),
-    trackColor: MaterialStateProperty.resolveWith<Color?>((Set<MaterialState> states) {
-      if (states.contains(MaterialState.disabled)) {
-        return null;
-      }
-      if (states.contains(MaterialState.selected)) {
-        return Color(0xffd81b60);
-      }
-      return null;
-    }),
-  ),
   colorScheme: ColorScheme.fromSwatch(primarySwatch: Colors.pink)
       .copyWith(background: Color(0xfff48fb1))
       .copyWith(error: Color(0xffd32f2f)),
-  textSelectionTheme: TextSelectionThemeData(
+  textSelectionTheme: const TextSelectionThemeData(
     cursorColor: Color(0xff4285f4),
     selectionColor: Color(0xfff48fb1),
     selectionHandleColor: Color(0xfff06292),

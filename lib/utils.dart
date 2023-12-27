@@ -1,13 +1,17 @@
+import 'dart:convert';
 import 'dart:developer' as developer;
 
 import 'package:audio_service/audio_service.dart';
-import 'package:fast_cached_network_image/fast_cached_network_image.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:radio_crestin/queries/getStations.graphql.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'constants.dart';
 
 class Utils {
+  static const _favoriteStationsKey = 'favoriteStationSlugs';
+
   static String getCurrentPlayedSongTitle(Query$GetStations$stations? station) {
     if (station == null) {
       return "";
@@ -59,7 +63,39 @@ class Utils {
     return availableStreamUrls;
   }
 
-  static MediaItem getStationMetadata(Query$GetStations$stations? station) {
+  // Function to check if a station is favorite
+  static Future<bool> getStationIsFavorite(Query$GetStations$stations? station) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final String? favoriteJson = prefs.getString(_favoriteStationsKey);
+    if (favoriteJson != null) {
+      List<String> favorites = List<String>.from(json.decode(favoriteJson));
+      return favorites.contains(station?.slug);
+    }
+    return false;
+  }
+
+  // Function to add or remove a station from favorites
+  static Future<void> setStationIsFavorite(Query$GetStations$stations station, bool isFavorite) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final String? favoriteJson = prefs.getString(_favoriteStationsKey);
+    List<String> favorites = favoriteJson != null ? List<String>.from(json.decode(favoriteJson)) : [];
+
+    if (isFavorite) {
+      // Add to favorites
+      if (!favorites.contains(station.slug)) {
+        favorites.add(station.slug);
+      }
+    } else {
+      // Remove from favorites
+      favorites.remove(station.slug);
+    }
+
+    developer.log("set_favoriteJson: ${json.encode(favorites)}");
+    // Save the updated list back to preferences
+    await prefs.setString(_favoriteStationsKey, json.encode(favorites));
+  }
+
+  static Future<MediaItem> getStationMetadata(Query$GetStations$stations? station) async {
     return MediaItem(
       // id: station?.id.toString() ?? "0",
       id: getStationStreamUrls(station).first,
@@ -78,31 +114,34 @@ class Utils {
         "song_artist": station?.now_playing?.song?.artist?.name ?? "",
         "total_listeners": station?.total_listeners,
         "station_is_up": station?.uptime?.is_up,
-        "thumbnail_url": station?.thumbnail_url,
+        "station_thumbnail_url": station?.thumbnail_url,
         "station_streams": Utils.getStationStreamUrls(station),
+        "is_favorite": await Utils.getStationIsFavorite(station)? "true": "false",
       },
     );
   }
 
-  static displayImage(String url, {bool cache = false}) {
+  static displayImage(String url, {String? fallbackImageUrl, bool cache = false}) {
     if (url == "") {
       return null;
     }
     if (cache) {
-      return FastCachedImage(
-        url: url,
+      return CachedNetworkImage(
+        imageUrl: url,
         fit: BoxFit.cover,
-        gaplessPlayback: false,
         fadeInDuration: Duration.zero,
-        errorBuilder: (context, exception, stacktrace) {
+        errorWidget: (context, exception, stacktrace) {
           developer.log("Error loading image: $exception");
           return Container(
-            color: Colors.white,
+            color: Colors.red[100],
           );
         },
-        loadingBuilder: (context, progress) {
+        placeholder: (context, progress) {
+          if(fallbackImageUrl != null) {
+            return displayImage(fallbackImageUrl, cache: true);
+          }
           return Container(
-            color: Colors.white,
+            color: Colors.grey[300],
           );
         },
       );

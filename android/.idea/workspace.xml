@@ -5,20 +5,11 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="58041931-ad11-42ad-8927-493b20dc1bf9" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/../lib/components/CastButton.dart" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/../lib/components/FullAudioPlayer.dart" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/../lib/components/MiniAudioPlayer.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/gradle.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/gradle.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/kotlinc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/kotlinc.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../assets/icons/youtube.svg" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/build.gradle" beforeDir="false" afterPath="$PROJECT_DIR$/app/build.gradle" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/kotlin/com/radiocrestin/radio_crestin/MainActivity.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/kotlin/com/radiocrestin/radio_crestin/MainActivity.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/res/values/strings.xml" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/res/values/strings.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../ios/Runner/AppDelegate.swift" beforeDir="false" afterPath="$PROJECT_DIR$/../ios/Runner/AppDelegate.swift" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../ios/Runner/Info.plist" beforeDir="false" afterPath="$PROJECT_DIR$/../ios/Runner/Info.plist" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../lib/components/BottomNavigationAudioPlayer.dart" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../lib/components/FullAudioPlayer.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/components/FullAudioPlayer.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../lib/components/MiniAudioPlayer.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/components/MiniAudioPlayer.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../lib/components/QueueList.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/components/QueueList.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../lib/pages/HomePage.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/pages/HomePage.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../lib/theme.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/theme.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../lib/utils.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/utils.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../pubspec.lock" beforeDir="false" afterPath="$PROJECT_DIR$/../pubspec.lock" afterDir="false" />
