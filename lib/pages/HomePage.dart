@@ -16,6 +16,7 @@ import 'package:uni_links_nfc_support/uni_links_nfc_support.dart';
 import '../components/MiniAudioPlayer.dart';
 import '../components/SearchDialog.dart';
 import '../main.dart';
+import '../utils/PositionRetainedScrollPhysics.dart';
 import 'SettingsPage.dart';
 
 final remoteConfig = FirebaseRemoteConfig.instance;
@@ -103,7 +104,7 @@ class _HomePageState extends State<HomePage> {
               gestureSlidingEnabled: (slidingUpPanelController.isAttached && (slidingUpPanelController.isPanelClosed || slidingUpPanelController.isPanelClosed)) || isDraggable,
               body: SafeArea(
                 child: CustomScrollView(
-                  physics: const BouncingScrollPhysics(),
+                  physics: const PositionRetainedScrollPhysics(),
                   cacheExtent: 300.0,
                   slivers: <Widget>[
                     SliverAppBar(

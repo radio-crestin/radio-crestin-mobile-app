@@ -1032,14 +1032,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.5.1"
-  positioned_scroll_observer:
-    dependency: "direct main"
-    description:
-      name: positioned_scroll_observer
-      sha256: def07aac027bf21348f7d31fcafba7a72fca3ae6132adf4057cc901451cffaf8
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.2.2"
   provider:
     dependency: "direct main"
     description:

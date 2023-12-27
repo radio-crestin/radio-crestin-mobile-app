@@ -66,7 +66,6 @@ dependencies:
   cached_network_image: ^3.3.0
   easy_search_bar: ^2.5.0
   flutter_sticky_header: ^0.6.5
-  positioned_scroll_observer: ^2.2.2
 
 dev_dependencies:
   dependency_validator: ^3.2.2
