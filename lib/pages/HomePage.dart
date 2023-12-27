@@ -242,7 +242,7 @@ class _HomePageState extends State<HomePage> {
                   panelController: slidingUpPanelController,
                 ),
               ),
-              panelBuilder: (sc) => Container(
+              panel: Container(
                 decoration: const BoxDecoration(
                   color: Colors.transparent,
                   borderRadius: BorderRadius.only(
