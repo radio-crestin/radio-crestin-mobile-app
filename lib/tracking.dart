@@ -4,6 +4,7 @@ import 'dart:developer' as developer;
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:http/http.dart' as http;
 import 'package:radio_crestin/queries/getStations.graphql.dart';
+import 'package:radio_crestin/utils.dart';
 
 import 'globals.dart' as globals;
 
@@ -11,6 +12,7 @@ FirebaseAnalytics analytics = FirebaseAnalytics.instance;
 
 class AppTracking {
   static trackPlayStation(Query$GetStations$stations station) async {
+    Utils.incrementActionsMade();
     developer.log("trackPlayStation");
     await FirebaseAnalytics.instance.logEvent(name: "listen_radio_start", parameters: {
       "station_id": station.id,
