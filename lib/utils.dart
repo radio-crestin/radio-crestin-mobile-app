@@ -176,35 +176,32 @@ class Utils {
         builder: (BuildContext context) {
           if (Platform.isIOS) {
             // CupertinoAlertDialog for iOS
-            return Container(
-              color: Colors.black.withOpacity(0.2),
-              child: CupertinoAlertDialog(
-                title: const Text('Lasă-ne un review de 5 stele'),
-                content: const Text('Lasă-ne feedback dacă îți place\nRadio Creștin.'),
-                actions: <Widget>[
-                  CupertinoDialogAction(
-                    child: const Text(
-                      'Anulează',
-                      style: TextStyle(color: Colors.blue),
-                    ),
-                    onPressed: () {
-                      navigator.pop();
-                    },
+            return CupertinoAlertDialog(
+              title: const Text('Lasă-ne un review de 5 stele'),
+              content: const Text('Lasă-ne feedback dacă îți place\nRadio Creștin.'),
+              actions: <Widget>[
+                CupertinoDialogAction(
+                  child: const Text(
+                    'Anulează',
+                    style: TextStyle(color: Colors.blue),
                   ),
-                  CupertinoDialogAction(
-                    child: const Text(
-                      '5 stele',
-                      style: TextStyle(color: Colors.blue),
-                    ),
-                    onPressed: () async {
-                      if (await inAppReview.isAvailable()) {
-                        inAppReview.requestReview();
-                      }
-                      navigator.pop();
-                    },
+                  onPressed: () {
+                    navigator.pop();
+                  },
+                ),
+                CupertinoDialogAction(
+                  child: const Text(
+                    '5 stele',
+                    style: TextStyle(color: Colors.blue),
                   ),
-                ],
-              ),
+                  onPressed: () async {
+                    if (await inAppReview.isAvailable()) {
+                      inAppReview.requestReview();
+                    }
+                    navigator.pop();
+                  },
+                ),
+              ],
             );
           } else {
             // AlertDialog for Android
