@@ -372,15 +372,7 @@ class AppAudioHandler extends BaseAudioHandler {
   @override
   Future<void> playMediaItem(MediaItem item) async {
     _log('playMediaItem($item)');
-
     var retry = 0;
-    if (mediaItem.value?.id == item.id) {
-      if (!player.playing) {
-        return play();
-      }
-      return;
-    }
-    await stop();
 
     mediaItem.add(item);
     await setLastPlayedMediaItem(item);
@@ -475,10 +467,12 @@ class AppAudioHandler extends BaseAudioHandler {
   }
 
   Future<void> setMediaItemIsFavorite(MediaItem item, bool isFavorite) async {
-    Query$GetStations$stations station = stations.firstWhere((s) => s.slug == item.extras?['station_slug']);
+    Query$GetStations$stations station =
+        stations.firstWhere((s) => s.slug == item.extras?['station_slug']);
 
     developer.log("setMediaItemIsFavorite: ${station.slug} $isFavorite");
     Utils.setStationIsFavorite(station, isFavorite);
+    Utils.incrementActionsMade();
     await updateStationsMediaItems(stations);
   }
 }

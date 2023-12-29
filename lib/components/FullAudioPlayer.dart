@@ -132,7 +132,9 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                   scrollDirection: Axis.horizontal,
                   itemCount: stationsMediaItems.length,
                   onPageChanged: (itemIdx) async {
-                    await widget.audioHandler.playMediaItem(stationsMediaItems[itemIdx]);
+                    if (widget.audioHandler.mediaItem.value?.id != stationsMediaItems[itemIdx].id) {
+                      await widget.audioHandler.playMediaItem(stationsMediaItems[itemIdx]);
+                    }
                   },
                   itemBuilder: (BuildContext context, int itemIdx) {
                     final item = stationsMediaItems[itemIdx];
@@ -354,7 +356,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   Future<void> showSleepTimerDialog(BuildContext context) async {
     return showDialog<void>(
       context: context,
-      barrierDismissible: false,
+      barrierDismissible: true,
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text(

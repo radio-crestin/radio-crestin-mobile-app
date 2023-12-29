@@ -3,11 +3,14 @@ import 'dart:developer' as developer;
 
 import 'package:audio_service/audio_service.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:in_app_review/in_app_review.dart';
 import 'package:radio_crestin/queries/getStations.graphql.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'constants.dart';
+import 'globals.dart';
 
 class Utils {
   static const _favoriteStationsKey = 'favoriteStationSlugs';
@@ -76,9 +79,11 @@ class Utils {
 
   // Function to add or remove a station from favorites
   static Future<void> setStationIsFavorite(Query$GetStations$stations station, bool isFavorite) async {
+    final InAppReview inAppReview = InAppReview.instance;
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     final String? favoriteJson = prefs.getString(_favoriteStationsKey);
-    List<String> favorites = favoriteJson != null ? List<String>.from(json.decode(favoriteJson)) : [];
+    List<String> favorites =
+        favoriteJson != null ? List<String>.from(json.decode(favoriteJson)) : [];
 
     if (isFavorite) {
       // Add to favorites
@@ -157,6 +162,89 @@ class Utils {
           );
         },
       );
+    }
+  }
+
+  static Future<void> show5StarReviewDialog() async {
+    final navigator = navigatorKey.currentState;
+    final InAppReview inAppReview = InAppReview.instance;
+
+    if (navigator != null && navigator.mounted) {
+      return showCupertinoDialog<void>(
+        context: navigator.context,
+        builder: (BuildContext context) {
+          return Container(
+            color: Colors.black.withOpacity(0.2),
+            child: CupertinoAlertDialog(
+              title: const Text('Lasă-ne un review de 5 stele'),
+              content: const Text('Lasă-ne feedback dată îți place\nRadio Creștin.'),
+              actions: <Widget>[
+                CupertinoDialogAction(
+                  child: const Text(
+                    'Anulează',
+                    style: TextStyle(color: Colors.blue),
+                  ),
+                  onPressed: () {
+                    navigator.pop();
+                  },
+                ),
+                CupertinoDialogAction(
+                  child: const Text(
+                    '5 stele',
+                    style: TextStyle(color: Colors.blue),
+                  ),
+                  onPressed: () async {
+                    if (await inAppReview.isAvailable()) {
+                      inAppReview.requestReview();
+                    }
+                    navigator.pop();
+                  },
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    }
+  }
+
+  static Future<void> incrementActionsMade() async {
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? inAppReviewJson = prefs.getString('_inAppReview');
+
+      if (inAppReviewJson != null) {
+        Map<String, dynamic> inAppReview = json.decode(inAppReviewJson);
+
+        if (inAppReview['review_completed'] == true) {
+          return;
+        }
+
+        // Increment the actions_made counter
+        inAppReview['actions_made'] = (inAppReview['actions_made'] ?? 0) + 1;
+
+        // Save the updated preferences
+        await prefs.setString('_inAppReview', json.encode(inAppReview));
+
+        switch (inAppReview['actions_made']) {
+          case 20:
+          case 80:
+          case 200:
+          case 1000:
+          case 5000:
+          case 10000:
+          case 20000:
+            final navigator = navigatorKey.currentState;
+            if (navigator != null && navigator.mounted) {
+              show5StarReviewDialog();
+            }
+            break;
+          default:
+            break;
+        }
+      }
+    } catch (e) {
+      developer.log('Error incrementing actions_made: $e');
     }
   }
 }
