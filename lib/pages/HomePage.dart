@@ -76,7 +76,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    double panelMaxHeight = MediaQuery.of(context).size.height * .82;
+    double panelMaxHeight = MediaQuery.of(context).size.height * .9;
 
     return Scaffold(
       body: StreamBuilder<HomePageState>(

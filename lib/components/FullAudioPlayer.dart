@@ -185,7 +185,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
             ),
             Text(
               mediaItem?.extras?['song_artist'] ?? "",
-              maxLines: 2,
+              maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
               style: TextStyle(
@@ -259,7 +259,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                 ),
               ],
             ),
-            const SizedBox(height: 48.0),
+            const SizedBox(height: 70.0),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: <Widget>[
@@ -346,7 +346,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                 ),
               ],
             ),
-            const SizedBox(height: 24.0),
+            const SizedBox(height: 44.0),
           ],
         ),
       ),
