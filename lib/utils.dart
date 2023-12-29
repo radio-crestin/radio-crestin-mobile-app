@@ -263,7 +263,6 @@ class Utils {
 
         // Save the updated preferences
         await prefs.setString('_inAppReview', json.encode(inAppReview));
-        show5StarReviewDialog();
         switch (inAppReview['actions_made']) {
           case 20:
           case 80:
