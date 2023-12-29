@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:developer' as developer;
+import 'dart:io' show Platform;
 
 import 'package:audio_service/audio_service.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -170,16 +171,53 @@ class Utils {
     final InAppReview inAppReview = InAppReview.instance;
 
     if (navigator != null && navigator.mounted) {
-      return showCupertinoDialog<void>(
+      return showDialog(
         context: navigator.context,
         builder: (BuildContext context) {
-          return Container(
-            color: Colors.black.withOpacity(0.2),
-            child: CupertinoAlertDialog(
-              title: const Text('Lasă-ne un review de 5 stele'),
-              content: const Text('Lasă-ne feedback dată îți place\nRadio Creștin.'),
+          if (Platform.isIOS) {
+            // CupertinoAlertDialog for iOS
+            return Container(
+              color: Colors.black.withOpacity(0.2),
+              child: CupertinoAlertDialog(
+                title: const Text('Lasă-ne un review de 5 stele'),
+                content: const Text('Lasă-ne feedback dacă îți place\nRadio Creștin.'),
+                actions: <Widget>[
+                  CupertinoDialogAction(
+                    child: const Text(
+                      'Anulează',
+                      style: TextStyle(color: Colors.blue),
+                    ),
+                    onPressed: () {
+                      navigator.pop();
+                    },
+                  ),
+                  CupertinoDialogAction(
+                    child: const Text(
+                      '5 stele',
+                      style: TextStyle(color: Colors.blue),
+                    ),
+                    onPressed: () async {
+                      if (await inAppReview.isAvailable()) {
+                        inAppReview.requestReview();
+                      }
+                      navigator.pop();
+                    },
+                  ),
+                ],
+              ),
+            );
+          } else {
+            // AlertDialog for Android
+            return AlertDialog(
+              title: const Text(
+                'Lasă-ne un review de 5 stele',
+                style: TextStyle(fontSize: 18),
+              ),
+              backgroundColor: Colors.white,
+              surfaceTintColor: Colors.transparent,
+              content: const Text('Lasă-ne feedback dacă îți place\nRadio Creștin.'),
               actions: <Widget>[
-                CupertinoDialogAction(
+                TextButton(
                   child: const Text(
                     'Anulează',
                     style: TextStyle(color: Colors.blue),
@@ -188,7 +226,7 @@ class Utils {
                     navigator.pop();
                   },
                 ),
-                CupertinoDialogAction(
+                TextButton(
                   child: const Text(
                     '5 stele',
                     style: TextStyle(color: Colors.blue),
@@ -201,8 +239,8 @@ class Utils {
                   },
                 ),
               ],
-            ),
-          );
+            );
+          }
         },
       );
     }
@@ -225,7 +263,7 @@ class Utils {
 
         // Save the updated preferences
         await prefs.setString('_inAppReview', json.encode(inAppReview));
-
+        show5StarReviewDialog();
         switch (inAppReview['actions_made']) {
           case 20:
           case 80:
