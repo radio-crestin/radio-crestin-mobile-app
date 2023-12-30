@@ -7,10 +7,13 @@
 <br>
 <p align="center">
   <a href="https://play.google.com/store/apps/details?id=com.radiocrestin.radio_crestin&hl=en_US" target="_blank">
-    <img alt="playstore image" src="https://github.com/iosifnicolae2/radio-crestin-app/blob/main/assets/icons/playstore.svg" width="150" height="46"/>
+    <img alt="playstore image" src="https://radiocrestin.ro/images/playstore.svg" width="150" height="46"/>
   </a>
   <a href="https://apps.apple.com/app/6451270471" target="_blank">
-    <img alt="appstore image" src="https://github.com/iosifnicolae2/radio-crestin-app/blob/main/assets/icons/appstore.svg" width="150" height="46"/>
+    <img alt="appstore image" src="https://radiocrestin.ro/images/appstore.svg" width="150" height="46"/>
+  </a>
+  <a href="https://appgallery.huawei.com/app/C109055331" target="_blank">
+    <img alt="huawei image" src="https://radiocrestin.ro/images/appgallery.svg" width="150" height="46"/>
   </a>
 </p>
 
