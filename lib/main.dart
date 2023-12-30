@@ -58,13 +58,13 @@ void main() async {
     FirebaseAnalytics.instance.setUserProperty(name: 'personalized_n', value: 'true');
   }
 
-  if (prefs.getString('_inAppReview') == null) {
-    var defaultInAppReview = {
+  if (prefs.getString('_reviewStatus') == null) {
+    var defaultReviewStatus = {
       'review_completed': false, // is completed when the user clicks on "5 stele" to add a review.
       'actions_made': 0,
     };
 
-    prefs.setString('_inAppReview', json.encode(defaultInAppReview));
+    prefs.setString('_reviewStatus', json.encode(defaultReviewStatus));
   }
 
   final remoteConfig = FirebaseRemoteConfig.instance;
