@@ -166,13 +166,26 @@ class Utils {
     }
   }
 
+  static Future<void> requestReviewAndUpdateStatus(NavigatorState navigator) async {
+    final InAppReview inAppReview = InAppReview.instance;
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? reviewStatusJson = prefs.getString('_reviewStatus');
+    Map<String, dynamic> reviewStatus = json.decode(reviewStatusJson!);
+
+    if (await inAppReview.isAvailable()) {
+      inAppReview.requestReview();
+      reviewStatus['review_completed'] = true;
+      await prefs.setString('_reviewStatus', json.encode(reviewStatus));
+    }
+    navigator.pop();
+  }
+
   static Future<void> show5StarReviewDialog() async {
     final navigator = navigatorKey.currentState;
-    final InAppReview inAppReview = InAppReview.instance;
-
     if (navigator != null && navigator.mounted) {
       return showDialog(
         context: navigator.context,
+        barrierDismissible: false,
         builder: (BuildContext context) {
           if (Platform.isIOS) {
             // CupertinoAlertDialog for iOS
@@ -195,10 +208,7 @@ class Utils {
                     style: TextStyle(color: Colors.blue),
                   ),
                   onPressed: () async {
-                    if (await inAppReview.isAvailable()) {
-                      inAppReview.requestReview();
-                    }
-                    navigator.pop();
+                    await requestReviewAndUpdateStatus(navigator);
                   },
                 ),
               ],
@@ -229,10 +239,7 @@ class Utils {
                     style: TextStyle(color: Colors.blue),
                   ),
                   onPressed: () async {
-                    if (await inAppReview.isAvailable()) {
-                      inAppReview.requestReview();
-                    }
-                    navigator.pop();
+                    await requestReviewAndUpdateStatus(navigator);
                   },
                 ),
               ],
@@ -246,21 +253,21 @@ class Utils {
   static Future<void> incrementActionsMade() async {
     try {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
-      String? inAppReviewJson = prefs.getString('_inAppReview');
+      String? reviewStatusJson = prefs.getString('_reviewStatus');
 
-      if (inAppReviewJson != null) {
-        Map<String, dynamic> inAppReview = json.decode(inAppReviewJson);
+      if (reviewStatusJson != null) {
+        Map<String, dynamic> reviewStatus = json.decode(reviewStatusJson);
 
-        if (inAppReview['review_completed'] == true) {
+        if (reviewStatus['review_completed'] == true) {
           return;
         }
 
         // Increment the actions_made counter
-        inAppReview['actions_made'] = (inAppReview['actions_made'] ?? 0) + 1;
+        reviewStatus['actions_made'] = (reviewStatus['actions_made'] ?? 0) + 1;
 
         // Save the updated preferences
-        await prefs.setString('_inAppReview', json.encode(inAppReview));
-        switch (inAppReview['actions_made']) {
+        await prefs.setString('_reviewStatus', json.encode(reviewStatus));
+        switch (reviewStatus['actions_made']) {
           case 20:
           case 80:
           case 200:
@@ -270,7 +277,9 @@ class Utils {
           case 20000:
             final navigator = navigatorKey.currentState;
             if (navigator != null && navigator.mounted) {
-              show5StarReviewDialog();
+              Future.delayed(const Duration(seconds: 3), () {
+                Utils.show5StarReviewDialog();
+              });
             }
             break;
           default:
