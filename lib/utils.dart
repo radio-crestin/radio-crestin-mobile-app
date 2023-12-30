@@ -80,7 +80,6 @@ class Utils {
 
   // Function to add or remove a station from favorites
   static Future<void> setStationIsFavorite(Query$GetStations$stations station, bool isFavorite) async {
-    final InAppReview inAppReview = InAppReview.instance;
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     final String? favoriteJson = prefs.getString(_favoriteStationsKey);
     List<String> favorites =

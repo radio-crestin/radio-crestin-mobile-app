@@ -24,7 +24,6 @@ import 'globals.dart' as globals;
 final getIt = GetIt.instance;
 
 void main() async {
-  final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
   WidgetsFlutterBinding.ensureInitialized();
 
   await Firebase.initializeApp(
