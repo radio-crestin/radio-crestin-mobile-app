@@ -28,6 +28,7 @@ class FullAudioPlayer extends StatefulWidget {
 }
 
 class _FullAudioPlayerState extends State<FullAudioPlayer> {
+  Offset? _initialPointerPosition;
   List<MediaItem> stationsMediaItems = [];
   MediaItem? mediaItem;
   final PageController pageController = PageController();
@@ -115,11 +116,20 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
               behavior: HitTestBehavior.translucent,
               onPointerDown: (PointerDownEvent details) {
                 developer.log("onPointerDown");
+                _initialPointerPosition = details.position;
                 widget.slidingUpPanelController.setIsDraggable(false);
               },
               onPointerUp: (PointerUpEvent details) {
-                developer.log("onPointerUp");
                 widget.slidingUpPanelController.setIsDraggable(true);
+                if (_initialPointerPosition != null) {
+                  final direction = details.position.dx - _initialPointerPosition!.dx;
+                  if (direction > 0) {
+                    developer.log('Dragged to the right');
+                  } else if (direction < 0) {
+                    developer.log('Dragged to the left');
+                  }
+                }
+                _initialPointerPosition = null;
               },
               child: SizedBox(
                 width: 300.0,
@@ -131,11 +141,6 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                   controller: pageController,
                   scrollDirection: Axis.horizontal,
                   itemCount: stationsMediaItems.length,
-                  onPageChanged: (itemIdx) async {
-                    if (widget.audioHandler.mediaItem.value?.id != stationsMediaItems[itemIdx].id) {
-                      await widget.audioHandler.playMediaItem(stationsMediaItems[itemIdx]);
-                    }
-                  },
                   itemBuilder: (BuildContext context, int itemIdx) {
                     final item = stationsMediaItems[itemIdx];
                     String displayThumbnailUrl = item.artUri.toString();
