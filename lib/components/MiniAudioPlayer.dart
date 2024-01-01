@@ -45,15 +45,23 @@ class MiniAudioPlayer extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
                 Container(
-                  width: 32,
-                  height: 4,
-                  decoration: BoxDecoration(
-                      color: Colors.grey[300],
-                      borderRadius: const BorderRadius.all(Radius.circular(12.0))),
+                  margin: EdgeInsets.only(top: 3.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: <Widget>[
+                      Container(
+                        width: 32,
+                        height: 4,
+                        decoration: BoxDecoration(
+                            color: Colors.grey[300],
+                            borderRadius: const BorderRadius.all(Radius.circular(12.0))),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 13.0),
+            const SizedBox(height: 10.0),
             Row(
               children: <Widget>[
                 SizedBox(

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:developer' as developer;
 
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
@@ -99,15 +98,23 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
                 Container(
-                  width: 30,
-                  height: 5,
-                  decoration: BoxDecoration(
-                      color: Colors.grey[300],
-                      borderRadius: const BorderRadius.all(Radius.circular(12.0))),
+                  margin: EdgeInsets.only(top: 3.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: <Widget>[
+                      Container(
+                        width: 32,
+                        height: 4,
+                        decoration: BoxDecoration(
+                            color: Colors.grey[300],
+                            borderRadius: const BorderRadius.all(Radius.circular(12.0))),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 20.0),
+            const SizedBox(height: 17.0),
             Text(
               mediaItem?.extras?['station_title'] ?? "",
               style: const TextStyle(
