@@ -28,6 +28,7 @@ class FullAudioPlayer extends StatefulWidget {
 }
 
 class _FullAudioPlayerState extends State<FullAudioPlayer> {
+  bool pageChangeDueToSwipe = true;
   List<MediaItem> stationsMediaItems = [];
   MediaItem? mediaItem;
   final PageController pageController = PageController();
@@ -48,11 +49,16 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
       });
       final newPage = stationsMediaItems.indexWhere((item) => item.id == mediaItem?.id);
       if (pageController.page != null && pageController.page != newPage) {
-        pageController.animateToPage(
+        pageChangeDueToSwipe = false;
+        pageController
+            .animateToPage(
           newPage,
           duration: const Duration(milliseconds: 200),
           curve: Curves.ease,
-        );
+        )
+            .then((_) {
+          pageChangeDueToSwipe = true;
+        });
       }
     }));
     _subscriptions.add(widget.panelIsOpened.listen((value) {
@@ -114,11 +120,9 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
             Listener(
               behavior: HitTestBehavior.translucent,
               onPointerDown: (PointerDownEvent details) {
-                developer.log("onPointerDown");
                 widget.slidingUpPanelController.setIsDraggable(false);
               },
               onPointerUp: (PointerUpEvent details) {
-                developer.log("onPointerUp");
                 widget.slidingUpPanelController.setIsDraggable(true);
               },
               child: SizedBox(
@@ -131,9 +135,9 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                   controller: pageController,
                   scrollDirection: Axis.horizontal,
                   itemCount: stationsMediaItems.length,
-                  onPageChanged: (itemIdx) async {
-                    if (widget.audioHandler.mediaItem.value?.id != stationsMediaItems[itemIdx].id) {
-                      await widget.audioHandler.playMediaItem(stationsMediaItems[itemIdx]);
+                  onPageChanged: (int index) {
+                    if (pageChangeDueToSwipe) {
+                      widget.audioHandler.playMediaItem(stationsMediaItems[index]);
                     }
                   },
                   itemBuilder: (BuildContext context, int itemIdx) {
