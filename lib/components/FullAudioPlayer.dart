@@ -28,7 +28,7 @@ class FullAudioPlayer extends StatefulWidget {
 }
 
 class _FullAudioPlayerState extends State<FullAudioPlayer> {
-  Offset? _initialPointerPosition;
+  bool pageChangeDueToUserInteraction = true;
   List<MediaItem> stationsMediaItems = [];
   MediaItem? mediaItem;
   final PageController pageController = PageController();
@@ -49,11 +49,16 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
       });
       final newPage = stationsMediaItems.indexWhere((item) => item.id == mediaItem?.id);
       if (pageController.page != null && pageController.page != newPage) {
-        pageController.animateToPage(
+        pageChangeDueToUserInteraction = false;
+        pageController
+            .animateToPage(
           newPage,
           duration: const Duration(milliseconds: 200),
           curve: Curves.ease,
-        );
+        )
+            .then((_) {
+          pageChangeDueToUserInteraction = true;
+        });
       }
     }));
     _subscriptions.add(widget.panelIsOpened.listen((value) {
@@ -116,20 +121,10 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
               behavior: HitTestBehavior.translucent,
               onPointerDown: (PointerDownEvent details) {
                 developer.log("onPointerDown");
-                _initialPointerPosition = details.position;
                 widget.slidingUpPanelController.setIsDraggable(false);
               },
               onPointerUp: (PointerUpEvent details) {
                 widget.slidingUpPanelController.setIsDraggable(true);
-                if (_initialPointerPosition != null) {
-                  final direction = details.position.dx - _initialPointerPosition!.dx;
-                  if (direction > 0) {
-                    developer.log('Dragged to the right');
-                  } else if (direction < 0) {
-                    developer.log('Dragged to the left');
-                  }
-                }
-                _initialPointerPosition = null;
               },
               child: SizedBox(
                 width: 300.0,
@@ -141,6 +136,11 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                   controller: pageController,
                   scrollDirection: Axis.horizontal,
                   itemCount: stationsMediaItems.length,
+                  onPageChanged: (int index) {
+                    if (pageChangeDueToUserInteraction) {
+                      widget.audioHandler.playMediaItem(stationsMediaItems[index]);
+                    }
+                  },
                   itemBuilder: (BuildContext context, int itemIdx) {
                     final item = stationsMediaItems[itemIdx];
                     String displayThumbnailUrl = item.artUri.toString();
