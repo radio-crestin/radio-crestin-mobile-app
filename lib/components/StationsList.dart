@@ -128,21 +128,30 @@ class StationsList extends StatelessWidget {
                         )
                       ],
                     ),
-                    Positioned(
-                      right: -8,
-                      bottom: -5,
-                      child: IconButton(
-                        icon: item?.extras?['is_favorite'] == "true" ? const Icon(Icons.favorite_sharp) : const Icon(Icons.favorite_border_sharp),
-                        color: primaryColor,
-                        iconSize: 20,
-                        onPressed: () async {
-                          if(item.extras?['is_favorite'] == "true") {
-                            await audioHandler.setMediaItemIsFavorite(item, false);
-                          } else {
-                            await audioHandler.setMediaItemIsFavorite(item, true);
-                          }
-                        },
-                      ),
+                    Stack(
+                      children: [
+                        Positioned(
+                          right: 0,
+                          bottom: 0,
+                          child: Transform.translate(
+                            offset: Offset(10, 0),
+                            child: IconButton(
+                              icon: item?.extras?['is_favorite'] == "true"
+                                  ? const Icon(Icons.favorite_sharp)
+                                  : const Icon(Icons.favorite_border_sharp),
+                              color: primaryColor,
+                              iconSize: 20,
+                              onPressed: () async {
+                                if (item.extras?['is_favorite'] == "true") {
+                                  await audioHandler.setMediaItemIsFavorite(item, false);
+                                } else {
+                                  await audioHandler.setMediaItemIsFavorite(item, true);
+                                }
+                              },
+                            ),
+                          ),
+                        )
+                      ],
                     )
                   ],
                 ),
