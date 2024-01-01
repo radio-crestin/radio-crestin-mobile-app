@@ -28,7 +28,7 @@ class FullAudioPlayer extends StatefulWidget {
 }
 
 class _FullAudioPlayerState extends State<FullAudioPlayer> {
-  bool pageChangeDueToUserInteraction = true;
+  bool pageChangeDueToSwipe = true;
   List<MediaItem> stationsMediaItems = [];
   MediaItem? mediaItem;
   final PageController pageController = PageController();
@@ -49,7 +49,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
       });
       final newPage = stationsMediaItems.indexWhere((item) => item.id == mediaItem?.id);
       if (pageController.page != null && pageController.page != newPage) {
-        pageChangeDueToUserInteraction = false;
+        pageChangeDueToSwipe = false;
         pageController
             .animateToPage(
           newPage,
@@ -57,7 +57,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
           curve: Curves.ease,
         )
             .then((_) {
-          pageChangeDueToUserInteraction = true;
+          pageChangeDueToSwipe = true;
         });
       }
     }));
@@ -120,7 +120,6 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
             Listener(
               behavior: HitTestBehavior.translucent,
               onPointerDown: (PointerDownEvent details) {
-                developer.log("onPointerDown");
                 widget.slidingUpPanelController.setIsDraggable(false);
               },
               onPointerUp: (PointerUpEvent details) {
@@ -137,7 +136,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                   scrollDirection: Axis.horizontal,
                   itemCount: stationsMediaItems.length,
                   onPageChanged: (int index) {
-                    if (pageChangeDueToUserInteraction) {
+                    if (pageChangeDueToSwipe) {
                       widget.audioHandler.playMediaItem(stationsMediaItems[index]);
                     }
                   },
