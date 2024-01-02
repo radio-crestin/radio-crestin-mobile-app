@@ -14,6 +14,8 @@ import 'package:radio_crestin/utils.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'constants.dart';
+
 enum PlayerState { started, stopped, playing, buffering, error }
 
 Future<AppAudioHandler> initAudioService({required graphqlClient}) async {
@@ -185,6 +187,10 @@ class AppAudioHandler extends BaseAudioHandler {
       AppTracking.trackListenStation(currentStation!, currentStreamUrl);
     }
     startListeningTracker();
+
+    // Switch the audio source back to the HLS stream when playing
+    player.setAudioSource(AudioSource.uri(Uri.parse(currentStreamUrl)), preload: true);
+
     return player.play();
   }
 
@@ -194,10 +200,18 @@ class AppAudioHandler extends BaseAudioHandler {
     if (currentStation != null) {
       AppTracking.trackStopStation(currentStation!);
     }
-    // mediaItem.add(null);
 
-    await player.stop();
-    return super.stop();
+    /**
+     * We switch the audio source to a static mp3 file to stop downloading the HLS stream while is on pause.
+     * This is to save bandwidth and battery.
+     *
+     * And we swtich back to HLS when pressing play.
+     */
+    await player.setAudioSource(AudioSource.uri(Uri.parse(CONSTANTS.STATIC_MP3_URL)),
+        preload: false);
+
+    await player.pause();
+    return super.pause();
   }
 
   @override
