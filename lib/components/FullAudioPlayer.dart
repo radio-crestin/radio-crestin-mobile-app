@@ -4,7 +4,6 @@ import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:radio_crestin/pages/HomePage.dart';
-import 'package:rxdart/src/subjects/behavior_subject.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -14,13 +13,9 @@ import '../utils.dart';
 class FullAudioPlayer extends StatefulWidget {
   final AppAudioHandler audioHandler;
   final CustomPanelController slidingUpPanelController;
-  final BehaviorSubject<bool> panelIsOpened;
 
   const FullAudioPlayer(
-      {super.key,
-      required this.audioHandler,
-      required this.slidingUpPanelController,
-      required this.panelIsOpened});
+      {super.key, required this.audioHandler, required this.slidingUpPanelController});
 
   @override
   _FullAudioPlayerState createState() => _FullAudioPlayerState();
@@ -32,7 +27,6 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   MediaItem? mediaItem;
   final PageController pageController = PageController();
   final List _subscriptions = [];
-  bool panelIsOpened = false;
 
   @override
   void initState() {
@@ -59,11 +53,6 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
           pageChangeDueToSwipe = true;
         });
       }
-    }));
-    _subscriptions.add(widget.panelIsOpened.listen((value) {
-      setState(() {
-        panelIsOpened = value;
-      });
     }));
   }
 
@@ -127,18 +116,14 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
             Listener(
               behavior: HitTestBehavior.translucent,
               onPointerDown: (PointerDownEvent details) {
-                widget.slidingUpPanelController.setIsDraggable(false);
               },
               onPointerUp: (PointerUpEvent details) {
-                widget.slidingUpPanelController.setIsDraggable(true);
               },
               child: SizedBox(
                 width: 300.0,
                 height: 300.0,
                 child: PageView.builder(
-                  physics: panelIsOpened
-                      ? const AlwaysScrollableScrollPhysics()
-                      : const NeverScrollableScrollPhysics(),
+                  physics: const AlwaysScrollableScrollPhysics(),
                   controller: pageController,
                   scrollDirection: Axis.horizontal,
                   itemCount: stationsMediaItems.length,
