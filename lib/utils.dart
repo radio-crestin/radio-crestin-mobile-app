@@ -131,6 +131,7 @@ class Utils {
         imageUrl: imageUrl,
         fit: BoxFit.cover,
         fadeInDuration: Duration.zero,
+        fadeOutDuration: Duration.zero,
         errorWidget: (context, exception, stacktrace) {
           developer.log("Error loading image: $exception");
           return Icon(Icons.error); // Default error widget in case of an error
