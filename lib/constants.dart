@@ -3,8 +3,4 @@ class CONSTANTS {
   static String GRAPHQL_AUTH = "Token public";
   static String DEFAULT_STATION_THUMBNAIL_URL = "";
   static String IMAGE_PROXY_PREFIX = "";
-  static Map<String, dynamic> IMAGE_PROXY_QUERY_PARAMETERS = {
-    'w': '256',
-    'q': '80'
-  };
 }

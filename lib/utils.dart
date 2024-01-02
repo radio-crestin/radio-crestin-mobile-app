@@ -42,11 +42,6 @@ class Utils {
     if (CONSTANTS.IMAGE_PROXY_PREFIX != "") {
       stationThumbnailUrl = "${CONSTANTS.IMAGE_PROXY_PREFIX}$stationThumbnailUrl";
     }
-    try{
-      stationThumbnailUrl = Uri.parse(stationThumbnailUrl).replace(queryParameters: CONSTANTS.IMAGE_PROXY_QUERY_PARAMETERS).toString();
-    } catch(e) {
-      developer.log("Error setting IMAGE_PROXY_QUERY_PARAMETERS: $e");
-    }
     return stationThumbnailUrl;
   }
 
@@ -121,45 +116,47 @@ class Utils {
         "station_is_up": station?.uptime?.is_up,
         "station_thumbnail_url": station?.thumbnail_url,
         "station_streams": Utils.getStationStreamUrls(station),
-        "is_favorite": await Utils.getStationIsFavorite(station)? "true": "false",
+        "is_favorite": await Utils.getStationIsFavorite(station) ? "true" : "false",
       },
     );
   }
 
-  static displayImage(String url, {String? fallbackImageUrl, bool cache = false}) {
-    if (url == "") {
-      return null;
+  static Widget displayImage(String url, {String? fallbackImageUrl, bool cache = false}) {
+    if (url.isEmpty) {
+      return Icon(Icons.error); // Show an error icon if the URL is empty
     }
-    if (cache) {
+
+    Widget loadImage(String imageUrl) {
       return CachedNetworkImage(
-        imageUrl: url,
+        imageUrl: imageUrl,
         fit: BoxFit.cover,
         fadeInDuration: Duration.zero,
         errorWidget: (context, exception, stacktrace) {
           developer.log("Error loading image: $exception");
-          return Container(
-            color: Colors.red[100],
-          );
+          return Icon(Icons.error); // Default error widget in case of an error
         },
-        placeholder: (context, progress) {
-          if(fallbackImageUrl != null) {
-            return displayImage(fallbackImageUrl, cache: true);
-          }
-          return Container(
-            color: Colors.grey[300],
-          );
-        },
+        placeholder: (context, url) =>
+            Container(color: Colors.grey[300]), // Placeholder while loading
       );
+    }
+
+    if (cache) {
+      return loadImage(url);
     } else {
       return Image.network(
         url,
         fit: BoxFit.cover,
-        gaplessPlayback: false,
+        gaplessPlayback: true,
         errorBuilder: (context, exception, stacktrace) {
           developer.log("Error loading image: $exception");
-          return Container(
-            color: Colors.white,
-          );
+          if (fallbackImageUrl?.isNotEmpty == true) {
+            return loadImage(fallbackImageUrl!); // Use cached fallback image in case of an error
+          }
+          return Icon(Icons.error); // Fallback to error icon if no fallback image is provided
+        },
+        frameBuilder:
+            (BuildContext context, Widget child, int? frame, bool wasSynchronouslyLoaded) {
+          return child;
         },
       );
     }
