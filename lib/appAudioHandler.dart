@@ -207,10 +207,10 @@ class AppAudioHandler extends BaseAudioHandler {
      *
      * And we swtich back to HLS when pressing play.
      */
-    await player.setAudioSource(AudioSource.uri(Uri.parse(CONSTANTS.STATIC_MP3_URL)),
-        preload: false);
 
     await player.pause();
+    await player.setAudioSource(AudioSource.uri(Uri.parse(CONSTANTS.STATIC_MP3_URL)),
+        preload: true);
     return super.pause();
   }
 
