@@ -205,24 +205,18 @@ class AppAudioHandler extends BaseAudioHandler {
      * We switch the audio source to a static mp3 file to stop downloading the HLS stream while is on pause.
      * This is to save bandwidth and battery.
      *
-     * And we swtich back to HLS when pressing play.
+     * And we switch back to HLS when pressing play.
      */
 
     await player.pause();
     await player.setAudioSource(AudioSource.uri(Uri.parse(CONSTANTS.STATIC_MP3_URL)),
-        preload: true);
+        preload: false);
     return super.pause();
   }
 
   @override
   Future<void> stop() async {
-    _log("stop");
-    if (currentStation != null) {
-      AppTracking.trackStopStation(currentStation!);
-    }
-    await player.stop();
-    // mediaItem.add(null);
-    return super.stop();
+    return pause();
   }
 
   /// Broadcasts the current state to all clients.
