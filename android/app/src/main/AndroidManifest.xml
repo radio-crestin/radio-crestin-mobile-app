@@ -9,12 +9,12 @@
 <!--        android:name="android.hardware.type.automotive"-->
 <!--        android:required="true" />-->
 
-    <uses-feature
-        android:name="android.software.car.templates_host"
-        android:required="true" />
-    <uses-feature
-        android:name="android.hardware.wifi"
-        android:required="true" />
+<!--    <uses-feature-->
+<!--        android:name="android.software.car.templates_host"-->
+<!--        android:required="true" />-->
+<!--    <uses-feature-->
+<!--        android:name="android.hardware.wifi"-->
+<!--        android:required="true" />-->
 
     <application
         android:label="Radio Crestin"
