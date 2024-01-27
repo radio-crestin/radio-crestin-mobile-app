@@ -5,19 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:like_button/like_button.dart';
 import 'package:radio_crestin/pages/HomePage.dart';
-import 'package:rxdart/rxdart.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../appAudioHandler.dart';
 import '../types/Station.dart';
 
-class FilteredStationsAndCurrentStation {
-  final List<Station> filteredStations;
-  final Station? currentStation;
-
-  FilteredStationsAndCurrentStation(this.filteredStations, this.currentStation);
-}
 
 class FullAudioPlayer extends StatefulWidget {
   final AppAudioHandler audioHandler;
@@ -39,41 +32,51 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   final PageController pageController = PageController();
   final List _subscriptions = [];
 
-  var filteredStationsIncludingCurrentStation = [];
+  List<Station> filteredStationsIncludingCurrentStation = [];
 
   @override
   void initState() {
     super.initState();
     _subscriptions
-        .add(Rx.combineLatest2<List<Station>, Station?, FilteredStationsAndCurrentStation>(
-      widget.audioHandler.filteredStations.stream,
-      widget.audioHandler.currentStation.stream, // Use the stream property
-      (filteredStations, currentStation) {
-        return FilteredStationsAndCurrentStation(filteredStations, currentStation);
-      },
-    ).listen((FilteredStationsAndCurrentStation c) {
+        .add(widget.audioHandler.filteredStations.stream.listen((List<Station> filteredStations) {
+
       setState(() {
-        currentStation = c.currentStation;
         filteredStationsIncludingCurrentStation = [
-          if (currentStation != null && !c.filteredStations.contains(currentStation))
-            currentStation,
-          ...c.filteredStations,
+          if (currentStation != null && !filteredStations.contains(currentStation))
+            currentStation!,
+          ...filteredStations,
         ];
-        final newPageIndex = filteredStationsIncludingCurrentStation
-            .indexWhere((item) => item.id == currentStation?.id);
-        if (pageController.page != null && pageController.page != newPageIndex) {
-          pageChangeDueToSwipe = false;
-          pageController
-              .animateToPage(
-            newPageIndex,
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.ease,
-          )
-              .then((_) {
-            pageChangeDueToSwipe = true;
-          });
-        }
       });
+
+      final newPageIndex = filteredStationsIncludingCurrentStation
+          .indexWhere((item) => item.id == currentStation?.id);
+      if (pageController.page != null && pageController.page != newPageIndex) {
+        pageChangeDueToSwipe = false;
+        pageController.jumpToPage(newPageIndex);
+        pageChangeDueToSwipe = true;
+      }
+    }));
+
+    _subscriptions
+        .add(widget.audioHandler.currentStation.stream.listen((Station? value) {
+      setState(() {
+        currentStation = value;
+      });
+
+      final newPageIndex = filteredStationsIncludingCurrentStation
+          .indexWhere((item) => item.id == currentStation?.id);
+      if (pageController.page != null && pageController.page != newPageIndex) {
+        pageChangeDueToSwipe = false;
+        pageController
+            .animateToPage(
+          newPageIndex,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.ease,
+        )
+            .then((_) {
+          pageChangeDueToSwipe = true;
+        });
+      }
     }));
   }
 
