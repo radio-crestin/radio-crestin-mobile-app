@@ -232,7 +232,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                           ClipOval(
                             child: Material(
                               color: Colors.pink,
-                              child: SizedBox(width: 56, height: 56,),
+                              child: SizedBox(width: 62, height: 62,),
                             ),
                           ),
                           CircularProgressIndicator(
@@ -253,7 +253,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                                 icon: (playing
                                     ? const Icon(Icons.pause_rounded, color: Colors.white)
                                     : const Icon(Icons.play_arrow_rounded, color: Colors.white)),
-                                iconSize: 40,
+                                iconSize: 46,
                                 onPressed:
                                     playing ? widget.audioHandler.pause : widget.audioHandler.play,
                               )),
