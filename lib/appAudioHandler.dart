@@ -277,8 +277,11 @@ class AppAudioHandler extends BaseAudioHandler {
       stations = parsedData.stations;
       await updateStationsMediaItems(stations);
       if (!onOpenEventTriggered) {
+        final prefs = await SharedPreferences.getInstance();
+        final autoStart = prefs.getBool('_autoStartStation') ?? true;
+
         // mediaItem.add(await getLastPlayedMediaItem());
-        playMediaItem(await getLastPlayedMediaItem());
+        playMediaItem(await getLastPlayedMediaItem(), autoStart);
         onOpenEventTriggered = true;
       }
       loadThumbnailsInCache();
@@ -378,7 +381,7 @@ class AppAudioHandler extends BaseAudioHandler {
   }
 
   @override
-  Future<void> playMediaItem(MediaItem item) async {
+  Future<void> playMediaItem(MediaItem item, [bool autoStart = true]) async {
     _log('playMediaItem($item)');
     var retry = 0;
 
@@ -407,7 +410,11 @@ class AppAudioHandler extends BaseAudioHandler {
         break;
       }
     }
-    return play();
+    if (autoStart) {
+      return play();
+    } else {
+      return super.playMediaItem(item);
+    }
   }
 
   @override
