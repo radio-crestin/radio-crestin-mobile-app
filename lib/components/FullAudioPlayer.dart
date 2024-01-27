@@ -257,25 +257,35 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                 ),
               ],
             ),
-            const SizedBox(height: 70.0),
+            const SizedBox(height: 90.0),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: <Widget>[
-                IconButton(
-                  icon: const Icon(Icons.bedtime_outlined),
-                  color: Colors.black,
-                  iconSize: 24,
-                  onPressed: () {
+                InkWell(
+                  customBorder: CircleBorder(),
+                  onTap: () {
                     showSleepTimerDialog(context);
                   },
+                  child: Container(
+                    padding: const EdgeInsets.all(10.0),
+                    child: const Column(
+                      children: [
+                        Icon(
+                          Icons.nights_stay_sharp,
+                          color: Colors.black,
+                          size: 24,
+                        ),
+                        Padding(
+                          padding: EdgeInsets.only(top: 8.0),
+                          child: Text('Somn', style: TextStyle(fontSize: 12)),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-                IconButton(
-                  icon: mediaItem?.extras?['is_favorite'] == "true"
-                      ? const Icon(Icons.favorite_sharp)
-                      : const Icon(Icons.favorite_border_sharp),
-                  color: mediaItem?.extras?['is_favorite'] == "true" ? primaryColor : Colors.black,
-                  iconSize: 24,
-                  onPressed: () async {
+                InkWell(
+                  customBorder: CircleBorder(),
+                  onTap: () async {
                     if (mediaItem != null) {
                       if (mediaItem?.extras?['is_favorite'] == "true") {
                         await widget.audioHandler.setMediaItemIsFavorite(mediaItem!, false);
@@ -284,16 +294,33 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                       }
                     }
                   },
+                  child: Container(
+                    padding: const EdgeInsets.all(10.0),
+                    child: Column(
+                      children: [
+                        Icon(
+                          mediaItem?.extras?['is_favorite'] == "true"
+                              ? Icons.favorite_sharp
+                              : Icons.favorite_border_sharp,
+                          color: mediaItem?.extras?['is_favorite'] == "true"
+                              ? primaryColor
+                              : Colors.black,
+                          size: 24,
+                        ),
+                        const Padding(
+                          padding: EdgeInsets.only(top: 8.0),
+                          child: Text('Favorit', style: TextStyle(fontSize: 12)),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
                 if (mediaItem != null &&
                     (!mediaItem?.extras?['song_artist'].isEmpty ||
                         !mediaItem?.extras?['song_title'].isEmpty))
-                  IconButton(
-                    icon: const Icon(Icons.video_collection),
-                    color: Colors.black,
-                    iconSize: 24,
-                    tooltip: 'Caută melodia pe Youtube',
-                    onPressed: () async {
+                  InkWell(
+                    customBorder: CircleBorder(),
+                    onTap: () async {
                       if (mediaItem != null) {
                         final query =
                             "${mediaItem?.extras?['song_artist']} - ${mediaItem?.extras?['song_title']}";
@@ -322,13 +349,26 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                             fontSize: 16.0);
                       }
                     },
+                    child: Container(
+                      padding: const EdgeInsets.all(10.0),
+                      child: const Column(
+                        children: [
+                          Icon(
+                            Icons.video_collection,
+                            color: Colors.black,
+                            size: 24,
+                          ),
+                          Padding(
+                            padding: EdgeInsets.only(top: 8.0),
+                            child: Text('YouTube', style: TextStyle(fontSize: 12)),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                IconButton(
-                  icon: const Icon(Icons.share_outlined),
-                  color: Colors.black,
-                  iconSize: 24,
-                  tooltip: 'Trimite aplicatia prietenilor tai',
-                  onPressed: () {
+                InkWell(
+                  customBorder: CircleBorder(),
+                  onTap: () {
                     if (mediaItem != null) {
                       var linkMessage = "";
                       linkMessage += "${mediaItem?.title ?? "Asculta Radio Crestin"}\n";
@@ -341,10 +381,26 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                       Share.share(remoteConfig.getString("share_app_message"));
                     }
                   },
+                  child: Container(
+                    padding: const EdgeInsets.all(10.0),
+                    child: const Column(
+                      children: [
+                        Icon(
+                          Icons.share_outlined,
+                          color: Colors.black,
+                          size: 24,
+                        ),
+                        Padding(
+                          padding: EdgeInsets.only(top: 8.0),
+                          child: Text('Share', style: TextStyle(fontSize: 12)),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 44.0),
+            const SizedBox(height: 55.0),
           ],
         ),
       ),
