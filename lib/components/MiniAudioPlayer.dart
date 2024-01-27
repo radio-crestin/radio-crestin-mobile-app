@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:sliding_up_panel/src/panel.dart';
@@ -61,7 +63,7 @@ class MiniAudioPlayer extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 10.0),
+            SizedBox(height: Platform.isIOS ? 7 : 10),
             Row(
               children: <Widget>[
                 SizedBox(

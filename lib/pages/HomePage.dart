@@ -224,7 +224,7 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
               collapsed: Container(
-                padding: const EdgeInsets.only(bottom: 12, left: 8, right: 8),
+                padding: EdgeInsets.only(bottom: Platform.isIOS ? 17 : 12, left: 8, right: 8),
                 color: Theme.of(context).scaffoldBackgroundColor,
                 child: MiniAudioPlayer(
                   mediaItem: mediaItem,
