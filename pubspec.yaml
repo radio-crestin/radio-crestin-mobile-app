@@ -58,17 +58,18 @@ dependencies:
     git:
       url: https://github.com/EliseiNicolae/flutter_nfc_kit.git
   firebase_instance_id: ^1.0.0
-  sentry_flutter: ^7.13.2
+  sentry_flutter: ^7.15.0
   android_play_install_referrer: ^0.3.0
   sliding_up_panel:
     git:
       url: https://github.com/Deskhunters/sliding_up_panel.git
   upgrader: ^8.4.0
   fluttertoast: ^8.2.4
-  cached_network_image: ^3.3.0
   easy_search_bar: ^2.5.0
   flutter_sticky_header: ^0.6.5
   in_app_review: ^2.0.8
+  like_button: ^2.0.5
+  extended_image: ^8.2.0
 
 dev_dependencies:
   dependency_validator: ^3.2.2

@@ -1,16 +1,31 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="AndroidLayouts">
+    <shared>
+      <config />
+    </shared>
+  </component>
   <component name="AutoImportSettings">
     <option name="autoReloadType" value="NONE" />
   </component>
   <component name="ChangeListManager">
     <list default="true" id="58041931-ad11-42ad-8927-493b20dc1bf9" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/../assets/icons/youtube.svg" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/../lib/types/Station.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/gradle.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/gradle.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../lib/appAudioHandler.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/appAudioHandler.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../lib/components/FullAudioPlayer.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/components/FullAudioPlayer.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../lib/components/MiniAudioPlayer.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/components/MiniAudioPlayer.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../lib/components/QueueList.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/components/QueueList.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../lib/theme.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/theme.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../lib/components/SearchDialog.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/components/SelectDialog.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../lib/components/StationsList.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/components/StationsList.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../lib/pages/HomePage.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/pages/HomePage.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../lib/pages/SettingsPage.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/pages/SettingsPage.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../lib/pages/WriteNfcTag.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/pages/WriteNfcTag.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../lib/queries/getStations.graphql" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/queries/getStations.graphql" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../lib/queries/getStations.graphql.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/queries/getStations.graphql.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../lib/schema.graphql.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/schema.graphql.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../lib/tracking.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/tracking.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../lib/utils.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/utils.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../pubspec.lock" beforeDir="false" afterPath="$PROJECT_DIR$/../pubspec.lock" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../pubspec.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/../pubspec.yaml" afterDir="false" />
@@ -20,7 +35,7 @@
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
-  <component name="ExecutionTargetManager" SELECTED_TARGET="device_and_snapshot_combo_box_target[5ef61837]" />
+  <component name="ExecutionTargetManager" SELECTED_TARGET="device_and_snapshot_combo_box_target[/Users/iosif/.android/avd/Android_TV_1080p_API_33.avd]" />
   <component name="ExternalProjectsData">
     <projectState path="$PROJECT_DIR$">
       <ProjectState />
@@ -34,16 +49,16 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "RunOnceActivity.OpenProjectViewOnStart": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.cidr.known.project.marker": "true",
-    "cidr.known.project.marker": "true",
-    "dart.analysis.tool.window.visible": "false",
-    "show.migrate.to.gradle.popup": "false"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.cidr.known.project.marker&quot;: &quot;true&quot;,
+    &quot;cidr.known.project.marker&quot;: &quot;true&quot;,
+    &quot;dart.analysis.tool.window.visible&quot;: &quot;false&quot;,
+    &quot;show.migrate.to.gradle.popup&quot;: &quot;false&quot;
   }
-}]]></component>
+}</component>
   <component name="RunManager">
     <configuration name="app" type="AndroidRunConfigurationType" factoryName="Android App">
       <module name="android.app.main" />

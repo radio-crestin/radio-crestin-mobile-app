@@ -48,4 +48,14 @@ query GetStations {
       message
     }
   }
+  station_groups {
+    id
+    name
+    order
+    slug
+    station_to_station_groups {
+      station_id
+      order
+    }
+  }
 }

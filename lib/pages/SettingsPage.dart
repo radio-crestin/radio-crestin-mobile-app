@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter/material.dart';
@@ -57,7 +59,7 @@ class _SettingsPageState extends State<SettingsPage> {
               children: [
                 ListTile(
                   leading: const Icon(Icons.radio),
-                  title: const Text('Pornește stația automat după deschiderea aplicației'),
+                  title: const Text('Pornește stația automat la deschiderea aplicației'),
                   trailing: Switch(
                     activeColor: Theme.of(context).primaryColor,
                     activeTrackColor: Theme.of(context).primaryColorLight,
@@ -128,11 +130,11 @@ class _SettingsPageState extends State<SettingsPage> {
 
                       Sentry.captureEvent(event);
 
-                      // https://pub.dev/packages/url_launcher
-                      // TODO: we might need to add some additional details for iOS
+                      final message = "Buna ziua [Radio Crestin ${Platform.isAndroid? "Android": Platform.isIOS? "iOS": ""}]\n";
                       launchUrl(
                           Uri.parse(
-                              "https://wa.me/40773994595?text=Buna%20ziua%20%5BRadio%20Crestin%5D"),
+                              "https://wa.me/40766338046?text=${Uri.encodeFull(message)}"
+                          ),
                           mode: LaunchMode.externalApplication);
                     },
                     child: const Text(

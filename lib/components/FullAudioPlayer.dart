@@ -5,19 +5,23 @@ import 'package:audio_service/audio_service.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:like_button/like_button.dart';
 import 'package:radio_crestin/pages/HomePage.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../appAudioHandler.dart';
-import '../utils.dart';
+import '../types/Station.dart';
 
 class FullAudioPlayer extends StatefulWidget {
   final AppAudioHandler audioHandler;
   final CustomPanelController slidingUpPanelController;
 
-  const FullAudioPlayer(
-      {super.key, required this.audioHandler, required this.slidingUpPanelController});
+  const FullAudioPlayer({
+    super.key,
+    required this.audioHandler,
+    required this.slidingUpPanelController,
+  });
 
   @override
   _FullAudioPlayerState createState() => _FullAudioPlayerState();
@@ -27,29 +31,45 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   Timer? sleepTimer;
   bool isTimerActive = false;
   bool pageChangeDueToSwipe = true;
-  List<MediaItem> stationsMediaItems = [];
-  MediaItem? mediaItem;
+  Station? currentStation;
   final PageController pageController = PageController();
   final List _subscriptions = [];
+
+  List<Station> filteredStationsIncludingCurrentStation = [];
 
   @override
   void initState() {
     super.initState();
-    _subscriptions.add(widget.audioHandler.stationsMediaItems.listen((value) {
+    _subscriptions
+        .add(widget.audioHandler.filteredStations.stream.listen((List<Station> filteredStations) {
       setState(() {
-        stationsMediaItems = value;
+        filteredStationsIncludingCurrentStation = [
+          if (currentStation != null && !filteredStations.contains(currentStation)) currentStation!,
+          ...filteredStations,
+        ];
       });
+
+      final newPageIndex = filteredStationsIncludingCurrentStation
+          .indexWhere((item) => item.id == currentStation?.id);
+      if (pageController.page != null && pageController.page != newPageIndex) {
+        pageChangeDueToSwipe = false;
+        pageController.jumpToPage(newPageIndex);
+        pageChangeDueToSwipe = true;
+      }
     }));
-    _subscriptions.add(widget.audioHandler.mediaItem.listen((value) {
+
+    _subscriptions.add(widget.audioHandler.currentStation.stream.listen((Station? value) {
       setState(() {
-        mediaItem = value;
+        currentStation = value;
       });
-      final newPage = stationsMediaItems.indexWhere((item) => item.id == mediaItem?.id);
-      if (pageController.page != null && pageController.page != newPage) {
+
+      final newPageIndex = filteredStationsIncludingCurrentStation
+          .indexWhere((item) => item.id == currentStation?.id);
+      if (pageController.page != null && pageController.page != newPageIndex) {
         pageChangeDueToSwipe = false;
         pageController
             .animateToPage(
-          newPage,
+          newPageIndex,
           duration: const Duration(milliseconds: 200),
           curve: Curves.ease,
         )
@@ -70,8 +90,6 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
 
   @override
   Widget build(BuildContext context) {
-    final Color primaryColor = Theme.of(context).primaryColor;
-
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
@@ -91,7 +109,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
                 Container(
-                  margin: EdgeInsets.only(top: 3.0),
+                  margin: const EdgeInsets.only(top: 3.0),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: <Widget>[
@@ -109,7 +127,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
             ),
             const SizedBox(height: 17.0),
             Text(
-              mediaItem?.extras?['station_title'] ?? "",
+              currentStation?.displayTitle ?? "",
               style: const TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 20,
@@ -122,21 +140,21 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
               onPointerDown: (PointerDownEvent details) {},
               onPointerUp: (PointerUpEvent details) {},
               child: SizedBox(
-                width: 300.0,
-                height: 300.0,
+                width: 270.0,
+                height: 270.0,
                 child: PageView.builder(
                   physics: const AlwaysScrollableScrollPhysics(),
                   controller: pageController,
                   scrollDirection: Axis.horizontal,
-                  itemCount: stationsMediaItems.length,
+                  itemCount: filteredStationsIncludingCurrentStation.length,
                   onPageChanged: (int index) {
                     if (pageChangeDueToSwipe) {
-                      widget.audioHandler.playMediaItem(stationsMediaItems[index]);
+                      widget.audioHandler
+                          .playStation(filteredStationsIncludingCurrentStation[index]);
                     }
                   },
                   itemBuilder: (BuildContext context, int itemIdx) {
-                    final item = stationsMediaItems[itemIdx];
-                    String displayThumbnailUrl = item.artUri.toString();
+                    final station = filteredStationsIncludingCurrentStation[itemIdx];
 
                     return Container(
                       width: 260.0,
@@ -156,11 +174,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                       ),
                       child: ClipRRect(
                         borderRadius: const BorderRadius.all(Radius.circular(8)),
-                        child: Utils.displayImage(
-                          displayThumbnailUrl,
-                          fallbackImageUrl: item.extras?["station_thumbnail_url"],
-                          cache: displayThumbnailUrl == item.extras?["station_thumbnail_url"],
-                        ),
+                        child: station.thumbnail,
                       ),
                     );
                   },
@@ -169,11 +183,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
             ),
             const SizedBox(height: 18.0),
             Text(
-              (mediaItem != null &&
-                      mediaItem?.extras?['song_title'] != null &&
-                      mediaItem?.extras?['song_title'] != "")
-                  ? (mediaItem?.extras?['song_title'] ?? "Metadate indisponibile")
-                  : "Metadate indisponibile",
+              currentStation?.songTitle ?? "Metadate indisponibile",
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
@@ -182,7 +192,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
               ),
             ),
             Text(
-              mediaItem?.extras?['song_artist'] ?? "",
+              currentStation?.songArtist ?? "",
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
@@ -195,12 +205,16 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
-                IconButton(
-                  icon: const Icon(Icons.skip_previous),
-                  color: Colors.black,
-                  iconSize: 32,
-                  tooltip: "Statia anterioare",
-                  onPressed: widget.audioHandler.skipToPrevious,
+                InkWell(
+                  onTap: widget.audioHandler.skipToPrevious,
+                  child: const Padding(
+                    padding: EdgeInsets.all(8.0),
+                    child: Icon(
+                      Icons.skip_previous,
+                      size: 34,
+                      color: Colors.black,
+                    ),
+                  ),
                 ),
                 const SizedBox(width: 24.0),
                 StreamBuilder<PlaybackState>(
@@ -209,51 +223,56 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                     final playbackState = snapshot.data;
                     final processingState = playbackState?.processingState;
                     final playing = playbackState?.playing ?? true;
+                    final buffering = processingState == AudioProcessingState.loading ||
+                        processingState == AudioProcessingState.buffering;
+                    if (buffering) {
+                      return const Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          ClipOval(
+                            child: Material(
+                              color: Colors.pink,
+                              child: SizedBox(width: 56, height: 56,),
+                            ),
+                          ),
+                          CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
+                          )
+                        ],
+                      );
+                    }
+
                     return Stack(
                       children: [
                         ClipOval(
                           child: Material(
-                            color: Colors.pink,
-                            child: Padding(
-                              padding: const EdgeInsets.all(6.0),
-                              child: (processingState == AudioProcessingState.loading ||
-                                      processingState == AudioProcessingState.buffering)
-                                  ? Container(
-                                      width: 48,
-                                      height: 48,
-                                      padding: const EdgeInsets.all(8.0),
-                                      child: const CircularProgressIndicator(
-                                        valueColor: AlwaysStoppedAnimation<Color>(
-                                          Colors.white,
-                                        ),
-                                      ),
-                                    )
-                                  : IconButton(
-                                      icon: (playing
-                                          ? const Icon(Icons.pause_rounded, color: Colors.white)
-                                          : const Icon(Icons.play_arrow_rounded,
-                                              color: Colors.white)),
-                                      iconSize: 32,
-                                      onPressed: playing
-                                          ? widget.audioHandler.pause
-                                          : widget.audioHandler.play,
-                                    ),
-                            ),
-                          ),
+                              color: Colors.pink,
+                              child: IconButton(
+                                icon: (playing
+                                    ? const Icon(Icons.pause_rounded, color: Colors.white)
+                                    : const Icon(Icons.play_arrow_rounded, color: Colors.white)),
+                                iconSize: 40,
+                                onPressed:
+                                    playing ? widget.audioHandler.pause : widget.audioHandler.play,
+                              )),
                         ),
                       ],
                     );
                   },
                 ),
                 const SizedBox(width: 24.0),
-                IconButton(
-                  tooltip: "Statia urmatoare",
-                  onPressed: widget.audioHandler.skipToNext,
-                  iconSize: 32,
-                  icon: const Icon(
-                    Icons.skip_next_rounded,
+                InkWell(
+                  onTap: widget.audioHandler.skipToNext,
+                  child: const Padding(
+                    padding: EdgeInsets.all(8.0),
+                    child: Icon(
+                      Icons.skip_next_rounded,
+                      size: 34,
+                      color: Colors.black,
+                    ),
                   ),
-                  color: Colors.black,
                 ),
               ],
             ),
@@ -290,28 +309,25 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                   ),
                 ),
                 InkWell(
-                  customBorder: CircleBorder(),
-                  onTap: () async {
-                    if (mediaItem != null) {
-                      if (mediaItem?.extras?['is_favorite'] == "true") {
-                        await widget.audioHandler.setMediaItemIsFavorite(mediaItem!, false);
-                      } else {
-                        await widget.audioHandler.setMediaItemIsFavorite(mediaItem!, true);
-                      }
-                    }
-                  },
+                  customBorder: const CircleBorder(),
                   child: Container(
                     padding: const EdgeInsets.all(10.0),
                     child: Column(
                       children: [
-                        Icon(
-                          mediaItem?.extras?['is_favorite'] == "true"
-                              ? Icons.favorite_sharp
-                              : Icons.favorite_border_sharp,
-                          color: mediaItem?.extras?['is_favorite'] == "true"
-                              ? primaryColor
-                              : Colors.black,
-                          size: 24,
+                        LikeButton(
+                          size: 25,
+                          isLiked: currentStation!.isFavorite,
+                          likeBuilder: (bool isLiked) {
+                            return Icon(
+                              isLiked ? Icons.favorite_sharp : Icons.favorite_border_sharp,
+                              color: isLiked ? Theme.of(context).primaryColor : Colors.black,
+                              size: 23,
+                            );
+                          },
+                          onTap: (bool isLiked) async {
+                            widget.audioHandler.setStationIsFavorite(currentStation!, !isLiked);
+                            return !isLiked;
+                          },
                         ),
                         const Padding(
                           padding: EdgeInsets.only(top: 8.0),
@@ -321,15 +337,14 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                     ),
                   ),
                 ),
-                if (mediaItem != null &&
-                    (!mediaItem?.extras?['song_artist'].isEmpty ||
-                        !mediaItem?.extras?['song_title'].isEmpty))
+                if (currentStation != null &&
+                    (currentStation!.songArtist.isNotEmpty || currentStation!.songTitle.isNotEmpty))
                   InkWell(
                     customBorder: CircleBorder(),
                     onTap: () async {
-                      if (mediaItem != null) {
+                      if (currentStation != null) {
                         final query =
-                            "${mediaItem?.extras?['song_artist']} - ${mediaItem?.extras?['song_title']}";
+                            "${currentStation?.songArtist} - ${currentStation?.songTitle}";
                         final encodedQuery = Uri.encodeQueryComponent(query);
 
                         final searchUrl = 'https://www.youtube.com/results?q=$encodedQuery';
@@ -375,11 +390,11 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                 InkWell(
                   customBorder: CircleBorder(),
                   onTap: () {
-                    if (mediaItem != null) {
+                    if (currentStation != null) {
                       var linkMessage = "";
-                      linkMessage += "${mediaItem?.title ?? "Asculta Radio Crestin"}\n";
+                      linkMessage += "${currentStation?.title ?? "Asculta Radio Crestin"}\n";
                       linkMessage +=
-                          "https://share.radiocrestin.ro/${mediaItem?.extras?['station_slug'] ?? ""}/${mediaItem?.extras?['song_id'] ?? ""}";
+                          "https://share.radiocrestin.ro/${currentStation?.slug ?? ""}/${currentStation?.songId ?? ""}";
 
                       Share.share(
                           remoteConfig.getString("share_app_station_message") + linkMessage);
