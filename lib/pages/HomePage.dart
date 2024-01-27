@@ -122,11 +122,6 @@ class _HomePageState extends State<HomePage> {
             final selectedStationGroup = snapshot.data?.selectedStationGroup;
             final filteredStations = snapshot.data?.filteredStations ?? [];
 
-            final filteredStationsIncludingCurrentStation = [
-              if (currentStation != null && !filteredStations.contains(currentStation)) currentStation,
-              ...filteredStations,
-            ];
-
             final favoriteStations = stations.where((station) => station.isFavorite).toList();
 
             return SlidingUpPanel(
@@ -319,8 +314,6 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
                 child: FullAudioPlayer(
-                  filteredStationsIncludingCurrentStation: filteredStationsIncludingCurrentStation,
-                  currentStation: currentStation,
                   audioHandler: _audioHandler,
                   slidingUpPanelController: slidingUpPanelController,
                 ),

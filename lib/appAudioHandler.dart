@@ -158,7 +158,6 @@ class AppAudioHandler extends BaseAudioHandler {
 
   Future<void> playStation(Station station) async {
     _log('playStation($station)');
-    var retry = 0;
     final item = await station.mediaItem;
 
     mediaItem.add(item);
@@ -166,28 +165,6 @@ class AppAudioHandler extends BaseAudioHandler {
 
     await setLastPlayedStation(station);
 
-    while (true) {
-      if (retry < maxRetries) {
-        final streamUrl = item.extras?["station_streams"]
-                [retry % item.extras?["station_streams"].length] ??
-            item.id;
-        _log("playMediaItem: $streamUrl");
-        try {
-          await player.setAudioSource(
-            AudioSource.uri(Uri.parse(streamUrl)),
-            preload: true,
-          );
-          break;
-        } catch (e) {
-          _log("playMediaItem: Player Error: $e");
-          retry++;
-        }
-      } else {
-        _log("playMediaItem: max retries reached");
-        stop();
-        break;
-      }
-    }
     return play();
   }
 
@@ -231,7 +208,7 @@ class AppAudioHandler extends BaseAudioHandler {
   }
 
   @override
-  Future<void> play() {
+  Future<void> play() async {
     _log("play");
     if (currentStation.value != null) {
       AppTracking.trackPlayStation(currentStation.value!);
@@ -239,8 +216,30 @@ class AppAudioHandler extends BaseAudioHandler {
     }
     startListeningTracker();
 
-    // Switch the audio source back to the HLS stream when playing
-    player.setAudioSource(AudioSource.uri(Uri.parse(currentStreamUrl)), preload: true);
+    var retry = 0;
+    var item = mediaItem.valueOrNull;
+    while (true && item != null) {
+      if (retry < maxRetries) {
+        final streamUrl = item.extras?["station_streams"]
+        [retry % item.extras?["station_streams"].length] ??
+            item.id;
+        _log("playMediaItem: $streamUrl");
+        try {
+          await player.setAudioSource(
+            AudioSource.uri(Uri.parse(streamUrl)),
+            preload: true,
+          );
+          break;
+        } catch (e) {
+          _log("playMediaItem: Player Error: $e");
+          retry++;
+        }
+      } else {
+        _log("playMediaItem: max retries reached");
+        stop();
+        break;
+      }
+    }
 
     return player.play();
   }

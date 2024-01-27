@@ -5,55 +5,76 @@ import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:like_button/like_button.dart';
 import 'package:radio_crestin/pages/HomePage.dart';
+import 'package:rxdart/rxdart.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../appAudioHandler.dart';
 import '../types/Station.dart';
 
+class FilteredStationsAndCurrentStation {
+  final List<Station> filteredStations;
+  final Station? currentStation;
+
+  FilteredStationsAndCurrentStation(this.filteredStations, this.currentStation);
+}
+
 class FullAudioPlayer extends StatefulWidget {
   final AppAudioHandler audioHandler;
   final CustomPanelController slidingUpPanelController;
-  final List<Station> filteredStationsIncludingCurrentStation;
-  final Station? currentStation;
 
   const FullAudioPlayer(
       {super.key,
-      required this.audioHandler,
-      required this.slidingUpPanelController,
-      required this.filteredStationsIncludingCurrentStation,
-      required this.currentStation});
+        required this.audioHandler,
+        required this.slidingUpPanelController,
+      });
 
   @override
   _FullAudioPlayerState createState() => _FullAudioPlayerState();
 }
 
 class _FullAudioPlayerState extends State<FullAudioPlayer> {
-  bool pageChangeDueToSwipe = false;
+  bool pageChangeDueToSwipe = true;
+  Station? currentStation;
   final PageController pageController = PageController();
   final List _subscriptions = [];
-  int currentPageIndex = 0;
+
+  var filteredStationsIncludingCurrentStation = [];
+
+  void updatePageIndexBasedOnCurrentStation () {
+    final newPage = filteredStationsIncludingCurrentStation.indexWhere((item) => item.id == currentStation?.id);
+    if (pageController.page != null && pageController.page != newPage) {
+      pageChangeDueToSwipe = false;
+      pageController
+          .animateToPage(
+        newPage,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.ease,
+      )
+          .then((_) {
+        pageChangeDueToSwipe = true;
+      });
+    }
+  }
 
   @override
   void initState() {
     super.initState();
-    _subscriptions.add(widget.audioHandler.currentStation.listen((currentStation) {
-      // setState(() {
-      //   currentStation = value;
-      // });
-      if(pageChangeDueToSwipe == false) {
-        final newPageIndex = widget.filteredStationsIncludingCurrentStation
-            .indexWhere((item) => item.id == currentStation?.id);
-        if (pageController.page != null && currentPageIndex != newPageIndex) {
-          print("animateToPage");
-          pageController
-              .animateToPage(
-            newPageIndex,
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.ease,
-          );
-        }
-      }
+    _subscriptions.add(Rx.combineLatest2<List<Station>, Station?, FilteredStationsAndCurrentStation>(
+      widget.audioHandler.filteredStations.stream,
+      widget.audioHandler.currentStation.stream, // Use the stream property
+          (filteredStations, currentStation) {
+        return FilteredStationsAndCurrentStation(filteredStations, currentStation);
+      },
+    ).listen((FilteredStationsAndCurrentStation c) {
+      setState(() {
+        currentStation = c.currentStation;
+        filteredStationsIncludingCurrentStation = [
+          if (currentStation != null && !c.filteredStations.contains(currentStation)) currentStation,
+          ...c.filteredStations,
+        ];
+        updatePageIndexBasedOnCurrentStation();
+      });
     }));
   }
 
@@ -62,13 +83,12 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     for (final subscription in _subscriptions) {
       subscription.cancel();
     }
-    pageController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final isFavorite = widget.currentStation?.isFavorite ?? false;
+    final isFavorite = currentStation?.isFavorite ?? false;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -89,7 +109,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
                 Container(
-                  margin: EdgeInsets.only(top: 3.0),
+                  margin: const EdgeInsets.only(top: 3.0),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: <Widget>[
@@ -107,7 +127,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
             ),
             const SizedBox(height: 17.0),
             Text(
-              widget.currentStation?.displayTitle ?? "",
+              currentStation?.displayTitle ?? "",
               style: const TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 20,
@@ -122,62 +142,47 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
               child: SizedBox(
                 width: 300.0,
                 height: 300.0,
-                child: GestureDetector(
-                  onPanDown: (details) {
-                    // Set pageChangeDueToSwipe to true when the user starts swiping
-                    pageChangeDueToSwipe = true;
-                    print("onPanDown");
+                child: PageView.builder(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  controller: pageController,
+                  scrollDirection: Axis.horizontal,
+                  itemCount: filteredStationsIncludingCurrentStation.length,
+                  onPageChanged: (int index) {
+                    if (pageChangeDueToSwipe) {
+                      widget.audioHandler.playStation(filteredStationsIncludingCurrentStation[index]);
+                    }
                   },
-                  // onPanUp: (details) {
-                  //   // Reset pageChangeDueToSwipe when the user stops swiping
-                  //   pageChangeDueToSwipe = false;
-                  // },
-                  child: PageView.builder(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    controller: pageController,
-                    scrollDirection: Axis.horizontal,
-                    itemCount: widget.filteredStationsIncludingCurrentStation.length,
+                  itemBuilder: (BuildContext context, int itemIdx) {
+                    final station = filteredStationsIncludingCurrentStation[itemIdx];
 
-                    allowImplicitScrolling: true,
-                    onPageChanged: (int index) {
-                      currentPageIndex = index;
-                      if (pageChangeDueToSwipe) {
-                        widget.audioHandler.playStation(widget.filteredStationsIncludingCurrentStation[index]);
-                      }
-                      pageChangeDueToSwipe = false;
-                    },
-                    itemBuilder: (BuildContext context, int itemIdx) {
-                      final station = widget.filteredStationsIncludingCurrentStation[itemIdx];
-
-                      return Container(
-                        width: 260.0,
-                        height: 260.0,
-                        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: const BorderRadius.all(Radius.circular(8)),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.grey.withOpacity(0.35),
-                              spreadRadius: 0,
-                              blurRadius: 4,
-                              offset: const Offset(2, 3),
-                            ),
-                          ],
-                        ),
-                        child: ClipRRect(
-                          borderRadius: const BorderRadius.all(Radius.circular(8)),
-                          child: station.thumbnail,
-                        ),
-                      );
-                    },
-                  ),
+                    return Container(
+                      width: 260.0,
+                      height: 260.0,
+                      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: const BorderRadius.all(Radius.circular(8)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.grey.withOpacity(0.35),
+                            spreadRadius: 0,
+                            blurRadius: 4,
+                            offset: const Offset(2, 3),
+                          ),
+                        ],
+                      ),
+                      child: ClipRRect(
+                        borderRadius: const BorderRadius.all(Radius.circular(8)),
+                        child: station.thumbnail,
+                      ),
+                    );
+                  },
                 ),
               ),
             ),
             const SizedBox(height: 18.0),
             Text(
-              widget.currentStation?.songTitle ?? "Metadate indisponibile",
+              currentStation?.songTitle ?? "Metadate indisponibile",
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
@@ -186,7 +191,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
               ),
             ),
             Text(
-              widget.currentStation?.songArtist ?? "",
+              currentStation?.songArtist ?? "",
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
@@ -225,27 +230,27 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                             child: Padding(
                               padding: const EdgeInsets.all(6.0),
                               child: (processingState == AudioProcessingState.loading ||
-                                      processingState == AudioProcessingState.buffering)
+                                  processingState == AudioProcessingState.buffering)
                                   ? Container(
-                                      width: 48,
-                                      height: 48,
-                                      padding: const EdgeInsets.all(8.0),
-                                      child: const CircularProgressIndicator(
-                                        valueColor: AlwaysStoppedAnimation<Color>(
-                                          Colors.white,
-                                        ),
-                                      ),
-                                    )
+                                width: 48,
+                                height: 48,
+                                padding: const EdgeInsets.all(8.0),
+                                child: const CircularProgressIndicator(
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.white,
+                                  ),
+                                ),
+                              )
                                   : IconButton(
-                                      icon: (playing
-                                          ? const Icon(Icons.pause_rounded, color: Colors.white)
-                                          : const Icon(Icons.play_arrow_rounded,
-                                              color: Colors.white)),
-                                      iconSize: 32,
-                                      onPressed: playing
-                                          ? widget.audioHandler.pause
-                                          : widget.audioHandler.play,
-                                    ),
+                                icon: (playing
+                                    ? const Icon(Icons.pause_rounded, color: Colors.white)
+                                    : const Icon(Icons.play_arrow_rounded,
+                                    color: Colors.white)),
+                                iconSize: 32,
+                                onPressed: playing
+                                    ? widget.audioHandler.pause
+                                    : widget.audioHandler.play,
+                              ),
                             ),
                           ),
                         ),
@@ -293,19 +298,19 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                     );
                   },
                   onTap: (bool isLiked) async {
-                    widget.audioHandler.setStationIsFavorite(widget.currentStation!, !isLiked);
+                    widget.audioHandler.setStationIsFavorite(currentStation!, !isLiked);
                     return !isLiked;
                   },
                 ),
-                if (widget.currentStation?.displaySubtitle.isNotEmpty ?? false)
+                if (currentStation?.displaySubtitle.isNotEmpty ?? false)
                   IconButton(
                     icon: const Icon(Icons.video_collection),
                     color: Colors.black,
                     iconSize: 24,
                     tooltip: 'Caută melodia pe Youtube',
                     onPressed: () async {
-                      if (widget.currentStation != null) {
-                        final query = widget.currentStation?.displaySubtitle ?? "";
+                      if (currentStation != null) {
+                        final query = currentStation?.displaySubtitle ?? "";
                         final encodedQuery = Uri.encodeQueryComponent(query);
 
                         final searchUrl = 'https://www.youtube.com/results?q=$encodedQuery';
@@ -338,11 +343,11 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                   iconSize: 24,
                   tooltip: 'Trimite aplicatia prietenilor tai',
                   onPressed: () {
-                    if (widget.currentStation != null) {
+                    if (currentStation != null) {
                       var linkMessage = "";
-                      linkMessage += "${widget.currentStation?.title ?? "Asculta Radio Crestin"}\n";
+                      linkMessage += "${currentStation?.title ?? "Asculta Radio Crestin"}\n";
                       linkMessage +=
-                          "https://share.radiocrestin.ro/${widget.currentStation?.slug ?? ""}/${widget.currentStation?.songId ?? ""}";
+                      "https://share.radiocrestin.ro/${currentStation?.slug ?? ""}/${currentStation?.songId ?? ""}";
 
                       Share.share(
                           remoteConfig.getString("share_app_station_message") + linkMessage);
@@ -376,9 +381,9 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
             child: Column(
               children: [5, 10, 30, 60]
                   .map((minutes) => ListTile(
-                        title: Text('$minutes minute'),
-                        onTap: () => setSleepTimer(context, Duration(minutes: minutes)),
-                      ))
+                title: Text('$minutes minute'),
+                onTap: () => setSleepTimer(context, Duration(minutes: minutes)),
+              ))
                   .toList(),
             ),
           ),
