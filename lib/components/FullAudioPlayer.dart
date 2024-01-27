@@ -24,6 +24,8 @@ class FullAudioPlayer extends StatefulWidget {
 }
 
 class _FullAudioPlayerState extends State<FullAudioPlayer> {
+  Timer? sleepTimer;
+  bool isTimerActive = false;
   bool pageChangeDueToSwipe = true;
   List<MediaItem> stationsMediaItems = [];
   MediaItem? mediaItem;
@@ -117,10 +119,8 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
             const SizedBox(height: 18.0),
             Listener(
               behavior: HitTestBehavior.translucent,
-              onPointerDown: (PointerDownEvent details) {
-              },
-              onPointerUp: (PointerUpEvent details) {
-              },
+              onPointerDown: (PointerDownEvent details) {},
+              onPointerUp: (PointerUpEvent details) {},
               child: SizedBox(
                 width: 300.0,
                 height: 300.0,
@@ -268,16 +268,22 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                   },
                   child: Container(
                     padding: const EdgeInsets.all(10.0),
-                    child: const Column(
+                    child: Column(
                       children: [
                         Icon(
                           Icons.nights_stay_sharp,
-                          color: Colors.black,
+                          color: isTimerActive ? Theme.of(context).primaryColor : Colors.black,
                           size: 24,
                         ),
                         Padding(
                           padding: EdgeInsets.only(top: 8.0),
-                          child: Text('Somn', style: TextStyle(fontSize: 12)),
+                          child: Text(
+                            'somn',
+                            style: TextStyle(
+                                fontSize: 12,
+                                color:
+                                    isTimerActive ? Theme.of(context).primaryColor : Colors.black),
+                          ),
                         ),
                       ],
                     ),
@@ -309,7 +315,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                         ),
                         const Padding(
                           padding: EdgeInsets.only(top: 8.0),
-                          child: Text('Favorit', style: TextStyle(fontSize: 12)),
+                          child: Text('favorit', style: TextStyle(fontSize: 12)),
                         ),
                       ],
                     ),
@@ -360,7 +366,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                           ),
                           Padding(
                             padding: EdgeInsets.only(top: 8.0),
-                            child: Text('YouTube', style: TextStyle(fontSize: 12)),
+                            child: Text('youtube', style: TextStyle(fontSize: 12)),
                           ),
                         ],
                       ),
@@ -392,7 +398,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                         ),
                         Padding(
                           padding: EdgeInsets.only(top: 8.0),
-                          child: Text('Share', style: TextStyle(fontSize: 12)),
+                          child: Text('share', style: TextStyle(fontSize: 12)),
                         ),
                       ],
                     ),
@@ -415,18 +421,23 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
         builder: (BuildContext context) {
           return CupertinoActionSheet(
             title: const Text(
-              'Oprește radioul după:',
+              'Programare închidere',
               style: TextStyle(fontSize: 18),
             ),
             actions: <Widget>[
-              for (var minutes in [5, 10, 30, 60])
+              for (var minutes in [5, 10, 15, 30, 60])
                 CupertinoActionSheetAction(
                   child: Text('$minutes minute'),
                   onPressed: () => setSleepTimer(context, Duration(minutes: minutes)),
                 ),
+              if (isTimerActive)
+                CupertinoActionSheetAction(
+                  child: const Text('Anulează închiderea'),
+                  onPressed: cancelSleepTimer,
+                ),
             ],
             cancelButton: CupertinoActionSheetAction(
-              child: const Text('Închide'),
+              child: const Text('Renunță'),
               onPressed: () => Navigator.of(context).pop(),
             ),
           );
@@ -446,17 +457,27 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
             backgroundColor: Colors.white,
             content: SingleChildScrollView(
               child: Column(
-                children: [5, 10, 30, 60]
+                children: [5, 10, 15, 30, 60]
                     .map((minutes) => ListTile(
                           title: Text('$minutes minute'),
                           onTap: () => setSleepTimer(context, Duration(minutes: minutes)),
                         ))
-                    .toList(),
+                    .toList()
+                  ..addAll(
+                    isTimerActive
+                        ? [
+                            ListTile(
+                              title: const Text('Anulează închiderea'),
+                              onTap: cancelSleepTimer,
+                            ),
+                          ]
+                        : [],
+                  ),
               ),
             ),
             actions: <Widget>[
               TextButton(
-                child: const Text('Închide'),
+                child: const Text('Renunță'),
                 onPressed: () => Navigator.of(context).pop(),
               ),
             ],
@@ -477,8 +498,34 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
         textColor: Colors.white,
         fontSize: 16.0);
 
-    Timer(duration, () {
-      widget.audioHandler.stop();
+    setState(() {
+      isTimerActive = true;
     });
+
+    sleepTimer = Timer(duration, () {
+      widget.audioHandler.stop();
+      setState(() {
+        isTimerActive = false;
+      });
+    });
+  }
+
+  void cancelSleepTimer() {
+    if (sleepTimer != null) {
+      sleepTimer!.cancel();
+      sleepTimer = null;
+      setState(() {
+        isTimerActive = false;
+      });
+      Fluttertoast.showToast(
+          msg: "Programarea închiderii a fost anulată",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          timeInSecForIosWeb: 1,
+          backgroundColor: Colors.black,
+          textColor: Colors.white,
+          fontSize: 16.0);
+    }
+    Navigator.of(context).pop();
   }
 }
