@@ -18,6 +18,7 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   bool? _notificationsEnabled;
+  bool? _autoStartStation;
   final String _version = globals.appVersion;
   final String _deviceId = globals.deviceId;
 
@@ -25,12 +26,20 @@ class _SettingsPageState extends State<SettingsPage> {
   void initState() {
     super.initState();
     _getNotificationsEnabled();
+    _getAutoStartStation();
   }
 
   Future<void> _getNotificationsEnabled() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _notificationsEnabled = prefs.getBool('_notificationsEnabled') ?? true;
+    });
+  }
+
+  Future<void> _getAutoStartStation() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _autoStartStation = prefs.getBool('_autoStartStation') ?? true;
     });
   }
 
@@ -47,11 +56,33 @@ class _SettingsPageState extends State<SettingsPage> {
             child: Column(
               children: [
                 ListTile(
+                  leading: const Icon(Icons.radio),
+                  title: const Text('Pornește stația automat după deschiderea aplicației'),
+                  trailing: Switch(
+                    activeColor: Theme.of(context).primaryColor,
+                    activeTrackColor: Theme.of(context).primaryColorLight,
+                    inactiveThumbColor: Theme.of(context).primaryColorDark,
+                    inactiveTrackColor: const Color(0xffdcdcdc),
+                    onChanged: (bool? value) async {
+                      final prefs = await SharedPreferences.getInstance();
+                      await prefs.setBool('_autoStartStation', value!);
+                      setState(() {
+                        _autoStartStation = value;
+                      });
+                    },
+                    value: _autoStartStation ?? true,
+                  ),
+                ),
+                ListTile(
                   leading: const Icon(Icons.notification_important_rounded),
                   title: const Text('Notificări personalizate'),
                   subtitle:
                       const Text('Primiți notificări când începe o melodie/emisiune preferată.'),
                   trailing: Switch(
+                    activeColor: Theme.of(context).primaryColor,
+                    activeTrackColor: Theme.of(context).primaryColorLight,
+                    inactiveThumbColor: Theme.of(context).primaryColorDark,
+                    inactiveTrackColor: const Color(0xffdcdcdc),
                     onChanged: (bool? value) async {
                       final prefs = await SharedPreferences.getInstance();
                       await prefs.setBool('_notificationsEnabled', value!);
@@ -123,15 +154,16 @@ class _SettingsPageState extends State<SettingsPage> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 4.0),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.start,
                     children: [
-                      Text(
-                        'Device ID: $_deviceId',
-                        style: const TextStyle(color: Colors.grey),
+                      Expanded(
+                        child: Text(
+                          'Device ID: $_deviceId',
+                          style: const TextStyle(color: Colors.grey, fontSize: 10.0),
+                        ),
                       ),
                     ],
                   ),
