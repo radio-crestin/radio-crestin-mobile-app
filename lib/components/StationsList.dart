@@ -1,3 +1,6 @@
+import 'dart:io' show Platform;
+
+import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:like_button/like_button.dart';
 import 'package:radio_crestin/appAudioHandler.dart';
@@ -22,7 +25,7 @@ class StationsList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SliverFixedExtentList(
-      itemExtent: 135.0,
+      itemExtent: Platform.isIOS ? 105.0 : 135.0,
       delegate: SliverChildBuilderDelegate(
         (context, itemIdx) {
           final station = stations[itemIdx];
@@ -46,8 +49,8 @@ class StationsList extends StatelessWidget {
                       children: [
                         Container(
                           margin: const EdgeInsets.only(right: 14),
-                          width: 100.0,
-                          height: 100.0,
+                          width: Platform.isIOS ? 70.0 : 100.0,
+                          height: Platform.isIOS ? 70.0 : 100.0,
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(12.0),
                             child: station.thumbnail,

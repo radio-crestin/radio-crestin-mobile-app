@@ -367,15 +367,21 @@ class AppAudioHandler extends BaseAudioHandler {
         _log("No data");
         return;
       }
-      stations.add((parsedData.stations ?? [])
+      stations.add((parsedData.stations)
           .map((rawStationData) => Station(
               rawStationData: rawStationData,
               isFavorite: favoriteStationSlugs.value.contains(rawStationData.slug)))
           .toList());
-      stationGroups.add(parsedData.station_groups ?? []);
+      stationGroups.add(parsedData.station_groups);
+
       await updateMediaItemsMetadata(stations.value);
+
       if (!onOpenEventTriggered) {
-        playStation(await getLastPlayedStation());
+        final prefs = await SharedPreferences.getInstance();
+        final autoStart = prefs.getBool('_autoStartStation') ?? true;
+        if(autoStart) {
+          playStation(await getLastPlayedStation());
+        }
         onOpenEventTriggered = true;
       }
       loadThumbnailsInCache();

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:developer' as developer;
+import 'dart:io' show Platform;
 
 import 'package:android_play_install_referrer/android_play_install_referrer.dart';
 import 'package:audio_service/audio_service.dart';
@@ -285,7 +286,7 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ),
                       sliver: SliverPadding(
-                          padding: const EdgeInsets.only(bottom: 110.0),
+                          padding: EdgeInsets.only(bottom: Platform.isIOS ? 80.0 : 110.0),
                           sliver: StationsList(
                             stations: filteredStations,
                             currentStation: currentStation,
@@ -297,7 +298,7 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
               collapsed: Container(
-                padding: const EdgeInsets.only(bottom: 12, left: 8, right: 8),
+                padding: EdgeInsets.only(bottom: Platform.isIOS ? 17 : 12, left: 8, right: 8),
                 color: Theme.of(context).scaffoldBackgroundColor,
                 child: MiniAudioPlayer(
                   currentStation: currentStation,

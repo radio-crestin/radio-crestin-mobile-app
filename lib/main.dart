@@ -53,6 +53,11 @@ void main() async {
   // developer.log('User granted permission: ${settings.authorizationStatus}');
 
   final prefs = await SharedPreferences.getInstance();
+
+  if (prefs.getBool('_autoStartStation') == null) {
+    prefs.setBool('_autoStartStation', true);
+  }
+
   if (prefs.getBool('_notificationsEnabled') ?? true) {
     FirebaseAnalytics.instance.setUserProperty(name: 'personalized_n', value: 'true');
   }

@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:audio_service/audio_service.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:like_button/like_button.dart';
@@ -27,6 +29,8 @@ class FullAudioPlayer extends StatefulWidget {
 }
 
 class _FullAudioPlayerState extends State<FullAudioPlayer> {
+  Timer? sleepTimer;
+  bool isTimerActive = false;
   bool pageChangeDueToSwipe = true;
   Station? currentStation;
   final PageController pageController = PageController();
@@ -275,17 +279,37 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                 ),
               ],
             ),
-            const SizedBox(height: 70.0),
+            const SizedBox(height: 90.0),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: <Widget>[
-                IconButton(
-                  icon: const Icon(Icons.bedtime_outlined),
-                  color: Colors.black,
-                  iconSize: 24,
-                  onPressed: () {
+                InkWell(
+                  customBorder: CircleBorder(),
+                  onTap: () {
                     showSleepTimerDialog(context);
                   },
+                  child: Container(
+                    padding: const EdgeInsets.all(10.0),
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.nights_stay_sharp,
+                          color: isTimerActive ? Theme.of(context).primaryColor : Colors.black,
+                          size: 24,
+                        ),
+                        Padding(
+                          padding: EdgeInsets.only(top: 8.0),
+                          child: Text(
+                            'somn',
+                            style: TextStyle(
+                                fontSize: 12,
+                                color:
+                                    isTimerActive ? Theme.of(context).primaryColor : Colors.black),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
                 LikeButton(
                   size: 39,
@@ -304,6 +328,26 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                     widget.audioHandler.setStationIsFavorite(currentStation!, !isLiked);
                     return !isLiked;
                   },
+                  child: Container(
+                    padding: const EdgeInsets.all(10.0),
+                    child: Column(
+                      children: [
+                        Icon(
+                          mediaItem?.extras?['is_favorite'] == "true"
+                              ? Icons.favorite_sharp
+                              : Icons.favorite_border_sharp,
+                          color: mediaItem?.extras?['is_favorite'] == "true"
+                              ? primaryColor
+                              : Colors.black,
+                          size: 24,
+                        ),
+                        const Padding(
+                          padding: EdgeInsets.only(top: 8.0),
+                          child: Text('favorit', style: TextStyle(fontSize: 12)),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
                 if (currentStation?.displaySubtitle.isNotEmpty ?? false)
                   IconButton(
@@ -339,6 +383,22 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                             fontSize: 16.0);
                       }
                     },
+                    child: Container(
+                      padding: const EdgeInsets.all(10.0),
+                      child: const Column(
+                        children: [
+                          Icon(
+                            Icons.video_collection,
+                            color: Colors.black,
+                            size: 24,
+                          ),
+                          Padding(
+                            padding: EdgeInsets.only(top: 8.0),
+                            child: Text('youtube', style: TextStyle(fontSize: 12)),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 IconButton(
                   icon: const Icon(Icons.share_outlined),
@@ -358,10 +418,26 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                       Share.share(remoteConfig.getString("share_app_message"));
                     }
                   },
+                  child: Container(
+                    padding: const EdgeInsets.all(10.0),
+                    child: const Column(
+                      children: [
+                        Icon(
+                          Icons.share_outlined,
+                          color: Colors.black,
+                          size: 24,
+                        ),
+                        Padding(
+                          padding: EdgeInsets.only(top: 8.0),
+                          child: Text('share', style: TextStyle(fontSize: 12)),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 44.0),
+            const SizedBox(height: 55.0),
           ],
         ),
       ),
@@ -369,36 +445,77 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   }
 
   Future<void> showSleepTimerDialog(BuildContext context) async {
-    return showDialog<void>(
-      context: context,
-      barrierDismissible: true,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text(
-            'Oprește radioul după:',
-            style: TextStyle(fontSize: 18),
-          ),
-          backgroundColor: Colors.white,
-          surfaceTintColor: Colors.transparent,
-          content: SingleChildScrollView(
-            child: Column(
-              children: [5, 10, 30, 60]
-                  .map((minutes) => ListTile(
-                        title: Text('$minutes minute'),
-                        onTap: () => setSleepTimer(context, Duration(minutes: minutes)),
-                      ))
-                  .toList(),
+    if (Platform.isIOS) {
+      // Cupertino dialog for iOS
+      return showCupertinoModalPopup<void>(
+        context: context,
+        builder: (BuildContext context) {
+          return CupertinoActionSheet(
+            title: const Text(
+              'Programare închidere',
+              style: TextStyle(fontSize: 18),
             ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: const Text('Închide'),
+            actions: <Widget>[
+              for (var minutes in [5, 10, 15, 30, 60])
+                CupertinoActionSheetAction(
+                  child: Text('$minutes minute'),
+                  onPressed: () => setSleepTimer(context, Duration(minutes: minutes)),
+                ),
+              if (isTimerActive)
+                CupertinoActionSheetAction(
+                  child: const Text('Anulează închiderea'),
+                  onPressed: cancelSleepTimer,
+                ),
+            ],
+            cancelButton: CupertinoActionSheetAction(
+              child: const Text('Renunță'),
               onPressed: () => Navigator.of(context).pop(),
             ),
-          ],
-        );
-      },
-    );
+          );
+        },
+      );
+    } else {
+      // Material dialog for Android and other platforms
+      return showDialog<void>(
+        context: context,
+        barrierDismissible: true,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text(
+              'Oprește radioul după:',
+              style: TextStyle(fontSize: 18),
+            ),
+            backgroundColor: Colors.white,
+            content: SingleChildScrollView(
+              child: Column(
+                children: [5, 10, 15, 30, 60]
+                    .map((minutes) => ListTile(
+                          title: Text('$minutes minute'),
+                          onTap: () => setSleepTimer(context, Duration(minutes: minutes)),
+                        ))
+                    .toList()
+                  ..addAll(
+                    isTimerActive
+                        ? [
+                            ListTile(
+                              title: const Text('Anulează închiderea'),
+                              onTap: cancelSleepTimer,
+                            ),
+                          ]
+                        : [],
+                  ),
+              ),
+            ),
+            actions: <Widget>[
+              TextButton(
+                child: const Text('Renunță'),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
+          );
+        },
+      );
+    }
   }
 
   void setSleepTimer(BuildContext context, Duration duration) {
@@ -412,8 +529,34 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
         textColor: Colors.white,
         fontSize: 16.0);
 
-    Timer(duration, () {
-      widget.audioHandler.stop();
+    setState(() {
+      isTimerActive = true;
     });
+
+    sleepTimer = Timer(duration, () {
+      widget.audioHandler.stop();
+      setState(() {
+        isTimerActive = false;
+      });
+    });
+  }
+
+  void cancelSleepTimer() {
+    if (sleepTimer != null) {
+      sleepTimer!.cancel();
+      sleepTimer = null;
+      setState(() {
+        isTimerActive = false;
+      });
+      Fluttertoast.showToast(
+          msg: "Programarea închiderii a fost anulată",
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          timeInSecForIosWeb: 1,
+          backgroundColor: Colors.black,
+          textColor: Colors.white,
+          fontSize: 16.0);
+    }
+    Navigator.of(context).pop();
   }
 }
