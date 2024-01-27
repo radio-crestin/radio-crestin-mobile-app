@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:radio_crestin/appAudioHandler.dart';
@@ -20,14 +22,12 @@ class StationsList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color primaryColor = Theme
-        .of(context)
-        .primaryColor;
+    final Color primaryColor = Theme.of(context).primaryColor;
 
     return SliverFixedExtentList(
-      itemExtent: 135.0,
+      itemExtent: Platform.isIOS ? 105.0 : 135.0,
       delegate: SliverChildBuilderDelegate(
-            (context, itemIdx) {
+        (context, itemIdx) {
           final item = stationsMediaItems[itemIdx];
           final isSelected = item.extras?['station_slug'] == mediaItem?.extras?['station_slug'];
 
@@ -49,14 +49,15 @@ class StationsList extends StatelessWidget {
                       children: [
                         Container(
                           margin: const EdgeInsets.only(right: 14),
-                          width: 100.0,
-                          height: 100.0,
+                          width: Platform.isIOS ? 70.0 : 100.0,
+                          height: Platform.isIOS ? 70.0 : 100.0,
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(12.0),
                             child: Utils.displayImage(
                               item.artUri.toString(),
                               fallbackImageUrl: item.extras?["station_thumbnail_url"],
-                              cache: item.artUri.toString() == item.extras?["station_thumbnail_url"],
+                              cache:
+                                  item.artUri.toString() == item.extras?["station_thumbnail_url"],
                             ),
                           ),
                         ),
@@ -134,7 +135,7 @@ class StationsList extends StatelessWidget {
                           right: 0,
                           bottom: 0,
                           child: Transform.translate(
-                            offset: Offset(10, 0),
+                            offset: Platform.isIOS ? const Offset(10, 5) : const Offset(10, 0),
                             child: IconButton(
                               icon: item?.extras?['is_favorite'] == "true"
                                   ? const Icon(Icons.favorite_sharp)
