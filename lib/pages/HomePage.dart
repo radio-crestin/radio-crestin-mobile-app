@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:developer' as developer;
+import 'dart:io' show Platform;
 
 import 'package:android_play_install_referrer/android_play_install_referrer.dart';
 import 'package:audio_service/audio_service.dart';
@@ -191,18 +192,18 @@ class _HomePageState extends State<HomePage> {
                         alignment: Alignment.centerLeft,
                         child: Text(
                           'Toate stațiile radio',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.grey[800]),
+                          style: TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.w600, color: Colors.grey[800]),
                         ),
                       ),
                       sliver: SliverPadding(
-                          padding: const EdgeInsets.only(bottom: 110.0),
+                          padding: EdgeInsets.only(bottom: Platform.isIOS ? 80.0 : 110.0),
                           sliver: StationsList(
                             stationsMediaItems: stationsMediaItems,
                             mediaItem: mediaItem,
                             audioHandler: _audioHandler,
                             panelController: null,
-                          )
-                      ),
+                          )),
                     ),
                     // SliverToBoxAdapter(
                     //   child: Padding(
