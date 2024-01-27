@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:audio_service/audio_service.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:radio_crestin/pages/HomePage.dart';
@@ -350,36 +352,62 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   }
 
   Future<void> showSleepTimerDialog(BuildContext context) async {
-    return showDialog<void>(
-      context: context,
-      barrierDismissible: true,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text(
-            'Oprește radioul după:',
-            style: TextStyle(fontSize: 18),
-          ),
-          backgroundColor: Colors.white,
-          surfaceTintColor: Colors.transparent,
-          content: SingleChildScrollView(
-            child: Column(
-              children: [5, 10, 30, 60]
-                  .map((minutes) => ListTile(
-                        title: Text('$minutes minute'),
-                        onTap: () => setSleepTimer(context, Duration(minutes: minutes)),
-                      ))
-                  .toList(),
+    if (Platform.isIOS) {
+      // Cupertino dialog for iOS
+      return showCupertinoModalPopup<void>(
+        context: context,
+        builder: (BuildContext context) {
+          return CupertinoActionSheet(
+            title: const Text(
+              'Oprește radioul după:',
+              style: TextStyle(fontSize: 18),
             ),
-          ),
-          actions: <Widget>[
-            TextButton(
+            actions: <Widget>[
+              for (var minutes in [5, 10, 30, 60])
+                CupertinoActionSheetAction(
+                  child: Text('$minutes minute'),
+                  onPressed: () => setSleepTimer(context, Duration(minutes: minutes)),
+                ),
+            ],
+            cancelButton: CupertinoActionSheetAction(
               child: const Text('Închide'),
               onPressed: () => Navigator.of(context).pop(),
             ),
-          ],
-        );
-      },
-    );
+          );
+        },
+      );
+    } else {
+      // Material dialog for Android and other platforms
+      return showDialog<void>(
+        context: context,
+        barrierDismissible: true,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text(
+              'Oprește radioul după:',
+              style: TextStyle(fontSize: 18),
+            ),
+            backgroundColor: Colors.white,
+            content: SingleChildScrollView(
+              child: Column(
+                children: [5, 10, 30, 60]
+                    .map((minutes) => ListTile(
+                          title: Text('$minutes minute'),
+                          onTap: () => setSleepTimer(context, Duration(minutes: minutes)),
+                        ))
+                    .toList(),
+              ),
+            ),
+            actions: <Widget>[
+              TextButton(
+                child: const Text('Închide'),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
+          );
+        },
+      );
+    }
   }
 
   void setSleepTimer(BuildContext context, Duration duration) {
