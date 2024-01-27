@@ -1,39 +1,36 @@
-import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
+import 'package:like_button/like_button.dart';
 import 'package:radio_crestin/appAudioHandler.dart';
 import 'package:radio_crestin/theme.dart';
-import 'package:radio_crestin/utils.dart';
 import 'package:sliding_up_panel/src/panel.dart';
 
-class StationsList extends StatelessWidget {
-  const StationsList(
-      {super.key,
-      required this.stationsMediaItems,
-      required this.mediaItem,
-      required this.audioHandler,
-      required this.panelController});
+import '../types/Station.dart';
 
-  final List<MediaItem> stationsMediaItems;
-  final MediaItem? mediaItem;
+class StationsList extends StatelessWidget {
+  const StationsList({
+    super.key,
+    required this.stations,
+    required this.audioHandler,
+    required this.panelController, this.currentStation,
+  });
+
+  final Station? currentStation;
+  final List<Station> stations;
   final AppAudioHandler audioHandler;
   final PanelController? panelController;
 
   @override
   Widget build(BuildContext context) {
-    final Color primaryColor = Theme
-        .of(context)
-        .primaryColor;
-
     return SliverFixedExtentList(
       itemExtent: 135.0,
       delegate: SliverChildBuilderDelegate(
-            (context, itemIdx) {
-          final item = stationsMediaItems[itemIdx];
-          final isSelected = item.extras?['station_slug'] == mediaItem?.extras?['station_slug'];
+        (context, itemIdx) {
+          final station = stations[itemIdx];
+          final isSelected = station.slug == currentStation?.slug;
 
           return GestureDetector(
               onTap: () async {
-                await audioHandler.playMediaItem(item);
+                await audioHandler.playStation(station);
               },
               child: Container(
                 margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
@@ -53,14 +50,9 @@ class StationsList extends StatelessWidget {
                           height: 100.0,
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(12.0),
-                            child: Utils.displayImage(
-                              item.artUri.toString(),
-                              fallbackImageUrl: item.extras?["station_thumbnail_url"],
-                              cache: item.artUri.toString() == item.extras?["station_thumbnail_url"],
-                            ),
+                            child: station.thumbnail,
                           ),
                         ),
-
                         Expanded(
                           flex: 1,
                           child: Column(
@@ -68,7 +60,7 @@ class StationsList extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                item.displayTitle ?? "",
+                                station.displayTitle,
                                 style: const TextStyle(
                                   color: Colors.black,
                                   fontWeight: FontWeight.normal,
@@ -81,26 +73,25 @@ class StationsList extends StatelessWidget {
                                   margin: const EdgeInsets.only(top: 0, bottom: 4),
                                   child: Column(
                                     children: [
-                                      if (item.extras?["station_is_up"] == false)
+                                      if (station.isUp == false)
                                         Text(
                                           "Stație offline",
                                           style: TextStyle(color: appTheme.primaryColor),
                                         ),
-                                      if (item.displaySubtitle != "")
+                                      if (station.displaySubtitle != "")
                                         Text(
-                                          item.displaySubtitle ?? "",
+                                          station.displaySubtitle ?? "",
                                           textAlign: TextAlign.left,
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                           style: TextStyle(
-                                            color: isSelected? Colors.grey[700]: Colors.grey[600],
+                                            color: isSelected ? Colors.grey[700] : Colors.grey[600],
                                             fontSize: 13,
                                           ),
                                         )
                                     ],
                                   )),
-                              if (item.extras?['total_listeners'] != null &&
-                                  item.extras?['total_listeners'] > 0)
+                              if (station.totalListeners != null && station.totalListeners! > 0)
                                 Row(
                                   children: [
                                     Container(
@@ -109,13 +100,13 @@ class StationsList extends StatelessWidget {
                                       margin: const EdgeInsets.only(right: 4),
                                       decoration: BoxDecoration(
                                         shape: BoxShape.circle, // Make it a circular shape
-                                        color: item.extras?["station_is_up"]
+                                        color: station.isUp
                                             ? Colors.green
                                             : Colors.red, // Set the background color to green
                                       ),
                                     ),
                                     Text(
-                                      '${item.extras?['total_listeners']} ascultator${item.extras?['total_listeners'] == 1 ? "" : "i"}',
+                                      '${station.totalListeners} ascultator${station.totalListeners == 1 ? "" : "i"}',
                                       style: TextStyle(
                                         color: Colors.grey[600],
                                         fontSize: 12,
@@ -128,36 +119,33 @@ class StationsList extends StatelessWidget {
                         )
                       ],
                     ),
-                    Stack(
-                      children: [
-                        Positioned(
-                          right: 0,
-                          bottom: 0,
-                          child: Transform.translate(
-                            offset: Offset(10, 0),
-                            child: IconButton(
-                              icon: item?.extras?['is_favorite'] == "true"
-                                  ? const Icon(Icons.favorite_sharp)
-                                  : const Icon(Icons.favorite_border_sharp),
-                              color: primaryColor,
-                              iconSize: 20,
-                              onPressed: () async {
-                                if (item.extras?['is_favorite'] == "true") {
-                                  await audioHandler.setMediaItemIsFavorite(item, false);
-                                } else {
-                                  await audioHandler.setMediaItemIsFavorite(item, true);
-                                }
-                              },
-                            ),
-                          ),
-                        )
-                      ],
+                    Positioned(
+                      right: -7,
+                      bottom: 0,
+                      child: LikeButton(
+                        size: 39,
+                        bubblesSize: 39,
+                        isLiked: station.isFavorite,
+                        likeBuilder: (bool isLiked) {
+                          return Padding(
+                            padding: const EdgeInsets.all(8),
+                            child: Icon(
+                              Icons.favorite,
+                              color: isLiked ? Colors.pinkAccent : Colors.grey,
+                              size: 23,
+                            ),);
+                        },
+                        onTap: (bool isLiked) async {
+                          audioHandler.setStationIsFavorite(station, !isLiked);
+                          return !isLiked;
+                        },
+                      ),
                     )
                   ],
                 ),
               ));
         },
-        childCount: stationsMediaItems.length, // Number of items in the list
+        childCount: stations.length, // Number of items in the list
       ),
     );
   }

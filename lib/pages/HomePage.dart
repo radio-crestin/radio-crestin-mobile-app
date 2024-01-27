@@ -8,14 +8,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_sticky_header/flutter_sticky_header.dart';
 import 'package:radio_crestin/appAudioHandler.dart';
 import 'package:radio_crestin/components/FullAudioPlayer.dart';
-import 'package:radio_crestin/components/StationsList.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
 import 'package:uni_links_nfc_support/uni_links_nfc_support.dart';
 
 import '../components/MiniAudioPlayer.dart';
-import '../components/SearchDialog.dart';
+import '../components/SelectDialog.dart';
+import '../components/StationsList.dart';
 import '../main.dart';
+import '../queries/getStations.graphql.dart';
+import '../types/Station.dart';
 import '../utils/PositionRetainedScrollPhysics.dart';
 import 'SettingsPage.dart';
 
@@ -38,11 +40,23 @@ class CustomPanelController extends PanelController {
 }
 
 class HomePageState {
-  final List<MediaItem> stationsMediaItems;
+  final Station? currentStation;
+  final List<Station> stations;
+  final List<Station> filteredStations;
+  final List<Query$GetStations$station_groups> stationGroups;
+  final Query$GetStations$station_groups? selectedStationGroup;
   final MediaItem? mediaItem;
   final bool isDraggable;
 
-  const HomePageState(this.stationsMediaItems, this.mediaItem, this.isDraggable);
+  const HomePageState(
+    this.currentStation,
+    this.stations,
+    this.filteredStations,
+    this.stationGroups,
+    this.selectedStationGroup,
+    this.mediaItem,
+    this.isDraggable,
+  );
 }
 
 class _HomePageState extends State<HomePage> {
@@ -77,18 +91,43 @@ class _HomePageState extends State<HomePage> {
     double panelMaxHeight = MediaQuery.of(context).size.height * .9;
 
     return Scaffold(
+      backgroundColor: Colors.white,
       body: StreamBuilder<HomePageState>(
-          stream: Rx.combineLatest3<List<MediaItem>, MediaItem?, bool, HomePageState>(
-            _audioHandler.stationsMediaItems,
+          stream: Rx.combineLatest7<
+              Station?,
+              List<Station>,
+              List<Station>,
+              List<Query$GetStations$station_groups>,
+              Query$GetStations$station_groups?,
+              MediaItem?,
+              bool,
+              HomePageState>(
+            _audioHandler.currentStation.stream,
+            _audioHandler.stations.stream,
+            _audioHandler.filteredStations.stream,
+            _audioHandler.stationGroups,
+            _audioHandler.selectedStationGroup.stream,
             _audioHandler.mediaItem,
             slidingUpPanelController.isDraggableSubject,
-            (stationsMediaItems, mediaItem, isDraggable) => HomePageState(stationsMediaItems, mediaItem, isDraggable),
+            (currentStation, stations, filteredStations, stationGroups,
+                    selectedStationGroup, mediaItem, isDraggable) =>
+                HomePageState(currentStation, stations, filteredStations,
+                    stationGroups, selectedStationGroup, mediaItem, isDraggable),
           ),
           builder: (context, snapshot) {
-            final stationsMediaItems = snapshot.data?.stationsMediaItems ?? [];
-            final mediaItem = snapshot.data?.mediaItem;
+            final currentStation = snapshot.data?.currentStation;
+            final stations = snapshot.data?.stations ?? [];
+            final stationGroups = snapshot.data?.stationGroups ?? [];
             final isDraggable = snapshot.data?.isDraggable ?? true;
-            final favoriteStations = stationsMediaItems.where((s) => s.extras?['is_favorite'] == 'true').toList();
+            final selectedStationGroup = snapshot.data?.selectedStationGroup;
+            final filteredStations = snapshot.data?.filteredStations ?? [];
+
+            final filteredStationsIncludingCurrentStation = [
+              if (currentStation != null && !filteredStations.contains(currentStation)) currentStation,
+              ...filteredStations,
+            ];
+
+            final favoriteStations = stations.where((station) => station.isFavorite).toList();
 
             return SlidingUpPanel(
               maxHeight: panelMaxHeight,
@@ -101,7 +140,10 @@ class _HomePageState extends State<HomePage> {
                 topLeft: Radius.circular(16.0),
                 topRight: Radius.circular(16.0),
               ),
-              gestureSlidingEnabled: (slidingUpPanelController.isAttached && (slidingUpPanelController.isPanelClosed || slidingUpPanelController.isPanelClosed)) || isDraggable,
+              gestureSlidingEnabled: (slidingUpPanelController.isAttached &&
+                      (slidingUpPanelController.isPanelClosed ||
+                          slidingUpPanelController.isPanelClosed)) ||
+                  isDraggable,
               body: SafeArea(
                 child: CustomScrollView(
                   physics: const PositionRetainedScrollPhysics(),
@@ -126,13 +168,10 @@ class _HomePageState extends State<HomePage> {
                               SizedBox(width: 10),
                               Text(
                                 "Radio Creștin",
-                                style: TextStyle(
-                                    fontSize: 21
-                                ),
+                                style: TextStyle(fontSize: 21),
                               ),
                             ],
-                          )
-                      ),
+                          )),
                       actions: [
                         IconButton(
                           icon: const Icon(Icons.search),
@@ -142,9 +181,13 @@ class _HomePageState extends State<HomePage> {
                             showDialog(
                               context: context,
                               builder: (BuildContext context) {
-                                return SearchDialog(
-                                  stationsMediaItems: stationsMediaItems,
-                                  audioHandler: _audioHandler,
+                                return SelectDialog<Station>(
+                                  items: stations,
+                                  displayFunction: (Station station) => station.displayTitle,
+                                  searchFunction: (Station station) => station.displayTitle,
+                                  onItemSelected: (Station station) {
+                                    _audioHandler.playStation(station);
+                                  },
                                 );
                               },
                             );
@@ -164,61 +207,97 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ],
                     ),
-                    if(favoriteStations.isNotEmpty)  SliverStickyHeader(
-                      header: Container(
-                        height: 60.0,
-                        color: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Favorite',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.grey[800]),
+                    if (favoriteStations.isNotEmpty)
+                      SliverStickyHeader(
+                        header: Container(
+                          height: 60.0,
+                          color: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'Favorite',
+                            style: TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.w600, color: Colors.grey[800]),
+                          ),
                         ),
+                        sliver: SliverPadding(
+                            padding: const EdgeInsets.only(bottom: 20.0),
+                            sliver: StationsList(
+                              stations: favoriteStations,
+                              currentStation: currentStation,
+                              audioHandler: _audioHandler,
+                              panelController: null,
+                            )),
                       ),
-                      sliver: StationsList(
-                        stationsMediaItems: favoriteStations,
-                        mediaItem: mediaItem,
-                        audioHandler: _audioHandler,
-                        panelController: null,
-                      ),
-                    ),
-
                     SliverStickyHeader(
                       header: Container(
                         height: 60.0,
                         color: Colors.white,
                         padding: const EdgeInsets.symmetric(horizontal: 16.0),
                         alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Toate stațiile radio',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.grey[800]),
+                        child: Row(
+                          children: [
+                            Text(
+                              selectedStationGroup?.name ?? "Toate stațiile radio",
+                              style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.grey[800]),
+                            ),
+                            const Spacer(),
+                            TextButton(
+                                onPressed: () {
+                                  showDialog(
+                                    context: context,
+                                    builder: (BuildContext context) {
+                                      final stationGroupOptions = [
+                                        Query$GetStations$station_groups(
+                                          id: -1,
+                                          name: 'Toate stațiile radio',
+                                          order: -1,
+                                          slug: 'all-stations',
+                                          station_to_station_groups: [],
+                                        ),
+                                        ...stationGroups..sort((a, b) => a.order.compareTo(b.order))
+                                      ];
+                                      return SelectDialog<Query$GetStations$station_groups>(
+                                        items: stationGroupOptions,
+                                        displayFunction:
+                                            (Query$GetStations$station_groups stationGroup) =>
+                                                stationGroup.name,
+                                        onItemSelected:
+                                            (Query$GetStations$station_groups stationGroup) {
+                                          setState(() {
+                                            if (stationGroup.slug == 'all-stations') {
+                                              _audioHandler.selectedStationGroup.add(null);
+                                            } else {
+                                              _audioHandler.selectedStationGroup.add(stationGroup);
+                                            }
+                                          });
+                                        },
+                                      );
+                                    },
+                                  );
+                                },
+                                child: Text(
+                                  "Filtrează",
+                                  style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.blue[700]),
+                                ))
+                          ],
                         ),
                       ),
                       sliver: SliverPadding(
                           padding: const EdgeInsets.only(bottom: 110.0),
                           sliver: StationsList(
-                            stationsMediaItems: stationsMediaItems,
-                            mediaItem: mediaItem,
+                            stations: filteredStations,
+                            currentStation: currentStation,
                             audioHandler: _audioHandler,
                             panelController: null,
-                          )
-                      ),
+                          )),
                     ),
-                    // SliverToBoxAdapter(
-                    //   child: Padding(
-                    //     padding: const EdgeInsets.only(left: 16.0, right: 16, bottom: 12, top: 24),
-                    //     child: Text('Toate stațiile radio', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.grey[800])),
-                    //   ),
-                    // ),
-                    // SliverPadding(
-                    //     padding: const EdgeInsets.only(bottom: 110.0),
-                    //     sliver: StationsList(
-                    //       stationsMediaItems: stationsMediaItems,
-                    //       mediaItem: mediaItem,
-                    //       audioHandler: _audioHandler,
-                    //       panelController: null,
-                    //     )
-                    // ),
                   ],
                 ),
               ),
@@ -226,7 +305,7 @@ class _HomePageState extends State<HomePage> {
                 padding: const EdgeInsets.only(bottom: 12, left: 8, right: 8),
                 color: Theme.of(context).scaffoldBackgroundColor,
                 child: MiniAudioPlayer(
-                  mediaItem: mediaItem,
+                  currentStation: currentStation,
                   audioHandler: _audioHandler,
                   panelController: slidingUpPanelController,
                 ),
@@ -240,6 +319,8 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
                 child: FullAudioPlayer(
+                  filteredStationsIncludingCurrentStation: filteredStationsIncludingCurrentStation,
+                  currentStation: currentStation,
                   audioHandler: _audioHandler,
                   slidingUpPanelController: slidingUpPanelController,
                 ),

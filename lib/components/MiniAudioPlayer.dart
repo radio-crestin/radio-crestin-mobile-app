@@ -1,26 +1,23 @@
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
+import 'package:radio_crestin/types/Station.dart';
 import 'package:sliding_up_panel/src/panel.dart';
 
-import '../utils.dart';
-
 class MiniAudioPlayer extends StatelessWidget {
-  final MediaItem? mediaItem;
+  final Station? currentStation;
   final AudioHandler audioHandler;
   final PanelController panelController;
 
   const MiniAudioPlayer({
     super.key,
-    required this.mediaItem,
     required this.audioHandler,
-    required this.panelController,
+    required this.panelController, this.currentStation,
   });
 
   @override
   Widget build(BuildContext context) {
-    String displayTitle = mediaItem?.displayTitle ?? "";
-    String displaySubtitle = mediaItem?.displaySubtitle ?? "";
-    String displayThumbnailUrl = mediaItem?.artUri.toString() ?? "";
+    String displayTitle = currentStation?.displayTitle ?? "";
+    String displaySubtitle = currentStation?.displaySubtitle ?? "";
     Color primaryColor = Theme
         .of(context)
         .primaryColor;
@@ -69,11 +66,7 @@ class MiniAudioPlayer extends StatelessWidget {
                   height: 52.0,
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(12.0),
-                    child: Utils.displayImage(
-                      displayThumbnailUrl,
-                      fallbackImageUrl: mediaItem?.extras?["station_thumbnail_url"],
-                      cache: displayThumbnailUrl == mediaItem?.extras?["station_thumbnail_url"],
-                    ),
+                    child: currentStation?.thumbnail,
                   ),
                 ),
                 const SizedBox(width: 16.0),

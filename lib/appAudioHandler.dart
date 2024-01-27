@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:developer' as developer;
 import 'dart:ui';
 
@@ -10,6 +11,7 @@ import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:radio_crestin/queries/getStations.graphql.dart';
 import 'package:radio_crestin/tracking.dart';
+import 'package:radio_crestin/types/Station.dart';
 import 'package:radio_crestin/utils.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -46,9 +48,8 @@ Future<AppAudioHandler> initAudioService({required graphqlClient}) async {
 // https://github.com/ryanheise/audio_service/blob/81bb480ac2aeaec08cd61c62765529613db60837/audio_service/example/lib/example_playlist.dart
 class AppAudioHandler extends BaseAudioHandler {
   final GraphQLClient graphqlClient;
-  List<Query$GetStations$stations> stations =
-      List<Query$GetStations$stations>.empty(growable: true);
-  var _timer;
+  Timer? timer;
+  late StreamSubscription<QueryResult<Query$GetStations>> watchStations;
 
   Object? error;
   int errorRetryCount = 0;
@@ -58,8 +59,14 @@ class AppAudioHandler extends BaseAudioHandler {
   int? playerIndex;
   bool onOpenEventTriggered = false;
 
-  var _watchStations;
-
+  final BehaviorSubject<List<Station>> stations = BehaviorSubject.seeded(<Station>[]);
+  final BehaviorSubject<List<Station>> filteredStations = BehaviorSubject.seeded(<Station>[]);
+  final BehaviorSubject<List<String>> favoriteStationSlugs = BehaviorSubject.seeded([]);
+  final BehaviorSubject<Station?> currentStation = BehaviorSubject.seeded(null);
+  final BehaviorSubject<List<Query$GetStations$station_groups>> stationGroups =
+      BehaviorSubject.seeded(<Query$GetStations$station_groups>[]);
+  final BehaviorSubject<Query$GetStations$station_groups?> selectedStationGroup =
+      BehaviorSubject.seeded(null);
   final BehaviorSubject<List<MediaItem>> stationsMediaItems = BehaviorSubject.seeded(<MediaItem>[]);
 
   _log(String message) {
@@ -70,33 +77,19 @@ class AppAudioHandler extends BaseAudioHandler {
 
   // ignore: close_sinks
   final BehaviorSubject<List<MediaItem>> _recentSubject = BehaviorSubject.seeded(<MediaItem>[]);
-  final LAST_PLAYED_MEDIA_ITEM = "last_played_media_item";
+  static const LAST_PLAYED_MEDIA_ITEM = "last_played_media_item";
 
   final int maxRetries = 5;
+  static const _favoriteStationsKey = 'favoriteStationSlugs';
 
-  AppAudioHandler({required this.graphqlClient, required AudioPlayer this.player}) {
-    _init();
+  AppAudioHandler({required this.graphqlClient, required this.player}) {
+    _initPlayer();
+    _initFilteredStationsStream();
+    _initFavoriteStationSlugs();
     _setupRefreshStations();
   }
 
-  Future<void> _init() async {
-    // For Android 11, record the most recent item so it can be resumed.
-    mediaItem.whereType<MediaItem>().listen((item) {
-      _recentSubject.add([item]);
-    });
-
-    // Propagate all events from the audio player to AudioService clients.
-    player.playbackEventStream.listen(_broadcastState);
-
-    // In this example, the service stops when reaching the end.
-    player.processingStateStream.listen((state) {
-      _log("processingStateStream: $state");
-      if (state == ProcessingState.completed) stop();
-    });
-
-    await player.setLoopMode(LoopMode.off);
-  }
-
+  // Android Auto
   @override
   Future<List<MediaItem>> getChildren(String parentMediaId, [Map<String, dynamic>? options]) async {
     _log("getChildren: $parentMediaId");
@@ -144,15 +137,71 @@ class AppAudioHandler extends BaseAudioHandler {
     }
   }
 
+  // Audio Player
+  Future<void> _initPlayer() async {
+    // For Android 11, record the most recent item so it can be resumed.
+    mediaItem.whereType<MediaItem>().listen((item) {
+      _recentSubject.add([item]);
+    });
+
+    // Propagate all events from the audio player to AudioService clients.
+    player.playbackEventStream.listen(_broadcastState);
+
+    // In this example, the service stops when reaching the end.
+    player.processingStateStream.listen((state) {
+      _log("processingStateStream: $state");
+      if (state == ProcessingState.completed) stop();
+    });
+
+    await player.setLoopMode(LoopMode.off);
+  }
+
+  Future<void> playStation(Station station) async {
+    _log('playStation($station)');
+    var retry = 0;
+    final item = await station.mediaItem;
+
+    mediaItem.add(item);
+    currentStation.add(station);
+
+    await setLastPlayedStation(station);
+
+    while (true) {
+      if (retry < maxRetries) {
+        final streamUrl = item.extras?["station_streams"]
+                [retry % item.extras?["station_streams"].length] ??
+            item.id;
+        _log("playMediaItem: $streamUrl");
+        try {
+          await player.setAudioSource(
+            AudioSource.uri(Uri.parse(streamUrl)),
+            preload: true,
+          );
+          break;
+        } catch (e) {
+          _log("playMediaItem: Player Error: $e");
+          retry++;
+        }
+      } else {
+        _log("playMediaItem: max retries reached");
+        stop();
+        break;
+      }
+    }
+    return play();
+  }
+
   @override
   Future<void> skipToNext() {
     _log('skipToNext()');
-    if (mediaItem.value != null) {
-      final currentMediaItemIndex = stationsMediaItems.value.indexOf(mediaItem.value!);
-      if (currentMediaItemIndex < stationsMediaItems.value.length - 1) {
-        return playMediaItem(stationsMediaItems.value[currentMediaItemIndex + 1]);
+    if (currentStation.value != null) {
+      final currentStationIndex = filteredStations.value.indexWhere((s) {
+        return s.rawStationData.id == currentStation.value!.id;
+      });
+      if (currentStationIndex < filteredStations.value.length - 1) {
+        return playStation(filteredStations.value[currentStationIndex + 1]);
       } else {
-        return playMediaItem(stationsMediaItems.value[0]);
+        return playStation(filteredStations.value[0]);
       }
     }
     return super.skipToNext();
@@ -162,11 +211,13 @@ class AppAudioHandler extends BaseAudioHandler {
   Future<void> skipToPrevious() {
     _log('skipToPrevious()');
     if (mediaItem.value != null) {
-      var currentMediaItemIndex = stationsMediaItems.value.indexOf(mediaItem.value!);
-      if (currentMediaItemIndex > 0) {
-        return playMediaItem(stationsMediaItems.value[currentMediaItemIndex - 1]);
+      final currentStationIndex = filteredStations.value.indexWhere((s) {
+        return s.rawStationData.id == currentStation.value!.id;
+      });
+      if (currentStationIndex > 0) {
+        return playStation(filteredStations.value[currentStationIndex - 1]);
       } else {
-        return playMediaItem(stationsMediaItems.value[stationsMediaItems.value.length - 1]);
+        return playStation(filteredStations.value[filteredStations.value.length - 1]);
       }
     }
     return super.skipToPrevious();
@@ -175,16 +226,16 @@ class AppAudioHandler extends BaseAudioHandler {
   @override
   Future<void> skipToQueueItem(int index) {
     _log("skipToQueueItem: $index");
-    playMediaItem(stationsMediaItems.value[index]);
+    playStation(stations.value[index]);
     return super.skipToQueueItem(index);
   }
 
   @override
   Future<void> play() {
     _log("play");
-    if (currentStation != null) {
-      AppTracking.trackPlayStation(currentStation!);
-      AppTracking.trackListenStation(currentStation!, currentStreamUrl);
+    if (currentStation.value != null) {
+      AppTracking.trackPlayStation(currentStation.value!);
+      AppTracking.trackListenStation(currentStation.value!, currentStreamUrl);
     }
     startListeningTracker();
 
@@ -197,8 +248,8 @@ class AppAudioHandler extends BaseAudioHandler {
   @override
   Future<void> pause() async {
     _log("pause");
-    if (currentStation != null) {
-      AppTracking.trackStopStation(currentStation!);
+    if (currentStation.value != null) {
+      AppTracking.trackStopStation(currentStation.value!);
     }
 
     /**
@@ -219,7 +270,44 @@ class AppAudioHandler extends BaseAudioHandler {
     return pause();
   }
 
-  /// Broadcasts the current state to all clients.
+  @override
+  Future<void> playFromSearch(String query, [Map<String, dynamic>? extras]) {
+    _log('playFromSearch($query, $extras)');
+
+    var maxR = 0;
+    late Station selectedStation;
+    for (var v in stations.value) {
+      var r = partialRatio(v.title, query);
+      if (r > maxR) {
+        maxR = r;
+        selectedStation = v;
+      }
+    }
+    if (maxR > 0) {
+      return playStation(selectedStation);
+    } else {
+      return playStation(stations.value[0]);
+    }
+  }
+
+  @override
+  Future<void> playFromUri(Uri uri, [Map<String, dynamic>? extras]) {
+    for (var v in stations.value) {
+      if (v.streamUrl.toString() == uri.toString()) {
+        return playStation(v);
+      }
+    }
+    return super.playFromUri(uri);
+  }
+
+  @override
+  Future<void> playMediaItem(MediaItem mediaItem) async {
+    _log('playMediaItem($mediaItem)');
+    playStation(
+        stations.value.firstWhere((element) => element.id == mediaItem.extras?["station_id"]));
+  }
+
+  // Metadata refresh
   void _broadcastState(PlaybackEvent event) {
     _log("_broadcastState: $event, player.processingState: ${player.processingState}");
     final playing = player.playing;
@@ -253,10 +341,16 @@ class AppAudioHandler extends BaseAudioHandler {
 
   void _setupRefreshStations() async {
     _log("Starting to fetch stations");
-    stations = (await graphqlClient.query(Options$Query$GetStations())).parsedData?.stations ?? [];
-    updateStationsMediaItems(stations);
+    final parsedData = (await graphqlClient.query(Options$Query$GetStations())).parsedData;
+    stations.add((parsedData?.stations ?? [])
+        .map((rawStationData) => Station(
+            rawStationData: rawStationData,
+            isFavorite: favoriteStationSlugs.value.contains(rawStationData.slug)))
+        .toList());
+    stationGroups.add(parsedData?.station_groups ?? []);
+    updateMediaItemsMetadata(stations.value);
 
-    _watchStations = graphqlClient
+    watchStations = graphqlClient
         .watchQuery$GetStations(
           WatchOptions$Query$GetStations(
             fetchPolicy: FetchPolicy.cacheAndNetwork,
@@ -274,11 +368,15 @@ class AppAudioHandler extends BaseAudioHandler {
         _log("No data");
         return;
       }
-      stations = parsedData.stations;
-      await updateStationsMediaItems(stations);
+      stations.add((parsedData.stations ?? [])
+          .map((rawStationData) => Station(
+              rawStationData: rawStationData,
+              isFavorite: favoriteStationSlugs.value.contains(rawStationData.slug)))
+          .toList());
+      stationGroups.add(parsedData.station_groups ?? []);
+      await updateMediaItemsMetadata(stations.value);
       if (!onOpenEventTriggered) {
-        // mediaItem.add(await getLastPlayedMediaItem());
-        playMediaItem(await getLastPlayedMediaItem());
+        playStation(await getLastPlayedStation());
         onOpenEventTriggered = true;
       }
       loadThumbnailsInCache();
@@ -287,30 +385,25 @@ class AppAudioHandler extends BaseAudioHandler {
 
   void loadThumbnailsInCache() {
     _log("Loading thumbnails in cache");
-    for (var station in stations) {
-      if (station.thumbnail_url != null) {
-        Utils.displayImage(station.thumbnail_url!, cache: true);
+    for (var station in stations.value) {
+      if (station.thumbnailUrl != null) {
+        Utils.displayImage(station.thumbnailUrl!, cache: true);
       }
     }
     _log("Done loading thumbnails in cache");
   }
 
-  Future<void> updateStationsMediaItems(List<Query$GetStations$stations> stations) async {
-    _log("updatePlaylistWithStationsData");
+  Future<void> updateMediaItemsMetadata(List<Station> stations) async {
+    _log("updateMediaItemsMetadata");
 
-    // iterate stations and extract metadata
-    final newStationsMediaItems = <MediaItem>[];
-    for (var station in stations) {
-      newStationsMediaItems.add(await Utils.getStationMetadata(station));
-    }
-    newStationsMediaItems.sort((a, b) {
-      return a.title.compareTo(b.title);
-    });
+    final sortedStations = stations..sort((a, b) => a.order.compareTo(b.order));
+
+    final newStationsMediaItems =
+        (await Future.wait(sortedStations.map((station) => station.mediaItem)));
 
     stationsMediaItems.add(newStationsMediaItems);
-    // queue.add(stationsMediaItems);
 
-    // Update current played media item
+    // Update current metadata of played media item
     if (mediaItem.value != null) {
       var newMediaItems = stationsMediaItems.value;
       var newMediaItem = newMediaItems.where((item) => item.id == mediaItem.value?.id).firstOrNull;
@@ -318,96 +411,6 @@ class AppAudioHandler extends BaseAudioHandler {
         mediaItem.add(newMediaItem);
       }
     }
-  }
-
-  Query$GetStations$stations? get currentStation {
-    if (mediaItem.value != null) {
-      return stations.firstWhere((element) => element.id == mediaItem.value!.extras?["station_id"]);
-    } else {
-      // Handle the case when either 'stations' or 'mediaItem.value' is null
-      return null; // Or provide a default value or error handling as needed
-    }
-  }
-
-  void startListeningTracker() {
-    _timer?.cancel();
-    _timer = Timer.periodic(
-        const Duration(seconds: 5),
-        (Timer t) => {
-              if (currentStation != null && player.playing)
-                {AppTracking.trackListenStation(currentStation!, currentStreamUrl)}
-            });
-  }
-
-  void stopListeningTracker() {
-    _timer?.cancel();
-  }
-
-  String get currentStreamUrl {
-    return mediaItem.value?.id ?? "-";
-  }
-
-  @override
-  Future<void> playFromSearch(String query, [Map<String, dynamic>? extras]) {
-    _log('playFromSearch($query, $extras)');
-
-    var maxR = 0;
-    var selectedStationMediaItem;
-    for (var v in stationsMediaItems.value) {
-      var r = partialRatio(v.title, query);
-      if (r > maxR) {
-        maxR = r;
-        selectedStationMediaItem = v;
-      }
-    }
-    if (maxR > 0) {
-      return playMediaItem(selectedStationMediaItem);
-    } else {
-      return playMediaItem(stationsMediaItems.value[0]);
-    }
-  }
-
-  @override
-  Future<void> playFromUri(Uri uri, [Map<String, dynamic>? extras]) {
-    for (var v in stationsMediaItems.value) {
-      if (v.id.toString() == uri.toString()) {
-        return playMediaItem(v);
-      }
-    }
-    return super.playFromUri(uri);
-  }
-
-  @override
-  Future<void> playMediaItem(MediaItem item) async {
-    _log('playMediaItem($item)');
-    var retry = 0;
-
-    mediaItem.add(item);
-    await setLastPlayedMediaItem(item);
-
-    while (true) {
-      if (retry < maxRetries) {
-        final streamUrl = item.extras?["station_streams"]
-                [retry % item.extras?["station_streams"].length] ??
-            item.id;
-        _log("playMediaItem: $streamUrl");
-        try {
-          await player.setAudioSource(
-            AudioSource.uri(Uri.parse(streamUrl)),
-            preload: true,
-          );
-          break;
-        } catch (e) {
-          _log("playMediaItem: Player Error: $e");
-          retry++;
-        }
-      } else {
-        _log("playMediaItem: max retries reached");
-        stop();
-        break;
-      }
-    }
-    return play();
   }
 
   @override
@@ -431,7 +434,7 @@ class AppAudioHandler extends BaseAudioHandler {
     _log('onTaskRemoved()');
     stop();
     // player.dispose();
-    _watchStations?.cancel();
+    watchStations?.cancel();
     return super.onTaskRemoved();
   }
 
@@ -460,27 +463,96 @@ class AppAudioHandler extends BaseAudioHandler {
     return playMediaItem(selectedMediaItem);
   }
 
-  setLastPlayedMediaItem(MediaItem mediaItem) async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setString(LAST_PLAYED_MEDIA_ITEM, mediaItem.extras?['station_slug']);
+  // Events Tracking
+  void startListeningTracker() {
+    timer?.cancel();
+    timer = Timer.periodic(
+        const Duration(seconds: 5),
+        (Timer t) => {
+              if (currentStation.value != null && player.playing)
+                {AppTracking.trackListenStation(currentStation.value!, currentStreamUrl)}
+            });
   }
 
-  Future<MediaItem> getLastPlayedMediaItem() async {
+  void stopListeningTracker() {
+    timer?.cancel();
+  }
+
+  String get currentStreamUrl {
+    return mediaItem.value?.id ?? "-";
+  }
+
+  // Last played station
+  setLastPlayedStation(Station station) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-    var mediaItemSlug = prefs.getString(LAST_PLAYED_MEDIA_ITEM);
-    return stationsMediaItems.value.firstWhere(
-      (item) => item.extras?['station_slug'] == mediaItemSlug,
-      orElse: () => stationsMediaItems.value.first,
+    await prefs.setString(LAST_PLAYED_MEDIA_ITEM, station.slug);
+  }
+
+  Future<Station> getLastPlayedStation() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    var stationSlug = prefs.getString(LAST_PLAYED_MEDIA_ITEM);
+    return stations.value.firstWhere(
+      (station) => station.slug == stationSlug,
+      orElse: () => stations.value.first,
     );
   }
 
-  Future<void> setMediaItemIsFavorite(MediaItem item, bool isFavorite) async {
-    Query$GetStations$stations station =
-        stations.firstWhere((s) => s.slug == item.extras?['station_slug']);
+  // Favorite Stations
+  _initFavoriteStationSlugs() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final String? favoriteJson = prefs.getString(_favoriteStationsKey);
+    List<String> newFavoriteStationSlugs = [];
+    if (favoriteJson != null) {
+      newFavoriteStationSlugs = List<String>.from(json.decode(favoriteJson));
+    }
+    favoriteStationSlugs.add(newFavoriteStationSlugs);
+    updateStationsFavoriteStatus();
+  }
 
-    developer.log("setMediaItemIsFavorite: ${station.slug} $isFavorite");
-    Utils.setStationIsFavorite(station, isFavorite);
+  Future<void> setStationIsFavorite(Station station, bool isFavorite) async {
+    developer.log("setStationIsFavorite: ${station.slug} $isFavorite");
+    if (isFavorite) {
+      favoriteStationSlugs.add([...favoriteStationSlugs.value, station.slug]);
+    } else {
+      favoriteStationSlugs
+          .add(favoriteStationSlugs.value.where((slug) => slug != station.slug).toList());
+    }
+    updateStationsFavoriteStatus();
+
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_favoriteStationsKey, json.encode(favoriteStationSlugs.value));
     Utils.incrementActionsMade();
-    await updateStationsMediaItems(stations);
+  }
+
+  updateStationsFavoriteStatus() {
+    stations.add(stations.value.map((station) {
+      station.isFavorite = favoriteStationSlugs.value.contains(station.slug);
+      return station;
+    }).toList());
+
+    if (currentStation.value != null) {
+      currentStation
+          .add(stations.value.firstWhere((station) => station.slug == currentStation.value!.slug));
+    }
+  }
+
+  void _initFilteredStationsStream() {
+    final combinedStream = Rx.combineLatest2<Query$GetStations$station_groups?, List<Station>, List<Station>>(
+      selectedStationGroup.stream, // Use the stream property
+      stations.stream, // Use the stream property
+          (selectedGroups, allStations) {
+        if(selectedGroups == null) {
+          return allStations;
+        }
+        final selectedStationsIds = selectedGroups.station_to_station_groups.map((e) => e.station_id);
+        return allStations.where((station) {
+          return selectedStationsIds.contains(station.id) ?? false;
+        }).toList();
+      },
+    );
+    // Subscribe to the combined stream and update the filteredStationsSubject BehaviorSubject.
+    combinedStream.listen((filteredStationsList) {
+      filteredStations.add(filteredStationsList);
+    });
   }
 }

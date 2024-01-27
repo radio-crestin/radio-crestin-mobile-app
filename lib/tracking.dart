@@ -3,7 +3,7 @@ import 'dart:developer' as developer;
 
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:http/http.dart' as http;
-import 'package:radio_crestin/queries/getStations.graphql.dart';
+import 'package:radio_crestin/types/Station.dart';
 import 'package:radio_crestin/utils.dart';
 
 import 'globals.dart' as globals;
@@ -11,7 +11,7 @@ import 'globals.dart' as globals;
 FirebaseAnalytics analytics = FirebaseAnalytics.instance;
 
 class AppTracking {
-  static trackPlayStation(Query$GetStations$stations station) async {
+  static trackPlayStation(Station station) async {
     Utils.incrementActionsMade();
     developer.log("trackPlayStation");
     await FirebaseAnalytics.instance.logEvent(name: "listen_radio_start", parameters: {
@@ -41,7 +41,7 @@ class AppTracking {
     );
   }
 
-  static trackListenStation(Query$GetStations$stations station, String currentStreamUrl) async {
+  static trackListenStation(Station station, String currentStreamUrl) async {
     developer.log("trackListenStation $currentStreamUrl");
     await FirebaseAnalytics.instance.logEvent(name: "listen_radio_listening", parameters: {
       "station_id": station.id,
@@ -63,7 +63,7 @@ class AppTracking {
     await sendListeningEvent(station, currentStreamUrl);
   }
 
-  static trackStopStation(Query$GetStations$stations station) async {
+  static trackStopStation(Station station) async {
     developer.log("trackStopStation");
     await FirebaseAnalytics.instance.logEvent(name: "listen_radio_stop", parameters: {
       "station_id": station.id,
@@ -80,7 +80,7 @@ class AppTracking {
     );
   }
 
-  static sendListeningEvent(Query$GetStations$stations station, String currentStreamUrl) async {
+  static sendListeningEvent(Station station, String currentStreamUrl) async {
     if (currentStreamUrl.contains("/hls/") ||
         currentStreamUrl.contains("proxy.radio-crestin.com")) {
       developer.log("sendListeningEvent");

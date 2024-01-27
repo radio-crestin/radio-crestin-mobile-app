@@ -1,16 +1,12 @@
 import 'dart:developer' as developer;
 
-import 'package:audio_service/audio_service.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_nfc_kit/flutter_nfc_kit.dart';
 import 'package:ndef/ndef.dart' as ndef;
 import 'package:radio_crestin/appAudioHandler.dart';
 import 'package:radio_crestin/main.dart';
-import 'package:rxdart/rxdart.dart';
 import 'package:url_launcher/url_launcher.dart';
-
-import 'HomePage.dart';
 
 class WriteNfcTagPage extends StatefulWidget {
   @override
@@ -69,14 +65,10 @@ class _WriteNfcTagPageState extends State<WriteNfcTagPage> {
                   ),
                 ),
               ),
-              StreamBuilder<HomePageState>(
-                stream: Rx.combineLatest2<List<MediaItem>, MediaItem?, HomePageState>(
-                  _audioHandler.stationsMediaItems,
-                  _audioHandler.mediaItem,
-                      (stationsMediaItems, mediaItem) => HomePageState(stationsMediaItems, mediaItem, true),
-                ),
+              StreamBuilder(
+                stream: _audioHandler.stationsMediaItems,
                 builder: (context, snapshot) {
-                  final mediaItems = snapshot.data?.stationsMediaItems ?? [];
+                  final mediaItems = snapshot.data ?? [];
                   return DropdownButton<String>(
                     value: selectedOption,
                     items: mediaItems.map((e) {
