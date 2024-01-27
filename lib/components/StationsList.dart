@@ -1,6 +1,5 @@
 import 'dart:io' show Platform;
 
-import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:like_button/like_button.dart';
 import 'package:radio_crestin/appAudioHandler.dart';
@@ -133,8 +132,8 @@ class StationsList extends StatelessWidget {
                           return Padding(
                             padding: const EdgeInsets.all(8),
                             child: Icon(
-                              Icons.favorite,
-                              color: isLiked ? Colors.pinkAccent : Colors.grey,
+                              isLiked? Icons.favorite_sharp: Icons.favorite_border_sharp,
+                              color: isLiked ? Theme.of(context).primaryColor : Colors.grey,
                               size: 23,
                             ),);
                         },

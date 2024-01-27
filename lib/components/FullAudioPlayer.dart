@@ -13,7 +13,6 @@ import 'package:url_launcher/url_launcher.dart';
 import '../appAudioHandler.dart';
 import '../types/Station.dart';
 
-
 class FullAudioPlayer extends StatefulWidget {
   final AppAudioHandler audioHandler;
   final CustomPanelController slidingUpPanelController;
@@ -43,11 +42,9 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     super.initState();
     _subscriptions
         .add(widget.audioHandler.filteredStations.stream.listen((List<Station> filteredStations) {
-
       setState(() {
         filteredStationsIncludingCurrentStation = [
-          if (currentStation != null && !filteredStations.contains(currentStation))
-            currentStation!,
+          if (currentStation != null && !filteredStations.contains(currentStation)) currentStation!,
           ...filteredStations,
         ];
       });
@@ -61,8 +58,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
       }
     }));
 
-    _subscriptions
-        .add(widget.audioHandler.currentStation.stream.listen((Station? value) {
+    _subscriptions.add(widget.audioHandler.currentStation.stream.listen((Station? value) {
       setState(() {
         currentStation = value;
       });
@@ -94,8 +90,6 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
 
   @override
   Widget build(BuildContext context) {
-    final isFavorite = currentStation?.isFavorite ?? false;
-
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
@@ -146,8 +140,8 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
               onPointerDown: (PointerDownEvent details) {},
               onPointerUp: (PointerUpEvent details) {},
               child: SizedBox(
-                width: 300.0,
-                height: 300.0,
+                width: 270.0,
+                height: 270.0,
                 child: PageView.builder(
                   physics: const AlwaysScrollableScrollPhysics(),
                   controller: pageController,
@@ -217,7 +211,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                     padding: EdgeInsets.all(8.0),
                     child: Icon(
                       Icons.skip_previous,
-                      size: 32,
+                      size: 34,
                       color: Colors.black,
                     ),
                   ),
@@ -229,37 +223,40 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                     final playbackState = snapshot.data;
                     final processingState = playbackState?.processingState;
                     final playing = playbackState?.playing ?? true;
+                    final buffering = processingState == AudioProcessingState.loading ||
+                        processingState == AudioProcessingState.buffering;
+                    if (buffering) {
+                      return const Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          ClipOval(
+                            child: Material(
+                              color: Colors.pink,
+                              child: SizedBox(width: 56, height: 56,),
+                            ),
+                          ),
+                          CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
+                          )
+                        ],
+                      );
+                    }
+
                     return Stack(
                       children: [
                         ClipOval(
                           child: Material(
-                            color: Colors.pink,
-                            child: Padding(
-                              padding: const EdgeInsets.all(6.0),
-                              child: (processingState == AudioProcessingState.loading ||
-                                      processingState == AudioProcessingState.buffering)
-                                  ? Container(
-                                      width: 48,
-                                      height: 48,
-                                      padding: const EdgeInsets.all(8.0),
-                                      child: const CircularProgressIndicator(
-                                        valueColor: AlwaysStoppedAnimation<Color>(
-                                          Colors.white,
-                                        ),
-                                      ),
-                                    )
-                                  : IconButton(
-                                      icon: (playing
-                                          ? const Icon(Icons.pause_rounded, color: Colors.white)
-                                          : const Icon(Icons.play_arrow_rounded,
-                                              color: Colors.white)),
-                                      iconSize: 32,
-                                      onPressed: playing
-                                          ? widget.audioHandler.pause
-                                          : widget.audioHandler.play,
-                                    ),
-                            ),
-                          ),
+                              color: Colors.pink,
+                              child: IconButton(
+                                icon: (playing
+                                    ? const Icon(Icons.pause_rounded, color: Colors.white)
+                                    : const Icon(Icons.play_arrow_rounded, color: Colors.white)),
+                                iconSize: 40,
+                                onPressed:
+                                    playing ? widget.audioHandler.pause : widget.audioHandler.play,
+                              )),
                         ),
                       ],
                     );
@@ -272,7 +269,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                     padding: EdgeInsets.all(8.0),
                     child: Icon(
                       Icons.skip_next_rounded,
-                      size: 32,
+                      size: 34,
                       color: Colors.black,
                     ),
                   ),
@@ -311,35 +308,26 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                     ),
                   ),
                 ),
-                LikeButton(
-                  size: 39,
-                  isLiked: isFavorite,
-                  likeBuilder: (bool isLiked) {
-                    return Padding(
-                      padding: const EdgeInsets.all(8),
-                      child: Icon(
-                        Icons.favorite,
-                        color: isLiked ? Colors.pinkAccent : Colors.grey,
-                        size: 23,
-                      ),
-                    );
-                  },
-                  onTap: (bool isLiked) async {
-                    widget.audioHandler.setStationIsFavorite(currentStation!, !isLiked);
-                    return !isLiked;
-                  },
+                InkWell(
+                  customBorder: const CircleBorder(),
                   child: Container(
                     padding: const EdgeInsets.all(10.0),
                     child: Column(
                       children: [
-                        Icon(
-                          mediaItem?.extras?['is_favorite'] == "true"
-                              ? Icons.favorite_sharp
-                              : Icons.favorite_border_sharp,
-                          color: mediaItem?.extras?['is_favorite'] == "true"
-                              ? primaryColor
-                              : Colors.black,
-                          size: 24,
+                        LikeButton(
+                          size: 25,
+                          isLiked: currentStation!.isFavorite,
+                          likeBuilder: (bool isLiked) {
+                            return Icon(
+                              isLiked ? Icons.favorite_sharp : Icons.favorite_border_sharp,
+                              color: isLiked ? Theme.of(context).primaryColor : Colors.black,
+                              size: 23,
+                            );
+                          },
+                          onTap: (bool isLiked) async {
+                            widget.audioHandler.setStationIsFavorite(currentStation!, !isLiked);
+                            return !isLiked;
+                          },
                         ),
                         const Padding(
                           padding: EdgeInsets.only(top: 8.0),
@@ -349,15 +337,14 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                     ),
                   ),
                 ),
-                if (currentStation?.displaySubtitle.isNotEmpty ?? false)
-                  IconButton(
-                    icon: const Icon(Icons.video_collection),
-                    color: Colors.black,
-                    iconSize: 24,
-                    tooltip: 'Caută melodia pe Youtube',
-                    onPressed: () async {
+                if (currentStation != null &&
+                    (currentStation!.songArtist.isNotEmpty || currentStation!.songTitle.isNotEmpty))
+                  InkWell(
+                    customBorder: CircleBorder(),
+                    onTap: () async {
                       if (currentStation != null) {
-                        final query = currentStation?.displaySubtitle ?? "";
+                        final query =
+                            "${currentStation?.songArtist} - ${currentStation?.songTitle}";
                         final encodedQuery = Uri.encodeQueryComponent(query);
 
                         final searchUrl = 'https://www.youtube.com/results?q=$encodedQuery';
@@ -400,12 +387,9 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                       ),
                     ),
                   ),
-                IconButton(
-                  icon: const Icon(Icons.share_outlined),
-                  color: Colors.black,
-                  iconSize: 24,
-                  tooltip: 'Trimite aplicatia prietenilor tai',
-                  onPressed: () {
+                InkWell(
+                  customBorder: CircleBorder(),
+                  onTap: () {
                     if (currentStation != null) {
                       var linkMessage = "";
                       linkMessage += "${currentStation?.title ?? "Asculta Radio Crestin"}\n";
