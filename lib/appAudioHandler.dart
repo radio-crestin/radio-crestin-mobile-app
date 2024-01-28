@@ -553,13 +553,15 @@ class AppAudioHandler extends BaseAudioHandler {
     final combinedStream = Rx.combineLatest2<Query$GetStations$station_groups?, List<Station>, List<Station>>(
       selectedStationGroup.stream, // Use the stream property
       stations.stream, // Use the stream property
-          (selectedGroups, allStations) {
-        if(selectedGroups == null) {
+          (selectedGroup, allStations) {
+        allStations.sort((a,b) => (a.order ?? 0) - (b.order ?? 0));
+        if(selectedGroup == null) {
           return allStations;
         }
-        final selectedStationsIds = selectedGroups.station_to_station_groups.map((e) => e.station_id);
+        selectedGroup.station_to_station_groups.sort((a,b) => (a.order ?? 0) - (b.order ?? 0));
+        final selectedStationsIds = selectedGroup.station_to_station_groups.map((e) => e.station_id);
         return allStations.where((station) {
-          return selectedStationsIds.contains(station.id) ?? false;
+          return selectedStationsIds.contains(station.id);
         }).toList();
       },
     );

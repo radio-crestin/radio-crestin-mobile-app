@@ -30,7 +30,6 @@ class FullAudioPlayer extends StatefulWidget {
 class _FullAudioPlayerState extends State<FullAudioPlayer> {
   Timer? sleepTimer;
   bool isTimerActive = false;
-  bool pageChangeDueToSwipe = true;
   Station? currentStation;
   final PageController pageController = PageController();
   final List _subscriptions = [];
@@ -43,18 +42,17 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     _subscriptions
         .add(widget.audioHandler.filteredStations.stream.listen((List<Station> filteredStations) {
       setState(() {
-        filteredStationsIncludingCurrentStation = [
-          if (currentStation != null && !filteredStations.contains(currentStation)) currentStation!,
-          ...filteredStations,
-        ];
+        // filteredStationsIncludingCurrentStation = [
+        //   if (currentStation != null && !filteredStations.contains(currentStation)) currentStation!,
+        //   ...filteredStations,
+        // ];
+        filteredStationsIncludingCurrentStation = filteredStations;
       });
 
       final newPageIndex = filteredStationsIncludingCurrentStation
           .indexWhere((item) => item.id == currentStation?.id);
-      if (pageController.page != null && pageController.page != newPageIndex) {
-        pageChangeDueToSwipe = false;
+      if (pageController.page != null) {
         pageController.jumpToPage(newPageIndex);
-        pageChangeDueToSwipe = true;
       }
     }));
 
@@ -65,8 +63,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
 
       final newPageIndex = filteredStationsIncludingCurrentStation
           .indexWhere((item) => item.id == currentStation?.id);
-      if (pageController.page != null && pageController.page != newPageIndex) {
-        pageChangeDueToSwipe = false;
+      if (pageController.page != null) {
         pageController
             .animateToPage(
           newPageIndex,
@@ -74,7 +71,6 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
           curve: Curves.ease,
         )
             .then((_) {
-          pageChangeDueToSwipe = true;
         });
       }
     }));
@@ -135,24 +131,27 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 18.0),
-            Listener(
+            GestureDetector(
               behavior: HitTestBehavior.translucent,
-              onPointerDown: (PointerDownEvent details) {},
-              onPointerUp: (PointerUpEvent details) {},
+              onHorizontalDragEnd: (details) {
+                // Detect swipe direction
+                if (details.primaryVelocity! > 0) {
+                  // Swipe right
+                  widget.audioHandler.skipToPrevious();
+                } else if (details.primaryVelocity! < 0) {
+                  // Swipe left
+                  widget.audioHandler.skipToNext();
+                }
+              },
               child: SizedBox(
                 width: 270.0,
                 height: 270.0,
                 child: PageView.builder(
-                  physics: const AlwaysScrollableScrollPhysics(),
+                  // physics: const AlwaysScrollableScrollPhysics(),
+                  physics: const NeverScrollableScrollPhysics(),
                   controller: pageController,
                   scrollDirection: Axis.horizontal,
                   itemCount: filteredStationsIncludingCurrentStation.length,
-                  onPageChanged: (int index) {
-                    if (pageChangeDueToSwipe) {
-                      widget.audioHandler
-                          .playStation(filteredStationsIncludingCurrentStation[index]);
-                    }
-                  },
                   itemBuilder: (BuildContext context, int itemIdx) {
                     final station = filteredStationsIncludingCurrentStation[itemIdx];
 
