@@ -1,9 +1,11 @@
 import 'dart:convert';
+import 'dart:developer' as developer;
 
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_instance_id/firebase_instance_id.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -39,18 +41,18 @@ void main() async {
     return true;
   };
 
-  // FirebaseMessaging messaging = FirebaseMessaging.instance;
+  FirebaseMessaging messaging = FirebaseMessaging.instance;
 
-  // NotificationSettings settings = await messaging.requestPermission(
-  //   alert: true,
-  //   announcement: true,
-  //   badge: true,
-  //   carPlay: false,
-  //   criticalAlert: true,
-  //   provisional: true,
-  //   sound: true,
-  // );
-  // developer.log('User granted permission: ${settings.authorizationStatus}');
+  NotificationSettings settings = await messaging.requestPermission(
+    alert: true,
+    announcement: true,
+    badge: true,
+    carPlay: false,
+    criticalAlert: true,
+    provisional: true,
+    sound: true,
+  );
+  developer.log('User granted permission: ${settings.authorizationStatus}');
 
   final prefs = await SharedPreferences.getInstance();
 
@@ -135,16 +137,6 @@ void main() async {
 
   getIt.registerSingleton<AppAudioHandler>(await initAudioService(graphqlClient: graphqlClient));
 
-  // // Only call clearSavedSettings() during testing to reset internal values.
-  // await Upgrader.clearSavedSettings(); // REMOVE this for release builds
-
-  // runApp(MultiProvider(
-  //   providers: [
-  //     ChangeNotifierProvider(
-  //         create: (_) => getIt<AppAudioHandler>()),
-  //   ],
-  //   child: const RadioCrestinApp(),
-  // ));
   FirebaseInstanceId.appInstanceId.then((value) {
     globals.deviceId = value ?? "";
     Sentry.configureScope(
