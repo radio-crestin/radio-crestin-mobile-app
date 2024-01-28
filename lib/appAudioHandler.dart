@@ -85,6 +85,7 @@ class AppAudioHandler extends BaseAudioHandler {
   AppAudioHandler({required this.graphqlClient, required this.player}) {
     _initPlayer();
     _initFilteredStationsStream();
+    _initUpdateCurrentStationMetadata();
     _initFavoriteStationSlugs();
     _setupRefreshStations();
   }
@@ -226,7 +227,7 @@ class AppAudioHandler extends BaseAudioHandler {
     while (true && item != null) {
       if (retry < maxRetries) {
         final streamUrl = item.extras?["station_streams"]
-        [retry % item.extras?["station_streams"].length] ??
+                [retry % item.extras?["station_streams"].length] ??
             item.id;
         _log("playMediaItem: $streamUrl");
         try {
@@ -352,7 +353,6 @@ class AppAudioHandler extends BaseAudioHandler {
             isFavorite: favoriteStationSlugs.value.contains(rawStationData.slug)))
         .toList());
     stationGroups.add(parsedData?.station_groups ?? []);
-    updateMediaItemsMetadata(stations.value);
 
     watchStations = graphqlClient
         .watchQuery$GetStations(
@@ -379,13 +379,11 @@ class AppAudioHandler extends BaseAudioHandler {
           .toList());
       stationGroups.add(parsedData.station_groups);
 
-      await updateMediaItemsMetadata(stations.value);
-
       if (!onOpenEventTriggered) {
         final prefs = await SharedPreferences.getInstance();
         final autoStart = prefs.getBool('_autoStartStation') ?? true;
         var station = await getLastPlayedStation();
-        if(autoStart) {
+        if (autoStart) {
           playStation(station);
         } else {
           selectStation(station);
@@ -404,26 +402,6 @@ class AppAudioHandler extends BaseAudioHandler {
       }
     }
     _log("Done loading thumbnails in cache");
-  }
-
-  Future<void> updateMediaItemsMetadata(List<Station> stations) async {
-    _log("updateMediaItemsMetadata");
-
-    final sortedStations = stations..sort((a, b) => a.order.compareTo(b.order));
-
-    final newStationsMediaItems =
-        (await Future.wait(sortedStations.map((station) => station.mediaItem)));
-
-    stationsMediaItems.add(newStationsMediaItems);
-
-    // Update current metadata of played media item
-    if (mediaItem.value != null) {
-      var newMediaItems = stationsMediaItems.value;
-      var newMediaItem = newMediaItems.where((item) => item.id == mediaItem.value?.id).firstOrNull;
-      if (newMediaItem != null) {
-        mediaItem.add(newMediaItem);
-      }
-    }
   }
 
   @override
@@ -550,16 +528,18 @@ class AppAudioHandler extends BaseAudioHandler {
   }
 
   void _initFilteredStationsStream() {
-    final combinedStream = Rx.combineLatest2<Query$GetStations$station_groups?, List<Station>, List<Station>>(
+    final combinedStream =
+        Rx.combineLatest2<Query$GetStations$station_groups?, List<Station>, List<Station>>(
       selectedStationGroup.stream, // Use the stream property
       stations.stream, // Use the stream property
-          (selectedGroup, allStations) {
-        allStations.sort((a,b) => (a.order ?? 0) - (b.order ?? 0));
-        if(selectedGroup == null) {
+      (selectedGroup, allStations) {
+        allStations.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+        if (selectedGroup == null) {
           return allStations;
         }
-        selectedGroup.station_to_station_groups.sort((a,b) => (a.order ?? 0) - (b.order ?? 0));
-        final selectedStationsIds = selectedGroup.station_to_station_groups.map((e) => e.station_id);
+        selectedGroup.station_to_station_groups.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+        final selectedStationsIds =
+            selectedGroup.station_to_station_groups.map((e) => e.station_id);
         return allStations.where((station) {
           return selectedStationsIds.contains(station.id);
         }).toList();
@@ -568,6 +548,32 @@ class AppAudioHandler extends BaseAudioHandler {
     // Subscribe to the combined stream and update the filteredStationsSubject BehaviorSubject.
     combinedStream.listen((filteredStationsList) {
       filteredStations.add(filteredStationsList);
+    });
+  }
+
+  void _initUpdateCurrentStationMetadata() {
+    stations.stream.listen((stations) async {
+      _log("updateCurrentStationMetadata");
+      final sortedStations = stations..sort((a, b) => a.order.compareTo(b.order));
+
+      if(currentStation.valueOrNull != null) {
+        currentStation.add(stations.firstWhere((element) => element.id == currentStation.value!.id));
+      }
+
+      final newStationsMediaItems =
+          (await Future.wait(sortedStations.map((station) => station.mediaItem)));
+
+      stationsMediaItems.add(newStationsMediaItems);
+
+      // Update current metadata of played media item
+      if (mediaItem.value != null) {
+        var newMediaItems = stationsMediaItems.value;
+        var newMediaItem =
+            newMediaItems.where((item) => item.id == mediaItem.value?.id).firstOrNull;
+        if (newMediaItem != null) {
+          mediaItem.add(newMediaItem);
+        }
+      }
     });
   }
 }
