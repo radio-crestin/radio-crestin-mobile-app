@@ -156,7 +156,7 @@ class AppAudioHandler extends BaseAudioHandler {
     await player.setLoopMode(LoopMode.off);
   }
 
-  Future<void> playStation(Station station) async {
+  Future<void> selectStation(Station station) async {
     _log('playStation($station)');
     final item = await station.mediaItem;
 
@@ -164,6 +164,11 @@ class AppAudioHandler extends BaseAudioHandler {
     currentStation.add(station);
 
     await setLastPlayedStation(station);
+  }
+
+  Future<void> playStation(Station station) async {
+    _log('playStation($station)');
+    await selectStation(station);
 
     return play();
   }
@@ -379,8 +384,11 @@ class AppAudioHandler extends BaseAudioHandler {
       if (!onOpenEventTriggered) {
         final prefs = await SharedPreferences.getInstance();
         final autoStart = prefs.getBool('_autoStartStation') ?? true;
+        var station = await getLastPlayedStation();
         if(autoStart) {
-          playStation(await getLastPlayedStation());
+          playStation(station);
+        } else {
+          selectStation(station);
         }
         onOpenEventTriggered = true;
       }
