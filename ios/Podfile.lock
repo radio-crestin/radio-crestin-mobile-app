@@ -27,14 +27,14 @@ PODS:
   - Firebase/RemoteConfig (10.18.0):
     - Firebase/CoreOnly
     - FirebaseRemoteConfig (~> 10.18.0)
-  - firebase_analytics (10.7.4):
+  - firebase_analytics (10.8.0):
     - Firebase/Analytics (= 10.18.0)
     - firebase_core
     - Flutter
   - firebase_core (2.24.2):
     - Firebase/CoreOnly (= 10.18.0)
     - Flutter
-  - firebase_crashlytics (3.4.8):
+  - firebase_crashlytics (3.4.9):
     - Firebase/Crashlytics (= 10.18.0)
     - firebase_core
     - Flutter
@@ -45,7 +45,7 @@ PODS:
   - firebase_instance_id (0.0.1):
     - Firebase/Analytics
     - Flutter
-  - firebase_messaging (14.7.9):
+  - firebase_messaging (14.7.10):
     - Firebase/Messaging (= 10.18.0)
     - firebase_core
     - Flutter
@@ -53,7 +53,7 @@ PODS:
     - Firebase/RemoteConfig (= 10.18.0)
     - firebase_core
     - Flutter
-  - FirebaseABTesting (10.19.0):
+  - FirebaseABTesting (10.20.0):
     - FirebaseCore (~> 10.0)
   - FirebaseAnalytics (10.18.0):
     - FirebaseAnalytics/AdIdSupport (= 10.18.0)
@@ -77,9 +77,9 @@ PODS:
     - FirebaseCoreInternal (~> 10.0)
     - GoogleUtilities/Environment (~> 7.12)
     - GoogleUtilities/Logger (~> 7.12)
-  - FirebaseCoreExtension (10.19.0):
+  - FirebaseCoreExtension (10.20.0):
     - FirebaseCore (~> 10.0)
-  - FirebaseCoreInternal (10.19.0):
+  - FirebaseCoreInternal (10.20.0):
     - "GoogleUtilities/NSData+zlib (~> 7.8)"
   - FirebaseCrashlytics (10.18.0):
     - FirebaseCore (~> 10.5)
@@ -95,7 +95,7 @@ PODS:
     - FirebaseInstallations (~> 10.0)
     - GoogleUtilities/Environment (~> 7.8)
     - nanopb (< 2.30910.0, >= 2.30908.0)
-  - FirebaseInstallations (10.19.0):
+  - FirebaseInstallations (10.20.0):
     - FirebaseCore (~> 10.0)
     - GoogleUtilities/Environment (~> 7.8)
     - GoogleUtilities/UserDefaults (~> 7.8)
@@ -116,7 +116,7 @@ PODS:
     - FirebaseSharedSwift (~> 10.0)
     - GoogleUtilities/Environment (~> 7.8)
     - "GoogleUtilities/NSData+zlib (~> 7.8)"
-  - FirebaseSessions (10.19.0):
+  - FirebaseSessions (10.20.0):
     - FirebaseCore (~> 10.5)
     - FirebaseCoreExtension (~> 10.0)
     - FirebaseInstallations (~> 10.0)
@@ -124,16 +124,13 @@ PODS:
     - GoogleUtilities/Environment (~> 7.10)
     - nanopb (< 2.30910.0, >= 2.30908.0)
     - PromisesSwift (~> 2.1)
-  - FirebaseSharedSwift (10.19.0)
+  - FirebaseSharedSwift (10.20.0)
   - Flutter (1.0.0)
   - flutter_nfc_kit (2.0.0):
     - Flutter
   - fluttertoast (0.0.2):
     - Flutter
     - Toast
-  - FMDB (2.7.5):
-    - FMDB/standard (= 2.7.5)
-  - FMDB/standard (2.7.5)
   - GoogleAppMeasurement (10.18.0):
     - GoogleAppMeasurement/AdIdSupport (= 10.18.0)
     - GoogleUtilities/AppDelegateSwizzler (~> 7.11)
@@ -197,13 +194,13 @@ PODS:
   - PromisesSwift (2.3.1):
     - PromisesObjC (= 2.3.1)
   - ReachabilitySwift (5.0.0)
-  - Sentry/HybridSDK (8.17.2):
-    - SentryPrivate (= 8.17.2)
+  - Sentry/HybridSDK (8.18.0):
+    - SentryPrivate (= 8.18.0)
   - sentry_flutter (0.0.1):
     - Flutter
     - FlutterMacOS
-    - Sentry/HybridSDK (= 8.17.2)
-  - SentryPrivate (8.17.2)
+    - Sentry/HybridSDK (= 8.18.0)
+  - SentryPrivate (8.18.0)
   - share_plus (0.0.1):
     - Flutter
   - shared_preferences_foundation (0.0.1):
@@ -211,8 +208,8 @@ PODS:
     - FlutterMacOS
   - sqflite (0.0.3):
     - Flutter
-    - FMDB (>= 2.7.5)
-  - Toast (4.0.0)
+    - FlutterMacOS
+  - Toast (4.1.0)
   - uni_links_nfc_support (0.0.1):
     - Flutter
   - url_launcher_ios (0.0.1):
@@ -241,7 +238,7 @@ DEPENDENCIES:
   - sentry_flutter (from `.symlinks/plugins/sentry_flutter/ios`)
   - share_plus (from `.symlinks/plugins/share_plus/ios`)
   - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
-  - sqflite (from `.symlinks/plugins/sqflite/ios`)
+  - sqflite (from `.symlinks/plugins/sqflite/darwin`)
   - uni_links_nfc_support (from `.symlinks/plugins/uni_links_nfc_support/ios`)
   - url_launcher_ios (from `.symlinks/plugins/url_launcher_ios/ios`)
 
@@ -260,7 +257,6 @@ SPEC REPOS:
     - FirebaseRemoteConfig
     - FirebaseSessions
     - FirebaseSharedSwift
-    - FMDB
     - GoogleAppMeasurement
     - GoogleDataTransport
     - GoogleUtilities
@@ -318,7 +314,7 @@ EXTERNAL SOURCES:
   shared_preferences_foundation:
     :path: ".symlinks/plugins/shared_preferences_foundation/darwin"
   sqflite:
-    :path: ".symlinks/plugins/sqflite/ios"
+    :path: ".symlinks/plugins/sqflite/darwin"
   uni_links_nfc_support:
     :path: ".symlinks/plugins/uni_links_nfc_support/ios"
   url_launcher_ios:
@@ -330,29 +326,28 @@ SPEC CHECKSUMS:
   connectivity_plus: bf0076dd84a130856aa636df1c71ccaff908fa1d
   device_info_plus: c6fb39579d0f423935b0c9ce7ee2f44b71b9fce6
   Firebase: 414ad272f8d02dfbf12662a9d43f4bba9bec2a06
-  firebase_analytics: 88c111412070acc2b05c1734151f58824f3db657
+  firebase_analytics: b3d6dd14c61549a29abb10e9843446a4d8bb53eb
   firebase_core: 0af4a2b24f62071f9bf283691c0ee41556dcb3f5
-  firebase_crashlytics: 55714f63ae0973c54b3a721c451ae5f815086c1f
+  firebase_crashlytics: 4b91b8ad60ee7c168fe88979f84c9573a729de7a
   firebase_in_app_messaging: 1aefd295a4e79d55cb317f5dd6ad42f12f7661a6
   firebase_instance_id: e845059ca252ac4a4edaebf04acda37783b2cc2a
-  firebase_messaging: 875385354f623750aa03204a028d640108bc3412
+  firebase_messaging: 90e8a6db84b6e1e876cebce4f30f01dc495e7014
   firebase_remote_config: 14ad7a3c99810d373ba1ad4a754a8cf26c91d476
-  FirebaseABTesting: bfa3b384b68cee10a89183649c64cd7998a37a12
+  FirebaseABTesting: 1d5d49804bcfc5fa782bc2491a8c1364e2cf7241
   FirebaseAnalytics: 4d310b35c48eaa4a058ddc04bdca6bdb5dc0fe80
   FirebaseCore: 2322423314d92f946219c8791674d2f3345b598f
-  FirebaseCoreExtension: c08d14c7b22e07994e876d837e6f58642f340087
-  FirebaseCoreInternal: b444828ea7cfd594fca83046b95db98a2be4f290
+  FirebaseCoreExtension: 0659f035b88c5a7a15a9763c48c2e6ca8c0a2977
+  FirebaseCoreInternal: efeeb171ac02d623bdaefe121539939821e10811
   FirebaseCrashlytics: 86d5bce01f42fa1db265f87ff1d591f04db610ec
   FirebaseInAppMessaging: 50716c86fe3bfe83e588ad5d313521ab1b7f9b7f
-  FirebaseInstallations: 033d199474164db20c8350736842a94fe717b960
+  FirebaseInstallations: 558b1da7d65afeb996fd5c814332f013234ece4e
   FirebaseMessaging: 9bc34a98d2e0237e1b121915120d4d48ddcf301e
   FirebaseRemoteConfig: bbd42790a4e84fde6aab7eae810b608e7b5c0bf6
-  FirebaseSessions: e5f4caa188dc8bc6142abc974355be75b042215e
-  FirebaseSharedSwift: f34eeb7d3ea87a34497629b6ca41657beadef76a
-  Flutter: f04841e97a9d0b0a8025694d0796dd46242b2854
+  FirebaseSessions: 2f348975f6d1c139231c180e12194161da2e0cd6
+  FirebaseSharedSwift: 2fbf73618288b7a36b2014b957745dcdd781389e
+  Flutter: e0871f40cf51350855a761d2e70bf5af5b9b5de7
   flutter_nfc_kit: 965c98c3fa68f5609f1cc89abb968fe1b8ffdbaa
   fluttertoast: fafc4fa4d01a6a9e4f772ecd190ffa525e9e2d9c
-  FMDB: 2ce00b547f966261cd18927a3ddb07cb6f3db82a
   GoogleAppMeasurement: 70ce9aa438cff1cfb31ea3e660bcc67734cb716e
   GoogleDataTransport: 57c22343ab29bc686febbf7cbb13bad167c2d8fe
   GoogleUtilities: 0759d1a57ebb953965c2dfe0ba4c82e95ccc2e34
@@ -361,20 +356,20 @@ SPEC CHECKSUMS:
   nanopb: d4d75c12cd1316f4a64e3c6963f879ecd4b5e0d5
   package_info: 873975fc26034f0b863a300ad47e7f1ac6c7ec62
   package_info_plus: 115f4ad11e0698c8c1c5d8a689390df880f47e85
-  path_provider_foundation: 29f094ae23ebbca9d3d0cec13889cd9060c0e943
+  path_provider_foundation: 3784922295ac71e43754bd15e0653ccfd36a147c
   PromisesObjC: c50d2056b5253dadbd6c2bea79b0674bd5a52fa4
   PromisesSwift: 28dca69a9c40779916ac2d6985a0192a5cb4a265
   ReachabilitySwift: 985039c6f7b23a1da463388634119492ff86c825
-  Sentry: 64a9f9c3637af913adcf53deced05bbe452d1410
-  sentry_flutter: 57912cf425e09398bdf47f38842a1fcb9836f1be
-  SentryPrivate: 024c6fed507ac39ae98e6d087034160f942920d5
+  Sentry: 8984a4ffb2b9bd2894d74fb36e6f5833865bc18e
+  sentry_flutter: c87a0556eeb6cbf7f9f924d30e878bdedf22d364
+  SentryPrivate: 2f0c9ba4c3fc993f70eab6ca95673509561e0085
   share_plus: c3fef564749587fc939ef86ffb283ceac0baf9f5
-  shared_preferences_foundation: 5b919d13b803cadd15ed2dc053125c68730e5126
-  sqflite: 31f7eba61e3074736dff8807a9b41581e4f7f15a
-  Toast: 91b396c56ee72a5790816f40d3a94dd357abc196
+  shared_preferences_foundation: b4c3b4cddf1c21f02770737f147a3f5da9d39695
+  sqflite: 673a0e54cc04b7d6dba8d24fb8095b31c3a99eec
+  Toast: ec33c32b8688982cecc6348adeae667c1b9938da
   uni_links_nfc_support: 8cb9bdcf7e293317e9779bd6ccec69abf507fcb4
-  url_launcher_ios: bf5ce03e0e2088bad9cc378ea97fa0ed5b49673b
+  url_launcher_ios: bbd758c6e7f9fd7b5b1d4cde34d2b95fcce5e812
 
-PODFILE CHECKSUM: 0c3464f97ce8e943c072dfc903f32ac51dff7fb8
+PODFILE CHECKSUM: 8da16d498431625da3a44a98bf889b33965b261c
 
 COCOAPODS: 1.12.1
