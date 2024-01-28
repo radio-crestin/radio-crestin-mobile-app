@@ -225,6 +225,17 @@ class _HomePageState extends State<HomePage> {
                               panelController: null,
                             )),
                       ),
+                    if(stations.isEmpty)
+                      SliverToBoxAdapter(
+                        child: Container(
+                          margin: const EdgeInsets.all(16),
+                          child: const Text(
+                              "Statiile se incarca..",
+                            style: TextStyle(fontSize: 16),
+                          ),
+                        ),
+                      ),
+                    if(stations.isNotEmpty)
                     SliverStickyHeader(
                       header: Container(
                         height: 60.0,
@@ -297,7 +308,7 @@ class _HomePageState extends State<HomePage> {
                   ],
                 ),
               ),
-              collapsed: Container(
+              collapsed: currentStation != null ? Container(
                 padding: EdgeInsets.only(bottom: Platform.isIOS ? 17 : 12, left: 8, right: 8),
                 color: Theme.of(context).scaffoldBackgroundColor,
                 child: MiniAudioPlayer(
@@ -305,7 +316,7 @@ class _HomePageState extends State<HomePage> {
                   audioHandler: _audioHandler,
                   panelController: slidingUpPanelController,
                 ),
-              ),
+              ): null,
               panel: Container(
                 decoration: const BoxDecoration(
                   color: Colors.transparent,
@@ -314,10 +325,10 @@ class _HomePageState extends State<HomePage> {
                     topRight: Radius.circular(16.0),
                   ),
                 ),
-                child: FullAudioPlayer(
+                child: currentStation != null ? FullAudioPlayer(
                   audioHandler: _audioHandler,
                   slidingUpPanelController: slidingUpPanelController,
-                ),
+                ): null,
               ),
             );
           }),
