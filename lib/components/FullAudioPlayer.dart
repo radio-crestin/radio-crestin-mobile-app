@@ -339,39 +339,36 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                     ),
                   ),
                 ),
-                if (currentStation != null &&
-                    (currentStation!.songArtist.isNotEmpty || currentStation!.songTitle.isNotEmpty))
-                  InkWell(
-                    customBorder: CircleBorder(),
-                    onTap: () async {
-                      if (currentStation != null) {
-                        final query =
-                            "${currentStation?.songArtist} - ${currentStation?.songTitle}";
-                        final encodedQuery = Uri.encodeQueryComponent(query);
+                InkWell(
+                  customBorder: CircleBorder(),
+                  onTap: currentStation != null &&
+                          (currentStation!.songArtist.isNotEmpty ||
+                              currentStation!.songTitle.isNotEmpty)
+                      ? () async {
+                          final query =
+                              "${currentStation?.songArtist} - ${currentStation?.songTitle}";
+                          final encodedQuery = Uri.encodeQueryComponent(query);
 
-                        final searchUrl = 'https://www.youtube.com/results?q=$encodedQuery';
+                          final searchUrl = 'https://www.youtube.com/results?q=$encodedQuery';
 
-                        if (!await launchUrl(Uri.parse(searchUrl))) {
-                          Fluttertoast.showToast(
-                              msg: "A apărut o eroare neașteptată în lansarea YouTube.",
-                              toastLength: Toast.LENGTH_SHORT,
-                              gravity: ToastGravity.BOTTOM,
-                              timeInSecForIosWeb: 1,
-                              backgroundColor: Colors.black,
-                              textColor: Colors.white,
-                              fontSize: 16.0);
+                          if (!await launchUrl(Uri.parse(searchUrl))) {
+                            Fluttertoast.showToast(
+                                msg: "A apărut o eroare neașteptată în lansarea YouTube.",
+                                toastLength: Toast.LENGTH_SHORT,
+                                gravity: ToastGravity.BOTTOM,
+                                timeInSecForIosWeb: 1,
+                                backgroundColor: Colors.black,
+                                textColor: Colors.white,
+                                fontSize: 16.0);
+                          }
                         }
-                      } else {
-                        Fluttertoast.showToast(
-                            msg: "Vă rugam să alegeți o statie de radio.",
-                            toastLength: Toast.LENGTH_SHORT,
-                            gravity: ToastGravity.BOTTOM,
-                            timeInSecForIosWeb: 1,
-                            backgroundColor: Colors.black,
-                            textColor: Colors.white,
-                            fontSize: 16.0);
-                      }
-                    },
+                      : null,
+                  child: Opacity(
+                    opacity: currentStation != null &&
+                            (currentStation!.songArtist.isNotEmpty ||
+                                currentStation!.songTitle.isNotEmpty)
+                        ? 1.0
+                        : 0.5,
                     child: Container(
                       padding: const EdgeInsets.all(10.0),
                       child: const Column(
@@ -389,6 +386,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                       ),
                     ),
                   ),
+                ),
                 InkWell(
                   customBorder: CircleBorder(),
                   onTap: () {
