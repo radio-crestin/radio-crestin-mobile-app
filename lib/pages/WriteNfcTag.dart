@@ -33,12 +33,11 @@ class _WriteNfcTagPageState extends State<WriteNfcTagPage> {
     scaffoldMessenger = ScaffoldMessenger.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Inscripționare tag NFC'),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 18.0, horizontal: 20.0),
-        child: Expanded(
+        appBar: AppBar(
+          title: Text('Inscripționare tag NFC'),
+        ),
+        body: Container(
+          margin: const EdgeInsets.symmetric(vertical: 18.0, horizontal: 20.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
@@ -93,7 +92,7 @@ class _WriteNfcTagPageState extends State<WriteNfcTagPage> {
 
               const SizedBox(height: 20),
               if (!availability) const Text(
-                'Telefonul dumneavoastră nu suportă scrierea tag-urilor NFC.',
+                'Telefonul dumneavoastră nu suportă scrierea tag-urilor NFC sau acesta nu este activat.',
                 style: TextStyle(fontSize: 16),
               ),
               if (availability && _records.isNotEmpty) (
@@ -123,14 +122,6 @@ class _WriteNfcTagPageState extends State<WriteNfcTagPage> {
               ),
             ],
           ),
-        )
-      ),
-    );
-  }
-
-  Future<bool> writeNfcTag() async {
-    // Use flutter_nfc_kit or any other NFC writing logic here
-    // For the sake of example, we're simulating a successful write
-    return true;
+        ));
   }
 }
