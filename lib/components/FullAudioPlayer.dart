@@ -316,7 +316,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                       children: [
                         LikeButton(
                           size: 25,
-                          isLiked: currentStation!.isFavorite,
+                          isLiked: currentStation?.isFavorite ?? false,
                           likeBuilder: (bool isLiked) {
                             return Icon(
                               isLiked ? Icons.favorite_sharp : Icons.favorite_border_sharp,
@@ -325,7 +325,9 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                             );
                           },
                           onTap: (bool isLiked) async {
-                            widget.audioHandler.setStationIsFavorite(currentStation!, !isLiked);
+                            if (currentStation != null) {
+                              widget.audioHandler.setStationIsFavorite(currentStation!, !isLiked);
+                            }
                             return !isLiked;
                           },
                         ),
