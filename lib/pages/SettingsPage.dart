@@ -59,7 +59,7 @@ class _SettingsPageState extends State<SettingsPage> {
               children: [
                 ListTile(
                   leading: const Icon(Icons.radio),
-                  title: const Text('Pornește stația automat la deschiderea aplicației'),
+                  title: const Text('Pornește automat ultima stație la deschiderea aplicației'),
                   trailing: Switch(
                     activeColor: Theme.of(context).primaryColor,
                     activeTrackColor: Theme.of(context).primaryColorLight,
