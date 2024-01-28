@@ -42,11 +42,10 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     _subscriptions
         .add(widget.audioHandler.filteredStations.stream.listen((List<Station> filteredStations) {
       setState(() {
-        // filteredStationsIncludingCurrentStation = [
-        //   if (currentStation != null && !filteredStations.contains(currentStation)) currentStation!,
-        //   ...filteredStations,
-        // ];
-        filteredStationsIncludingCurrentStation = filteredStations;
+        filteredStationsIncludingCurrentStation = [
+          if (currentStation != null && !filteredStations.contains(currentStation)) currentStation!,
+          ...filteredStations,
+        ];
       });
 
       final newPageIndex = filteredStationsIncludingCurrentStation
@@ -86,6 +85,9 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
 
   @override
   Widget build(BuildContext context) {
+    final hasYoutubeLink = (currentStation != null &&
+        (currentStation!.songArtist.isNotEmpty || currentStation!.songTitle.isNotEmpty));
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
@@ -338,11 +340,12 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                     ),
                   ),
                 ),
-                if (currentStation != null &&
-                    (currentStation!.songArtist.isNotEmpty || currentStation!.songTitle.isNotEmpty))
                   InkWell(
-                    customBorder: CircleBorder(),
+                    customBorder: const CircleBorder(),
                     onTap: () async {
+                      if (!hasYoutubeLink) {
+                        return;
+                      }
                       if (currentStation != null) {
                         final query =
                             "${currentStation?.songArtist} - ${currentStation?.songTitle}";
@@ -373,16 +376,16 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                     },
                     child: Container(
                       padding: const EdgeInsets.all(10.0),
-                      child: const Column(
+                      child: Column(
                         children: [
                           Icon(
                             Icons.video_collection,
-                            color: Colors.black,
+                            color: hasYoutubeLink? Colors.black : Colors.grey,
                             size: 24,
                           ),
                           Padding(
                             padding: EdgeInsets.only(top: 8.0),
-                            child: Text('youtube', style: TextStyle(fontSize: 12)),
+                            child: Text('youtube', style: TextStyle(fontSize: 12, color: hasYoutubeLink? Colors.black : Colors.grey)),
                           ),
                         ],
                       ),
