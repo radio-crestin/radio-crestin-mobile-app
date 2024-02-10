@@ -537,12 +537,11 @@ packages:
   flutter_nfc_kit:
     dependency: "direct main"
     description:
-      path: "."
-      ref: HEAD
-      resolved-ref: b3c359d35d067f31db20da470f225cbe489c10e2
-      url: "https://github.com/EliseiNicolae/flutter_nfc_kit.git"
-    source: git
-    version: "3.4.1"
+      name: flutter_nfc_kit
+      sha256: "586a8309a7be4d9be307c46d5e9db1460a9f59a37a097c77d53e2f6bfc11be2d"
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.4.2"
   flutter_sticky_header:
     dependency: "direct main"
     description:
