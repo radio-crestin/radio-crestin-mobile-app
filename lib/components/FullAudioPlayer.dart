@@ -89,7 +89,6 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
         (currentStation!.songArtist.isNotEmpty || currentStation!.songTitle.isNotEmpty));
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
         color: Theme.of(context).scaffoldBackgroundColor,
         borderRadius: const BorderRadius.only(
