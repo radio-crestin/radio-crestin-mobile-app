@@ -18,7 +18,7 @@
 
     <application
         android:label="Radio Crestin"
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:appCategory="audio"
         android:name="${applicationName}"
         android:networkSecurityConfig="@xml/network_security_config"
