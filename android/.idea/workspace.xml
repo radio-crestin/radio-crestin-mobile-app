@@ -9,18 +9,7 @@
     <option name="autoReloadType" value="NONE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="58041931-ad11-42ad-8927-493b20dc1bf9" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../lib/appAudioHandler.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/appAudioHandler.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../lib/components/StationsList.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/components/StationsList.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../lib/queries/getStations.graphql" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/queries/getStations.graphql" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../lib/queries/getStations.graphql.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/queries/getStations.graphql.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../lib/schema.graphql" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/schema.graphql" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../lib/schema.graphql.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/schema.graphql.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../lib/tracking.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/tracking.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../lib/types/Station.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/types/Station.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../lib/utils.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/utils.dart" afterDir="false" />
-    </list>
+    <list default="true" id="58041931-ad11-42ad-8927-493b20dc1bf9" name="Changes" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
