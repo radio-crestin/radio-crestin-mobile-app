@@ -82,7 +82,7 @@ class StationsList extends StatelessWidget {
                                         ),
                                       if (station.displaySubtitle != "")
                                         Text(
-                                          station.displaySubtitle ?? "",
+                                          station.displaySubtitle,
                                           textAlign: TextAlign.left,
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,

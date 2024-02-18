@@ -6,9 +6,6 @@ query GetStations {
     title
     website
     email
-    stream_url
-    proxy_stream_url
-    hls_stream_url
     thumbnail_url
     total_listeners
     description
@@ -16,6 +13,11 @@ query GetStations {
     description_link
     feature_latest_post
     facebook_page_id
+    station_streams {
+      order
+      type
+      stream_url
+    }
     posts(limit: 1, order_by: {published: desc}) {
       id
       title

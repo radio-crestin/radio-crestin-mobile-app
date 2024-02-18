@@ -298,7 +298,7 @@ class AppAudioHandler extends BaseAudioHandler {
   @override
   Future<void> playFromUri(Uri uri, [Map<String, dynamic>? extras]) {
     for (var v in stations.value) {
-      if (v.streamUrl.toString() == uri.toString()) {
+      if (v.stationStreams.toString().contains(uri.toString())) {
         return playStation(v);
       }
     }
@@ -425,7 +425,7 @@ class AppAudioHandler extends BaseAudioHandler {
     _log('onTaskRemoved()');
     stop();
     // player.dispose();
-    watchStations?.cancel();
+    watchStations.cancel();
     return super.onTaskRemoved();
   }
 

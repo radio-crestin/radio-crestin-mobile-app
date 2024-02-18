@@ -44,20 +44,11 @@ class Utils {
   }
 
   static List<String> getStationStreamUrls(Query$GetStations$stations? station) {
-    List<String> availableStreamUrls = [];
     if (station == null) {
-      return availableStreamUrls;
+      return [];
     }
-    if (station.hls_stream_url != null && station.hls_stream_url != "") {
-      availableStreamUrls.add(station.hls_stream_url!);
-    }
-    if (station.proxy_stream_url != null && station.proxy_stream_url != "") {
-      availableStreamUrls.add(station.proxy_stream_url!);
-    }
-    if (station.stream_url != "") {
-      availableStreamUrls.add(station.stream_url);
-    }
-    return availableStreamUrls;
+    var streams = station.station_streams..sort((a, b) => a.order.compareTo(b.order));
+    return streams.map((e) => e.stream_url.toString()).toList();
   }
 
   static Widget displayImage(String url, {String? fallbackImageUrl, bool cache = false}) {

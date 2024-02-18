@@ -14,7 +14,7 @@ class Station {
   get slug => rawStationData.slug;
   get title => rawStationData.title;
   get order => rawStationData.order;
-  get streamUrl => rawStationData.stream_url;
+  get stationStreams => rawStationData.station_streams;
   get totalListeners => rawStationData.total_listeners;
   String? get thumbnailUrl => rawStationData.thumbnail_url;
   String get displayTitle => rawStationData.title;
@@ -34,7 +34,7 @@ class Station {
 
   Future<MediaItem> get mediaItem async {
     return MediaItem(
-      id: Utils.getStationStreamUrls(rawStationData).first,
+      id: Utils.getStationStreamUrls(rawStationData).firstOrNull ?? "",
       title: rawStationData.title,
       displayTitle: displayTitle,
       displaySubtitle: displaySubtitle,

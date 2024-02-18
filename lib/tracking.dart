@@ -1,12 +1,8 @@
-import 'dart:convert';
 import 'dart:developer' as developer;
 
 import 'package:firebase_analytics/firebase_analytics.dart';
-import 'package:http/http.dart' as http;
 import 'package:radio_crestin/types/Station.dart';
 import 'package:radio_crestin/utils.dart';
-
-import 'globals.dart' as globals;
 
 FirebaseAnalytics analytics = FirebaseAnalytics.instance;
 
@@ -59,8 +55,6 @@ class AppTracking {
         ),
       ],
     );
-
-    await sendListeningEvent(station, currentStreamUrl);
   }
 
   static trackStopStation(Station station) async {
@@ -78,28 +72,5 @@ class AppTracking {
         'firebase_screen_class': "RadioStation",
       },
     );
-  }
-
-  static sendListeningEvent(Station station, String currentStreamUrl) async {
-    if (currentStreamUrl.contains("/hls/") ||
-        currentStreamUrl.contains("proxy.radio-crestin.com")) {
-      developer.log("sendListeningEvent");
-      var response = await http.post(
-          Uri.parse('https://www.radio-crestin.com/api/v1/listen'),
-          headers: <String, String>{
-            'Content-Type': 'application/json; charset=UTF-8',
-          },
-          body: jsonEncode({
-            "station_id": station.id,
-            "info": {
-              "mobile_app": true,
-              "fcmToken": globals.fcmToken,
-              "deviceId": globals.deviceId,
-              "appVersion": globals.appVersion
-            }
-          })
-      );
-      developer.log("sendListeningEvent ${response.statusCode} ${response.body}");
-    }
   }
 }

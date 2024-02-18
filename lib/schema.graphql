@@ -453,6 +453,27 @@ type query_root {
   """fetch data from the table: "station_groups" using primary key columns"""
   station_groups_by_pk(id: Int!): station_groups
 
+  """An array relationship"""
+  station_streams(
+    """distinct select on columns"""
+    distinct_on: [station_streams_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [station_streams_order_by!]
+
+    """filter the rows returned"""
+    where: station_streams_bool_exp
+  ): [station_streams!]!
+
+  """fetch data from the table: "station_streams" using primary key columns"""
+  station_streams_by_pk(id: Int!): station_streams
+
   """
   fetch data from the table: "station_to_station_group"
   """
@@ -1034,6 +1055,214 @@ input station_groups_stream_cursor_value_input {
 }
 
 """
+columns and relationships of "station_streams"
+"""
+type station_streams {
+  created_at: timestamptz!
+  id: Int!
+  order: Int!
+
+  """An object relationship"""
+  station: stations!
+  station_id: Int!
+  stream_url: String!
+  type: String!
+  updated_at: timestamptz!
+}
+
+"""
+order by aggregate values of table "station_streams"
+"""
+input station_streams_aggregate_order_by {
+  avg: station_streams_avg_order_by
+  count: order_by
+  max: station_streams_max_order_by
+  min: station_streams_min_order_by
+  stddev: station_streams_stddev_order_by
+  stddev_pop: station_streams_stddev_pop_order_by
+  stddev_samp: station_streams_stddev_samp_order_by
+  sum: station_streams_sum_order_by
+  var_pop: station_streams_var_pop_order_by
+  var_samp: station_streams_var_samp_order_by
+  variance: station_streams_variance_order_by
+}
+
+"""
+order by avg() on columns of table "station_streams"
+"""
+input station_streams_avg_order_by {
+  id: order_by
+  order: order_by
+  station_id: order_by
+}
+
+"""
+Boolean expression to filter rows from the table "station_streams". All fields are combined with a logical 'AND'.
+"""
+input station_streams_bool_exp {
+  _and: [station_streams_bool_exp!]
+  _not: station_streams_bool_exp
+  _or: [station_streams_bool_exp!]
+  created_at: timestamptz_comparison_exp
+  id: Int_comparison_exp
+  order: Int_comparison_exp
+  station: stations_bool_exp
+  station_id: Int_comparison_exp
+  stream_url: String_comparison_exp
+  type: String_comparison_exp
+  updated_at: timestamptz_comparison_exp
+}
+
+"""
+order by max() on columns of table "station_streams"
+"""
+input station_streams_max_order_by {
+  created_at: order_by
+  id: order_by
+  order: order_by
+  station_id: order_by
+  stream_url: order_by
+  type: order_by
+  updated_at: order_by
+}
+
+"""
+order by min() on columns of table "station_streams"
+"""
+input station_streams_min_order_by {
+  created_at: order_by
+  id: order_by
+  order: order_by
+  station_id: order_by
+  stream_url: order_by
+  type: order_by
+  updated_at: order_by
+}
+
+"""Ordering options when selecting data from "station_streams"."""
+input station_streams_order_by {
+  created_at: order_by
+  id: order_by
+  order: order_by
+  station: stations_order_by
+  station_id: order_by
+  stream_url: order_by
+  type: order_by
+  updated_at: order_by
+}
+
+"""
+select columns of table "station_streams"
+"""
+enum station_streams_select_column {
+  """column name"""
+  created_at
+
+  """column name"""
+  id
+
+  """column name"""
+  order
+
+  """column name"""
+  station_id
+
+  """column name"""
+  stream_url
+
+  """column name"""
+  type
+
+  """column name"""
+  updated_at
+}
+
+"""
+order by stddev() on columns of table "station_streams"
+"""
+input station_streams_stddev_order_by {
+  id: order_by
+  order: order_by
+  station_id: order_by
+}
+
+"""
+order by stddev_pop() on columns of table "station_streams"
+"""
+input station_streams_stddev_pop_order_by {
+  id: order_by
+  order: order_by
+  station_id: order_by
+}
+
+"""
+order by stddev_samp() on columns of table "station_streams"
+"""
+input station_streams_stddev_samp_order_by {
+  id: order_by
+  order: order_by
+  station_id: order_by
+}
+
+"""
+Streaming cursor of the table "station_streams"
+"""
+input station_streams_stream_cursor_input {
+  """Stream column input with initial value"""
+  initial_value: station_streams_stream_cursor_value_input!
+
+  """cursor ordering"""
+  ordering: cursor_ordering
+}
+
+"""Initial value of the column from where the streaming should start"""
+input station_streams_stream_cursor_value_input {
+  created_at: timestamptz
+  id: Int
+  order: Int
+  station_id: Int
+  stream_url: String
+  type: String
+  updated_at: timestamptz
+}
+
+"""
+order by sum() on columns of table "station_streams"
+"""
+input station_streams_sum_order_by {
+  id: order_by
+  order: order_by
+  station_id: order_by
+}
+
+"""
+order by var_pop() on columns of table "station_streams"
+"""
+input station_streams_var_pop_order_by {
+  id: order_by
+  order: order_by
+  station_id: order_by
+}
+
+"""
+order by var_samp() on columns of table "station_streams"
+"""
+input station_streams_var_samp_order_by {
+  id: order_by
+  order: order_by
+  station_id: order_by
+}
+
+"""
+order by variance() on columns of table "station_streams"
+"""
+input station_streams_variance_order_by {
+  id: order_by
+  order: order_by
+  station_id: order_by
+}
+
+"""
 columns and relationships of "station_to_station_group"
 """
 type station_to_station_group {
@@ -1291,6 +1520,11 @@ type stations {
   """
   proxy_stream_url: String
 
+  """
+  A computed field, executes function "radio_crestin_listeners"
+  """
+  radio_crestin_listeners: Int
+
   """An array relationship"""
   reviews(
     """distinct select on columns"""
@@ -1312,6 +1546,24 @@ type stations {
   slug: String!
 
   """An array relationship"""
+  station_streams(
+    """distinct select on columns"""
+    distinct_on: [station_streams_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [station_streams_order_by!]
+
+    """filter the rows returned"""
+    where: station_streams_bool_exp
+  ): [station_streams!]!
+
+  """An array relationship"""
   station_to_station_groups(
     """distinct select on columns"""
     distinct_on: [station_to_station_group_select_column!]
@@ -1328,6 +1580,12 @@ type stations {
     """filter the rows returned"""
     where: station_to_station_group_bool_exp
   ): [station_to_station_group!]!
+
+  """An object relationship"""
+  stations_now_playing: stations_now_playing
+
+  """An object relationship"""
+  stations_uptime: stations_uptime
   stream_url: String!
   thumbnail: String
   thumbnail_url: String
@@ -1412,10 +1670,14 @@ input stations_bool_exp {
   order: Int_comparison_exp
   posts: posts_bool_exp
   proxy_stream_url: String_comparison_exp
+  radio_crestin_listeners: Int_comparison_exp
   reviews: reviews_bool_exp
   rss_feed: String_comparison_exp
   slug: String_comparison_exp
+  station_streams: station_streams_bool_exp
   station_to_station_groups: station_to_station_group_bool_exp
+  stations_now_playing: stations_now_playing_bool_exp
+  stations_uptime: stations_uptime_bool_exp
   stream_url: String_comparison_exp
   thumbnail: String_comparison_exp
   thumbnail_url: String_comparison_exp
@@ -1699,10 +1961,14 @@ input stations_order_by {
   order: order_by
   posts_aggregate: posts_aggregate_order_by
   proxy_stream_url: order_by
+  radio_crestin_listeners: order_by
   reviews_aggregate: reviews_aggregate_order_by
   rss_feed: order_by
   slug: order_by
+  station_streams_aggregate: station_streams_aggregate_order_by
   station_to_station_groups_aggregate: station_to_station_group_aggregate_order_by
+  stations_now_playing: stations_now_playing_order_by
+  stations_uptime: stations_uptime_order_by
   stream_url: order_by
   thumbnail: order_by
   thumbnail_url: order_by
@@ -2320,6 +2586,41 @@ type subscription_root {
     """filter the rows returned"""
     where: station_groups_bool_exp
   ): [station_groups!]!
+
+  """An array relationship"""
+  station_streams(
+    """distinct select on columns"""
+    distinct_on: [station_streams_select_column!]
+
+    """limit the number of rows returned"""
+    limit: Int
+
+    """skip the first n rows. Use only with order_by"""
+    offset: Int
+
+    """sort the rows by one or more columns"""
+    order_by: [station_streams_order_by!]
+
+    """filter the rows returned"""
+    where: station_streams_bool_exp
+  ): [station_streams!]!
+
+  """fetch data from the table: "station_streams" using primary key columns"""
+  station_streams_by_pk(id: Int!): station_streams
+
+  """
+  fetch data from the table in a streaming manner: "station_streams"
+  """
+  station_streams_stream(
+    """maximum number of rows returned in a single batch"""
+    batch_size: Int!
+
+    """cursor to stream the results returned by the query"""
+    cursor: [station_streams_stream_cursor_input]!
+
+    """filter the rows returned"""
+    where: station_streams_bool_exp
+  ): [station_streams!]!
 
   """
   fetch data from the table: "station_to_station_group"

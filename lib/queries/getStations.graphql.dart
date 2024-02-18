@@ -280,27 +280,6 @@ const documentNodeQueryGetStations = DocumentNode(definitions: [
             selectionSet: null,
           ),
           FieldNode(
-            name: NameNode(value: 'stream_url'),
-            alias: null,
-            arguments: [],
-            directives: [],
-            selectionSet: null,
-          ),
-          FieldNode(
-            name: NameNode(value: 'proxy_stream_url'),
-            alias: null,
-            arguments: [],
-            directives: [],
-            selectionSet: null,
-          ),
-          FieldNode(
-            name: NameNode(value: 'hls_stream_url'),
-            alias: null,
-            arguments: [],
-            directives: [],
-            selectionSet: null,
-          ),
-          FieldNode(
             name: NameNode(value: 'thumbnail_url'),
             alias: null,
             arguments: [],
@@ -348,6 +327,42 @@ const documentNodeQueryGetStations = DocumentNode(definitions: [
             arguments: [],
             directives: [],
             selectionSet: null,
+          ),
+          FieldNode(
+            name: NameNode(value: 'station_streams'),
+            alias: null,
+            arguments: [],
+            directives: [],
+            selectionSet: SelectionSetNode(selections: [
+              FieldNode(
+                name: NameNode(value: 'order'),
+                alias: null,
+                arguments: [],
+                directives: [],
+                selectionSet: null,
+              ),
+              FieldNode(
+                name: NameNode(value: 'type'),
+                alias: null,
+                arguments: [],
+                directives: [],
+                selectionSet: null,
+              ),
+              FieldNode(
+                name: NameNode(value: 'stream_url'),
+                alias: null,
+                arguments: [],
+                directives: [],
+                selectionSet: null,
+              ),
+              FieldNode(
+                name: NameNode(value: '__typename'),
+                alias: null,
+                arguments: [],
+                directives: [],
+                selectionSet: null,
+              ),
+            ]),
           ),
           FieldNode(
             name: NameNode(value: 'posts'),
@@ -822,9 +837,6 @@ class Query$GetStations$stations {
     required this.title,
     required this.website,
     required this.email,
-    required this.stream_url,
-    this.proxy_stream_url,
-    this.hls_stream_url,
     this.thumbnail_url,
     this.total_listeners,
     this.description,
@@ -832,6 +844,7 @@ class Query$GetStations$stations {
     this.description_link,
     required this.feature_latest_post,
     this.facebook_page_id,
+    required this.station_streams,
     required this.posts,
     this.uptime,
     this.now_playing,
@@ -846,9 +859,6 @@ class Query$GetStations$stations {
     final l$title = json['title'];
     final l$website = json['website'];
     final l$email = json['email'];
-    final l$stream_url = json['stream_url'];
-    final l$proxy_stream_url = json['proxy_stream_url'];
-    final l$hls_stream_url = json['hls_stream_url'];
     final l$thumbnail_url = json['thumbnail_url'];
     final l$total_listeners = json['total_listeners'];
     final l$description = json['description'];
@@ -856,6 +866,7 @@ class Query$GetStations$stations {
     final l$description_link = json['description_link'];
     final l$feature_latest_post = json['feature_latest_post'];
     final l$facebook_page_id = json['facebook_page_id'];
+    final l$station_streams = json['station_streams'];
     final l$posts = json['posts'];
     final l$uptime = json['uptime'];
     final l$now_playing = json['now_playing'];
@@ -868,9 +879,6 @@ class Query$GetStations$stations {
       title: (l$title as String),
       website: (l$website as String),
       email: (l$email as String),
-      stream_url: (l$stream_url as String),
-      proxy_stream_url: (l$proxy_stream_url as String?),
-      hls_stream_url: (l$hls_stream_url as String?),
       thumbnail_url: (l$thumbnail_url as String?),
       total_listeners: (l$total_listeners as int?),
       description: (l$description as String?),
@@ -878,6 +886,10 @@ class Query$GetStations$stations {
       description_link: (l$description_link as String?),
       feature_latest_post: (l$feature_latest_post as bool),
       facebook_page_id: (l$facebook_page_id as String?),
+      station_streams: (l$station_streams as List<dynamic>)
+          .map((e) => Query$GetStations$stations$station_streams.fromJson(
+              (e as Map<String, dynamic>)))
+          .toList(),
       posts: (l$posts as List<dynamic>)
           .map((e) => Query$GetStations$stations$posts.fromJson(
               (e as Map<String, dynamic>)))
@@ -910,12 +922,6 @@ class Query$GetStations$stations {
 
   final String email;
 
-  final String stream_url;
-
-  final String? proxy_stream_url;
-
-  final String? hls_stream_url;
-
   final String? thumbnail_url;
 
   final int? total_listeners;
@@ -929,6 +935,8 @@ class Query$GetStations$stations {
   final bool feature_latest_post;
 
   final String? facebook_page_id;
+
+  final List<Query$GetStations$stations$station_streams> station_streams;
 
   final List<Query$GetStations$stations$posts> posts;
 
@@ -954,12 +962,6 @@ class Query$GetStations$stations {
     _resultData['website'] = l$website;
     final l$email = email;
     _resultData['email'] = l$email;
-    final l$stream_url = stream_url;
-    _resultData['stream_url'] = l$stream_url;
-    final l$proxy_stream_url = proxy_stream_url;
-    _resultData['proxy_stream_url'] = l$proxy_stream_url;
-    final l$hls_stream_url = hls_stream_url;
-    _resultData['hls_stream_url'] = l$hls_stream_url;
     final l$thumbnail_url = thumbnail_url;
     _resultData['thumbnail_url'] = l$thumbnail_url;
     final l$total_listeners = total_listeners;
@@ -974,6 +976,9 @@ class Query$GetStations$stations {
     _resultData['feature_latest_post'] = l$feature_latest_post;
     final l$facebook_page_id = facebook_page_id;
     _resultData['facebook_page_id'] = l$facebook_page_id;
+    final l$station_streams = station_streams;
+    _resultData['station_streams'] =
+        l$station_streams.map((e) => e.toJson()).toList();
     final l$posts = posts;
     _resultData['posts'] = l$posts.map((e) => e.toJson()).toList();
     final l$uptime = uptime;
@@ -995,9 +1000,6 @@ class Query$GetStations$stations {
     final l$title = title;
     final l$website = website;
     final l$email = email;
-    final l$stream_url = stream_url;
-    final l$proxy_stream_url = proxy_stream_url;
-    final l$hls_stream_url = hls_stream_url;
     final l$thumbnail_url = thumbnail_url;
     final l$total_listeners = total_listeners;
     final l$description = description;
@@ -1005,6 +1007,7 @@ class Query$GetStations$stations {
     final l$description_link = description_link;
     final l$feature_latest_post = feature_latest_post;
     final l$facebook_page_id = facebook_page_id;
+    final l$station_streams = station_streams;
     final l$posts = posts;
     final l$uptime = uptime;
     final l$now_playing = now_playing;
@@ -1017,9 +1020,6 @@ class Query$GetStations$stations {
       l$title,
       l$website,
       l$email,
-      l$stream_url,
-      l$proxy_stream_url,
-      l$hls_stream_url,
       l$thumbnail_url,
       l$total_listeners,
       l$description,
@@ -1027,6 +1027,7 @@ class Query$GetStations$stations {
       l$description_link,
       l$feature_latest_post,
       l$facebook_page_id,
+      Object.hashAll(l$station_streams.map((v) => v)),
       Object.hashAll(l$posts.map((v) => v)),
       l$uptime,
       l$now_playing,
@@ -1074,21 +1075,6 @@ class Query$GetStations$stations {
     if (l$email != lOther$email) {
       return false;
     }
-    final l$stream_url = stream_url;
-    final lOther$stream_url = other.stream_url;
-    if (l$stream_url != lOther$stream_url) {
-      return false;
-    }
-    final l$proxy_stream_url = proxy_stream_url;
-    final lOther$proxy_stream_url = other.proxy_stream_url;
-    if (l$proxy_stream_url != lOther$proxy_stream_url) {
-      return false;
-    }
-    final l$hls_stream_url = hls_stream_url;
-    final lOther$hls_stream_url = other.hls_stream_url;
-    if (l$hls_stream_url != lOther$hls_stream_url) {
-      return false;
-    }
     final l$thumbnail_url = thumbnail_url;
     final lOther$thumbnail_url = other.thumbnail_url;
     if (l$thumbnail_url != lOther$thumbnail_url) {
@@ -1123,6 +1109,18 @@ class Query$GetStations$stations {
     final lOther$facebook_page_id = other.facebook_page_id;
     if (l$facebook_page_id != lOther$facebook_page_id) {
       return false;
+    }
+    final l$station_streams = station_streams;
+    final lOther$station_streams = other.station_streams;
+    if (l$station_streams.length != lOther$station_streams.length) {
+      return false;
+    }
+    for (int i = 0; i < l$station_streams.length; i++) {
+      final l$station_streams$entry = l$station_streams[i];
+      final lOther$station_streams$entry = lOther$station_streams[i];
+      if (l$station_streams$entry != lOther$station_streams$entry) {
+        return false;
+      }
     }
     final l$posts = posts;
     final lOther$posts = other.posts;
@@ -1192,9 +1190,6 @@ abstract class CopyWith$Query$GetStations$stations<TRes> {
     String? title,
     String? website,
     String? email,
-    String? stream_url,
-    String? proxy_stream_url,
-    String? hls_stream_url,
     String? thumbnail_url,
     int? total_listeners,
     String? description,
@@ -1202,12 +1197,19 @@ abstract class CopyWith$Query$GetStations$stations<TRes> {
     String? description_link,
     bool? feature_latest_post,
     String? facebook_page_id,
+    List<Query$GetStations$stations$station_streams>? station_streams,
     List<Query$GetStations$stations$posts>? posts,
     Query$GetStations$stations$uptime? uptime,
     Query$GetStations$stations$now_playing? now_playing,
     List<Query$GetStations$stations$reviews>? reviews,
     String? $__typename,
   });
+  TRes station_streams(
+      Iterable<Query$GetStations$stations$station_streams> Function(
+              Iterable<
+                  CopyWith$Query$GetStations$stations$station_streams<
+                      Query$GetStations$stations$station_streams>>)
+          _fn);
   TRes posts(
       Iterable<Query$GetStations$stations$posts> Function(
               Iterable<
@@ -1244,9 +1246,6 @@ class _CopyWithImpl$Query$GetStations$stations<TRes>
     Object? title = _undefined,
     Object? website = _undefined,
     Object? email = _undefined,
-    Object? stream_url = _undefined,
-    Object? proxy_stream_url = _undefined,
-    Object? hls_stream_url = _undefined,
     Object? thumbnail_url = _undefined,
     Object? total_listeners = _undefined,
     Object? description = _undefined,
@@ -1254,6 +1253,7 @@ class _CopyWithImpl$Query$GetStations$stations<TRes>
     Object? description_link = _undefined,
     Object? feature_latest_post = _undefined,
     Object? facebook_page_id = _undefined,
+    Object? station_streams = _undefined,
     Object? posts = _undefined,
     Object? uptime = _undefined,
     Object? now_playing = _undefined,
@@ -1277,15 +1277,6 @@ class _CopyWithImpl$Query$GetStations$stations<TRes>
         email: email == _undefined || email == null
             ? _instance.email
             : (email as String),
-        stream_url: stream_url == _undefined || stream_url == null
-            ? _instance.stream_url
-            : (stream_url as String),
-        proxy_stream_url: proxy_stream_url == _undefined
-            ? _instance.proxy_stream_url
-            : (proxy_stream_url as String?),
-        hls_stream_url: hls_stream_url == _undefined
-            ? _instance.hls_stream_url
-            : (hls_stream_url as String?),
         thumbnail_url: thumbnail_url == _undefined
             ? _instance.thumbnail_url
             : (thumbnail_url as String?),
@@ -1308,6 +1299,11 @@ class _CopyWithImpl$Query$GetStations$stations<TRes>
         facebook_page_id: facebook_page_id == _undefined
             ? _instance.facebook_page_id
             : (facebook_page_id as String?),
+        station_streams:
+            station_streams == _undefined || station_streams == null
+                ? _instance.station_streams
+                : (station_streams
+                    as List<Query$GetStations$stations$station_streams>),
         posts: posts == _undefined || posts == null
             ? _instance.posts
             : (posts as List<Query$GetStations$stations$posts>),
@@ -1324,6 +1320,19 @@ class _CopyWithImpl$Query$GetStations$stations<TRes>
             ? _instance.$__typename
             : ($__typename as String),
       ));
+
+  TRes station_streams(
+          Iterable<Query$GetStations$stations$station_streams> Function(
+                  Iterable<
+                      CopyWith$Query$GetStations$stations$station_streams<
+                          Query$GetStations$stations$station_streams>>)
+              _fn) =>
+      call(
+          station_streams: _fn(_instance.station_streams
+              .map((e) => CopyWith$Query$GetStations$stations$station_streams(
+                    e,
+                    (i) => i,
+                  ))).toList());
 
   TRes posts(
           Iterable<Query$GetStations$stations$posts> Function(
@@ -1381,9 +1390,6 @@ class _CopyWithStubImpl$Query$GetStations$stations<TRes>
     String? title,
     String? website,
     String? email,
-    String? stream_url,
-    String? proxy_stream_url,
-    String? hls_stream_url,
     String? thumbnail_url,
     int? total_listeners,
     String? description,
@@ -1391,6 +1397,7 @@ class _CopyWithStubImpl$Query$GetStations$stations<TRes>
     String? description_link,
     bool? feature_latest_post,
     String? facebook_page_id,
+    List<Query$GetStations$stations$station_streams>? station_streams,
     List<Query$GetStations$stations$posts>? posts,
     Query$GetStations$stations$uptime? uptime,
     Query$GetStations$stations$now_playing? now_playing,
@@ -1398,6 +1405,8 @@ class _CopyWithStubImpl$Query$GetStations$stations<TRes>
     String? $__typename,
   }) =>
       _res;
+
+  station_streams(_fn) => _res;
 
   posts(_fn) => _res;
 
@@ -1408,6 +1417,173 @@ class _CopyWithStubImpl$Query$GetStations$stations<TRes>
       CopyWith$Query$GetStations$stations$now_playing.stub(_res);
 
   reviews(_fn) => _res;
+}
+
+class Query$GetStations$stations$station_streams {
+  Query$GetStations$stations$station_streams({
+    required this.order,
+    required this.type,
+    required this.stream_url,
+    this.$__typename = 'station_streams',
+  });
+
+  factory Query$GetStations$stations$station_streams.fromJson(
+      Map<String, dynamic> json) {
+    final l$order = json['order'];
+    final l$type = json['type'];
+    final l$stream_url = json['stream_url'];
+    final l$$__typename = json['__typename'];
+    return Query$GetStations$stations$station_streams(
+      order: (l$order as int),
+      type: (l$type as String),
+      stream_url: (l$stream_url as String),
+      $__typename: (l$$__typename as String),
+    );
+  }
+
+  final int order;
+
+  final String type;
+
+  final String stream_url;
+
+  final String $__typename;
+
+  Map<String, dynamic> toJson() {
+    final _resultData = <String, dynamic>{};
+    final l$order = order;
+    _resultData['order'] = l$order;
+    final l$type = type;
+    _resultData['type'] = l$type;
+    final l$stream_url = stream_url;
+    _resultData['stream_url'] = l$stream_url;
+    final l$$__typename = $__typename;
+    _resultData['__typename'] = l$$__typename;
+    return _resultData;
+  }
+
+  @override
+  int get hashCode {
+    final l$order = order;
+    final l$type = type;
+    final l$stream_url = stream_url;
+    final l$$__typename = $__typename;
+    return Object.hashAll([
+      l$order,
+      l$type,
+      l$stream_url,
+      l$$__typename,
+    ]);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) {
+      return true;
+    }
+    if (!(other is Query$GetStations$stations$station_streams) ||
+        runtimeType != other.runtimeType) {
+      return false;
+    }
+    final l$order = order;
+    final lOther$order = other.order;
+    if (l$order != lOther$order) {
+      return false;
+    }
+    final l$type = type;
+    final lOther$type = other.type;
+    if (l$type != lOther$type) {
+      return false;
+    }
+    final l$stream_url = stream_url;
+    final lOther$stream_url = other.stream_url;
+    if (l$stream_url != lOther$stream_url) {
+      return false;
+    }
+    final l$$__typename = $__typename;
+    final lOther$$__typename = other.$__typename;
+    if (l$$__typename != lOther$$__typename) {
+      return false;
+    }
+    return true;
+  }
+}
+
+extension UtilityExtension$Query$GetStations$stations$station_streams
+    on Query$GetStations$stations$station_streams {
+  CopyWith$Query$GetStations$stations$station_streams<
+          Query$GetStations$stations$station_streams>
+      get copyWith => CopyWith$Query$GetStations$stations$station_streams(
+            this,
+            (i) => i,
+          );
+}
+
+abstract class CopyWith$Query$GetStations$stations$station_streams<TRes> {
+  factory CopyWith$Query$GetStations$stations$station_streams(
+    Query$GetStations$stations$station_streams instance,
+    TRes Function(Query$GetStations$stations$station_streams) then,
+  ) = _CopyWithImpl$Query$GetStations$stations$station_streams;
+
+  factory CopyWith$Query$GetStations$stations$station_streams.stub(TRes res) =
+      _CopyWithStubImpl$Query$GetStations$stations$station_streams;
+
+  TRes call({
+    int? order,
+    String? type,
+    String? stream_url,
+    String? $__typename,
+  });
+}
+
+class _CopyWithImpl$Query$GetStations$stations$station_streams<TRes>
+    implements CopyWith$Query$GetStations$stations$station_streams<TRes> {
+  _CopyWithImpl$Query$GetStations$stations$station_streams(
+    this._instance,
+    this._then,
+  );
+
+  final Query$GetStations$stations$station_streams _instance;
+
+  final TRes Function(Query$GetStations$stations$station_streams) _then;
+
+  static const _undefined = <dynamic, dynamic>{};
+
+  TRes call({
+    Object? order = _undefined,
+    Object? type = _undefined,
+    Object? stream_url = _undefined,
+    Object? $__typename = _undefined,
+  }) =>
+      _then(Query$GetStations$stations$station_streams(
+        order: order == _undefined || order == null
+            ? _instance.order
+            : (order as int),
+        type: type == _undefined || type == null
+            ? _instance.type
+            : (type as String),
+        stream_url: stream_url == _undefined || stream_url == null
+            ? _instance.stream_url
+            : (stream_url as String),
+        $__typename: $__typename == _undefined || $__typename == null
+            ? _instance.$__typename
+            : ($__typename as String),
+      ));
+}
+
+class _CopyWithStubImpl$Query$GetStations$stations$station_streams<TRes>
+    implements CopyWith$Query$GetStations$stations$station_streams<TRes> {
+  _CopyWithStubImpl$Query$GetStations$stations$station_streams(this._res);
+
+  TRes _res;
+
+  call({
+    int? order,
+    String? type,
+    String? stream_url,
+    String? $__typename,
+  }) =>
+      _res;
 }
 
 class Query$GetStations$stations$posts {
