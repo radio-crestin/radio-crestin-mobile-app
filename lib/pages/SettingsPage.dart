@@ -1,9 +1,9 @@
 import 'dart:io';
 
 import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter/material.dart';
-import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -125,10 +125,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       ),
                     ),
                     onPressed: () async {
-                      final event = SentryEvent(
-                          message: SentryMessage("WHATSAPP_CONTACT"), level: SentryLevel.debug);
-
-                      Sentry.captureEvent(event);
+                      FirebaseCrashlytics.instance.log("WHATSAPP_CONTACT");
 
                       final message = "Buna ziua [Radio Crestin ${Platform.isAndroid? "Android": Platform.isIOS? "iOS": ""}]\n";
                       launchUrl(

@@ -18,6 +18,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # of the product and file versions while build-number is used as the build suffix.
 version: 1.2.1+26
 
+
 environment:
   sdk: '>=3.1.0 <4.0.0'
 
@@ -58,7 +59,6 @@ dependencies:
     git:
       url: https://github.com/EliseiNicolae/flutter_nfc_kit.git
   firebase_instance_id: ^1.0.0
-  sentry_flutter: ^7.15.0
   android_play_install_referrer: ^0.3.0
   sliding_up_panel:
     git:
