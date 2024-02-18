@@ -137,6 +137,7 @@ void main() async {
 
   PackageInfo.fromPlatform().then((value) => {globals.appVersion = value.version});
 
+  runApp(const RadioCrestinApp());
 }
 
 class RadioCrestinApp extends StatelessWidget {
