@@ -26,6 +26,9 @@ final getIt = GetIt.instance;
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Only call clearSavedSettings() during testing to reset internal values.
+  // await Upgrader.clearSavedSettings(); // REMOVE this for release builds
+
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
@@ -151,7 +154,7 @@ class RadioCrestinApp extends StatelessWidget {
       title: 'Radio Crestin',
       debugShowCheckedModeBanner: false,
       theme: appTheme,
-      home: UpgradeAlert(upgrader: Upgrader(showIgnore: false), child: const HomePage()),
+      home: UpgradeAlert(upgrader: Upgrader(debugDisplayAlways: true), child: const HomePage(),),
     );
   }
 }
