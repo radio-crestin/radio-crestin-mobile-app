@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:developer' as developer;
+import 'dart:io' show Platform;
 
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -25,9 +26,6 @@ final getIt = GetIt.instance;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Only call clearSavedSettings() during testing to reset internal values.
-  // await Upgrader.clearSavedSettings(); // REMOVE this for release builds
 
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
@@ -154,7 +152,11 @@ class RadioCrestinApp extends StatelessWidget {
       title: 'Radio Crestin',
       debugShowCheckedModeBanner: false,
       theme: appTheme,
-      home: UpgradeAlert(upgrader: Upgrader(debugDisplayAlways: true), child: const HomePage(),),
+      home: UpgradeAlert(
+        dialogStyle: Platform.isIOS ? UpgradeDialogStyle.cupertino : UpgradeDialogStyle.material,
+        upgrader: Upgrader(),
+        child: const HomePage(),
+      ),
     );
   }
 }
