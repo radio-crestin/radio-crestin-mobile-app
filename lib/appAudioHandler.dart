@@ -423,7 +423,7 @@ class AppAudioHandler extends BaseAudioHandler {
   @override
   Future<void> onTaskRemoved() {
     _log('onTaskRemoved()');
-    stop();
+    player.stop();
     // player.dispose();
     watchStations.cancel();
     return super.onTaskRemoved();
