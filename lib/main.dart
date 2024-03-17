@@ -141,6 +141,7 @@ void main() async {
 
   FirebaseInstanceId.appInstanceId.then((value) {
     globals.deviceId = value ?? "";
+    FirebaseCrashlytics.instance.setUserIdentifier(globals.deviceId);
   });
 
   runApp(const RadioCrestinApp());
