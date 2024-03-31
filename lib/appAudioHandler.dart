@@ -62,7 +62,9 @@ class AppAudioHandler extends BaseAudioHandler {
   final BehaviorSubject<List<Station>> stations = BehaviorSubject.seeded(<Station>[]);
   final BehaviorSubject<List<Station>> filteredStations = BehaviorSubject.seeded(<Station>[]);
   final BehaviorSubject<List<String>> favoriteStationSlugs = BehaviorSubject.seeded([]);
+  final BehaviorSubject<String?> currentImageBackgroundSrc = BehaviorSubject.seeded('https://images.unsplash.com/photo-1619903774373-7dea6886db8e?ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&ixlib=rb-1.2.1&auto=format&fit=crop&w=774&q=80');
   final BehaviorSubject<Station?> currentStation = BehaviorSubject.seeded(null);
+  final BehaviorSubject<Station?> focusedStation = BehaviorSubject.seeded(null);
   final BehaviorSubject<List<Query$GetStations$station_groups>> stationGroups =
       BehaviorSubject.seeded(<Query$GetStations$station_groups>[]);
   final BehaviorSubject<Query$GetStations$station_groups?> selectedStationGroup =
@@ -170,8 +172,14 @@ class AppAudioHandler extends BaseAudioHandler {
   Future<void> playStation(Station station) async {
     _log('playStation($station)');
     await selectStation(station);
+    await focusStation(station);
 
     return play();
+  }
+
+  Future<void> focusStation(Station station) async {
+    _log('focusStation($station)');
+    focusedStation.add(station);
   }
 
   @override

@@ -1,26 +1,23 @@
 import 'dart:async';
 import 'dart:developer' as developer;
-import 'dart:io' show Platform;
 
 import 'package:android_play_install_referrer/android_play_install_referrer.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_sticky_header/flutter_sticky_header.dart';
+import 'package:flutter/services.dart';
+import 'package:is_tv/is_tv.dart';
 import 'package:radio_crestin/appAudioHandler.dart';
-import 'package:radio_crestin/components/FullAudioPlayer.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
 import 'package:uni_links_nfc_support/uni_links_nfc_support.dart';
 
-import '../components/MiniAudioPlayer.dart';
-import '../components/SelectDialog.dart';
-import '../components/StationsList.dart';
+import '../components/TvStationsList.dart';
 import '../main.dart';
 import '../queries/getStations.graphql.dart';
 import '../types/Station.dart';
+import '../utils.dart';
 import '../utils/PositionRetainedScrollPhysics.dart';
-import 'SettingsPage.dart';
 
 final remoteConfig = FirebaseRemoteConfig.instance;
 
@@ -41,7 +38,9 @@ class CustomPanelController extends PanelController {
 }
 
 class HomePageState {
+  final String? currentImageBackgroundSrc;
   final Station? currentStation;
+  final Station? focusedStation;
   final List<Station> stations;
   final List<Station> filteredStations;
   final List<Query$GetStations$station_groups> stationGroups;
@@ -50,7 +49,9 @@ class HomePageState {
   final bool isDraggable;
 
   const HomePageState(
+    this.currentImageBackgroundSrc,
     this.currentStation,
+    this.focusedStation,
     this.stations,
     this.filteredStations,
     this.stationGroups,
@@ -61,6 +62,9 @@ class HomePageState {
 }
 
 class _HomePageState extends State<HomePage> {
+  bool? _isTV;
+  final _isTVPlugin = IsTV();
+
   late StreamSubscription _sub;
   CustomPanelController slidingUpPanelController = CustomPanelController();
 
@@ -88,251 +92,157 @@ class _HomePageState extends State<HomePage> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    initPlatformState();
+  }
+
+  Future<void> initPlatformState() async {
+    bool? isTV;
+
+    try {
+      isTV = await _isTVPlugin.check() ?? false;
+    } on PlatformException {
+      isTV = false;
+    }
+
+    if (!mounted) return;
+
+    setState(() {
+      _isTV = isTV ?? false;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     double panelMaxHeight = MediaQuery.of(context).size.height * .9;
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: StreamBuilder<HomePageState>(
-          stream: Rx.combineLatest7<
-              Station?,
-              List<Station>,
-              List<Station>,
-              List<Query$GetStations$station_groups>,
-              Query$GetStations$station_groups?,
-              MediaItem?,
-              bool,
-              HomePageState>(
-            _audioHandler.currentStation.stream,
-            _audioHandler.stations.stream,
-            _audioHandler.filteredStations.stream,
-            _audioHandler.stationGroups,
-            _audioHandler.selectedStationGroup.stream,
-            _audioHandler.mediaItem,
-            slidingUpPanelController.isDraggableSubject,
-            (currentStation, stations, filteredStations, stationGroups,
-                    selectedStationGroup, mediaItem, isDraggable) =>
-                HomePageState(currentStation, stations, filteredStations,
-                    stationGroups, selectedStationGroup, mediaItem, isDraggable),
-          ),
-          builder: (context, snapshot) {
-            final currentStation = snapshot.data?.currentStation;
-            final stations = snapshot.data?.stations ?? [];
-            final stationGroups = snapshot.data?.stationGroups ?? [];
-            final isDraggable = snapshot.data?.isDraggable ?? true;
-            final selectedStationGroup = snapshot.data?.selectedStationGroup;
-            final filteredStations = snapshot.data?.filteredStations ?? [];
-
-            final favoriteStations = stations.where((station) => station.isFavorite).toList();
-
-            return SlidingUpPanel(
-              maxHeight: panelMaxHeight,
-              // minHeight: 115,
-              backdropEnabled: true,
-              backdropTapClosesPanel: true,
-              boxShadow: const [],
-              controller: slidingUpPanelController,
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(16.0),
-                topRight: Radius.circular(16.0),
+    if (_isTV == true || true) {
+      return Scaffold(
+        backgroundColor: Colors.white,
+        body: StreamBuilder<HomePageState>(
+            stream: Rx.combineLatest9<
+                String?,
+                Station?,
+                Station?,
+                List<Station>,
+                List<Station>,
+                List<Query$GetStations$station_groups>,
+                Query$GetStations$station_groups?,
+                MediaItem?,
+                bool,
+                HomePageState>(
+              _audioHandler.currentImageBackgroundSrc.stream,
+              _audioHandler.currentStation.stream,
+              _audioHandler.focusedStation.stream,
+              _audioHandler.stations.stream,
+              _audioHandler.filteredStations.stream,
+              _audioHandler.stationGroups,
+              _audioHandler.selectedStationGroup.stream,
+              _audioHandler.mediaItem,
+              slidingUpPanelController.isDraggableSubject,
+              (currentImageBackgroundSrc,
+                      currentStation,
+                      focusedStation,
+                      stations,
+                      filteredStations,
+                      stationGroups,
+                      selectedStationGroup,
+                      mediaItem,
+                      isDraggable) =>
+                  HomePageState(
+                currentImageBackgroundSrc,
+                currentStation,
+                focusedStation,
+                stations,
+                filteredStations,
+                stationGroups,
+                selectedStationGroup,
+                mediaItem,
+                isDraggable,
               ),
-              gestureSlidingEnabled: (slidingUpPanelController.isAttached &&
-                      (slidingUpPanelController.isPanelClosed ||
-                          slidingUpPanelController.isPanelClosed)) ||
-                  isDraggable,
-              body: SafeArea(
-                child: CustomScrollView(
-                  physics: const PositionRetainedScrollPhysics(),
-                  cacheExtent: 300.0,
-                  slivers: <Widget>[
-                    SliverAppBar(
-                      flexibleSpace: FlexibleSpaceBar(
-                        background: Container(color: const Color(0xfffafafa)),
-                      ),
-                      floating: true,
-                      centerTitle: true,
-                      toolbarHeight: 75,
-                      automaticallyImplyLeading: false,
-                      title: Container(
-                          margin: const EdgeInsets.only(top: 6),
-                          child: const Row(
-                            children: [
-                              Image(
-                                image: AssetImage('assets/icons/ic_logo_filled.png'),
-                                width: 40,
-                              ),
-                              SizedBox(width: 10),
-                              Text(
-                                "Radio Creștin",
-                                style: TextStyle(fontSize: 21),
-                              ),
+            ),
+            builder: (context, snapshot) {
+              // final currentImageBackgroundSrc = snapshot.data?.currentImageBackgroundSrc;
+              final currentImageBackgroundSrc =
+                  'https://images.unsplash.com/photo-1619903774373-7dea6886db8e?ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&ixlib=rb-1.2.1&auto=format&fit=crop&w=774&q=80';
+              final currentStation = snapshot.data?.currentStation;
+              final focusedStation = snapshot.data?.focusedStation;
+              final stations = snapshot.data?.stations ?? [];
+              final filteredStations = snapshot.data?.filteredStations ?? [];
+
+              final favoriteStations = stations.where((station) => station.isFavorite).toList();
+
+              return SizedBox(
+                width: double.infinity, // 100% width
+                height: double.infinity,
+                child: Stack(
+                  children: [
+
+                    Positioned.fill(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.bottomCenter,
+                            end: Alignment.topCenter,
+                            colors: [
+                              Colors.black.withOpacity(0.8),
+                              Colors.transparent, // Fully transparent
                             ],
-                          )),
-                      actions: [
-                        IconButton(
-                          icon: const Icon(Icons.search),
-                          color: Colors.grey[800],
-                          tooltip: 'Caută o stație radio',
-                          onPressed: () {
-                            showDialog(
-                              context: context,
-                              builder: (BuildContext context) {
-                                return SelectDialog<Station>(
-                                  items: stations,
-                                  displayFunction: (Station station) => station.displayTitle,
-                                  searchFunction: (Station station) => station.displayTitle,
-                                  onItemSelected: (Station station) {
-                                    _audioHandler.playStation(station);
-                                  },
-                                );
-                              },
-                            );
-                          },
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.settings),
-                          color: Colors.grey[800],
-                          tooltip: 'Setări aplicație',
-                          onPressed: () {
-                            Navigator.push(context, MaterialPageRoute<void>(
-                              builder: (BuildContext context) {
-                                return SettingsPage();
-                              },
-                            ));
-                          },
-                        ),
-                      ],
-                    ),
-                    if (favoriteStations.isNotEmpty)
-                      SliverStickyHeader(
-                        header: Container(
-                          height: 60.0,
-                          color: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            'Favorite',
-                            style: TextStyle(
-                                fontSize: 18, fontWeight: FontWeight.w600, color: Colors.grey[800]),
                           ),
                         ),
-                        sliver: SliverPadding(
-                            padding: const EdgeInsets.only(bottom: 20.0),
-                            sliver: StationsList(
+                      ),
+                    ),
+                    if (currentImageBackgroundSrc != null)
+                      SizedBox(
+                        width: double.infinity,
+                        child: Utils.displayImage(currentImageBackgroundSrc, cache: false),
+                      ),
+                    Positioned(
+                      left: 20,
+                      right: 20,
+                      bottom: 20,
+                      height: 220,
+                      child: CustomScrollView(
+                        physics: const PositionRetainedScrollPhysics(),
+                        cacheExtent: 220.0,
+                        scrollDirection: Axis.horizontal,
+                        slivers: <Widget>[
+                          if (favoriteStations.isNotEmpty)
+                            TvStationsList(
                               stations: favoriteStations,
                               currentStation: currentStation,
+                              focusedStation: focusedStation,
                               audioHandler: _audioHandler,
                               panelController: null,
-                            )),
-                      ),
-                    if(stations.isEmpty)
-                      SliverToBoxAdapter(
-                        child: Container(
-                          margin: const EdgeInsets.all(16),
-                          child: const Text(
-                              "Statiile se incarca..",
-                            style: TextStyle(fontSize: 16),
-                          ),
-                        ),
-                      ),
-                    if(stations.isNotEmpty)
-                    SliverStickyHeader(
-                      header: Container(
-                        height: 60.0,
-                        color: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                        alignment: Alignment.centerLeft,
-                        child: Row(
-                          children: [
-                            Text(
-                              selectedStationGroup?.name ?? "Toate stațiile radio",
-                              style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.grey[800]),
                             ),
-                            const Spacer(),
-                            TextButton(
-                                onPressed: () {
-                                  showDialog(
-                                    context: context,
-                                    builder: (BuildContext context) {
-                                      final stationGroupOptions = [
-                                        Query$GetStations$station_groups(
-                                          id: -1,
-                                          name: 'Toate stațiile radio',
-                                          order: -1,
-                                          slug: 'all-stations',
-                                          station_to_station_groups: [],
-                                        ),
-                                        ...stationGroups..sort((a, b) => a.order.compareTo(b.order))
-                                      ];
-                                      return SelectDialog<Query$GetStations$station_groups>(
-                                        items: stationGroupOptions,
-                                        displayFunction:
-                                            (Query$GetStations$station_groups stationGroup) =>
-                                                stationGroup.name,
-                                        onItemSelected:
-                                            (Query$GetStations$station_groups stationGroup) {
-                                          setState(() {
-                                            if (stationGroup.slug == 'all-stations') {
-                                              _audioHandler.selectedStationGroup.add(null);
-                                            } else {
-                                              _audioHandler.selectedStationGroup.add(stationGroup);
-                                            }
-                                          });
-                                        },
-                                      );
-                                    },
-                                  );
-                                },
-                                child: Text(
-                                  "Filtrează",
-                                  style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
-                                      color: Colors.blue[700]),
-                                ))
-                          ],
-                        ),
+                          if (stations.isEmpty)
+                            SliverToBoxAdapter(
+                              child: Container(
+                                margin: const EdgeInsets.all(16),
+                                child: const Text(
+                                  "Statiile se incarca..",
+                                  style: TextStyle(fontSize: 16),
+                                ),
+                              ),
+                            ),
+                          if (stations.isNotEmpty)
+                            TvStationsList(
+                              stations: filteredStations,
+                              currentStation: currentStation,
+                              focusedStation: focusedStation,
+                              audioHandler: _audioHandler,
+                              panelController: null,
+                            ),
+                        ],
                       ),
-                      sliver: SliverPadding(
-                          padding: EdgeInsets.only(bottom: Platform.isIOS ? 80.0 : 110.0),
-                          sliver: StationsList(
-                            stations: filteredStations,
-                            currentStation: currentStation,
-                            audioHandler: _audioHandler,
-                            panelController: null,
-                          )),
                     ),
                   ],
                 ),
-              ),
-              collapsed: currentStation != null ? Container(
-                padding: EdgeInsets.only(bottom: Platform.isIOS ? 17 : 12, left: 8, right: 8),
-                color: Theme.of(context).scaffoldBackgroundColor,
-                child: MiniAudioPlayer(
-                  currentStation: currentStation,
-                  audioHandler: _audioHandler,
-                  panelController: slidingUpPanelController,
-                ),
-              ): null,
-              panel: Container(
-                decoration: const BoxDecoration(
-                  color: Colors.transparent,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(16.0),
-                    topRight: Radius.circular(16.0),
-                  ),
-                ),
-                child: currentStation != null ? FullAudioPlayer(
-                  audioHandler: _audioHandler,
-                  slidingUpPanelController: slidingUpPanelController,
-                ): null,
-              ),
-            );
-          }),
-    );
+              );
+            }),
+      );
+    }
   }
 
   @override
@@ -366,5 +276,36 @@ class _HomePageState extends State<HomePage> {
     } catch (e) {
       developer.log("processIntentUri error:$e");
     }
+  }
+}
+
+class ImageCard extends StatelessWidget {
+  final bool selected;
+  final bool focus;
+  final String image;
+
+  const ImageCard({
+    Key? key,
+    required this.selected,
+    required this.image,
+    required this.focus,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(10),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          color: focus ? Colors.white : Colors.black,
+          border: Border.all(
+            color: focus ? Colors.white : (selected ? Colors.blue.shade400 : Colors.black),
+            width: 5,
+          ),
+          image: DecorationImage(image: NetworkImage(image), fit: BoxFit.cover),
+        ),
+      ),
+    );
   }
 }

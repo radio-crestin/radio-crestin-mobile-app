@@ -2,6 +2,7 @@
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/cupertino.dart';
 
+import '../constants.dart';
 import '../queries/getStations.graphql.dart';
 import '../utils.dart';
 
@@ -25,6 +26,11 @@ class Station {
   int get songId => rawStationData.now_playing?.song?.id ?? -1;
   String get songTitle => rawStationData.now_playing?.song?.name ?? "";
   String get songArtist => rawStationData.now_playing?.song?.artist?.name ?? "";
+  Widget get stationThumbnail => Utils.displayImage(
+    rawStationData.thumbnail_url ?? CONSTANTS.DEFAULT_STATION_THUMBNAIL_URL,
+    fallbackImageUrl: CONSTANTS.DEFAULT_STATION_THUMBNAIL_URL,
+    cache: true,
+  );
   Widget get thumbnail => Utils.displayImage(
     Utils.getStationThumbnailUrl(rawStationData),
     fallbackImageUrl: rawStationData.thumbnail_url,
