@@ -70,6 +70,9 @@ dependencies:
   extended_image: ^8.2.0
   is_tv: ^0.0.1+3
 
+  gql: any
+  flutter_hooks: any
+  ndef: any
 dev_dependencies:
   dependency_validator: ^3.2.2
   flutter_test:

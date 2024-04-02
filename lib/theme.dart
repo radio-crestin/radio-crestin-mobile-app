@@ -76,19 +76,19 @@ final ThemeData appTheme = ThemeData(
     ),
   ),
   textTheme: const TextTheme(
-    caption: TextStyle(
+    bodySmall: TextStyle(
       color: Color(0x8a000000),
       fontSize: null,
       fontWeight: FontWeight.w400,
       fontStyle: FontStyle.normal,
     ),
-    button: TextStyle(
+    labelLarge: TextStyle(
       color: Color(0xdd000000),
       fontSize: null,
       fontWeight: FontWeight.w400,
       fontStyle: FontStyle.normal,
     ),
-    overline: TextStyle(
+    labelSmall: TextStyle(
       color: Color(0xff000000),
       fontSize: null,
       fontWeight: FontWeight.w400,
@@ -96,19 +96,19 @@ final ThemeData appTheme = ThemeData(
     ),
   ),
   primaryTextTheme: const TextTheme(
-    caption: TextStyle(
+    bodySmall: TextStyle(
       color: Color(0xb3ffffff),
       fontSize: null,
       fontWeight: FontWeight.w400,
       fontStyle: FontStyle.normal,
     ),
-    button: TextStyle(
+    labelLarge: TextStyle(
       color: Color(0xffffffff),
       fontSize: null,
       fontWeight: FontWeight.w400,
       fontStyle: FontStyle.normal,
     ),
-    overline: TextStyle(
+    labelSmall: TextStyle(
       color: Color(0xffffffff),
       fontSize: null,
       fontWeight: FontWeight.w400,
@@ -292,7 +292,7 @@ final ThemeData appTheme = ThemeData(
         return null;
       }
       if (states.contains(MaterialState.selected)) {
-        return Color(0xffd81b60);
+        return const Color(0xffd81b60);
       }
       return null;
     }),
@@ -303,14 +303,14 @@ final ThemeData appTheme = ThemeData(
         return null;
       }
       if (states.contains(MaterialState.selected)) {
-        return Color(0xffd81b60);
+        return const Color(0xffd81b60);
       }
       return null;
     }),
   ),
   colorScheme: ColorScheme.fromSwatch(primarySwatch: Colors.pink)
-      .copyWith(background: Color(0xfff48fb1))
-      .copyWith(error: Color(0xffd32f2f)),
+      .copyWith(background: const Color(0xfff48fb1))
+      .copyWith(error: const Color(0xffd32f2f)),
   textSelectionTheme: const TextSelectionThemeData(
     cursorColor: Color(0xff4285f4),
     selectionColor: Color(0xfff48fb1),

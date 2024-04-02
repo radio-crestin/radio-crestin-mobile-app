@@ -23,21 +23,21 @@ class Input$artists_bool_exp {
   factory Input$artists_bool_exp.fromJson(Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
     if (data.containsKey('_and')) {
-      final l$$_and = data['_and'];
-      result$data['_and'] = (l$$_and as List<dynamic>?)
+      final l$$And = data['_and'];
+      result$data['_and'] = (l$$And as List<dynamic>?)
           ?.map((e) =>
               Input$artists_bool_exp.fromJson((e as Map<String, dynamic>)))
           .toList();
     }
     if (data.containsKey('_not')) {
-      final l$$_not = data['_not'];
-      result$data['_not'] = l$$_not == null
+      final l$$Not = data['_not'];
+      result$data['_not'] = l$$Not == null
           ? null
-          : Input$artists_bool_exp.fromJson((l$$_not as Map<String, dynamic>));
+          : Input$artists_bool_exp.fromJson((l$$Not as Map<String, dynamic>));
     }
     if (data.containsKey('_or')) {
-      final l$$_or = data['_or'];
-      result$data['_or'] = (l$$_or as List<dynamic>?)
+      final l$$Or = data['_or'];
+      result$data['_or'] = (l$$Or as List<dynamic>?)
           ?.map((e) =>
               Input$artists_bool_exp.fromJson((e as Map<String, dynamic>)))
           .toList();
@@ -62,11 +62,11 @@ class Input$artists_bool_exp {
           : Input$songs_bool_exp.fromJson((l$songs as Map<String, dynamic>));
     }
     if (data.containsKey('thumbnail_url')) {
-      final l$thumbnail_url = data['thumbnail_url'];
-      result$data['thumbnail_url'] = l$thumbnail_url == null
+      final l$thumbnailUrl = data['thumbnail_url'];
+      result$data['thumbnail_url'] = l$thumbnailUrl == null
           ? null
           : Input$String_comparison_exp.fromJson(
-              (l$thumbnail_url as Map<String, dynamic>));
+              (l$thumbnailUrl as Map<String, dynamic>));
     }
     return Input$artists_bool_exp._(result$data);
   }
@@ -96,16 +96,16 @@ class Input$artists_bool_exp {
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
     if (_$data.containsKey('_and')) {
-      final l$$_and = $_and;
-      result$data['_and'] = l$$_and?.map((e) => e.toJson()).toList();
+      final l$$And = $_and;
+      result$data['_and'] = l$$And?.map((e) => e.toJson()).toList();
     }
     if (_$data.containsKey('_not')) {
-      final l$$_not = $_not;
-      result$data['_not'] = l$$_not?.toJson();
+      final l$$Not = $_not;
+      result$data['_not'] = l$$Not?.toJson();
     }
     if (_$data.containsKey('_or')) {
-      final l$$_or = $_or;
-      result$data['_or'] = l$$_or?.map((e) => e.toJson()).toList();
+      final l$$Or = $_or;
+      result$data['_or'] = l$$Or?.map((e) => e.toJson()).toList();
     }
     if (_$data.containsKey('id')) {
       final l$id = id;
@@ -120,8 +120,8 @@ class Input$artists_bool_exp {
       result$data['songs'] = l$songs?.toJson();
     }
     if (_$data.containsKey('thumbnail_url')) {
-      final l$thumbnail_url = thumbnail_url;
-      result$data['thumbnail_url'] = l$thumbnail_url?.toJson();
+      final l$thumbnailUrl = thumbnail_url;
+      result$data['thumbnail_url'] = l$thumbnailUrl?.toJson();
     }
     return result$data;
   }
@@ -137,54 +137,54 @@ class Input$artists_bool_exp {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$artists_bool_exp) ||
+    if (other is! Input$artists_bool_exp ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$$_and = $_and;
-    final lOther$$_and = other.$_and;
+    final l$$And = $_and;
+    final lother$$And = other.$_and;
     if (_$data.containsKey('_and') != other._$data.containsKey('_and')) {
       return false;
     }
-    if (l$$_and != null && lOther$$_and != null) {
-      if (l$$_and.length != lOther$$_and.length) {
+    if (l$$And != null && lother$$And != null) {
+      if (l$$And.length != lother$$And.length) {
         return false;
       }
-      for (int i = 0; i < l$$_and.length; i++) {
-        final l$$_and$entry = l$$_and[i];
-        final lOther$$_and$entry = lOther$$_and[i];
-        if (l$$_and$entry != lOther$$_and$entry) {
+      for (int i = 0; i < l$$And.length; i++) {
+        final l$$And$entry = l$$And[i];
+        final lother$$And$entry = lother$$And[i];
+        if (l$$And$entry != lother$$And$entry) {
           return false;
         }
       }
-    } else if (l$$_and != lOther$$_and) {
+    } else if (l$$And != lother$$And) {
       return false;
     }
-    final l$$_not = $_not;
-    final lOther$$_not = other.$_not;
+    final l$$Not = $_not;
+    final lother$$Not = other.$_not;
     if (_$data.containsKey('_not') != other._$data.containsKey('_not')) {
       return false;
     }
-    if (l$$_not != lOther$$_not) {
+    if (l$$Not != lother$$Not) {
       return false;
     }
-    final l$$_or = $_or;
-    final lOther$$_or = other.$_or;
+    final l$$Or = $_or;
+    final lother$$Or = other.$_or;
     if (_$data.containsKey('_or') != other._$data.containsKey('_or')) {
       return false;
     }
-    if (l$$_or != null && lOther$$_or != null) {
-      if (l$$_or.length != lOther$$_or.length) {
+    if (l$$Or != null && lother$$Or != null) {
+      if (l$$Or.length != lother$$Or.length) {
         return false;
       }
-      for (int i = 0; i < l$$_or.length; i++) {
-        final l$$_or$entry = l$$_or[i];
-        final lOther$$_or$entry = lOther$$_or[i];
-        if (l$$_or$entry != lOther$$_or$entry) {
+      for (int i = 0; i < l$$Or.length; i++) {
+        final l$$Or$entry = l$$Or[i];
+        final lother$$Or$entry = lother$$Or[i];
+        if (l$$Or$entry != lother$$Or$entry) {
           return false;
         }
       }
-    } else if (l$$_or != lOther$$_or) {
+    } else if (l$$Or != lother$$Or) {
       return false;
     }
     final l$id = id;
@@ -211,13 +211,13 @@ class Input$artists_bool_exp {
     if (l$songs != lOther$songs) {
       return false;
     }
-    final l$thumbnail_url = thumbnail_url;
-    final lOther$thumbnail_url = other.thumbnail_url;
+    final l$thumbnailUrl = thumbnail_url;
+    final lother$thumbnailUrl = other.thumbnail_url;
     if (_$data.containsKey('thumbnail_url') !=
         other._$data.containsKey('thumbnail_url')) {
       return false;
     }
-    if (l$thumbnail_url != lOther$thumbnail_url) {
+    if (l$thumbnailUrl != lother$thumbnailUrl) {
       return false;
     }
     return true;
@@ -225,29 +225,29 @@ class Input$artists_bool_exp {
 
   @override
   int get hashCode {
-    final l$$_and = $_and;
-    final l$$_not = $_not;
-    final l$$_or = $_or;
+    final l$$And = $_and;
+    final l$$Not = $_not;
+    final l$$Or = $_or;
     final l$id = id;
     final l$name = name;
     final l$songs = songs;
-    final l$thumbnail_url = thumbnail_url;
+    final l$thumbnailUrl = thumbnail_url;
     return Object.hashAll([
       _$data.containsKey('_and')
-          ? l$$_and == null
+          ? l$$And == null
               ? null
-              : Object.hashAll(l$$_and.map((v) => v))
+              : Object.hashAll(l$$And.map((v) => v))
           : const {},
-      _$data.containsKey('_not') ? l$$_not : const {},
+      _$data.containsKey('_not') ? l$$Not : const {},
       _$data.containsKey('_or')
-          ? l$$_or == null
+          ? l$$Or == null
               ? null
-              : Object.hashAll(l$$_or.map((v) => v))
+              : Object.hashAll(l$$Or.map((v) => v))
           : const {},
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('name') ? l$name : const {},
       _$data.containsKey('songs') ? l$songs : const {},
-      _$data.containsKey('thumbnail_url') ? l$thumbnail_url : const {},
+      _$data.containsKey('thumbnail_url') ? l$thumbnailUrl : const {},
     ]);
   }
 }
@@ -274,13 +274,13 @@ abstract class CopyWith$Input$artists_bool_exp<TRes> {
       Iterable<Input$artists_bool_exp>? Function(
               Iterable<
                   CopyWith$Input$artists_bool_exp<Input$artists_bool_exp>>?)
-          _fn);
+          fn);
   CopyWith$Input$artists_bool_exp<TRes> get $_not;
   TRes $_or(
       Iterable<Input$artists_bool_exp>? Function(
               Iterable<
                   CopyWith$Input$artists_bool_exp<Input$artists_bool_exp>>?)
-          _fn);
+          fn);
   CopyWith$Input$Int_comparison_exp<TRes> get id;
   CopyWith$Input$String_comparison_exp<TRes> get name;
   CopyWith$Input$songs_bool_exp<TRes> get songs;
@@ -300,6 +300,7 @@ class _CopyWithImpl$Input$artists_bool_exp<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? $_and = _undefined,
     Object? $_not = _undefined,
@@ -322,36 +323,40 @@ class _CopyWithImpl$Input$artists_bool_exp<TRes>
           'thumbnail_url': (thumbnail_url as Input$String_comparison_exp?),
       }));
 
+  @override
   TRes $_and(
           Iterable<Input$artists_bool_exp>? Function(
                   Iterable<
                       CopyWith$Input$artists_bool_exp<Input$artists_bool_exp>>?)
-              _fn) =>
+              fn) =>
       call(
           $_and:
-              _fn(_instance.$_and?.map((e) => CopyWith$Input$artists_bool_exp(
+              fn(_instance.$_and?.map((e) => CopyWith$Input$artists_bool_exp(
                     e,
                     (i) => i,
                   )))?.toList());
 
+  @override
   CopyWith$Input$artists_bool_exp<TRes> get $_not {
-    final local$$_not = _instance.$_not;
-    return local$$_not == null
+    final local$$Not = _instance.$_not;
+    return local$$Not == null
         ? CopyWith$Input$artists_bool_exp.stub(_then(_instance))
-        : CopyWith$Input$artists_bool_exp(local$$_not, (e) => call($_not: e));
+        : CopyWith$Input$artists_bool_exp(local$$Not, (e) => call($_not: e));
   }
 
+  @override
   TRes $_or(
           Iterable<Input$artists_bool_exp>? Function(
                   Iterable<
                       CopyWith$Input$artists_bool_exp<Input$artists_bool_exp>>?)
-              _fn) =>
+              fn) =>
       call(
-          $_or: _fn(_instance.$_or?.map((e) => CopyWith$Input$artists_bool_exp(
+          $_or: fn(_instance.$_or?.map((e) => CopyWith$Input$artists_bool_exp(
                 e,
                 (i) => i,
               )))?.toList());
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get id {
     final local$id = _instance.id;
     return local$id == null
@@ -359,6 +364,7 @@ class _CopyWithImpl$Input$artists_bool_exp<TRes>
         : CopyWith$Input$Int_comparison_exp(local$id, (e) => call(id: e));
   }
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get name {
     final local$name = _instance.name;
     return local$name == null
@@ -367,6 +373,7 @@ class _CopyWithImpl$Input$artists_bool_exp<TRes>
             local$name, (e) => call(name: e));
   }
 
+  @override
   CopyWith$Input$songs_bool_exp<TRes> get songs {
     final local$songs = _instance.songs;
     return local$songs == null
@@ -374,12 +381,13 @@ class _CopyWithImpl$Input$artists_bool_exp<TRes>
         : CopyWith$Input$songs_bool_exp(local$songs, (e) => call(songs: e));
   }
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get thumbnail_url {
-    final local$thumbnail_url = _instance.thumbnail_url;
-    return local$thumbnail_url == null
+    final local$thumbnailUrl = _instance.thumbnail_url;
+    return local$thumbnailUrl == null
         ? CopyWith$Input$String_comparison_exp.stub(_then(_instance))
         : CopyWith$Input$String_comparison_exp(
-            local$thumbnail_url, (e) => call(thumbnail_url: e));
+            local$thumbnailUrl, (e) => call(thumbnail_url: e));
   }
 }
 
@@ -387,8 +395,9 @@ class _CopyWithStubImpl$Input$artists_bool_exp<TRes>
     implements CopyWith$Input$artists_bool_exp<TRes> {
   _CopyWithStubImpl$Input$artists_bool_exp(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     List<Input$artists_bool_exp>? $_and,
     Input$artists_bool_exp? $_not,
@@ -400,22 +409,29 @@ class _CopyWithStubImpl$Input$artists_bool_exp<TRes>
   }) =>
       _res;
 
-  $_and(_fn) => _res;
+  @override
+  $_and(fn) => _res;
 
+  @override
   CopyWith$Input$artists_bool_exp<TRes> get $_not =>
       CopyWith$Input$artists_bool_exp.stub(_res);
 
-  $_or(_fn) => _res;
+  @override
+  $_or(fn) => _res;
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get id =>
       CopyWith$Input$Int_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get name =>
       CopyWith$Input$String_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$songs_bool_exp<TRes> get songs =>
       CopyWith$Input$songs_bool_exp.stub(_res);
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get thumbnail_url =>
       CopyWith$Input$String_comparison_exp.stub(_res);
 }
@@ -449,17 +465,17 @@ class Input$artists_order_by {
           l$name == null ? null : fromJson$Enum$order_by((l$name as String));
     }
     if (data.containsKey('songs_aggregate')) {
-      final l$songs_aggregate = data['songs_aggregate'];
-      result$data['songs_aggregate'] = l$songs_aggregate == null
+      final l$songsAggregate = data['songs_aggregate'];
+      result$data['songs_aggregate'] = l$songsAggregate == null
           ? null
           : Input$songs_aggregate_order_by.fromJson(
-              (l$songs_aggregate as Map<String, dynamic>));
+              (l$songsAggregate as Map<String, dynamic>));
     }
     if (data.containsKey('thumbnail_url')) {
-      final l$thumbnail_url = data['thumbnail_url'];
-      result$data['thumbnail_url'] = l$thumbnail_url == null
+      final l$thumbnailUrl = data['thumbnail_url'];
+      result$data['thumbnail_url'] = l$thumbnailUrl == null
           ? null
-          : fromJson$Enum$order_by((l$thumbnail_url as String));
+          : fromJson$Enum$order_by((l$thumbnailUrl as String));
     }
     return Input$artists_order_by._(result$data);
   }
@@ -488,14 +504,14 @@ class Input$artists_order_by {
           l$name == null ? null : toJson$Enum$order_by(l$name);
     }
     if (_$data.containsKey('songs_aggregate')) {
-      final l$songs_aggregate = songs_aggregate;
-      result$data['songs_aggregate'] = l$songs_aggregate?.toJson();
+      final l$songsAggregate = songs_aggregate;
+      result$data['songs_aggregate'] = l$songsAggregate?.toJson();
     }
     if (_$data.containsKey('thumbnail_url')) {
-      final l$thumbnail_url = thumbnail_url;
-      result$data['thumbnail_url'] = l$thumbnail_url == null
+      final l$thumbnailUrl = thumbnail_url;
+      result$data['thumbnail_url'] = l$thumbnailUrl == null
           ? null
-          : toJson$Enum$order_by(l$thumbnail_url);
+          : toJson$Enum$order_by(l$thumbnailUrl);
     }
     return result$data;
   }
@@ -511,7 +527,7 @@ class Input$artists_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$artists_order_by) ||
+    if (other is! Input$artists_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -531,22 +547,22 @@ class Input$artists_order_by {
     if (l$name != lOther$name) {
       return false;
     }
-    final l$songs_aggregate = songs_aggregate;
-    final lOther$songs_aggregate = other.songs_aggregate;
+    final l$songsAggregate = songs_aggregate;
+    final lother$songsAggregate = other.songs_aggregate;
     if (_$data.containsKey('songs_aggregate') !=
         other._$data.containsKey('songs_aggregate')) {
       return false;
     }
-    if (l$songs_aggregate != lOther$songs_aggregate) {
+    if (l$songsAggregate != lother$songsAggregate) {
       return false;
     }
-    final l$thumbnail_url = thumbnail_url;
-    final lOther$thumbnail_url = other.thumbnail_url;
+    final l$thumbnailUrl = thumbnail_url;
+    final lother$thumbnailUrl = other.thumbnail_url;
     if (_$data.containsKey('thumbnail_url') !=
         other._$data.containsKey('thumbnail_url')) {
       return false;
     }
-    if (l$thumbnail_url != lOther$thumbnail_url) {
+    if (l$thumbnailUrl != lother$thumbnailUrl) {
       return false;
     }
     return true;
@@ -556,13 +572,13 @@ class Input$artists_order_by {
   int get hashCode {
     final l$id = id;
     final l$name = name;
-    final l$songs_aggregate = songs_aggregate;
-    final l$thumbnail_url = thumbnail_url;
+    final l$songsAggregate = songs_aggregate;
+    final l$thumbnailUrl = thumbnail_url;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('name') ? l$name : const {},
-      _$data.containsKey('songs_aggregate') ? l$songs_aggregate : const {},
-      _$data.containsKey('thumbnail_url') ? l$thumbnail_url : const {},
+      _$data.containsKey('songs_aggregate') ? l$songsAggregate : const {},
+      _$data.containsKey('thumbnail_url') ? l$thumbnailUrl : const {},
     ]);
   }
 }
@@ -598,6 +614,7 @@ class _CopyWithImpl$Input$artists_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? name = _undefined,
@@ -615,12 +632,13 @@ class _CopyWithImpl$Input$artists_order_by<TRes>
           'thumbnail_url': (thumbnail_url as Enum$order_by?),
       }));
 
+  @override
   CopyWith$Input$songs_aggregate_order_by<TRes> get songs_aggregate {
-    final local$songs_aggregate = _instance.songs_aggregate;
-    return local$songs_aggregate == null
+    final local$songsAggregate = _instance.songs_aggregate;
+    return local$songsAggregate == null
         ? CopyWith$Input$songs_aggregate_order_by.stub(_then(_instance))
         : CopyWith$Input$songs_aggregate_order_by(
-            local$songs_aggregate, (e) => call(songs_aggregate: e));
+            local$songsAggregate, (e) => call(songs_aggregate: e));
   }
 }
 
@@ -628,8 +646,9 @@ class _CopyWithStubImpl$Input$artists_order_by<TRes>
     implements CopyWith$Input$artists_order_by<TRes> {
   _CopyWithStubImpl$Input$artists_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? name,
@@ -638,6 +657,7 @@ class _CopyWithStubImpl$Input$artists_order_by<TRes>
   }) =>
       _res;
 
+  @override
   CopyWith$Input$songs_aggregate_order_by<TRes> get songs_aggregate =>
       CopyWith$Input$songs_aggregate_order_by.stub(_res);
 }
@@ -657,10 +677,10 @@ class Input$artists_stream_cursor_input {
   factory Input$artists_stream_cursor_input.fromJson(
       Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
-    final l$initial_value = data['initial_value'];
+    final l$initialValue = data['initial_value'];
     result$data['initial_value'] =
         Input$artists_stream_cursor_value_input.fromJson(
-            (l$initial_value as Map<String, dynamic>));
+            (l$initialValue as Map<String, dynamic>));
     if (data.containsKey('ordering')) {
       final l$ordering = data['ordering'];
       result$data['ordering'] = l$ordering == null
@@ -680,8 +700,8 @@ class Input$artists_stream_cursor_input {
 
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
-    final l$initial_value = initial_value;
-    result$data['initial_value'] = l$initial_value.toJson();
+    final l$initialValue = initial_value;
+    result$data['initial_value'] = l$initialValue.toJson();
     if (_$data.containsKey('ordering')) {
       final l$ordering = ordering;
       result$data['ordering'] =
@@ -701,13 +721,13 @@ class Input$artists_stream_cursor_input {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$artists_stream_cursor_input) ||
+    if (other is! Input$artists_stream_cursor_input ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$initial_value = initial_value;
-    final lOther$initial_value = other.initial_value;
-    if (l$initial_value != lOther$initial_value) {
+    final l$initialValue = initial_value;
+    final lother$initialValue = other.initial_value;
+    if (l$initialValue != lother$initialValue) {
       return false;
     }
     final l$ordering = ordering;
@@ -724,10 +744,10 @@ class Input$artists_stream_cursor_input {
 
   @override
   int get hashCode {
-    final l$initial_value = initial_value;
+    final l$initialValue = initial_value;
     final l$ordering = ordering;
     return Object.hashAll([
-      l$initial_value,
+      l$initialValue,
       _$data.containsKey('ordering') ? l$ordering : const {},
     ]);
   }
@@ -762,6 +782,7 @@ class _CopyWithImpl$Input$artists_stream_cursor_input<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? initial_value = _undefined,
     Object? ordering = _undefined,
@@ -775,10 +796,11 @@ class _CopyWithImpl$Input$artists_stream_cursor_input<TRes>
           'ordering': (ordering as Enum$cursor_ordering?),
       }));
 
+  @override
   CopyWith$Input$artists_stream_cursor_value_input<TRes> get initial_value {
-    final local$initial_value = _instance.initial_value;
+    final local$initialValue = _instance.initial_value;
     return CopyWith$Input$artists_stream_cursor_value_input(
-        local$initial_value, (e) => call(initial_value: e));
+        local$initialValue, (e) => call(initial_value: e));
   }
 }
 
@@ -786,14 +808,16 @@ class _CopyWithStubImpl$Input$artists_stream_cursor_input<TRes>
     implements CopyWith$Input$artists_stream_cursor_input<TRes> {
   _CopyWithStubImpl$Input$artists_stream_cursor_input(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Input$artists_stream_cursor_value_input? initial_value,
     Enum$cursor_ordering? ordering,
   }) =>
       _res;
 
+  @override
   CopyWith$Input$artists_stream_cursor_value_input<TRes> get initial_value =>
       CopyWith$Input$artists_stream_cursor_value_input.stub(_res);
 }
@@ -824,8 +848,8 @@ class Input$artists_stream_cursor_value_input {
       result$data['name'] = (l$name as String?);
     }
     if (data.containsKey('thumbnail_url')) {
-      final l$thumbnail_url = data['thumbnail_url'];
-      result$data['thumbnail_url'] = (l$thumbnail_url as String?);
+      final l$thumbnailUrl = data['thumbnail_url'];
+      result$data['thumbnail_url'] = (l$thumbnailUrl as String?);
     }
     return Input$artists_stream_cursor_value_input._(result$data);
   }
@@ -849,8 +873,8 @@ class Input$artists_stream_cursor_value_input {
       result$data['name'] = l$name;
     }
     if (_$data.containsKey('thumbnail_url')) {
-      final l$thumbnail_url = thumbnail_url;
-      result$data['thumbnail_url'] = l$thumbnail_url;
+      final l$thumbnailUrl = thumbnail_url;
+      result$data['thumbnail_url'] = l$thumbnailUrl;
     }
     return result$data;
   }
@@ -867,7 +891,7 @@ class Input$artists_stream_cursor_value_input {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$artists_stream_cursor_value_input) ||
+    if (other is! Input$artists_stream_cursor_value_input ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -887,13 +911,13 @@ class Input$artists_stream_cursor_value_input {
     if (l$name != lOther$name) {
       return false;
     }
-    final l$thumbnail_url = thumbnail_url;
-    final lOther$thumbnail_url = other.thumbnail_url;
+    final l$thumbnailUrl = thumbnail_url;
+    final lother$thumbnailUrl = other.thumbnail_url;
     if (_$data.containsKey('thumbnail_url') !=
         other._$data.containsKey('thumbnail_url')) {
       return false;
     }
-    if (l$thumbnail_url != lOther$thumbnail_url) {
+    if (l$thumbnailUrl != lother$thumbnailUrl) {
       return false;
     }
     return true;
@@ -903,11 +927,11 @@ class Input$artists_stream_cursor_value_input {
   int get hashCode {
     final l$id = id;
     final l$name = name;
-    final l$thumbnail_url = thumbnail_url;
+    final l$thumbnailUrl = thumbnail_url;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('name') ? l$name : const {},
-      _$data.containsKey('thumbnail_url') ? l$thumbnail_url : const {},
+      _$data.containsKey('thumbnail_url') ? l$thumbnailUrl : const {},
     ]);
   }
 }
@@ -941,6 +965,7 @@ class _CopyWithImpl$Input$artists_stream_cursor_value_input<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? name = _undefined,
@@ -959,8 +984,9 @@ class _CopyWithStubImpl$Input$artists_stream_cursor_value_input<TRes>
     implements CopyWith$Input$artists_stream_cursor_value_input<TRes> {
   _CopyWithStubImpl$Input$artists_stream_cursor_value_input(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     int? id,
     String? name,
@@ -998,42 +1024,42 @@ class Input$Boolean_comparison_exp {
   factory Input$Boolean_comparison_exp.fromJson(Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
     if (data.containsKey('_eq')) {
-      final l$$_eq = data['_eq'];
-      result$data['_eq'] = (l$$_eq as bool?);
+      final l$$Eq = data['_eq'];
+      result$data['_eq'] = (l$$Eq as bool?);
     }
     if (data.containsKey('_gt')) {
-      final l$$_gt = data['_gt'];
-      result$data['_gt'] = (l$$_gt as bool?);
+      final l$$Gt = data['_gt'];
+      result$data['_gt'] = (l$$Gt as bool?);
     }
     if (data.containsKey('_gte')) {
-      final l$$_gte = data['_gte'];
-      result$data['_gte'] = (l$$_gte as bool?);
+      final l$$Gte = data['_gte'];
+      result$data['_gte'] = (l$$Gte as bool?);
     }
     if (data.containsKey('_in')) {
-      final l$$_in = data['_in'];
+      final l$$In = data['_in'];
       result$data['_in'] =
-          (l$$_in as List<dynamic>?)?.map((e) => (e as bool)).toList();
+          (l$$In as List<dynamic>?)?.map((e) => (e as bool)).toList();
     }
     if (data.containsKey('_is_null')) {
-      final l$$_is_null = data['_is_null'];
-      result$data['_is_null'] = (l$$_is_null as bool?);
+      final l$$IsNull = data['_is_null'];
+      result$data['_is_null'] = (l$$IsNull as bool?);
     }
     if (data.containsKey('_lt')) {
-      final l$$_lt = data['_lt'];
-      result$data['_lt'] = (l$$_lt as bool?);
+      final l$$Lt = data['_lt'];
+      result$data['_lt'] = (l$$Lt as bool?);
     }
     if (data.containsKey('_lte')) {
-      final l$$_lte = data['_lte'];
-      result$data['_lte'] = (l$$_lte as bool?);
+      final l$$Lte = data['_lte'];
+      result$data['_lte'] = (l$$Lte as bool?);
     }
     if (data.containsKey('_neq')) {
-      final l$$_neq = data['_neq'];
-      result$data['_neq'] = (l$$_neq as bool?);
+      final l$$Neq = data['_neq'];
+      result$data['_neq'] = (l$$Neq as bool?);
     }
     if (data.containsKey('_nin')) {
-      final l$$_nin = data['_nin'];
+      final l$$Nin = data['_nin'];
       result$data['_nin'] =
-          (l$$_nin as List<dynamic>?)?.map((e) => (e as bool)).toList();
+          (l$$Nin as List<dynamic>?)?.map((e) => (e as bool)).toList();
     }
     return Input$Boolean_comparison_exp._(result$data);
   }
@@ -1061,40 +1087,40 @@ class Input$Boolean_comparison_exp {
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
     if (_$data.containsKey('_eq')) {
-      final l$$_eq = $_eq;
-      result$data['_eq'] = l$$_eq;
+      final l$$Eq = $_eq;
+      result$data['_eq'] = l$$Eq;
     }
     if (_$data.containsKey('_gt')) {
-      final l$$_gt = $_gt;
-      result$data['_gt'] = l$$_gt;
+      final l$$Gt = $_gt;
+      result$data['_gt'] = l$$Gt;
     }
     if (_$data.containsKey('_gte')) {
-      final l$$_gte = $_gte;
-      result$data['_gte'] = l$$_gte;
+      final l$$Gte = $_gte;
+      result$data['_gte'] = l$$Gte;
     }
     if (_$data.containsKey('_in')) {
-      final l$$_in = $_in;
-      result$data['_in'] = l$$_in?.map((e) => e).toList();
+      final l$$In = $_in;
+      result$data['_in'] = l$$In?.map((e) => e).toList();
     }
     if (_$data.containsKey('_is_null')) {
-      final l$$_is_null = $_is_null;
-      result$data['_is_null'] = l$$_is_null;
+      final l$$IsNull = $_is_null;
+      result$data['_is_null'] = l$$IsNull;
     }
     if (_$data.containsKey('_lt')) {
-      final l$$_lt = $_lt;
-      result$data['_lt'] = l$$_lt;
+      final l$$Lt = $_lt;
+      result$data['_lt'] = l$$Lt;
     }
     if (_$data.containsKey('_lte')) {
-      final l$$_lte = $_lte;
-      result$data['_lte'] = l$$_lte;
+      final l$$Lte = $_lte;
+      result$data['_lte'] = l$$Lte;
     }
     if (_$data.containsKey('_neq')) {
-      final l$$_neq = $_neq;
-      result$data['_neq'] = l$$_neq;
+      final l$$Neq = $_neq;
+      result$data['_neq'] = l$$Neq;
     }
     if (_$data.containsKey('_nin')) {
-      final l$$_nin = $_nin;
-      result$data['_nin'] = l$$_nin?.map((e) => e).toList();
+      final l$$Nin = $_nin;
+      result$data['_nin'] = l$$Nin?.map((e) => e).toList();
     }
     return result$data;
   }
@@ -1110,103 +1136,103 @@ class Input$Boolean_comparison_exp {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$Boolean_comparison_exp) ||
+    if (other is! Input$Boolean_comparison_exp ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$$_eq = $_eq;
-    final lOther$$_eq = other.$_eq;
+    final l$$Eq = $_eq;
+    final lother$$Eq = other.$_eq;
     if (_$data.containsKey('_eq') != other._$data.containsKey('_eq')) {
       return false;
     }
-    if (l$$_eq != lOther$$_eq) {
+    if (l$$Eq != lother$$Eq) {
       return false;
     }
-    final l$$_gt = $_gt;
-    final lOther$$_gt = other.$_gt;
+    final l$$Gt = $_gt;
+    final lother$$Gt = other.$_gt;
     if (_$data.containsKey('_gt') != other._$data.containsKey('_gt')) {
       return false;
     }
-    if (l$$_gt != lOther$$_gt) {
+    if (l$$Gt != lother$$Gt) {
       return false;
     }
-    final l$$_gte = $_gte;
-    final lOther$$_gte = other.$_gte;
+    final l$$Gte = $_gte;
+    final lother$$Gte = other.$_gte;
     if (_$data.containsKey('_gte') != other._$data.containsKey('_gte')) {
       return false;
     }
-    if (l$$_gte != lOther$$_gte) {
+    if (l$$Gte != lother$$Gte) {
       return false;
     }
-    final l$$_in = $_in;
-    final lOther$$_in = other.$_in;
+    final l$$In = $_in;
+    final lother$$In = other.$_in;
     if (_$data.containsKey('_in') != other._$data.containsKey('_in')) {
       return false;
     }
-    if (l$$_in != null && lOther$$_in != null) {
-      if (l$$_in.length != lOther$$_in.length) {
+    if (l$$In != null && lother$$In != null) {
+      if (l$$In.length != lother$$In.length) {
         return false;
       }
-      for (int i = 0; i < l$$_in.length; i++) {
-        final l$$_in$entry = l$$_in[i];
-        final lOther$$_in$entry = lOther$$_in[i];
-        if (l$$_in$entry != lOther$$_in$entry) {
+      for (int i = 0; i < l$$In.length; i++) {
+        final l$$In$entry = l$$In[i];
+        final lother$$In$entry = lother$$In[i];
+        if (l$$In$entry != lother$$In$entry) {
           return false;
         }
       }
-    } else if (l$$_in != lOther$$_in) {
+    } else if (l$$In != lother$$In) {
       return false;
     }
-    final l$$_is_null = $_is_null;
-    final lOther$$_is_null = other.$_is_null;
+    final l$$IsNull = $_is_null;
+    final lother$$IsNull = other.$_is_null;
     if (_$data.containsKey('_is_null') !=
         other._$data.containsKey('_is_null')) {
       return false;
     }
-    if (l$$_is_null != lOther$$_is_null) {
+    if (l$$IsNull != lother$$IsNull) {
       return false;
     }
-    final l$$_lt = $_lt;
-    final lOther$$_lt = other.$_lt;
+    final l$$Lt = $_lt;
+    final lother$$Lt = other.$_lt;
     if (_$data.containsKey('_lt') != other._$data.containsKey('_lt')) {
       return false;
     }
-    if (l$$_lt != lOther$$_lt) {
+    if (l$$Lt != lother$$Lt) {
       return false;
     }
-    final l$$_lte = $_lte;
-    final lOther$$_lte = other.$_lte;
+    final l$$Lte = $_lte;
+    final lother$$Lte = other.$_lte;
     if (_$data.containsKey('_lte') != other._$data.containsKey('_lte')) {
       return false;
     }
-    if (l$$_lte != lOther$$_lte) {
+    if (l$$Lte != lother$$Lte) {
       return false;
     }
-    final l$$_neq = $_neq;
-    final lOther$$_neq = other.$_neq;
+    final l$$Neq = $_neq;
+    final lother$$Neq = other.$_neq;
     if (_$data.containsKey('_neq') != other._$data.containsKey('_neq')) {
       return false;
     }
-    if (l$$_neq != lOther$$_neq) {
+    if (l$$Neq != lother$$Neq) {
       return false;
     }
-    final l$$_nin = $_nin;
-    final lOther$$_nin = other.$_nin;
+    final l$$Nin = $_nin;
+    final lother$$Nin = other.$_nin;
     if (_$data.containsKey('_nin') != other._$data.containsKey('_nin')) {
       return false;
     }
-    if (l$$_nin != null && lOther$$_nin != null) {
-      if (l$$_nin.length != lOther$$_nin.length) {
+    if (l$$Nin != null && lother$$Nin != null) {
+      if (l$$Nin.length != lother$$Nin.length) {
         return false;
       }
-      for (int i = 0; i < l$$_nin.length; i++) {
-        final l$$_nin$entry = l$$_nin[i];
-        final lOther$$_nin$entry = lOther$$_nin[i];
-        if (l$$_nin$entry != lOther$$_nin$entry) {
+      for (int i = 0; i < l$$Nin.length; i++) {
+        final l$$Nin$entry = l$$Nin[i];
+        final lother$$Nin$entry = lother$$Nin[i];
+        if (l$$Nin$entry != lother$$Nin$entry) {
           return false;
         }
       }
-    } else if (l$$_nin != lOther$$_nin) {
+    } else if (l$$Nin != lother$$Nin) {
       return false;
     }
     return true;
@@ -1214,32 +1240,32 @@ class Input$Boolean_comparison_exp {
 
   @override
   int get hashCode {
-    final l$$_eq = $_eq;
-    final l$$_gt = $_gt;
-    final l$$_gte = $_gte;
-    final l$$_in = $_in;
-    final l$$_is_null = $_is_null;
-    final l$$_lt = $_lt;
-    final l$$_lte = $_lte;
-    final l$$_neq = $_neq;
-    final l$$_nin = $_nin;
+    final l$$Eq = $_eq;
+    final l$$Gt = $_gt;
+    final l$$Gte = $_gte;
+    final l$$In = $_in;
+    final l$$IsNull = $_is_null;
+    final l$$Lt = $_lt;
+    final l$$Lte = $_lte;
+    final l$$Neq = $_neq;
+    final l$$Nin = $_nin;
     return Object.hashAll([
-      _$data.containsKey('_eq') ? l$$_eq : const {},
-      _$data.containsKey('_gt') ? l$$_gt : const {},
-      _$data.containsKey('_gte') ? l$$_gte : const {},
+      _$data.containsKey('_eq') ? l$$Eq : const {},
+      _$data.containsKey('_gt') ? l$$Gt : const {},
+      _$data.containsKey('_gte') ? l$$Gte : const {},
       _$data.containsKey('_in')
-          ? l$$_in == null
+          ? l$$In == null
               ? null
-              : Object.hashAll(l$$_in.map((v) => v))
+              : Object.hashAll(l$$In.map((v) => v))
           : const {},
-      _$data.containsKey('_is_null') ? l$$_is_null : const {},
-      _$data.containsKey('_lt') ? l$$_lt : const {},
-      _$data.containsKey('_lte') ? l$$_lte : const {},
-      _$data.containsKey('_neq') ? l$$_neq : const {},
+      _$data.containsKey('_is_null') ? l$$IsNull : const {},
+      _$data.containsKey('_lt') ? l$$Lt : const {},
+      _$data.containsKey('_lte') ? l$$Lte : const {},
+      _$data.containsKey('_neq') ? l$$Neq : const {},
       _$data.containsKey('_nin')
-          ? l$$_nin == null
+          ? l$$Nin == null
               ? null
-              : Object.hashAll(l$$_nin.map((v) => v))
+              : Object.hashAll(l$$Nin.map((v) => v))
           : const {},
     ]);
   }
@@ -1280,6 +1306,7 @@ class _CopyWithImpl$Input$Boolean_comparison_exp<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? $_eq = _undefined,
     Object? $_gt = _undefined,
@@ -1309,8 +1336,9 @@ class _CopyWithStubImpl$Input$Boolean_comparison_exp<TRes>
     implements CopyWith$Input$Boolean_comparison_exp<TRes> {
   _CopyWithStubImpl$Input$Boolean_comparison_exp(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     bool? $_eq,
     bool? $_gt,
@@ -1354,42 +1382,42 @@ class Input$Int_comparison_exp {
   factory Input$Int_comparison_exp.fromJson(Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
     if (data.containsKey('_eq')) {
-      final l$$_eq = data['_eq'];
-      result$data['_eq'] = (l$$_eq as int?);
+      final l$$Eq = data['_eq'];
+      result$data['_eq'] = (l$$Eq as int?);
     }
     if (data.containsKey('_gt')) {
-      final l$$_gt = data['_gt'];
-      result$data['_gt'] = (l$$_gt as int?);
+      final l$$Gt = data['_gt'];
+      result$data['_gt'] = (l$$Gt as int?);
     }
     if (data.containsKey('_gte')) {
-      final l$$_gte = data['_gte'];
-      result$data['_gte'] = (l$$_gte as int?);
+      final l$$Gte = data['_gte'];
+      result$data['_gte'] = (l$$Gte as int?);
     }
     if (data.containsKey('_in')) {
-      final l$$_in = data['_in'];
+      final l$$In = data['_in'];
       result$data['_in'] =
-          (l$$_in as List<dynamic>?)?.map((e) => (e as int)).toList();
+          (l$$In as List<dynamic>?)?.map((e) => (e as int)).toList();
     }
     if (data.containsKey('_is_null')) {
-      final l$$_is_null = data['_is_null'];
-      result$data['_is_null'] = (l$$_is_null as bool?);
+      final l$$IsNull = data['_is_null'];
+      result$data['_is_null'] = (l$$IsNull as bool?);
     }
     if (data.containsKey('_lt')) {
-      final l$$_lt = data['_lt'];
-      result$data['_lt'] = (l$$_lt as int?);
+      final l$$Lt = data['_lt'];
+      result$data['_lt'] = (l$$Lt as int?);
     }
     if (data.containsKey('_lte')) {
-      final l$$_lte = data['_lte'];
-      result$data['_lte'] = (l$$_lte as int?);
+      final l$$Lte = data['_lte'];
+      result$data['_lte'] = (l$$Lte as int?);
     }
     if (data.containsKey('_neq')) {
-      final l$$_neq = data['_neq'];
-      result$data['_neq'] = (l$$_neq as int?);
+      final l$$Neq = data['_neq'];
+      result$data['_neq'] = (l$$Neq as int?);
     }
     if (data.containsKey('_nin')) {
-      final l$$_nin = data['_nin'];
+      final l$$Nin = data['_nin'];
       result$data['_nin'] =
-          (l$$_nin as List<dynamic>?)?.map((e) => (e as int)).toList();
+          (l$$Nin as List<dynamic>?)?.map((e) => (e as int)).toList();
     }
     return Input$Int_comparison_exp._(result$data);
   }
@@ -1417,40 +1445,40 @@ class Input$Int_comparison_exp {
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
     if (_$data.containsKey('_eq')) {
-      final l$$_eq = $_eq;
-      result$data['_eq'] = l$$_eq;
+      final l$$Eq = $_eq;
+      result$data['_eq'] = l$$Eq;
     }
     if (_$data.containsKey('_gt')) {
-      final l$$_gt = $_gt;
-      result$data['_gt'] = l$$_gt;
+      final l$$Gt = $_gt;
+      result$data['_gt'] = l$$Gt;
     }
     if (_$data.containsKey('_gte')) {
-      final l$$_gte = $_gte;
-      result$data['_gte'] = l$$_gte;
+      final l$$Gte = $_gte;
+      result$data['_gte'] = l$$Gte;
     }
     if (_$data.containsKey('_in')) {
-      final l$$_in = $_in;
-      result$data['_in'] = l$$_in?.map((e) => e).toList();
+      final l$$In = $_in;
+      result$data['_in'] = l$$In?.map((e) => e).toList();
     }
     if (_$data.containsKey('_is_null')) {
-      final l$$_is_null = $_is_null;
-      result$data['_is_null'] = l$$_is_null;
+      final l$$IsNull = $_is_null;
+      result$data['_is_null'] = l$$IsNull;
     }
     if (_$data.containsKey('_lt')) {
-      final l$$_lt = $_lt;
-      result$data['_lt'] = l$$_lt;
+      final l$$Lt = $_lt;
+      result$data['_lt'] = l$$Lt;
     }
     if (_$data.containsKey('_lte')) {
-      final l$$_lte = $_lte;
-      result$data['_lte'] = l$$_lte;
+      final l$$Lte = $_lte;
+      result$data['_lte'] = l$$Lte;
     }
     if (_$data.containsKey('_neq')) {
-      final l$$_neq = $_neq;
-      result$data['_neq'] = l$$_neq;
+      final l$$Neq = $_neq;
+      result$data['_neq'] = l$$Neq;
     }
     if (_$data.containsKey('_nin')) {
-      final l$$_nin = $_nin;
-      result$data['_nin'] = l$$_nin?.map((e) => e).toList();
+      final l$$Nin = $_nin;
+      result$data['_nin'] = l$$Nin?.map((e) => e).toList();
     }
     return result$data;
   }
@@ -1466,103 +1494,103 @@ class Input$Int_comparison_exp {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$Int_comparison_exp) ||
+    if (other is! Input$Int_comparison_exp ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$$_eq = $_eq;
-    final lOther$$_eq = other.$_eq;
+    final l$$Eq = $_eq;
+    final lother$$Eq = other.$_eq;
     if (_$data.containsKey('_eq') != other._$data.containsKey('_eq')) {
       return false;
     }
-    if (l$$_eq != lOther$$_eq) {
+    if (l$$Eq != lother$$Eq) {
       return false;
     }
-    final l$$_gt = $_gt;
-    final lOther$$_gt = other.$_gt;
+    final l$$Gt = $_gt;
+    final lother$$Gt = other.$_gt;
     if (_$data.containsKey('_gt') != other._$data.containsKey('_gt')) {
       return false;
     }
-    if (l$$_gt != lOther$$_gt) {
+    if (l$$Gt != lother$$Gt) {
       return false;
     }
-    final l$$_gte = $_gte;
-    final lOther$$_gte = other.$_gte;
+    final l$$Gte = $_gte;
+    final lother$$Gte = other.$_gte;
     if (_$data.containsKey('_gte') != other._$data.containsKey('_gte')) {
       return false;
     }
-    if (l$$_gte != lOther$$_gte) {
+    if (l$$Gte != lother$$Gte) {
       return false;
     }
-    final l$$_in = $_in;
-    final lOther$$_in = other.$_in;
+    final l$$In = $_in;
+    final lother$$In = other.$_in;
     if (_$data.containsKey('_in') != other._$data.containsKey('_in')) {
       return false;
     }
-    if (l$$_in != null && lOther$$_in != null) {
-      if (l$$_in.length != lOther$$_in.length) {
+    if (l$$In != null && lother$$In != null) {
+      if (l$$In.length != lother$$In.length) {
         return false;
       }
-      for (int i = 0; i < l$$_in.length; i++) {
-        final l$$_in$entry = l$$_in[i];
-        final lOther$$_in$entry = lOther$$_in[i];
-        if (l$$_in$entry != lOther$$_in$entry) {
+      for (int i = 0; i < l$$In.length; i++) {
+        final l$$In$entry = l$$In[i];
+        final lother$$In$entry = lother$$In[i];
+        if (l$$In$entry != lother$$In$entry) {
           return false;
         }
       }
-    } else if (l$$_in != lOther$$_in) {
+    } else if (l$$In != lother$$In) {
       return false;
     }
-    final l$$_is_null = $_is_null;
-    final lOther$$_is_null = other.$_is_null;
+    final l$$IsNull = $_is_null;
+    final lother$$IsNull = other.$_is_null;
     if (_$data.containsKey('_is_null') !=
         other._$data.containsKey('_is_null')) {
       return false;
     }
-    if (l$$_is_null != lOther$$_is_null) {
+    if (l$$IsNull != lother$$IsNull) {
       return false;
     }
-    final l$$_lt = $_lt;
-    final lOther$$_lt = other.$_lt;
+    final l$$Lt = $_lt;
+    final lother$$Lt = other.$_lt;
     if (_$data.containsKey('_lt') != other._$data.containsKey('_lt')) {
       return false;
     }
-    if (l$$_lt != lOther$$_lt) {
+    if (l$$Lt != lother$$Lt) {
       return false;
     }
-    final l$$_lte = $_lte;
-    final lOther$$_lte = other.$_lte;
+    final l$$Lte = $_lte;
+    final lother$$Lte = other.$_lte;
     if (_$data.containsKey('_lte') != other._$data.containsKey('_lte')) {
       return false;
     }
-    if (l$$_lte != lOther$$_lte) {
+    if (l$$Lte != lother$$Lte) {
       return false;
     }
-    final l$$_neq = $_neq;
-    final lOther$$_neq = other.$_neq;
+    final l$$Neq = $_neq;
+    final lother$$Neq = other.$_neq;
     if (_$data.containsKey('_neq') != other._$data.containsKey('_neq')) {
       return false;
     }
-    if (l$$_neq != lOther$$_neq) {
+    if (l$$Neq != lother$$Neq) {
       return false;
     }
-    final l$$_nin = $_nin;
-    final lOther$$_nin = other.$_nin;
+    final l$$Nin = $_nin;
+    final lother$$Nin = other.$_nin;
     if (_$data.containsKey('_nin') != other._$data.containsKey('_nin')) {
       return false;
     }
-    if (l$$_nin != null && lOther$$_nin != null) {
-      if (l$$_nin.length != lOther$$_nin.length) {
+    if (l$$Nin != null && lother$$Nin != null) {
+      if (l$$Nin.length != lother$$Nin.length) {
         return false;
       }
-      for (int i = 0; i < l$$_nin.length; i++) {
-        final l$$_nin$entry = l$$_nin[i];
-        final lOther$$_nin$entry = lOther$$_nin[i];
-        if (l$$_nin$entry != lOther$$_nin$entry) {
+      for (int i = 0; i < l$$Nin.length; i++) {
+        final l$$Nin$entry = l$$Nin[i];
+        final lother$$Nin$entry = lother$$Nin[i];
+        if (l$$Nin$entry != lother$$Nin$entry) {
           return false;
         }
       }
-    } else if (l$$_nin != lOther$$_nin) {
+    } else if (l$$Nin != lother$$Nin) {
       return false;
     }
     return true;
@@ -1570,32 +1598,32 @@ class Input$Int_comparison_exp {
 
   @override
   int get hashCode {
-    final l$$_eq = $_eq;
-    final l$$_gt = $_gt;
-    final l$$_gte = $_gte;
-    final l$$_in = $_in;
-    final l$$_is_null = $_is_null;
-    final l$$_lt = $_lt;
-    final l$$_lte = $_lte;
-    final l$$_neq = $_neq;
-    final l$$_nin = $_nin;
+    final l$$Eq = $_eq;
+    final l$$Gt = $_gt;
+    final l$$Gte = $_gte;
+    final l$$In = $_in;
+    final l$$IsNull = $_is_null;
+    final l$$Lt = $_lt;
+    final l$$Lte = $_lte;
+    final l$$Neq = $_neq;
+    final l$$Nin = $_nin;
     return Object.hashAll([
-      _$data.containsKey('_eq') ? l$$_eq : const {},
-      _$data.containsKey('_gt') ? l$$_gt : const {},
-      _$data.containsKey('_gte') ? l$$_gte : const {},
+      _$data.containsKey('_eq') ? l$$Eq : const {},
+      _$data.containsKey('_gt') ? l$$Gt : const {},
+      _$data.containsKey('_gte') ? l$$Gte : const {},
       _$data.containsKey('_in')
-          ? l$$_in == null
+          ? l$$In == null
               ? null
-              : Object.hashAll(l$$_in.map((v) => v))
+              : Object.hashAll(l$$In.map((v) => v))
           : const {},
-      _$data.containsKey('_is_null') ? l$$_is_null : const {},
-      _$data.containsKey('_lt') ? l$$_lt : const {},
-      _$data.containsKey('_lte') ? l$$_lte : const {},
-      _$data.containsKey('_neq') ? l$$_neq : const {},
+      _$data.containsKey('_is_null') ? l$$IsNull : const {},
+      _$data.containsKey('_lt') ? l$$Lt : const {},
+      _$data.containsKey('_lte') ? l$$Lte : const {},
+      _$data.containsKey('_neq') ? l$$Neq : const {},
       _$data.containsKey('_nin')
-          ? l$$_nin == null
+          ? l$$Nin == null
               ? null
-              : Object.hashAll(l$$_nin.map((v) => v))
+              : Object.hashAll(l$$Nin.map((v) => v))
           : const {},
     ]);
   }
@@ -1636,6 +1664,7 @@ class _CopyWithImpl$Input$Int_comparison_exp<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? $_eq = _undefined,
     Object? $_gt = _undefined,
@@ -1665,8 +1694,9 @@ class _CopyWithStubImpl$Input$Int_comparison_exp<TRes>
     implements CopyWith$Input$Int_comparison_exp<TRes> {
   _CopyWithStubImpl$Input$Int_comparison_exp(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     int? $_eq,
     int? $_gt,
@@ -1744,18 +1774,18 @@ class Input$posts_aggregate_order_by {
               (l$stddev as Map<String, dynamic>));
     }
     if (data.containsKey('stddev_pop')) {
-      final l$stddev_pop = data['stddev_pop'];
-      result$data['stddev_pop'] = l$stddev_pop == null
+      final l$stddevPop = data['stddev_pop'];
+      result$data['stddev_pop'] = l$stddevPop == null
           ? null
           : Input$posts_stddev_pop_order_by.fromJson(
-              (l$stddev_pop as Map<String, dynamic>));
+              (l$stddevPop as Map<String, dynamic>));
     }
     if (data.containsKey('stddev_samp')) {
-      final l$stddev_samp = data['stddev_samp'];
-      result$data['stddev_samp'] = l$stddev_samp == null
+      final l$stddevSamp = data['stddev_samp'];
+      result$data['stddev_samp'] = l$stddevSamp == null
           ? null
           : Input$posts_stddev_samp_order_by.fromJson(
-              (l$stddev_samp as Map<String, dynamic>));
+              (l$stddevSamp as Map<String, dynamic>));
     }
     if (data.containsKey('sum')) {
       final l$sum = data['sum'];
@@ -1764,18 +1794,18 @@ class Input$posts_aggregate_order_by {
           : Input$posts_sum_order_by.fromJson((l$sum as Map<String, dynamic>));
     }
     if (data.containsKey('var_pop')) {
-      final l$var_pop = data['var_pop'];
-      result$data['var_pop'] = l$var_pop == null
+      final l$varPop = data['var_pop'];
+      result$data['var_pop'] = l$varPop == null
           ? null
           : Input$posts_var_pop_order_by.fromJson(
-              (l$var_pop as Map<String, dynamic>));
+              (l$varPop as Map<String, dynamic>));
     }
     if (data.containsKey('var_samp')) {
-      final l$var_samp = data['var_samp'];
-      result$data['var_samp'] = l$var_samp == null
+      final l$varSamp = data['var_samp'];
+      result$data['var_samp'] = l$varSamp == null
           ? null
           : Input$posts_var_samp_order_by.fromJson(
-              (l$var_samp as Map<String, dynamic>));
+              (l$varSamp as Map<String, dynamic>));
     }
     if (data.containsKey('variance')) {
       final l$variance = data['variance'];
@@ -1845,24 +1875,24 @@ class Input$posts_aggregate_order_by {
       result$data['stddev'] = l$stddev?.toJson();
     }
     if (_$data.containsKey('stddev_pop')) {
-      final l$stddev_pop = stddev_pop;
-      result$data['stddev_pop'] = l$stddev_pop?.toJson();
+      final l$stddevPop = stddev_pop;
+      result$data['stddev_pop'] = l$stddevPop?.toJson();
     }
     if (_$data.containsKey('stddev_samp')) {
-      final l$stddev_samp = stddev_samp;
-      result$data['stddev_samp'] = l$stddev_samp?.toJson();
+      final l$stddevSamp = stddev_samp;
+      result$data['stddev_samp'] = l$stddevSamp?.toJson();
     }
     if (_$data.containsKey('sum')) {
       final l$sum = sum;
       result$data['sum'] = l$sum?.toJson();
     }
     if (_$data.containsKey('var_pop')) {
-      final l$var_pop = var_pop;
-      result$data['var_pop'] = l$var_pop?.toJson();
+      final l$varPop = var_pop;
+      result$data['var_pop'] = l$varPop?.toJson();
     }
     if (_$data.containsKey('var_samp')) {
-      final l$var_samp = var_samp;
-      result$data['var_samp'] = l$var_samp?.toJson();
+      final l$varSamp = var_samp;
+      result$data['var_samp'] = l$varSamp?.toJson();
     }
     if (_$data.containsKey('variance')) {
       final l$variance = variance;
@@ -1882,7 +1912,7 @@ class Input$posts_aggregate_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$posts_aggregate_order_by) ||
+    if (other is! Input$posts_aggregate_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -1926,22 +1956,22 @@ class Input$posts_aggregate_order_by {
     if (l$stddev != lOther$stddev) {
       return false;
     }
-    final l$stddev_pop = stddev_pop;
-    final lOther$stddev_pop = other.stddev_pop;
+    final l$stddevPop = stddev_pop;
+    final lother$stddevPop = other.stddev_pop;
     if (_$data.containsKey('stddev_pop') !=
         other._$data.containsKey('stddev_pop')) {
       return false;
     }
-    if (l$stddev_pop != lOther$stddev_pop) {
+    if (l$stddevPop != lother$stddevPop) {
       return false;
     }
-    final l$stddev_samp = stddev_samp;
-    final lOther$stddev_samp = other.stddev_samp;
+    final l$stddevSamp = stddev_samp;
+    final lother$stddevSamp = other.stddev_samp;
     if (_$data.containsKey('stddev_samp') !=
         other._$data.containsKey('stddev_samp')) {
       return false;
     }
-    if (l$stddev_samp != lOther$stddev_samp) {
+    if (l$stddevSamp != lother$stddevSamp) {
       return false;
     }
     final l$sum = sum;
@@ -1952,21 +1982,21 @@ class Input$posts_aggregate_order_by {
     if (l$sum != lOther$sum) {
       return false;
     }
-    final l$var_pop = var_pop;
-    final lOther$var_pop = other.var_pop;
+    final l$varPop = var_pop;
+    final lother$varPop = other.var_pop;
     if (_$data.containsKey('var_pop') != other._$data.containsKey('var_pop')) {
       return false;
     }
-    if (l$var_pop != lOther$var_pop) {
+    if (l$varPop != lother$varPop) {
       return false;
     }
-    final l$var_samp = var_samp;
-    final lOther$var_samp = other.var_samp;
+    final l$varSamp = var_samp;
+    final lother$varSamp = other.var_samp;
     if (_$data.containsKey('var_samp') !=
         other._$data.containsKey('var_samp')) {
       return false;
     }
-    if (l$var_samp != lOther$var_samp) {
+    if (l$varSamp != lother$varSamp) {
       return false;
     }
     final l$variance = variance;
@@ -1988,11 +2018,11 @@ class Input$posts_aggregate_order_by {
     final l$max = max;
     final l$min = min;
     final l$stddev = stddev;
-    final l$stddev_pop = stddev_pop;
-    final l$stddev_samp = stddev_samp;
+    final l$stddevPop = stddev_pop;
+    final l$stddevSamp = stddev_samp;
     final l$sum = sum;
-    final l$var_pop = var_pop;
-    final l$var_samp = var_samp;
+    final l$varPop = var_pop;
+    final l$varSamp = var_samp;
     final l$variance = variance;
     return Object.hashAll([
       _$data.containsKey('avg') ? l$avg : const {},
@@ -2000,11 +2030,11 @@ class Input$posts_aggregate_order_by {
       _$data.containsKey('max') ? l$max : const {},
       _$data.containsKey('min') ? l$min : const {},
       _$data.containsKey('stddev') ? l$stddev : const {},
-      _$data.containsKey('stddev_pop') ? l$stddev_pop : const {},
-      _$data.containsKey('stddev_samp') ? l$stddev_samp : const {},
+      _$data.containsKey('stddev_pop') ? l$stddevPop : const {},
+      _$data.containsKey('stddev_samp') ? l$stddevSamp : const {},
       _$data.containsKey('sum') ? l$sum : const {},
-      _$data.containsKey('var_pop') ? l$var_pop : const {},
-      _$data.containsKey('var_samp') ? l$var_samp : const {},
+      _$data.containsKey('var_pop') ? l$varPop : const {},
+      _$data.containsKey('var_samp') ? l$varSamp : const {},
       _$data.containsKey('variance') ? l$variance : const {},
     ]);
   }
@@ -2057,6 +2087,7 @@ class _CopyWithImpl$Input$posts_aggregate_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? avg = _undefined,
     Object? count = _undefined,
@@ -2091,6 +2122,7 @@ class _CopyWithImpl$Input$posts_aggregate_order_by<TRes>
           'variance': (variance as Input$posts_variance_order_by?),
       }));
 
+  @override
   CopyWith$Input$posts_avg_order_by<TRes> get avg {
     final local$avg = _instance.avg;
     return local$avg == null
@@ -2098,6 +2130,7 @@ class _CopyWithImpl$Input$posts_aggregate_order_by<TRes>
         : CopyWith$Input$posts_avg_order_by(local$avg, (e) => call(avg: e));
   }
 
+  @override
   CopyWith$Input$posts_max_order_by<TRes> get max {
     final local$max = _instance.max;
     return local$max == null
@@ -2105,6 +2138,7 @@ class _CopyWithImpl$Input$posts_aggregate_order_by<TRes>
         : CopyWith$Input$posts_max_order_by(local$max, (e) => call(max: e));
   }
 
+  @override
   CopyWith$Input$posts_min_order_by<TRes> get min {
     final local$min = _instance.min;
     return local$min == null
@@ -2112,6 +2146,7 @@ class _CopyWithImpl$Input$posts_aggregate_order_by<TRes>
         : CopyWith$Input$posts_min_order_by(local$min, (e) => call(min: e));
   }
 
+  @override
   CopyWith$Input$posts_stddev_order_by<TRes> get stddev {
     final local$stddev = _instance.stddev;
     return local$stddev == null
@@ -2120,22 +2155,25 @@ class _CopyWithImpl$Input$posts_aggregate_order_by<TRes>
             local$stddev, (e) => call(stddev: e));
   }
 
+  @override
   CopyWith$Input$posts_stddev_pop_order_by<TRes> get stddev_pop {
-    final local$stddev_pop = _instance.stddev_pop;
-    return local$stddev_pop == null
+    final local$stddevPop = _instance.stddev_pop;
+    return local$stddevPop == null
         ? CopyWith$Input$posts_stddev_pop_order_by.stub(_then(_instance))
         : CopyWith$Input$posts_stddev_pop_order_by(
-            local$stddev_pop, (e) => call(stddev_pop: e));
+            local$stddevPop, (e) => call(stddev_pop: e));
   }
 
+  @override
   CopyWith$Input$posts_stddev_samp_order_by<TRes> get stddev_samp {
-    final local$stddev_samp = _instance.stddev_samp;
-    return local$stddev_samp == null
+    final local$stddevSamp = _instance.stddev_samp;
+    return local$stddevSamp == null
         ? CopyWith$Input$posts_stddev_samp_order_by.stub(_then(_instance))
         : CopyWith$Input$posts_stddev_samp_order_by(
-            local$stddev_samp, (e) => call(stddev_samp: e));
+            local$stddevSamp, (e) => call(stddev_samp: e));
   }
 
+  @override
   CopyWith$Input$posts_sum_order_by<TRes> get sum {
     final local$sum = _instance.sum;
     return local$sum == null
@@ -2143,22 +2181,25 @@ class _CopyWithImpl$Input$posts_aggregate_order_by<TRes>
         : CopyWith$Input$posts_sum_order_by(local$sum, (e) => call(sum: e));
   }
 
+  @override
   CopyWith$Input$posts_var_pop_order_by<TRes> get var_pop {
-    final local$var_pop = _instance.var_pop;
-    return local$var_pop == null
+    final local$varPop = _instance.var_pop;
+    return local$varPop == null
         ? CopyWith$Input$posts_var_pop_order_by.stub(_then(_instance))
         : CopyWith$Input$posts_var_pop_order_by(
-            local$var_pop, (e) => call(var_pop: e));
+            local$varPop, (e) => call(var_pop: e));
   }
 
+  @override
   CopyWith$Input$posts_var_samp_order_by<TRes> get var_samp {
-    final local$var_samp = _instance.var_samp;
-    return local$var_samp == null
+    final local$varSamp = _instance.var_samp;
+    return local$varSamp == null
         ? CopyWith$Input$posts_var_samp_order_by.stub(_then(_instance))
         : CopyWith$Input$posts_var_samp_order_by(
-            local$var_samp, (e) => call(var_samp: e));
+            local$varSamp, (e) => call(var_samp: e));
   }
 
+  @override
   CopyWith$Input$posts_variance_order_by<TRes> get variance {
     final local$variance = _instance.variance;
     return local$variance == null
@@ -2172,8 +2213,9 @@ class _CopyWithStubImpl$Input$posts_aggregate_order_by<TRes>
     implements CopyWith$Input$posts_aggregate_order_by<TRes> {
   _CopyWithStubImpl$Input$posts_aggregate_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Input$posts_avg_order_by? avg,
     Enum$order_by? count,
@@ -2189,33 +2231,43 @@ class _CopyWithStubImpl$Input$posts_aggregate_order_by<TRes>
   }) =>
       _res;
 
+  @override
   CopyWith$Input$posts_avg_order_by<TRes> get avg =>
       CopyWith$Input$posts_avg_order_by.stub(_res);
 
+  @override
   CopyWith$Input$posts_max_order_by<TRes> get max =>
       CopyWith$Input$posts_max_order_by.stub(_res);
 
+  @override
   CopyWith$Input$posts_min_order_by<TRes> get min =>
       CopyWith$Input$posts_min_order_by.stub(_res);
 
+  @override
   CopyWith$Input$posts_stddev_order_by<TRes> get stddev =>
       CopyWith$Input$posts_stddev_order_by.stub(_res);
 
+  @override
   CopyWith$Input$posts_stddev_pop_order_by<TRes> get stddev_pop =>
       CopyWith$Input$posts_stddev_pop_order_by.stub(_res);
 
+  @override
   CopyWith$Input$posts_stddev_samp_order_by<TRes> get stddev_samp =>
       CopyWith$Input$posts_stddev_samp_order_by.stub(_res);
 
+  @override
   CopyWith$Input$posts_sum_order_by<TRes> get sum =>
       CopyWith$Input$posts_sum_order_by.stub(_res);
 
+  @override
   CopyWith$Input$posts_var_pop_order_by<TRes> get var_pop =>
       CopyWith$Input$posts_var_pop_order_by.stub(_res);
 
+  @override
   CopyWith$Input$posts_var_samp_order_by<TRes> get var_samp =>
       CopyWith$Input$posts_var_samp_order_by.stub(_res);
 
+  @override
   CopyWith$Input$posts_variance_order_by<TRes> get variance =>
       CopyWith$Input$posts_variance_order_by.stub(_res);
 }
@@ -2240,10 +2292,10 @@ class Input$posts_avg_order_by {
           l$id == null ? null : fromJson$Enum$order_by((l$id as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     return Input$posts_avg_order_by._(result$data);
   }
@@ -2261,9 +2313,9 @@ class Input$posts_avg_order_by {
       result$data['id'] = l$id == null ? null : toJson$Enum$order_by(l$id);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     return result$data;
   }
@@ -2279,7 +2331,7 @@ class Input$posts_avg_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$posts_avg_order_by) ||
+    if (other is! Input$posts_avg_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -2291,13 +2343,13 @@ class Input$posts_avg_order_by {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -2306,10 +2358,10 @@ class Input$posts_avg_order_by {
   @override
   int get hashCode {
     final l$id = id;
-    final l$station_id = station_id;
+    final l$stationId = station_id;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -2342,6 +2394,7 @@ class _CopyWithImpl$Input$posts_avg_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? station_id = _undefined,
@@ -2358,8 +2411,9 @@ class _CopyWithStubImpl$Input$posts_avg_order_by<TRes>
     implements CopyWith$Input$posts_avg_order_by<TRes> {
   _CopyWithStubImpl$Input$posts_avg_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? station_id,
@@ -2398,21 +2452,21 @@ class Input$posts_bool_exp {
   factory Input$posts_bool_exp.fromJson(Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
     if (data.containsKey('_and')) {
-      final l$$_and = data['_and'];
-      result$data['_and'] = (l$$_and as List<dynamic>?)
+      final l$$And = data['_and'];
+      result$data['_and'] = (l$$And as List<dynamic>?)
           ?.map(
               (e) => Input$posts_bool_exp.fromJson((e as Map<String, dynamic>)))
           .toList();
     }
     if (data.containsKey('_not')) {
-      final l$$_not = data['_not'];
-      result$data['_not'] = l$$_not == null
+      final l$$Not = data['_not'];
+      result$data['_not'] = l$$Not == null
           ? null
-          : Input$posts_bool_exp.fromJson((l$$_not as Map<String, dynamic>));
+          : Input$posts_bool_exp.fromJson((l$$Not as Map<String, dynamic>));
     }
     if (data.containsKey('_or')) {
-      final l$$_or = data['_or'];
-      result$data['_or'] = (l$$_or as List<dynamic>?)
+      final l$$Or = data['_or'];
+      result$data['_or'] = (l$$Or as List<dynamic>?)
           ?.map(
               (e) => Input$posts_bool_exp.fromJson((e as Map<String, dynamic>)))
           .toList();
@@ -2452,11 +2506,11 @@ class Input$posts_bool_exp {
               (l$station as Map<String, dynamic>));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
           : Input$Int_comparison_exp.fromJson(
-              (l$station_id as Map<String, dynamic>));
+              (l$stationId as Map<String, dynamic>));
     }
     if (data.containsKey('title')) {
       final l$title = data['title'];
@@ -2502,16 +2556,16 @@ class Input$posts_bool_exp {
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
     if (_$data.containsKey('_and')) {
-      final l$$_and = $_and;
-      result$data['_and'] = l$$_and?.map((e) => e.toJson()).toList();
+      final l$$And = $_and;
+      result$data['_and'] = l$$And?.map((e) => e.toJson()).toList();
     }
     if (_$data.containsKey('_not')) {
-      final l$$_not = $_not;
-      result$data['_not'] = l$$_not?.toJson();
+      final l$$Not = $_not;
+      result$data['_not'] = l$$Not?.toJson();
     }
     if (_$data.containsKey('_or')) {
-      final l$$_or = $_or;
-      result$data['_or'] = l$$_or?.map((e) => e.toJson()).toList();
+      final l$$Or = $_or;
+      result$data['_or'] = l$$Or?.map((e) => e.toJson()).toList();
     }
     if (_$data.containsKey('description')) {
       final l$description = description;
@@ -2534,8 +2588,8 @@ class Input$posts_bool_exp {
       result$data['station'] = l$station?.toJson();
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
-      result$data['station_id'] = l$station_id?.toJson();
+      final l$stationId = station_id;
+      result$data['station_id'] = l$stationId?.toJson();
     }
     if (_$data.containsKey('title')) {
       final l$title = title;
@@ -2555,53 +2609,53 @@ class Input$posts_bool_exp {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$posts_bool_exp) || runtimeType != other.runtimeType) {
+    if (other is! Input$posts_bool_exp || runtimeType != other.runtimeType) {
       return false;
     }
-    final l$$_and = $_and;
-    final lOther$$_and = other.$_and;
+    final l$$And = $_and;
+    final lother$$And = other.$_and;
     if (_$data.containsKey('_and') != other._$data.containsKey('_and')) {
       return false;
     }
-    if (l$$_and != null && lOther$$_and != null) {
-      if (l$$_and.length != lOther$$_and.length) {
+    if (l$$And != null && lother$$And != null) {
+      if (l$$And.length != lother$$And.length) {
         return false;
       }
-      for (int i = 0; i < l$$_and.length; i++) {
-        final l$$_and$entry = l$$_and[i];
-        final lOther$$_and$entry = lOther$$_and[i];
-        if (l$$_and$entry != lOther$$_and$entry) {
+      for (int i = 0; i < l$$And.length; i++) {
+        final l$$And$entry = l$$And[i];
+        final lother$$And$entry = lother$$And[i];
+        if (l$$And$entry != lother$$And$entry) {
           return false;
         }
       }
-    } else if (l$$_and != lOther$$_and) {
+    } else if (l$$And != lother$$And) {
       return false;
     }
-    final l$$_not = $_not;
-    final lOther$$_not = other.$_not;
+    final l$$Not = $_not;
+    final lother$$Not = other.$_not;
     if (_$data.containsKey('_not') != other._$data.containsKey('_not')) {
       return false;
     }
-    if (l$$_not != lOther$$_not) {
+    if (l$$Not != lother$$Not) {
       return false;
     }
-    final l$$_or = $_or;
-    final lOther$$_or = other.$_or;
+    final l$$Or = $_or;
+    final lother$$Or = other.$_or;
     if (_$data.containsKey('_or') != other._$data.containsKey('_or')) {
       return false;
     }
-    if (l$$_or != null && lOther$$_or != null) {
-      if (l$$_or.length != lOther$$_or.length) {
+    if (l$$Or != null && lother$$Or != null) {
+      if (l$$Or.length != lother$$Or.length) {
         return false;
       }
-      for (int i = 0; i < l$$_or.length; i++) {
-        final l$$_or$entry = l$$_or[i];
-        final lOther$$_or$entry = lOther$$_or[i];
-        if (l$$_or$entry != lOther$$_or$entry) {
+      for (int i = 0; i < l$$Or.length; i++) {
+        final l$$Or$entry = l$$Or[i];
+        final lother$$Or$entry = lother$$Or[i];
+        if (l$$Or$entry != lother$$Or$entry) {
           return false;
         }
       }
-    } else if (l$$_or != lOther$$_or) {
+    } else if (l$$Or != lother$$Or) {
       return false;
     }
     final l$description = description;
@@ -2646,13 +2700,13 @@ class Input$posts_bool_exp {
     if (l$station != lOther$station) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     final l$title = title;
@@ -2668,34 +2722,34 @@ class Input$posts_bool_exp {
 
   @override
   int get hashCode {
-    final l$$_and = $_and;
-    final l$$_not = $_not;
-    final l$$_or = $_or;
+    final l$$And = $_and;
+    final l$$Not = $_not;
+    final l$$Or = $_or;
     final l$description = description;
     final l$id = id;
     final l$link = link;
     final l$published = published;
     final l$station = station;
-    final l$station_id = station_id;
+    final l$stationId = station_id;
     final l$title = title;
     return Object.hashAll([
       _$data.containsKey('_and')
-          ? l$$_and == null
+          ? l$$And == null
               ? null
-              : Object.hashAll(l$$_and.map((v) => v))
+              : Object.hashAll(l$$And.map((v) => v))
           : const {},
-      _$data.containsKey('_not') ? l$$_not : const {},
+      _$data.containsKey('_not') ? l$$Not : const {},
       _$data.containsKey('_or')
-          ? l$$_or == null
+          ? l$$Or == null
               ? null
-              : Object.hashAll(l$$_or.map((v) => v))
+              : Object.hashAll(l$$Or.map((v) => v))
           : const {},
       _$data.containsKey('description') ? l$description : const {},
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('link') ? l$link : const {},
       _$data.containsKey('published') ? l$published : const {},
       _$data.containsKey('station') ? l$station : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
       _$data.containsKey('title') ? l$title : const {},
     ]);
   }
@@ -2725,12 +2779,12 @@ abstract class CopyWith$Input$posts_bool_exp<TRes> {
   TRes $_and(
       Iterable<Input$posts_bool_exp>? Function(
               Iterable<CopyWith$Input$posts_bool_exp<Input$posts_bool_exp>>?)
-          _fn);
+          fn);
   CopyWith$Input$posts_bool_exp<TRes> get $_not;
   TRes $_or(
       Iterable<Input$posts_bool_exp>? Function(
               Iterable<CopyWith$Input$posts_bool_exp<Input$posts_bool_exp>>?)
-          _fn);
+          fn);
   CopyWith$Input$String_comparison_exp<TRes> get description;
   CopyWith$Input$Int_comparison_exp<TRes> get id;
   CopyWith$Input$String_comparison_exp<TRes> get link;
@@ -2753,6 +2807,7 @@ class _CopyWithImpl$Input$posts_bool_exp<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? $_and = _undefined,
     Object? $_not = _undefined,
@@ -2784,35 +2839,39 @@ class _CopyWithImpl$Input$posts_bool_exp<TRes>
           'title': (title as Input$String_comparison_exp?),
       }));
 
+  @override
   TRes $_and(
           Iterable<Input$posts_bool_exp>? Function(
                   Iterable<
                       CopyWith$Input$posts_bool_exp<Input$posts_bool_exp>>?)
-              _fn) =>
+              fn) =>
       call(
-          $_and: _fn(_instance.$_and?.map((e) => CopyWith$Input$posts_bool_exp(
+          $_and: fn(_instance.$_and?.map((e) => CopyWith$Input$posts_bool_exp(
                 e,
                 (i) => i,
               )))?.toList());
 
+  @override
   CopyWith$Input$posts_bool_exp<TRes> get $_not {
-    final local$$_not = _instance.$_not;
-    return local$$_not == null
+    final local$$Not = _instance.$_not;
+    return local$$Not == null
         ? CopyWith$Input$posts_bool_exp.stub(_then(_instance))
-        : CopyWith$Input$posts_bool_exp(local$$_not, (e) => call($_not: e));
+        : CopyWith$Input$posts_bool_exp(local$$Not, (e) => call($_not: e));
   }
 
+  @override
   TRes $_or(
           Iterable<Input$posts_bool_exp>? Function(
                   Iterable<
                       CopyWith$Input$posts_bool_exp<Input$posts_bool_exp>>?)
-              _fn) =>
+              fn) =>
       call(
-          $_or: _fn(_instance.$_or?.map((e) => CopyWith$Input$posts_bool_exp(
+          $_or: fn(_instance.$_or?.map((e) => CopyWith$Input$posts_bool_exp(
                 e,
                 (i) => i,
               )))?.toList());
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get description {
     final local$description = _instance.description;
     return local$description == null
@@ -2821,6 +2880,7 @@ class _CopyWithImpl$Input$posts_bool_exp<TRes>
             local$description, (e) => call(description: e));
   }
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get id {
     final local$id = _instance.id;
     return local$id == null
@@ -2828,6 +2888,7 @@ class _CopyWithImpl$Input$posts_bool_exp<TRes>
         : CopyWith$Input$Int_comparison_exp(local$id, (e) => call(id: e));
   }
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get link {
     final local$link = _instance.link;
     return local$link == null
@@ -2836,6 +2897,7 @@ class _CopyWithImpl$Input$posts_bool_exp<TRes>
             local$link, (e) => call(link: e));
   }
 
+  @override
   CopyWith$Input$timestamptz_comparison_exp<TRes> get published {
     final local$published = _instance.published;
     return local$published == null
@@ -2844,6 +2906,7 @@ class _CopyWithImpl$Input$posts_bool_exp<TRes>
             local$published, (e) => call(published: e));
   }
 
+  @override
   CopyWith$Input$stations_bool_exp<TRes> get station {
     final local$station = _instance.station;
     return local$station == null
@@ -2852,14 +2915,16 @@ class _CopyWithImpl$Input$posts_bool_exp<TRes>
             local$station, (e) => call(station: e));
   }
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get station_id {
-    final local$station_id = _instance.station_id;
-    return local$station_id == null
+    final local$stationId = _instance.station_id;
+    return local$stationId == null
         ? CopyWith$Input$Int_comparison_exp.stub(_then(_instance))
         : CopyWith$Input$Int_comparison_exp(
-            local$station_id, (e) => call(station_id: e));
+            local$stationId, (e) => call(station_id: e));
   }
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get title {
     final local$title = _instance.title;
     return local$title == null
@@ -2873,8 +2938,9 @@ class _CopyWithStubImpl$Input$posts_bool_exp<TRes>
     implements CopyWith$Input$posts_bool_exp<TRes> {
   _CopyWithStubImpl$Input$posts_bool_exp(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     List<Input$posts_bool_exp>? $_and,
     Input$posts_bool_exp? $_not,
@@ -2889,31 +2955,41 @@ class _CopyWithStubImpl$Input$posts_bool_exp<TRes>
   }) =>
       _res;
 
-  $_and(_fn) => _res;
+  @override
+  $_and(fn) => _res;
 
+  @override
   CopyWith$Input$posts_bool_exp<TRes> get $_not =>
       CopyWith$Input$posts_bool_exp.stub(_res);
 
-  $_or(_fn) => _res;
+  @override
+  $_or(fn) => _res;
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get description =>
       CopyWith$Input$String_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get id =>
       CopyWith$Input$Int_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get link =>
       CopyWith$Input$String_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$timestamptz_comparison_exp<TRes> get published =>
       CopyWith$Input$timestamptz_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$stations_bool_exp<TRes> get station =>
       CopyWith$Input$stations_bool_exp.stub(_res);
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get station_id =>
       CopyWith$Input$Int_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get title =>
       CopyWith$Input$String_comparison_exp.stub(_res);
 }
@@ -2963,10 +3039,10 @@ class Input$posts_max_order_by {
           : fromJson$Enum$order_by((l$published as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     if (data.containsKey('title')) {
       final l$title = data['title'];
@@ -3012,9 +3088,9 @@ class Input$posts_max_order_by {
           l$published == null ? null : toJson$Enum$order_by(l$published);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     if (_$data.containsKey('title')) {
       final l$title = title;
@@ -3035,7 +3111,7 @@ class Input$posts_max_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$posts_max_order_by) ||
+    if (other is! Input$posts_max_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -3073,13 +3149,13 @@ class Input$posts_max_order_by {
     if (l$published != lOther$published) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     final l$title = title;
@@ -3099,14 +3175,14 @@ class Input$posts_max_order_by {
     final l$id = id;
     final l$link = link;
     final l$published = published;
-    final l$station_id = station_id;
+    final l$stationId = station_id;
     final l$title = title;
     return Object.hashAll([
       _$data.containsKey('description') ? l$description : const {},
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('link') ? l$link : const {},
       _$data.containsKey('published') ? l$published : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
       _$data.containsKey('title') ? l$title : const {},
     ]);
   }
@@ -3144,6 +3220,7 @@ class _CopyWithImpl$Input$posts_max_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? description = _undefined,
     Object? id = _undefined,
@@ -3169,8 +3246,9 @@ class _CopyWithStubImpl$Input$posts_max_order_by<TRes>
     implements CopyWith$Input$posts_max_order_by<TRes> {
   _CopyWithStubImpl$Input$posts_max_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? description,
     Enum$order_by? id,
@@ -3227,10 +3305,10 @@ class Input$posts_min_order_by {
           : fromJson$Enum$order_by((l$published as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     if (data.containsKey('title')) {
       final l$title = data['title'];
@@ -3276,9 +3354,9 @@ class Input$posts_min_order_by {
           l$published == null ? null : toJson$Enum$order_by(l$published);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     if (_$data.containsKey('title')) {
       final l$title = title;
@@ -3299,7 +3377,7 @@ class Input$posts_min_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$posts_min_order_by) ||
+    if (other is! Input$posts_min_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -3337,13 +3415,13 @@ class Input$posts_min_order_by {
     if (l$published != lOther$published) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     final l$title = title;
@@ -3363,14 +3441,14 @@ class Input$posts_min_order_by {
     final l$id = id;
     final l$link = link;
     final l$published = published;
-    final l$station_id = station_id;
+    final l$stationId = station_id;
     final l$title = title;
     return Object.hashAll([
       _$data.containsKey('description') ? l$description : const {},
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('link') ? l$link : const {},
       _$data.containsKey('published') ? l$published : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
       _$data.containsKey('title') ? l$title : const {},
     ]);
   }
@@ -3408,6 +3486,7 @@ class _CopyWithImpl$Input$posts_min_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? description = _undefined,
     Object? id = _undefined,
@@ -3433,8 +3512,9 @@ class _CopyWithStubImpl$Input$posts_min_order_by<TRes>
     implements CopyWith$Input$posts_min_order_by<TRes> {
   _CopyWithStubImpl$Input$posts_min_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? description,
     Enum$order_by? id,
@@ -3500,10 +3580,10 @@ class Input$posts_order_by {
               (l$station as Map<String, dynamic>));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     if (data.containsKey('title')) {
       final l$title = data['title'];
@@ -3556,9 +3636,9 @@ class Input$posts_order_by {
       result$data['station'] = l$station?.toJson();
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     if (_$data.containsKey('title')) {
       final l$title = title;
@@ -3579,7 +3659,7 @@ class Input$posts_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$posts_order_by) || runtimeType != other.runtimeType) {
+    if (other is! Input$posts_order_by || runtimeType != other.runtimeType) {
       return false;
     }
     final l$description = description;
@@ -3624,13 +3704,13 @@ class Input$posts_order_by {
     if (l$station != lOther$station) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     final l$title = title;
@@ -3651,7 +3731,7 @@ class Input$posts_order_by {
     final l$link = link;
     final l$published = published;
     final l$station = station;
-    final l$station_id = station_id;
+    final l$stationId = station_id;
     final l$title = title;
     return Object.hashAll([
       _$data.containsKey('description') ? l$description : const {},
@@ -3659,7 +3739,7 @@ class Input$posts_order_by {
       _$data.containsKey('link') ? l$link : const {},
       _$data.containsKey('published') ? l$published : const {},
       _$data.containsKey('station') ? l$station : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
       _$data.containsKey('title') ? l$title : const {},
     ]);
   }
@@ -3699,6 +3779,7 @@ class _CopyWithImpl$Input$posts_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? description = _undefined,
     Object? id = _undefined,
@@ -3722,6 +3803,7 @@ class _CopyWithImpl$Input$posts_order_by<TRes>
         if (title != _undefined) 'title': (title as Enum$order_by?),
       }));
 
+  @override
   CopyWith$Input$stations_order_by<TRes> get station {
     final local$station = _instance.station;
     return local$station == null
@@ -3735,8 +3817,9 @@ class _CopyWithStubImpl$Input$posts_order_by<TRes>
     implements CopyWith$Input$posts_order_by<TRes> {
   _CopyWithStubImpl$Input$posts_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? description,
     Enum$order_by? id,
@@ -3748,6 +3831,7 @@ class _CopyWithStubImpl$Input$posts_order_by<TRes>
   }) =>
       _res;
 
+  @override
   CopyWith$Input$stations_order_by<TRes> get station =>
       CopyWith$Input$stations_order_by.stub(_res);
 }
@@ -3772,10 +3856,10 @@ class Input$posts_stddev_order_by {
           l$id == null ? null : fromJson$Enum$order_by((l$id as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     return Input$posts_stddev_order_by._(result$data);
   }
@@ -3793,9 +3877,9 @@ class Input$posts_stddev_order_by {
       result$data['id'] = l$id == null ? null : toJson$Enum$order_by(l$id);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     return result$data;
   }
@@ -3811,7 +3895,7 @@ class Input$posts_stddev_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$posts_stddev_order_by) ||
+    if (other is! Input$posts_stddev_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -3823,13 +3907,13 @@ class Input$posts_stddev_order_by {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -3838,10 +3922,10 @@ class Input$posts_stddev_order_by {
   @override
   int get hashCode {
     final l$id = id;
-    final l$station_id = station_id;
+    final l$stationId = station_id;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -3874,6 +3958,7 @@ class _CopyWithImpl$Input$posts_stddev_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? station_id = _undefined,
@@ -3890,8 +3975,9 @@ class _CopyWithStubImpl$Input$posts_stddev_order_by<TRes>
     implements CopyWith$Input$posts_stddev_order_by<TRes> {
   _CopyWithStubImpl$Input$posts_stddev_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? station_id,
@@ -3919,10 +4005,10 @@ class Input$posts_stddev_pop_order_by {
           l$id == null ? null : fromJson$Enum$order_by((l$id as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     return Input$posts_stddev_pop_order_by._(result$data);
   }
@@ -3940,9 +4026,9 @@ class Input$posts_stddev_pop_order_by {
       result$data['id'] = l$id == null ? null : toJson$Enum$order_by(l$id);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     return result$data;
   }
@@ -3958,7 +4044,7 @@ class Input$posts_stddev_pop_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$posts_stddev_pop_order_by) ||
+    if (other is! Input$posts_stddev_pop_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -3970,13 +4056,13 @@ class Input$posts_stddev_pop_order_by {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -3985,10 +4071,10 @@ class Input$posts_stddev_pop_order_by {
   @override
   int get hashCode {
     final l$id = id;
-    final l$station_id = station_id;
+    final l$stationId = station_id;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -4021,6 +4107,7 @@ class _CopyWithImpl$Input$posts_stddev_pop_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? station_id = _undefined,
@@ -4037,8 +4124,9 @@ class _CopyWithStubImpl$Input$posts_stddev_pop_order_by<TRes>
     implements CopyWith$Input$posts_stddev_pop_order_by<TRes> {
   _CopyWithStubImpl$Input$posts_stddev_pop_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? station_id,
@@ -4066,10 +4154,10 @@ class Input$posts_stddev_samp_order_by {
           l$id == null ? null : fromJson$Enum$order_by((l$id as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     return Input$posts_stddev_samp_order_by._(result$data);
   }
@@ -4087,9 +4175,9 @@ class Input$posts_stddev_samp_order_by {
       result$data['id'] = l$id == null ? null : toJson$Enum$order_by(l$id);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     return result$data;
   }
@@ -4105,7 +4193,7 @@ class Input$posts_stddev_samp_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$posts_stddev_samp_order_by) ||
+    if (other is! Input$posts_stddev_samp_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -4117,13 +4205,13 @@ class Input$posts_stddev_samp_order_by {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -4132,10 +4220,10 @@ class Input$posts_stddev_samp_order_by {
   @override
   int get hashCode {
     final l$id = id;
-    final l$station_id = station_id;
+    final l$stationId = station_id;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -4168,6 +4256,7 @@ class _CopyWithImpl$Input$posts_stddev_samp_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? station_id = _undefined,
@@ -4184,8 +4273,9 @@ class _CopyWithStubImpl$Input$posts_stddev_samp_order_by<TRes>
     implements CopyWith$Input$posts_stddev_samp_order_by<TRes> {
   _CopyWithStubImpl$Input$posts_stddev_samp_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? station_id,
@@ -4207,10 +4297,10 @@ class Input$posts_stream_cursor_input {
 
   factory Input$posts_stream_cursor_input.fromJson(Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
-    final l$initial_value = data['initial_value'];
+    final l$initialValue = data['initial_value'];
     result$data['initial_value'] =
         Input$posts_stream_cursor_value_input.fromJson(
-            (l$initial_value as Map<String, dynamic>));
+            (l$initialValue as Map<String, dynamic>));
     if (data.containsKey('ordering')) {
       final l$ordering = data['ordering'];
       result$data['ordering'] = l$ordering == null
@@ -4230,8 +4320,8 @@ class Input$posts_stream_cursor_input {
 
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
-    final l$initial_value = initial_value;
-    result$data['initial_value'] = l$initial_value.toJson();
+    final l$initialValue = initial_value;
+    result$data['initial_value'] = l$initialValue.toJson();
     if (_$data.containsKey('ordering')) {
       final l$ordering = ordering;
       result$data['ordering'] =
@@ -4251,13 +4341,13 @@ class Input$posts_stream_cursor_input {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$posts_stream_cursor_input) ||
+    if (other is! Input$posts_stream_cursor_input ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$initial_value = initial_value;
-    final lOther$initial_value = other.initial_value;
-    if (l$initial_value != lOther$initial_value) {
+    final l$initialValue = initial_value;
+    final lother$initialValue = other.initial_value;
+    if (l$initialValue != lother$initialValue) {
       return false;
     }
     final l$ordering = ordering;
@@ -4274,10 +4364,10 @@ class Input$posts_stream_cursor_input {
 
   @override
   int get hashCode {
-    final l$initial_value = initial_value;
+    final l$initialValue = initial_value;
     final l$ordering = ordering;
     return Object.hashAll([
-      l$initial_value,
+      l$initialValue,
       _$data.containsKey('ordering') ? l$ordering : const {},
     ]);
   }
@@ -4312,6 +4402,7 @@ class _CopyWithImpl$Input$posts_stream_cursor_input<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? initial_value = _undefined,
     Object? ordering = _undefined,
@@ -4325,10 +4416,11 @@ class _CopyWithImpl$Input$posts_stream_cursor_input<TRes>
           'ordering': (ordering as Enum$cursor_ordering?),
       }));
 
+  @override
   CopyWith$Input$posts_stream_cursor_value_input<TRes> get initial_value {
-    final local$initial_value = _instance.initial_value;
+    final local$initialValue = _instance.initial_value;
     return CopyWith$Input$posts_stream_cursor_value_input(
-        local$initial_value, (e) => call(initial_value: e));
+        local$initialValue, (e) => call(initial_value: e));
   }
 }
 
@@ -4336,14 +4428,16 @@ class _CopyWithStubImpl$Input$posts_stream_cursor_input<TRes>
     implements CopyWith$Input$posts_stream_cursor_input<TRes> {
   _CopyWithStubImpl$Input$posts_stream_cursor_input(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Input$posts_stream_cursor_value_input? initial_value,
     Enum$cursor_ordering? ordering,
   }) =>
       _res;
 
+  @override
   CopyWith$Input$posts_stream_cursor_value_input<TRes> get initial_value =>
       CopyWith$Input$posts_stream_cursor_value_input.stub(_res);
 }
@@ -4388,8 +4482,8 @@ class Input$posts_stream_cursor_value_input {
       result$data['published'] = (l$published as String?);
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = (l$station_id as int?);
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = (l$stationId as int?);
     }
     if (data.containsKey('title')) {
       final l$title = data['title'];
@@ -4431,8 +4525,8 @@ class Input$posts_stream_cursor_value_input {
       result$data['published'] = l$published;
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
-      result$data['station_id'] = l$station_id;
+      final l$stationId = station_id;
+      result$data['station_id'] = l$stationId;
     }
     if (_$data.containsKey('title')) {
       final l$title = title;
@@ -4453,7 +4547,7 @@ class Input$posts_stream_cursor_value_input {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$posts_stream_cursor_value_input) ||
+    if (other is! Input$posts_stream_cursor_value_input ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -4491,13 +4585,13 @@ class Input$posts_stream_cursor_value_input {
     if (l$published != lOther$published) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     final l$title = title;
@@ -4517,14 +4611,14 @@ class Input$posts_stream_cursor_value_input {
     final l$id = id;
     final l$link = link;
     final l$published = published;
-    final l$station_id = station_id;
+    final l$stationId = station_id;
     final l$title = title;
     return Object.hashAll([
       _$data.containsKey('description') ? l$description : const {},
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('link') ? l$link : const {},
       _$data.containsKey('published') ? l$published : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
       _$data.containsKey('title') ? l$title : const {},
     ]);
   }
@@ -4562,6 +4656,7 @@ class _CopyWithImpl$Input$posts_stream_cursor_value_input<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? description = _undefined,
     Object? id = _undefined,
@@ -4585,8 +4680,9 @@ class _CopyWithStubImpl$Input$posts_stream_cursor_value_input<TRes>
     implements CopyWith$Input$posts_stream_cursor_value_input<TRes> {
   _CopyWithStubImpl$Input$posts_stream_cursor_value_input(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     String? description,
     int? id,
@@ -4618,10 +4714,10 @@ class Input$posts_sum_order_by {
           l$id == null ? null : fromJson$Enum$order_by((l$id as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     return Input$posts_sum_order_by._(result$data);
   }
@@ -4639,9 +4735,9 @@ class Input$posts_sum_order_by {
       result$data['id'] = l$id == null ? null : toJson$Enum$order_by(l$id);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     return result$data;
   }
@@ -4657,7 +4753,7 @@ class Input$posts_sum_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$posts_sum_order_by) ||
+    if (other is! Input$posts_sum_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -4669,13 +4765,13 @@ class Input$posts_sum_order_by {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -4684,10 +4780,10 @@ class Input$posts_sum_order_by {
   @override
   int get hashCode {
     final l$id = id;
-    final l$station_id = station_id;
+    final l$stationId = station_id;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -4720,6 +4816,7 @@ class _CopyWithImpl$Input$posts_sum_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? station_id = _undefined,
@@ -4736,8 +4833,9 @@ class _CopyWithStubImpl$Input$posts_sum_order_by<TRes>
     implements CopyWith$Input$posts_sum_order_by<TRes> {
   _CopyWithStubImpl$Input$posts_sum_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? station_id,
@@ -4765,10 +4863,10 @@ class Input$posts_var_pop_order_by {
           l$id == null ? null : fromJson$Enum$order_by((l$id as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     return Input$posts_var_pop_order_by._(result$data);
   }
@@ -4786,9 +4884,9 @@ class Input$posts_var_pop_order_by {
       result$data['id'] = l$id == null ? null : toJson$Enum$order_by(l$id);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     return result$data;
   }
@@ -4804,7 +4902,7 @@ class Input$posts_var_pop_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$posts_var_pop_order_by) ||
+    if (other is! Input$posts_var_pop_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -4816,13 +4914,13 @@ class Input$posts_var_pop_order_by {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -4831,10 +4929,10 @@ class Input$posts_var_pop_order_by {
   @override
   int get hashCode {
     final l$id = id;
-    final l$station_id = station_id;
+    final l$stationId = station_id;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -4867,6 +4965,7 @@ class _CopyWithImpl$Input$posts_var_pop_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? station_id = _undefined,
@@ -4883,8 +4982,9 @@ class _CopyWithStubImpl$Input$posts_var_pop_order_by<TRes>
     implements CopyWith$Input$posts_var_pop_order_by<TRes> {
   _CopyWithStubImpl$Input$posts_var_pop_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? station_id,
@@ -4912,10 +5012,10 @@ class Input$posts_var_samp_order_by {
           l$id == null ? null : fromJson$Enum$order_by((l$id as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     return Input$posts_var_samp_order_by._(result$data);
   }
@@ -4933,9 +5033,9 @@ class Input$posts_var_samp_order_by {
       result$data['id'] = l$id == null ? null : toJson$Enum$order_by(l$id);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     return result$data;
   }
@@ -4951,7 +5051,7 @@ class Input$posts_var_samp_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$posts_var_samp_order_by) ||
+    if (other is! Input$posts_var_samp_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -4963,13 +5063,13 @@ class Input$posts_var_samp_order_by {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -4978,10 +5078,10 @@ class Input$posts_var_samp_order_by {
   @override
   int get hashCode {
     final l$id = id;
-    final l$station_id = station_id;
+    final l$stationId = station_id;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -5014,6 +5114,7 @@ class _CopyWithImpl$Input$posts_var_samp_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? station_id = _undefined,
@@ -5030,8 +5131,9 @@ class _CopyWithStubImpl$Input$posts_var_samp_order_by<TRes>
     implements CopyWith$Input$posts_var_samp_order_by<TRes> {
   _CopyWithStubImpl$Input$posts_var_samp_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? station_id,
@@ -5059,10 +5161,10 @@ class Input$posts_variance_order_by {
           l$id == null ? null : fromJson$Enum$order_by((l$id as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     return Input$posts_variance_order_by._(result$data);
   }
@@ -5080,9 +5182,9 @@ class Input$posts_variance_order_by {
       result$data['id'] = l$id == null ? null : toJson$Enum$order_by(l$id);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     return result$data;
   }
@@ -5098,7 +5200,7 @@ class Input$posts_variance_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$posts_variance_order_by) ||
+    if (other is! Input$posts_variance_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -5110,13 +5212,13 @@ class Input$posts_variance_order_by {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -5125,10 +5227,10 @@ class Input$posts_variance_order_by {
   @override
   int get hashCode {
     final l$id = id;
-    final l$station_id = station_id;
+    final l$stationId = station_id;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -5161,6 +5263,7 @@ class _CopyWithImpl$Input$posts_variance_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? station_id = _undefined,
@@ -5177,8 +5280,9 @@ class _CopyWithStubImpl$Input$posts_variance_order_by<TRes>
     implements CopyWith$Input$posts_variance_order_by<TRes> {
   _CopyWithStubImpl$Input$posts_variance_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? station_id,
@@ -5252,18 +5356,18 @@ class Input$reviews_aggregate_order_by {
               (l$stddev as Map<String, dynamic>));
     }
     if (data.containsKey('stddev_pop')) {
-      final l$stddev_pop = data['stddev_pop'];
-      result$data['stddev_pop'] = l$stddev_pop == null
+      final l$stddevPop = data['stddev_pop'];
+      result$data['stddev_pop'] = l$stddevPop == null
           ? null
           : Input$reviews_stddev_pop_order_by.fromJson(
-              (l$stddev_pop as Map<String, dynamic>));
+              (l$stddevPop as Map<String, dynamic>));
     }
     if (data.containsKey('stddev_samp')) {
-      final l$stddev_samp = data['stddev_samp'];
-      result$data['stddev_samp'] = l$stddev_samp == null
+      final l$stddevSamp = data['stddev_samp'];
+      result$data['stddev_samp'] = l$stddevSamp == null
           ? null
           : Input$reviews_stddev_samp_order_by.fromJson(
-              (l$stddev_samp as Map<String, dynamic>));
+              (l$stddevSamp as Map<String, dynamic>));
     }
     if (data.containsKey('sum')) {
       final l$sum = data['sum'];
@@ -5273,18 +5377,18 @@ class Input$reviews_aggregate_order_by {
               (l$sum as Map<String, dynamic>));
     }
     if (data.containsKey('var_pop')) {
-      final l$var_pop = data['var_pop'];
-      result$data['var_pop'] = l$var_pop == null
+      final l$varPop = data['var_pop'];
+      result$data['var_pop'] = l$varPop == null
           ? null
           : Input$reviews_var_pop_order_by.fromJson(
-              (l$var_pop as Map<String, dynamic>));
+              (l$varPop as Map<String, dynamic>));
     }
     if (data.containsKey('var_samp')) {
-      final l$var_samp = data['var_samp'];
-      result$data['var_samp'] = l$var_samp == null
+      final l$varSamp = data['var_samp'];
+      result$data['var_samp'] = l$varSamp == null
           ? null
           : Input$reviews_var_samp_order_by.fromJson(
-              (l$var_samp as Map<String, dynamic>));
+              (l$varSamp as Map<String, dynamic>));
     }
     if (data.containsKey('variance')) {
       final l$variance = data['variance'];
@@ -5354,24 +5458,24 @@ class Input$reviews_aggregate_order_by {
       result$data['stddev'] = l$stddev?.toJson();
     }
     if (_$data.containsKey('stddev_pop')) {
-      final l$stddev_pop = stddev_pop;
-      result$data['stddev_pop'] = l$stddev_pop?.toJson();
+      final l$stddevPop = stddev_pop;
+      result$data['stddev_pop'] = l$stddevPop?.toJson();
     }
     if (_$data.containsKey('stddev_samp')) {
-      final l$stddev_samp = stddev_samp;
-      result$data['stddev_samp'] = l$stddev_samp?.toJson();
+      final l$stddevSamp = stddev_samp;
+      result$data['stddev_samp'] = l$stddevSamp?.toJson();
     }
     if (_$data.containsKey('sum')) {
       final l$sum = sum;
       result$data['sum'] = l$sum?.toJson();
     }
     if (_$data.containsKey('var_pop')) {
-      final l$var_pop = var_pop;
-      result$data['var_pop'] = l$var_pop?.toJson();
+      final l$varPop = var_pop;
+      result$data['var_pop'] = l$varPop?.toJson();
     }
     if (_$data.containsKey('var_samp')) {
-      final l$var_samp = var_samp;
-      result$data['var_samp'] = l$var_samp?.toJson();
+      final l$varSamp = var_samp;
+      result$data['var_samp'] = l$varSamp?.toJson();
     }
     if (_$data.containsKey('variance')) {
       final l$variance = variance;
@@ -5391,7 +5495,7 @@ class Input$reviews_aggregate_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$reviews_aggregate_order_by) ||
+    if (other is! Input$reviews_aggregate_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -5435,22 +5539,22 @@ class Input$reviews_aggregate_order_by {
     if (l$stddev != lOther$stddev) {
       return false;
     }
-    final l$stddev_pop = stddev_pop;
-    final lOther$stddev_pop = other.stddev_pop;
+    final l$stddevPop = stddev_pop;
+    final lother$stddevPop = other.stddev_pop;
     if (_$data.containsKey('stddev_pop') !=
         other._$data.containsKey('stddev_pop')) {
       return false;
     }
-    if (l$stddev_pop != lOther$stddev_pop) {
+    if (l$stddevPop != lother$stddevPop) {
       return false;
     }
-    final l$stddev_samp = stddev_samp;
-    final lOther$stddev_samp = other.stddev_samp;
+    final l$stddevSamp = stddev_samp;
+    final lother$stddevSamp = other.stddev_samp;
     if (_$data.containsKey('stddev_samp') !=
         other._$data.containsKey('stddev_samp')) {
       return false;
     }
-    if (l$stddev_samp != lOther$stddev_samp) {
+    if (l$stddevSamp != lother$stddevSamp) {
       return false;
     }
     final l$sum = sum;
@@ -5461,21 +5565,21 @@ class Input$reviews_aggregate_order_by {
     if (l$sum != lOther$sum) {
       return false;
     }
-    final l$var_pop = var_pop;
-    final lOther$var_pop = other.var_pop;
+    final l$varPop = var_pop;
+    final lother$varPop = other.var_pop;
     if (_$data.containsKey('var_pop') != other._$data.containsKey('var_pop')) {
       return false;
     }
-    if (l$var_pop != lOther$var_pop) {
+    if (l$varPop != lother$varPop) {
       return false;
     }
-    final l$var_samp = var_samp;
-    final lOther$var_samp = other.var_samp;
+    final l$varSamp = var_samp;
+    final lother$varSamp = other.var_samp;
     if (_$data.containsKey('var_samp') !=
         other._$data.containsKey('var_samp')) {
       return false;
     }
-    if (l$var_samp != lOther$var_samp) {
+    if (l$varSamp != lother$varSamp) {
       return false;
     }
     final l$variance = variance;
@@ -5497,11 +5601,11 @@ class Input$reviews_aggregate_order_by {
     final l$max = max;
     final l$min = min;
     final l$stddev = stddev;
-    final l$stddev_pop = stddev_pop;
-    final l$stddev_samp = stddev_samp;
+    final l$stddevPop = stddev_pop;
+    final l$stddevSamp = stddev_samp;
     final l$sum = sum;
-    final l$var_pop = var_pop;
-    final l$var_samp = var_samp;
+    final l$varPop = var_pop;
+    final l$varSamp = var_samp;
     final l$variance = variance;
     return Object.hashAll([
       _$data.containsKey('avg') ? l$avg : const {},
@@ -5509,11 +5613,11 @@ class Input$reviews_aggregate_order_by {
       _$data.containsKey('max') ? l$max : const {},
       _$data.containsKey('min') ? l$min : const {},
       _$data.containsKey('stddev') ? l$stddev : const {},
-      _$data.containsKey('stddev_pop') ? l$stddev_pop : const {},
-      _$data.containsKey('stddev_samp') ? l$stddev_samp : const {},
+      _$data.containsKey('stddev_pop') ? l$stddevPop : const {},
+      _$data.containsKey('stddev_samp') ? l$stddevSamp : const {},
       _$data.containsKey('sum') ? l$sum : const {},
-      _$data.containsKey('var_pop') ? l$var_pop : const {},
-      _$data.containsKey('var_samp') ? l$var_samp : const {},
+      _$data.containsKey('var_pop') ? l$varPop : const {},
+      _$data.containsKey('var_samp') ? l$varSamp : const {},
       _$data.containsKey('variance') ? l$variance : const {},
     ]);
   }
@@ -5566,6 +5670,7 @@ class _CopyWithImpl$Input$reviews_aggregate_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? avg = _undefined,
     Object? count = _undefined,
@@ -5600,6 +5705,7 @@ class _CopyWithImpl$Input$reviews_aggregate_order_by<TRes>
           'variance': (variance as Input$reviews_variance_order_by?),
       }));
 
+  @override
   CopyWith$Input$reviews_avg_order_by<TRes> get avg {
     final local$avg = _instance.avg;
     return local$avg == null
@@ -5607,6 +5713,7 @@ class _CopyWithImpl$Input$reviews_aggregate_order_by<TRes>
         : CopyWith$Input$reviews_avg_order_by(local$avg, (e) => call(avg: e));
   }
 
+  @override
   CopyWith$Input$reviews_max_order_by<TRes> get max {
     final local$max = _instance.max;
     return local$max == null
@@ -5614,6 +5721,7 @@ class _CopyWithImpl$Input$reviews_aggregate_order_by<TRes>
         : CopyWith$Input$reviews_max_order_by(local$max, (e) => call(max: e));
   }
 
+  @override
   CopyWith$Input$reviews_min_order_by<TRes> get min {
     final local$min = _instance.min;
     return local$min == null
@@ -5621,6 +5729,7 @@ class _CopyWithImpl$Input$reviews_aggregate_order_by<TRes>
         : CopyWith$Input$reviews_min_order_by(local$min, (e) => call(min: e));
   }
 
+  @override
   CopyWith$Input$reviews_stddev_order_by<TRes> get stddev {
     final local$stddev = _instance.stddev;
     return local$stddev == null
@@ -5629,22 +5738,25 @@ class _CopyWithImpl$Input$reviews_aggregate_order_by<TRes>
             local$stddev, (e) => call(stddev: e));
   }
 
+  @override
   CopyWith$Input$reviews_stddev_pop_order_by<TRes> get stddev_pop {
-    final local$stddev_pop = _instance.stddev_pop;
-    return local$stddev_pop == null
+    final local$stddevPop = _instance.stddev_pop;
+    return local$stddevPop == null
         ? CopyWith$Input$reviews_stddev_pop_order_by.stub(_then(_instance))
         : CopyWith$Input$reviews_stddev_pop_order_by(
-            local$stddev_pop, (e) => call(stddev_pop: e));
+            local$stddevPop, (e) => call(stddev_pop: e));
   }
 
+  @override
   CopyWith$Input$reviews_stddev_samp_order_by<TRes> get stddev_samp {
-    final local$stddev_samp = _instance.stddev_samp;
-    return local$stddev_samp == null
+    final local$stddevSamp = _instance.stddev_samp;
+    return local$stddevSamp == null
         ? CopyWith$Input$reviews_stddev_samp_order_by.stub(_then(_instance))
         : CopyWith$Input$reviews_stddev_samp_order_by(
-            local$stddev_samp, (e) => call(stddev_samp: e));
+            local$stddevSamp, (e) => call(stddev_samp: e));
   }
 
+  @override
   CopyWith$Input$reviews_sum_order_by<TRes> get sum {
     final local$sum = _instance.sum;
     return local$sum == null
@@ -5652,22 +5764,25 @@ class _CopyWithImpl$Input$reviews_aggregate_order_by<TRes>
         : CopyWith$Input$reviews_sum_order_by(local$sum, (e) => call(sum: e));
   }
 
+  @override
   CopyWith$Input$reviews_var_pop_order_by<TRes> get var_pop {
-    final local$var_pop = _instance.var_pop;
-    return local$var_pop == null
+    final local$varPop = _instance.var_pop;
+    return local$varPop == null
         ? CopyWith$Input$reviews_var_pop_order_by.stub(_then(_instance))
         : CopyWith$Input$reviews_var_pop_order_by(
-            local$var_pop, (e) => call(var_pop: e));
+            local$varPop, (e) => call(var_pop: e));
   }
 
+  @override
   CopyWith$Input$reviews_var_samp_order_by<TRes> get var_samp {
-    final local$var_samp = _instance.var_samp;
-    return local$var_samp == null
+    final local$varSamp = _instance.var_samp;
+    return local$varSamp == null
         ? CopyWith$Input$reviews_var_samp_order_by.stub(_then(_instance))
         : CopyWith$Input$reviews_var_samp_order_by(
-            local$var_samp, (e) => call(var_samp: e));
+            local$varSamp, (e) => call(var_samp: e));
   }
 
+  @override
   CopyWith$Input$reviews_variance_order_by<TRes> get variance {
     final local$variance = _instance.variance;
     return local$variance == null
@@ -5681,8 +5796,9 @@ class _CopyWithStubImpl$Input$reviews_aggregate_order_by<TRes>
     implements CopyWith$Input$reviews_aggregate_order_by<TRes> {
   _CopyWithStubImpl$Input$reviews_aggregate_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Input$reviews_avg_order_by? avg,
     Enum$order_by? count,
@@ -5698,33 +5814,43 @@ class _CopyWithStubImpl$Input$reviews_aggregate_order_by<TRes>
   }) =>
       _res;
 
+  @override
   CopyWith$Input$reviews_avg_order_by<TRes> get avg =>
       CopyWith$Input$reviews_avg_order_by.stub(_res);
 
+  @override
   CopyWith$Input$reviews_max_order_by<TRes> get max =>
       CopyWith$Input$reviews_max_order_by.stub(_res);
 
+  @override
   CopyWith$Input$reviews_min_order_by<TRes> get min =>
       CopyWith$Input$reviews_min_order_by.stub(_res);
 
+  @override
   CopyWith$Input$reviews_stddev_order_by<TRes> get stddev =>
       CopyWith$Input$reviews_stddev_order_by.stub(_res);
 
+  @override
   CopyWith$Input$reviews_stddev_pop_order_by<TRes> get stddev_pop =>
       CopyWith$Input$reviews_stddev_pop_order_by.stub(_res);
 
+  @override
   CopyWith$Input$reviews_stddev_samp_order_by<TRes> get stddev_samp =>
       CopyWith$Input$reviews_stddev_samp_order_by.stub(_res);
 
+  @override
   CopyWith$Input$reviews_sum_order_by<TRes> get sum =>
       CopyWith$Input$reviews_sum_order_by.stub(_res);
 
+  @override
   CopyWith$Input$reviews_var_pop_order_by<TRes> get var_pop =>
       CopyWith$Input$reviews_var_pop_order_by.stub(_res);
 
+  @override
   CopyWith$Input$reviews_var_samp_order_by<TRes> get var_samp =>
       CopyWith$Input$reviews_var_samp_order_by.stub(_res);
 
+  @override
   CopyWith$Input$reviews_variance_order_by<TRes> get variance =>
       CopyWith$Input$reviews_variance_order_by.stub(_res);
 }
@@ -5756,10 +5882,10 @@ class Input$reviews_avg_order_by {
           l$stars == null ? null : fromJson$Enum$order_by((l$stars as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     return Input$reviews_avg_order_by._(result$data);
   }
@@ -5784,9 +5910,9 @@ class Input$reviews_avg_order_by {
           l$stars == null ? null : toJson$Enum$order_by(l$stars);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     return result$data;
   }
@@ -5802,7 +5928,7 @@ class Input$reviews_avg_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$reviews_avg_order_by) ||
+    if (other is! Input$reviews_avg_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -5822,13 +5948,13 @@ class Input$reviews_avg_order_by {
     if (l$stars != lOther$stars) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -5838,11 +5964,11 @@ class Input$reviews_avg_order_by {
   int get hashCode {
     final l$id = id;
     final l$stars = stars;
-    final l$station_id = station_id;
+    final l$stationId = station_id;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('stars') ? l$stars : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -5876,6 +6002,7 @@ class _CopyWithImpl$Input$reviews_avg_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? stars = _undefined,
@@ -5894,8 +6021,9 @@ class _CopyWithStubImpl$Input$reviews_avg_order_by<TRes>
     implements CopyWith$Input$reviews_avg_order_by<TRes> {
   _CopyWithStubImpl$Input$reviews_avg_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? stars,
@@ -5937,31 +6065,31 @@ class Input$reviews_bool_exp {
   factory Input$reviews_bool_exp.fromJson(Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
     if (data.containsKey('_and')) {
-      final l$$_and = data['_and'];
-      result$data['_and'] = (l$$_and as List<dynamic>?)
+      final l$$And = data['_and'];
+      result$data['_and'] = (l$$And as List<dynamic>?)
           ?.map((e) =>
               Input$reviews_bool_exp.fromJson((e as Map<String, dynamic>)))
           .toList();
     }
     if (data.containsKey('_not')) {
-      final l$$_not = data['_not'];
-      result$data['_not'] = l$$_not == null
+      final l$$Not = data['_not'];
+      result$data['_not'] = l$$Not == null
           ? null
-          : Input$reviews_bool_exp.fromJson((l$$_not as Map<String, dynamic>));
+          : Input$reviews_bool_exp.fromJson((l$$Not as Map<String, dynamic>));
     }
     if (data.containsKey('_or')) {
-      final l$$_or = data['_or'];
-      result$data['_or'] = (l$$_or as List<dynamic>?)
+      final l$$Or = data['_or'];
+      result$data['_or'] = (l$$Or as List<dynamic>?)
           ?.map((e) =>
               Input$reviews_bool_exp.fromJson((e as Map<String, dynamic>)))
           .toList();
     }
     if (data.containsKey('created_at')) {
-      final l$created_at = data['created_at'];
-      result$data['created_at'] = l$created_at == null
+      final l$createdAt = data['created_at'];
+      result$data['created_at'] = l$createdAt == null
           ? null
           : Input$timestamptz_comparison_exp.fromJson(
-              (l$created_at as Map<String, dynamic>));
+              (l$createdAt as Map<String, dynamic>));
     }
     if (data.containsKey('id')) {
       final l$id = data['id'];
@@ -5991,18 +6119,18 @@ class Input$reviews_bool_exp {
               (l$station as Map<String, dynamic>));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
           : Input$Int_comparison_exp.fromJson(
-              (l$station_id as Map<String, dynamic>));
+              (l$stationId as Map<String, dynamic>));
     }
     if (data.containsKey('updated_at')) {
-      final l$updated_at = data['updated_at'];
-      result$data['updated_at'] = l$updated_at == null
+      final l$updatedAt = data['updated_at'];
+      result$data['updated_at'] = l$updatedAt == null
           ? null
           : Input$timestamptz_comparison_exp.fromJson(
-              (l$updated_at as Map<String, dynamic>));
+              (l$updatedAt as Map<String, dynamic>));
     }
     if (data.containsKey('verified')) {
       final l$verified = data['verified'];
@@ -6052,20 +6180,20 @@ class Input$reviews_bool_exp {
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
     if (_$data.containsKey('_and')) {
-      final l$$_and = $_and;
-      result$data['_and'] = l$$_and?.map((e) => e.toJson()).toList();
+      final l$$And = $_and;
+      result$data['_and'] = l$$And?.map((e) => e.toJson()).toList();
     }
     if (_$data.containsKey('_not')) {
-      final l$$_not = $_not;
-      result$data['_not'] = l$$_not?.toJson();
+      final l$$Not = $_not;
+      result$data['_not'] = l$$Not?.toJson();
     }
     if (_$data.containsKey('_or')) {
-      final l$$_or = $_or;
-      result$data['_or'] = l$$_or?.map((e) => e.toJson()).toList();
+      final l$$Or = $_or;
+      result$data['_or'] = l$$Or?.map((e) => e.toJson()).toList();
     }
     if (_$data.containsKey('created_at')) {
-      final l$created_at = created_at;
-      result$data['created_at'] = l$created_at?.toJson();
+      final l$createdAt = created_at;
+      result$data['created_at'] = l$createdAt?.toJson();
     }
     if (_$data.containsKey('id')) {
       final l$id = id;
@@ -6084,12 +6212,12 @@ class Input$reviews_bool_exp {
       result$data['station'] = l$station?.toJson();
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
-      result$data['station_id'] = l$station_id?.toJson();
+      final l$stationId = station_id;
+      result$data['station_id'] = l$stationId?.toJson();
     }
     if (_$data.containsKey('updated_at')) {
-      final l$updated_at = updated_at;
-      result$data['updated_at'] = l$updated_at?.toJson();
+      final l$updatedAt = updated_at;
+      result$data['updated_at'] = l$updatedAt?.toJson();
     }
     if (_$data.containsKey('verified')) {
       final l$verified = verified;
@@ -6109,63 +6237,63 @@ class Input$reviews_bool_exp {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$reviews_bool_exp) ||
+    if (other is! Input$reviews_bool_exp ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$$_and = $_and;
-    final lOther$$_and = other.$_and;
+    final l$$And = $_and;
+    final lother$$And = other.$_and;
     if (_$data.containsKey('_and') != other._$data.containsKey('_and')) {
       return false;
     }
-    if (l$$_and != null && lOther$$_and != null) {
-      if (l$$_and.length != lOther$$_and.length) {
+    if (l$$And != null && lother$$And != null) {
+      if (l$$And.length != lother$$And.length) {
         return false;
       }
-      for (int i = 0; i < l$$_and.length; i++) {
-        final l$$_and$entry = l$$_and[i];
-        final lOther$$_and$entry = lOther$$_and[i];
-        if (l$$_and$entry != lOther$$_and$entry) {
+      for (int i = 0; i < l$$And.length; i++) {
+        final l$$And$entry = l$$And[i];
+        final lother$$And$entry = lother$$And[i];
+        if (l$$And$entry != lother$$And$entry) {
           return false;
         }
       }
-    } else if (l$$_and != lOther$$_and) {
+    } else if (l$$And != lother$$And) {
       return false;
     }
-    final l$$_not = $_not;
-    final lOther$$_not = other.$_not;
+    final l$$Not = $_not;
+    final lother$$Not = other.$_not;
     if (_$data.containsKey('_not') != other._$data.containsKey('_not')) {
       return false;
     }
-    if (l$$_not != lOther$$_not) {
+    if (l$$Not != lother$$Not) {
       return false;
     }
-    final l$$_or = $_or;
-    final lOther$$_or = other.$_or;
+    final l$$Or = $_or;
+    final lother$$Or = other.$_or;
     if (_$data.containsKey('_or') != other._$data.containsKey('_or')) {
       return false;
     }
-    if (l$$_or != null && lOther$$_or != null) {
-      if (l$$_or.length != lOther$$_or.length) {
+    if (l$$Or != null && lother$$Or != null) {
+      if (l$$Or.length != lother$$Or.length) {
         return false;
       }
-      for (int i = 0; i < l$$_or.length; i++) {
-        final l$$_or$entry = l$$_or[i];
-        final lOther$$_or$entry = lOther$$_or[i];
-        if (l$$_or$entry != lOther$$_or$entry) {
+      for (int i = 0; i < l$$Or.length; i++) {
+        final l$$Or$entry = l$$Or[i];
+        final lother$$Or$entry = lother$$Or[i];
+        if (l$$Or$entry != lother$$Or$entry) {
           return false;
         }
       }
-    } else if (l$$_or != lOther$$_or) {
+    } else if (l$$Or != lother$$Or) {
       return false;
     }
-    final l$created_at = created_at;
-    final lOther$created_at = other.created_at;
+    final l$createdAt = created_at;
+    final lother$createdAt = other.created_at;
     if (_$data.containsKey('created_at') !=
         other._$data.containsKey('created_at')) {
       return false;
     }
-    if (l$created_at != lOther$created_at) {
+    if (l$createdAt != lother$createdAt) {
       return false;
     }
     final l$id = id;
@@ -6200,22 +6328,22 @@ class Input$reviews_bool_exp {
     if (l$station != lOther$station) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
-    final l$updated_at = updated_at;
-    final lOther$updated_at = other.updated_at;
+    final l$updatedAt = updated_at;
+    final lother$updatedAt = other.updated_at;
     if (_$data.containsKey('updated_at') !=
         other._$data.containsKey('updated_at')) {
       return false;
     }
-    if (l$updated_at != lOther$updated_at) {
+    if (l$updatedAt != lother$updatedAt) {
       return false;
     }
     final l$verified = verified;
@@ -6232,36 +6360,36 @@ class Input$reviews_bool_exp {
 
   @override
   int get hashCode {
-    final l$$_and = $_and;
-    final l$$_not = $_not;
-    final l$$_or = $_or;
-    final l$created_at = created_at;
+    final l$$And = $_and;
+    final l$$Not = $_not;
+    final l$$Or = $_or;
+    final l$createdAt = created_at;
     final l$id = id;
     final l$message = message;
     final l$stars = stars;
     final l$station = station;
-    final l$station_id = station_id;
-    final l$updated_at = updated_at;
+    final l$stationId = station_id;
+    final l$updatedAt = updated_at;
     final l$verified = verified;
     return Object.hashAll([
       _$data.containsKey('_and')
-          ? l$$_and == null
+          ? l$$And == null
               ? null
-              : Object.hashAll(l$$_and.map((v) => v))
+              : Object.hashAll(l$$And.map((v) => v))
           : const {},
-      _$data.containsKey('_not') ? l$$_not : const {},
+      _$data.containsKey('_not') ? l$$Not : const {},
       _$data.containsKey('_or')
-          ? l$$_or == null
+          ? l$$Or == null
               ? null
-              : Object.hashAll(l$$_or.map((v) => v))
+              : Object.hashAll(l$$Or.map((v) => v))
           : const {},
-      _$data.containsKey('created_at') ? l$created_at : const {},
+      _$data.containsKey('created_at') ? l$createdAt : const {},
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('message') ? l$message : const {},
       _$data.containsKey('stars') ? l$stars : const {},
       _$data.containsKey('station') ? l$station : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
-      _$data.containsKey('updated_at') ? l$updated_at : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
+      _$data.containsKey('updated_at') ? l$updatedAt : const {},
       _$data.containsKey('verified') ? l$verified : const {},
     ]);
   }
@@ -6293,13 +6421,13 @@ abstract class CopyWith$Input$reviews_bool_exp<TRes> {
       Iterable<Input$reviews_bool_exp>? Function(
               Iterable<
                   CopyWith$Input$reviews_bool_exp<Input$reviews_bool_exp>>?)
-          _fn);
+          fn);
   CopyWith$Input$reviews_bool_exp<TRes> get $_not;
   TRes $_or(
       Iterable<Input$reviews_bool_exp>? Function(
               Iterable<
                   CopyWith$Input$reviews_bool_exp<Input$reviews_bool_exp>>?)
-          _fn);
+          fn);
   CopyWith$Input$timestamptz_comparison_exp<TRes> get created_at;
   CopyWith$Input$Int_comparison_exp<TRes> get id;
   CopyWith$Input$String_comparison_exp<TRes> get message;
@@ -6323,6 +6451,7 @@ class _CopyWithImpl$Input$reviews_bool_exp<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? $_and = _undefined,
     Object? $_not = _undefined,
@@ -6358,44 +6487,49 @@ class _CopyWithImpl$Input$reviews_bool_exp<TRes>
           'verified': (verified as Input$Boolean_comparison_exp?),
       }));
 
+  @override
   TRes $_and(
           Iterable<Input$reviews_bool_exp>? Function(
                   Iterable<
                       CopyWith$Input$reviews_bool_exp<Input$reviews_bool_exp>>?)
-              _fn) =>
+              fn) =>
       call(
           $_and:
-              _fn(_instance.$_and?.map((e) => CopyWith$Input$reviews_bool_exp(
+              fn(_instance.$_and?.map((e) => CopyWith$Input$reviews_bool_exp(
                     e,
                     (i) => i,
                   )))?.toList());
 
+  @override
   CopyWith$Input$reviews_bool_exp<TRes> get $_not {
-    final local$$_not = _instance.$_not;
-    return local$$_not == null
+    final local$$Not = _instance.$_not;
+    return local$$Not == null
         ? CopyWith$Input$reviews_bool_exp.stub(_then(_instance))
-        : CopyWith$Input$reviews_bool_exp(local$$_not, (e) => call($_not: e));
+        : CopyWith$Input$reviews_bool_exp(local$$Not, (e) => call($_not: e));
   }
 
+  @override
   TRes $_or(
           Iterable<Input$reviews_bool_exp>? Function(
                   Iterable<
                       CopyWith$Input$reviews_bool_exp<Input$reviews_bool_exp>>?)
-              _fn) =>
+              fn) =>
       call(
-          $_or: _fn(_instance.$_or?.map((e) => CopyWith$Input$reviews_bool_exp(
+          $_or: fn(_instance.$_or?.map((e) => CopyWith$Input$reviews_bool_exp(
                 e,
                 (i) => i,
               )))?.toList());
 
+  @override
   CopyWith$Input$timestamptz_comparison_exp<TRes> get created_at {
-    final local$created_at = _instance.created_at;
-    return local$created_at == null
+    final local$createdAt = _instance.created_at;
+    return local$createdAt == null
         ? CopyWith$Input$timestamptz_comparison_exp.stub(_then(_instance))
         : CopyWith$Input$timestamptz_comparison_exp(
-            local$created_at, (e) => call(created_at: e));
+            local$createdAt, (e) => call(created_at: e));
   }
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get id {
     final local$id = _instance.id;
     return local$id == null
@@ -6403,6 +6537,7 @@ class _CopyWithImpl$Input$reviews_bool_exp<TRes>
         : CopyWith$Input$Int_comparison_exp(local$id, (e) => call(id: e));
   }
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get message {
     final local$message = _instance.message;
     return local$message == null
@@ -6411,6 +6546,7 @@ class _CopyWithImpl$Input$reviews_bool_exp<TRes>
             local$message, (e) => call(message: e));
   }
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get stars {
     final local$stars = _instance.stars;
     return local$stars == null
@@ -6418,6 +6554,7 @@ class _CopyWithImpl$Input$reviews_bool_exp<TRes>
         : CopyWith$Input$Int_comparison_exp(local$stars, (e) => call(stars: e));
   }
 
+  @override
   CopyWith$Input$stations_bool_exp<TRes> get station {
     final local$station = _instance.station;
     return local$station == null
@@ -6426,22 +6563,25 @@ class _CopyWithImpl$Input$reviews_bool_exp<TRes>
             local$station, (e) => call(station: e));
   }
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get station_id {
-    final local$station_id = _instance.station_id;
-    return local$station_id == null
+    final local$stationId = _instance.station_id;
+    return local$stationId == null
         ? CopyWith$Input$Int_comparison_exp.stub(_then(_instance))
         : CopyWith$Input$Int_comparison_exp(
-            local$station_id, (e) => call(station_id: e));
+            local$stationId, (e) => call(station_id: e));
   }
 
+  @override
   CopyWith$Input$timestamptz_comparison_exp<TRes> get updated_at {
-    final local$updated_at = _instance.updated_at;
-    return local$updated_at == null
+    final local$updatedAt = _instance.updated_at;
+    return local$updatedAt == null
         ? CopyWith$Input$timestamptz_comparison_exp.stub(_then(_instance))
         : CopyWith$Input$timestamptz_comparison_exp(
-            local$updated_at, (e) => call(updated_at: e));
+            local$updatedAt, (e) => call(updated_at: e));
   }
 
+  @override
   CopyWith$Input$Boolean_comparison_exp<TRes> get verified {
     final local$verified = _instance.verified;
     return local$verified == null
@@ -6455,8 +6595,9 @@ class _CopyWithStubImpl$Input$reviews_bool_exp<TRes>
     implements CopyWith$Input$reviews_bool_exp<TRes> {
   _CopyWithStubImpl$Input$reviews_bool_exp(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     List<Input$reviews_bool_exp>? $_and,
     Input$reviews_bool_exp? $_not,
@@ -6472,34 +6613,45 @@ class _CopyWithStubImpl$Input$reviews_bool_exp<TRes>
   }) =>
       _res;
 
-  $_and(_fn) => _res;
+  @override
+  $_and(fn) => _res;
 
+  @override
   CopyWith$Input$reviews_bool_exp<TRes> get $_not =>
       CopyWith$Input$reviews_bool_exp.stub(_res);
 
-  $_or(_fn) => _res;
+  @override
+  $_or(fn) => _res;
 
+  @override
   CopyWith$Input$timestamptz_comparison_exp<TRes> get created_at =>
       CopyWith$Input$timestamptz_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get id =>
       CopyWith$Input$Int_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get message =>
       CopyWith$Input$String_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get stars =>
       CopyWith$Input$Int_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$stations_bool_exp<TRes> get station =>
       CopyWith$Input$stations_bool_exp.stub(_res);
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get station_id =>
       CopyWith$Input$Int_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$timestamptz_comparison_exp<TRes> get updated_at =>
       CopyWith$Input$timestamptz_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$Boolean_comparison_exp<TRes> get verified =>
       CopyWith$Input$Boolean_comparison_exp.stub(_res);
 }
@@ -6527,10 +6679,10 @@ class Input$reviews_max_order_by {
   factory Input$reviews_max_order_by.fromJson(Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
     if (data.containsKey('created_at')) {
-      final l$created_at = data['created_at'];
-      result$data['created_at'] = l$created_at == null
+      final l$createdAt = data['created_at'];
+      result$data['created_at'] = l$createdAt == null
           ? null
-          : fromJson$Enum$order_by((l$created_at as String));
+          : fromJson$Enum$order_by((l$createdAt as String));
     }
     if (data.containsKey('id')) {
       final l$id = data['id'];
@@ -6549,16 +6701,16 @@ class Input$reviews_max_order_by {
           l$stars == null ? null : fromJson$Enum$order_by((l$stars as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     if (data.containsKey('updated_at')) {
-      final l$updated_at = data['updated_at'];
-      result$data['updated_at'] = l$updated_at == null
+      final l$updatedAt = data['updated_at'];
+      result$data['updated_at'] = l$updatedAt == null
           ? null
-          : fromJson$Enum$order_by((l$updated_at as String));
+          : fromJson$Enum$order_by((l$updatedAt as String));
     }
     return Input$reviews_max_order_by._(result$data);
   }
@@ -6580,9 +6732,9 @@ class Input$reviews_max_order_by {
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
     if (_$data.containsKey('created_at')) {
-      final l$created_at = created_at;
+      final l$createdAt = created_at;
       result$data['created_at'] =
-          l$created_at == null ? null : toJson$Enum$order_by(l$created_at);
+          l$createdAt == null ? null : toJson$Enum$order_by(l$createdAt);
     }
     if (_$data.containsKey('id')) {
       final l$id = id;
@@ -6599,14 +6751,14 @@ class Input$reviews_max_order_by {
           l$stars == null ? null : toJson$Enum$order_by(l$stars);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     if (_$data.containsKey('updated_at')) {
-      final l$updated_at = updated_at;
+      final l$updatedAt = updated_at;
       result$data['updated_at'] =
-          l$updated_at == null ? null : toJson$Enum$order_by(l$updated_at);
+          l$updatedAt == null ? null : toJson$Enum$order_by(l$updatedAt);
     }
     return result$data;
   }
@@ -6622,17 +6774,17 @@ class Input$reviews_max_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$reviews_max_order_by) ||
+    if (other is! Input$reviews_max_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$created_at = created_at;
-    final lOther$created_at = other.created_at;
+    final l$createdAt = created_at;
+    final lother$createdAt = other.created_at;
     if (_$data.containsKey('created_at') !=
         other._$data.containsKey('created_at')) {
       return false;
     }
-    if (l$created_at != lOther$created_at) {
+    if (l$createdAt != lother$createdAt) {
       return false;
     }
     final l$id = id;
@@ -6659,22 +6811,22 @@ class Input$reviews_max_order_by {
     if (l$stars != lOther$stars) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
-    final l$updated_at = updated_at;
-    final lOther$updated_at = other.updated_at;
+    final l$updatedAt = updated_at;
+    final lother$updatedAt = other.updated_at;
     if (_$data.containsKey('updated_at') !=
         other._$data.containsKey('updated_at')) {
       return false;
     }
-    if (l$updated_at != lOther$updated_at) {
+    if (l$updatedAt != lother$updatedAt) {
       return false;
     }
     return true;
@@ -6682,19 +6834,19 @@ class Input$reviews_max_order_by {
 
   @override
   int get hashCode {
-    final l$created_at = created_at;
+    final l$createdAt = created_at;
     final l$id = id;
     final l$message = message;
     final l$stars = stars;
-    final l$station_id = station_id;
-    final l$updated_at = updated_at;
+    final l$stationId = station_id;
+    final l$updatedAt = updated_at;
     return Object.hashAll([
-      _$data.containsKey('created_at') ? l$created_at : const {},
+      _$data.containsKey('created_at') ? l$createdAt : const {},
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('message') ? l$message : const {},
       _$data.containsKey('stars') ? l$stars : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
-      _$data.containsKey('updated_at') ? l$updated_at : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
+      _$data.containsKey('updated_at') ? l$updatedAt : const {},
     ]);
   }
 }
@@ -6731,6 +6883,7 @@ class _CopyWithImpl$Input$reviews_max_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? created_at = _undefined,
     Object? id = _undefined,
@@ -6757,8 +6910,9 @@ class _CopyWithStubImpl$Input$reviews_max_order_by<TRes>
     implements CopyWith$Input$reviews_max_order_by<TRes> {
   _CopyWithStubImpl$Input$reviews_max_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? created_at,
     Enum$order_by? id,
@@ -6793,10 +6947,10 @@ class Input$reviews_min_order_by {
   factory Input$reviews_min_order_by.fromJson(Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
     if (data.containsKey('created_at')) {
-      final l$created_at = data['created_at'];
-      result$data['created_at'] = l$created_at == null
+      final l$createdAt = data['created_at'];
+      result$data['created_at'] = l$createdAt == null
           ? null
-          : fromJson$Enum$order_by((l$created_at as String));
+          : fromJson$Enum$order_by((l$createdAt as String));
     }
     if (data.containsKey('id')) {
       final l$id = data['id'];
@@ -6815,16 +6969,16 @@ class Input$reviews_min_order_by {
           l$stars == null ? null : fromJson$Enum$order_by((l$stars as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     if (data.containsKey('updated_at')) {
-      final l$updated_at = data['updated_at'];
-      result$data['updated_at'] = l$updated_at == null
+      final l$updatedAt = data['updated_at'];
+      result$data['updated_at'] = l$updatedAt == null
           ? null
-          : fromJson$Enum$order_by((l$updated_at as String));
+          : fromJson$Enum$order_by((l$updatedAt as String));
     }
     return Input$reviews_min_order_by._(result$data);
   }
@@ -6846,9 +7000,9 @@ class Input$reviews_min_order_by {
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
     if (_$data.containsKey('created_at')) {
-      final l$created_at = created_at;
+      final l$createdAt = created_at;
       result$data['created_at'] =
-          l$created_at == null ? null : toJson$Enum$order_by(l$created_at);
+          l$createdAt == null ? null : toJson$Enum$order_by(l$createdAt);
     }
     if (_$data.containsKey('id')) {
       final l$id = id;
@@ -6865,14 +7019,14 @@ class Input$reviews_min_order_by {
           l$stars == null ? null : toJson$Enum$order_by(l$stars);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     if (_$data.containsKey('updated_at')) {
-      final l$updated_at = updated_at;
+      final l$updatedAt = updated_at;
       result$data['updated_at'] =
-          l$updated_at == null ? null : toJson$Enum$order_by(l$updated_at);
+          l$updatedAt == null ? null : toJson$Enum$order_by(l$updatedAt);
     }
     return result$data;
   }
@@ -6888,17 +7042,17 @@ class Input$reviews_min_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$reviews_min_order_by) ||
+    if (other is! Input$reviews_min_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$created_at = created_at;
-    final lOther$created_at = other.created_at;
+    final l$createdAt = created_at;
+    final lother$createdAt = other.created_at;
     if (_$data.containsKey('created_at') !=
         other._$data.containsKey('created_at')) {
       return false;
     }
-    if (l$created_at != lOther$created_at) {
+    if (l$createdAt != lother$createdAt) {
       return false;
     }
     final l$id = id;
@@ -6925,22 +7079,22 @@ class Input$reviews_min_order_by {
     if (l$stars != lOther$stars) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
-    final l$updated_at = updated_at;
-    final lOther$updated_at = other.updated_at;
+    final l$updatedAt = updated_at;
+    final lother$updatedAt = other.updated_at;
     if (_$data.containsKey('updated_at') !=
         other._$data.containsKey('updated_at')) {
       return false;
     }
-    if (l$updated_at != lOther$updated_at) {
+    if (l$updatedAt != lother$updatedAt) {
       return false;
     }
     return true;
@@ -6948,19 +7102,19 @@ class Input$reviews_min_order_by {
 
   @override
   int get hashCode {
-    final l$created_at = created_at;
+    final l$createdAt = created_at;
     final l$id = id;
     final l$message = message;
     final l$stars = stars;
-    final l$station_id = station_id;
-    final l$updated_at = updated_at;
+    final l$stationId = station_id;
+    final l$updatedAt = updated_at;
     return Object.hashAll([
-      _$data.containsKey('created_at') ? l$created_at : const {},
+      _$data.containsKey('created_at') ? l$createdAt : const {},
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('message') ? l$message : const {},
       _$data.containsKey('stars') ? l$stars : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
-      _$data.containsKey('updated_at') ? l$updated_at : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
+      _$data.containsKey('updated_at') ? l$updatedAt : const {},
     ]);
   }
 }
@@ -6997,6 +7151,7 @@ class _CopyWithImpl$Input$reviews_min_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? created_at = _undefined,
     Object? id = _undefined,
@@ -7023,8 +7178,9 @@ class _CopyWithStubImpl$Input$reviews_min_order_by<TRes>
     implements CopyWith$Input$reviews_min_order_by<TRes> {
   _CopyWithStubImpl$Input$reviews_min_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? created_at,
     Enum$order_by? id,
@@ -7063,10 +7219,10 @@ class Input$reviews_order_by {
   factory Input$reviews_order_by.fromJson(Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
     if (data.containsKey('created_at')) {
-      final l$created_at = data['created_at'];
-      result$data['created_at'] = l$created_at == null
+      final l$createdAt = data['created_at'];
+      result$data['created_at'] = l$createdAt == null
           ? null
-          : fromJson$Enum$order_by((l$created_at as String));
+          : fromJson$Enum$order_by((l$createdAt as String));
     }
     if (data.containsKey('id')) {
       final l$id = data['id'];
@@ -7092,16 +7248,16 @@ class Input$reviews_order_by {
               (l$station as Map<String, dynamic>));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     if (data.containsKey('updated_at')) {
-      final l$updated_at = data['updated_at'];
-      result$data['updated_at'] = l$updated_at == null
+      final l$updatedAt = data['updated_at'];
+      result$data['updated_at'] = l$updatedAt == null
           ? null
-          : fromJson$Enum$order_by((l$updated_at as String));
+          : fromJson$Enum$order_by((l$updatedAt as String));
     }
     if (data.containsKey('verified')) {
       final l$verified = data['verified'];
@@ -7134,9 +7290,9 @@ class Input$reviews_order_by {
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
     if (_$data.containsKey('created_at')) {
-      final l$created_at = created_at;
+      final l$createdAt = created_at;
       result$data['created_at'] =
-          l$created_at == null ? null : toJson$Enum$order_by(l$created_at);
+          l$createdAt == null ? null : toJson$Enum$order_by(l$createdAt);
     }
     if (_$data.containsKey('id')) {
       final l$id = id;
@@ -7157,14 +7313,14 @@ class Input$reviews_order_by {
       result$data['station'] = l$station?.toJson();
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     if (_$data.containsKey('updated_at')) {
-      final l$updated_at = updated_at;
+      final l$updatedAt = updated_at;
       result$data['updated_at'] =
-          l$updated_at == null ? null : toJson$Enum$order_by(l$updated_at);
+          l$updatedAt == null ? null : toJson$Enum$order_by(l$updatedAt);
     }
     if (_$data.containsKey('verified')) {
       final l$verified = verified;
@@ -7185,17 +7341,17 @@ class Input$reviews_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$reviews_order_by) ||
+    if (other is! Input$reviews_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$created_at = created_at;
-    final lOther$created_at = other.created_at;
+    final l$createdAt = created_at;
+    final lother$createdAt = other.created_at;
     if (_$data.containsKey('created_at') !=
         other._$data.containsKey('created_at')) {
       return false;
     }
-    if (l$created_at != lOther$created_at) {
+    if (l$createdAt != lother$createdAt) {
       return false;
     }
     final l$id = id;
@@ -7230,22 +7386,22 @@ class Input$reviews_order_by {
     if (l$station != lOther$station) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
-    final l$updated_at = updated_at;
-    final lOther$updated_at = other.updated_at;
+    final l$updatedAt = updated_at;
+    final lother$updatedAt = other.updated_at;
     if (_$data.containsKey('updated_at') !=
         other._$data.containsKey('updated_at')) {
       return false;
     }
-    if (l$updated_at != lOther$updated_at) {
+    if (l$updatedAt != lother$updatedAt) {
       return false;
     }
     final l$verified = verified;
@@ -7262,22 +7418,22 @@ class Input$reviews_order_by {
 
   @override
   int get hashCode {
-    final l$created_at = created_at;
+    final l$createdAt = created_at;
     final l$id = id;
     final l$message = message;
     final l$stars = stars;
     final l$station = station;
-    final l$station_id = station_id;
-    final l$updated_at = updated_at;
+    final l$stationId = station_id;
+    final l$updatedAt = updated_at;
     final l$verified = verified;
     return Object.hashAll([
-      _$data.containsKey('created_at') ? l$created_at : const {},
+      _$data.containsKey('created_at') ? l$createdAt : const {},
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('message') ? l$message : const {},
       _$data.containsKey('stars') ? l$stars : const {},
       _$data.containsKey('station') ? l$station : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
-      _$data.containsKey('updated_at') ? l$updated_at : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
+      _$data.containsKey('updated_at') ? l$updatedAt : const {},
       _$data.containsKey('verified') ? l$verified : const {},
     ]);
   }
@@ -7318,6 +7474,7 @@ class _CopyWithImpl$Input$reviews_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? created_at = _undefined,
     Object? id = _undefined,
@@ -7344,6 +7501,7 @@ class _CopyWithImpl$Input$reviews_order_by<TRes>
         if (verified != _undefined) 'verified': (verified as Enum$order_by?),
       }));
 
+  @override
   CopyWith$Input$stations_order_by<TRes> get station {
     final local$station = _instance.station;
     return local$station == null
@@ -7357,8 +7515,9 @@ class _CopyWithStubImpl$Input$reviews_order_by<TRes>
     implements CopyWith$Input$reviews_order_by<TRes> {
   _CopyWithStubImpl$Input$reviews_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? created_at,
     Enum$order_by? id,
@@ -7371,6 +7530,7 @@ class _CopyWithStubImpl$Input$reviews_order_by<TRes>
   }) =>
       _res;
 
+  @override
   CopyWith$Input$stations_order_by<TRes> get station =>
       CopyWith$Input$stations_order_by.stub(_res);
 }
@@ -7402,10 +7562,10 @@ class Input$reviews_stddev_order_by {
           l$stars == null ? null : fromJson$Enum$order_by((l$stars as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     return Input$reviews_stddev_order_by._(result$data);
   }
@@ -7430,9 +7590,9 @@ class Input$reviews_stddev_order_by {
           l$stars == null ? null : toJson$Enum$order_by(l$stars);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     return result$data;
   }
@@ -7448,7 +7608,7 @@ class Input$reviews_stddev_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$reviews_stddev_order_by) ||
+    if (other is! Input$reviews_stddev_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -7468,13 +7628,13 @@ class Input$reviews_stddev_order_by {
     if (l$stars != lOther$stars) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -7484,11 +7644,11 @@ class Input$reviews_stddev_order_by {
   int get hashCode {
     final l$id = id;
     final l$stars = stars;
-    final l$station_id = station_id;
+    final l$stationId = station_id;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('stars') ? l$stars : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -7522,6 +7682,7 @@ class _CopyWithImpl$Input$reviews_stddev_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? stars = _undefined,
@@ -7540,8 +7701,9 @@ class _CopyWithStubImpl$Input$reviews_stddev_order_by<TRes>
     implements CopyWith$Input$reviews_stddev_order_by<TRes> {
   _CopyWithStubImpl$Input$reviews_stddev_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? stars,
@@ -7578,10 +7740,10 @@ class Input$reviews_stddev_pop_order_by {
           l$stars == null ? null : fromJson$Enum$order_by((l$stars as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     return Input$reviews_stddev_pop_order_by._(result$data);
   }
@@ -7606,9 +7768,9 @@ class Input$reviews_stddev_pop_order_by {
           l$stars == null ? null : toJson$Enum$order_by(l$stars);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     return result$data;
   }
@@ -7624,7 +7786,7 @@ class Input$reviews_stddev_pop_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$reviews_stddev_pop_order_by) ||
+    if (other is! Input$reviews_stddev_pop_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -7644,13 +7806,13 @@ class Input$reviews_stddev_pop_order_by {
     if (l$stars != lOther$stars) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -7660,11 +7822,11 @@ class Input$reviews_stddev_pop_order_by {
   int get hashCode {
     final l$id = id;
     final l$stars = stars;
-    final l$station_id = station_id;
+    final l$stationId = station_id;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('stars') ? l$stars : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -7698,6 +7860,7 @@ class _CopyWithImpl$Input$reviews_stddev_pop_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? stars = _undefined,
@@ -7716,8 +7879,9 @@ class _CopyWithStubImpl$Input$reviews_stddev_pop_order_by<TRes>
     implements CopyWith$Input$reviews_stddev_pop_order_by<TRes> {
   _CopyWithStubImpl$Input$reviews_stddev_pop_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? stars,
@@ -7754,10 +7918,10 @@ class Input$reviews_stddev_samp_order_by {
           l$stars == null ? null : fromJson$Enum$order_by((l$stars as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     return Input$reviews_stddev_samp_order_by._(result$data);
   }
@@ -7782,9 +7946,9 @@ class Input$reviews_stddev_samp_order_by {
           l$stars == null ? null : toJson$Enum$order_by(l$stars);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     return result$data;
   }
@@ -7801,7 +7965,7 @@ class Input$reviews_stddev_samp_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$reviews_stddev_samp_order_by) ||
+    if (other is! Input$reviews_stddev_samp_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -7821,13 +7985,13 @@ class Input$reviews_stddev_samp_order_by {
     if (l$stars != lOther$stars) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -7837,11 +8001,11 @@ class Input$reviews_stddev_samp_order_by {
   int get hashCode {
     final l$id = id;
     final l$stars = stars;
-    final l$station_id = station_id;
+    final l$stationId = station_id;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('stars') ? l$stars : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -7875,6 +8039,7 @@ class _CopyWithImpl$Input$reviews_stddev_samp_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? stars = _undefined,
@@ -7893,8 +8058,9 @@ class _CopyWithStubImpl$Input$reviews_stddev_samp_order_by<TRes>
     implements CopyWith$Input$reviews_stddev_samp_order_by<TRes> {
   _CopyWithStubImpl$Input$reviews_stddev_samp_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? stars,
@@ -7918,10 +8084,10 @@ class Input$reviews_stream_cursor_input {
   factory Input$reviews_stream_cursor_input.fromJson(
       Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
-    final l$initial_value = data['initial_value'];
+    final l$initialValue = data['initial_value'];
     result$data['initial_value'] =
         Input$reviews_stream_cursor_value_input.fromJson(
-            (l$initial_value as Map<String, dynamic>));
+            (l$initialValue as Map<String, dynamic>));
     if (data.containsKey('ordering')) {
       final l$ordering = data['ordering'];
       result$data['ordering'] = l$ordering == null
@@ -7941,8 +8107,8 @@ class Input$reviews_stream_cursor_input {
 
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
-    final l$initial_value = initial_value;
-    result$data['initial_value'] = l$initial_value.toJson();
+    final l$initialValue = initial_value;
+    result$data['initial_value'] = l$initialValue.toJson();
     if (_$data.containsKey('ordering')) {
       final l$ordering = ordering;
       result$data['ordering'] =
@@ -7962,13 +8128,13 @@ class Input$reviews_stream_cursor_input {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$reviews_stream_cursor_input) ||
+    if (other is! Input$reviews_stream_cursor_input ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$initial_value = initial_value;
-    final lOther$initial_value = other.initial_value;
-    if (l$initial_value != lOther$initial_value) {
+    final l$initialValue = initial_value;
+    final lother$initialValue = other.initial_value;
+    if (l$initialValue != lother$initialValue) {
       return false;
     }
     final l$ordering = ordering;
@@ -7985,10 +8151,10 @@ class Input$reviews_stream_cursor_input {
 
   @override
   int get hashCode {
-    final l$initial_value = initial_value;
+    final l$initialValue = initial_value;
     final l$ordering = ordering;
     return Object.hashAll([
-      l$initial_value,
+      l$initialValue,
       _$data.containsKey('ordering') ? l$ordering : const {},
     ]);
   }
@@ -8023,6 +8189,7 @@ class _CopyWithImpl$Input$reviews_stream_cursor_input<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? initial_value = _undefined,
     Object? ordering = _undefined,
@@ -8036,10 +8203,11 @@ class _CopyWithImpl$Input$reviews_stream_cursor_input<TRes>
           'ordering': (ordering as Enum$cursor_ordering?),
       }));
 
+  @override
   CopyWith$Input$reviews_stream_cursor_value_input<TRes> get initial_value {
-    final local$initial_value = _instance.initial_value;
+    final local$initialValue = _instance.initial_value;
     return CopyWith$Input$reviews_stream_cursor_value_input(
-        local$initial_value, (e) => call(initial_value: e));
+        local$initialValue, (e) => call(initial_value: e));
   }
 }
 
@@ -8047,14 +8215,16 @@ class _CopyWithStubImpl$Input$reviews_stream_cursor_input<TRes>
     implements CopyWith$Input$reviews_stream_cursor_input<TRes> {
   _CopyWithStubImpl$Input$reviews_stream_cursor_input(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Input$reviews_stream_cursor_value_input? initial_value,
     Enum$cursor_ordering? ordering,
   }) =>
       _res;
 
+  @override
   CopyWith$Input$reviews_stream_cursor_value_input<TRes> get initial_value =>
       CopyWith$Input$reviews_stream_cursor_value_input.stub(_res);
 }
@@ -8085,8 +8255,8 @@ class Input$reviews_stream_cursor_value_input {
       Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
     if (data.containsKey('created_at')) {
-      final l$created_at = data['created_at'];
-      result$data['created_at'] = (l$created_at as String?);
+      final l$createdAt = data['created_at'];
+      result$data['created_at'] = (l$createdAt as String?);
     }
     if (data.containsKey('id')) {
       final l$id = data['id'];
@@ -8101,12 +8271,12 @@ class Input$reviews_stream_cursor_value_input {
       result$data['stars'] = (l$stars as int?);
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = (l$station_id as int?);
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = (l$stationId as int?);
     }
     if (data.containsKey('updated_at')) {
-      final l$updated_at = data['updated_at'];
-      result$data['updated_at'] = (l$updated_at as String?);
+      final l$updatedAt = data['updated_at'];
+      result$data['updated_at'] = (l$updatedAt as String?);
     }
     if (data.containsKey('verified')) {
       final l$verified = data['verified'];
@@ -8134,8 +8304,8 @@ class Input$reviews_stream_cursor_value_input {
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
     if (_$data.containsKey('created_at')) {
-      final l$created_at = created_at;
-      result$data['created_at'] = l$created_at;
+      final l$createdAt = created_at;
+      result$data['created_at'] = l$createdAt;
     }
     if (_$data.containsKey('id')) {
       final l$id = id;
@@ -8150,12 +8320,12 @@ class Input$reviews_stream_cursor_value_input {
       result$data['stars'] = l$stars;
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
-      result$data['station_id'] = l$station_id;
+      final l$stationId = station_id;
+      result$data['station_id'] = l$stationId;
     }
     if (_$data.containsKey('updated_at')) {
-      final l$updated_at = updated_at;
-      result$data['updated_at'] = l$updated_at;
+      final l$updatedAt = updated_at;
+      result$data['updated_at'] = l$updatedAt;
     }
     if (_$data.containsKey('verified')) {
       final l$verified = verified;
@@ -8176,17 +8346,17 @@ class Input$reviews_stream_cursor_value_input {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$reviews_stream_cursor_value_input) ||
+    if (other is! Input$reviews_stream_cursor_value_input ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$created_at = created_at;
-    final lOther$created_at = other.created_at;
+    final l$createdAt = created_at;
+    final lother$createdAt = other.created_at;
     if (_$data.containsKey('created_at') !=
         other._$data.containsKey('created_at')) {
       return false;
     }
-    if (l$created_at != lOther$created_at) {
+    if (l$createdAt != lother$createdAt) {
       return false;
     }
     final l$id = id;
@@ -8213,22 +8383,22 @@ class Input$reviews_stream_cursor_value_input {
     if (l$stars != lOther$stars) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
-    final l$updated_at = updated_at;
-    final lOther$updated_at = other.updated_at;
+    final l$updatedAt = updated_at;
+    final lother$updatedAt = other.updated_at;
     if (_$data.containsKey('updated_at') !=
         other._$data.containsKey('updated_at')) {
       return false;
     }
-    if (l$updated_at != lOther$updated_at) {
+    if (l$updatedAt != lother$updatedAt) {
       return false;
     }
     final l$verified = verified;
@@ -8245,20 +8415,20 @@ class Input$reviews_stream_cursor_value_input {
 
   @override
   int get hashCode {
-    final l$created_at = created_at;
+    final l$createdAt = created_at;
     final l$id = id;
     final l$message = message;
     final l$stars = stars;
-    final l$station_id = station_id;
-    final l$updated_at = updated_at;
+    final l$stationId = station_id;
+    final l$updatedAt = updated_at;
     final l$verified = verified;
     return Object.hashAll([
-      _$data.containsKey('created_at') ? l$created_at : const {},
+      _$data.containsKey('created_at') ? l$createdAt : const {},
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('message') ? l$message : const {},
       _$data.containsKey('stars') ? l$stars : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
-      _$data.containsKey('updated_at') ? l$updated_at : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
+      _$data.containsKey('updated_at') ? l$updatedAt : const {},
       _$data.containsKey('verified') ? l$verified : const {},
     ]);
   }
@@ -8297,6 +8467,7 @@ class _CopyWithImpl$Input$reviews_stream_cursor_value_input<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? created_at = _undefined,
     Object? id = _undefined,
@@ -8322,8 +8493,9 @@ class _CopyWithStubImpl$Input$reviews_stream_cursor_value_input<TRes>
     implements CopyWith$Input$reviews_stream_cursor_value_input<TRes> {
   _CopyWithStubImpl$Input$reviews_stream_cursor_value_input(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     String? created_at,
     int? id,
@@ -8363,10 +8535,10 @@ class Input$reviews_sum_order_by {
           l$stars == null ? null : fromJson$Enum$order_by((l$stars as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     return Input$reviews_sum_order_by._(result$data);
   }
@@ -8391,9 +8563,9 @@ class Input$reviews_sum_order_by {
           l$stars == null ? null : toJson$Enum$order_by(l$stars);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     return result$data;
   }
@@ -8409,7 +8581,7 @@ class Input$reviews_sum_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$reviews_sum_order_by) ||
+    if (other is! Input$reviews_sum_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -8429,13 +8601,13 @@ class Input$reviews_sum_order_by {
     if (l$stars != lOther$stars) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -8445,11 +8617,11 @@ class Input$reviews_sum_order_by {
   int get hashCode {
     final l$id = id;
     final l$stars = stars;
-    final l$station_id = station_id;
+    final l$stationId = station_id;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('stars') ? l$stars : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -8483,6 +8655,7 @@ class _CopyWithImpl$Input$reviews_sum_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? stars = _undefined,
@@ -8501,8 +8674,9 @@ class _CopyWithStubImpl$Input$reviews_sum_order_by<TRes>
     implements CopyWith$Input$reviews_sum_order_by<TRes> {
   _CopyWithStubImpl$Input$reviews_sum_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? stars,
@@ -8538,10 +8712,10 @@ class Input$reviews_var_pop_order_by {
           l$stars == null ? null : fromJson$Enum$order_by((l$stars as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     return Input$reviews_var_pop_order_by._(result$data);
   }
@@ -8566,9 +8740,9 @@ class Input$reviews_var_pop_order_by {
           l$stars == null ? null : toJson$Enum$order_by(l$stars);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     return result$data;
   }
@@ -8584,7 +8758,7 @@ class Input$reviews_var_pop_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$reviews_var_pop_order_by) ||
+    if (other is! Input$reviews_var_pop_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -8604,13 +8778,13 @@ class Input$reviews_var_pop_order_by {
     if (l$stars != lOther$stars) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -8620,11 +8794,11 @@ class Input$reviews_var_pop_order_by {
   int get hashCode {
     final l$id = id;
     final l$stars = stars;
-    final l$station_id = station_id;
+    final l$stationId = station_id;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('stars') ? l$stars : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -8658,6 +8832,7 @@ class _CopyWithImpl$Input$reviews_var_pop_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? stars = _undefined,
@@ -8676,8 +8851,9 @@ class _CopyWithStubImpl$Input$reviews_var_pop_order_by<TRes>
     implements CopyWith$Input$reviews_var_pop_order_by<TRes> {
   _CopyWithStubImpl$Input$reviews_var_pop_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? stars,
@@ -8713,10 +8889,10 @@ class Input$reviews_var_samp_order_by {
           l$stars == null ? null : fromJson$Enum$order_by((l$stars as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     return Input$reviews_var_samp_order_by._(result$data);
   }
@@ -8741,9 +8917,9 @@ class Input$reviews_var_samp_order_by {
           l$stars == null ? null : toJson$Enum$order_by(l$stars);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     return result$data;
   }
@@ -8759,7 +8935,7 @@ class Input$reviews_var_samp_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$reviews_var_samp_order_by) ||
+    if (other is! Input$reviews_var_samp_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -8779,13 +8955,13 @@ class Input$reviews_var_samp_order_by {
     if (l$stars != lOther$stars) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -8795,11 +8971,11 @@ class Input$reviews_var_samp_order_by {
   int get hashCode {
     final l$id = id;
     final l$stars = stars;
-    final l$station_id = station_id;
+    final l$stationId = station_id;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('stars') ? l$stars : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -8833,6 +9009,7 @@ class _CopyWithImpl$Input$reviews_var_samp_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? stars = _undefined,
@@ -8851,8 +9028,9 @@ class _CopyWithStubImpl$Input$reviews_var_samp_order_by<TRes>
     implements CopyWith$Input$reviews_var_samp_order_by<TRes> {
   _CopyWithStubImpl$Input$reviews_var_samp_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? stars,
@@ -8888,10 +9066,10 @@ class Input$reviews_variance_order_by {
           l$stars == null ? null : fromJson$Enum$order_by((l$stars as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     return Input$reviews_variance_order_by._(result$data);
   }
@@ -8916,9 +9094,9 @@ class Input$reviews_variance_order_by {
           l$stars == null ? null : toJson$Enum$order_by(l$stars);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     return result$data;
   }
@@ -8934,7 +9112,7 @@ class Input$reviews_variance_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$reviews_variance_order_by) ||
+    if (other is! Input$reviews_variance_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -8954,13 +9132,13 @@ class Input$reviews_variance_order_by {
     if (l$stars != lOther$stars) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -8970,11 +9148,11 @@ class Input$reviews_variance_order_by {
   int get hashCode {
     final l$id = id;
     final l$stars = stars;
-    final l$station_id = station_id;
+    final l$stationId = station_id;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('stars') ? l$stars : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -9008,6 +9186,7 @@ class _CopyWithImpl$Input$reviews_variance_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? stars = _undefined,
@@ -9026,8 +9205,9 @@ class _CopyWithStubImpl$Input$reviews_variance_order_by<TRes>
     implements CopyWith$Input$reviews_variance_order_by<TRes> {
   _CopyWithStubImpl$Input$reviews_variance_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? stars,
@@ -9099,18 +9279,18 @@ class Input$songs_aggregate_order_by {
               (l$stddev as Map<String, dynamic>));
     }
     if (data.containsKey('stddev_pop')) {
-      final l$stddev_pop = data['stddev_pop'];
-      result$data['stddev_pop'] = l$stddev_pop == null
+      final l$stddevPop = data['stddev_pop'];
+      result$data['stddev_pop'] = l$stddevPop == null
           ? null
           : Input$songs_stddev_pop_order_by.fromJson(
-              (l$stddev_pop as Map<String, dynamic>));
+              (l$stddevPop as Map<String, dynamic>));
     }
     if (data.containsKey('stddev_samp')) {
-      final l$stddev_samp = data['stddev_samp'];
-      result$data['stddev_samp'] = l$stddev_samp == null
+      final l$stddevSamp = data['stddev_samp'];
+      result$data['stddev_samp'] = l$stddevSamp == null
           ? null
           : Input$songs_stddev_samp_order_by.fromJson(
-              (l$stddev_samp as Map<String, dynamic>));
+              (l$stddevSamp as Map<String, dynamic>));
     }
     if (data.containsKey('sum')) {
       final l$sum = data['sum'];
@@ -9119,18 +9299,18 @@ class Input$songs_aggregate_order_by {
           : Input$songs_sum_order_by.fromJson((l$sum as Map<String, dynamic>));
     }
     if (data.containsKey('var_pop')) {
-      final l$var_pop = data['var_pop'];
-      result$data['var_pop'] = l$var_pop == null
+      final l$varPop = data['var_pop'];
+      result$data['var_pop'] = l$varPop == null
           ? null
           : Input$songs_var_pop_order_by.fromJson(
-              (l$var_pop as Map<String, dynamic>));
+              (l$varPop as Map<String, dynamic>));
     }
     if (data.containsKey('var_samp')) {
-      final l$var_samp = data['var_samp'];
-      result$data['var_samp'] = l$var_samp == null
+      final l$varSamp = data['var_samp'];
+      result$data['var_samp'] = l$varSamp == null
           ? null
           : Input$songs_var_samp_order_by.fromJson(
-              (l$var_samp as Map<String, dynamic>));
+              (l$varSamp as Map<String, dynamic>));
     }
     if (data.containsKey('variance')) {
       final l$variance = data['variance'];
@@ -9200,24 +9380,24 @@ class Input$songs_aggregate_order_by {
       result$data['stddev'] = l$stddev?.toJson();
     }
     if (_$data.containsKey('stddev_pop')) {
-      final l$stddev_pop = stddev_pop;
-      result$data['stddev_pop'] = l$stddev_pop?.toJson();
+      final l$stddevPop = stddev_pop;
+      result$data['stddev_pop'] = l$stddevPop?.toJson();
     }
     if (_$data.containsKey('stddev_samp')) {
-      final l$stddev_samp = stddev_samp;
-      result$data['stddev_samp'] = l$stddev_samp?.toJson();
+      final l$stddevSamp = stddev_samp;
+      result$data['stddev_samp'] = l$stddevSamp?.toJson();
     }
     if (_$data.containsKey('sum')) {
       final l$sum = sum;
       result$data['sum'] = l$sum?.toJson();
     }
     if (_$data.containsKey('var_pop')) {
-      final l$var_pop = var_pop;
-      result$data['var_pop'] = l$var_pop?.toJson();
+      final l$varPop = var_pop;
+      result$data['var_pop'] = l$varPop?.toJson();
     }
     if (_$data.containsKey('var_samp')) {
-      final l$var_samp = var_samp;
-      result$data['var_samp'] = l$var_samp?.toJson();
+      final l$varSamp = var_samp;
+      result$data['var_samp'] = l$varSamp?.toJson();
     }
     if (_$data.containsKey('variance')) {
       final l$variance = variance;
@@ -9237,7 +9417,7 @@ class Input$songs_aggregate_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$songs_aggregate_order_by) ||
+    if (other is! Input$songs_aggregate_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -9281,22 +9461,22 @@ class Input$songs_aggregate_order_by {
     if (l$stddev != lOther$stddev) {
       return false;
     }
-    final l$stddev_pop = stddev_pop;
-    final lOther$stddev_pop = other.stddev_pop;
+    final l$stddevPop = stddev_pop;
+    final lother$stddevPop = other.stddev_pop;
     if (_$data.containsKey('stddev_pop') !=
         other._$data.containsKey('stddev_pop')) {
       return false;
     }
-    if (l$stddev_pop != lOther$stddev_pop) {
+    if (l$stddevPop != lother$stddevPop) {
       return false;
     }
-    final l$stddev_samp = stddev_samp;
-    final lOther$stddev_samp = other.stddev_samp;
+    final l$stddevSamp = stddev_samp;
+    final lother$stddevSamp = other.stddev_samp;
     if (_$data.containsKey('stddev_samp') !=
         other._$data.containsKey('stddev_samp')) {
       return false;
     }
-    if (l$stddev_samp != lOther$stddev_samp) {
+    if (l$stddevSamp != lother$stddevSamp) {
       return false;
     }
     final l$sum = sum;
@@ -9307,21 +9487,21 @@ class Input$songs_aggregate_order_by {
     if (l$sum != lOther$sum) {
       return false;
     }
-    final l$var_pop = var_pop;
-    final lOther$var_pop = other.var_pop;
+    final l$varPop = var_pop;
+    final lother$varPop = other.var_pop;
     if (_$data.containsKey('var_pop') != other._$data.containsKey('var_pop')) {
       return false;
     }
-    if (l$var_pop != lOther$var_pop) {
+    if (l$varPop != lother$varPop) {
       return false;
     }
-    final l$var_samp = var_samp;
-    final lOther$var_samp = other.var_samp;
+    final l$varSamp = var_samp;
+    final lother$varSamp = other.var_samp;
     if (_$data.containsKey('var_samp') !=
         other._$data.containsKey('var_samp')) {
       return false;
     }
-    if (l$var_samp != lOther$var_samp) {
+    if (l$varSamp != lother$varSamp) {
       return false;
     }
     final l$variance = variance;
@@ -9343,11 +9523,11 @@ class Input$songs_aggregate_order_by {
     final l$max = max;
     final l$min = min;
     final l$stddev = stddev;
-    final l$stddev_pop = stddev_pop;
-    final l$stddev_samp = stddev_samp;
+    final l$stddevPop = stddev_pop;
+    final l$stddevSamp = stddev_samp;
     final l$sum = sum;
-    final l$var_pop = var_pop;
-    final l$var_samp = var_samp;
+    final l$varPop = var_pop;
+    final l$varSamp = var_samp;
     final l$variance = variance;
     return Object.hashAll([
       _$data.containsKey('avg') ? l$avg : const {},
@@ -9355,11 +9535,11 @@ class Input$songs_aggregate_order_by {
       _$data.containsKey('max') ? l$max : const {},
       _$data.containsKey('min') ? l$min : const {},
       _$data.containsKey('stddev') ? l$stddev : const {},
-      _$data.containsKey('stddev_pop') ? l$stddev_pop : const {},
-      _$data.containsKey('stddev_samp') ? l$stddev_samp : const {},
+      _$data.containsKey('stddev_pop') ? l$stddevPop : const {},
+      _$data.containsKey('stddev_samp') ? l$stddevSamp : const {},
       _$data.containsKey('sum') ? l$sum : const {},
-      _$data.containsKey('var_pop') ? l$var_pop : const {},
-      _$data.containsKey('var_samp') ? l$var_samp : const {},
+      _$data.containsKey('var_pop') ? l$varPop : const {},
+      _$data.containsKey('var_samp') ? l$varSamp : const {},
       _$data.containsKey('variance') ? l$variance : const {},
     ]);
   }
@@ -9412,6 +9592,7 @@ class _CopyWithImpl$Input$songs_aggregate_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? avg = _undefined,
     Object? count = _undefined,
@@ -9446,6 +9627,7 @@ class _CopyWithImpl$Input$songs_aggregate_order_by<TRes>
           'variance': (variance as Input$songs_variance_order_by?),
       }));
 
+  @override
   CopyWith$Input$songs_avg_order_by<TRes> get avg {
     final local$avg = _instance.avg;
     return local$avg == null
@@ -9453,6 +9635,7 @@ class _CopyWithImpl$Input$songs_aggregate_order_by<TRes>
         : CopyWith$Input$songs_avg_order_by(local$avg, (e) => call(avg: e));
   }
 
+  @override
   CopyWith$Input$songs_max_order_by<TRes> get max {
     final local$max = _instance.max;
     return local$max == null
@@ -9460,6 +9643,7 @@ class _CopyWithImpl$Input$songs_aggregate_order_by<TRes>
         : CopyWith$Input$songs_max_order_by(local$max, (e) => call(max: e));
   }
 
+  @override
   CopyWith$Input$songs_min_order_by<TRes> get min {
     final local$min = _instance.min;
     return local$min == null
@@ -9467,6 +9651,7 @@ class _CopyWithImpl$Input$songs_aggregate_order_by<TRes>
         : CopyWith$Input$songs_min_order_by(local$min, (e) => call(min: e));
   }
 
+  @override
   CopyWith$Input$songs_stddev_order_by<TRes> get stddev {
     final local$stddev = _instance.stddev;
     return local$stddev == null
@@ -9475,22 +9660,25 @@ class _CopyWithImpl$Input$songs_aggregate_order_by<TRes>
             local$stddev, (e) => call(stddev: e));
   }
 
+  @override
   CopyWith$Input$songs_stddev_pop_order_by<TRes> get stddev_pop {
-    final local$stddev_pop = _instance.stddev_pop;
-    return local$stddev_pop == null
+    final local$stddevPop = _instance.stddev_pop;
+    return local$stddevPop == null
         ? CopyWith$Input$songs_stddev_pop_order_by.stub(_then(_instance))
         : CopyWith$Input$songs_stddev_pop_order_by(
-            local$stddev_pop, (e) => call(stddev_pop: e));
+            local$stddevPop, (e) => call(stddev_pop: e));
   }
 
+  @override
   CopyWith$Input$songs_stddev_samp_order_by<TRes> get stddev_samp {
-    final local$stddev_samp = _instance.stddev_samp;
-    return local$stddev_samp == null
+    final local$stddevSamp = _instance.stddev_samp;
+    return local$stddevSamp == null
         ? CopyWith$Input$songs_stddev_samp_order_by.stub(_then(_instance))
         : CopyWith$Input$songs_stddev_samp_order_by(
-            local$stddev_samp, (e) => call(stddev_samp: e));
+            local$stddevSamp, (e) => call(stddev_samp: e));
   }
 
+  @override
   CopyWith$Input$songs_sum_order_by<TRes> get sum {
     final local$sum = _instance.sum;
     return local$sum == null
@@ -9498,22 +9686,25 @@ class _CopyWithImpl$Input$songs_aggregate_order_by<TRes>
         : CopyWith$Input$songs_sum_order_by(local$sum, (e) => call(sum: e));
   }
 
+  @override
   CopyWith$Input$songs_var_pop_order_by<TRes> get var_pop {
-    final local$var_pop = _instance.var_pop;
-    return local$var_pop == null
+    final local$varPop = _instance.var_pop;
+    return local$varPop == null
         ? CopyWith$Input$songs_var_pop_order_by.stub(_then(_instance))
         : CopyWith$Input$songs_var_pop_order_by(
-            local$var_pop, (e) => call(var_pop: e));
+            local$varPop, (e) => call(var_pop: e));
   }
 
+  @override
   CopyWith$Input$songs_var_samp_order_by<TRes> get var_samp {
-    final local$var_samp = _instance.var_samp;
-    return local$var_samp == null
+    final local$varSamp = _instance.var_samp;
+    return local$varSamp == null
         ? CopyWith$Input$songs_var_samp_order_by.stub(_then(_instance))
         : CopyWith$Input$songs_var_samp_order_by(
-            local$var_samp, (e) => call(var_samp: e));
+            local$varSamp, (e) => call(var_samp: e));
   }
 
+  @override
   CopyWith$Input$songs_variance_order_by<TRes> get variance {
     final local$variance = _instance.variance;
     return local$variance == null
@@ -9527,8 +9718,9 @@ class _CopyWithStubImpl$Input$songs_aggregate_order_by<TRes>
     implements CopyWith$Input$songs_aggregate_order_by<TRes> {
   _CopyWithStubImpl$Input$songs_aggregate_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Input$songs_avg_order_by? avg,
     Enum$order_by? count,
@@ -9544,33 +9736,43 @@ class _CopyWithStubImpl$Input$songs_aggregate_order_by<TRes>
   }) =>
       _res;
 
+  @override
   CopyWith$Input$songs_avg_order_by<TRes> get avg =>
       CopyWith$Input$songs_avg_order_by.stub(_res);
 
+  @override
   CopyWith$Input$songs_max_order_by<TRes> get max =>
       CopyWith$Input$songs_max_order_by.stub(_res);
 
+  @override
   CopyWith$Input$songs_min_order_by<TRes> get min =>
       CopyWith$Input$songs_min_order_by.stub(_res);
 
+  @override
   CopyWith$Input$songs_stddev_order_by<TRes> get stddev =>
       CopyWith$Input$songs_stddev_order_by.stub(_res);
 
+  @override
   CopyWith$Input$songs_stddev_pop_order_by<TRes> get stddev_pop =>
       CopyWith$Input$songs_stddev_pop_order_by.stub(_res);
 
+  @override
   CopyWith$Input$songs_stddev_samp_order_by<TRes> get stddev_samp =>
       CopyWith$Input$songs_stddev_samp_order_by.stub(_res);
 
+  @override
   CopyWith$Input$songs_sum_order_by<TRes> get sum =>
       CopyWith$Input$songs_sum_order_by.stub(_res);
 
+  @override
   CopyWith$Input$songs_var_pop_order_by<TRes> get var_pop =>
       CopyWith$Input$songs_var_pop_order_by.stub(_res);
 
+  @override
   CopyWith$Input$songs_var_samp_order_by<TRes> get var_samp =>
       CopyWith$Input$songs_var_samp_order_by.stub(_res);
 
+  @override
   CopyWith$Input$songs_variance_order_by<TRes> get variance =>
       CopyWith$Input$songs_variance_order_by.stub(_res);
 }
@@ -9590,10 +9792,10 @@ class Input$songs_avg_order_by {
   factory Input$songs_avg_order_by.fromJson(Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
     if (data.containsKey('artist_id')) {
-      final l$artist_id = data['artist_id'];
-      result$data['artist_id'] = l$artist_id == null
+      final l$artistId = data['artist_id'];
+      result$data['artist_id'] = l$artistId == null
           ? null
-          : fromJson$Enum$order_by((l$artist_id as String));
+          : fromJson$Enum$order_by((l$artistId as String));
     }
     if (data.containsKey('id')) {
       final l$id = data['id'];
@@ -9612,9 +9814,9 @@ class Input$songs_avg_order_by {
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
     if (_$data.containsKey('artist_id')) {
-      final l$artist_id = artist_id;
+      final l$artistId = artist_id;
       result$data['artist_id'] =
-          l$artist_id == null ? null : toJson$Enum$order_by(l$artist_id);
+          l$artistId == null ? null : toJson$Enum$order_by(l$artistId);
     }
     if (_$data.containsKey('id')) {
       final l$id = id;
@@ -9634,17 +9836,17 @@ class Input$songs_avg_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$songs_avg_order_by) ||
+    if (other is! Input$songs_avg_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$artist_id = artist_id;
-    final lOther$artist_id = other.artist_id;
+    final l$artistId = artist_id;
+    final lother$artistId = other.artist_id;
     if (_$data.containsKey('artist_id') !=
         other._$data.containsKey('artist_id')) {
       return false;
     }
-    if (l$artist_id != lOther$artist_id) {
+    if (l$artistId != lother$artistId) {
       return false;
     }
     final l$id = id;
@@ -9660,10 +9862,10 @@ class Input$songs_avg_order_by {
 
   @override
   int get hashCode {
-    final l$artist_id = artist_id;
+    final l$artistId = artist_id;
     final l$id = id;
     return Object.hashAll([
-      _$data.containsKey('artist_id') ? l$artist_id : const {},
+      _$data.containsKey('artist_id') ? l$artistId : const {},
       _$data.containsKey('id') ? l$id : const {},
     ]);
   }
@@ -9697,6 +9899,7 @@ class _CopyWithImpl$Input$songs_avg_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? artist_id = _undefined,
     Object? id = _undefined,
@@ -9712,8 +9915,9 @@ class _CopyWithStubImpl$Input$songs_avg_order_by<TRes>
     implements CopyWith$Input$songs_avg_order_by<TRes> {
   _CopyWithStubImpl$Input$songs_avg_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? artist_id,
     Enum$order_by? id,
@@ -9750,21 +9954,21 @@ class Input$songs_bool_exp {
   factory Input$songs_bool_exp.fromJson(Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
     if (data.containsKey('_and')) {
-      final l$$_and = data['_and'];
-      result$data['_and'] = (l$$_and as List<dynamic>?)
+      final l$$And = data['_and'];
+      result$data['_and'] = (l$$And as List<dynamic>?)
           ?.map(
               (e) => Input$songs_bool_exp.fromJson((e as Map<String, dynamic>)))
           .toList();
     }
     if (data.containsKey('_not')) {
-      final l$$_not = data['_not'];
-      result$data['_not'] = l$$_not == null
+      final l$$Not = data['_not'];
+      result$data['_not'] = l$$Not == null
           ? null
-          : Input$songs_bool_exp.fromJson((l$$_not as Map<String, dynamic>));
+          : Input$songs_bool_exp.fromJson((l$$Not as Map<String, dynamic>));
     }
     if (data.containsKey('_or')) {
-      final l$$_or = data['_or'];
-      result$data['_or'] = (l$$_or as List<dynamic>?)
+      final l$$Or = data['_or'];
+      result$data['_or'] = (l$$Or as List<dynamic>?)
           ?.map(
               (e) => Input$songs_bool_exp.fromJson((e as Map<String, dynamic>)))
           .toList();
@@ -9776,11 +9980,11 @@ class Input$songs_bool_exp {
           : Input$artists_bool_exp.fromJson((l$artist as Map<String, dynamic>));
     }
     if (data.containsKey('artist_id')) {
-      final l$artist_id = data['artist_id'];
-      result$data['artist_id'] = l$artist_id == null
+      final l$artistId = data['artist_id'];
+      result$data['artist_id'] = l$artistId == null
           ? null
           : Input$Int_comparison_exp.fromJson(
-              (l$artist_id as Map<String, dynamic>));
+              (l$artistId as Map<String, dynamic>));
     }
     if (data.containsKey('id')) {
       final l$id = data['id'];
@@ -9796,18 +10000,18 @@ class Input$songs_bool_exp {
               (l$name as Map<String, dynamic>));
     }
     if (data.containsKey('played_songs')) {
-      final l$played_songs = data['played_songs'];
-      result$data['played_songs'] = l$played_songs == null
+      final l$playedSongs = data['played_songs'];
+      result$data['played_songs'] = l$playedSongs == null
           ? null
           : Input$stations_now_playing_bool_exp.fromJson(
-              (l$played_songs as Map<String, dynamic>));
+              (l$playedSongs as Map<String, dynamic>));
     }
     if (data.containsKey('thumbnail_url')) {
-      final l$thumbnail_url = data['thumbnail_url'];
-      result$data['thumbnail_url'] = l$thumbnail_url == null
+      final l$thumbnailUrl = data['thumbnail_url'];
+      result$data['thumbnail_url'] = l$thumbnailUrl == null
           ? null
           : Input$String_comparison_exp.fromJson(
-              (l$thumbnail_url as Map<String, dynamic>));
+              (l$thumbnailUrl as Map<String, dynamic>));
     }
     return Input$songs_bool_exp._(result$data);
   }
@@ -9843,24 +10047,24 @@ class Input$songs_bool_exp {
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
     if (_$data.containsKey('_and')) {
-      final l$$_and = $_and;
-      result$data['_and'] = l$$_and?.map((e) => e.toJson()).toList();
+      final l$$And = $_and;
+      result$data['_and'] = l$$And?.map((e) => e.toJson()).toList();
     }
     if (_$data.containsKey('_not')) {
-      final l$$_not = $_not;
-      result$data['_not'] = l$$_not?.toJson();
+      final l$$Not = $_not;
+      result$data['_not'] = l$$Not?.toJson();
     }
     if (_$data.containsKey('_or')) {
-      final l$$_or = $_or;
-      result$data['_or'] = l$$_or?.map((e) => e.toJson()).toList();
+      final l$$Or = $_or;
+      result$data['_or'] = l$$Or?.map((e) => e.toJson()).toList();
     }
     if (_$data.containsKey('artist')) {
       final l$artist = artist;
       result$data['artist'] = l$artist?.toJson();
     }
     if (_$data.containsKey('artist_id')) {
-      final l$artist_id = artist_id;
-      result$data['artist_id'] = l$artist_id?.toJson();
+      final l$artistId = artist_id;
+      result$data['artist_id'] = l$artistId?.toJson();
     }
     if (_$data.containsKey('id')) {
       final l$id = id;
@@ -9871,12 +10075,12 @@ class Input$songs_bool_exp {
       result$data['name'] = l$name?.toJson();
     }
     if (_$data.containsKey('played_songs')) {
-      final l$played_songs = played_songs;
-      result$data['played_songs'] = l$played_songs?.toJson();
+      final l$playedSongs = played_songs;
+      result$data['played_songs'] = l$playedSongs?.toJson();
     }
     if (_$data.containsKey('thumbnail_url')) {
-      final l$thumbnail_url = thumbnail_url;
-      result$data['thumbnail_url'] = l$thumbnail_url?.toJson();
+      final l$thumbnailUrl = thumbnail_url;
+      result$data['thumbnail_url'] = l$thumbnailUrl?.toJson();
     }
     return result$data;
   }
@@ -9892,53 +10096,53 @@ class Input$songs_bool_exp {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$songs_bool_exp) || runtimeType != other.runtimeType) {
+    if (other is! Input$songs_bool_exp || runtimeType != other.runtimeType) {
       return false;
     }
-    final l$$_and = $_and;
-    final lOther$$_and = other.$_and;
+    final l$$And = $_and;
+    final lother$$And = other.$_and;
     if (_$data.containsKey('_and') != other._$data.containsKey('_and')) {
       return false;
     }
-    if (l$$_and != null && lOther$$_and != null) {
-      if (l$$_and.length != lOther$$_and.length) {
+    if (l$$And != null && lother$$And != null) {
+      if (l$$And.length != lother$$And.length) {
         return false;
       }
-      for (int i = 0; i < l$$_and.length; i++) {
-        final l$$_and$entry = l$$_and[i];
-        final lOther$$_and$entry = lOther$$_and[i];
-        if (l$$_and$entry != lOther$$_and$entry) {
+      for (int i = 0; i < l$$And.length; i++) {
+        final l$$And$entry = l$$And[i];
+        final lother$$And$entry = lother$$And[i];
+        if (l$$And$entry != lother$$And$entry) {
           return false;
         }
       }
-    } else if (l$$_and != lOther$$_and) {
+    } else if (l$$And != lother$$And) {
       return false;
     }
-    final l$$_not = $_not;
-    final lOther$$_not = other.$_not;
+    final l$$Not = $_not;
+    final lother$$Not = other.$_not;
     if (_$data.containsKey('_not') != other._$data.containsKey('_not')) {
       return false;
     }
-    if (l$$_not != lOther$$_not) {
+    if (l$$Not != lother$$Not) {
       return false;
     }
-    final l$$_or = $_or;
-    final lOther$$_or = other.$_or;
+    final l$$Or = $_or;
+    final lother$$Or = other.$_or;
     if (_$data.containsKey('_or') != other._$data.containsKey('_or')) {
       return false;
     }
-    if (l$$_or != null && lOther$$_or != null) {
-      if (l$$_or.length != lOther$$_or.length) {
+    if (l$$Or != null && lother$$Or != null) {
+      if (l$$Or.length != lother$$Or.length) {
         return false;
       }
-      for (int i = 0; i < l$$_or.length; i++) {
-        final l$$_or$entry = l$$_or[i];
-        final lOther$$_or$entry = lOther$$_or[i];
-        if (l$$_or$entry != lOther$$_or$entry) {
+      for (int i = 0; i < l$$Or.length; i++) {
+        final l$$Or$entry = l$$Or[i];
+        final lother$$Or$entry = lother$$Or[i];
+        if (l$$Or$entry != lother$$Or$entry) {
           return false;
         }
       }
-    } else if (l$$_or != lOther$$_or) {
+    } else if (l$$Or != lother$$Or) {
       return false;
     }
     final l$artist = artist;
@@ -9949,13 +10153,13 @@ class Input$songs_bool_exp {
     if (l$artist != lOther$artist) {
       return false;
     }
-    final l$artist_id = artist_id;
-    final lOther$artist_id = other.artist_id;
+    final l$artistId = artist_id;
+    final lother$artistId = other.artist_id;
     if (_$data.containsKey('artist_id') !=
         other._$data.containsKey('artist_id')) {
       return false;
     }
-    if (l$artist_id != lOther$artist_id) {
+    if (l$artistId != lother$artistId) {
       return false;
     }
     final l$id = id;
@@ -9974,22 +10178,22 @@ class Input$songs_bool_exp {
     if (l$name != lOther$name) {
       return false;
     }
-    final l$played_songs = played_songs;
-    final lOther$played_songs = other.played_songs;
+    final l$playedSongs = played_songs;
+    final lother$playedSongs = other.played_songs;
     if (_$data.containsKey('played_songs') !=
         other._$data.containsKey('played_songs')) {
       return false;
     }
-    if (l$played_songs != lOther$played_songs) {
+    if (l$playedSongs != lother$playedSongs) {
       return false;
     }
-    final l$thumbnail_url = thumbnail_url;
-    final lOther$thumbnail_url = other.thumbnail_url;
+    final l$thumbnailUrl = thumbnail_url;
+    final lother$thumbnailUrl = other.thumbnail_url;
     if (_$data.containsKey('thumbnail_url') !=
         other._$data.containsKey('thumbnail_url')) {
       return false;
     }
-    if (l$thumbnail_url != lOther$thumbnail_url) {
+    if (l$thumbnailUrl != lother$thumbnailUrl) {
       return false;
     }
     return true;
@@ -9997,33 +10201,33 @@ class Input$songs_bool_exp {
 
   @override
   int get hashCode {
-    final l$$_and = $_and;
-    final l$$_not = $_not;
-    final l$$_or = $_or;
+    final l$$And = $_and;
+    final l$$Not = $_not;
+    final l$$Or = $_or;
     final l$artist = artist;
-    final l$artist_id = artist_id;
+    final l$artistId = artist_id;
     final l$id = id;
     final l$name = name;
-    final l$played_songs = played_songs;
-    final l$thumbnail_url = thumbnail_url;
+    final l$playedSongs = played_songs;
+    final l$thumbnailUrl = thumbnail_url;
     return Object.hashAll([
       _$data.containsKey('_and')
-          ? l$$_and == null
+          ? l$$And == null
               ? null
-              : Object.hashAll(l$$_and.map((v) => v))
+              : Object.hashAll(l$$And.map((v) => v))
           : const {},
-      _$data.containsKey('_not') ? l$$_not : const {},
+      _$data.containsKey('_not') ? l$$Not : const {},
       _$data.containsKey('_or')
-          ? l$$_or == null
+          ? l$$Or == null
               ? null
-              : Object.hashAll(l$$_or.map((v) => v))
+              : Object.hashAll(l$$Or.map((v) => v))
           : const {},
       _$data.containsKey('artist') ? l$artist : const {},
-      _$data.containsKey('artist_id') ? l$artist_id : const {},
+      _$data.containsKey('artist_id') ? l$artistId : const {},
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('name') ? l$name : const {},
-      _$data.containsKey('played_songs') ? l$played_songs : const {},
-      _$data.containsKey('thumbnail_url') ? l$thumbnail_url : const {},
+      _$data.containsKey('played_songs') ? l$playedSongs : const {},
+      _$data.containsKey('thumbnail_url') ? l$thumbnailUrl : const {},
     ]);
   }
 }
@@ -10051,12 +10255,12 @@ abstract class CopyWith$Input$songs_bool_exp<TRes> {
   TRes $_and(
       Iterable<Input$songs_bool_exp>? Function(
               Iterable<CopyWith$Input$songs_bool_exp<Input$songs_bool_exp>>?)
-          _fn);
+          fn);
   CopyWith$Input$songs_bool_exp<TRes> get $_not;
   TRes $_or(
       Iterable<Input$songs_bool_exp>? Function(
               Iterable<CopyWith$Input$songs_bool_exp<Input$songs_bool_exp>>?)
-          _fn);
+          fn);
   CopyWith$Input$artists_bool_exp<TRes> get artist;
   CopyWith$Input$Int_comparison_exp<TRes> get artist_id;
   CopyWith$Input$Int_comparison_exp<TRes> get id;
@@ -10078,6 +10282,7 @@ class _CopyWithImpl$Input$songs_bool_exp<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? $_and = _undefined,
     Object? $_not = _undefined,
@@ -10106,35 +10311,39 @@ class _CopyWithImpl$Input$songs_bool_exp<TRes>
           'thumbnail_url': (thumbnail_url as Input$String_comparison_exp?),
       }));
 
+  @override
   TRes $_and(
           Iterable<Input$songs_bool_exp>? Function(
                   Iterable<
                       CopyWith$Input$songs_bool_exp<Input$songs_bool_exp>>?)
-              _fn) =>
+              fn) =>
       call(
-          $_and: _fn(_instance.$_and?.map((e) => CopyWith$Input$songs_bool_exp(
+          $_and: fn(_instance.$_and?.map((e) => CopyWith$Input$songs_bool_exp(
                 e,
                 (i) => i,
               )))?.toList());
 
+  @override
   CopyWith$Input$songs_bool_exp<TRes> get $_not {
-    final local$$_not = _instance.$_not;
-    return local$$_not == null
+    final local$$Not = _instance.$_not;
+    return local$$Not == null
         ? CopyWith$Input$songs_bool_exp.stub(_then(_instance))
-        : CopyWith$Input$songs_bool_exp(local$$_not, (e) => call($_not: e));
+        : CopyWith$Input$songs_bool_exp(local$$Not, (e) => call($_not: e));
   }
 
+  @override
   TRes $_or(
           Iterable<Input$songs_bool_exp>? Function(
                   Iterable<
                       CopyWith$Input$songs_bool_exp<Input$songs_bool_exp>>?)
-              _fn) =>
+              fn) =>
       call(
-          $_or: _fn(_instance.$_or?.map((e) => CopyWith$Input$songs_bool_exp(
+          $_or: fn(_instance.$_or?.map((e) => CopyWith$Input$songs_bool_exp(
                 e,
                 (i) => i,
               )))?.toList());
 
+  @override
   CopyWith$Input$artists_bool_exp<TRes> get artist {
     final local$artist = _instance.artist;
     return local$artist == null
@@ -10142,14 +10351,16 @@ class _CopyWithImpl$Input$songs_bool_exp<TRes>
         : CopyWith$Input$artists_bool_exp(local$artist, (e) => call(artist: e));
   }
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get artist_id {
-    final local$artist_id = _instance.artist_id;
-    return local$artist_id == null
+    final local$artistId = _instance.artist_id;
+    return local$artistId == null
         ? CopyWith$Input$Int_comparison_exp.stub(_then(_instance))
         : CopyWith$Input$Int_comparison_exp(
-            local$artist_id, (e) => call(artist_id: e));
+            local$artistId, (e) => call(artist_id: e));
   }
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get id {
     final local$id = _instance.id;
     return local$id == null
@@ -10157,6 +10368,7 @@ class _CopyWithImpl$Input$songs_bool_exp<TRes>
         : CopyWith$Input$Int_comparison_exp(local$id, (e) => call(id: e));
   }
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get name {
     final local$name = _instance.name;
     return local$name == null
@@ -10165,20 +10377,22 @@ class _CopyWithImpl$Input$songs_bool_exp<TRes>
             local$name, (e) => call(name: e));
   }
 
+  @override
   CopyWith$Input$stations_now_playing_bool_exp<TRes> get played_songs {
-    final local$played_songs = _instance.played_songs;
-    return local$played_songs == null
+    final local$playedSongs = _instance.played_songs;
+    return local$playedSongs == null
         ? CopyWith$Input$stations_now_playing_bool_exp.stub(_then(_instance))
         : CopyWith$Input$stations_now_playing_bool_exp(
-            local$played_songs, (e) => call(played_songs: e));
+            local$playedSongs, (e) => call(played_songs: e));
   }
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get thumbnail_url {
-    final local$thumbnail_url = _instance.thumbnail_url;
-    return local$thumbnail_url == null
+    final local$thumbnailUrl = _instance.thumbnail_url;
+    return local$thumbnailUrl == null
         ? CopyWith$Input$String_comparison_exp.stub(_then(_instance))
         : CopyWith$Input$String_comparison_exp(
-            local$thumbnail_url, (e) => call(thumbnail_url: e));
+            local$thumbnailUrl, (e) => call(thumbnail_url: e));
   }
 }
 
@@ -10186,8 +10400,9 @@ class _CopyWithStubImpl$Input$songs_bool_exp<TRes>
     implements CopyWith$Input$songs_bool_exp<TRes> {
   _CopyWithStubImpl$Input$songs_bool_exp(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     List<Input$songs_bool_exp>? $_and,
     Input$songs_bool_exp? $_not,
@@ -10201,28 +10416,37 @@ class _CopyWithStubImpl$Input$songs_bool_exp<TRes>
   }) =>
       _res;
 
-  $_and(_fn) => _res;
+  @override
+  $_and(fn) => _res;
 
+  @override
   CopyWith$Input$songs_bool_exp<TRes> get $_not =>
       CopyWith$Input$songs_bool_exp.stub(_res);
 
-  $_or(_fn) => _res;
+  @override
+  $_or(fn) => _res;
 
+  @override
   CopyWith$Input$artists_bool_exp<TRes> get artist =>
       CopyWith$Input$artists_bool_exp.stub(_res);
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get artist_id =>
       CopyWith$Input$Int_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get id =>
       CopyWith$Input$Int_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get name =>
       CopyWith$Input$String_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$stations_now_playing_bool_exp<TRes> get played_songs =>
       CopyWith$Input$stations_now_playing_bool_exp.stub(_res);
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get thumbnail_url =>
       CopyWith$Input$String_comparison_exp.stub(_res);
 }
@@ -10246,10 +10470,10 @@ class Input$songs_max_order_by {
   factory Input$songs_max_order_by.fromJson(Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
     if (data.containsKey('artist_id')) {
-      final l$artist_id = data['artist_id'];
-      result$data['artist_id'] = l$artist_id == null
+      final l$artistId = data['artist_id'];
+      result$data['artist_id'] = l$artistId == null
           ? null
-          : fromJson$Enum$order_by((l$artist_id as String));
+          : fromJson$Enum$order_by((l$artistId as String));
     }
     if (data.containsKey('id')) {
       final l$id = data['id'];
@@ -10262,10 +10486,10 @@ class Input$songs_max_order_by {
           l$name == null ? null : fromJson$Enum$order_by((l$name as String));
     }
     if (data.containsKey('thumbnail_url')) {
-      final l$thumbnail_url = data['thumbnail_url'];
-      result$data['thumbnail_url'] = l$thumbnail_url == null
+      final l$thumbnailUrl = data['thumbnail_url'];
+      result$data['thumbnail_url'] = l$thumbnailUrl == null
           ? null
-          : fromJson$Enum$order_by((l$thumbnail_url as String));
+          : fromJson$Enum$order_by((l$thumbnailUrl as String));
     }
     return Input$songs_max_order_by._(result$data);
   }
@@ -10284,9 +10508,9 @@ class Input$songs_max_order_by {
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
     if (_$data.containsKey('artist_id')) {
-      final l$artist_id = artist_id;
+      final l$artistId = artist_id;
       result$data['artist_id'] =
-          l$artist_id == null ? null : toJson$Enum$order_by(l$artist_id);
+          l$artistId == null ? null : toJson$Enum$order_by(l$artistId);
     }
     if (_$data.containsKey('id')) {
       final l$id = id;
@@ -10298,10 +10522,10 @@ class Input$songs_max_order_by {
           l$name == null ? null : toJson$Enum$order_by(l$name);
     }
     if (_$data.containsKey('thumbnail_url')) {
-      final l$thumbnail_url = thumbnail_url;
-      result$data['thumbnail_url'] = l$thumbnail_url == null
+      final l$thumbnailUrl = thumbnail_url;
+      result$data['thumbnail_url'] = l$thumbnailUrl == null
           ? null
-          : toJson$Enum$order_by(l$thumbnail_url);
+          : toJson$Enum$order_by(l$thumbnailUrl);
     }
     return result$data;
   }
@@ -10317,17 +10541,17 @@ class Input$songs_max_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$songs_max_order_by) ||
+    if (other is! Input$songs_max_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$artist_id = artist_id;
-    final lOther$artist_id = other.artist_id;
+    final l$artistId = artist_id;
+    final lother$artistId = other.artist_id;
     if (_$data.containsKey('artist_id') !=
         other._$data.containsKey('artist_id')) {
       return false;
     }
-    if (l$artist_id != lOther$artist_id) {
+    if (l$artistId != lother$artistId) {
       return false;
     }
     final l$id = id;
@@ -10346,13 +10570,13 @@ class Input$songs_max_order_by {
     if (l$name != lOther$name) {
       return false;
     }
-    final l$thumbnail_url = thumbnail_url;
-    final lOther$thumbnail_url = other.thumbnail_url;
+    final l$thumbnailUrl = thumbnail_url;
+    final lother$thumbnailUrl = other.thumbnail_url;
     if (_$data.containsKey('thumbnail_url') !=
         other._$data.containsKey('thumbnail_url')) {
       return false;
     }
-    if (l$thumbnail_url != lOther$thumbnail_url) {
+    if (l$thumbnailUrl != lother$thumbnailUrl) {
       return false;
     }
     return true;
@@ -10360,15 +10584,15 @@ class Input$songs_max_order_by {
 
   @override
   int get hashCode {
-    final l$artist_id = artist_id;
+    final l$artistId = artist_id;
     final l$id = id;
     final l$name = name;
-    final l$thumbnail_url = thumbnail_url;
+    final l$thumbnailUrl = thumbnail_url;
     return Object.hashAll([
-      _$data.containsKey('artist_id') ? l$artist_id : const {},
+      _$data.containsKey('artist_id') ? l$artistId : const {},
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('name') ? l$name : const {},
-      _$data.containsKey('thumbnail_url') ? l$thumbnail_url : const {},
+      _$data.containsKey('thumbnail_url') ? l$thumbnailUrl : const {},
     ]);
   }
 }
@@ -10403,6 +10627,7 @@ class _CopyWithImpl$Input$songs_max_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? artist_id = _undefined,
     Object? id = _undefined,
@@ -10423,8 +10648,9 @@ class _CopyWithStubImpl$Input$songs_max_order_by<TRes>
     implements CopyWith$Input$songs_max_order_by<TRes> {
   _CopyWithStubImpl$Input$songs_max_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? artist_id,
     Enum$order_by? id,
@@ -10453,10 +10679,10 @@ class Input$songs_min_order_by {
   factory Input$songs_min_order_by.fromJson(Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
     if (data.containsKey('artist_id')) {
-      final l$artist_id = data['artist_id'];
-      result$data['artist_id'] = l$artist_id == null
+      final l$artistId = data['artist_id'];
+      result$data['artist_id'] = l$artistId == null
           ? null
-          : fromJson$Enum$order_by((l$artist_id as String));
+          : fromJson$Enum$order_by((l$artistId as String));
     }
     if (data.containsKey('id')) {
       final l$id = data['id'];
@@ -10469,10 +10695,10 @@ class Input$songs_min_order_by {
           l$name == null ? null : fromJson$Enum$order_by((l$name as String));
     }
     if (data.containsKey('thumbnail_url')) {
-      final l$thumbnail_url = data['thumbnail_url'];
-      result$data['thumbnail_url'] = l$thumbnail_url == null
+      final l$thumbnailUrl = data['thumbnail_url'];
+      result$data['thumbnail_url'] = l$thumbnailUrl == null
           ? null
-          : fromJson$Enum$order_by((l$thumbnail_url as String));
+          : fromJson$Enum$order_by((l$thumbnailUrl as String));
     }
     return Input$songs_min_order_by._(result$data);
   }
@@ -10491,9 +10717,9 @@ class Input$songs_min_order_by {
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
     if (_$data.containsKey('artist_id')) {
-      final l$artist_id = artist_id;
+      final l$artistId = artist_id;
       result$data['artist_id'] =
-          l$artist_id == null ? null : toJson$Enum$order_by(l$artist_id);
+          l$artistId == null ? null : toJson$Enum$order_by(l$artistId);
     }
     if (_$data.containsKey('id')) {
       final l$id = id;
@@ -10505,10 +10731,10 @@ class Input$songs_min_order_by {
           l$name == null ? null : toJson$Enum$order_by(l$name);
     }
     if (_$data.containsKey('thumbnail_url')) {
-      final l$thumbnail_url = thumbnail_url;
-      result$data['thumbnail_url'] = l$thumbnail_url == null
+      final l$thumbnailUrl = thumbnail_url;
+      result$data['thumbnail_url'] = l$thumbnailUrl == null
           ? null
-          : toJson$Enum$order_by(l$thumbnail_url);
+          : toJson$Enum$order_by(l$thumbnailUrl);
     }
     return result$data;
   }
@@ -10524,17 +10750,17 @@ class Input$songs_min_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$songs_min_order_by) ||
+    if (other is! Input$songs_min_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$artist_id = artist_id;
-    final lOther$artist_id = other.artist_id;
+    final l$artistId = artist_id;
+    final lother$artistId = other.artist_id;
     if (_$data.containsKey('artist_id') !=
         other._$data.containsKey('artist_id')) {
       return false;
     }
-    if (l$artist_id != lOther$artist_id) {
+    if (l$artistId != lother$artistId) {
       return false;
     }
     final l$id = id;
@@ -10553,13 +10779,13 @@ class Input$songs_min_order_by {
     if (l$name != lOther$name) {
       return false;
     }
-    final l$thumbnail_url = thumbnail_url;
-    final lOther$thumbnail_url = other.thumbnail_url;
+    final l$thumbnailUrl = thumbnail_url;
+    final lother$thumbnailUrl = other.thumbnail_url;
     if (_$data.containsKey('thumbnail_url') !=
         other._$data.containsKey('thumbnail_url')) {
       return false;
     }
-    if (l$thumbnail_url != lOther$thumbnail_url) {
+    if (l$thumbnailUrl != lother$thumbnailUrl) {
       return false;
     }
     return true;
@@ -10567,15 +10793,15 @@ class Input$songs_min_order_by {
 
   @override
   int get hashCode {
-    final l$artist_id = artist_id;
+    final l$artistId = artist_id;
     final l$id = id;
     final l$name = name;
-    final l$thumbnail_url = thumbnail_url;
+    final l$thumbnailUrl = thumbnail_url;
     return Object.hashAll([
-      _$data.containsKey('artist_id') ? l$artist_id : const {},
+      _$data.containsKey('artist_id') ? l$artistId : const {},
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('name') ? l$name : const {},
-      _$data.containsKey('thumbnail_url') ? l$thumbnail_url : const {},
+      _$data.containsKey('thumbnail_url') ? l$thumbnailUrl : const {},
     ]);
   }
 }
@@ -10610,6 +10836,7 @@ class _CopyWithImpl$Input$songs_min_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? artist_id = _undefined,
     Object? id = _undefined,
@@ -10630,8 +10857,9 @@ class _CopyWithStubImpl$Input$songs_min_order_by<TRes>
     implements CopyWith$Input$songs_min_order_by<TRes> {
   _CopyWithStubImpl$Input$songs_min_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? artist_id,
     Enum$order_by? id,
@@ -10671,10 +10899,10 @@ class Input$songs_order_by {
           : Input$artists_order_by.fromJson((l$artist as Map<String, dynamic>));
     }
     if (data.containsKey('artist_id')) {
-      final l$artist_id = data['artist_id'];
-      result$data['artist_id'] = l$artist_id == null
+      final l$artistId = data['artist_id'];
+      result$data['artist_id'] = l$artistId == null
           ? null
-          : fromJson$Enum$order_by((l$artist_id as String));
+          : fromJson$Enum$order_by((l$artistId as String));
     }
     if (data.containsKey('id')) {
       final l$id = data['id'];
@@ -10687,17 +10915,17 @@ class Input$songs_order_by {
           l$name == null ? null : fromJson$Enum$order_by((l$name as String));
     }
     if (data.containsKey('played_songs_aggregate')) {
-      final l$played_songs_aggregate = data['played_songs_aggregate'];
-      result$data['played_songs_aggregate'] = l$played_songs_aggregate == null
+      final l$playedSongsAggregate = data['played_songs_aggregate'];
+      result$data['played_songs_aggregate'] = l$playedSongsAggregate == null
           ? null
           : Input$stations_now_playing_aggregate_order_by.fromJson(
-              (l$played_songs_aggregate as Map<String, dynamic>));
+              (l$playedSongsAggregate as Map<String, dynamic>));
     }
     if (data.containsKey('thumbnail_url')) {
-      final l$thumbnail_url = data['thumbnail_url'];
-      result$data['thumbnail_url'] = l$thumbnail_url == null
+      final l$thumbnailUrl = data['thumbnail_url'];
+      result$data['thumbnail_url'] = l$thumbnailUrl == null
           ? null
-          : fromJson$Enum$order_by((l$thumbnail_url as String));
+          : fromJson$Enum$order_by((l$thumbnailUrl as String));
     }
     return Input$songs_order_by._(result$data);
   }
@@ -10727,9 +10955,9 @@ class Input$songs_order_by {
       result$data['artist'] = l$artist?.toJson();
     }
     if (_$data.containsKey('artist_id')) {
-      final l$artist_id = artist_id;
+      final l$artistId = artist_id;
       result$data['artist_id'] =
-          l$artist_id == null ? null : toJson$Enum$order_by(l$artist_id);
+          l$artistId == null ? null : toJson$Enum$order_by(l$artistId);
     }
     if (_$data.containsKey('id')) {
       final l$id = id;
@@ -10741,15 +10969,15 @@ class Input$songs_order_by {
           l$name == null ? null : toJson$Enum$order_by(l$name);
     }
     if (_$data.containsKey('played_songs_aggregate')) {
-      final l$played_songs_aggregate = played_songs_aggregate;
+      final l$playedSongsAggregate = played_songs_aggregate;
       result$data['played_songs_aggregate'] =
-          l$played_songs_aggregate?.toJson();
+          l$playedSongsAggregate?.toJson();
     }
     if (_$data.containsKey('thumbnail_url')) {
-      final l$thumbnail_url = thumbnail_url;
-      result$data['thumbnail_url'] = l$thumbnail_url == null
+      final l$thumbnailUrl = thumbnail_url;
+      result$data['thumbnail_url'] = l$thumbnailUrl == null
           ? null
-          : toJson$Enum$order_by(l$thumbnail_url);
+          : toJson$Enum$order_by(l$thumbnailUrl);
     }
     return result$data;
   }
@@ -10765,7 +10993,7 @@ class Input$songs_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$songs_order_by) || runtimeType != other.runtimeType) {
+    if (other is! Input$songs_order_by || runtimeType != other.runtimeType) {
       return false;
     }
     final l$artist = artist;
@@ -10776,13 +11004,13 @@ class Input$songs_order_by {
     if (l$artist != lOther$artist) {
       return false;
     }
-    final l$artist_id = artist_id;
-    final lOther$artist_id = other.artist_id;
+    final l$artistId = artist_id;
+    final lother$artistId = other.artist_id;
     if (_$data.containsKey('artist_id') !=
         other._$data.containsKey('artist_id')) {
       return false;
     }
-    if (l$artist_id != lOther$artist_id) {
+    if (l$artistId != lother$artistId) {
       return false;
     }
     final l$id = id;
@@ -10801,22 +11029,22 @@ class Input$songs_order_by {
     if (l$name != lOther$name) {
       return false;
     }
-    final l$played_songs_aggregate = played_songs_aggregate;
-    final lOther$played_songs_aggregate = other.played_songs_aggregate;
+    final l$playedSongsAggregate = played_songs_aggregate;
+    final lother$playedSongsAggregate = other.played_songs_aggregate;
     if (_$data.containsKey('played_songs_aggregate') !=
         other._$data.containsKey('played_songs_aggregate')) {
       return false;
     }
-    if (l$played_songs_aggregate != lOther$played_songs_aggregate) {
+    if (l$playedSongsAggregate != lother$playedSongsAggregate) {
       return false;
     }
-    final l$thumbnail_url = thumbnail_url;
-    final lOther$thumbnail_url = other.thumbnail_url;
+    final l$thumbnailUrl = thumbnail_url;
+    final lother$thumbnailUrl = other.thumbnail_url;
     if (_$data.containsKey('thumbnail_url') !=
         other._$data.containsKey('thumbnail_url')) {
       return false;
     }
-    if (l$thumbnail_url != lOther$thumbnail_url) {
+    if (l$thumbnailUrl != lother$thumbnailUrl) {
       return false;
     }
     return true;
@@ -10825,20 +11053,20 @@ class Input$songs_order_by {
   @override
   int get hashCode {
     final l$artist = artist;
-    final l$artist_id = artist_id;
+    final l$artistId = artist_id;
     final l$id = id;
     final l$name = name;
-    final l$played_songs_aggregate = played_songs_aggregate;
-    final l$thumbnail_url = thumbnail_url;
+    final l$playedSongsAggregate = played_songs_aggregate;
+    final l$thumbnailUrl = thumbnail_url;
     return Object.hashAll([
       _$data.containsKey('artist') ? l$artist : const {},
-      _$data.containsKey('artist_id') ? l$artist_id : const {},
+      _$data.containsKey('artist_id') ? l$artistId : const {},
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('name') ? l$name : const {},
       _$data.containsKey('played_songs_aggregate')
-          ? l$played_songs_aggregate
+          ? l$playedSongsAggregate
           : const {},
-      _$data.containsKey('thumbnail_url') ? l$thumbnail_url : const {},
+      _$data.containsKey('thumbnail_url') ? l$thumbnailUrl : const {},
     ]);
   }
 }
@@ -10878,6 +11106,7 @@ class _CopyWithImpl$Input$songs_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? artist = _undefined,
     Object? artist_id = _undefined,
@@ -10899,6 +11128,7 @@ class _CopyWithImpl$Input$songs_order_by<TRes>
           'thumbnail_url': (thumbnail_url as Enum$order_by?),
       }));
 
+  @override
   CopyWith$Input$artists_order_by<TRes> get artist {
     final local$artist = _instance.artist;
     return local$artist == null
@@ -10906,14 +11136,15 @@ class _CopyWithImpl$Input$songs_order_by<TRes>
         : CopyWith$Input$artists_order_by(local$artist, (e) => call(artist: e));
   }
 
+  @override
   CopyWith$Input$stations_now_playing_aggregate_order_by<TRes>
       get played_songs_aggregate {
-    final local$played_songs_aggregate = _instance.played_songs_aggregate;
-    return local$played_songs_aggregate == null
+    final local$playedSongsAggregate = _instance.played_songs_aggregate;
+    return local$playedSongsAggregate == null
         ? CopyWith$Input$stations_now_playing_aggregate_order_by.stub(
             _then(_instance))
         : CopyWith$Input$stations_now_playing_aggregate_order_by(
-            local$played_songs_aggregate,
+            local$playedSongsAggregate,
             (e) => call(played_songs_aggregate: e));
   }
 }
@@ -10922,8 +11153,9 @@ class _CopyWithStubImpl$Input$songs_order_by<TRes>
     implements CopyWith$Input$songs_order_by<TRes> {
   _CopyWithStubImpl$Input$songs_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Input$artists_order_by? artist,
     Enum$order_by? artist_id,
@@ -10934,9 +11166,11 @@ class _CopyWithStubImpl$Input$songs_order_by<TRes>
   }) =>
       _res;
 
+  @override
   CopyWith$Input$artists_order_by<TRes> get artist =>
       CopyWith$Input$artists_order_by.stub(_res);
 
+  @override
   CopyWith$Input$stations_now_playing_aggregate_order_by<TRes>
       get played_songs_aggregate =>
           CopyWith$Input$stations_now_playing_aggregate_order_by.stub(_res);
@@ -10957,10 +11191,10 @@ class Input$songs_stddev_order_by {
   factory Input$songs_stddev_order_by.fromJson(Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
     if (data.containsKey('artist_id')) {
-      final l$artist_id = data['artist_id'];
-      result$data['artist_id'] = l$artist_id == null
+      final l$artistId = data['artist_id'];
+      result$data['artist_id'] = l$artistId == null
           ? null
-          : fromJson$Enum$order_by((l$artist_id as String));
+          : fromJson$Enum$order_by((l$artistId as String));
     }
     if (data.containsKey('id')) {
       final l$id = data['id'];
@@ -10979,9 +11213,9 @@ class Input$songs_stddev_order_by {
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
     if (_$data.containsKey('artist_id')) {
-      final l$artist_id = artist_id;
+      final l$artistId = artist_id;
       result$data['artist_id'] =
-          l$artist_id == null ? null : toJson$Enum$order_by(l$artist_id);
+          l$artistId == null ? null : toJson$Enum$order_by(l$artistId);
     }
     if (_$data.containsKey('id')) {
       final l$id = id;
@@ -11001,17 +11235,17 @@ class Input$songs_stddev_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$songs_stddev_order_by) ||
+    if (other is! Input$songs_stddev_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$artist_id = artist_id;
-    final lOther$artist_id = other.artist_id;
+    final l$artistId = artist_id;
+    final lother$artistId = other.artist_id;
     if (_$data.containsKey('artist_id') !=
         other._$data.containsKey('artist_id')) {
       return false;
     }
-    if (l$artist_id != lOther$artist_id) {
+    if (l$artistId != lother$artistId) {
       return false;
     }
     final l$id = id;
@@ -11027,10 +11261,10 @@ class Input$songs_stddev_order_by {
 
   @override
   int get hashCode {
-    final l$artist_id = artist_id;
+    final l$artistId = artist_id;
     final l$id = id;
     return Object.hashAll([
-      _$data.containsKey('artist_id') ? l$artist_id : const {},
+      _$data.containsKey('artist_id') ? l$artistId : const {},
       _$data.containsKey('id') ? l$id : const {},
     ]);
   }
@@ -11064,6 +11298,7 @@ class _CopyWithImpl$Input$songs_stddev_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? artist_id = _undefined,
     Object? id = _undefined,
@@ -11079,8 +11314,9 @@ class _CopyWithStubImpl$Input$songs_stddev_order_by<TRes>
     implements CopyWith$Input$songs_stddev_order_by<TRes> {
   _CopyWithStubImpl$Input$songs_stddev_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? artist_id,
     Enum$order_by? id,
@@ -11103,10 +11339,10 @@ class Input$songs_stddev_pop_order_by {
   factory Input$songs_stddev_pop_order_by.fromJson(Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
     if (data.containsKey('artist_id')) {
-      final l$artist_id = data['artist_id'];
-      result$data['artist_id'] = l$artist_id == null
+      final l$artistId = data['artist_id'];
+      result$data['artist_id'] = l$artistId == null
           ? null
-          : fromJson$Enum$order_by((l$artist_id as String));
+          : fromJson$Enum$order_by((l$artistId as String));
     }
     if (data.containsKey('id')) {
       final l$id = data['id'];
@@ -11125,9 +11361,9 @@ class Input$songs_stddev_pop_order_by {
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
     if (_$data.containsKey('artist_id')) {
-      final l$artist_id = artist_id;
+      final l$artistId = artist_id;
       result$data['artist_id'] =
-          l$artist_id == null ? null : toJson$Enum$order_by(l$artist_id);
+          l$artistId == null ? null : toJson$Enum$order_by(l$artistId);
     }
     if (_$data.containsKey('id')) {
       final l$id = id;
@@ -11147,17 +11383,17 @@ class Input$songs_stddev_pop_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$songs_stddev_pop_order_by) ||
+    if (other is! Input$songs_stddev_pop_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$artist_id = artist_id;
-    final lOther$artist_id = other.artist_id;
+    final l$artistId = artist_id;
+    final lother$artistId = other.artist_id;
     if (_$data.containsKey('artist_id') !=
         other._$data.containsKey('artist_id')) {
       return false;
     }
-    if (l$artist_id != lOther$artist_id) {
+    if (l$artistId != lother$artistId) {
       return false;
     }
     final l$id = id;
@@ -11173,10 +11409,10 @@ class Input$songs_stddev_pop_order_by {
 
   @override
   int get hashCode {
-    final l$artist_id = artist_id;
+    final l$artistId = artist_id;
     final l$id = id;
     return Object.hashAll([
-      _$data.containsKey('artist_id') ? l$artist_id : const {},
+      _$data.containsKey('artist_id') ? l$artistId : const {},
       _$data.containsKey('id') ? l$id : const {},
     ]);
   }
@@ -11210,6 +11446,7 @@ class _CopyWithImpl$Input$songs_stddev_pop_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? artist_id = _undefined,
     Object? id = _undefined,
@@ -11225,8 +11462,9 @@ class _CopyWithStubImpl$Input$songs_stddev_pop_order_by<TRes>
     implements CopyWith$Input$songs_stddev_pop_order_by<TRes> {
   _CopyWithStubImpl$Input$songs_stddev_pop_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? artist_id,
     Enum$order_by? id,
@@ -11249,10 +11487,10 @@ class Input$songs_stddev_samp_order_by {
   factory Input$songs_stddev_samp_order_by.fromJson(Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
     if (data.containsKey('artist_id')) {
-      final l$artist_id = data['artist_id'];
-      result$data['artist_id'] = l$artist_id == null
+      final l$artistId = data['artist_id'];
+      result$data['artist_id'] = l$artistId == null
           ? null
-          : fromJson$Enum$order_by((l$artist_id as String));
+          : fromJson$Enum$order_by((l$artistId as String));
     }
     if (data.containsKey('id')) {
       final l$id = data['id'];
@@ -11271,9 +11509,9 @@ class Input$songs_stddev_samp_order_by {
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
     if (_$data.containsKey('artist_id')) {
-      final l$artist_id = artist_id;
+      final l$artistId = artist_id;
       result$data['artist_id'] =
-          l$artist_id == null ? null : toJson$Enum$order_by(l$artist_id);
+          l$artistId == null ? null : toJson$Enum$order_by(l$artistId);
     }
     if (_$data.containsKey('id')) {
       final l$id = id;
@@ -11293,17 +11531,17 @@ class Input$songs_stddev_samp_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$songs_stddev_samp_order_by) ||
+    if (other is! Input$songs_stddev_samp_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$artist_id = artist_id;
-    final lOther$artist_id = other.artist_id;
+    final l$artistId = artist_id;
+    final lother$artistId = other.artist_id;
     if (_$data.containsKey('artist_id') !=
         other._$data.containsKey('artist_id')) {
       return false;
     }
-    if (l$artist_id != lOther$artist_id) {
+    if (l$artistId != lother$artistId) {
       return false;
     }
     final l$id = id;
@@ -11319,10 +11557,10 @@ class Input$songs_stddev_samp_order_by {
 
   @override
   int get hashCode {
-    final l$artist_id = artist_id;
+    final l$artistId = artist_id;
     final l$id = id;
     return Object.hashAll([
-      _$data.containsKey('artist_id') ? l$artist_id : const {},
+      _$data.containsKey('artist_id') ? l$artistId : const {},
       _$data.containsKey('id') ? l$id : const {},
     ]);
   }
@@ -11356,6 +11594,7 @@ class _CopyWithImpl$Input$songs_stddev_samp_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? artist_id = _undefined,
     Object? id = _undefined,
@@ -11371,8 +11610,9 @@ class _CopyWithStubImpl$Input$songs_stddev_samp_order_by<TRes>
     implements CopyWith$Input$songs_stddev_samp_order_by<TRes> {
   _CopyWithStubImpl$Input$songs_stddev_samp_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? artist_id,
     Enum$order_by? id,
@@ -11394,10 +11634,10 @@ class Input$songs_stream_cursor_input {
 
   factory Input$songs_stream_cursor_input.fromJson(Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
-    final l$initial_value = data['initial_value'];
+    final l$initialValue = data['initial_value'];
     result$data['initial_value'] =
         Input$songs_stream_cursor_value_input.fromJson(
-            (l$initial_value as Map<String, dynamic>));
+            (l$initialValue as Map<String, dynamic>));
     if (data.containsKey('ordering')) {
       final l$ordering = data['ordering'];
       result$data['ordering'] = l$ordering == null
@@ -11417,8 +11657,8 @@ class Input$songs_stream_cursor_input {
 
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
-    final l$initial_value = initial_value;
-    result$data['initial_value'] = l$initial_value.toJson();
+    final l$initialValue = initial_value;
+    result$data['initial_value'] = l$initialValue.toJson();
     if (_$data.containsKey('ordering')) {
       final l$ordering = ordering;
       result$data['ordering'] =
@@ -11438,13 +11678,13 @@ class Input$songs_stream_cursor_input {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$songs_stream_cursor_input) ||
+    if (other is! Input$songs_stream_cursor_input ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$initial_value = initial_value;
-    final lOther$initial_value = other.initial_value;
-    if (l$initial_value != lOther$initial_value) {
+    final l$initialValue = initial_value;
+    final lother$initialValue = other.initial_value;
+    if (l$initialValue != lother$initialValue) {
       return false;
     }
     final l$ordering = ordering;
@@ -11461,10 +11701,10 @@ class Input$songs_stream_cursor_input {
 
   @override
   int get hashCode {
-    final l$initial_value = initial_value;
+    final l$initialValue = initial_value;
     final l$ordering = ordering;
     return Object.hashAll([
-      l$initial_value,
+      l$initialValue,
       _$data.containsKey('ordering') ? l$ordering : const {},
     ]);
   }
@@ -11499,6 +11739,7 @@ class _CopyWithImpl$Input$songs_stream_cursor_input<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? initial_value = _undefined,
     Object? ordering = _undefined,
@@ -11512,10 +11753,11 @@ class _CopyWithImpl$Input$songs_stream_cursor_input<TRes>
           'ordering': (ordering as Enum$cursor_ordering?),
       }));
 
+  @override
   CopyWith$Input$songs_stream_cursor_value_input<TRes> get initial_value {
-    final local$initial_value = _instance.initial_value;
+    final local$initialValue = _instance.initial_value;
     return CopyWith$Input$songs_stream_cursor_value_input(
-        local$initial_value, (e) => call(initial_value: e));
+        local$initialValue, (e) => call(initial_value: e));
   }
 }
 
@@ -11523,14 +11765,16 @@ class _CopyWithStubImpl$Input$songs_stream_cursor_input<TRes>
     implements CopyWith$Input$songs_stream_cursor_input<TRes> {
   _CopyWithStubImpl$Input$songs_stream_cursor_input(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Input$songs_stream_cursor_value_input? initial_value,
     Enum$cursor_ordering? ordering,
   }) =>
       _res;
 
+  @override
   CopyWith$Input$songs_stream_cursor_value_input<TRes> get initial_value =>
       CopyWith$Input$songs_stream_cursor_value_input.stub(_res);
 }
@@ -11555,8 +11799,8 @@ class Input$songs_stream_cursor_value_input {
       Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
     if (data.containsKey('artist_id')) {
-      final l$artist_id = data['artist_id'];
-      result$data['artist_id'] = (l$artist_id as int?);
+      final l$artistId = data['artist_id'];
+      result$data['artist_id'] = (l$artistId as int?);
     }
     if (data.containsKey('id')) {
       final l$id = data['id'];
@@ -11567,8 +11811,8 @@ class Input$songs_stream_cursor_value_input {
       result$data['name'] = (l$name as String?);
     }
     if (data.containsKey('thumbnail_url')) {
-      final l$thumbnail_url = data['thumbnail_url'];
-      result$data['thumbnail_url'] = (l$thumbnail_url as String?);
+      final l$thumbnailUrl = data['thumbnail_url'];
+      result$data['thumbnail_url'] = (l$thumbnailUrl as String?);
     }
     return Input$songs_stream_cursor_value_input._(result$data);
   }
@@ -11586,8 +11830,8 @@ class Input$songs_stream_cursor_value_input {
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
     if (_$data.containsKey('artist_id')) {
-      final l$artist_id = artist_id;
-      result$data['artist_id'] = l$artist_id;
+      final l$artistId = artist_id;
+      result$data['artist_id'] = l$artistId;
     }
     if (_$data.containsKey('id')) {
       final l$id = id;
@@ -11598,8 +11842,8 @@ class Input$songs_stream_cursor_value_input {
       result$data['name'] = l$name;
     }
     if (_$data.containsKey('thumbnail_url')) {
-      final l$thumbnail_url = thumbnail_url;
-      result$data['thumbnail_url'] = l$thumbnail_url;
+      final l$thumbnailUrl = thumbnail_url;
+      result$data['thumbnail_url'] = l$thumbnailUrl;
     }
     return result$data;
   }
@@ -11616,17 +11860,17 @@ class Input$songs_stream_cursor_value_input {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$songs_stream_cursor_value_input) ||
+    if (other is! Input$songs_stream_cursor_value_input ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$artist_id = artist_id;
-    final lOther$artist_id = other.artist_id;
+    final l$artistId = artist_id;
+    final lother$artistId = other.artist_id;
     if (_$data.containsKey('artist_id') !=
         other._$data.containsKey('artist_id')) {
       return false;
     }
-    if (l$artist_id != lOther$artist_id) {
+    if (l$artistId != lother$artistId) {
       return false;
     }
     final l$id = id;
@@ -11645,13 +11889,13 @@ class Input$songs_stream_cursor_value_input {
     if (l$name != lOther$name) {
       return false;
     }
-    final l$thumbnail_url = thumbnail_url;
-    final lOther$thumbnail_url = other.thumbnail_url;
+    final l$thumbnailUrl = thumbnail_url;
+    final lother$thumbnailUrl = other.thumbnail_url;
     if (_$data.containsKey('thumbnail_url') !=
         other._$data.containsKey('thumbnail_url')) {
       return false;
     }
-    if (l$thumbnail_url != lOther$thumbnail_url) {
+    if (l$thumbnailUrl != lother$thumbnailUrl) {
       return false;
     }
     return true;
@@ -11659,15 +11903,15 @@ class Input$songs_stream_cursor_value_input {
 
   @override
   int get hashCode {
-    final l$artist_id = artist_id;
+    final l$artistId = artist_id;
     final l$id = id;
     final l$name = name;
-    final l$thumbnail_url = thumbnail_url;
+    final l$thumbnailUrl = thumbnail_url;
     return Object.hashAll([
-      _$data.containsKey('artist_id') ? l$artist_id : const {},
+      _$data.containsKey('artist_id') ? l$artistId : const {},
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('name') ? l$name : const {},
-      _$data.containsKey('thumbnail_url') ? l$thumbnail_url : const {},
+      _$data.containsKey('thumbnail_url') ? l$thumbnailUrl : const {},
     ]);
   }
 }
@@ -11702,6 +11946,7 @@ class _CopyWithImpl$Input$songs_stream_cursor_value_input<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? artist_id = _undefined,
     Object? id = _undefined,
@@ -11722,8 +11967,9 @@ class _CopyWithStubImpl$Input$songs_stream_cursor_value_input<TRes>
     implements CopyWith$Input$songs_stream_cursor_value_input<TRes> {
   _CopyWithStubImpl$Input$songs_stream_cursor_value_input(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     int? artist_id,
     int? id,
@@ -11748,10 +11994,10 @@ class Input$songs_sum_order_by {
   factory Input$songs_sum_order_by.fromJson(Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
     if (data.containsKey('artist_id')) {
-      final l$artist_id = data['artist_id'];
-      result$data['artist_id'] = l$artist_id == null
+      final l$artistId = data['artist_id'];
+      result$data['artist_id'] = l$artistId == null
           ? null
-          : fromJson$Enum$order_by((l$artist_id as String));
+          : fromJson$Enum$order_by((l$artistId as String));
     }
     if (data.containsKey('id')) {
       final l$id = data['id'];
@@ -11770,9 +12016,9 @@ class Input$songs_sum_order_by {
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
     if (_$data.containsKey('artist_id')) {
-      final l$artist_id = artist_id;
+      final l$artistId = artist_id;
       result$data['artist_id'] =
-          l$artist_id == null ? null : toJson$Enum$order_by(l$artist_id);
+          l$artistId == null ? null : toJson$Enum$order_by(l$artistId);
     }
     if (_$data.containsKey('id')) {
       final l$id = id;
@@ -11792,17 +12038,17 @@ class Input$songs_sum_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$songs_sum_order_by) ||
+    if (other is! Input$songs_sum_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$artist_id = artist_id;
-    final lOther$artist_id = other.artist_id;
+    final l$artistId = artist_id;
+    final lother$artistId = other.artist_id;
     if (_$data.containsKey('artist_id') !=
         other._$data.containsKey('artist_id')) {
       return false;
     }
-    if (l$artist_id != lOther$artist_id) {
+    if (l$artistId != lother$artistId) {
       return false;
     }
     final l$id = id;
@@ -11818,10 +12064,10 @@ class Input$songs_sum_order_by {
 
   @override
   int get hashCode {
-    final l$artist_id = artist_id;
+    final l$artistId = artist_id;
     final l$id = id;
     return Object.hashAll([
-      _$data.containsKey('artist_id') ? l$artist_id : const {},
+      _$data.containsKey('artist_id') ? l$artistId : const {},
       _$data.containsKey('id') ? l$id : const {},
     ]);
   }
@@ -11855,6 +12101,7 @@ class _CopyWithImpl$Input$songs_sum_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? artist_id = _undefined,
     Object? id = _undefined,
@@ -11870,8 +12117,9 @@ class _CopyWithStubImpl$Input$songs_sum_order_by<TRes>
     implements CopyWith$Input$songs_sum_order_by<TRes> {
   _CopyWithStubImpl$Input$songs_sum_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? artist_id,
     Enum$order_by? id,
@@ -11894,10 +12142,10 @@ class Input$songs_var_pop_order_by {
   factory Input$songs_var_pop_order_by.fromJson(Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
     if (data.containsKey('artist_id')) {
-      final l$artist_id = data['artist_id'];
-      result$data['artist_id'] = l$artist_id == null
+      final l$artistId = data['artist_id'];
+      result$data['artist_id'] = l$artistId == null
           ? null
-          : fromJson$Enum$order_by((l$artist_id as String));
+          : fromJson$Enum$order_by((l$artistId as String));
     }
     if (data.containsKey('id')) {
       final l$id = data['id'];
@@ -11916,9 +12164,9 @@ class Input$songs_var_pop_order_by {
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
     if (_$data.containsKey('artist_id')) {
-      final l$artist_id = artist_id;
+      final l$artistId = artist_id;
       result$data['artist_id'] =
-          l$artist_id == null ? null : toJson$Enum$order_by(l$artist_id);
+          l$artistId == null ? null : toJson$Enum$order_by(l$artistId);
     }
     if (_$data.containsKey('id')) {
       final l$id = id;
@@ -11938,17 +12186,17 @@ class Input$songs_var_pop_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$songs_var_pop_order_by) ||
+    if (other is! Input$songs_var_pop_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$artist_id = artist_id;
-    final lOther$artist_id = other.artist_id;
+    final l$artistId = artist_id;
+    final lother$artistId = other.artist_id;
     if (_$data.containsKey('artist_id') !=
         other._$data.containsKey('artist_id')) {
       return false;
     }
-    if (l$artist_id != lOther$artist_id) {
+    if (l$artistId != lother$artistId) {
       return false;
     }
     final l$id = id;
@@ -11964,10 +12212,10 @@ class Input$songs_var_pop_order_by {
 
   @override
   int get hashCode {
-    final l$artist_id = artist_id;
+    final l$artistId = artist_id;
     final l$id = id;
     return Object.hashAll([
-      _$data.containsKey('artist_id') ? l$artist_id : const {},
+      _$data.containsKey('artist_id') ? l$artistId : const {},
       _$data.containsKey('id') ? l$id : const {},
     ]);
   }
@@ -12001,6 +12249,7 @@ class _CopyWithImpl$Input$songs_var_pop_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? artist_id = _undefined,
     Object? id = _undefined,
@@ -12016,8 +12265,9 @@ class _CopyWithStubImpl$Input$songs_var_pop_order_by<TRes>
     implements CopyWith$Input$songs_var_pop_order_by<TRes> {
   _CopyWithStubImpl$Input$songs_var_pop_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? artist_id,
     Enum$order_by? id,
@@ -12040,10 +12290,10 @@ class Input$songs_var_samp_order_by {
   factory Input$songs_var_samp_order_by.fromJson(Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
     if (data.containsKey('artist_id')) {
-      final l$artist_id = data['artist_id'];
-      result$data['artist_id'] = l$artist_id == null
+      final l$artistId = data['artist_id'];
+      result$data['artist_id'] = l$artistId == null
           ? null
-          : fromJson$Enum$order_by((l$artist_id as String));
+          : fromJson$Enum$order_by((l$artistId as String));
     }
     if (data.containsKey('id')) {
       final l$id = data['id'];
@@ -12062,9 +12312,9 @@ class Input$songs_var_samp_order_by {
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
     if (_$data.containsKey('artist_id')) {
-      final l$artist_id = artist_id;
+      final l$artistId = artist_id;
       result$data['artist_id'] =
-          l$artist_id == null ? null : toJson$Enum$order_by(l$artist_id);
+          l$artistId == null ? null : toJson$Enum$order_by(l$artistId);
     }
     if (_$data.containsKey('id')) {
       final l$id = id;
@@ -12084,17 +12334,17 @@ class Input$songs_var_samp_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$songs_var_samp_order_by) ||
+    if (other is! Input$songs_var_samp_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$artist_id = artist_id;
-    final lOther$artist_id = other.artist_id;
+    final l$artistId = artist_id;
+    final lother$artistId = other.artist_id;
     if (_$data.containsKey('artist_id') !=
         other._$data.containsKey('artist_id')) {
       return false;
     }
-    if (l$artist_id != lOther$artist_id) {
+    if (l$artistId != lother$artistId) {
       return false;
     }
     final l$id = id;
@@ -12110,10 +12360,10 @@ class Input$songs_var_samp_order_by {
 
   @override
   int get hashCode {
-    final l$artist_id = artist_id;
+    final l$artistId = artist_id;
     final l$id = id;
     return Object.hashAll([
-      _$data.containsKey('artist_id') ? l$artist_id : const {},
+      _$data.containsKey('artist_id') ? l$artistId : const {},
       _$data.containsKey('id') ? l$id : const {},
     ]);
   }
@@ -12147,6 +12397,7 @@ class _CopyWithImpl$Input$songs_var_samp_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? artist_id = _undefined,
     Object? id = _undefined,
@@ -12162,8 +12413,9 @@ class _CopyWithStubImpl$Input$songs_var_samp_order_by<TRes>
     implements CopyWith$Input$songs_var_samp_order_by<TRes> {
   _CopyWithStubImpl$Input$songs_var_samp_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? artist_id,
     Enum$order_by? id,
@@ -12186,10 +12438,10 @@ class Input$songs_variance_order_by {
   factory Input$songs_variance_order_by.fromJson(Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
     if (data.containsKey('artist_id')) {
-      final l$artist_id = data['artist_id'];
-      result$data['artist_id'] = l$artist_id == null
+      final l$artistId = data['artist_id'];
+      result$data['artist_id'] = l$artistId == null
           ? null
-          : fromJson$Enum$order_by((l$artist_id as String));
+          : fromJson$Enum$order_by((l$artistId as String));
     }
     if (data.containsKey('id')) {
       final l$id = data['id'];
@@ -12208,9 +12460,9 @@ class Input$songs_variance_order_by {
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
     if (_$data.containsKey('artist_id')) {
-      final l$artist_id = artist_id;
+      final l$artistId = artist_id;
       result$data['artist_id'] =
-          l$artist_id == null ? null : toJson$Enum$order_by(l$artist_id);
+          l$artistId == null ? null : toJson$Enum$order_by(l$artistId);
     }
     if (_$data.containsKey('id')) {
       final l$id = id;
@@ -12230,17 +12482,17 @@ class Input$songs_variance_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$songs_variance_order_by) ||
+    if (other is! Input$songs_variance_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$artist_id = artist_id;
-    final lOther$artist_id = other.artist_id;
+    final l$artistId = artist_id;
+    final lother$artistId = other.artist_id;
     if (_$data.containsKey('artist_id') !=
         other._$data.containsKey('artist_id')) {
       return false;
     }
-    if (l$artist_id != lOther$artist_id) {
+    if (l$artistId != lother$artistId) {
       return false;
     }
     final l$id = id;
@@ -12256,10 +12508,10 @@ class Input$songs_variance_order_by {
 
   @override
   int get hashCode {
-    final l$artist_id = artist_id;
+    final l$artistId = artist_id;
     final l$id = id;
     return Object.hashAll([
-      _$data.containsKey('artist_id') ? l$artist_id : const {},
+      _$data.containsKey('artist_id') ? l$artistId : const {},
       _$data.containsKey('id') ? l$id : const {},
     ]);
   }
@@ -12293,6 +12545,7 @@ class _CopyWithImpl$Input$songs_variance_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? artist_id = _undefined,
     Object? id = _undefined,
@@ -12308,8 +12561,9 @@ class _CopyWithStubImpl$Input$songs_variance_order_by<TRes>
     implements CopyWith$Input$songs_variance_order_by<TRes> {
   _CopyWithStubImpl$Input$songs_variance_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? artist_id,
     Enum$order_by? id,
@@ -12345,22 +12599,22 @@ class Input$station_groups_bool_exp {
   factory Input$station_groups_bool_exp.fromJson(Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
     if (data.containsKey('_and')) {
-      final l$$_and = data['_and'];
-      result$data['_and'] = (l$$_and as List<dynamic>?)
+      final l$$And = data['_and'];
+      result$data['_and'] = (l$$And as List<dynamic>?)
           ?.map((e) => Input$station_groups_bool_exp.fromJson(
               (e as Map<String, dynamic>)))
           .toList();
     }
     if (data.containsKey('_not')) {
-      final l$$_not = data['_not'];
-      result$data['_not'] = l$$_not == null
+      final l$$Not = data['_not'];
+      result$data['_not'] = l$$Not == null
           ? null
           : Input$station_groups_bool_exp.fromJson(
-              (l$$_not as Map<String, dynamic>));
+              (l$$Not as Map<String, dynamic>));
     }
     if (data.containsKey('_or')) {
-      final l$$_or = data['_or'];
-      result$data['_or'] = (l$$_or as List<dynamic>?)
+      final l$$Or = data['_or'];
+      result$data['_or'] = (l$$Or as List<dynamic>?)
           ?.map((e) => Input$station_groups_bool_exp.fromJson(
               (e as Map<String, dynamic>)))
           .toList();
@@ -12393,12 +12647,12 @@ class Input$station_groups_bool_exp {
               (l$slug as Map<String, dynamic>));
     }
     if (data.containsKey('station_to_station_groups')) {
-      final l$station_to_station_groups = data['station_to_station_groups'];
+      final l$stationToStationGroups = data['station_to_station_groups'];
       result$data['station_to_station_groups'] =
-          l$station_to_station_groups == null
+          l$stationToStationGroups == null
               ? null
               : Input$station_to_station_group_bool_exp.fromJson(
-                  (l$station_to_station_groups as Map<String, dynamic>));
+                  (l$stationToStationGroups as Map<String, dynamic>));
     }
     return Input$station_groups_bool_exp._(result$data);
   }
@@ -12433,16 +12687,16 @@ class Input$station_groups_bool_exp {
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
     if (_$data.containsKey('_and')) {
-      final l$$_and = $_and;
-      result$data['_and'] = l$$_and?.map((e) => e.toJson()).toList();
+      final l$$And = $_and;
+      result$data['_and'] = l$$And?.map((e) => e.toJson()).toList();
     }
     if (_$data.containsKey('_not')) {
-      final l$$_not = $_not;
-      result$data['_not'] = l$$_not?.toJson();
+      final l$$Not = $_not;
+      result$data['_not'] = l$$Not?.toJson();
     }
     if (_$data.containsKey('_or')) {
-      final l$$_or = $_or;
-      result$data['_or'] = l$$_or?.map((e) => e.toJson()).toList();
+      final l$$Or = $_or;
+      result$data['_or'] = l$$Or?.map((e) => e.toJson()).toList();
     }
     if (_$data.containsKey('id')) {
       final l$id = id;
@@ -12461,9 +12715,9 @@ class Input$station_groups_bool_exp {
       result$data['slug'] = l$slug?.toJson();
     }
     if (_$data.containsKey('station_to_station_groups')) {
-      final l$station_to_station_groups = station_to_station_groups;
+      final l$stationToStationGroups = station_to_station_groups;
       result$data['station_to_station_groups'] =
-          l$station_to_station_groups?.toJson();
+          l$stationToStationGroups?.toJson();
     }
     return result$data;
   }
@@ -12479,54 +12733,54 @@ class Input$station_groups_bool_exp {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$station_groups_bool_exp) ||
+    if (other is! Input$station_groups_bool_exp ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$$_and = $_and;
-    final lOther$$_and = other.$_and;
+    final l$$And = $_and;
+    final lother$$And = other.$_and;
     if (_$data.containsKey('_and') != other._$data.containsKey('_and')) {
       return false;
     }
-    if (l$$_and != null && lOther$$_and != null) {
-      if (l$$_and.length != lOther$$_and.length) {
+    if (l$$And != null && lother$$And != null) {
+      if (l$$And.length != lother$$And.length) {
         return false;
       }
-      for (int i = 0; i < l$$_and.length; i++) {
-        final l$$_and$entry = l$$_and[i];
-        final lOther$$_and$entry = lOther$$_and[i];
-        if (l$$_and$entry != lOther$$_and$entry) {
+      for (int i = 0; i < l$$And.length; i++) {
+        final l$$And$entry = l$$And[i];
+        final lother$$And$entry = lother$$And[i];
+        if (l$$And$entry != lother$$And$entry) {
           return false;
         }
       }
-    } else if (l$$_and != lOther$$_and) {
+    } else if (l$$And != lother$$And) {
       return false;
     }
-    final l$$_not = $_not;
-    final lOther$$_not = other.$_not;
+    final l$$Not = $_not;
+    final lother$$Not = other.$_not;
     if (_$data.containsKey('_not') != other._$data.containsKey('_not')) {
       return false;
     }
-    if (l$$_not != lOther$$_not) {
+    if (l$$Not != lother$$Not) {
       return false;
     }
-    final l$$_or = $_or;
-    final lOther$$_or = other.$_or;
+    final l$$Or = $_or;
+    final lother$$Or = other.$_or;
     if (_$data.containsKey('_or') != other._$data.containsKey('_or')) {
       return false;
     }
-    if (l$$_or != null && lOther$$_or != null) {
-      if (l$$_or.length != lOther$$_or.length) {
+    if (l$$Or != null && lother$$Or != null) {
+      if (l$$Or.length != lother$$Or.length) {
         return false;
       }
-      for (int i = 0; i < l$$_or.length; i++) {
-        final l$$_or$entry = l$$_or[i];
-        final lOther$$_or$entry = lOther$$_or[i];
-        if (l$$_or$entry != lOther$$_or$entry) {
+      for (int i = 0; i < l$$Or.length; i++) {
+        final l$$Or$entry = l$$Or[i];
+        final lother$$Or$entry = lother$$Or[i];
+        if (l$$Or$entry != lother$$Or$entry) {
           return false;
         }
       }
-    } else if (l$$_or != lOther$$_or) {
+    } else if (l$$Or != lother$$Or) {
       return false;
     }
     final l$id = id;
@@ -12561,13 +12815,13 @@ class Input$station_groups_bool_exp {
     if (l$slug != lOther$slug) {
       return false;
     }
-    final l$station_to_station_groups = station_to_station_groups;
-    final lOther$station_to_station_groups = other.station_to_station_groups;
+    final l$stationToStationGroups = station_to_station_groups;
+    final lother$stationToStationGroups = other.station_to_station_groups;
     if (_$data.containsKey('station_to_station_groups') !=
         other._$data.containsKey('station_to_station_groups')) {
       return false;
     }
-    if (l$station_to_station_groups != lOther$station_to_station_groups) {
+    if (l$stationToStationGroups != lother$stationToStationGroups) {
       return false;
     }
     return true;
@@ -12575,32 +12829,32 @@ class Input$station_groups_bool_exp {
 
   @override
   int get hashCode {
-    final l$$_and = $_and;
-    final l$$_not = $_not;
-    final l$$_or = $_or;
+    final l$$And = $_and;
+    final l$$Not = $_not;
+    final l$$Or = $_or;
     final l$id = id;
     final l$name = name;
     final l$order = order;
     final l$slug = slug;
-    final l$station_to_station_groups = station_to_station_groups;
+    final l$stationToStationGroups = station_to_station_groups;
     return Object.hashAll([
       _$data.containsKey('_and')
-          ? l$$_and == null
+          ? l$$And == null
               ? null
-              : Object.hashAll(l$$_and.map((v) => v))
+              : Object.hashAll(l$$And.map((v) => v))
           : const {},
-      _$data.containsKey('_not') ? l$$_not : const {},
+      _$data.containsKey('_not') ? l$$Not : const {},
       _$data.containsKey('_or')
-          ? l$$_or == null
+          ? l$$Or == null
               ? null
-              : Object.hashAll(l$$_or.map((v) => v))
+              : Object.hashAll(l$$Or.map((v) => v))
           : const {},
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('name') ? l$name : const {},
       _$data.containsKey('order') ? l$order : const {},
       _$data.containsKey('slug') ? l$slug : const {},
       _$data.containsKey('station_to_station_groups')
-          ? l$station_to_station_groups
+          ? l$stationToStationGroups
           : const {},
     ]);
   }
@@ -12630,14 +12884,14 @@ abstract class CopyWith$Input$station_groups_bool_exp<TRes> {
               Iterable<
                   CopyWith$Input$station_groups_bool_exp<
                       Input$station_groups_bool_exp>>?)
-          _fn);
+          fn);
   CopyWith$Input$station_groups_bool_exp<TRes> get $_not;
   TRes $_or(
       Iterable<Input$station_groups_bool_exp>? Function(
               Iterable<
                   CopyWith$Input$station_groups_bool_exp<
                       Input$station_groups_bool_exp>>?)
-          _fn);
+          fn);
   CopyWith$Input$Int_comparison_exp<TRes> get id;
   CopyWith$Input$String_comparison_exp<TRes> get name;
   CopyWith$Input$Int_comparison_exp<TRes> get order;
@@ -12659,6 +12913,7 @@ class _CopyWithImpl$Input$station_groups_bool_exp<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? $_and = _undefined,
     Object? $_not = _undefined,
@@ -12686,40 +12941,44 @@ class _CopyWithImpl$Input$station_groups_bool_exp<TRes>
               as Input$station_to_station_group_bool_exp?),
       }));
 
+  @override
   TRes $_and(
           Iterable<Input$station_groups_bool_exp>? Function(
                   Iterable<
                       CopyWith$Input$station_groups_bool_exp<
                           Input$station_groups_bool_exp>>?)
-              _fn) =>
+              fn) =>
       call(
-          $_and: _fn(_instance.$_and
+          $_and: fn(_instance.$_and
               ?.map((e) => CopyWith$Input$station_groups_bool_exp(
                     e,
                     (i) => i,
                   )))?.toList());
 
+  @override
   CopyWith$Input$station_groups_bool_exp<TRes> get $_not {
-    final local$$_not = _instance.$_not;
-    return local$$_not == null
+    final local$$Not = _instance.$_not;
+    return local$$Not == null
         ? CopyWith$Input$station_groups_bool_exp.stub(_then(_instance))
         : CopyWith$Input$station_groups_bool_exp(
-            local$$_not, (e) => call($_not: e));
+            local$$Not, (e) => call($_not: e));
   }
 
+  @override
   TRes $_or(
           Iterable<Input$station_groups_bool_exp>? Function(
                   Iterable<
                       CopyWith$Input$station_groups_bool_exp<
                           Input$station_groups_bool_exp>>?)
-              _fn) =>
+              fn) =>
       call(
-          $_or: _fn(
+          $_or: fn(
               _instance.$_or?.map((e) => CopyWith$Input$station_groups_bool_exp(
                     e,
                     (i) => i,
                   )))?.toList());
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get id {
     final local$id = _instance.id;
     return local$id == null
@@ -12727,6 +12986,7 @@ class _CopyWithImpl$Input$station_groups_bool_exp<TRes>
         : CopyWith$Input$Int_comparison_exp(local$id, (e) => call(id: e));
   }
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get name {
     final local$name = _instance.name;
     return local$name == null
@@ -12735,6 +12995,7 @@ class _CopyWithImpl$Input$station_groups_bool_exp<TRes>
             local$name, (e) => call(name: e));
   }
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get order {
     final local$order = _instance.order;
     return local$order == null
@@ -12742,6 +13003,7 @@ class _CopyWithImpl$Input$station_groups_bool_exp<TRes>
         : CopyWith$Input$Int_comparison_exp(local$order, (e) => call(order: e));
   }
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get slug {
     final local$slug = _instance.slug;
     return local$slug == null
@@ -12750,14 +13012,15 @@ class _CopyWithImpl$Input$station_groups_bool_exp<TRes>
             local$slug, (e) => call(slug: e));
   }
 
+  @override
   CopyWith$Input$station_to_station_group_bool_exp<TRes>
       get station_to_station_groups {
-    final local$station_to_station_groups = _instance.station_to_station_groups;
-    return local$station_to_station_groups == null
+    final local$stationToStationGroups = _instance.station_to_station_groups;
+    return local$stationToStationGroups == null
         ? CopyWith$Input$station_to_station_group_bool_exp.stub(
             _then(_instance))
         : CopyWith$Input$station_to_station_group_bool_exp(
-            local$station_to_station_groups,
+            local$stationToStationGroups,
             (e) => call(station_to_station_groups: e));
   }
 }
@@ -12766,8 +13029,9 @@ class _CopyWithStubImpl$Input$station_groups_bool_exp<TRes>
     implements CopyWith$Input$station_groups_bool_exp<TRes> {
   _CopyWithStubImpl$Input$station_groups_bool_exp(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     List<Input$station_groups_bool_exp>? $_and,
     Input$station_groups_bool_exp? $_not,
@@ -12780,25 +13044,33 @@ class _CopyWithStubImpl$Input$station_groups_bool_exp<TRes>
   }) =>
       _res;
 
-  $_and(_fn) => _res;
+  @override
+  $_and(fn) => _res;
 
+  @override
   CopyWith$Input$station_groups_bool_exp<TRes> get $_not =>
       CopyWith$Input$station_groups_bool_exp.stub(_res);
 
-  $_or(_fn) => _res;
+  @override
+  $_or(fn) => _res;
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get id =>
       CopyWith$Input$Int_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get name =>
       CopyWith$Input$String_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get order =>
       CopyWith$Input$Int_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get slug =>
       CopyWith$Input$String_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$station_to_station_group_bool_exp<TRes>
       get station_to_station_groups =>
           CopyWith$Input$station_to_station_group_bool_exp.stub(_res);
@@ -12848,13 +13120,13 @@ class Input$station_groups_order_by {
           l$slug == null ? null : fromJson$Enum$order_by((l$slug as String));
     }
     if (data.containsKey('station_to_station_groups_aggregate')) {
-      final l$station_to_station_groups_aggregate =
+      final l$stationToStationGroupsAggregate =
           data['station_to_station_groups_aggregate'];
       result$data['station_to_station_groups_aggregate'] =
-          l$station_to_station_groups_aggregate == null
+          l$stationToStationGroupsAggregate == null
               ? null
               : Input$station_to_station_group_aggregate_order_by.fromJson(
-                  (l$station_to_station_groups_aggregate
+                  (l$stationToStationGroupsAggregate
                       as Map<String, dynamic>));
     }
     return Input$station_groups_order_by._(result$data);
@@ -12897,10 +13169,10 @@ class Input$station_groups_order_by {
           l$slug == null ? null : toJson$Enum$order_by(l$slug);
     }
     if (_$data.containsKey('station_to_station_groups_aggregate')) {
-      final l$station_to_station_groups_aggregate =
+      final l$stationToStationGroupsAggregate =
           station_to_station_groups_aggregate;
       result$data['station_to_station_groups_aggregate'] =
-          l$station_to_station_groups_aggregate?.toJson();
+          l$stationToStationGroupsAggregate?.toJson();
     }
     return result$data;
   }
@@ -12916,7 +13188,7 @@ class Input$station_groups_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$station_groups_order_by) ||
+    if (other is! Input$station_groups_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -12952,16 +13224,16 @@ class Input$station_groups_order_by {
     if (l$slug != lOther$slug) {
       return false;
     }
-    final l$station_to_station_groups_aggregate =
+    final l$stationToStationGroupsAggregate =
         station_to_station_groups_aggregate;
-    final lOther$station_to_station_groups_aggregate =
+    final lother$stationToStationGroupsAggregate =
         other.station_to_station_groups_aggregate;
     if (_$data.containsKey('station_to_station_groups_aggregate') !=
         other._$data.containsKey('station_to_station_groups_aggregate')) {
       return false;
     }
-    if (l$station_to_station_groups_aggregate !=
-        lOther$station_to_station_groups_aggregate) {
+    if (l$stationToStationGroupsAggregate !=
+        lother$stationToStationGroupsAggregate) {
       return false;
     }
     return true;
@@ -12973,7 +13245,7 @@ class Input$station_groups_order_by {
     final l$name = name;
     final l$order = order;
     final l$slug = slug;
-    final l$station_to_station_groups_aggregate =
+    final l$stationToStationGroupsAggregate =
         station_to_station_groups_aggregate;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
@@ -12981,7 +13253,7 @@ class Input$station_groups_order_by {
       _$data.containsKey('order') ? l$order : const {},
       _$data.containsKey('slug') ? l$slug : const {},
       _$data.containsKey('station_to_station_groups_aggregate')
-          ? l$station_to_station_groups_aggregate
+          ? l$stationToStationGroupsAggregate
           : const {},
     ]);
   }
@@ -13021,6 +13293,7 @@ class _CopyWithImpl$Input$station_groups_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? name = _undefined,
@@ -13040,15 +13313,16 @@ class _CopyWithImpl$Input$station_groups_order_by<TRes>
                   as Input$station_to_station_group_aggregate_order_by?),
       }));
 
+  @override
   CopyWith$Input$station_to_station_group_aggregate_order_by<TRes>
       get station_to_station_groups_aggregate {
-    final local$station_to_station_groups_aggregate =
+    final local$stationToStationGroupsAggregate =
         _instance.station_to_station_groups_aggregate;
-    return local$station_to_station_groups_aggregate == null
+    return local$stationToStationGroupsAggregate == null
         ? CopyWith$Input$station_to_station_group_aggregate_order_by.stub(
             _then(_instance))
         : CopyWith$Input$station_to_station_group_aggregate_order_by(
-            local$station_to_station_groups_aggregate,
+            local$stationToStationGroupsAggregate,
             (e) => call(station_to_station_groups_aggregate: e));
   }
 }
@@ -13057,8 +13331,9 @@ class _CopyWithStubImpl$Input$station_groups_order_by<TRes>
     implements CopyWith$Input$station_groups_order_by<TRes> {
   _CopyWithStubImpl$Input$station_groups_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? name,
@@ -13069,6 +13344,7 @@ class _CopyWithStubImpl$Input$station_groups_order_by<TRes>
   }) =>
       _res;
 
+  @override
   CopyWith$Input$station_to_station_group_aggregate_order_by<TRes>
       get station_to_station_groups_aggregate =>
           CopyWith$Input$station_to_station_group_aggregate_order_by.stub(_res);
@@ -13089,10 +13365,10 @@ class Input$station_groups_stream_cursor_input {
   factory Input$station_groups_stream_cursor_input.fromJson(
       Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
-    final l$initial_value = data['initial_value'];
+    final l$initialValue = data['initial_value'];
     result$data['initial_value'] =
         Input$station_groups_stream_cursor_value_input.fromJson(
-            (l$initial_value as Map<String, dynamic>));
+            (l$initialValue as Map<String, dynamic>));
     if (data.containsKey('ordering')) {
       final l$ordering = data['ordering'];
       result$data['ordering'] = l$ordering == null
@@ -13113,8 +13389,8 @@ class Input$station_groups_stream_cursor_input {
 
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
-    final l$initial_value = initial_value;
-    result$data['initial_value'] = l$initial_value.toJson();
+    final l$initialValue = initial_value;
+    result$data['initial_value'] = l$initialValue.toJson();
     if (_$data.containsKey('ordering')) {
       final l$ordering = ordering;
       result$data['ordering'] =
@@ -13135,13 +13411,13 @@ class Input$station_groups_stream_cursor_input {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$station_groups_stream_cursor_input) ||
+    if (other is! Input$station_groups_stream_cursor_input ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$initial_value = initial_value;
-    final lOther$initial_value = other.initial_value;
-    if (l$initial_value != lOther$initial_value) {
+    final l$initialValue = initial_value;
+    final lother$initialValue = other.initial_value;
+    if (l$initialValue != lother$initialValue) {
       return false;
     }
     final l$ordering = ordering;
@@ -13158,10 +13434,10 @@ class Input$station_groups_stream_cursor_input {
 
   @override
   int get hashCode {
-    final l$initial_value = initial_value;
+    final l$initialValue = initial_value;
     final l$ordering = ordering;
     return Object.hashAll([
-      l$initial_value,
+      l$initialValue,
       _$data.containsKey('ordering') ? l$ordering : const {},
     ]);
   }
@@ -13197,6 +13473,7 @@ class _CopyWithImpl$Input$station_groups_stream_cursor_input<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? initial_value = _undefined,
     Object? ordering = _undefined,
@@ -13210,11 +13487,12 @@ class _CopyWithImpl$Input$station_groups_stream_cursor_input<TRes>
           'ordering': (ordering as Enum$cursor_ordering?),
       }));
 
+  @override
   CopyWith$Input$station_groups_stream_cursor_value_input<TRes>
       get initial_value {
-    final local$initial_value = _instance.initial_value;
+    final local$initialValue = _instance.initial_value;
     return CopyWith$Input$station_groups_stream_cursor_value_input(
-        local$initial_value, (e) => call(initial_value: e));
+        local$initialValue, (e) => call(initial_value: e));
   }
 }
 
@@ -13222,14 +13500,16 @@ class _CopyWithStubImpl$Input$station_groups_stream_cursor_input<TRes>
     implements CopyWith$Input$station_groups_stream_cursor_input<TRes> {
   _CopyWithStubImpl$Input$station_groups_stream_cursor_input(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Input$station_groups_stream_cursor_value_input? initial_value,
     Enum$cursor_ordering? ordering,
   }) =>
       _res;
 
+  @override
   CopyWith$Input$station_groups_stream_cursor_value_input<TRes>
       get initial_value =>
           CopyWith$Input$station_groups_stream_cursor_value_input.stub(_res);
@@ -13316,7 +13596,7 @@ class Input$station_groups_stream_cursor_value_input {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$station_groups_stream_cursor_value_input) ||
+    if (other is! Input$station_groups_stream_cursor_value_input ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -13401,6 +13681,7 @@ class _CopyWithImpl$Input$station_groups_stream_cursor_value_input<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? name = _undefined,
@@ -13420,8 +13701,9 @@ class _CopyWithStubImpl$Input$station_groups_stream_cursor_value_input<TRes>
     implements CopyWith$Input$station_groups_stream_cursor_value_input<TRes> {
   _CopyWithStubImpl$Input$station_groups_stream_cursor_value_input(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     int? id,
     String? name,
@@ -13498,18 +13780,18 @@ class Input$station_streams_aggregate_order_by {
               (l$stddev as Map<String, dynamic>));
     }
     if (data.containsKey('stddev_pop')) {
-      final l$stddev_pop = data['stddev_pop'];
-      result$data['stddev_pop'] = l$stddev_pop == null
+      final l$stddevPop = data['stddev_pop'];
+      result$data['stddev_pop'] = l$stddevPop == null
           ? null
           : Input$station_streams_stddev_pop_order_by.fromJson(
-              (l$stddev_pop as Map<String, dynamic>));
+              (l$stddevPop as Map<String, dynamic>));
     }
     if (data.containsKey('stddev_samp')) {
-      final l$stddev_samp = data['stddev_samp'];
-      result$data['stddev_samp'] = l$stddev_samp == null
+      final l$stddevSamp = data['stddev_samp'];
+      result$data['stddev_samp'] = l$stddevSamp == null
           ? null
           : Input$station_streams_stddev_samp_order_by.fromJson(
-              (l$stddev_samp as Map<String, dynamic>));
+              (l$stddevSamp as Map<String, dynamic>));
     }
     if (data.containsKey('sum')) {
       final l$sum = data['sum'];
@@ -13519,18 +13801,18 @@ class Input$station_streams_aggregate_order_by {
               (l$sum as Map<String, dynamic>));
     }
     if (data.containsKey('var_pop')) {
-      final l$var_pop = data['var_pop'];
-      result$data['var_pop'] = l$var_pop == null
+      final l$varPop = data['var_pop'];
+      result$data['var_pop'] = l$varPop == null
           ? null
           : Input$station_streams_var_pop_order_by.fromJson(
-              (l$var_pop as Map<String, dynamic>));
+              (l$varPop as Map<String, dynamic>));
     }
     if (data.containsKey('var_samp')) {
-      final l$var_samp = data['var_samp'];
-      result$data['var_samp'] = l$var_samp == null
+      final l$varSamp = data['var_samp'];
+      result$data['var_samp'] = l$varSamp == null
           ? null
           : Input$station_streams_var_samp_order_by.fromJson(
-              (l$var_samp as Map<String, dynamic>));
+              (l$varSamp as Map<String, dynamic>));
     }
     if (data.containsKey('variance')) {
       final l$variance = data['variance'];
@@ -13600,24 +13882,24 @@ class Input$station_streams_aggregate_order_by {
       result$data['stddev'] = l$stddev?.toJson();
     }
     if (_$data.containsKey('stddev_pop')) {
-      final l$stddev_pop = stddev_pop;
-      result$data['stddev_pop'] = l$stddev_pop?.toJson();
+      final l$stddevPop = stddev_pop;
+      result$data['stddev_pop'] = l$stddevPop?.toJson();
     }
     if (_$data.containsKey('stddev_samp')) {
-      final l$stddev_samp = stddev_samp;
-      result$data['stddev_samp'] = l$stddev_samp?.toJson();
+      final l$stddevSamp = stddev_samp;
+      result$data['stddev_samp'] = l$stddevSamp?.toJson();
     }
     if (_$data.containsKey('sum')) {
       final l$sum = sum;
       result$data['sum'] = l$sum?.toJson();
     }
     if (_$data.containsKey('var_pop')) {
-      final l$var_pop = var_pop;
-      result$data['var_pop'] = l$var_pop?.toJson();
+      final l$varPop = var_pop;
+      result$data['var_pop'] = l$varPop?.toJson();
     }
     if (_$data.containsKey('var_samp')) {
-      final l$var_samp = var_samp;
-      result$data['var_samp'] = l$var_samp?.toJson();
+      final l$varSamp = var_samp;
+      result$data['var_samp'] = l$varSamp?.toJson();
     }
     if (_$data.containsKey('variance')) {
       final l$variance = variance;
@@ -13638,7 +13920,7 @@ class Input$station_streams_aggregate_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$station_streams_aggregate_order_by) ||
+    if (other is! Input$station_streams_aggregate_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -13682,22 +13964,22 @@ class Input$station_streams_aggregate_order_by {
     if (l$stddev != lOther$stddev) {
       return false;
     }
-    final l$stddev_pop = stddev_pop;
-    final lOther$stddev_pop = other.stddev_pop;
+    final l$stddevPop = stddev_pop;
+    final lother$stddevPop = other.stddev_pop;
     if (_$data.containsKey('stddev_pop') !=
         other._$data.containsKey('stddev_pop')) {
       return false;
     }
-    if (l$stddev_pop != lOther$stddev_pop) {
+    if (l$stddevPop != lother$stddevPop) {
       return false;
     }
-    final l$stddev_samp = stddev_samp;
-    final lOther$stddev_samp = other.stddev_samp;
+    final l$stddevSamp = stddev_samp;
+    final lother$stddevSamp = other.stddev_samp;
     if (_$data.containsKey('stddev_samp') !=
         other._$data.containsKey('stddev_samp')) {
       return false;
     }
-    if (l$stddev_samp != lOther$stddev_samp) {
+    if (l$stddevSamp != lother$stddevSamp) {
       return false;
     }
     final l$sum = sum;
@@ -13708,21 +13990,21 @@ class Input$station_streams_aggregate_order_by {
     if (l$sum != lOther$sum) {
       return false;
     }
-    final l$var_pop = var_pop;
-    final lOther$var_pop = other.var_pop;
+    final l$varPop = var_pop;
+    final lother$varPop = other.var_pop;
     if (_$data.containsKey('var_pop') != other._$data.containsKey('var_pop')) {
       return false;
     }
-    if (l$var_pop != lOther$var_pop) {
+    if (l$varPop != lother$varPop) {
       return false;
     }
-    final l$var_samp = var_samp;
-    final lOther$var_samp = other.var_samp;
+    final l$varSamp = var_samp;
+    final lother$varSamp = other.var_samp;
     if (_$data.containsKey('var_samp') !=
         other._$data.containsKey('var_samp')) {
       return false;
     }
-    if (l$var_samp != lOther$var_samp) {
+    if (l$varSamp != lother$varSamp) {
       return false;
     }
     final l$variance = variance;
@@ -13744,11 +14026,11 @@ class Input$station_streams_aggregate_order_by {
     final l$max = max;
     final l$min = min;
     final l$stddev = stddev;
-    final l$stddev_pop = stddev_pop;
-    final l$stddev_samp = stddev_samp;
+    final l$stddevPop = stddev_pop;
+    final l$stddevSamp = stddev_samp;
     final l$sum = sum;
-    final l$var_pop = var_pop;
-    final l$var_samp = var_samp;
+    final l$varPop = var_pop;
+    final l$varSamp = var_samp;
     final l$variance = variance;
     return Object.hashAll([
       _$data.containsKey('avg') ? l$avg : const {},
@@ -13756,11 +14038,11 @@ class Input$station_streams_aggregate_order_by {
       _$data.containsKey('max') ? l$max : const {},
       _$data.containsKey('min') ? l$min : const {},
       _$data.containsKey('stddev') ? l$stddev : const {},
-      _$data.containsKey('stddev_pop') ? l$stddev_pop : const {},
-      _$data.containsKey('stddev_samp') ? l$stddev_samp : const {},
+      _$data.containsKey('stddev_pop') ? l$stddevPop : const {},
+      _$data.containsKey('stddev_samp') ? l$stddevSamp : const {},
       _$data.containsKey('sum') ? l$sum : const {},
-      _$data.containsKey('var_pop') ? l$var_pop : const {},
-      _$data.containsKey('var_samp') ? l$var_samp : const {},
+      _$data.containsKey('var_pop') ? l$varPop : const {},
+      _$data.containsKey('var_samp') ? l$varSamp : const {},
       _$data.containsKey('variance') ? l$variance : const {},
     ]);
   }
@@ -13813,6 +14095,7 @@ class _CopyWithImpl$Input$station_streams_aggregate_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? avg = _undefined,
     Object? count = _undefined,
@@ -13853,6 +14136,7 @@ class _CopyWithImpl$Input$station_streams_aggregate_order_by<TRes>
           'variance': (variance as Input$station_streams_variance_order_by?),
       }));
 
+  @override
   CopyWith$Input$station_streams_avg_order_by<TRes> get avg {
     final local$avg = _instance.avg;
     return local$avg == null
@@ -13861,6 +14145,7 @@ class _CopyWithImpl$Input$station_streams_aggregate_order_by<TRes>
             local$avg, (e) => call(avg: e));
   }
 
+  @override
   CopyWith$Input$station_streams_max_order_by<TRes> get max {
     final local$max = _instance.max;
     return local$max == null
@@ -13869,6 +14154,7 @@ class _CopyWithImpl$Input$station_streams_aggregate_order_by<TRes>
             local$max, (e) => call(max: e));
   }
 
+  @override
   CopyWith$Input$station_streams_min_order_by<TRes> get min {
     final local$min = _instance.min;
     return local$min == null
@@ -13877,6 +14163,7 @@ class _CopyWithImpl$Input$station_streams_aggregate_order_by<TRes>
             local$min, (e) => call(min: e));
   }
 
+  @override
   CopyWith$Input$station_streams_stddev_order_by<TRes> get stddev {
     final local$stddev = _instance.stddev;
     return local$stddev == null
@@ -13885,24 +14172,27 @@ class _CopyWithImpl$Input$station_streams_aggregate_order_by<TRes>
             local$stddev, (e) => call(stddev: e));
   }
 
+  @override
   CopyWith$Input$station_streams_stddev_pop_order_by<TRes> get stddev_pop {
-    final local$stddev_pop = _instance.stddev_pop;
-    return local$stddev_pop == null
+    final local$stddevPop = _instance.stddev_pop;
+    return local$stddevPop == null
         ? CopyWith$Input$station_streams_stddev_pop_order_by.stub(
             _then(_instance))
         : CopyWith$Input$station_streams_stddev_pop_order_by(
-            local$stddev_pop, (e) => call(stddev_pop: e));
+            local$stddevPop, (e) => call(stddev_pop: e));
   }
 
+  @override
   CopyWith$Input$station_streams_stddev_samp_order_by<TRes> get stddev_samp {
-    final local$stddev_samp = _instance.stddev_samp;
-    return local$stddev_samp == null
+    final local$stddevSamp = _instance.stddev_samp;
+    return local$stddevSamp == null
         ? CopyWith$Input$station_streams_stddev_samp_order_by.stub(
             _then(_instance))
         : CopyWith$Input$station_streams_stddev_samp_order_by(
-            local$stddev_samp, (e) => call(stddev_samp: e));
+            local$stddevSamp, (e) => call(stddev_samp: e));
   }
 
+  @override
   CopyWith$Input$station_streams_sum_order_by<TRes> get sum {
     final local$sum = _instance.sum;
     return local$sum == null
@@ -13911,23 +14201,26 @@ class _CopyWithImpl$Input$station_streams_aggregate_order_by<TRes>
             local$sum, (e) => call(sum: e));
   }
 
+  @override
   CopyWith$Input$station_streams_var_pop_order_by<TRes> get var_pop {
-    final local$var_pop = _instance.var_pop;
-    return local$var_pop == null
+    final local$varPop = _instance.var_pop;
+    return local$varPop == null
         ? CopyWith$Input$station_streams_var_pop_order_by.stub(_then(_instance))
         : CopyWith$Input$station_streams_var_pop_order_by(
-            local$var_pop, (e) => call(var_pop: e));
+            local$varPop, (e) => call(var_pop: e));
   }
 
+  @override
   CopyWith$Input$station_streams_var_samp_order_by<TRes> get var_samp {
-    final local$var_samp = _instance.var_samp;
-    return local$var_samp == null
+    final local$varSamp = _instance.var_samp;
+    return local$varSamp == null
         ? CopyWith$Input$station_streams_var_samp_order_by.stub(
             _then(_instance))
         : CopyWith$Input$station_streams_var_samp_order_by(
-            local$var_samp, (e) => call(var_samp: e));
+            local$varSamp, (e) => call(var_samp: e));
   }
 
+  @override
   CopyWith$Input$station_streams_variance_order_by<TRes> get variance {
     final local$variance = _instance.variance;
     return local$variance == null
@@ -13942,8 +14235,9 @@ class _CopyWithStubImpl$Input$station_streams_aggregate_order_by<TRes>
     implements CopyWith$Input$station_streams_aggregate_order_by<TRes> {
   _CopyWithStubImpl$Input$station_streams_aggregate_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Input$station_streams_avg_order_by? avg,
     Enum$order_by? count,
@@ -13959,33 +14253,43 @@ class _CopyWithStubImpl$Input$station_streams_aggregate_order_by<TRes>
   }) =>
       _res;
 
+  @override
   CopyWith$Input$station_streams_avg_order_by<TRes> get avg =>
       CopyWith$Input$station_streams_avg_order_by.stub(_res);
 
+  @override
   CopyWith$Input$station_streams_max_order_by<TRes> get max =>
       CopyWith$Input$station_streams_max_order_by.stub(_res);
 
+  @override
   CopyWith$Input$station_streams_min_order_by<TRes> get min =>
       CopyWith$Input$station_streams_min_order_by.stub(_res);
 
+  @override
   CopyWith$Input$station_streams_stddev_order_by<TRes> get stddev =>
       CopyWith$Input$station_streams_stddev_order_by.stub(_res);
 
+  @override
   CopyWith$Input$station_streams_stddev_pop_order_by<TRes> get stddev_pop =>
       CopyWith$Input$station_streams_stddev_pop_order_by.stub(_res);
 
+  @override
   CopyWith$Input$station_streams_stddev_samp_order_by<TRes> get stddev_samp =>
       CopyWith$Input$station_streams_stddev_samp_order_by.stub(_res);
 
+  @override
   CopyWith$Input$station_streams_sum_order_by<TRes> get sum =>
       CopyWith$Input$station_streams_sum_order_by.stub(_res);
 
+  @override
   CopyWith$Input$station_streams_var_pop_order_by<TRes> get var_pop =>
       CopyWith$Input$station_streams_var_pop_order_by.stub(_res);
 
+  @override
   CopyWith$Input$station_streams_var_samp_order_by<TRes> get var_samp =>
       CopyWith$Input$station_streams_var_samp_order_by.stub(_res);
 
+  @override
   CopyWith$Input$station_streams_variance_order_by<TRes> get variance =>
       CopyWith$Input$station_streams_variance_order_by.stub(_res);
 }
@@ -14018,10 +14322,10 @@ class Input$station_streams_avg_order_by {
           l$order == null ? null : fromJson$Enum$order_by((l$order as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     return Input$station_streams_avg_order_by._(result$data);
   }
@@ -14046,9 +14350,9 @@ class Input$station_streams_avg_order_by {
           l$order == null ? null : toJson$Enum$order_by(l$order);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     return result$data;
   }
@@ -14065,7 +14369,7 @@ class Input$station_streams_avg_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$station_streams_avg_order_by) ||
+    if (other is! Input$station_streams_avg_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -14085,13 +14389,13 @@ class Input$station_streams_avg_order_by {
     if (l$order != lOther$order) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -14101,11 +14405,11 @@ class Input$station_streams_avg_order_by {
   int get hashCode {
     final l$id = id;
     final l$order = order;
-    final l$station_id = station_id;
+    final l$stationId = station_id;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('order') ? l$order : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -14139,6 +14443,7 @@ class _CopyWithImpl$Input$station_streams_avg_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? order = _undefined,
@@ -14157,8 +14462,9 @@ class _CopyWithStubImpl$Input$station_streams_avg_order_by<TRes>
     implements CopyWith$Input$station_streams_avg_order_by<TRes> {
   _CopyWithStubImpl$Input$station_streams_avg_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? order,
@@ -14200,32 +14506,32 @@ class Input$station_streams_bool_exp {
   factory Input$station_streams_bool_exp.fromJson(Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
     if (data.containsKey('_and')) {
-      final l$$_and = data['_and'];
-      result$data['_and'] = (l$$_and as List<dynamic>?)
+      final l$$And = data['_and'];
+      result$data['_and'] = (l$$And as List<dynamic>?)
           ?.map((e) => Input$station_streams_bool_exp.fromJson(
               (e as Map<String, dynamic>)))
           .toList();
     }
     if (data.containsKey('_not')) {
-      final l$$_not = data['_not'];
-      result$data['_not'] = l$$_not == null
+      final l$$Not = data['_not'];
+      result$data['_not'] = l$$Not == null
           ? null
           : Input$station_streams_bool_exp.fromJson(
-              (l$$_not as Map<String, dynamic>));
+              (l$$Not as Map<String, dynamic>));
     }
     if (data.containsKey('_or')) {
-      final l$$_or = data['_or'];
-      result$data['_or'] = (l$$_or as List<dynamic>?)
+      final l$$Or = data['_or'];
+      result$data['_or'] = (l$$Or as List<dynamic>?)
           ?.map((e) => Input$station_streams_bool_exp.fromJson(
               (e as Map<String, dynamic>)))
           .toList();
     }
     if (data.containsKey('created_at')) {
-      final l$created_at = data['created_at'];
-      result$data['created_at'] = l$created_at == null
+      final l$createdAt = data['created_at'];
+      result$data['created_at'] = l$createdAt == null
           ? null
           : Input$timestamptz_comparison_exp.fromJson(
-              (l$created_at as Map<String, dynamic>));
+              (l$createdAt as Map<String, dynamic>));
     }
     if (data.containsKey('id')) {
       final l$id = data['id'];
@@ -14248,18 +14554,18 @@ class Input$station_streams_bool_exp {
               (l$station as Map<String, dynamic>));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
           : Input$Int_comparison_exp.fromJson(
-              (l$station_id as Map<String, dynamic>));
+              (l$stationId as Map<String, dynamic>));
     }
     if (data.containsKey('stream_url')) {
-      final l$stream_url = data['stream_url'];
-      result$data['stream_url'] = l$stream_url == null
+      final l$streamUrl = data['stream_url'];
+      result$data['stream_url'] = l$streamUrl == null
           ? null
           : Input$String_comparison_exp.fromJson(
-              (l$stream_url as Map<String, dynamic>));
+              (l$streamUrl as Map<String, dynamic>));
     }
     if (data.containsKey('type')) {
       final l$type = data['type'];
@@ -14269,11 +14575,11 @@ class Input$station_streams_bool_exp {
               (l$type as Map<String, dynamic>));
     }
     if (data.containsKey('updated_at')) {
-      final l$updated_at = data['updated_at'];
-      result$data['updated_at'] = l$updated_at == null
+      final l$updatedAt = data['updated_at'];
+      result$data['updated_at'] = l$updatedAt == null
           ? null
           : Input$timestamptz_comparison_exp.fromJson(
-              (l$updated_at as Map<String, dynamic>));
+              (l$updatedAt as Map<String, dynamic>));
     }
     return Input$station_streams_bool_exp._(result$data);
   }
@@ -14316,20 +14622,20 @@ class Input$station_streams_bool_exp {
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
     if (_$data.containsKey('_and')) {
-      final l$$_and = $_and;
-      result$data['_and'] = l$$_and?.map((e) => e.toJson()).toList();
+      final l$$And = $_and;
+      result$data['_and'] = l$$And?.map((e) => e.toJson()).toList();
     }
     if (_$data.containsKey('_not')) {
-      final l$$_not = $_not;
-      result$data['_not'] = l$$_not?.toJson();
+      final l$$Not = $_not;
+      result$data['_not'] = l$$Not?.toJson();
     }
     if (_$data.containsKey('_or')) {
-      final l$$_or = $_or;
-      result$data['_or'] = l$$_or?.map((e) => e.toJson()).toList();
+      final l$$Or = $_or;
+      result$data['_or'] = l$$Or?.map((e) => e.toJson()).toList();
     }
     if (_$data.containsKey('created_at')) {
-      final l$created_at = created_at;
-      result$data['created_at'] = l$created_at?.toJson();
+      final l$createdAt = created_at;
+      result$data['created_at'] = l$createdAt?.toJson();
     }
     if (_$data.containsKey('id')) {
       final l$id = id;
@@ -14344,20 +14650,20 @@ class Input$station_streams_bool_exp {
       result$data['station'] = l$station?.toJson();
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
-      result$data['station_id'] = l$station_id?.toJson();
+      final l$stationId = station_id;
+      result$data['station_id'] = l$stationId?.toJson();
     }
     if (_$data.containsKey('stream_url')) {
-      final l$stream_url = stream_url;
-      result$data['stream_url'] = l$stream_url?.toJson();
+      final l$streamUrl = stream_url;
+      result$data['stream_url'] = l$streamUrl?.toJson();
     }
     if (_$data.containsKey('type')) {
       final l$type = type;
       result$data['type'] = l$type?.toJson();
     }
     if (_$data.containsKey('updated_at')) {
-      final l$updated_at = updated_at;
-      result$data['updated_at'] = l$updated_at?.toJson();
+      final l$updatedAt = updated_at;
+      result$data['updated_at'] = l$updatedAt?.toJson();
     }
     return result$data;
   }
@@ -14373,63 +14679,63 @@ class Input$station_streams_bool_exp {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$station_streams_bool_exp) ||
+    if (other is! Input$station_streams_bool_exp ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$$_and = $_and;
-    final lOther$$_and = other.$_and;
+    final l$$And = $_and;
+    final lother$$And = other.$_and;
     if (_$data.containsKey('_and') != other._$data.containsKey('_and')) {
       return false;
     }
-    if (l$$_and != null && lOther$$_and != null) {
-      if (l$$_and.length != lOther$$_and.length) {
+    if (l$$And != null && lother$$And != null) {
+      if (l$$And.length != lother$$And.length) {
         return false;
       }
-      for (int i = 0; i < l$$_and.length; i++) {
-        final l$$_and$entry = l$$_and[i];
-        final lOther$$_and$entry = lOther$$_and[i];
-        if (l$$_and$entry != lOther$$_and$entry) {
+      for (int i = 0; i < l$$And.length; i++) {
+        final l$$And$entry = l$$And[i];
+        final lother$$And$entry = lother$$And[i];
+        if (l$$And$entry != lother$$And$entry) {
           return false;
         }
       }
-    } else if (l$$_and != lOther$$_and) {
+    } else if (l$$And != lother$$And) {
       return false;
     }
-    final l$$_not = $_not;
-    final lOther$$_not = other.$_not;
+    final l$$Not = $_not;
+    final lother$$Not = other.$_not;
     if (_$data.containsKey('_not') != other._$data.containsKey('_not')) {
       return false;
     }
-    if (l$$_not != lOther$$_not) {
+    if (l$$Not != lother$$Not) {
       return false;
     }
-    final l$$_or = $_or;
-    final lOther$$_or = other.$_or;
+    final l$$Or = $_or;
+    final lother$$Or = other.$_or;
     if (_$data.containsKey('_or') != other._$data.containsKey('_or')) {
       return false;
     }
-    if (l$$_or != null && lOther$$_or != null) {
-      if (l$$_or.length != lOther$$_or.length) {
+    if (l$$Or != null && lother$$Or != null) {
+      if (l$$Or.length != lother$$Or.length) {
         return false;
       }
-      for (int i = 0; i < l$$_or.length; i++) {
-        final l$$_or$entry = l$$_or[i];
-        final lOther$$_or$entry = lOther$$_or[i];
-        if (l$$_or$entry != lOther$$_or$entry) {
+      for (int i = 0; i < l$$Or.length; i++) {
+        final l$$Or$entry = l$$Or[i];
+        final lother$$Or$entry = lother$$Or[i];
+        if (l$$Or$entry != lother$$Or$entry) {
           return false;
         }
       }
-    } else if (l$$_or != lOther$$_or) {
+    } else if (l$$Or != lother$$Or) {
       return false;
     }
-    final l$created_at = created_at;
-    final lOther$created_at = other.created_at;
+    final l$createdAt = created_at;
+    final lother$createdAt = other.created_at;
     if (_$data.containsKey('created_at') !=
         other._$data.containsKey('created_at')) {
       return false;
     }
-    if (l$created_at != lOther$created_at) {
+    if (l$createdAt != lother$createdAt) {
       return false;
     }
     final l$id = id;
@@ -14456,22 +14762,22 @@ class Input$station_streams_bool_exp {
     if (l$station != lOther$station) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
-    final l$stream_url = stream_url;
-    final lOther$stream_url = other.stream_url;
+    final l$streamUrl = stream_url;
+    final lother$streamUrl = other.stream_url;
     if (_$data.containsKey('stream_url') !=
         other._$data.containsKey('stream_url')) {
       return false;
     }
-    if (l$stream_url != lOther$stream_url) {
+    if (l$streamUrl != lother$streamUrl) {
       return false;
     }
     final l$type = type;
@@ -14482,13 +14788,13 @@ class Input$station_streams_bool_exp {
     if (l$type != lOther$type) {
       return false;
     }
-    final l$updated_at = updated_at;
-    final lOther$updated_at = other.updated_at;
+    final l$updatedAt = updated_at;
+    final lother$updatedAt = other.updated_at;
     if (_$data.containsKey('updated_at') !=
         other._$data.containsKey('updated_at')) {
       return false;
     }
-    if (l$updated_at != lOther$updated_at) {
+    if (l$updatedAt != lother$updatedAt) {
       return false;
     }
     return true;
@@ -14496,37 +14802,37 @@ class Input$station_streams_bool_exp {
 
   @override
   int get hashCode {
-    final l$$_and = $_and;
-    final l$$_not = $_not;
-    final l$$_or = $_or;
-    final l$created_at = created_at;
+    final l$$And = $_and;
+    final l$$Not = $_not;
+    final l$$Or = $_or;
+    final l$createdAt = created_at;
     final l$id = id;
     final l$order = order;
     final l$station = station;
-    final l$station_id = station_id;
-    final l$stream_url = stream_url;
+    final l$stationId = station_id;
+    final l$streamUrl = stream_url;
     final l$type = type;
-    final l$updated_at = updated_at;
+    final l$updatedAt = updated_at;
     return Object.hashAll([
       _$data.containsKey('_and')
-          ? l$$_and == null
+          ? l$$And == null
               ? null
-              : Object.hashAll(l$$_and.map((v) => v))
+              : Object.hashAll(l$$And.map((v) => v))
           : const {},
-      _$data.containsKey('_not') ? l$$_not : const {},
+      _$data.containsKey('_not') ? l$$Not : const {},
       _$data.containsKey('_or')
-          ? l$$_or == null
+          ? l$$Or == null
               ? null
-              : Object.hashAll(l$$_or.map((v) => v))
+              : Object.hashAll(l$$Or.map((v) => v))
           : const {},
-      _$data.containsKey('created_at') ? l$created_at : const {},
+      _$data.containsKey('created_at') ? l$createdAt : const {},
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('order') ? l$order : const {},
       _$data.containsKey('station') ? l$station : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
-      _$data.containsKey('stream_url') ? l$stream_url : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
+      _$data.containsKey('stream_url') ? l$streamUrl : const {},
       _$data.containsKey('type') ? l$type : const {},
-      _$data.containsKey('updated_at') ? l$updated_at : const {},
+      _$data.containsKey('updated_at') ? l$updatedAt : const {},
     ]);
   }
 }
@@ -14558,14 +14864,14 @@ abstract class CopyWith$Input$station_streams_bool_exp<TRes> {
               Iterable<
                   CopyWith$Input$station_streams_bool_exp<
                       Input$station_streams_bool_exp>>?)
-          _fn);
+          fn);
   CopyWith$Input$station_streams_bool_exp<TRes> get $_not;
   TRes $_or(
       Iterable<Input$station_streams_bool_exp>? Function(
               Iterable<
                   CopyWith$Input$station_streams_bool_exp<
                       Input$station_streams_bool_exp>>?)
-          _fn);
+          fn);
   CopyWith$Input$timestamptz_comparison_exp<TRes> get created_at;
   CopyWith$Input$Int_comparison_exp<TRes> get id;
   CopyWith$Input$Int_comparison_exp<TRes> get order;
@@ -14589,6 +14895,7 @@ class _CopyWithImpl$Input$station_streams_bool_exp<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? $_and = _undefined,
     Object? $_not = _undefined,
@@ -14625,48 +14932,53 @@ class _CopyWithImpl$Input$station_streams_bool_exp<TRes>
           'updated_at': (updated_at as Input$timestamptz_comparison_exp?),
       }));
 
+  @override
   TRes $_and(
           Iterable<Input$station_streams_bool_exp>? Function(
                   Iterable<
                       CopyWith$Input$station_streams_bool_exp<
                           Input$station_streams_bool_exp>>?)
-              _fn) =>
+              fn) =>
       call(
-          $_and: _fn(_instance.$_and
+          $_and: fn(_instance.$_and
               ?.map((e) => CopyWith$Input$station_streams_bool_exp(
                     e,
                     (i) => i,
                   )))?.toList());
 
+  @override
   CopyWith$Input$station_streams_bool_exp<TRes> get $_not {
-    final local$$_not = _instance.$_not;
-    return local$$_not == null
+    final local$$Not = _instance.$_not;
+    return local$$Not == null
         ? CopyWith$Input$station_streams_bool_exp.stub(_then(_instance))
         : CopyWith$Input$station_streams_bool_exp(
-            local$$_not, (e) => call($_not: e));
+            local$$Not, (e) => call($_not: e));
   }
 
+  @override
   TRes $_or(
           Iterable<Input$station_streams_bool_exp>? Function(
                   Iterable<
                       CopyWith$Input$station_streams_bool_exp<
                           Input$station_streams_bool_exp>>?)
-              _fn) =>
+              fn) =>
       call(
-          $_or: _fn(_instance.$_or
+          $_or: fn(_instance.$_or
               ?.map((e) => CopyWith$Input$station_streams_bool_exp(
                     e,
                     (i) => i,
                   )))?.toList());
 
+  @override
   CopyWith$Input$timestamptz_comparison_exp<TRes> get created_at {
-    final local$created_at = _instance.created_at;
-    return local$created_at == null
+    final local$createdAt = _instance.created_at;
+    return local$createdAt == null
         ? CopyWith$Input$timestamptz_comparison_exp.stub(_then(_instance))
         : CopyWith$Input$timestamptz_comparison_exp(
-            local$created_at, (e) => call(created_at: e));
+            local$createdAt, (e) => call(created_at: e));
   }
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get id {
     final local$id = _instance.id;
     return local$id == null
@@ -14674,6 +14986,7 @@ class _CopyWithImpl$Input$station_streams_bool_exp<TRes>
         : CopyWith$Input$Int_comparison_exp(local$id, (e) => call(id: e));
   }
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get order {
     final local$order = _instance.order;
     return local$order == null
@@ -14681,6 +14994,7 @@ class _CopyWithImpl$Input$station_streams_bool_exp<TRes>
         : CopyWith$Input$Int_comparison_exp(local$order, (e) => call(order: e));
   }
 
+  @override
   CopyWith$Input$stations_bool_exp<TRes> get station {
     final local$station = _instance.station;
     return local$station == null
@@ -14689,22 +15003,25 @@ class _CopyWithImpl$Input$station_streams_bool_exp<TRes>
             local$station, (e) => call(station: e));
   }
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get station_id {
-    final local$station_id = _instance.station_id;
-    return local$station_id == null
+    final local$stationId = _instance.station_id;
+    return local$stationId == null
         ? CopyWith$Input$Int_comparison_exp.stub(_then(_instance))
         : CopyWith$Input$Int_comparison_exp(
-            local$station_id, (e) => call(station_id: e));
+            local$stationId, (e) => call(station_id: e));
   }
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get stream_url {
-    final local$stream_url = _instance.stream_url;
-    return local$stream_url == null
+    final local$streamUrl = _instance.stream_url;
+    return local$streamUrl == null
         ? CopyWith$Input$String_comparison_exp.stub(_then(_instance))
         : CopyWith$Input$String_comparison_exp(
-            local$stream_url, (e) => call(stream_url: e));
+            local$streamUrl, (e) => call(stream_url: e));
   }
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get type {
     final local$type = _instance.type;
     return local$type == null
@@ -14713,12 +15030,13 @@ class _CopyWithImpl$Input$station_streams_bool_exp<TRes>
             local$type, (e) => call(type: e));
   }
 
+  @override
   CopyWith$Input$timestamptz_comparison_exp<TRes> get updated_at {
-    final local$updated_at = _instance.updated_at;
-    return local$updated_at == null
+    final local$updatedAt = _instance.updated_at;
+    return local$updatedAt == null
         ? CopyWith$Input$timestamptz_comparison_exp.stub(_then(_instance))
         : CopyWith$Input$timestamptz_comparison_exp(
-            local$updated_at, (e) => call(updated_at: e));
+            local$updatedAt, (e) => call(updated_at: e));
   }
 }
 
@@ -14726,8 +15044,9 @@ class _CopyWithStubImpl$Input$station_streams_bool_exp<TRes>
     implements CopyWith$Input$station_streams_bool_exp<TRes> {
   _CopyWithStubImpl$Input$station_streams_bool_exp(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     List<Input$station_streams_bool_exp>? $_and,
     Input$station_streams_bool_exp? $_not,
@@ -14743,34 +15062,45 @@ class _CopyWithStubImpl$Input$station_streams_bool_exp<TRes>
   }) =>
       _res;
 
-  $_and(_fn) => _res;
+  @override
+  $_and(fn) => _res;
 
+  @override
   CopyWith$Input$station_streams_bool_exp<TRes> get $_not =>
       CopyWith$Input$station_streams_bool_exp.stub(_res);
 
-  $_or(_fn) => _res;
+  @override
+  $_or(fn) => _res;
 
+  @override
   CopyWith$Input$timestamptz_comparison_exp<TRes> get created_at =>
       CopyWith$Input$timestamptz_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get id =>
       CopyWith$Input$Int_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get order =>
       CopyWith$Input$Int_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$stations_bool_exp<TRes> get station =>
       CopyWith$Input$stations_bool_exp.stub(_res);
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get station_id =>
       CopyWith$Input$Int_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get stream_url =>
       CopyWith$Input$String_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get type =>
       CopyWith$Input$String_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$timestamptz_comparison_exp<TRes> get updated_at =>
       CopyWith$Input$timestamptz_comparison_exp.stub(_res);
 }
@@ -14801,10 +15131,10 @@ class Input$station_streams_max_order_by {
       Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
     if (data.containsKey('created_at')) {
-      final l$created_at = data['created_at'];
-      result$data['created_at'] = l$created_at == null
+      final l$createdAt = data['created_at'];
+      result$data['created_at'] = l$createdAt == null
           ? null
-          : fromJson$Enum$order_by((l$created_at as String));
+          : fromJson$Enum$order_by((l$createdAt as String));
     }
     if (data.containsKey('id')) {
       final l$id = data['id'];
@@ -14817,16 +15147,16 @@ class Input$station_streams_max_order_by {
           l$order == null ? null : fromJson$Enum$order_by((l$order as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     if (data.containsKey('stream_url')) {
-      final l$stream_url = data['stream_url'];
-      result$data['stream_url'] = l$stream_url == null
+      final l$streamUrl = data['stream_url'];
+      result$data['stream_url'] = l$streamUrl == null
           ? null
-          : fromJson$Enum$order_by((l$stream_url as String));
+          : fromJson$Enum$order_by((l$streamUrl as String));
     }
     if (data.containsKey('type')) {
       final l$type = data['type'];
@@ -14834,10 +15164,10 @@ class Input$station_streams_max_order_by {
           l$type == null ? null : fromJson$Enum$order_by((l$type as String));
     }
     if (data.containsKey('updated_at')) {
-      final l$updated_at = data['updated_at'];
-      result$data['updated_at'] = l$updated_at == null
+      final l$updatedAt = data['updated_at'];
+      result$data['updated_at'] = l$updatedAt == null
           ? null
-          : fromJson$Enum$order_by((l$updated_at as String));
+          : fromJson$Enum$order_by((l$updatedAt as String));
     }
     return Input$station_streams_max_order_by._(result$data);
   }
@@ -14861,9 +15191,9 @@ class Input$station_streams_max_order_by {
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
     if (_$data.containsKey('created_at')) {
-      final l$created_at = created_at;
+      final l$createdAt = created_at;
       result$data['created_at'] =
-          l$created_at == null ? null : toJson$Enum$order_by(l$created_at);
+          l$createdAt == null ? null : toJson$Enum$order_by(l$createdAt);
     }
     if (_$data.containsKey('id')) {
       final l$id = id;
@@ -14875,14 +15205,14 @@ class Input$station_streams_max_order_by {
           l$order == null ? null : toJson$Enum$order_by(l$order);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     if (_$data.containsKey('stream_url')) {
-      final l$stream_url = stream_url;
+      final l$streamUrl = stream_url;
       result$data['stream_url'] =
-          l$stream_url == null ? null : toJson$Enum$order_by(l$stream_url);
+          l$streamUrl == null ? null : toJson$Enum$order_by(l$streamUrl);
     }
     if (_$data.containsKey('type')) {
       final l$type = type;
@@ -14890,9 +15220,9 @@ class Input$station_streams_max_order_by {
           l$type == null ? null : toJson$Enum$order_by(l$type);
     }
     if (_$data.containsKey('updated_at')) {
-      final l$updated_at = updated_at;
+      final l$updatedAt = updated_at;
       result$data['updated_at'] =
-          l$updated_at == null ? null : toJson$Enum$order_by(l$updated_at);
+          l$updatedAt == null ? null : toJson$Enum$order_by(l$updatedAt);
     }
     return result$data;
   }
@@ -14909,17 +15239,17 @@ class Input$station_streams_max_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$station_streams_max_order_by) ||
+    if (other is! Input$station_streams_max_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$created_at = created_at;
-    final lOther$created_at = other.created_at;
+    final l$createdAt = created_at;
+    final lother$createdAt = other.created_at;
     if (_$data.containsKey('created_at') !=
         other._$data.containsKey('created_at')) {
       return false;
     }
-    if (l$created_at != lOther$created_at) {
+    if (l$createdAt != lother$createdAt) {
       return false;
     }
     final l$id = id;
@@ -14938,22 +15268,22 @@ class Input$station_streams_max_order_by {
     if (l$order != lOther$order) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
-    final l$stream_url = stream_url;
-    final lOther$stream_url = other.stream_url;
+    final l$streamUrl = stream_url;
+    final lother$streamUrl = other.stream_url;
     if (_$data.containsKey('stream_url') !=
         other._$data.containsKey('stream_url')) {
       return false;
     }
-    if (l$stream_url != lOther$stream_url) {
+    if (l$streamUrl != lother$streamUrl) {
       return false;
     }
     final l$type = type;
@@ -14964,13 +15294,13 @@ class Input$station_streams_max_order_by {
     if (l$type != lOther$type) {
       return false;
     }
-    final l$updated_at = updated_at;
-    final lOther$updated_at = other.updated_at;
+    final l$updatedAt = updated_at;
+    final lother$updatedAt = other.updated_at;
     if (_$data.containsKey('updated_at') !=
         other._$data.containsKey('updated_at')) {
       return false;
     }
-    if (l$updated_at != lOther$updated_at) {
+    if (l$updatedAt != lother$updatedAt) {
       return false;
     }
     return true;
@@ -14978,21 +15308,21 @@ class Input$station_streams_max_order_by {
 
   @override
   int get hashCode {
-    final l$created_at = created_at;
+    final l$createdAt = created_at;
     final l$id = id;
     final l$order = order;
-    final l$station_id = station_id;
-    final l$stream_url = stream_url;
+    final l$stationId = station_id;
+    final l$streamUrl = stream_url;
     final l$type = type;
-    final l$updated_at = updated_at;
+    final l$updatedAt = updated_at;
     return Object.hashAll([
-      _$data.containsKey('created_at') ? l$created_at : const {},
+      _$data.containsKey('created_at') ? l$createdAt : const {},
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('order') ? l$order : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
-      _$data.containsKey('stream_url') ? l$stream_url : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
+      _$data.containsKey('stream_url') ? l$streamUrl : const {},
       _$data.containsKey('type') ? l$type : const {},
-      _$data.containsKey('updated_at') ? l$updated_at : const {},
+      _$data.containsKey('updated_at') ? l$updatedAt : const {},
     ]);
   }
 }
@@ -15030,6 +15360,7 @@ class _CopyWithImpl$Input$station_streams_max_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? created_at = _undefined,
     Object? id = _undefined,
@@ -15059,8 +15390,9 @@ class _CopyWithStubImpl$Input$station_streams_max_order_by<TRes>
     implements CopyWith$Input$station_streams_max_order_by<TRes> {
   _CopyWithStubImpl$Input$station_streams_max_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? created_at,
     Enum$order_by? id,
@@ -15099,10 +15431,10 @@ class Input$station_streams_min_order_by {
       Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
     if (data.containsKey('created_at')) {
-      final l$created_at = data['created_at'];
-      result$data['created_at'] = l$created_at == null
+      final l$createdAt = data['created_at'];
+      result$data['created_at'] = l$createdAt == null
           ? null
-          : fromJson$Enum$order_by((l$created_at as String));
+          : fromJson$Enum$order_by((l$createdAt as String));
     }
     if (data.containsKey('id')) {
       final l$id = data['id'];
@@ -15115,16 +15447,16 @@ class Input$station_streams_min_order_by {
           l$order == null ? null : fromJson$Enum$order_by((l$order as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     if (data.containsKey('stream_url')) {
-      final l$stream_url = data['stream_url'];
-      result$data['stream_url'] = l$stream_url == null
+      final l$streamUrl = data['stream_url'];
+      result$data['stream_url'] = l$streamUrl == null
           ? null
-          : fromJson$Enum$order_by((l$stream_url as String));
+          : fromJson$Enum$order_by((l$streamUrl as String));
     }
     if (data.containsKey('type')) {
       final l$type = data['type'];
@@ -15132,10 +15464,10 @@ class Input$station_streams_min_order_by {
           l$type == null ? null : fromJson$Enum$order_by((l$type as String));
     }
     if (data.containsKey('updated_at')) {
-      final l$updated_at = data['updated_at'];
-      result$data['updated_at'] = l$updated_at == null
+      final l$updatedAt = data['updated_at'];
+      result$data['updated_at'] = l$updatedAt == null
           ? null
-          : fromJson$Enum$order_by((l$updated_at as String));
+          : fromJson$Enum$order_by((l$updatedAt as String));
     }
     return Input$station_streams_min_order_by._(result$data);
   }
@@ -15159,9 +15491,9 @@ class Input$station_streams_min_order_by {
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
     if (_$data.containsKey('created_at')) {
-      final l$created_at = created_at;
+      final l$createdAt = created_at;
       result$data['created_at'] =
-          l$created_at == null ? null : toJson$Enum$order_by(l$created_at);
+          l$createdAt == null ? null : toJson$Enum$order_by(l$createdAt);
     }
     if (_$data.containsKey('id')) {
       final l$id = id;
@@ -15173,14 +15505,14 @@ class Input$station_streams_min_order_by {
           l$order == null ? null : toJson$Enum$order_by(l$order);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     if (_$data.containsKey('stream_url')) {
-      final l$stream_url = stream_url;
+      final l$streamUrl = stream_url;
       result$data['stream_url'] =
-          l$stream_url == null ? null : toJson$Enum$order_by(l$stream_url);
+          l$streamUrl == null ? null : toJson$Enum$order_by(l$streamUrl);
     }
     if (_$data.containsKey('type')) {
       final l$type = type;
@@ -15188,9 +15520,9 @@ class Input$station_streams_min_order_by {
           l$type == null ? null : toJson$Enum$order_by(l$type);
     }
     if (_$data.containsKey('updated_at')) {
-      final l$updated_at = updated_at;
+      final l$updatedAt = updated_at;
       result$data['updated_at'] =
-          l$updated_at == null ? null : toJson$Enum$order_by(l$updated_at);
+          l$updatedAt == null ? null : toJson$Enum$order_by(l$updatedAt);
     }
     return result$data;
   }
@@ -15207,17 +15539,17 @@ class Input$station_streams_min_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$station_streams_min_order_by) ||
+    if (other is! Input$station_streams_min_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$created_at = created_at;
-    final lOther$created_at = other.created_at;
+    final l$createdAt = created_at;
+    final lother$createdAt = other.created_at;
     if (_$data.containsKey('created_at') !=
         other._$data.containsKey('created_at')) {
       return false;
     }
-    if (l$created_at != lOther$created_at) {
+    if (l$createdAt != lother$createdAt) {
       return false;
     }
     final l$id = id;
@@ -15236,22 +15568,22 @@ class Input$station_streams_min_order_by {
     if (l$order != lOther$order) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
-    final l$stream_url = stream_url;
-    final lOther$stream_url = other.stream_url;
+    final l$streamUrl = stream_url;
+    final lother$streamUrl = other.stream_url;
     if (_$data.containsKey('stream_url') !=
         other._$data.containsKey('stream_url')) {
       return false;
     }
-    if (l$stream_url != lOther$stream_url) {
+    if (l$streamUrl != lother$streamUrl) {
       return false;
     }
     final l$type = type;
@@ -15262,13 +15594,13 @@ class Input$station_streams_min_order_by {
     if (l$type != lOther$type) {
       return false;
     }
-    final l$updated_at = updated_at;
-    final lOther$updated_at = other.updated_at;
+    final l$updatedAt = updated_at;
+    final lother$updatedAt = other.updated_at;
     if (_$data.containsKey('updated_at') !=
         other._$data.containsKey('updated_at')) {
       return false;
     }
-    if (l$updated_at != lOther$updated_at) {
+    if (l$updatedAt != lother$updatedAt) {
       return false;
     }
     return true;
@@ -15276,21 +15608,21 @@ class Input$station_streams_min_order_by {
 
   @override
   int get hashCode {
-    final l$created_at = created_at;
+    final l$createdAt = created_at;
     final l$id = id;
     final l$order = order;
-    final l$station_id = station_id;
-    final l$stream_url = stream_url;
+    final l$stationId = station_id;
+    final l$streamUrl = stream_url;
     final l$type = type;
-    final l$updated_at = updated_at;
+    final l$updatedAt = updated_at;
     return Object.hashAll([
-      _$data.containsKey('created_at') ? l$created_at : const {},
+      _$data.containsKey('created_at') ? l$createdAt : const {},
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('order') ? l$order : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
-      _$data.containsKey('stream_url') ? l$stream_url : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
+      _$data.containsKey('stream_url') ? l$streamUrl : const {},
       _$data.containsKey('type') ? l$type : const {},
-      _$data.containsKey('updated_at') ? l$updated_at : const {},
+      _$data.containsKey('updated_at') ? l$updatedAt : const {},
     ]);
   }
 }
@@ -15328,6 +15660,7 @@ class _CopyWithImpl$Input$station_streams_min_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? created_at = _undefined,
     Object? id = _undefined,
@@ -15357,8 +15690,9 @@ class _CopyWithStubImpl$Input$station_streams_min_order_by<TRes>
     implements CopyWith$Input$station_streams_min_order_by<TRes> {
   _CopyWithStubImpl$Input$station_streams_min_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? created_at,
     Enum$order_by? id,
@@ -15398,10 +15732,10 @@ class Input$station_streams_order_by {
   factory Input$station_streams_order_by.fromJson(Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
     if (data.containsKey('created_at')) {
-      final l$created_at = data['created_at'];
-      result$data['created_at'] = l$created_at == null
+      final l$createdAt = data['created_at'];
+      result$data['created_at'] = l$createdAt == null
           ? null
-          : fromJson$Enum$order_by((l$created_at as String));
+          : fromJson$Enum$order_by((l$createdAt as String));
     }
     if (data.containsKey('id')) {
       final l$id = data['id'];
@@ -15421,16 +15755,16 @@ class Input$station_streams_order_by {
               (l$station as Map<String, dynamic>));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     if (data.containsKey('stream_url')) {
-      final l$stream_url = data['stream_url'];
-      result$data['stream_url'] = l$stream_url == null
+      final l$streamUrl = data['stream_url'];
+      result$data['stream_url'] = l$streamUrl == null
           ? null
-          : fromJson$Enum$order_by((l$stream_url as String));
+          : fromJson$Enum$order_by((l$streamUrl as String));
     }
     if (data.containsKey('type')) {
       final l$type = data['type'];
@@ -15438,10 +15772,10 @@ class Input$station_streams_order_by {
           l$type == null ? null : fromJson$Enum$order_by((l$type as String));
     }
     if (data.containsKey('updated_at')) {
-      final l$updated_at = data['updated_at'];
-      result$data['updated_at'] = l$updated_at == null
+      final l$updatedAt = data['updated_at'];
+      result$data['updated_at'] = l$updatedAt == null
           ? null
-          : fromJson$Enum$order_by((l$updated_at as String));
+          : fromJson$Enum$order_by((l$updatedAt as String));
     }
     return Input$station_streams_order_by._(result$data);
   }
@@ -15468,9 +15802,9 @@ class Input$station_streams_order_by {
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
     if (_$data.containsKey('created_at')) {
-      final l$created_at = created_at;
+      final l$createdAt = created_at;
       result$data['created_at'] =
-          l$created_at == null ? null : toJson$Enum$order_by(l$created_at);
+          l$createdAt == null ? null : toJson$Enum$order_by(l$createdAt);
     }
     if (_$data.containsKey('id')) {
       final l$id = id;
@@ -15486,14 +15820,14 @@ class Input$station_streams_order_by {
       result$data['station'] = l$station?.toJson();
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     if (_$data.containsKey('stream_url')) {
-      final l$stream_url = stream_url;
+      final l$streamUrl = stream_url;
       result$data['stream_url'] =
-          l$stream_url == null ? null : toJson$Enum$order_by(l$stream_url);
+          l$streamUrl == null ? null : toJson$Enum$order_by(l$streamUrl);
     }
     if (_$data.containsKey('type')) {
       final l$type = type;
@@ -15501,9 +15835,9 @@ class Input$station_streams_order_by {
           l$type == null ? null : toJson$Enum$order_by(l$type);
     }
     if (_$data.containsKey('updated_at')) {
-      final l$updated_at = updated_at;
+      final l$updatedAt = updated_at;
       result$data['updated_at'] =
-          l$updated_at == null ? null : toJson$Enum$order_by(l$updated_at);
+          l$updatedAt == null ? null : toJson$Enum$order_by(l$updatedAt);
     }
     return result$data;
   }
@@ -15519,17 +15853,17 @@ class Input$station_streams_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$station_streams_order_by) ||
+    if (other is! Input$station_streams_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$created_at = created_at;
-    final lOther$created_at = other.created_at;
+    final l$createdAt = created_at;
+    final lother$createdAt = other.created_at;
     if (_$data.containsKey('created_at') !=
         other._$data.containsKey('created_at')) {
       return false;
     }
-    if (l$created_at != lOther$created_at) {
+    if (l$createdAt != lother$createdAt) {
       return false;
     }
     final l$id = id;
@@ -15556,22 +15890,22 @@ class Input$station_streams_order_by {
     if (l$station != lOther$station) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
-    final l$stream_url = stream_url;
-    final lOther$stream_url = other.stream_url;
+    final l$streamUrl = stream_url;
+    final lother$streamUrl = other.stream_url;
     if (_$data.containsKey('stream_url') !=
         other._$data.containsKey('stream_url')) {
       return false;
     }
-    if (l$stream_url != lOther$stream_url) {
+    if (l$streamUrl != lother$streamUrl) {
       return false;
     }
     final l$type = type;
@@ -15582,13 +15916,13 @@ class Input$station_streams_order_by {
     if (l$type != lOther$type) {
       return false;
     }
-    final l$updated_at = updated_at;
-    final lOther$updated_at = other.updated_at;
+    final l$updatedAt = updated_at;
+    final lother$updatedAt = other.updated_at;
     if (_$data.containsKey('updated_at') !=
         other._$data.containsKey('updated_at')) {
       return false;
     }
-    if (l$updated_at != lOther$updated_at) {
+    if (l$updatedAt != lother$updatedAt) {
       return false;
     }
     return true;
@@ -15596,23 +15930,23 @@ class Input$station_streams_order_by {
 
   @override
   int get hashCode {
-    final l$created_at = created_at;
+    final l$createdAt = created_at;
     final l$id = id;
     final l$order = order;
     final l$station = station;
-    final l$station_id = station_id;
-    final l$stream_url = stream_url;
+    final l$stationId = station_id;
+    final l$streamUrl = stream_url;
     final l$type = type;
-    final l$updated_at = updated_at;
+    final l$updatedAt = updated_at;
     return Object.hashAll([
-      _$data.containsKey('created_at') ? l$created_at : const {},
+      _$data.containsKey('created_at') ? l$createdAt : const {},
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('order') ? l$order : const {},
       _$data.containsKey('station') ? l$station : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
-      _$data.containsKey('stream_url') ? l$stream_url : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
+      _$data.containsKey('stream_url') ? l$streamUrl : const {},
       _$data.containsKey('type') ? l$type : const {},
-      _$data.containsKey('updated_at') ? l$updated_at : const {},
+      _$data.containsKey('updated_at') ? l$updatedAt : const {},
     ]);
   }
 }
@@ -15652,6 +15986,7 @@ class _CopyWithImpl$Input$station_streams_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? created_at = _undefined,
     Object? id = _undefined,
@@ -15679,6 +16014,7 @@ class _CopyWithImpl$Input$station_streams_order_by<TRes>
           'updated_at': (updated_at as Enum$order_by?),
       }));
 
+  @override
   CopyWith$Input$stations_order_by<TRes> get station {
     final local$station = _instance.station;
     return local$station == null
@@ -15692,8 +16028,9 @@ class _CopyWithStubImpl$Input$station_streams_order_by<TRes>
     implements CopyWith$Input$station_streams_order_by<TRes> {
   _CopyWithStubImpl$Input$station_streams_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? created_at,
     Enum$order_by? id,
@@ -15706,6 +16043,7 @@ class _CopyWithStubImpl$Input$station_streams_order_by<TRes>
   }) =>
       _res;
 
+  @override
   CopyWith$Input$stations_order_by<TRes> get station =>
       CopyWith$Input$stations_order_by.stub(_res);
 }
@@ -15738,10 +16076,10 @@ class Input$station_streams_stddev_order_by {
           l$order == null ? null : fromJson$Enum$order_by((l$order as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     return Input$station_streams_stddev_order_by._(result$data);
   }
@@ -15766,9 +16104,9 @@ class Input$station_streams_stddev_order_by {
           l$order == null ? null : toJson$Enum$order_by(l$order);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     return result$data;
   }
@@ -15785,7 +16123,7 @@ class Input$station_streams_stddev_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$station_streams_stddev_order_by) ||
+    if (other is! Input$station_streams_stddev_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -15805,13 +16143,13 @@ class Input$station_streams_stddev_order_by {
     if (l$order != lOther$order) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -15821,11 +16159,11 @@ class Input$station_streams_stddev_order_by {
   int get hashCode {
     final l$id = id;
     final l$order = order;
-    final l$station_id = station_id;
+    final l$stationId = station_id;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('order') ? l$order : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -15859,6 +16197,7 @@ class _CopyWithImpl$Input$station_streams_stddev_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? order = _undefined,
@@ -15877,8 +16216,9 @@ class _CopyWithStubImpl$Input$station_streams_stddev_order_by<TRes>
     implements CopyWith$Input$station_streams_stddev_order_by<TRes> {
   _CopyWithStubImpl$Input$station_streams_stddev_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? order,
@@ -15915,10 +16255,10 @@ class Input$station_streams_stddev_pop_order_by {
           l$order == null ? null : fromJson$Enum$order_by((l$order as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     return Input$station_streams_stddev_pop_order_by._(result$data);
   }
@@ -15943,9 +16283,9 @@ class Input$station_streams_stddev_pop_order_by {
           l$order == null ? null : toJson$Enum$order_by(l$order);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     return result$data;
   }
@@ -15962,7 +16302,7 @@ class Input$station_streams_stddev_pop_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$station_streams_stddev_pop_order_by) ||
+    if (other is! Input$station_streams_stddev_pop_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -15982,13 +16322,13 @@ class Input$station_streams_stddev_pop_order_by {
     if (l$order != lOther$order) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -15998,11 +16338,11 @@ class Input$station_streams_stddev_pop_order_by {
   int get hashCode {
     final l$id = id;
     final l$order = order;
-    final l$station_id = station_id;
+    final l$stationId = station_id;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('order') ? l$order : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -16036,6 +16376,7 @@ class _CopyWithImpl$Input$station_streams_stddev_pop_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? order = _undefined,
@@ -16054,8 +16395,9 @@ class _CopyWithStubImpl$Input$station_streams_stddev_pop_order_by<TRes>
     implements CopyWith$Input$station_streams_stddev_pop_order_by<TRes> {
   _CopyWithStubImpl$Input$station_streams_stddev_pop_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? order,
@@ -16092,10 +16434,10 @@ class Input$station_streams_stddev_samp_order_by {
           l$order == null ? null : fromJson$Enum$order_by((l$order as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     return Input$station_streams_stddev_samp_order_by._(result$data);
   }
@@ -16120,9 +16462,9 @@ class Input$station_streams_stddev_samp_order_by {
           l$order == null ? null : toJson$Enum$order_by(l$order);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     return result$data;
   }
@@ -16139,7 +16481,7 @@ class Input$station_streams_stddev_samp_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$station_streams_stddev_samp_order_by) ||
+    if (other is! Input$station_streams_stddev_samp_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -16159,13 +16501,13 @@ class Input$station_streams_stddev_samp_order_by {
     if (l$order != lOther$order) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -16175,11 +16517,11 @@ class Input$station_streams_stddev_samp_order_by {
   int get hashCode {
     final l$id = id;
     final l$order = order;
-    final l$station_id = station_id;
+    final l$stationId = station_id;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('order') ? l$order : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -16213,6 +16555,7 @@ class _CopyWithImpl$Input$station_streams_stddev_samp_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? order = _undefined,
@@ -16231,8 +16574,9 @@ class _CopyWithStubImpl$Input$station_streams_stddev_samp_order_by<TRes>
     implements CopyWith$Input$station_streams_stddev_samp_order_by<TRes> {
   _CopyWithStubImpl$Input$station_streams_stddev_samp_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? order,
@@ -16256,10 +16600,10 @@ class Input$station_streams_stream_cursor_input {
   factory Input$station_streams_stream_cursor_input.fromJson(
       Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
-    final l$initial_value = data['initial_value'];
+    final l$initialValue = data['initial_value'];
     result$data['initial_value'] =
         Input$station_streams_stream_cursor_value_input.fromJson(
-            (l$initial_value as Map<String, dynamic>));
+            (l$initialValue as Map<String, dynamic>));
     if (data.containsKey('ordering')) {
       final l$ordering = data['ordering'];
       result$data['ordering'] = l$ordering == null
@@ -16280,8 +16624,8 @@ class Input$station_streams_stream_cursor_input {
 
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
-    final l$initial_value = initial_value;
-    result$data['initial_value'] = l$initial_value.toJson();
+    final l$initialValue = initial_value;
+    result$data['initial_value'] = l$initialValue.toJson();
     if (_$data.containsKey('ordering')) {
       final l$ordering = ordering;
       result$data['ordering'] =
@@ -16302,13 +16646,13 @@ class Input$station_streams_stream_cursor_input {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$station_streams_stream_cursor_input) ||
+    if (other is! Input$station_streams_stream_cursor_input ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$initial_value = initial_value;
-    final lOther$initial_value = other.initial_value;
-    if (l$initial_value != lOther$initial_value) {
+    final l$initialValue = initial_value;
+    final lother$initialValue = other.initial_value;
+    if (l$initialValue != lother$initialValue) {
       return false;
     }
     final l$ordering = ordering;
@@ -16325,10 +16669,10 @@ class Input$station_streams_stream_cursor_input {
 
   @override
   int get hashCode {
-    final l$initial_value = initial_value;
+    final l$initialValue = initial_value;
     final l$ordering = ordering;
     return Object.hashAll([
-      l$initial_value,
+      l$initialValue,
       _$data.containsKey('ordering') ? l$ordering : const {},
     ]);
   }
@@ -16364,6 +16708,7 @@ class _CopyWithImpl$Input$station_streams_stream_cursor_input<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? initial_value = _undefined,
     Object? ordering = _undefined,
@@ -16377,11 +16722,12 @@ class _CopyWithImpl$Input$station_streams_stream_cursor_input<TRes>
           'ordering': (ordering as Enum$cursor_ordering?),
       }));
 
+  @override
   CopyWith$Input$station_streams_stream_cursor_value_input<TRes>
       get initial_value {
-    final local$initial_value = _instance.initial_value;
+    final local$initialValue = _instance.initial_value;
     return CopyWith$Input$station_streams_stream_cursor_value_input(
-        local$initial_value, (e) => call(initial_value: e));
+        local$initialValue, (e) => call(initial_value: e));
   }
 }
 
@@ -16389,14 +16735,16 @@ class _CopyWithStubImpl$Input$station_streams_stream_cursor_input<TRes>
     implements CopyWith$Input$station_streams_stream_cursor_input<TRes> {
   _CopyWithStubImpl$Input$station_streams_stream_cursor_input(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Input$station_streams_stream_cursor_value_input? initial_value,
     Enum$cursor_ordering? ordering,
   }) =>
       _res;
 
+  @override
   CopyWith$Input$station_streams_stream_cursor_value_input<TRes>
       get initial_value =>
           CopyWith$Input$station_streams_stream_cursor_value_input.stub(_res);
@@ -16428,8 +16776,8 @@ class Input$station_streams_stream_cursor_value_input {
       Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
     if (data.containsKey('created_at')) {
-      final l$created_at = data['created_at'];
-      result$data['created_at'] = (l$created_at as String?);
+      final l$createdAt = data['created_at'];
+      result$data['created_at'] = (l$createdAt as String?);
     }
     if (data.containsKey('id')) {
       final l$id = data['id'];
@@ -16440,20 +16788,20 @@ class Input$station_streams_stream_cursor_value_input {
       result$data['order'] = (l$order as int?);
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = (l$station_id as int?);
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = (l$stationId as int?);
     }
     if (data.containsKey('stream_url')) {
-      final l$stream_url = data['stream_url'];
-      result$data['stream_url'] = (l$stream_url as String?);
+      final l$streamUrl = data['stream_url'];
+      result$data['stream_url'] = (l$streamUrl as String?);
     }
     if (data.containsKey('type')) {
       final l$type = data['type'];
       result$data['type'] = (l$type as String?);
     }
     if (data.containsKey('updated_at')) {
-      final l$updated_at = data['updated_at'];
-      result$data['updated_at'] = (l$updated_at as String?);
+      final l$updatedAt = data['updated_at'];
+      result$data['updated_at'] = (l$updatedAt as String?);
     }
     return Input$station_streams_stream_cursor_value_input._(result$data);
   }
@@ -16477,8 +16825,8 @@ class Input$station_streams_stream_cursor_value_input {
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
     if (_$data.containsKey('created_at')) {
-      final l$created_at = created_at;
-      result$data['created_at'] = l$created_at;
+      final l$createdAt = created_at;
+      result$data['created_at'] = l$createdAt;
     }
     if (_$data.containsKey('id')) {
       final l$id = id;
@@ -16489,20 +16837,20 @@ class Input$station_streams_stream_cursor_value_input {
       result$data['order'] = l$order;
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
-      result$data['station_id'] = l$station_id;
+      final l$stationId = station_id;
+      result$data['station_id'] = l$stationId;
     }
     if (_$data.containsKey('stream_url')) {
-      final l$stream_url = stream_url;
-      result$data['stream_url'] = l$stream_url;
+      final l$streamUrl = stream_url;
+      result$data['stream_url'] = l$streamUrl;
     }
     if (_$data.containsKey('type')) {
       final l$type = type;
       result$data['type'] = l$type;
     }
     if (_$data.containsKey('updated_at')) {
-      final l$updated_at = updated_at;
-      result$data['updated_at'] = l$updated_at;
+      final l$updatedAt = updated_at;
+      result$data['updated_at'] = l$updatedAt;
     }
     return result$data;
   }
@@ -16519,17 +16867,17 @@ class Input$station_streams_stream_cursor_value_input {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$station_streams_stream_cursor_value_input) ||
+    if (other is! Input$station_streams_stream_cursor_value_input ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$created_at = created_at;
-    final lOther$created_at = other.created_at;
+    final l$createdAt = created_at;
+    final lother$createdAt = other.created_at;
     if (_$data.containsKey('created_at') !=
         other._$data.containsKey('created_at')) {
       return false;
     }
-    if (l$created_at != lOther$created_at) {
+    if (l$createdAt != lother$createdAt) {
       return false;
     }
     final l$id = id;
@@ -16548,22 +16896,22 @@ class Input$station_streams_stream_cursor_value_input {
     if (l$order != lOther$order) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
-    final l$stream_url = stream_url;
-    final lOther$stream_url = other.stream_url;
+    final l$streamUrl = stream_url;
+    final lother$streamUrl = other.stream_url;
     if (_$data.containsKey('stream_url') !=
         other._$data.containsKey('stream_url')) {
       return false;
     }
-    if (l$stream_url != lOther$stream_url) {
+    if (l$streamUrl != lother$streamUrl) {
       return false;
     }
     final l$type = type;
@@ -16574,13 +16922,13 @@ class Input$station_streams_stream_cursor_value_input {
     if (l$type != lOther$type) {
       return false;
     }
-    final l$updated_at = updated_at;
-    final lOther$updated_at = other.updated_at;
+    final l$updatedAt = updated_at;
+    final lother$updatedAt = other.updated_at;
     if (_$data.containsKey('updated_at') !=
         other._$data.containsKey('updated_at')) {
       return false;
     }
-    if (l$updated_at != lOther$updated_at) {
+    if (l$updatedAt != lother$updatedAt) {
       return false;
     }
     return true;
@@ -16588,21 +16936,21 @@ class Input$station_streams_stream_cursor_value_input {
 
   @override
   int get hashCode {
-    final l$created_at = created_at;
+    final l$createdAt = created_at;
     final l$id = id;
     final l$order = order;
-    final l$station_id = station_id;
-    final l$stream_url = stream_url;
+    final l$stationId = station_id;
+    final l$streamUrl = stream_url;
     final l$type = type;
-    final l$updated_at = updated_at;
+    final l$updatedAt = updated_at;
     return Object.hashAll([
-      _$data.containsKey('created_at') ? l$created_at : const {},
+      _$data.containsKey('created_at') ? l$createdAt : const {},
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('order') ? l$order : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
-      _$data.containsKey('stream_url') ? l$stream_url : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
+      _$data.containsKey('stream_url') ? l$streamUrl : const {},
       _$data.containsKey('type') ? l$type : const {},
-      _$data.containsKey('updated_at') ? l$updated_at : const {},
+      _$data.containsKey('updated_at') ? l$updatedAt : const {},
     ]);
   }
 }
@@ -16641,6 +16989,7 @@ class _CopyWithImpl$Input$station_streams_stream_cursor_value_input<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? created_at = _undefined,
     Object? id = _undefined,
@@ -16666,8 +17015,9 @@ class _CopyWithStubImpl$Input$station_streams_stream_cursor_value_input<TRes>
     implements CopyWith$Input$station_streams_stream_cursor_value_input<TRes> {
   _CopyWithStubImpl$Input$station_streams_stream_cursor_value_input(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     String? created_at,
     int? id,
@@ -16708,10 +17058,10 @@ class Input$station_streams_sum_order_by {
           l$order == null ? null : fromJson$Enum$order_by((l$order as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     return Input$station_streams_sum_order_by._(result$data);
   }
@@ -16736,9 +17086,9 @@ class Input$station_streams_sum_order_by {
           l$order == null ? null : toJson$Enum$order_by(l$order);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     return result$data;
   }
@@ -16755,7 +17105,7 @@ class Input$station_streams_sum_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$station_streams_sum_order_by) ||
+    if (other is! Input$station_streams_sum_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -16775,13 +17125,13 @@ class Input$station_streams_sum_order_by {
     if (l$order != lOther$order) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -16791,11 +17141,11 @@ class Input$station_streams_sum_order_by {
   int get hashCode {
     final l$id = id;
     final l$order = order;
-    final l$station_id = station_id;
+    final l$stationId = station_id;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('order') ? l$order : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -16829,6 +17179,7 @@ class _CopyWithImpl$Input$station_streams_sum_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? order = _undefined,
@@ -16847,8 +17198,9 @@ class _CopyWithStubImpl$Input$station_streams_sum_order_by<TRes>
     implements CopyWith$Input$station_streams_sum_order_by<TRes> {
   _CopyWithStubImpl$Input$station_streams_sum_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? order,
@@ -16885,10 +17237,10 @@ class Input$station_streams_var_pop_order_by {
           l$order == null ? null : fromJson$Enum$order_by((l$order as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     return Input$station_streams_var_pop_order_by._(result$data);
   }
@@ -16913,9 +17265,9 @@ class Input$station_streams_var_pop_order_by {
           l$order == null ? null : toJson$Enum$order_by(l$order);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     return result$data;
   }
@@ -16932,7 +17284,7 @@ class Input$station_streams_var_pop_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$station_streams_var_pop_order_by) ||
+    if (other is! Input$station_streams_var_pop_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -16952,13 +17304,13 @@ class Input$station_streams_var_pop_order_by {
     if (l$order != lOther$order) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -16968,11 +17320,11 @@ class Input$station_streams_var_pop_order_by {
   int get hashCode {
     final l$id = id;
     final l$order = order;
-    final l$station_id = station_id;
+    final l$stationId = station_id;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('order') ? l$order : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -17006,6 +17358,7 @@ class _CopyWithImpl$Input$station_streams_var_pop_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? order = _undefined,
@@ -17024,8 +17377,9 @@ class _CopyWithStubImpl$Input$station_streams_var_pop_order_by<TRes>
     implements CopyWith$Input$station_streams_var_pop_order_by<TRes> {
   _CopyWithStubImpl$Input$station_streams_var_pop_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? order,
@@ -17062,10 +17416,10 @@ class Input$station_streams_var_samp_order_by {
           l$order == null ? null : fromJson$Enum$order_by((l$order as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     return Input$station_streams_var_samp_order_by._(result$data);
   }
@@ -17090,9 +17444,9 @@ class Input$station_streams_var_samp_order_by {
           l$order == null ? null : toJson$Enum$order_by(l$order);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     return result$data;
   }
@@ -17109,7 +17463,7 @@ class Input$station_streams_var_samp_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$station_streams_var_samp_order_by) ||
+    if (other is! Input$station_streams_var_samp_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -17129,13 +17483,13 @@ class Input$station_streams_var_samp_order_by {
     if (l$order != lOther$order) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -17145,11 +17499,11 @@ class Input$station_streams_var_samp_order_by {
   int get hashCode {
     final l$id = id;
     final l$order = order;
-    final l$station_id = station_id;
+    final l$stationId = station_id;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('order') ? l$order : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -17183,6 +17537,7 @@ class _CopyWithImpl$Input$station_streams_var_samp_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? order = _undefined,
@@ -17201,8 +17556,9 @@ class _CopyWithStubImpl$Input$station_streams_var_samp_order_by<TRes>
     implements CopyWith$Input$station_streams_var_samp_order_by<TRes> {
   _CopyWithStubImpl$Input$station_streams_var_samp_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? order,
@@ -17239,10 +17595,10 @@ class Input$station_streams_variance_order_by {
           l$order == null ? null : fromJson$Enum$order_by((l$order as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     return Input$station_streams_variance_order_by._(result$data);
   }
@@ -17267,9 +17623,9 @@ class Input$station_streams_variance_order_by {
           l$order == null ? null : toJson$Enum$order_by(l$order);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     return result$data;
   }
@@ -17286,7 +17642,7 @@ class Input$station_streams_variance_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$station_streams_variance_order_by) ||
+    if (other is! Input$station_streams_variance_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -17306,13 +17662,13 @@ class Input$station_streams_variance_order_by {
     if (l$order != lOther$order) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -17322,11 +17678,11 @@ class Input$station_streams_variance_order_by {
   int get hashCode {
     final l$id = id;
     final l$order = order;
-    final l$station_id = station_id;
+    final l$stationId = station_id;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('order') ? l$order : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -17360,6 +17716,7 @@ class _CopyWithImpl$Input$station_streams_variance_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? order = _undefined,
@@ -17378,8 +17735,9 @@ class _CopyWithStubImpl$Input$station_streams_variance_order_by<TRes>
     implements CopyWith$Input$station_streams_variance_order_by<TRes> {
   _CopyWithStubImpl$Input$station_streams_variance_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? order,
@@ -17455,18 +17813,18 @@ class Input$station_to_station_group_aggregate_order_by {
               (l$stddev as Map<String, dynamic>));
     }
     if (data.containsKey('stddev_pop')) {
-      final l$stddev_pop = data['stddev_pop'];
-      result$data['stddev_pop'] = l$stddev_pop == null
+      final l$stddevPop = data['stddev_pop'];
+      result$data['stddev_pop'] = l$stddevPop == null
           ? null
           : Input$station_to_station_group_stddev_pop_order_by.fromJson(
-              (l$stddev_pop as Map<String, dynamic>));
+              (l$stddevPop as Map<String, dynamic>));
     }
     if (data.containsKey('stddev_samp')) {
-      final l$stddev_samp = data['stddev_samp'];
-      result$data['stddev_samp'] = l$stddev_samp == null
+      final l$stddevSamp = data['stddev_samp'];
+      result$data['stddev_samp'] = l$stddevSamp == null
           ? null
           : Input$station_to_station_group_stddev_samp_order_by.fromJson(
-              (l$stddev_samp as Map<String, dynamic>));
+              (l$stddevSamp as Map<String, dynamic>));
     }
     if (data.containsKey('sum')) {
       final l$sum = data['sum'];
@@ -17476,18 +17834,18 @@ class Input$station_to_station_group_aggregate_order_by {
               (l$sum as Map<String, dynamic>));
     }
     if (data.containsKey('var_pop')) {
-      final l$var_pop = data['var_pop'];
-      result$data['var_pop'] = l$var_pop == null
+      final l$varPop = data['var_pop'];
+      result$data['var_pop'] = l$varPop == null
           ? null
           : Input$station_to_station_group_var_pop_order_by.fromJson(
-              (l$var_pop as Map<String, dynamic>));
+              (l$varPop as Map<String, dynamic>));
     }
     if (data.containsKey('var_samp')) {
-      final l$var_samp = data['var_samp'];
-      result$data['var_samp'] = l$var_samp == null
+      final l$varSamp = data['var_samp'];
+      result$data['var_samp'] = l$varSamp == null
           ? null
           : Input$station_to_station_group_var_samp_order_by.fromJson(
-              (l$var_samp as Map<String, dynamic>));
+              (l$varSamp as Map<String, dynamic>));
     }
     if (data.containsKey('variance')) {
       final l$variance = data['variance'];
@@ -17559,24 +17917,24 @@ class Input$station_to_station_group_aggregate_order_by {
       result$data['stddev'] = l$stddev?.toJson();
     }
     if (_$data.containsKey('stddev_pop')) {
-      final l$stddev_pop = stddev_pop;
-      result$data['stddev_pop'] = l$stddev_pop?.toJson();
+      final l$stddevPop = stddev_pop;
+      result$data['stddev_pop'] = l$stddevPop?.toJson();
     }
     if (_$data.containsKey('stddev_samp')) {
-      final l$stddev_samp = stddev_samp;
-      result$data['stddev_samp'] = l$stddev_samp?.toJson();
+      final l$stddevSamp = stddev_samp;
+      result$data['stddev_samp'] = l$stddevSamp?.toJson();
     }
     if (_$data.containsKey('sum')) {
       final l$sum = sum;
       result$data['sum'] = l$sum?.toJson();
     }
     if (_$data.containsKey('var_pop')) {
-      final l$var_pop = var_pop;
-      result$data['var_pop'] = l$var_pop?.toJson();
+      final l$varPop = var_pop;
+      result$data['var_pop'] = l$varPop?.toJson();
     }
     if (_$data.containsKey('var_samp')) {
-      final l$var_samp = var_samp;
-      result$data['var_samp'] = l$var_samp?.toJson();
+      final l$varSamp = var_samp;
+      result$data['var_samp'] = l$varSamp?.toJson();
     }
     if (_$data.containsKey('variance')) {
       final l$variance = variance;
@@ -17598,7 +17956,7 @@ class Input$station_to_station_group_aggregate_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$station_to_station_group_aggregate_order_by) ||
+    if (other is! Input$station_to_station_group_aggregate_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -17642,22 +18000,22 @@ class Input$station_to_station_group_aggregate_order_by {
     if (l$stddev != lOther$stddev) {
       return false;
     }
-    final l$stddev_pop = stddev_pop;
-    final lOther$stddev_pop = other.stddev_pop;
+    final l$stddevPop = stddev_pop;
+    final lother$stddevPop = other.stddev_pop;
     if (_$data.containsKey('stddev_pop') !=
         other._$data.containsKey('stddev_pop')) {
       return false;
     }
-    if (l$stddev_pop != lOther$stddev_pop) {
+    if (l$stddevPop != lother$stddevPop) {
       return false;
     }
-    final l$stddev_samp = stddev_samp;
-    final lOther$stddev_samp = other.stddev_samp;
+    final l$stddevSamp = stddev_samp;
+    final lother$stddevSamp = other.stddev_samp;
     if (_$data.containsKey('stddev_samp') !=
         other._$data.containsKey('stddev_samp')) {
       return false;
     }
-    if (l$stddev_samp != lOther$stddev_samp) {
+    if (l$stddevSamp != lother$stddevSamp) {
       return false;
     }
     final l$sum = sum;
@@ -17668,21 +18026,21 @@ class Input$station_to_station_group_aggregate_order_by {
     if (l$sum != lOther$sum) {
       return false;
     }
-    final l$var_pop = var_pop;
-    final lOther$var_pop = other.var_pop;
+    final l$varPop = var_pop;
+    final lother$varPop = other.var_pop;
     if (_$data.containsKey('var_pop') != other._$data.containsKey('var_pop')) {
       return false;
     }
-    if (l$var_pop != lOther$var_pop) {
+    if (l$varPop != lother$varPop) {
       return false;
     }
-    final l$var_samp = var_samp;
-    final lOther$var_samp = other.var_samp;
+    final l$varSamp = var_samp;
+    final lother$varSamp = other.var_samp;
     if (_$data.containsKey('var_samp') !=
         other._$data.containsKey('var_samp')) {
       return false;
     }
-    if (l$var_samp != lOther$var_samp) {
+    if (l$varSamp != lother$varSamp) {
       return false;
     }
     final l$variance = variance;
@@ -17704,11 +18062,11 @@ class Input$station_to_station_group_aggregate_order_by {
     final l$max = max;
     final l$min = min;
     final l$stddev = stddev;
-    final l$stddev_pop = stddev_pop;
-    final l$stddev_samp = stddev_samp;
+    final l$stddevPop = stddev_pop;
+    final l$stddevSamp = stddev_samp;
     final l$sum = sum;
-    final l$var_pop = var_pop;
-    final l$var_samp = var_samp;
+    final l$varPop = var_pop;
+    final l$varSamp = var_samp;
     final l$variance = variance;
     return Object.hashAll([
       _$data.containsKey('avg') ? l$avg : const {},
@@ -17716,11 +18074,11 @@ class Input$station_to_station_group_aggregate_order_by {
       _$data.containsKey('max') ? l$max : const {},
       _$data.containsKey('min') ? l$min : const {},
       _$data.containsKey('stddev') ? l$stddev : const {},
-      _$data.containsKey('stddev_pop') ? l$stddev_pop : const {},
-      _$data.containsKey('stddev_samp') ? l$stddev_samp : const {},
+      _$data.containsKey('stddev_pop') ? l$stddevPop : const {},
+      _$data.containsKey('stddev_samp') ? l$stddevSamp : const {},
       _$data.containsKey('sum') ? l$sum : const {},
-      _$data.containsKey('var_pop') ? l$var_pop : const {},
-      _$data.containsKey('var_samp') ? l$var_samp : const {},
+      _$data.containsKey('var_pop') ? l$varPop : const {},
+      _$data.containsKey('var_samp') ? l$varSamp : const {},
       _$data.containsKey('variance') ? l$variance : const {},
     ]);
   }
@@ -17778,6 +18136,7 @@ class _CopyWithImpl$Input$station_to_station_group_aggregate_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? avg = _undefined,
     Object? count = _undefined,
@@ -17821,6 +18180,7 @@ class _CopyWithImpl$Input$station_to_station_group_aggregate_order_by<TRes>
               (variance as Input$station_to_station_group_variance_order_by?),
       }));
 
+  @override
   CopyWith$Input$station_to_station_group_avg_order_by<TRes> get avg {
     final local$avg = _instance.avg;
     return local$avg == null
@@ -17830,6 +18190,7 @@ class _CopyWithImpl$Input$station_to_station_group_aggregate_order_by<TRes>
             local$avg, (e) => call(avg: e));
   }
 
+  @override
   CopyWith$Input$station_to_station_group_max_order_by<TRes> get max {
     final local$max = _instance.max;
     return local$max == null
@@ -17839,6 +18200,7 @@ class _CopyWithImpl$Input$station_to_station_group_aggregate_order_by<TRes>
             local$max, (e) => call(max: e));
   }
 
+  @override
   CopyWith$Input$station_to_station_group_min_order_by<TRes> get min {
     final local$min = _instance.min;
     return local$min == null
@@ -17848,6 +18210,7 @@ class _CopyWithImpl$Input$station_to_station_group_aggregate_order_by<TRes>
             local$min, (e) => call(min: e));
   }
 
+  @override
   CopyWith$Input$station_to_station_group_stddev_order_by<TRes> get stddev {
     final local$stddev = _instance.stddev;
     return local$stddev == null
@@ -17857,26 +18220,29 @@ class _CopyWithImpl$Input$station_to_station_group_aggregate_order_by<TRes>
             local$stddev, (e) => call(stddev: e));
   }
 
+  @override
   CopyWith$Input$station_to_station_group_stddev_pop_order_by<TRes>
       get stddev_pop {
-    final local$stddev_pop = _instance.stddev_pop;
-    return local$stddev_pop == null
+    final local$stddevPop = _instance.stddev_pop;
+    return local$stddevPop == null
         ? CopyWith$Input$station_to_station_group_stddev_pop_order_by.stub(
             _then(_instance))
         : CopyWith$Input$station_to_station_group_stddev_pop_order_by(
-            local$stddev_pop, (e) => call(stddev_pop: e));
+            local$stddevPop, (e) => call(stddev_pop: e));
   }
 
+  @override
   CopyWith$Input$station_to_station_group_stddev_samp_order_by<TRes>
       get stddev_samp {
-    final local$stddev_samp = _instance.stddev_samp;
-    return local$stddev_samp == null
+    final local$stddevSamp = _instance.stddev_samp;
+    return local$stddevSamp == null
         ? CopyWith$Input$station_to_station_group_stddev_samp_order_by.stub(
             _then(_instance))
         : CopyWith$Input$station_to_station_group_stddev_samp_order_by(
-            local$stddev_samp, (e) => call(stddev_samp: e));
+            local$stddevSamp, (e) => call(stddev_samp: e));
   }
 
+  @override
   CopyWith$Input$station_to_station_group_sum_order_by<TRes> get sum {
     final local$sum = _instance.sum;
     return local$sum == null
@@ -17886,24 +18252,27 @@ class _CopyWithImpl$Input$station_to_station_group_aggregate_order_by<TRes>
             local$sum, (e) => call(sum: e));
   }
 
+  @override
   CopyWith$Input$station_to_station_group_var_pop_order_by<TRes> get var_pop {
-    final local$var_pop = _instance.var_pop;
-    return local$var_pop == null
+    final local$varPop = _instance.var_pop;
+    return local$varPop == null
         ? CopyWith$Input$station_to_station_group_var_pop_order_by.stub(
             _then(_instance))
         : CopyWith$Input$station_to_station_group_var_pop_order_by(
-            local$var_pop, (e) => call(var_pop: e));
+            local$varPop, (e) => call(var_pop: e));
   }
 
+  @override
   CopyWith$Input$station_to_station_group_var_samp_order_by<TRes> get var_samp {
-    final local$var_samp = _instance.var_samp;
-    return local$var_samp == null
+    final local$varSamp = _instance.var_samp;
+    return local$varSamp == null
         ? CopyWith$Input$station_to_station_group_var_samp_order_by.stub(
             _then(_instance))
         : CopyWith$Input$station_to_station_group_var_samp_order_by(
-            local$var_samp, (e) => call(var_samp: e));
+            local$varSamp, (e) => call(var_samp: e));
   }
 
+  @override
   CopyWith$Input$station_to_station_group_variance_order_by<TRes> get variance {
     final local$variance = _instance.variance;
     return local$variance == null
@@ -17920,8 +18289,9 @@ class _CopyWithStubImpl$Input$station_to_station_group_aggregate_order_by<TRes>
   _CopyWithStubImpl$Input$station_to_station_group_aggregate_order_by(
       this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Input$station_to_station_group_avg_order_by? avg,
     Enum$order_by? count,
@@ -17937,38 +18307,48 @@ class _CopyWithStubImpl$Input$station_to_station_group_aggregate_order_by<TRes>
   }) =>
       _res;
 
+  @override
   CopyWith$Input$station_to_station_group_avg_order_by<TRes> get avg =>
       CopyWith$Input$station_to_station_group_avg_order_by.stub(_res);
 
+  @override
   CopyWith$Input$station_to_station_group_max_order_by<TRes> get max =>
       CopyWith$Input$station_to_station_group_max_order_by.stub(_res);
 
+  @override
   CopyWith$Input$station_to_station_group_min_order_by<TRes> get min =>
       CopyWith$Input$station_to_station_group_min_order_by.stub(_res);
 
+  @override
   CopyWith$Input$station_to_station_group_stddev_order_by<TRes> get stddev =>
       CopyWith$Input$station_to_station_group_stddev_order_by.stub(_res);
 
+  @override
   CopyWith$Input$station_to_station_group_stddev_pop_order_by<TRes>
       get stddev_pop =>
           CopyWith$Input$station_to_station_group_stddev_pop_order_by.stub(
               _res);
 
+  @override
   CopyWith$Input$station_to_station_group_stddev_samp_order_by<TRes>
       get stddev_samp =>
           CopyWith$Input$station_to_station_group_stddev_samp_order_by.stub(
               _res);
 
+  @override
   CopyWith$Input$station_to_station_group_sum_order_by<TRes> get sum =>
       CopyWith$Input$station_to_station_group_sum_order_by.stub(_res);
 
+  @override
   CopyWith$Input$station_to_station_group_var_pop_order_by<TRes> get var_pop =>
       CopyWith$Input$station_to_station_group_var_pop_order_by.stub(_res);
 
+  @override
   CopyWith$Input$station_to_station_group_var_samp_order_by<TRes>
       get var_samp =>
           CopyWith$Input$station_to_station_group_var_samp_order_by.stub(_res);
 
+  @override
   CopyWith$Input$station_to_station_group_variance_order_by<TRes>
       get variance =>
           CopyWith$Input$station_to_station_group_variance_order_by.stub(_res);
@@ -17994,10 +18374,10 @@ class Input$station_to_station_group_avg_order_by {
       Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
     if (data.containsKey('group_id')) {
-      final l$group_id = data['group_id'];
-      result$data['group_id'] = l$group_id == null
+      final l$groupId = data['group_id'];
+      result$data['group_id'] = l$groupId == null
           ? null
-          : fromJson$Enum$order_by((l$group_id as String));
+          : fromJson$Enum$order_by((l$groupId as String));
     }
     if (data.containsKey('id')) {
       final l$id = data['id'];
@@ -18010,10 +18390,10 @@ class Input$station_to_station_group_avg_order_by {
           l$order == null ? null : fromJson$Enum$order_by((l$order as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     return Input$station_to_station_group_avg_order_by._(result$data);
   }
@@ -18031,9 +18411,9 @@ class Input$station_to_station_group_avg_order_by {
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
     if (_$data.containsKey('group_id')) {
-      final l$group_id = group_id;
+      final l$groupId = group_id;
       result$data['group_id'] =
-          l$group_id == null ? null : toJson$Enum$order_by(l$group_id);
+          l$groupId == null ? null : toJson$Enum$order_by(l$groupId);
     }
     if (_$data.containsKey('id')) {
       final l$id = id;
@@ -18045,9 +18425,9 @@ class Input$station_to_station_group_avg_order_by {
           l$order == null ? null : toJson$Enum$order_by(l$order);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     return result$data;
   }
@@ -18064,17 +18444,17 @@ class Input$station_to_station_group_avg_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$station_to_station_group_avg_order_by) ||
+    if (other is! Input$station_to_station_group_avg_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$group_id = group_id;
-    final lOther$group_id = other.group_id;
+    final l$groupId = group_id;
+    final lother$groupId = other.group_id;
     if (_$data.containsKey('group_id') !=
         other._$data.containsKey('group_id')) {
       return false;
     }
-    if (l$group_id != lOther$group_id) {
+    if (l$groupId != lother$groupId) {
       return false;
     }
     final l$id = id;
@@ -18093,13 +18473,13 @@ class Input$station_to_station_group_avg_order_by {
     if (l$order != lOther$order) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -18107,15 +18487,15 @@ class Input$station_to_station_group_avg_order_by {
 
   @override
   int get hashCode {
-    final l$group_id = group_id;
+    final l$groupId = group_id;
     final l$id = id;
     final l$order = order;
-    final l$station_id = station_id;
+    final l$stationId = station_id;
     return Object.hashAll([
-      _$data.containsKey('group_id') ? l$group_id : const {},
+      _$data.containsKey('group_id') ? l$groupId : const {},
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('order') ? l$order : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -18150,6 +18530,7 @@ class _CopyWithImpl$Input$station_to_station_group_avg_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? group_id = _undefined,
     Object? id = _undefined,
@@ -18170,8 +18551,9 @@ class _CopyWithStubImpl$Input$station_to_station_group_avg_order_by<TRes>
     implements CopyWith$Input$station_to_station_group_avg_order_by<TRes> {
   _CopyWithStubImpl$Input$station_to_station_group_avg_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? group_id,
     Enum$order_by? id,
@@ -18211,22 +18593,22 @@ class Input$station_to_station_group_bool_exp {
       Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
     if (data.containsKey('_and')) {
-      final l$$_and = data['_and'];
-      result$data['_and'] = (l$$_and as List<dynamic>?)
+      final l$$And = data['_and'];
+      result$data['_and'] = (l$$And as List<dynamic>?)
           ?.map((e) => Input$station_to_station_group_bool_exp.fromJson(
               (e as Map<String, dynamic>)))
           .toList();
     }
     if (data.containsKey('_not')) {
-      final l$$_not = data['_not'];
-      result$data['_not'] = l$$_not == null
+      final l$$Not = data['_not'];
+      result$data['_not'] = l$$Not == null
           ? null
           : Input$station_to_station_group_bool_exp.fromJson(
-              (l$$_not as Map<String, dynamic>));
+              (l$$Not as Map<String, dynamic>));
     }
     if (data.containsKey('_or')) {
-      final l$$_or = data['_or'];
-      result$data['_or'] = (l$$_or as List<dynamic>?)
+      final l$$Or = data['_or'];
+      result$data['_or'] = (l$$Or as List<dynamic>?)
           ?.map((e) => Input$station_to_station_group_bool_exp.fromJson(
               (e as Map<String, dynamic>)))
           .toList();
@@ -18239,11 +18621,11 @@ class Input$station_to_station_group_bool_exp {
               (l$group as Map<String, dynamic>));
     }
     if (data.containsKey('group_id')) {
-      final l$group_id = data['group_id'];
-      result$data['group_id'] = l$group_id == null
+      final l$groupId = data['group_id'];
+      result$data['group_id'] = l$groupId == null
           ? null
           : Input$Int_comparison_exp.fromJson(
-              (l$group_id as Map<String, dynamic>));
+              (l$groupId as Map<String, dynamic>));
     }
     if (data.containsKey('id')) {
       final l$id = data['id'];
@@ -18266,11 +18648,11 @@ class Input$station_to_station_group_bool_exp {
               (l$station as Map<String, dynamic>));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
           : Input$Int_comparison_exp.fromJson(
-              (l$station_id as Map<String, dynamic>));
+              (l$stationId as Map<String, dynamic>));
     }
     return Input$station_to_station_group_bool_exp._(result$data);
   }
@@ -18307,24 +18689,24 @@ class Input$station_to_station_group_bool_exp {
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
     if (_$data.containsKey('_and')) {
-      final l$$_and = $_and;
-      result$data['_and'] = l$$_and?.map((e) => e.toJson()).toList();
+      final l$$And = $_and;
+      result$data['_and'] = l$$And?.map((e) => e.toJson()).toList();
     }
     if (_$data.containsKey('_not')) {
-      final l$$_not = $_not;
-      result$data['_not'] = l$$_not?.toJson();
+      final l$$Not = $_not;
+      result$data['_not'] = l$$Not?.toJson();
     }
     if (_$data.containsKey('_or')) {
-      final l$$_or = $_or;
-      result$data['_or'] = l$$_or?.map((e) => e.toJson()).toList();
+      final l$$Or = $_or;
+      result$data['_or'] = l$$Or?.map((e) => e.toJson()).toList();
     }
     if (_$data.containsKey('group')) {
       final l$group = group;
       result$data['group'] = l$group?.toJson();
     }
     if (_$data.containsKey('group_id')) {
-      final l$group_id = group_id;
-      result$data['group_id'] = l$group_id?.toJson();
+      final l$groupId = group_id;
+      result$data['group_id'] = l$groupId?.toJson();
     }
     if (_$data.containsKey('id')) {
       final l$id = id;
@@ -18339,8 +18721,8 @@ class Input$station_to_station_group_bool_exp {
       result$data['station'] = l$station?.toJson();
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
-      result$data['station_id'] = l$station_id?.toJson();
+      final l$stationId = station_id;
+      result$data['station_id'] = l$stationId?.toJson();
     }
     return result$data;
   }
@@ -18357,54 +18739,54 @@ class Input$station_to_station_group_bool_exp {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$station_to_station_group_bool_exp) ||
+    if (other is! Input$station_to_station_group_bool_exp ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$$_and = $_and;
-    final lOther$$_and = other.$_and;
+    final l$$And = $_and;
+    final lother$$And = other.$_and;
     if (_$data.containsKey('_and') != other._$data.containsKey('_and')) {
       return false;
     }
-    if (l$$_and != null && lOther$$_and != null) {
-      if (l$$_and.length != lOther$$_and.length) {
+    if (l$$And != null && lother$$And != null) {
+      if (l$$And.length != lother$$And.length) {
         return false;
       }
-      for (int i = 0; i < l$$_and.length; i++) {
-        final l$$_and$entry = l$$_and[i];
-        final lOther$$_and$entry = lOther$$_and[i];
-        if (l$$_and$entry != lOther$$_and$entry) {
+      for (int i = 0; i < l$$And.length; i++) {
+        final l$$And$entry = l$$And[i];
+        final lother$$And$entry = lother$$And[i];
+        if (l$$And$entry != lother$$And$entry) {
           return false;
         }
       }
-    } else if (l$$_and != lOther$$_and) {
+    } else if (l$$And != lother$$And) {
       return false;
     }
-    final l$$_not = $_not;
-    final lOther$$_not = other.$_not;
+    final l$$Not = $_not;
+    final lother$$Not = other.$_not;
     if (_$data.containsKey('_not') != other._$data.containsKey('_not')) {
       return false;
     }
-    if (l$$_not != lOther$$_not) {
+    if (l$$Not != lother$$Not) {
       return false;
     }
-    final l$$_or = $_or;
-    final lOther$$_or = other.$_or;
+    final l$$Or = $_or;
+    final lother$$Or = other.$_or;
     if (_$data.containsKey('_or') != other._$data.containsKey('_or')) {
       return false;
     }
-    if (l$$_or != null && lOther$$_or != null) {
-      if (l$$_or.length != lOther$$_or.length) {
+    if (l$$Or != null && lother$$Or != null) {
+      if (l$$Or.length != lother$$Or.length) {
         return false;
       }
-      for (int i = 0; i < l$$_or.length; i++) {
-        final l$$_or$entry = l$$_or[i];
-        final lOther$$_or$entry = lOther$$_or[i];
-        if (l$$_or$entry != lOther$$_or$entry) {
+      for (int i = 0; i < l$$Or.length; i++) {
+        final l$$Or$entry = l$$Or[i];
+        final lother$$Or$entry = lother$$Or[i];
+        if (l$$Or$entry != lother$$Or$entry) {
           return false;
         }
       }
-    } else if (l$$_or != lOther$$_or) {
+    } else if (l$$Or != lother$$Or) {
       return false;
     }
     final l$group = group;
@@ -18415,13 +18797,13 @@ class Input$station_to_station_group_bool_exp {
     if (l$group != lOther$group) {
       return false;
     }
-    final l$group_id = group_id;
-    final lOther$group_id = other.group_id;
+    final l$groupId = group_id;
+    final lother$groupId = other.group_id;
     if (_$data.containsKey('group_id') !=
         other._$data.containsKey('group_id')) {
       return false;
     }
-    if (l$group_id != lOther$group_id) {
+    if (l$groupId != lother$groupId) {
       return false;
     }
     final l$id = id;
@@ -18448,13 +18830,13 @@ class Input$station_to_station_group_bool_exp {
     if (l$station != lOther$station) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -18462,33 +18844,33 @@ class Input$station_to_station_group_bool_exp {
 
   @override
   int get hashCode {
-    final l$$_and = $_and;
-    final l$$_not = $_not;
-    final l$$_or = $_or;
+    final l$$And = $_and;
+    final l$$Not = $_not;
+    final l$$Or = $_or;
     final l$group = group;
-    final l$group_id = group_id;
+    final l$groupId = group_id;
     final l$id = id;
     final l$order = order;
     final l$station = station;
-    final l$station_id = station_id;
+    final l$stationId = station_id;
     return Object.hashAll([
       _$data.containsKey('_and')
-          ? l$$_and == null
+          ? l$$And == null
               ? null
-              : Object.hashAll(l$$_and.map((v) => v))
+              : Object.hashAll(l$$And.map((v) => v))
           : const {},
-      _$data.containsKey('_not') ? l$$_not : const {},
+      _$data.containsKey('_not') ? l$$Not : const {},
       _$data.containsKey('_or')
-          ? l$$_or == null
+          ? l$$Or == null
               ? null
-              : Object.hashAll(l$$_or.map((v) => v))
+              : Object.hashAll(l$$Or.map((v) => v))
           : const {},
       _$data.containsKey('group') ? l$group : const {},
-      _$data.containsKey('group_id') ? l$group_id : const {},
+      _$data.containsKey('group_id') ? l$groupId : const {},
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('order') ? l$order : const {},
       _$data.containsKey('station') ? l$station : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -18518,14 +18900,14 @@ abstract class CopyWith$Input$station_to_station_group_bool_exp<TRes> {
               Iterable<
                   CopyWith$Input$station_to_station_group_bool_exp<
                       Input$station_to_station_group_bool_exp>>?)
-          _fn);
+          fn);
   CopyWith$Input$station_to_station_group_bool_exp<TRes> get $_not;
   TRes $_or(
       Iterable<Input$station_to_station_group_bool_exp>? Function(
               Iterable<
                   CopyWith$Input$station_to_station_group_bool_exp<
                       Input$station_to_station_group_bool_exp>>?)
-          _fn);
+          fn);
   CopyWith$Input$station_groups_bool_exp<TRes> get group;
   CopyWith$Input$Int_comparison_exp<TRes> get group_id;
   CopyWith$Input$Int_comparison_exp<TRes> get id;
@@ -18547,6 +18929,7 @@ class _CopyWithImpl$Input$station_to_station_group_bool_exp<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? $_and = _undefined,
     Object? $_not = _undefined,
@@ -18578,41 +18961,45 @@ class _CopyWithImpl$Input$station_to_station_group_bool_exp<TRes>
           'station_id': (station_id as Input$Int_comparison_exp?),
       }));
 
+  @override
   TRes $_and(
           Iterable<Input$station_to_station_group_bool_exp>? Function(
                   Iterable<
                       CopyWith$Input$station_to_station_group_bool_exp<
                           Input$station_to_station_group_bool_exp>>?)
-              _fn) =>
+              fn) =>
       call(
-          $_and: _fn(_instance.$_and
+          $_and: fn(_instance.$_and
               ?.map((e) => CopyWith$Input$station_to_station_group_bool_exp(
                     e,
                     (i) => i,
                   )))?.toList());
 
+  @override
   CopyWith$Input$station_to_station_group_bool_exp<TRes> get $_not {
-    final local$$_not = _instance.$_not;
-    return local$$_not == null
+    final local$$Not = _instance.$_not;
+    return local$$Not == null
         ? CopyWith$Input$station_to_station_group_bool_exp.stub(
             _then(_instance))
         : CopyWith$Input$station_to_station_group_bool_exp(
-            local$$_not, (e) => call($_not: e));
+            local$$Not, (e) => call($_not: e));
   }
 
+  @override
   TRes $_or(
           Iterable<Input$station_to_station_group_bool_exp>? Function(
                   Iterable<
                       CopyWith$Input$station_to_station_group_bool_exp<
                           Input$station_to_station_group_bool_exp>>?)
-              _fn) =>
+              fn) =>
       call(
-          $_or: _fn(_instance.$_or
+          $_or: fn(_instance.$_or
               ?.map((e) => CopyWith$Input$station_to_station_group_bool_exp(
                     e,
                     (i) => i,
                   )))?.toList());
 
+  @override
   CopyWith$Input$station_groups_bool_exp<TRes> get group {
     final local$group = _instance.group;
     return local$group == null
@@ -18621,14 +19008,16 @@ class _CopyWithImpl$Input$station_to_station_group_bool_exp<TRes>
             local$group, (e) => call(group: e));
   }
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get group_id {
-    final local$group_id = _instance.group_id;
-    return local$group_id == null
+    final local$groupId = _instance.group_id;
+    return local$groupId == null
         ? CopyWith$Input$Int_comparison_exp.stub(_then(_instance))
         : CopyWith$Input$Int_comparison_exp(
-            local$group_id, (e) => call(group_id: e));
+            local$groupId, (e) => call(group_id: e));
   }
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get id {
     final local$id = _instance.id;
     return local$id == null
@@ -18636,6 +19025,7 @@ class _CopyWithImpl$Input$station_to_station_group_bool_exp<TRes>
         : CopyWith$Input$Int_comparison_exp(local$id, (e) => call(id: e));
   }
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get order {
     final local$order = _instance.order;
     return local$order == null
@@ -18643,6 +19033,7 @@ class _CopyWithImpl$Input$station_to_station_group_bool_exp<TRes>
         : CopyWith$Input$Int_comparison_exp(local$order, (e) => call(order: e));
   }
 
+  @override
   CopyWith$Input$stations_bool_exp<TRes> get station {
     final local$station = _instance.station;
     return local$station == null
@@ -18651,12 +19042,13 @@ class _CopyWithImpl$Input$station_to_station_group_bool_exp<TRes>
             local$station, (e) => call(station: e));
   }
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get station_id {
-    final local$station_id = _instance.station_id;
-    return local$station_id == null
+    final local$stationId = _instance.station_id;
+    return local$stationId == null
         ? CopyWith$Input$Int_comparison_exp.stub(_then(_instance))
         : CopyWith$Input$Int_comparison_exp(
-            local$station_id, (e) => call(station_id: e));
+            local$stationId, (e) => call(station_id: e));
   }
 }
 
@@ -18664,8 +19056,9 @@ class _CopyWithStubImpl$Input$station_to_station_group_bool_exp<TRes>
     implements CopyWith$Input$station_to_station_group_bool_exp<TRes> {
   _CopyWithStubImpl$Input$station_to_station_group_bool_exp(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     List<Input$station_to_station_group_bool_exp>? $_and,
     Input$station_to_station_group_bool_exp? $_not,
@@ -18679,28 +19072,37 @@ class _CopyWithStubImpl$Input$station_to_station_group_bool_exp<TRes>
   }) =>
       _res;
 
-  $_and(_fn) => _res;
+  @override
+  $_and(fn) => _res;
 
+  @override
   CopyWith$Input$station_to_station_group_bool_exp<TRes> get $_not =>
       CopyWith$Input$station_to_station_group_bool_exp.stub(_res);
 
-  $_or(_fn) => _res;
+  @override
+  $_or(fn) => _res;
 
+  @override
   CopyWith$Input$station_groups_bool_exp<TRes> get group =>
       CopyWith$Input$station_groups_bool_exp.stub(_res);
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get group_id =>
       CopyWith$Input$Int_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get id =>
       CopyWith$Input$Int_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get order =>
       CopyWith$Input$Int_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$stations_bool_exp<TRes> get station =>
       CopyWith$Input$stations_bool_exp.stub(_res);
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get station_id =>
       CopyWith$Input$Int_comparison_exp.stub(_res);
 }
@@ -18725,10 +19127,10 @@ class Input$station_to_station_group_max_order_by {
       Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
     if (data.containsKey('group_id')) {
-      final l$group_id = data['group_id'];
-      result$data['group_id'] = l$group_id == null
+      final l$groupId = data['group_id'];
+      result$data['group_id'] = l$groupId == null
           ? null
-          : fromJson$Enum$order_by((l$group_id as String));
+          : fromJson$Enum$order_by((l$groupId as String));
     }
     if (data.containsKey('id')) {
       final l$id = data['id'];
@@ -18741,10 +19143,10 @@ class Input$station_to_station_group_max_order_by {
           l$order == null ? null : fromJson$Enum$order_by((l$order as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     return Input$station_to_station_group_max_order_by._(result$data);
   }
@@ -18762,9 +19164,9 @@ class Input$station_to_station_group_max_order_by {
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
     if (_$data.containsKey('group_id')) {
-      final l$group_id = group_id;
+      final l$groupId = group_id;
       result$data['group_id'] =
-          l$group_id == null ? null : toJson$Enum$order_by(l$group_id);
+          l$groupId == null ? null : toJson$Enum$order_by(l$groupId);
     }
     if (_$data.containsKey('id')) {
       final l$id = id;
@@ -18776,9 +19178,9 @@ class Input$station_to_station_group_max_order_by {
           l$order == null ? null : toJson$Enum$order_by(l$order);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     return result$data;
   }
@@ -18795,17 +19197,17 @@ class Input$station_to_station_group_max_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$station_to_station_group_max_order_by) ||
+    if (other is! Input$station_to_station_group_max_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$group_id = group_id;
-    final lOther$group_id = other.group_id;
+    final l$groupId = group_id;
+    final lother$groupId = other.group_id;
     if (_$data.containsKey('group_id') !=
         other._$data.containsKey('group_id')) {
       return false;
     }
-    if (l$group_id != lOther$group_id) {
+    if (l$groupId != lother$groupId) {
       return false;
     }
     final l$id = id;
@@ -18824,13 +19226,13 @@ class Input$station_to_station_group_max_order_by {
     if (l$order != lOther$order) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -18838,15 +19240,15 @@ class Input$station_to_station_group_max_order_by {
 
   @override
   int get hashCode {
-    final l$group_id = group_id;
+    final l$groupId = group_id;
     final l$id = id;
     final l$order = order;
-    final l$station_id = station_id;
+    final l$stationId = station_id;
     return Object.hashAll([
-      _$data.containsKey('group_id') ? l$group_id : const {},
+      _$data.containsKey('group_id') ? l$groupId : const {},
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('order') ? l$order : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -18881,6 +19283,7 @@ class _CopyWithImpl$Input$station_to_station_group_max_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? group_id = _undefined,
     Object? id = _undefined,
@@ -18901,8 +19304,9 @@ class _CopyWithStubImpl$Input$station_to_station_group_max_order_by<TRes>
     implements CopyWith$Input$station_to_station_group_max_order_by<TRes> {
   _CopyWithStubImpl$Input$station_to_station_group_max_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? group_id,
     Enum$order_by? id,
@@ -18932,10 +19336,10 @@ class Input$station_to_station_group_min_order_by {
       Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
     if (data.containsKey('group_id')) {
-      final l$group_id = data['group_id'];
-      result$data['group_id'] = l$group_id == null
+      final l$groupId = data['group_id'];
+      result$data['group_id'] = l$groupId == null
           ? null
-          : fromJson$Enum$order_by((l$group_id as String));
+          : fromJson$Enum$order_by((l$groupId as String));
     }
     if (data.containsKey('id')) {
       final l$id = data['id'];
@@ -18948,10 +19352,10 @@ class Input$station_to_station_group_min_order_by {
           l$order == null ? null : fromJson$Enum$order_by((l$order as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     return Input$station_to_station_group_min_order_by._(result$data);
   }
@@ -18969,9 +19373,9 @@ class Input$station_to_station_group_min_order_by {
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
     if (_$data.containsKey('group_id')) {
-      final l$group_id = group_id;
+      final l$groupId = group_id;
       result$data['group_id'] =
-          l$group_id == null ? null : toJson$Enum$order_by(l$group_id);
+          l$groupId == null ? null : toJson$Enum$order_by(l$groupId);
     }
     if (_$data.containsKey('id')) {
       final l$id = id;
@@ -18983,9 +19387,9 @@ class Input$station_to_station_group_min_order_by {
           l$order == null ? null : toJson$Enum$order_by(l$order);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     return result$data;
   }
@@ -19002,17 +19406,17 @@ class Input$station_to_station_group_min_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$station_to_station_group_min_order_by) ||
+    if (other is! Input$station_to_station_group_min_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$group_id = group_id;
-    final lOther$group_id = other.group_id;
+    final l$groupId = group_id;
+    final lother$groupId = other.group_id;
     if (_$data.containsKey('group_id') !=
         other._$data.containsKey('group_id')) {
       return false;
     }
-    if (l$group_id != lOther$group_id) {
+    if (l$groupId != lother$groupId) {
       return false;
     }
     final l$id = id;
@@ -19031,13 +19435,13 @@ class Input$station_to_station_group_min_order_by {
     if (l$order != lOther$order) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -19045,15 +19449,15 @@ class Input$station_to_station_group_min_order_by {
 
   @override
   int get hashCode {
-    final l$group_id = group_id;
+    final l$groupId = group_id;
     final l$id = id;
     final l$order = order;
-    final l$station_id = station_id;
+    final l$stationId = station_id;
     return Object.hashAll([
-      _$data.containsKey('group_id') ? l$group_id : const {},
+      _$data.containsKey('group_id') ? l$groupId : const {},
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('order') ? l$order : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -19088,6 +19492,7 @@ class _CopyWithImpl$Input$station_to_station_group_min_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? group_id = _undefined,
     Object? id = _undefined,
@@ -19108,8 +19513,9 @@ class _CopyWithStubImpl$Input$station_to_station_group_min_order_by<TRes>
     implements CopyWith$Input$station_to_station_group_min_order_by<TRes> {
   _CopyWithStubImpl$Input$station_to_station_group_min_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? group_id,
     Enum$order_by? id,
@@ -19150,10 +19556,10 @@ class Input$station_to_station_group_order_by {
               (l$group as Map<String, dynamic>));
     }
     if (data.containsKey('group_id')) {
-      final l$group_id = data['group_id'];
-      result$data['group_id'] = l$group_id == null
+      final l$groupId = data['group_id'];
+      result$data['group_id'] = l$groupId == null
           ? null
-          : fromJson$Enum$order_by((l$group_id as String));
+          : fromJson$Enum$order_by((l$groupId as String));
     }
     if (data.containsKey('id')) {
       final l$id = data['id'];
@@ -19173,10 +19579,10 @@ class Input$station_to_station_group_order_by {
               (l$station as Map<String, dynamic>));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     return Input$station_to_station_group_order_by._(result$data);
   }
@@ -19204,9 +19610,9 @@ class Input$station_to_station_group_order_by {
       result$data['group'] = l$group?.toJson();
     }
     if (_$data.containsKey('group_id')) {
-      final l$group_id = group_id;
+      final l$groupId = group_id;
       result$data['group_id'] =
-          l$group_id == null ? null : toJson$Enum$order_by(l$group_id);
+          l$groupId == null ? null : toJson$Enum$order_by(l$groupId);
     }
     if (_$data.containsKey('id')) {
       final l$id = id;
@@ -19222,9 +19628,9 @@ class Input$station_to_station_group_order_by {
       result$data['station'] = l$station?.toJson();
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     return result$data;
   }
@@ -19241,7 +19647,7 @@ class Input$station_to_station_group_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$station_to_station_group_order_by) ||
+    if (other is! Input$station_to_station_group_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -19253,13 +19659,13 @@ class Input$station_to_station_group_order_by {
     if (l$group != lOther$group) {
       return false;
     }
-    final l$group_id = group_id;
-    final lOther$group_id = other.group_id;
+    final l$groupId = group_id;
+    final lother$groupId = other.group_id;
     if (_$data.containsKey('group_id') !=
         other._$data.containsKey('group_id')) {
       return false;
     }
-    if (l$group_id != lOther$group_id) {
+    if (l$groupId != lother$groupId) {
       return false;
     }
     final l$id = id;
@@ -19286,13 +19692,13 @@ class Input$station_to_station_group_order_by {
     if (l$station != lOther$station) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -19301,18 +19707,18 @@ class Input$station_to_station_group_order_by {
   @override
   int get hashCode {
     final l$group = group;
-    final l$group_id = group_id;
+    final l$groupId = group_id;
     final l$id = id;
     final l$order = order;
     final l$station = station;
-    final l$station_id = station_id;
+    final l$stationId = station_id;
     return Object.hashAll([
       _$data.containsKey('group') ? l$group : const {},
-      _$data.containsKey('group_id') ? l$group_id : const {},
+      _$data.containsKey('group_id') ? l$groupId : const {},
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('order') ? l$order : const {},
       _$data.containsKey('station') ? l$station : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -19351,6 +19757,7 @@ class _CopyWithImpl$Input$station_to_station_group_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? group = _undefined,
     Object? group_id = _undefined,
@@ -19372,6 +19779,7 @@ class _CopyWithImpl$Input$station_to_station_group_order_by<TRes>
           'station_id': (station_id as Enum$order_by?),
       }));
 
+  @override
   CopyWith$Input$station_groups_order_by<TRes> get group {
     final local$group = _instance.group;
     return local$group == null
@@ -19380,6 +19788,7 @@ class _CopyWithImpl$Input$station_to_station_group_order_by<TRes>
             local$group, (e) => call(group: e));
   }
 
+  @override
   CopyWith$Input$stations_order_by<TRes> get station {
     final local$station = _instance.station;
     return local$station == null
@@ -19393,8 +19802,9 @@ class _CopyWithStubImpl$Input$station_to_station_group_order_by<TRes>
     implements CopyWith$Input$station_to_station_group_order_by<TRes> {
   _CopyWithStubImpl$Input$station_to_station_group_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Input$station_groups_order_by? group,
     Enum$order_by? group_id,
@@ -19405,9 +19815,11 @@ class _CopyWithStubImpl$Input$station_to_station_group_order_by<TRes>
   }) =>
       _res;
 
+  @override
   CopyWith$Input$station_groups_order_by<TRes> get group =>
       CopyWith$Input$station_groups_order_by.stub(_res);
 
+  @override
   CopyWith$Input$stations_order_by<TRes> get station =>
       CopyWith$Input$stations_order_by.stub(_res);
 }
@@ -19432,10 +19844,10 @@ class Input$station_to_station_group_stddev_order_by {
       Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
     if (data.containsKey('group_id')) {
-      final l$group_id = data['group_id'];
-      result$data['group_id'] = l$group_id == null
+      final l$groupId = data['group_id'];
+      result$data['group_id'] = l$groupId == null
           ? null
-          : fromJson$Enum$order_by((l$group_id as String));
+          : fromJson$Enum$order_by((l$groupId as String));
     }
     if (data.containsKey('id')) {
       final l$id = data['id'];
@@ -19448,10 +19860,10 @@ class Input$station_to_station_group_stddev_order_by {
           l$order == null ? null : fromJson$Enum$order_by((l$order as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     return Input$station_to_station_group_stddev_order_by._(result$data);
   }
@@ -19469,9 +19881,9 @@ class Input$station_to_station_group_stddev_order_by {
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
     if (_$data.containsKey('group_id')) {
-      final l$group_id = group_id;
+      final l$groupId = group_id;
       result$data['group_id'] =
-          l$group_id == null ? null : toJson$Enum$order_by(l$group_id);
+          l$groupId == null ? null : toJson$Enum$order_by(l$groupId);
     }
     if (_$data.containsKey('id')) {
       final l$id = id;
@@ -19483,9 +19895,9 @@ class Input$station_to_station_group_stddev_order_by {
           l$order == null ? null : toJson$Enum$order_by(l$order);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     return result$data;
   }
@@ -19502,17 +19914,17 @@ class Input$station_to_station_group_stddev_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$station_to_station_group_stddev_order_by) ||
+    if (other is! Input$station_to_station_group_stddev_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$group_id = group_id;
-    final lOther$group_id = other.group_id;
+    final l$groupId = group_id;
+    final lother$groupId = other.group_id;
     if (_$data.containsKey('group_id') !=
         other._$data.containsKey('group_id')) {
       return false;
     }
-    if (l$group_id != lOther$group_id) {
+    if (l$groupId != lother$groupId) {
       return false;
     }
     final l$id = id;
@@ -19531,13 +19943,13 @@ class Input$station_to_station_group_stddev_order_by {
     if (l$order != lOther$order) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -19545,15 +19957,15 @@ class Input$station_to_station_group_stddev_order_by {
 
   @override
   int get hashCode {
-    final l$group_id = group_id;
+    final l$groupId = group_id;
     final l$id = id;
     final l$order = order;
-    final l$station_id = station_id;
+    final l$stationId = station_id;
     return Object.hashAll([
-      _$data.containsKey('group_id') ? l$group_id : const {},
+      _$data.containsKey('group_id') ? l$groupId : const {},
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('order') ? l$order : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -19589,6 +20001,7 @@ class _CopyWithImpl$Input$station_to_station_group_stddev_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? group_id = _undefined,
     Object? id = _undefined,
@@ -19609,8 +20022,9 @@ class _CopyWithStubImpl$Input$station_to_station_group_stddev_order_by<TRes>
     implements CopyWith$Input$station_to_station_group_stddev_order_by<TRes> {
   _CopyWithStubImpl$Input$station_to_station_group_stddev_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? group_id,
     Enum$order_by? id,
@@ -19640,10 +20054,10 @@ class Input$station_to_station_group_stddev_pop_order_by {
       Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
     if (data.containsKey('group_id')) {
-      final l$group_id = data['group_id'];
-      result$data['group_id'] = l$group_id == null
+      final l$groupId = data['group_id'];
+      result$data['group_id'] = l$groupId == null
           ? null
-          : fromJson$Enum$order_by((l$group_id as String));
+          : fromJson$Enum$order_by((l$groupId as String));
     }
     if (data.containsKey('id')) {
       final l$id = data['id'];
@@ -19656,10 +20070,10 @@ class Input$station_to_station_group_stddev_pop_order_by {
           l$order == null ? null : fromJson$Enum$order_by((l$order as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     return Input$station_to_station_group_stddev_pop_order_by._(result$data);
   }
@@ -19677,9 +20091,9 @@ class Input$station_to_station_group_stddev_pop_order_by {
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
     if (_$data.containsKey('group_id')) {
-      final l$group_id = group_id;
+      final l$groupId = group_id;
       result$data['group_id'] =
-          l$group_id == null ? null : toJson$Enum$order_by(l$group_id);
+          l$groupId == null ? null : toJson$Enum$order_by(l$groupId);
     }
     if (_$data.containsKey('id')) {
       final l$id = id;
@@ -19691,9 +20105,9 @@ class Input$station_to_station_group_stddev_pop_order_by {
           l$order == null ? null : toJson$Enum$order_by(l$order);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     return result$data;
   }
@@ -19711,17 +20125,17 @@ class Input$station_to_station_group_stddev_pop_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$station_to_station_group_stddev_pop_order_by) ||
+    if (other is! Input$station_to_station_group_stddev_pop_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$group_id = group_id;
-    final lOther$group_id = other.group_id;
+    final l$groupId = group_id;
+    final lother$groupId = other.group_id;
     if (_$data.containsKey('group_id') !=
         other._$data.containsKey('group_id')) {
       return false;
     }
-    if (l$group_id != lOther$group_id) {
+    if (l$groupId != lother$groupId) {
       return false;
     }
     final l$id = id;
@@ -19740,13 +20154,13 @@ class Input$station_to_station_group_stddev_pop_order_by {
     if (l$order != lOther$order) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -19754,15 +20168,15 @@ class Input$station_to_station_group_stddev_pop_order_by {
 
   @override
   int get hashCode {
-    final l$group_id = group_id;
+    final l$groupId = group_id;
     final l$id = id;
     final l$order = order;
-    final l$station_id = station_id;
+    final l$stationId = station_id;
     return Object.hashAll([
-      _$data.containsKey('group_id') ? l$group_id : const {},
+      _$data.containsKey('group_id') ? l$groupId : const {},
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('order') ? l$order : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -19800,6 +20214,7 @@ class _CopyWithImpl$Input$station_to_station_group_stddev_pop_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? group_id = _undefined,
     Object? id = _undefined,
@@ -19822,8 +20237,9 @@ class _CopyWithStubImpl$Input$station_to_station_group_stddev_pop_order_by<TRes>
   _CopyWithStubImpl$Input$station_to_station_group_stddev_pop_order_by(
       this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? group_id,
     Enum$order_by? id,
@@ -19853,10 +20269,10 @@ class Input$station_to_station_group_stddev_samp_order_by {
       Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
     if (data.containsKey('group_id')) {
-      final l$group_id = data['group_id'];
-      result$data['group_id'] = l$group_id == null
+      final l$groupId = data['group_id'];
+      result$data['group_id'] = l$groupId == null
           ? null
-          : fromJson$Enum$order_by((l$group_id as String));
+          : fromJson$Enum$order_by((l$groupId as String));
     }
     if (data.containsKey('id')) {
       final l$id = data['id'];
@@ -19869,10 +20285,10 @@ class Input$station_to_station_group_stddev_samp_order_by {
           l$order == null ? null : fromJson$Enum$order_by((l$order as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     return Input$station_to_station_group_stddev_samp_order_by._(result$data);
   }
@@ -19890,9 +20306,9 @@ class Input$station_to_station_group_stddev_samp_order_by {
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
     if (_$data.containsKey('group_id')) {
-      final l$group_id = group_id;
+      final l$groupId = group_id;
       result$data['group_id'] =
-          l$group_id == null ? null : toJson$Enum$order_by(l$group_id);
+          l$groupId == null ? null : toJson$Enum$order_by(l$groupId);
     }
     if (_$data.containsKey('id')) {
       final l$id = id;
@@ -19904,9 +20320,9 @@ class Input$station_to_station_group_stddev_samp_order_by {
           l$order == null ? null : toJson$Enum$order_by(l$order);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     return result$data;
   }
@@ -19924,17 +20340,17 @@ class Input$station_to_station_group_stddev_samp_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$station_to_station_group_stddev_samp_order_by) ||
+    if (other is! Input$station_to_station_group_stddev_samp_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$group_id = group_id;
-    final lOther$group_id = other.group_id;
+    final l$groupId = group_id;
+    final lother$groupId = other.group_id;
     if (_$data.containsKey('group_id') !=
         other._$data.containsKey('group_id')) {
       return false;
     }
-    if (l$group_id != lOther$group_id) {
+    if (l$groupId != lother$groupId) {
       return false;
     }
     final l$id = id;
@@ -19953,13 +20369,13 @@ class Input$station_to_station_group_stddev_samp_order_by {
     if (l$order != lOther$order) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -19967,15 +20383,15 @@ class Input$station_to_station_group_stddev_samp_order_by {
 
   @override
   int get hashCode {
-    final l$group_id = group_id;
+    final l$groupId = group_id;
     final l$id = id;
     final l$order = order;
-    final l$station_id = station_id;
+    final l$stationId = station_id;
     return Object.hashAll([
-      _$data.containsKey('group_id') ? l$group_id : const {},
+      _$data.containsKey('group_id') ? l$groupId : const {},
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('order') ? l$order : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -20014,6 +20430,7 @@ class _CopyWithImpl$Input$station_to_station_group_stddev_samp_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? group_id = _undefined,
     Object? id = _undefined,
@@ -20037,8 +20454,9 @@ class _CopyWithStubImpl$Input$station_to_station_group_stddev_samp_order_by<
   _CopyWithStubImpl$Input$station_to_station_group_stddev_samp_order_by(
       this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? group_id,
     Enum$order_by? id,
@@ -20064,10 +20482,10 @@ class Input$station_to_station_group_stream_cursor_input {
   factory Input$station_to_station_group_stream_cursor_input.fromJson(
       Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
-    final l$initial_value = data['initial_value'];
+    final l$initialValue = data['initial_value'];
     result$data['initial_value'] =
         Input$station_to_station_group_stream_cursor_value_input.fromJson(
-            (l$initial_value as Map<String, dynamic>));
+            (l$initialValue as Map<String, dynamic>));
     if (data.containsKey('ordering')) {
       final l$ordering = data['ordering'];
       result$data['ordering'] = l$ordering == null
@@ -20088,8 +20506,8 @@ class Input$station_to_station_group_stream_cursor_input {
 
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
-    final l$initial_value = initial_value;
-    result$data['initial_value'] = l$initial_value.toJson();
+    final l$initialValue = initial_value;
+    result$data['initial_value'] = l$initialValue.toJson();
     if (_$data.containsKey('ordering')) {
       final l$ordering = ordering;
       result$data['ordering'] =
@@ -20111,13 +20529,13 @@ class Input$station_to_station_group_stream_cursor_input {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$station_to_station_group_stream_cursor_input) ||
+    if (other is! Input$station_to_station_group_stream_cursor_input ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$initial_value = initial_value;
-    final lOther$initial_value = other.initial_value;
-    if (l$initial_value != lOther$initial_value) {
+    final l$initialValue = initial_value;
+    final lother$initialValue = other.initial_value;
+    if (l$initialValue != lother$initialValue) {
       return false;
     }
     final l$ordering = ordering;
@@ -20134,10 +20552,10 @@ class Input$station_to_station_group_stream_cursor_input {
 
   @override
   int get hashCode {
-    final l$initial_value = initial_value;
+    final l$initialValue = initial_value;
     final l$ordering = ordering;
     return Object.hashAll([
-      l$initial_value,
+      l$initialValue,
       _$data.containsKey('ordering') ? l$ordering : const {},
     ]);
   }
@@ -20176,6 +20594,7 @@ class _CopyWithImpl$Input$station_to_station_group_stream_cursor_input<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? initial_value = _undefined,
     Object? ordering = _undefined,
@@ -20189,11 +20608,12 @@ class _CopyWithImpl$Input$station_to_station_group_stream_cursor_input<TRes>
           'ordering': (ordering as Enum$cursor_ordering?),
       }));
 
+  @override
   CopyWith$Input$station_to_station_group_stream_cursor_value_input<TRes>
       get initial_value {
-    final local$initial_value = _instance.initial_value;
+    final local$initialValue = _instance.initial_value;
     return CopyWith$Input$station_to_station_group_stream_cursor_value_input(
-        local$initial_value, (e) => call(initial_value: e));
+        local$initialValue, (e) => call(initial_value: e));
   }
 }
 
@@ -20203,14 +20623,16 @@ class _CopyWithStubImpl$Input$station_to_station_group_stream_cursor_input<TRes>
   _CopyWithStubImpl$Input$station_to_station_group_stream_cursor_input(
       this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Input$station_to_station_group_stream_cursor_value_input? initial_value,
     Enum$cursor_ordering? ordering,
   }) =>
       _res;
 
+  @override
   CopyWith$Input$station_to_station_group_stream_cursor_value_input<TRes>
       get initial_value =>
           CopyWith$Input$station_to_station_group_stream_cursor_value_input
@@ -20237,8 +20659,8 @@ class Input$station_to_station_group_stream_cursor_value_input {
       Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
     if (data.containsKey('group_id')) {
-      final l$group_id = data['group_id'];
-      result$data['group_id'] = (l$group_id as int?);
+      final l$groupId = data['group_id'];
+      result$data['group_id'] = (l$groupId as int?);
     }
     if (data.containsKey('id')) {
       final l$id = data['id'];
@@ -20249,8 +20671,8 @@ class Input$station_to_station_group_stream_cursor_value_input {
       result$data['order'] = (l$order as int?);
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = (l$station_id as int?);
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = (l$stationId as int?);
     }
     return Input$station_to_station_group_stream_cursor_value_input._(
         result$data);
@@ -20269,8 +20691,8 @@ class Input$station_to_station_group_stream_cursor_value_input {
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
     if (_$data.containsKey('group_id')) {
-      final l$group_id = group_id;
-      result$data['group_id'] = l$group_id;
+      final l$groupId = group_id;
+      result$data['group_id'] = l$groupId;
     }
     if (_$data.containsKey('id')) {
       final l$id = id;
@@ -20281,8 +20703,8 @@ class Input$station_to_station_group_stream_cursor_value_input {
       result$data['order'] = l$order;
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
-      result$data['station_id'] = l$station_id;
+      final l$stationId = station_id;
+      result$data['station_id'] = l$stationId;
     }
     return result$data;
   }
@@ -20300,17 +20722,17 @@ class Input$station_to_station_group_stream_cursor_value_input {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$station_to_station_group_stream_cursor_value_input) ||
+    if (other is! Input$station_to_station_group_stream_cursor_value_input ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$group_id = group_id;
-    final lOther$group_id = other.group_id;
+    final l$groupId = group_id;
+    final lother$groupId = other.group_id;
     if (_$data.containsKey('group_id') !=
         other._$data.containsKey('group_id')) {
       return false;
     }
-    if (l$group_id != lOther$group_id) {
+    if (l$groupId != lother$groupId) {
       return false;
     }
     final l$id = id;
@@ -20329,13 +20751,13 @@ class Input$station_to_station_group_stream_cursor_value_input {
     if (l$order != lOther$order) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -20343,15 +20765,15 @@ class Input$station_to_station_group_stream_cursor_value_input {
 
   @override
   int get hashCode {
-    final l$group_id = group_id;
+    final l$groupId = group_id;
     final l$id = id;
     final l$order = order;
-    final l$station_id = station_id;
+    final l$stationId = station_id;
     return Object.hashAll([
-      _$data.containsKey('group_id') ? l$group_id : const {},
+      _$data.containsKey('group_id') ? l$groupId : const {},
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('order') ? l$order : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -20393,6 +20815,7 @@ class _CopyWithImpl$Input$station_to_station_group_stream_cursor_value_input<
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? group_id = _undefined,
     Object? id = _undefined,
@@ -20416,8 +20839,9 @@ class _CopyWithStubImpl$Input$station_to_station_group_stream_cursor_value_input
   _CopyWithStubImpl$Input$station_to_station_group_stream_cursor_value_input(
       this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     int? group_id,
     int? id,
@@ -20447,10 +20871,10 @@ class Input$station_to_station_group_sum_order_by {
       Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
     if (data.containsKey('group_id')) {
-      final l$group_id = data['group_id'];
-      result$data['group_id'] = l$group_id == null
+      final l$groupId = data['group_id'];
+      result$data['group_id'] = l$groupId == null
           ? null
-          : fromJson$Enum$order_by((l$group_id as String));
+          : fromJson$Enum$order_by((l$groupId as String));
     }
     if (data.containsKey('id')) {
       final l$id = data['id'];
@@ -20463,10 +20887,10 @@ class Input$station_to_station_group_sum_order_by {
           l$order == null ? null : fromJson$Enum$order_by((l$order as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     return Input$station_to_station_group_sum_order_by._(result$data);
   }
@@ -20484,9 +20908,9 @@ class Input$station_to_station_group_sum_order_by {
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
     if (_$data.containsKey('group_id')) {
-      final l$group_id = group_id;
+      final l$groupId = group_id;
       result$data['group_id'] =
-          l$group_id == null ? null : toJson$Enum$order_by(l$group_id);
+          l$groupId == null ? null : toJson$Enum$order_by(l$groupId);
     }
     if (_$data.containsKey('id')) {
       final l$id = id;
@@ -20498,9 +20922,9 @@ class Input$station_to_station_group_sum_order_by {
           l$order == null ? null : toJson$Enum$order_by(l$order);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     return result$data;
   }
@@ -20517,17 +20941,17 @@ class Input$station_to_station_group_sum_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$station_to_station_group_sum_order_by) ||
+    if (other is! Input$station_to_station_group_sum_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$group_id = group_id;
-    final lOther$group_id = other.group_id;
+    final l$groupId = group_id;
+    final lother$groupId = other.group_id;
     if (_$data.containsKey('group_id') !=
         other._$data.containsKey('group_id')) {
       return false;
     }
-    if (l$group_id != lOther$group_id) {
+    if (l$groupId != lother$groupId) {
       return false;
     }
     final l$id = id;
@@ -20546,13 +20970,13 @@ class Input$station_to_station_group_sum_order_by {
     if (l$order != lOther$order) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -20560,15 +20984,15 @@ class Input$station_to_station_group_sum_order_by {
 
   @override
   int get hashCode {
-    final l$group_id = group_id;
+    final l$groupId = group_id;
     final l$id = id;
     final l$order = order;
-    final l$station_id = station_id;
+    final l$stationId = station_id;
     return Object.hashAll([
-      _$data.containsKey('group_id') ? l$group_id : const {},
+      _$data.containsKey('group_id') ? l$groupId : const {},
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('order') ? l$order : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -20603,6 +21027,7 @@ class _CopyWithImpl$Input$station_to_station_group_sum_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? group_id = _undefined,
     Object? id = _undefined,
@@ -20623,8 +21048,9 @@ class _CopyWithStubImpl$Input$station_to_station_group_sum_order_by<TRes>
     implements CopyWith$Input$station_to_station_group_sum_order_by<TRes> {
   _CopyWithStubImpl$Input$station_to_station_group_sum_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? group_id,
     Enum$order_by? id,
@@ -20654,10 +21080,10 @@ class Input$station_to_station_group_var_pop_order_by {
       Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
     if (data.containsKey('group_id')) {
-      final l$group_id = data['group_id'];
-      result$data['group_id'] = l$group_id == null
+      final l$groupId = data['group_id'];
+      result$data['group_id'] = l$groupId == null
           ? null
-          : fromJson$Enum$order_by((l$group_id as String));
+          : fromJson$Enum$order_by((l$groupId as String));
     }
     if (data.containsKey('id')) {
       final l$id = data['id'];
@@ -20670,10 +21096,10 @@ class Input$station_to_station_group_var_pop_order_by {
           l$order == null ? null : fromJson$Enum$order_by((l$order as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     return Input$station_to_station_group_var_pop_order_by._(result$data);
   }
@@ -20691,9 +21117,9 @@ class Input$station_to_station_group_var_pop_order_by {
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
     if (_$data.containsKey('group_id')) {
-      final l$group_id = group_id;
+      final l$groupId = group_id;
       result$data['group_id'] =
-          l$group_id == null ? null : toJson$Enum$order_by(l$group_id);
+          l$groupId == null ? null : toJson$Enum$order_by(l$groupId);
     }
     if (_$data.containsKey('id')) {
       final l$id = id;
@@ -20705,9 +21131,9 @@ class Input$station_to_station_group_var_pop_order_by {
           l$order == null ? null : toJson$Enum$order_by(l$order);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     return result$data;
   }
@@ -20724,17 +21150,17 @@ class Input$station_to_station_group_var_pop_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$station_to_station_group_var_pop_order_by) ||
+    if (other is! Input$station_to_station_group_var_pop_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$group_id = group_id;
-    final lOther$group_id = other.group_id;
+    final l$groupId = group_id;
+    final lother$groupId = other.group_id;
     if (_$data.containsKey('group_id') !=
         other._$data.containsKey('group_id')) {
       return false;
     }
-    if (l$group_id != lOther$group_id) {
+    if (l$groupId != lother$groupId) {
       return false;
     }
     final l$id = id;
@@ -20753,13 +21179,13 @@ class Input$station_to_station_group_var_pop_order_by {
     if (l$order != lOther$order) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -20767,15 +21193,15 @@ class Input$station_to_station_group_var_pop_order_by {
 
   @override
   int get hashCode {
-    final l$group_id = group_id;
+    final l$groupId = group_id;
     final l$id = id;
     final l$order = order;
-    final l$station_id = station_id;
+    final l$stationId = station_id;
     return Object.hashAll([
-      _$data.containsKey('group_id') ? l$group_id : const {},
+      _$data.containsKey('group_id') ? l$groupId : const {},
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('order') ? l$order : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -20811,6 +21237,7 @@ class _CopyWithImpl$Input$station_to_station_group_var_pop_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? group_id = _undefined,
     Object? id = _undefined,
@@ -20831,8 +21258,9 @@ class _CopyWithStubImpl$Input$station_to_station_group_var_pop_order_by<TRes>
     implements CopyWith$Input$station_to_station_group_var_pop_order_by<TRes> {
   _CopyWithStubImpl$Input$station_to_station_group_var_pop_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? group_id,
     Enum$order_by? id,
@@ -20862,10 +21290,10 @@ class Input$station_to_station_group_var_samp_order_by {
       Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
     if (data.containsKey('group_id')) {
-      final l$group_id = data['group_id'];
-      result$data['group_id'] = l$group_id == null
+      final l$groupId = data['group_id'];
+      result$data['group_id'] = l$groupId == null
           ? null
-          : fromJson$Enum$order_by((l$group_id as String));
+          : fromJson$Enum$order_by((l$groupId as String));
     }
     if (data.containsKey('id')) {
       final l$id = data['id'];
@@ -20878,10 +21306,10 @@ class Input$station_to_station_group_var_samp_order_by {
           l$order == null ? null : fromJson$Enum$order_by((l$order as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     return Input$station_to_station_group_var_samp_order_by._(result$data);
   }
@@ -20899,9 +21327,9 @@ class Input$station_to_station_group_var_samp_order_by {
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
     if (_$data.containsKey('group_id')) {
-      final l$group_id = group_id;
+      final l$groupId = group_id;
       result$data['group_id'] =
-          l$group_id == null ? null : toJson$Enum$order_by(l$group_id);
+          l$groupId == null ? null : toJson$Enum$order_by(l$groupId);
     }
     if (_$data.containsKey('id')) {
       final l$id = id;
@@ -20913,9 +21341,9 @@ class Input$station_to_station_group_var_samp_order_by {
           l$order == null ? null : toJson$Enum$order_by(l$order);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     return result$data;
   }
@@ -20932,17 +21360,17 @@ class Input$station_to_station_group_var_samp_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$station_to_station_group_var_samp_order_by) ||
+    if (other is! Input$station_to_station_group_var_samp_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$group_id = group_id;
-    final lOther$group_id = other.group_id;
+    final l$groupId = group_id;
+    final lother$groupId = other.group_id;
     if (_$data.containsKey('group_id') !=
         other._$data.containsKey('group_id')) {
       return false;
     }
-    if (l$group_id != lOther$group_id) {
+    if (l$groupId != lother$groupId) {
       return false;
     }
     final l$id = id;
@@ -20961,13 +21389,13 @@ class Input$station_to_station_group_var_samp_order_by {
     if (l$order != lOther$order) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -20975,15 +21403,15 @@ class Input$station_to_station_group_var_samp_order_by {
 
   @override
   int get hashCode {
-    final l$group_id = group_id;
+    final l$groupId = group_id;
     final l$id = id;
     final l$order = order;
-    final l$station_id = station_id;
+    final l$stationId = station_id;
     return Object.hashAll([
-      _$data.containsKey('group_id') ? l$group_id : const {},
+      _$data.containsKey('group_id') ? l$groupId : const {},
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('order') ? l$order : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -21019,6 +21447,7 @@ class _CopyWithImpl$Input$station_to_station_group_var_samp_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? group_id = _undefined,
     Object? id = _undefined,
@@ -21039,8 +21468,9 @@ class _CopyWithStubImpl$Input$station_to_station_group_var_samp_order_by<TRes>
     implements CopyWith$Input$station_to_station_group_var_samp_order_by<TRes> {
   _CopyWithStubImpl$Input$station_to_station_group_var_samp_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? group_id,
     Enum$order_by? id,
@@ -21070,10 +21500,10 @@ class Input$station_to_station_group_variance_order_by {
       Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
     if (data.containsKey('group_id')) {
-      final l$group_id = data['group_id'];
-      result$data['group_id'] = l$group_id == null
+      final l$groupId = data['group_id'];
+      result$data['group_id'] = l$groupId == null
           ? null
-          : fromJson$Enum$order_by((l$group_id as String));
+          : fromJson$Enum$order_by((l$groupId as String));
     }
     if (data.containsKey('id')) {
       final l$id = data['id'];
@@ -21086,10 +21516,10 @@ class Input$station_to_station_group_variance_order_by {
           l$order == null ? null : fromJson$Enum$order_by((l$order as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     return Input$station_to_station_group_variance_order_by._(result$data);
   }
@@ -21107,9 +21537,9 @@ class Input$station_to_station_group_variance_order_by {
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
     if (_$data.containsKey('group_id')) {
-      final l$group_id = group_id;
+      final l$groupId = group_id;
       result$data['group_id'] =
-          l$group_id == null ? null : toJson$Enum$order_by(l$group_id);
+          l$groupId == null ? null : toJson$Enum$order_by(l$groupId);
     }
     if (_$data.containsKey('id')) {
       final l$id = id;
@@ -21121,9 +21551,9 @@ class Input$station_to_station_group_variance_order_by {
           l$order == null ? null : toJson$Enum$order_by(l$order);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     return result$data;
   }
@@ -21140,17 +21570,17 @@ class Input$station_to_station_group_variance_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$station_to_station_group_variance_order_by) ||
+    if (other is! Input$station_to_station_group_variance_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$group_id = group_id;
-    final lOther$group_id = other.group_id;
+    final l$groupId = group_id;
+    final lother$groupId = other.group_id;
     if (_$data.containsKey('group_id') !=
         other._$data.containsKey('group_id')) {
       return false;
     }
-    if (l$group_id != lOther$group_id) {
+    if (l$groupId != lother$groupId) {
       return false;
     }
     final l$id = id;
@@ -21169,13 +21599,13 @@ class Input$station_to_station_group_variance_order_by {
     if (l$order != lOther$order) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -21183,15 +21613,15 @@ class Input$station_to_station_group_variance_order_by {
 
   @override
   int get hashCode {
-    final l$group_id = group_id;
+    final l$groupId = group_id;
     final l$id = id;
     final l$order = order;
-    final l$station_id = station_id;
+    final l$stationId = station_id;
     return Object.hashAll([
-      _$data.containsKey('group_id') ? l$group_id : const {},
+      _$data.containsKey('group_id') ? l$groupId : const {},
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('order') ? l$order : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -21227,6 +21657,7 @@ class _CopyWithImpl$Input$station_to_station_group_variance_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? group_id = _undefined,
     Object? id = _undefined,
@@ -21247,8 +21678,9 @@ class _CopyWithStubImpl$Input$station_to_station_group_variance_order_by<TRes>
     implements CopyWith$Input$station_to_station_group_variance_order_by<TRes> {
   _CopyWithStubImpl$Input$station_to_station_group_variance_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? group_id,
     Enum$order_by? id,
@@ -21325,18 +21757,18 @@ class Input$stations_aggregate_order_by {
               (l$stddev as Map<String, dynamic>));
     }
     if (data.containsKey('stddev_pop')) {
-      final l$stddev_pop = data['stddev_pop'];
-      result$data['stddev_pop'] = l$stddev_pop == null
+      final l$stddevPop = data['stddev_pop'];
+      result$data['stddev_pop'] = l$stddevPop == null
           ? null
           : Input$stations_stddev_pop_order_by.fromJson(
-              (l$stddev_pop as Map<String, dynamic>));
+              (l$stddevPop as Map<String, dynamic>));
     }
     if (data.containsKey('stddev_samp')) {
-      final l$stddev_samp = data['stddev_samp'];
-      result$data['stddev_samp'] = l$stddev_samp == null
+      final l$stddevSamp = data['stddev_samp'];
+      result$data['stddev_samp'] = l$stddevSamp == null
           ? null
           : Input$stations_stddev_samp_order_by.fromJson(
-              (l$stddev_samp as Map<String, dynamic>));
+              (l$stddevSamp as Map<String, dynamic>));
     }
     if (data.containsKey('sum')) {
       final l$sum = data['sum'];
@@ -21346,18 +21778,18 @@ class Input$stations_aggregate_order_by {
               (l$sum as Map<String, dynamic>));
     }
     if (data.containsKey('var_pop')) {
-      final l$var_pop = data['var_pop'];
-      result$data['var_pop'] = l$var_pop == null
+      final l$varPop = data['var_pop'];
+      result$data['var_pop'] = l$varPop == null
           ? null
           : Input$stations_var_pop_order_by.fromJson(
-              (l$var_pop as Map<String, dynamic>));
+              (l$varPop as Map<String, dynamic>));
     }
     if (data.containsKey('var_samp')) {
-      final l$var_samp = data['var_samp'];
-      result$data['var_samp'] = l$var_samp == null
+      final l$varSamp = data['var_samp'];
+      result$data['var_samp'] = l$varSamp == null
           ? null
           : Input$stations_var_samp_order_by.fromJson(
-              (l$var_samp as Map<String, dynamic>));
+              (l$varSamp as Map<String, dynamic>));
     }
     if (data.containsKey('variance')) {
       final l$variance = data['variance'];
@@ -21427,24 +21859,24 @@ class Input$stations_aggregate_order_by {
       result$data['stddev'] = l$stddev?.toJson();
     }
     if (_$data.containsKey('stddev_pop')) {
-      final l$stddev_pop = stddev_pop;
-      result$data['stddev_pop'] = l$stddev_pop?.toJson();
+      final l$stddevPop = stddev_pop;
+      result$data['stddev_pop'] = l$stddevPop?.toJson();
     }
     if (_$data.containsKey('stddev_samp')) {
-      final l$stddev_samp = stddev_samp;
-      result$data['stddev_samp'] = l$stddev_samp?.toJson();
+      final l$stddevSamp = stddev_samp;
+      result$data['stddev_samp'] = l$stddevSamp?.toJson();
     }
     if (_$data.containsKey('sum')) {
       final l$sum = sum;
       result$data['sum'] = l$sum?.toJson();
     }
     if (_$data.containsKey('var_pop')) {
-      final l$var_pop = var_pop;
-      result$data['var_pop'] = l$var_pop?.toJson();
+      final l$varPop = var_pop;
+      result$data['var_pop'] = l$varPop?.toJson();
     }
     if (_$data.containsKey('var_samp')) {
-      final l$var_samp = var_samp;
-      result$data['var_samp'] = l$var_samp?.toJson();
+      final l$varSamp = var_samp;
+      result$data['var_samp'] = l$varSamp?.toJson();
     }
     if (_$data.containsKey('variance')) {
       final l$variance = variance;
@@ -21464,7 +21896,7 @@ class Input$stations_aggregate_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$stations_aggregate_order_by) ||
+    if (other is! Input$stations_aggregate_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -21508,22 +21940,22 @@ class Input$stations_aggregate_order_by {
     if (l$stddev != lOther$stddev) {
       return false;
     }
-    final l$stddev_pop = stddev_pop;
-    final lOther$stddev_pop = other.stddev_pop;
+    final l$stddevPop = stddev_pop;
+    final lother$stddevPop = other.stddev_pop;
     if (_$data.containsKey('stddev_pop') !=
         other._$data.containsKey('stddev_pop')) {
       return false;
     }
-    if (l$stddev_pop != lOther$stddev_pop) {
+    if (l$stddevPop != lother$stddevPop) {
       return false;
     }
-    final l$stddev_samp = stddev_samp;
-    final lOther$stddev_samp = other.stddev_samp;
+    final l$stddevSamp = stddev_samp;
+    final lother$stddevSamp = other.stddev_samp;
     if (_$data.containsKey('stddev_samp') !=
         other._$data.containsKey('stddev_samp')) {
       return false;
     }
-    if (l$stddev_samp != lOther$stddev_samp) {
+    if (l$stddevSamp != lother$stddevSamp) {
       return false;
     }
     final l$sum = sum;
@@ -21534,21 +21966,21 @@ class Input$stations_aggregate_order_by {
     if (l$sum != lOther$sum) {
       return false;
     }
-    final l$var_pop = var_pop;
-    final lOther$var_pop = other.var_pop;
+    final l$varPop = var_pop;
+    final lother$varPop = other.var_pop;
     if (_$data.containsKey('var_pop') != other._$data.containsKey('var_pop')) {
       return false;
     }
-    if (l$var_pop != lOther$var_pop) {
+    if (l$varPop != lother$varPop) {
       return false;
     }
-    final l$var_samp = var_samp;
-    final lOther$var_samp = other.var_samp;
+    final l$varSamp = var_samp;
+    final lother$varSamp = other.var_samp;
     if (_$data.containsKey('var_samp') !=
         other._$data.containsKey('var_samp')) {
       return false;
     }
-    if (l$var_samp != lOther$var_samp) {
+    if (l$varSamp != lother$varSamp) {
       return false;
     }
     final l$variance = variance;
@@ -21570,11 +22002,11 @@ class Input$stations_aggregate_order_by {
     final l$max = max;
     final l$min = min;
     final l$stddev = stddev;
-    final l$stddev_pop = stddev_pop;
-    final l$stddev_samp = stddev_samp;
+    final l$stddevPop = stddev_pop;
+    final l$stddevSamp = stddev_samp;
     final l$sum = sum;
-    final l$var_pop = var_pop;
-    final l$var_samp = var_samp;
+    final l$varPop = var_pop;
+    final l$varSamp = var_samp;
     final l$variance = variance;
     return Object.hashAll([
       _$data.containsKey('avg') ? l$avg : const {},
@@ -21582,11 +22014,11 @@ class Input$stations_aggregate_order_by {
       _$data.containsKey('max') ? l$max : const {},
       _$data.containsKey('min') ? l$min : const {},
       _$data.containsKey('stddev') ? l$stddev : const {},
-      _$data.containsKey('stddev_pop') ? l$stddev_pop : const {},
-      _$data.containsKey('stddev_samp') ? l$stddev_samp : const {},
+      _$data.containsKey('stddev_pop') ? l$stddevPop : const {},
+      _$data.containsKey('stddev_samp') ? l$stddevSamp : const {},
       _$data.containsKey('sum') ? l$sum : const {},
-      _$data.containsKey('var_pop') ? l$var_pop : const {},
-      _$data.containsKey('var_samp') ? l$var_samp : const {},
+      _$data.containsKey('var_pop') ? l$varPop : const {},
+      _$data.containsKey('var_samp') ? l$varSamp : const {},
       _$data.containsKey('variance') ? l$variance : const {},
     ]);
   }
@@ -21639,6 +22071,7 @@ class _CopyWithImpl$Input$stations_aggregate_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? avg = _undefined,
     Object? count = _undefined,
@@ -21673,6 +22106,7 @@ class _CopyWithImpl$Input$stations_aggregate_order_by<TRes>
           'variance': (variance as Input$stations_variance_order_by?),
       }));
 
+  @override
   CopyWith$Input$stations_avg_order_by<TRes> get avg {
     final local$avg = _instance.avg;
     return local$avg == null
@@ -21680,6 +22114,7 @@ class _CopyWithImpl$Input$stations_aggregate_order_by<TRes>
         : CopyWith$Input$stations_avg_order_by(local$avg, (e) => call(avg: e));
   }
 
+  @override
   CopyWith$Input$stations_max_order_by<TRes> get max {
     final local$max = _instance.max;
     return local$max == null
@@ -21687,6 +22122,7 @@ class _CopyWithImpl$Input$stations_aggregate_order_by<TRes>
         : CopyWith$Input$stations_max_order_by(local$max, (e) => call(max: e));
   }
 
+  @override
   CopyWith$Input$stations_min_order_by<TRes> get min {
     final local$min = _instance.min;
     return local$min == null
@@ -21694,6 +22130,7 @@ class _CopyWithImpl$Input$stations_aggregate_order_by<TRes>
         : CopyWith$Input$stations_min_order_by(local$min, (e) => call(min: e));
   }
 
+  @override
   CopyWith$Input$stations_stddev_order_by<TRes> get stddev {
     final local$stddev = _instance.stddev;
     return local$stddev == null
@@ -21702,22 +22139,25 @@ class _CopyWithImpl$Input$stations_aggregate_order_by<TRes>
             local$stddev, (e) => call(stddev: e));
   }
 
+  @override
   CopyWith$Input$stations_stddev_pop_order_by<TRes> get stddev_pop {
-    final local$stddev_pop = _instance.stddev_pop;
-    return local$stddev_pop == null
+    final local$stddevPop = _instance.stddev_pop;
+    return local$stddevPop == null
         ? CopyWith$Input$stations_stddev_pop_order_by.stub(_then(_instance))
         : CopyWith$Input$stations_stddev_pop_order_by(
-            local$stddev_pop, (e) => call(stddev_pop: e));
+            local$stddevPop, (e) => call(stddev_pop: e));
   }
 
+  @override
   CopyWith$Input$stations_stddev_samp_order_by<TRes> get stddev_samp {
-    final local$stddev_samp = _instance.stddev_samp;
-    return local$stddev_samp == null
+    final local$stddevSamp = _instance.stddev_samp;
+    return local$stddevSamp == null
         ? CopyWith$Input$stations_stddev_samp_order_by.stub(_then(_instance))
         : CopyWith$Input$stations_stddev_samp_order_by(
-            local$stddev_samp, (e) => call(stddev_samp: e));
+            local$stddevSamp, (e) => call(stddev_samp: e));
   }
 
+  @override
   CopyWith$Input$stations_sum_order_by<TRes> get sum {
     final local$sum = _instance.sum;
     return local$sum == null
@@ -21725,22 +22165,25 @@ class _CopyWithImpl$Input$stations_aggregate_order_by<TRes>
         : CopyWith$Input$stations_sum_order_by(local$sum, (e) => call(sum: e));
   }
 
+  @override
   CopyWith$Input$stations_var_pop_order_by<TRes> get var_pop {
-    final local$var_pop = _instance.var_pop;
-    return local$var_pop == null
+    final local$varPop = _instance.var_pop;
+    return local$varPop == null
         ? CopyWith$Input$stations_var_pop_order_by.stub(_then(_instance))
         : CopyWith$Input$stations_var_pop_order_by(
-            local$var_pop, (e) => call(var_pop: e));
+            local$varPop, (e) => call(var_pop: e));
   }
 
+  @override
   CopyWith$Input$stations_var_samp_order_by<TRes> get var_samp {
-    final local$var_samp = _instance.var_samp;
-    return local$var_samp == null
+    final local$varSamp = _instance.var_samp;
+    return local$varSamp == null
         ? CopyWith$Input$stations_var_samp_order_by.stub(_then(_instance))
         : CopyWith$Input$stations_var_samp_order_by(
-            local$var_samp, (e) => call(var_samp: e));
+            local$varSamp, (e) => call(var_samp: e));
   }
 
+  @override
   CopyWith$Input$stations_variance_order_by<TRes> get variance {
     final local$variance = _instance.variance;
     return local$variance == null
@@ -21754,8 +22197,9 @@ class _CopyWithStubImpl$Input$stations_aggregate_order_by<TRes>
     implements CopyWith$Input$stations_aggregate_order_by<TRes> {
   _CopyWithStubImpl$Input$stations_aggregate_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Input$stations_avg_order_by? avg,
     Enum$order_by? count,
@@ -21771,33 +22215,43 @@ class _CopyWithStubImpl$Input$stations_aggregate_order_by<TRes>
   }) =>
       _res;
 
+  @override
   CopyWith$Input$stations_avg_order_by<TRes> get avg =>
       CopyWith$Input$stations_avg_order_by.stub(_res);
 
+  @override
   CopyWith$Input$stations_max_order_by<TRes> get max =>
       CopyWith$Input$stations_max_order_by.stub(_res);
 
+  @override
   CopyWith$Input$stations_min_order_by<TRes> get min =>
       CopyWith$Input$stations_min_order_by.stub(_res);
 
+  @override
   CopyWith$Input$stations_stddev_order_by<TRes> get stddev =>
       CopyWith$Input$stations_stddev_order_by.stub(_res);
 
+  @override
   CopyWith$Input$stations_stddev_pop_order_by<TRes> get stddev_pop =>
       CopyWith$Input$stations_stddev_pop_order_by.stub(_res);
 
+  @override
   CopyWith$Input$stations_stddev_samp_order_by<TRes> get stddev_samp =>
       CopyWith$Input$stations_stddev_samp_order_by.stub(_res);
 
+  @override
   CopyWith$Input$stations_sum_order_by<TRes> get sum =>
       CopyWith$Input$stations_sum_order_by.stub(_res);
 
+  @override
   CopyWith$Input$stations_var_pop_order_by<TRes> get var_pop =>
       CopyWith$Input$stations_var_pop_order_by.stub(_res);
 
+  @override
   CopyWith$Input$stations_var_samp_order_by<TRes> get var_samp =>
       CopyWith$Input$stations_var_samp_order_by.stub(_res);
 
+  @override
   CopyWith$Input$stations_variance_order_by<TRes> get variance =>
       CopyWith$Input$stations_variance_order_by.stub(_res);
 }
@@ -21828,20 +22282,20 @@ class Input$stations_avg_order_by {
           l$id == null ? null : fromJson$Enum$order_by((l$id as String));
     }
     if (data.containsKey('latest_station_now_playing_id')) {
-      final l$latest_station_now_playing_id =
+      final l$latestStationNowPlayingId =
           data['latest_station_now_playing_id'];
       result$data['latest_station_now_playing_id'] =
-          l$latest_station_now_playing_id == null
+          l$latestStationNowPlayingId == null
               ? null
               : fromJson$Enum$order_by(
-                  (l$latest_station_now_playing_id as String));
+                  (l$latestStationNowPlayingId as String));
     }
     if (data.containsKey('latest_station_uptime_id')) {
-      final l$latest_station_uptime_id = data['latest_station_uptime_id'];
+      final l$latestStationUptimeId = data['latest_station_uptime_id'];
       result$data['latest_station_uptime_id'] =
-          l$latest_station_uptime_id == null
+          l$latestStationUptimeId == null
               ? null
-              : fromJson$Enum$order_by((l$latest_station_uptime_id as String));
+              : fromJson$Enum$order_by((l$latestStationUptimeId as String));
     }
     if (data.containsKey('order')) {
       final l$order = data['order'];
@@ -21870,18 +22324,18 @@ class Input$stations_avg_order_by {
       result$data['id'] = l$id == null ? null : toJson$Enum$order_by(l$id);
     }
     if (_$data.containsKey('latest_station_now_playing_id')) {
-      final l$latest_station_now_playing_id = latest_station_now_playing_id;
+      final l$latestStationNowPlayingId = latest_station_now_playing_id;
       result$data['latest_station_now_playing_id'] =
-          l$latest_station_now_playing_id == null
+          l$latestStationNowPlayingId == null
               ? null
-              : toJson$Enum$order_by(l$latest_station_now_playing_id);
+              : toJson$Enum$order_by(l$latestStationNowPlayingId);
     }
     if (_$data.containsKey('latest_station_uptime_id')) {
-      final l$latest_station_uptime_id = latest_station_uptime_id;
+      final l$latestStationUptimeId = latest_station_uptime_id;
       result$data['latest_station_uptime_id'] =
-          l$latest_station_uptime_id == null
+          l$latestStationUptimeId == null
               ? null
-              : toJson$Enum$order_by(l$latest_station_uptime_id);
+              : toJson$Enum$order_by(l$latestStationUptimeId);
     }
     if (_$data.containsKey('order')) {
       final l$order = order;
@@ -21902,7 +22356,7 @@ class Input$stations_avg_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$stations_avg_order_by) ||
+    if (other is! Input$stations_avg_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -21914,24 +22368,24 @@ class Input$stations_avg_order_by {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$latest_station_now_playing_id = latest_station_now_playing_id;
-    final lOther$latest_station_now_playing_id =
+    final l$latestStationNowPlayingId = latest_station_now_playing_id;
+    final lother$latestStationNowPlayingId =
         other.latest_station_now_playing_id;
     if (_$data.containsKey('latest_station_now_playing_id') !=
         other._$data.containsKey('latest_station_now_playing_id')) {
       return false;
     }
-    if (l$latest_station_now_playing_id !=
-        lOther$latest_station_now_playing_id) {
+    if (l$latestStationNowPlayingId !=
+        lother$latestStationNowPlayingId) {
       return false;
     }
-    final l$latest_station_uptime_id = latest_station_uptime_id;
-    final lOther$latest_station_uptime_id = other.latest_station_uptime_id;
+    final l$latestStationUptimeId = latest_station_uptime_id;
+    final lother$latestStationUptimeId = other.latest_station_uptime_id;
     if (_$data.containsKey('latest_station_uptime_id') !=
         other._$data.containsKey('latest_station_uptime_id')) {
       return false;
     }
-    if (l$latest_station_uptime_id != lOther$latest_station_uptime_id) {
+    if (l$latestStationUptimeId != lother$latestStationUptimeId) {
       return false;
     }
     final l$order = order;
@@ -21948,16 +22402,16 @@ class Input$stations_avg_order_by {
   @override
   int get hashCode {
     final l$id = id;
-    final l$latest_station_now_playing_id = latest_station_now_playing_id;
-    final l$latest_station_uptime_id = latest_station_uptime_id;
+    final l$latestStationNowPlayingId = latest_station_now_playing_id;
+    final l$latestStationUptimeId = latest_station_uptime_id;
     final l$order = order;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('latest_station_now_playing_id')
-          ? l$latest_station_now_playing_id
+          ? l$latestStationNowPlayingId
           : const {},
       _$data.containsKey('latest_station_uptime_id')
-          ? l$latest_station_uptime_id
+          ? l$latestStationUptimeId
           : const {},
       _$data.containsKey('order') ? l$order : const {},
     ]);
@@ -21994,6 +22448,7 @@ class _CopyWithImpl$Input$stations_avg_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? latest_station_now_playing_id = _undefined,
@@ -22017,8 +22472,9 @@ class _CopyWithStubImpl$Input$stations_avg_order_by<TRes>
     implements CopyWith$Input$stations_avg_order_by<TRes> {
   _CopyWithStubImpl$Input$stations_avg_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? latest_station_now_playing_id,
@@ -22119,31 +22575,31 @@ class Input$stations_bool_exp {
   factory Input$stations_bool_exp.fromJson(Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
     if (data.containsKey('_and')) {
-      final l$$_and = data['_and'];
-      result$data['_and'] = (l$$_and as List<dynamic>?)
+      final l$$And = data['_and'];
+      result$data['_and'] = (l$$And as List<dynamic>?)
           ?.map((e) =>
               Input$stations_bool_exp.fromJson((e as Map<String, dynamic>)))
           .toList();
     }
     if (data.containsKey('_not')) {
-      final l$$_not = data['_not'];
-      result$data['_not'] = l$$_not == null
+      final l$$Not = data['_not'];
+      result$data['_not'] = l$$Not == null
           ? null
-          : Input$stations_bool_exp.fromJson((l$$_not as Map<String, dynamic>));
+          : Input$stations_bool_exp.fromJson((l$$Not as Map<String, dynamic>));
     }
     if (data.containsKey('_or')) {
-      final l$$_or = data['_or'];
-      result$data['_or'] = (l$$_or as List<dynamic>?)
+      final l$$Or = data['_or'];
+      result$data['_or'] = (l$$Or as List<dynamic>?)
           ?.map((e) =>
               Input$stations_bool_exp.fromJson((e as Map<String, dynamic>)))
           .toList();
     }
     if (data.containsKey('created_at')) {
-      final l$created_at = data['created_at'];
-      result$data['created_at'] = l$created_at == null
+      final l$createdAt = data['created_at'];
+      result$data['created_at'] = l$createdAt == null
           ? null
           : Input$timestamptz_comparison_exp.fromJson(
-              (l$created_at as Map<String, dynamic>));
+              (l$createdAt as Map<String, dynamic>));
     }
     if (data.containsKey('description')) {
       final l$description = data['description'];
@@ -22153,19 +22609,19 @@ class Input$stations_bool_exp {
               (l$description as Map<String, dynamic>));
     }
     if (data.containsKey('description_action_title')) {
-      final l$description_action_title = data['description_action_title'];
+      final l$descriptionActionTitle = data['description_action_title'];
       result$data['description_action_title'] =
-          l$description_action_title == null
+          l$descriptionActionTitle == null
               ? null
               : Input$String_comparison_exp.fromJson(
-                  (l$description_action_title as Map<String, dynamic>));
+                  (l$descriptionActionTitle as Map<String, dynamic>));
     }
     if (data.containsKey('description_link')) {
-      final l$description_link = data['description_link'];
-      result$data['description_link'] = l$description_link == null
+      final l$descriptionLink = data['description_link'];
+      result$data['description_link'] = l$descriptionLink == null
           ? null
           : Input$String_comparison_exp.fromJson(
-              (l$description_link as Map<String, dynamic>));
+              (l$descriptionLink as Map<String, dynamic>));
     }
     if (data.containsKey('email')) {
       final l$email = data['email'];
@@ -22175,25 +22631,25 @@ class Input$stations_bool_exp {
               (l$email as Map<String, dynamic>));
     }
     if (data.containsKey('facebook_page_id')) {
-      final l$facebook_page_id = data['facebook_page_id'];
-      result$data['facebook_page_id'] = l$facebook_page_id == null
+      final l$facebookPageId = data['facebook_page_id'];
+      result$data['facebook_page_id'] = l$facebookPageId == null
           ? null
           : Input$String_comparison_exp.fromJson(
-              (l$facebook_page_id as Map<String, dynamic>));
+              (l$facebookPageId as Map<String, dynamic>));
     }
     if (data.containsKey('feature_latest_post')) {
-      final l$feature_latest_post = data['feature_latest_post'];
-      result$data['feature_latest_post'] = l$feature_latest_post == null
+      final l$featureLatestPost = data['feature_latest_post'];
+      result$data['feature_latest_post'] = l$featureLatestPost == null
           ? null
           : Input$Boolean_comparison_exp.fromJson(
-              (l$feature_latest_post as Map<String, dynamic>));
+              (l$featureLatestPost as Map<String, dynamic>));
     }
     if (data.containsKey('hls_stream_url')) {
-      final l$hls_stream_url = data['hls_stream_url'];
-      result$data['hls_stream_url'] = l$hls_stream_url == null
+      final l$hlsStreamUrl = data['hls_stream_url'];
+      result$data['hls_stream_url'] = l$hlsStreamUrl == null
           ? null
           : Input$String_comparison_exp.fromJson(
-              (l$hls_stream_url as Map<String, dynamic>));
+              (l$hlsStreamUrl as Map<String, dynamic>));
     }
     if (data.containsKey('id')) {
       final l$id = data['id'];
@@ -22202,35 +22658,35 @@ class Input$stations_bool_exp {
           : Input$Int_comparison_exp.fromJson((l$id as Map<String, dynamic>));
     }
     if (data.containsKey('latest_station_now_playing_id')) {
-      final l$latest_station_now_playing_id =
+      final l$latestStationNowPlayingId =
           data['latest_station_now_playing_id'];
       result$data['latest_station_now_playing_id'] =
-          l$latest_station_now_playing_id == null
+          l$latestStationNowPlayingId == null
               ? null
               : Input$Int_comparison_exp.fromJson(
-                  (l$latest_station_now_playing_id as Map<String, dynamic>));
+                  (l$latestStationNowPlayingId as Map<String, dynamic>));
     }
     if (data.containsKey('latest_station_uptime_id')) {
-      final l$latest_station_uptime_id = data['latest_station_uptime_id'];
+      final l$latestStationUptimeId = data['latest_station_uptime_id'];
       result$data['latest_station_uptime_id'] =
-          l$latest_station_uptime_id == null
+          l$latestStationUptimeId == null
               ? null
               : Input$Int_comparison_exp.fromJson(
-                  (l$latest_station_uptime_id as Map<String, dynamic>));
+                  (l$latestStationUptimeId as Map<String, dynamic>));
     }
     if (data.containsKey('now_playing')) {
-      final l$now_playing = data['now_playing'];
-      result$data['now_playing'] = l$now_playing == null
+      final l$nowPlaying = data['now_playing'];
+      result$data['now_playing'] = l$nowPlaying == null
           ? null
           : Input$stations_now_playing_bool_exp.fromJson(
-              (l$now_playing as Map<String, dynamic>));
+              (l$nowPlaying as Map<String, dynamic>));
     }
     if (data.containsKey('now_playing_history')) {
-      final l$now_playing_history = data['now_playing_history'];
-      result$data['now_playing_history'] = l$now_playing_history == null
+      final l$nowPlayingHistory = data['now_playing_history'];
+      result$data['now_playing_history'] = l$nowPlayingHistory == null
           ? null
           : Input$stations_now_playing_bool_exp.fromJson(
-              (l$now_playing_history as Map<String, dynamic>));
+              (l$nowPlayingHistory as Map<String, dynamic>));
     }
     if (data.containsKey('order')) {
       final l$order = data['order'];
@@ -22246,18 +22702,18 @@ class Input$stations_bool_exp {
           : Input$posts_bool_exp.fromJson((l$posts as Map<String, dynamic>));
     }
     if (data.containsKey('proxy_stream_url')) {
-      final l$proxy_stream_url = data['proxy_stream_url'];
-      result$data['proxy_stream_url'] = l$proxy_stream_url == null
+      final l$proxyStreamUrl = data['proxy_stream_url'];
+      result$data['proxy_stream_url'] = l$proxyStreamUrl == null
           ? null
           : Input$String_comparison_exp.fromJson(
-              (l$proxy_stream_url as Map<String, dynamic>));
+              (l$proxyStreamUrl as Map<String, dynamic>));
     }
     if (data.containsKey('radio_crestin_listeners')) {
-      final l$radio_crestin_listeners = data['radio_crestin_listeners'];
-      result$data['radio_crestin_listeners'] = l$radio_crestin_listeners == null
+      final l$radioCrestinListeners = data['radio_crestin_listeners'];
+      result$data['radio_crestin_listeners'] = l$radioCrestinListeners == null
           ? null
           : Input$Int_comparison_exp.fromJson(
-              (l$radio_crestin_listeners as Map<String, dynamic>));
+              (l$radioCrestinListeners as Map<String, dynamic>));
     }
     if (data.containsKey('reviews')) {
       final l$reviews = data['reviews'];
@@ -22267,11 +22723,11 @@ class Input$stations_bool_exp {
               (l$reviews as Map<String, dynamic>));
     }
     if (data.containsKey('rss_feed')) {
-      final l$rss_feed = data['rss_feed'];
-      result$data['rss_feed'] = l$rss_feed == null
+      final l$rssFeed = data['rss_feed'];
+      result$data['rss_feed'] = l$rssFeed == null
           ? null
           : Input$String_comparison_exp.fromJson(
-              (l$rss_feed as Map<String, dynamic>));
+              (l$rssFeed as Map<String, dynamic>));
     }
     if (data.containsKey('slug')) {
       final l$slug = data['slug'];
@@ -22281,40 +22737,40 @@ class Input$stations_bool_exp {
               (l$slug as Map<String, dynamic>));
     }
     if (data.containsKey('station_streams')) {
-      final l$station_streams = data['station_streams'];
-      result$data['station_streams'] = l$station_streams == null
+      final l$stationStreams = data['station_streams'];
+      result$data['station_streams'] = l$stationStreams == null
           ? null
           : Input$station_streams_bool_exp.fromJson(
-              (l$station_streams as Map<String, dynamic>));
+              (l$stationStreams as Map<String, dynamic>));
     }
     if (data.containsKey('station_to_station_groups')) {
-      final l$station_to_station_groups = data['station_to_station_groups'];
+      final l$stationToStationGroups = data['station_to_station_groups'];
       result$data['station_to_station_groups'] =
-          l$station_to_station_groups == null
+          l$stationToStationGroups == null
               ? null
               : Input$station_to_station_group_bool_exp.fromJson(
-                  (l$station_to_station_groups as Map<String, dynamic>));
+                  (l$stationToStationGroups as Map<String, dynamic>));
     }
     if (data.containsKey('stations_now_playing')) {
-      final l$stations_now_playing = data['stations_now_playing'];
-      result$data['stations_now_playing'] = l$stations_now_playing == null
+      final l$stationsNowPlaying = data['stations_now_playing'];
+      result$data['stations_now_playing'] = l$stationsNowPlaying == null
           ? null
           : Input$stations_now_playing_bool_exp.fromJson(
-              (l$stations_now_playing as Map<String, dynamic>));
+              (l$stationsNowPlaying as Map<String, dynamic>));
     }
     if (data.containsKey('stations_uptime')) {
-      final l$stations_uptime = data['stations_uptime'];
-      result$data['stations_uptime'] = l$stations_uptime == null
+      final l$stationsUptime = data['stations_uptime'];
+      result$data['stations_uptime'] = l$stationsUptime == null
           ? null
           : Input$stations_uptime_bool_exp.fromJson(
-              (l$stations_uptime as Map<String, dynamic>));
+              (l$stationsUptime as Map<String, dynamic>));
     }
     if (data.containsKey('stream_url')) {
-      final l$stream_url = data['stream_url'];
-      result$data['stream_url'] = l$stream_url == null
+      final l$streamUrl = data['stream_url'];
+      result$data['stream_url'] = l$streamUrl == null
           ? null
           : Input$String_comparison_exp.fromJson(
-              (l$stream_url as Map<String, dynamic>));
+              (l$streamUrl as Map<String, dynamic>));
     }
     if (data.containsKey('thumbnail')) {
       final l$thumbnail = data['thumbnail'];
@@ -22324,11 +22780,11 @@ class Input$stations_bool_exp {
               (l$thumbnail as Map<String, dynamic>));
     }
     if (data.containsKey('thumbnail_url')) {
-      final l$thumbnail_url = data['thumbnail_url'];
-      result$data['thumbnail_url'] = l$thumbnail_url == null
+      final l$thumbnailUrl = data['thumbnail_url'];
+      result$data['thumbnail_url'] = l$thumbnailUrl == null
           ? null
           : Input$String_comparison_exp.fromJson(
-              (l$thumbnail_url as Map<String, dynamic>));
+              (l$thumbnailUrl as Map<String, dynamic>));
     }
     if (data.containsKey('title')) {
       final l$title = data['title'];
@@ -22338,18 +22794,18 @@ class Input$stations_bool_exp {
               (l$title as Map<String, dynamic>));
     }
     if (data.containsKey('total_listeners')) {
-      final l$total_listeners = data['total_listeners'];
-      result$data['total_listeners'] = l$total_listeners == null
+      final l$totalListeners = data['total_listeners'];
+      result$data['total_listeners'] = l$totalListeners == null
           ? null
           : Input$Int_comparison_exp.fromJson(
-              (l$total_listeners as Map<String, dynamic>));
+              (l$totalListeners as Map<String, dynamic>));
     }
     if (data.containsKey('updated_at')) {
-      final l$updated_at = data['updated_at'];
-      result$data['updated_at'] = l$updated_at == null
+      final l$updatedAt = data['updated_at'];
+      result$data['updated_at'] = l$updatedAt == null
           ? null
           : Input$timestamptz_comparison_exp.fromJson(
-              (l$updated_at as Map<String, dynamic>));
+              (l$updatedAt as Map<String, dynamic>));
     }
     if (data.containsKey('uptime')) {
       final l$uptime = data['uptime'];
@@ -22359,11 +22815,11 @@ class Input$stations_bool_exp {
               (l$uptime as Map<String, dynamic>));
     }
     if (data.containsKey('uptime_history')) {
-      final l$uptime_history = data['uptime_history'];
-      result$data['uptime_history'] = l$uptime_history == null
+      final l$uptimeHistory = data['uptime_history'];
+      result$data['uptime_history'] = l$uptimeHistory == null
           ? null
           : Input$stations_uptime_bool_exp.fromJson(
-              (l$uptime_history as Map<String, dynamic>));
+              (l$uptimeHistory as Map<String, dynamic>));
     }
     if (data.containsKey('website')) {
       final l$website = data['website'];
@@ -22488,71 +22944,71 @@ class Input$stations_bool_exp {
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
     if (_$data.containsKey('_and')) {
-      final l$$_and = $_and;
-      result$data['_and'] = l$$_and?.map((e) => e.toJson()).toList();
+      final l$$And = $_and;
+      result$data['_and'] = l$$And?.map((e) => e.toJson()).toList();
     }
     if (_$data.containsKey('_not')) {
-      final l$$_not = $_not;
-      result$data['_not'] = l$$_not?.toJson();
+      final l$$Not = $_not;
+      result$data['_not'] = l$$Not?.toJson();
     }
     if (_$data.containsKey('_or')) {
-      final l$$_or = $_or;
-      result$data['_or'] = l$$_or?.map((e) => e.toJson()).toList();
+      final l$$Or = $_or;
+      result$data['_or'] = l$$Or?.map((e) => e.toJson()).toList();
     }
     if (_$data.containsKey('created_at')) {
-      final l$created_at = created_at;
-      result$data['created_at'] = l$created_at?.toJson();
+      final l$createdAt = created_at;
+      result$data['created_at'] = l$createdAt?.toJson();
     }
     if (_$data.containsKey('description')) {
       final l$description = description;
       result$data['description'] = l$description?.toJson();
     }
     if (_$data.containsKey('description_action_title')) {
-      final l$description_action_title = description_action_title;
+      final l$descriptionActionTitle = description_action_title;
       result$data['description_action_title'] =
-          l$description_action_title?.toJson();
+          l$descriptionActionTitle?.toJson();
     }
     if (_$data.containsKey('description_link')) {
-      final l$description_link = description_link;
-      result$data['description_link'] = l$description_link?.toJson();
+      final l$descriptionLink = description_link;
+      result$data['description_link'] = l$descriptionLink?.toJson();
     }
     if (_$data.containsKey('email')) {
       final l$email = email;
       result$data['email'] = l$email?.toJson();
     }
     if (_$data.containsKey('facebook_page_id')) {
-      final l$facebook_page_id = facebook_page_id;
-      result$data['facebook_page_id'] = l$facebook_page_id?.toJson();
+      final l$facebookPageId = facebook_page_id;
+      result$data['facebook_page_id'] = l$facebookPageId?.toJson();
     }
     if (_$data.containsKey('feature_latest_post')) {
-      final l$feature_latest_post = feature_latest_post;
-      result$data['feature_latest_post'] = l$feature_latest_post?.toJson();
+      final l$featureLatestPost = feature_latest_post;
+      result$data['feature_latest_post'] = l$featureLatestPost?.toJson();
     }
     if (_$data.containsKey('hls_stream_url')) {
-      final l$hls_stream_url = hls_stream_url;
-      result$data['hls_stream_url'] = l$hls_stream_url?.toJson();
+      final l$hlsStreamUrl = hls_stream_url;
+      result$data['hls_stream_url'] = l$hlsStreamUrl?.toJson();
     }
     if (_$data.containsKey('id')) {
       final l$id = id;
       result$data['id'] = l$id?.toJson();
     }
     if (_$data.containsKey('latest_station_now_playing_id')) {
-      final l$latest_station_now_playing_id = latest_station_now_playing_id;
+      final l$latestStationNowPlayingId = latest_station_now_playing_id;
       result$data['latest_station_now_playing_id'] =
-          l$latest_station_now_playing_id?.toJson();
+          l$latestStationNowPlayingId?.toJson();
     }
     if (_$data.containsKey('latest_station_uptime_id')) {
-      final l$latest_station_uptime_id = latest_station_uptime_id;
+      final l$latestStationUptimeId = latest_station_uptime_id;
       result$data['latest_station_uptime_id'] =
-          l$latest_station_uptime_id?.toJson();
+          l$latestStationUptimeId?.toJson();
     }
     if (_$data.containsKey('now_playing')) {
-      final l$now_playing = now_playing;
-      result$data['now_playing'] = l$now_playing?.toJson();
+      final l$nowPlaying = now_playing;
+      result$data['now_playing'] = l$nowPlaying?.toJson();
     }
     if (_$data.containsKey('now_playing_history')) {
-      final l$now_playing_history = now_playing_history;
-      result$data['now_playing_history'] = l$now_playing_history?.toJson();
+      final l$nowPlayingHistory = now_playing_history;
+      result$data['now_playing_history'] = l$nowPlayingHistory?.toJson();
     }
     if (_$data.containsKey('order')) {
       final l$order = order;
@@ -22563,74 +23019,74 @@ class Input$stations_bool_exp {
       result$data['posts'] = l$posts?.toJson();
     }
     if (_$data.containsKey('proxy_stream_url')) {
-      final l$proxy_stream_url = proxy_stream_url;
-      result$data['proxy_stream_url'] = l$proxy_stream_url?.toJson();
+      final l$proxyStreamUrl = proxy_stream_url;
+      result$data['proxy_stream_url'] = l$proxyStreamUrl?.toJson();
     }
     if (_$data.containsKey('radio_crestin_listeners')) {
-      final l$radio_crestin_listeners = radio_crestin_listeners;
+      final l$radioCrestinListeners = radio_crestin_listeners;
       result$data['radio_crestin_listeners'] =
-          l$radio_crestin_listeners?.toJson();
+          l$radioCrestinListeners?.toJson();
     }
     if (_$data.containsKey('reviews')) {
       final l$reviews = reviews;
       result$data['reviews'] = l$reviews?.toJson();
     }
     if (_$data.containsKey('rss_feed')) {
-      final l$rss_feed = rss_feed;
-      result$data['rss_feed'] = l$rss_feed?.toJson();
+      final l$rssFeed = rss_feed;
+      result$data['rss_feed'] = l$rssFeed?.toJson();
     }
     if (_$data.containsKey('slug')) {
       final l$slug = slug;
       result$data['slug'] = l$slug?.toJson();
     }
     if (_$data.containsKey('station_streams')) {
-      final l$station_streams = station_streams;
-      result$data['station_streams'] = l$station_streams?.toJson();
+      final l$stationStreams = station_streams;
+      result$data['station_streams'] = l$stationStreams?.toJson();
     }
     if (_$data.containsKey('station_to_station_groups')) {
-      final l$station_to_station_groups = station_to_station_groups;
+      final l$stationToStationGroups = station_to_station_groups;
       result$data['station_to_station_groups'] =
-          l$station_to_station_groups?.toJson();
+          l$stationToStationGroups?.toJson();
     }
     if (_$data.containsKey('stations_now_playing')) {
-      final l$stations_now_playing = stations_now_playing;
-      result$data['stations_now_playing'] = l$stations_now_playing?.toJson();
+      final l$stationsNowPlaying = stations_now_playing;
+      result$data['stations_now_playing'] = l$stationsNowPlaying?.toJson();
     }
     if (_$data.containsKey('stations_uptime')) {
-      final l$stations_uptime = stations_uptime;
-      result$data['stations_uptime'] = l$stations_uptime?.toJson();
+      final l$stationsUptime = stations_uptime;
+      result$data['stations_uptime'] = l$stationsUptime?.toJson();
     }
     if (_$data.containsKey('stream_url')) {
-      final l$stream_url = stream_url;
-      result$data['stream_url'] = l$stream_url?.toJson();
+      final l$streamUrl = stream_url;
+      result$data['stream_url'] = l$streamUrl?.toJson();
     }
     if (_$data.containsKey('thumbnail')) {
       final l$thumbnail = thumbnail;
       result$data['thumbnail'] = l$thumbnail?.toJson();
     }
     if (_$data.containsKey('thumbnail_url')) {
-      final l$thumbnail_url = thumbnail_url;
-      result$data['thumbnail_url'] = l$thumbnail_url?.toJson();
+      final l$thumbnailUrl = thumbnail_url;
+      result$data['thumbnail_url'] = l$thumbnailUrl?.toJson();
     }
     if (_$data.containsKey('title')) {
       final l$title = title;
       result$data['title'] = l$title?.toJson();
     }
     if (_$data.containsKey('total_listeners')) {
-      final l$total_listeners = total_listeners;
-      result$data['total_listeners'] = l$total_listeners?.toJson();
+      final l$totalListeners = total_listeners;
+      result$data['total_listeners'] = l$totalListeners?.toJson();
     }
     if (_$data.containsKey('updated_at')) {
-      final l$updated_at = updated_at;
-      result$data['updated_at'] = l$updated_at?.toJson();
+      final l$updatedAt = updated_at;
+      result$data['updated_at'] = l$updatedAt?.toJson();
     }
     if (_$data.containsKey('uptime')) {
       final l$uptime = uptime;
       result$data['uptime'] = l$uptime?.toJson();
     }
     if (_$data.containsKey('uptime_history')) {
-      final l$uptime_history = uptime_history;
-      result$data['uptime_history'] = l$uptime_history?.toJson();
+      final l$uptimeHistory = uptime_history;
+      result$data['uptime_history'] = l$uptimeHistory?.toJson();
     }
     if (_$data.containsKey('website')) {
       final l$website = website;
@@ -22650,63 +23106,63 @@ class Input$stations_bool_exp {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$stations_bool_exp) ||
+    if (other is! Input$stations_bool_exp ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$$_and = $_and;
-    final lOther$$_and = other.$_and;
+    final l$$And = $_and;
+    final lother$$And = other.$_and;
     if (_$data.containsKey('_and') != other._$data.containsKey('_and')) {
       return false;
     }
-    if (l$$_and != null && lOther$$_and != null) {
-      if (l$$_and.length != lOther$$_and.length) {
+    if (l$$And != null && lother$$And != null) {
+      if (l$$And.length != lother$$And.length) {
         return false;
       }
-      for (int i = 0; i < l$$_and.length; i++) {
-        final l$$_and$entry = l$$_and[i];
-        final lOther$$_and$entry = lOther$$_and[i];
-        if (l$$_and$entry != lOther$$_and$entry) {
+      for (int i = 0; i < l$$And.length; i++) {
+        final l$$And$entry = l$$And[i];
+        final lother$$And$entry = lother$$And[i];
+        if (l$$And$entry != lother$$And$entry) {
           return false;
         }
       }
-    } else if (l$$_and != lOther$$_and) {
+    } else if (l$$And != lother$$And) {
       return false;
     }
-    final l$$_not = $_not;
-    final lOther$$_not = other.$_not;
+    final l$$Not = $_not;
+    final lother$$Not = other.$_not;
     if (_$data.containsKey('_not') != other._$data.containsKey('_not')) {
       return false;
     }
-    if (l$$_not != lOther$$_not) {
+    if (l$$Not != lother$$Not) {
       return false;
     }
-    final l$$_or = $_or;
-    final lOther$$_or = other.$_or;
+    final l$$Or = $_or;
+    final lother$$Or = other.$_or;
     if (_$data.containsKey('_or') != other._$data.containsKey('_or')) {
       return false;
     }
-    if (l$$_or != null && lOther$$_or != null) {
-      if (l$$_or.length != lOther$$_or.length) {
+    if (l$$Or != null && lother$$Or != null) {
+      if (l$$Or.length != lother$$Or.length) {
         return false;
       }
-      for (int i = 0; i < l$$_or.length; i++) {
-        final l$$_or$entry = l$$_or[i];
-        final lOther$$_or$entry = lOther$$_or[i];
-        if (l$$_or$entry != lOther$$_or$entry) {
+      for (int i = 0; i < l$$Or.length; i++) {
+        final l$$Or$entry = l$$Or[i];
+        final lother$$Or$entry = lother$$Or[i];
+        if (l$$Or$entry != lother$$Or$entry) {
           return false;
         }
       }
-    } else if (l$$_or != lOther$$_or) {
+    } else if (l$$Or != lother$$Or) {
       return false;
     }
-    final l$created_at = created_at;
-    final lOther$created_at = other.created_at;
+    final l$createdAt = created_at;
+    final lother$createdAt = other.created_at;
     if (_$data.containsKey('created_at') !=
         other._$data.containsKey('created_at')) {
       return false;
     }
-    if (l$created_at != lOther$created_at) {
+    if (l$createdAt != lother$createdAt) {
       return false;
     }
     final l$description = description;
@@ -22718,22 +23174,22 @@ class Input$stations_bool_exp {
     if (l$description != lOther$description) {
       return false;
     }
-    final l$description_action_title = description_action_title;
-    final lOther$description_action_title = other.description_action_title;
+    final l$descriptionActionTitle = description_action_title;
+    final lother$descriptionActionTitle = other.description_action_title;
     if (_$data.containsKey('description_action_title') !=
         other._$data.containsKey('description_action_title')) {
       return false;
     }
-    if (l$description_action_title != lOther$description_action_title) {
+    if (l$descriptionActionTitle != lother$descriptionActionTitle) {
       return false;
     }
-    final l$description_link = description_link;
-    final lOther$description_link = other.description_link;
+    final l$descriptionLink = description_link;
+    final lother$descriptionLink = other.description_link;
     if (_$data.containsKey('description_link') !=
         other._$data.containsKey('description_link')) {
       return false;
     }
-    if (l$description_link != lOther$description_link) {
+    if (l$descriptionLink != lother$descriptionLink) {
       return false;
     }
     final l$email = email;
@@ -22744,31 +23200,31 @@ class Input$stations_bool_exp {
     if (l$email != lOther$email) {
       return false;
     }
-    final l$facebook_page_id = facebook_page_id;
-    final lOther$facebook_page_id = other.facebook_page_id;
+    final l$facebookPageId = facebook_page_id;
+    final lother$facebookPageId = other.facebook_page_id;
     if (_$data.containsKey('facebook_page_id') !=
         other._$data.containsKey('facebook_page_id')) {
       return false;
     }
-    if (l$facebook_page_id != lOther$facebook_page_id) {
+    if (l$facebookPageId != lother$facebookPageId) {
       return false;
     }
-    final l$feature_latest_post = feature_latest_post;
-    final lOther$feature_latest_post = other.feature_latest_post;
+    final l$featureLatestPost = feature_latest_post;
+    final lother$featureLatestPost = other.feature_latest_post;
     if (_$data.containsKey('feature_latest_post') !=
         other._$data.containsKey('feature_latest_post')) {
       return false;
     }
-    if (l$feature_latest_post != lOther$feature_latest_post) {
+    if (l$featureLatestPost != lother$featureLatestPost) {
       return false;
     }
-    final l$hls_stream_url = hls_stream_url;
-    final lOther$hls_stream_url = other.hls_stream_url;
+    final l$hlsStreamUrl = hls_stream_url;
+    final lother$hlsStreamUrl = other.hls_stream_url;
     if (_$data.containsKey('hls_stream_url') !=
         other._$data.containsKey('hls_stream_url')) {
       return false;
     }
-    if (l$hls_stream_url != lOther$hls_stream_url) {
+    if (l$hlsStreamUrl != lother$hlsStreamUrl) {
       return false;
     }
     final l$id = id;
@@ -22779,42 +23235,42 @@ class Input$stations_bool_exp {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$latest_station_now_playing_id = latest_station_now_playing_id;
-    final lOther$latest_station_now_playing_id =
+    final l$latestStationNowPlayingId = latest_station_now_playing_id;
+    final lother$latestStationNowPlayingId =
         other.latest_station_now_playing_id;
     if (_$data.containsKey('latest_station_now_playing_id') !=
         other._$data.containsKey('latest_station_now_playing_id')) {
       return false;
     }
-    if (l$latest_station_now_playing_id !=
-        lOther$latest_station_now_playing_id) {
+    if (l$latestStationNowPlayingId !=
+        lother$latestStationNowPlayingId) {
       return false;
     }
-    final l$latest_station_uptime_id = latest_station_uptime_id;
-    final lOther$latest_station_uptime_id = other.latest_station_uptime_id;
+    final l$latestStationUptimeId = latest_station_uptime_id;
+    final lother$latestStationUptimeId = other.latest_station_uptime_id;
     if (_$data.containsKey('latest_station_uptime_id') !=
         other._$data.containsKey('latest_station_uptime_id')) {
       return false;
     }
-    if (l$latest_station_uptime_id != lOther$latest_station_uptime_id) {
+    if (l$latestStationUptimeId != lother$latestStationUptimeId) {
       return false;
     }
-    final l$now_playing = now_playing;
-    final lOther$now_playing = other.now_playing;
+    final l$nowPlaying = now_playing;
+    final lother$nowPlaying = other.now_playing;
     if (_$data.containsKey('now_playing') !=
         other._$data.containsKey('now_playing')) {
       return false;
     }
-    if (l$now_playing != lOther$now_playing) {
+    if (l$nowPlaying != lother$nowPlaying) {
       return false;
     }
-    final l$now_playing_history = now_playing_history;
-    final lOther$now_playing_history = other.now_playing_history;
+    final l$nowPlayingHistory = now_playing_history;
+    final lother$nowPlayingHistory = other.now_playing_history;
     if (_$data.containsKey('now_playing_history') !=
         other._$data.containsKey('now_playing_history')) {
       return false;
     }
-    if (l$now_playing_history != lOther$now_playing_history) {
+    if (l$nowPlayingHistory != lother$nowPlayingHistory) {
       return false;
     }
     final l$order = order;
@@ -22833,22 +23289,22 @@ class Input$stations_bool_exp {
     if (l$posts != lOther$posts) {
       return false;
     }
-    final l$proxy_stream_url = proxy_stream_url;
-    final lOther$proxy_stream_url = other.proxy_stream_url;
+    final l$proxyStreamUrl = proxy_stream_url;
+    final lother$proxyStreamUrl = other.proxy_stream_url;
     if (_$data.containsKey('proxy_stream_url') !=
         other._$data.containsKey('proxy_stream_url')) {
       return false;
     }
-    if (l$proxy_stream_url != lOther$proxy_stream_url) {
+    if (l$proxyStreamUrl != lother$proxyStreamUrl) {
       return false;
     }
-    final l$radio_crestin_listeners = radio_crestin_listeners;
-    final lOther$radio_crestin_listeners = other.radio_crestin_listeners;
+    final l$radioCrestinListeners = radio_crestin_listeners;
+    final lother$radioCrestinListeners = other.radio_crestin_listeners;
     if (_$data.containsKey('radio_crestin_listeners') !=
         other._$data.containsKey('radio_crestin_listeners')) {
       return false;
     }
-    if (l$radio_crestin_listeners != lOther$radio_crestin_listeners) {
+    if (l$radioCrestinListeners != lother$radioCrestinListeners) {
       return false;
     }
     final l$reviews = reviews;
@@ -22859,13 +23315,13 @@ class Input$stations_bool_exp {
     if (l$reviews != lOther$reviews) {
       return false;
     }
-    final l$rss_feed = rss_feed;
-    final lOther$rss_feed = other.rss_feed;
+    final l$rssFeed = rss_feed;
+    final lother$rssFeed = other.rss_feed;
     if (_$data.containsKey('rss_feed') !=
         other._$data.containsKey('rss_feed')) {
       return false;
     }
-    if (l$rss_feed != lOther$rss_feed) {
+    if (l$rssFeed != lother$rssFeed) {
       return false;
     }
     final l$slug = slug;
@@ -22876,49 +23332,49 @@ class Input$stations_bool_exp {
     if (l$slug != lOther$slug) {
       return false;
     }
-    final l$station_streams = station_streams;
-    final lOther$station_streams = other.station_streams;
+    final l$stationStreams = station_streams;
+    final lother$stationStreams = other.station_streams;
     if (_$data.containsKey('station_streams') !=
         other._$data.containsKey('station_streams')) {
       return false;
     }
-    if (l$station_streams != lOther$station_streams) {
+    if (l$stationStreams != lother$stationStreams) {
       return false;
     }
-    final l$station_to_station_groups = station_to_station_groups;
-    final lOther$station_to_station_groups = other.station_to_station_groups;
+    final l$stationToStationGroups = station_to_station_groups;
+    final lother$stationToStationGroups = other.station_to_station_groups;
     if (_$data.containsKey('station_to_station_groups') !=
         other._$data.containsKey('station_to_station_groups')) {
       return false;
     }
-    if (l$station_to_station_groups != lOther$station_to_station_groups) {
+    if (l$stationToStationGroups != lother$stationToStationGroups) {
       return false;
     }
-    final l$stations_now_playing = stations_now_playing;
-    final lOther$stations_now_playing = other.stations_now_playing;
+    final l$stationsNowPlaying = stations_now_playing;
+    final lother$stationsNowPlaying = other.stations_now_playing;
     if (_$data.containsKey('stations_now_playing') !=
         other._$data.containsKey('stations_now_playing')) {
       return false;
     }
-    if (l$stations_now_playing != lOther$stations_now_playing) {
+    if (l$stationsNowPlaying != lother$stationsNowPlaying) {
       return false;
     }
-    final l$stations_uptime = stations_uptime;
-    final lOther$stations_uptime = other.stations_uptime;
+    final l$stationsUptime = stations_uptime;
+    final lother$stationsUptime = other.stations_uptime;
     if (_$data.containsKey('stations_uptime') !=
         other._$data.containsKey('stations_uptime')) {
       return false;
     }
-    if (l$stations_uptime != lOther$stations_uptime) {
+    if (l$stationsUptime != lother$stationsUptime) {
       return false;
     }
-    final l$stream_url = stream_url;
-    final lOther$stream_url = other.stream_url;
+    final l$streamUrl = stream_url;
+    final lother$streamUrl = other.stream_url;
     if (_$data.containsKey('stream_url') !=
         other._$data.containsKey('stream_url')) {
       return false;
     }
-    if (l$stream_url != lOther$stream_url) {
+    if (l$streamUrl != lother$streamUrl) {
       return false;
     }
     final l$thumbnail = thumbnail;
@@ -22930,13 +23386,13 @@ class Input$stations_bool_exp {
     if (l$thumbnail != lOther$thumbnail) {
       return false;
     }
-    final l$thumbnail_url = thumbnail_url;
-    final lOther$thumbnail_url = other.thumbnail_url;
+    final l$thumbnailUrl = thumbnail_url;
+    final lother$thumbnailUrl = other.thumbnail_url;
     if (_$data.containsKey('thumbnail_url') !=
         other._$data.containsKey('thumbnail_url')) {
       return false;
     }
-    if (l$thumbnail_url != lOther$thumbnail_url) {
+    if (l$thumbnailUrl != lother$thumbnailUrl) {
       return false;
     }
     final l$title = title;
@@ -22947,22 +23403,22 @@ class Input$stations_bool_exp {
     if (l$title != lOther$title) {
       return false;
     }
-    final l$total_listeners = total_listeners;
-    final lOther$total_listeners = other.total_listeners;
+    final l$totalListeners = total_listeners;
+    final lother$totalListeners = other.total_listeners;
     if (_$data.containsKey('total_listeners') !=
         other._$data.containsKey('total_listeners')) {
       return false;
     }
-    if (l$total_listeners != lOther$total_listeners) {
+    if (l$totalListeners != lother$totalListeners) {
       return false;
     }
-    final l$updated_at = updated_at;
-    final lOther$updated_at = other.updated_at;
+    final l$updatedAt = updated_at;
+    final lother$updatedAt = other.updated_at;
     if (_$data.containsKey('updated_at') !=
         other._$data.containsKey('updated_at')) {
       return false;
     }
-    if (l$updated_at != lOther$updated_at) {
+    if (l$updatedAt != lother$updatedAt) {
       return false;
     }
     final l$uptime = uptime;
@@ -22973,13 +23429,13 @@ class Input$stations_bool_exp {
     if (l$uptime != lOther$uptime) {
       return false;
     }
-    final l$uptime_history = uptime_history;
-    final lOther$uptime_history = other.uptime_history;
+    final l$uptimeHistory = uptime_history;
+    final lother$uptimeHistory = other.uptime_history;
     if (_$data.containsKey('uptime_history') !=
         other._$data.containsKey('uptime_history')) {
       return false;
     }
-    if (l$uptime_history != lOther$uptime_history) {
+    if (l$uptimeHistory != lother$uptimeHistory) {
       return false;
     }
     final l$website = website;
@@ -22995,102 +23451,102 @@ class Input$stations_bool_exp {
 
   @override
   int get hashCode {
-    final l$$_and = $_and;
-    final l$$_not = $_not;
-    final l$$_or = $_or;
-    final l$created_at = created_at;
+    final l$$And = $_and;
+    final l$$Not = $_not;
+    final l$$Or = $_or;
+    final l$createdAt = created_at;
     final l$description = description;
-    final l$description_action_title = description_action_title;
-    final l$description_link = description_link;
+    final l$descriptionActionTitle = description_action_title;
+    final l$descriptionLink = description_link;
     final l$email = email;
-    final l$facebook_page_id = facebook_page_id;
-    final l$feature_latest_post = feature_latest_post;
-    final l$hls_stream_url = hls_stream_url;
+    final l$facebookPageId = facebook_page_id;
+    final l$featureLatestPost = feature_latest_post;
+    final l$hlsStreamUrl = hls_stream_url;
     final l$id = id;
-    final l$latest_station_now_playing_id = latest_station_now_playing_id;
-    final l$latest_station_uptime_id = latest_station_uptime_id;
-    final l$now_playing = now_playing;
-    final l$now_playing_history = now_playing_history;
+    final l$latestStationNowPlayingId = latest_station_now_playing_id;
+    final l$latestStationUptimeId = latest_station_uptime_id;
+    final l$nowPlaying = now_playing;
+    final l$nowPlayingHistory = now_playing_history;
     final l$order = order;
     final l$posts = posts;
-    final l$proxy_stream_url = proxy_stream_url;
-    final l$radio_crestin_listeners = radio_crestin_listeners;
+    final l$proxyStreamUrl = proxy_stream_url;
+    final l$radioCrestinListeners = radio_crestin_listeners;
     final l$reviews = reviews;
-    final l$rss_feed = rss_feed;
+    final l$rssFeed = rss_feed;
     final l$slug = slug;
-    final l$station_streams = station_streams;
-    final l$station_to_station_groups = station_to_station_groups;
-    final l$stations_now_playing = stations_now_playing;
-    final l$stations_uptime = stations_uptime;
-    final l$stream_url = stream_url;
+    final l$stationStreams = station_streams;
+    final l$stationToStationGroups = station_to_station_groups;
+    final l$stationsNowPlaying = stations_now_playing;
+    final l$stationsUptime = stations_uptime;
+    final l$streamUrl = stream_url;
     final l$thumbnail = thumbnail;
-    final l$thumbnail_url = thumbnail_url;
+    final l$thumbnailUrl = thumbnail_url;
     final l$title = title;
-    final l$total_listeners = total_listeners;
-    final l$updated_at = updated_at;
+    final l$totalListeners = total_listeners;
+    final l$updatedAt = updated_at;
     final l$uptime = uptime;
-    final l$uptime_history = uptime_history;
+    final l$uptimeHistory = uptime_history;
     final l$website = website;
     return Object.hashAll([
       _$data.containsKey('_and')
-          ? l$$_and == null
+          ? l$$And == null
               ? null
-              : Object.hashAll(l$$_and.map((v) => v))
+              : Object.hashAll(l$$And.map((v) => v))
           : const {},
-      _$data.containsKey('_not') ? l$$_not : const {},
+      _$data.containsKey('_not') ? l$$Not : const {},
       _$data.containsKey('_or')
-          ? l$$_or == null
+          ? l$$Or == null
               ? null
-              : Object.hashAll(l$$_or.map((v) => v))
+              : Object.hashAll(l$$Or.map((v) => v))
           : const {},
-      _$data.containsKey('created_at') ? l$created_at : const {},
+      _$data.containsKey('created_at') ? l$createdAt : const {},
       _$data.containsKey('description') ? l$description : const {},
       _$data.containsKey('description_action_title')
-          ? l$description_action_title
+          ? l$descriptionActionTitle
           : const {},
-      _$data.containsKey('description_link') ? l$description_link : const {},
+      _$data.containsKey('description_link') ? l$descriptionLink : const {},
       _$data.containsKey('email') ? l$email : const {},
-      _$data.containsKey('facebook_page_id') ? l$facebook_page_id : const {},
+      _$data.containsKey('facebook_page_id') ? l$facebookPageId : const {},
       _$data.containsKey('feature_latest_post')
-          ? l$feature_latest_post
+          ? l$featureLatestPost
           : const {},
-      _$data.containsKey('hls_stream_url') ? l$hls_stream_url : const {},
+      _$data.containsKey('hls_stream_url') ? l$hlsStreamUrl : const {},
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('latest_station_now_playing_id')
-          ? l$latest_station_now_playing_id
+          ? l$latestStationNowPlayingId
           : const {},
       _$data.containsKey('latest_station_uptime_id')
-          ? l$latest_station_uptime_id
+          ? l$latestStationUptimeId
           : const {},
-      _$data.containsKey('now_playing') ? l$now_playing : const {},
+      _$data.containsKey('now_playing') ? l$nowPlaying : const {},
       _$data.containsKey('now_playing_history')
-          ? l$now_playing_history
+          ? l$nowPlayingHistory
           : const {},
       _$data.containsKey('order') ? l$order : const {},
       _$data.containsKey('posts') ? l$posts : const {},
-      _$data.containsKey('proxy_stream_url') ? l$proxy_stream_url : const {},
+      _$data.containsKey('proxy_stream_url') ? l$proxyStreamUrl : const {},
       _$data.containsKey('radio_crestin_listeners')
-          ? l$radio_crestin_listeners
+          ? l$radioCrestinListeners
           : const {},
       _$data.containsKey('reviews') ? l$reviews : const {},
-      _$data.containsKey('rss_feed') ? l$rss_feed : const {},
+      _$data.containsKey('rss_feed') ? l$rssFeed : const {},
       _$data.containsKey('slug') ? l$slug : const {},
-      _$data.containsKey('station_streams') ? l$station_streams : const {},
+      _$data.containsKey('station_streams') ? l$stationStreams : const {},
       _$data.containsKey('station_to_station_groups')
-          ? l$station_to_station_groups
+          ? l$stationToStationGroups
           : const {},
       _$data.containsKey('stations_now_playing')
-          ? l$stations_now_playing
+          ? l$stationsNowPlaying
           : const {},
-      _$data.containsKey('stations_uptime') ? l$stations_uptime : const {},
-      _$data.containsKey('stream_url') ? l$stream_url : const {},
+      _$data.containsKey('stations_uptime') ? l$stationsUptime : const {},
+      _$data.containsKey('stream_url') ? l$streamUrl : const {},
       _$data.containsKey('thumbnail') ? l$thumbnail : const {},
-      _$data.containsKey('thumbnail_url') ? l$thumbnail_url : const {},
+      _$data.containsKey('thumbnail_url') ? l$thumbnailUrl : const {},
       _$data.containsKey('title') ? l$title : const {},
-      _$data.containsKey('total_listeners') ? l$total_listeners : const {},
-      _$data.containsKey('updated_at') ? l$updated_at : const {},
+      _$data.containsKey('total_listeners') ? l$totalListeners : const {},
+      _$data.containsKey('updated_at') ? l$updatedAt : const {},
       _$data.containsKey('uptime') ? l$uptime : const {},
-      _$data.containsKey('uptime_history') ? l$uptime_history : const {},
+      _$data.containsKey('uptime_history') ? l$uptimeHistory : const {},
       _$data.containsKey('website') ? l$website : const {},
     ]);
   }
@@ -23147,13 +23603,13 @@ abstract class CopyWith$Input$stations_bool_exp<TRes> {
       Iterable<Input$stations_bool_exp>? Function(
               Iterable<
                   CopyWith$Input$stations_bool_exp<Input$stations_bool_exp>>?)
-          _fn);
+          fn);
   CopyWith$Input$stations_bool_exp<TRes> get $_not;
   TRes $_or(
       Iterable<Input$stations_bool_exp>? Function(
               Iterable<
                   CopyWith$Input$stations_bool_exp<Input$stations_bool_exp>>?)
-          _fn);
+          fn);
   CopyWith$Input$timestamptz_comparison_exp<TRes> get created_at;
   CopyWith$Input$String_comparison_exp<TRes> get description;
   CopyWith$Input$String_comparison_exp<TRes> get description_action_title;
@@ -23203,6 +23659,7 @@ class _CopyWithImpl$Input$stations_bool_exp<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? $_and = _undefined,
     Object? $_not = _undefined,
@@ -23324,46 +23781,51 @@ class _CopyWithImpl$Input$stations_bool_exp<TRes>
           'website': (website as Input$String_comparison_exp?),
       }));
 
+  @override
   TRes $_and(
           Iterable<Input$stations_bool_exp>? Function(
                   Iterable<
                       CopyWith$Input$stations_bool_exp<
                           Input$stations_bool_exp>>?)
-              _fn) =>
+              fn) =>
       call(
           $_and:
-              _fn(_instance.$_and?.map((e) => CopyWith$Input$stations_bool_exp(
+              fn(_instance.$_and?.map((e) => CopyWith$Input$stations_bool_exp(
                     e,
                     (i) => i,
                   )))?.toList());
 
+  @override
   CopyWith$Input$stations_bool_exp<TRes> get $_not {
-    final local$$_not = _instance.$_not;
-    return local$$_not == null
+    final local$$Not = _instance.$_not;
+    return local$$Not == null
         ? CopyWith$Input$stations_bool_exp.stub(_then(_instance))
-        : CopyWith$Input$stations_bool_exp(local$$_not, (e) => call($_not: e));
+        : CopyWith$Input$stations_bool_exp(local$$Not, (e) => call($_not: e));
   }
 
+  @override
   TRes $_or(
           Iterable<Input$stations_bool_exp>? Function(
                   Iterable<
                       CopyWith$Input$stations_bool_exp<
                           Input$stations_bool_exp>>?)
-              _fn) =>
+              fn) =>
       call(
-          $_or: _fn(_instance.$_or?.map((e) => CopyWith$Input$stations_bool_exp(
+          $_or: fn(_instance.$_or?.map((e) => CopyWith$Input$stations_bool_exp(
                 e,
                 (i) => i,
               )))?.toList());
 
+  @override
   CopyWith$Input$timestamptz_comparison_exp<TRes> get created_at {
-    final local$created_at = _instance.created_at;
-    return local$created_at == null
+    final local$createdAt = _instance.created_at;
+    return local$createdAt == null
         ? CopyWith$Input$timestamptz_comparison_exp.stub(_then(_instance))
         : CopyWith$Input$timestamptz_comparison_exp(
-            local$created_at, (e) => call(created_at: e));
+            local$createdAt, (e) => call(created_at: e));
   }
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get description {
     final local$description = _instance.description;
     return local$description == null
@@ -23372,22 +23834,25 @@ class _CopyWithImpl$Input$stations_bool_exp<TRes>
             local$description, (e) => call(description: e));
   }
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get description_action_title {
-    final local$description_action_title = _instance.description_action_title;
-    return local$description_action_title == null
+    final local$descriptionActionTitle = _instance.description_action_title;
+    return local$descriptionActionTitle == null
         ? CopyWith$Input$String_comparison_exp.stub(_then(_instance))
-        : CopyWith$Input$String_comparison_exp(local$description_action_title,
+        : CopyWith$Input$String_comparison_exp(local$descriptionActionTitle,
             (e) => call(description_action_title: e));
   }
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get description_link {
-    final local$description_link = _instance.description_link;
-    return local$description_link == null
+    final local$descriptionLink = _instance.description_link;
+    return local$descriptionLink == null
         ? CopyWith$Input$String_comparison_exp.stub(_then(_instance))
         : CopyWith$Input$String_comparison_exp(
-            local$description_link, (e) => call(description_link: e));
+            local$descriptionLink, (e) => call(description_link: e));
   }
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get email {
     final local$email = _instance.email;
     return local$email == null
@@ -23396,30 +23861,34 @@ class _CopyWithImpl$Input$stations_bool_exp<TRes>
             local$email, (e) => call(email: e));
   }
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get facebook_page_id {
-    final local$facebook_page_id = _instance.facebook_page_id;
-    return local$facebook_page_id == null
+    final local$facebookPageId = _instance.facebook_page_id;
+    return local$facebookPageId == null
         ? CopyWith$Input$String_comparison_exp.stub(_then(_instance))
         : CopyWith$Input$String_comparison_exp(
-            local$facebook_page_id, (e) => call(facebook_page_id: e));
+            local$facebookPageId, (e) => call(facebook_page_id: e));
   }
 
+  @override
   CopyWith$Input$Boolean_comparison_exp<TRes> get feature_latest_post {
-    final local$feature_latest_post = _instance.feature_latest_post;
-    return local$feature_latest_post == null
+    final local$featureLatestPost = _instance.feature_latest_post;
+    return local$featureLatestPost == null
         ? CopyWith$Input$Boolean_comparison_exp.stub(_then(_instance))
         : CopyWith$Input$Boolean_comparison_exp(
-            local$feature_latest_post, (e) => call(feature_latest_post: e));
+            local$featureLatestPost, (e) => call(feature_latest_post: e));
   }
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get hls_stream_url {
-    final local$hls_stream_url = _instance.hls_stream_url;
-    return local$hls_stream_url == null
+    final local$hlsStreamUrl = _instance.hls_stream_url;
+    return local$hlsStreamUrl == null
         ? CopyWith$Input$String_comparison_exp.stub(_then(_instance))
         : CopyWith$Input$String_comparison_exp(
-            local$hls_stream_url, (e) => call(hls_stream_url: e));
+            local$hlsStreamUrl, (e) => call(hls_stream_url: e));
   }
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get id {
     final local$id = _instance.id;
     return local$id == null
@@ -23427,39 +23896,44 @@ class _CopyWithImpl$Input$stations_bool_exp<TRes>
         : CopyWith$Input$Int_comparison_exp(local$id, (e) => call(id: e));
   }
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get latest_station_now_playing_id {
-    final local$latest_station_now_playing_id =
+    final local$latestStationNowPlayingId =
         _instance.latest_station_now_playing_id;
-    return local$latest_station_now_playing_id == null
+    return local$latestStationNowPlayingId == null
         ? CopyWith$Input$Int_comparison_exp.stub(_then(_instance))
-        : CopyWith$Input$Int_comparison_exp(local$latest_station_now_playing_id,
+        : CopyWith$Input$Int_comparison_exp(local$latestStationNowPlayingId,
             (e) => call(latest_station_now_playing_id: e));
   }
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get latest_station_uptime_id {
-    final local$latest_station_uptime_id = _instance.latest_station_uptime_id;
-    return local$latest_station_uptime_id == null
+    final local$latestStationUptimeId = _instance.latest_station_uptime_id;
+    return local$latestStationUptimeId == null
         ? CopyWith$Input$Int_comparison_exp.stub(_then(_instance))
-        : CopyWith$Input$Int_comparison_exp(local$latest_station_uptime_id,
+        : CopyWith$Input$Int_comparison_exp(local$latestStationUptimeId,
             (e) => call(latest_station_uptime_id: e));
   }
 
+  @override
   CopyWith$Input$stations_now_playing_bool_exp<TRes> get now_playing {
-    final local$now_playing = _instance.now_playing;
-    return local$now_playing == null
+    final local$nowPlaying = _instance.now_playing;
+    return local$nowPlaying == null
         ? CopyWith$Input$stations_now_playing_bool_exp.stub(_then(_instance))
         : CopyWith$Input$stations_now_playing_bool_exp(
-            local$now_playing, (e) => call(now_playing: e));
+            local$nowPlaying, (e) => call(now_playing: e));
   }
 
+  @override
   CopyWith$Input$stations_now_playing_bool_exp<TRes> get now_playing_history {
-    final local$now_playing_history = _instance.now_playing_history;
-    return local$now_playing_history == null
+    final local$nowPlayingHistory = _instance.now_playing_history;
+    return local$nowPlayingHistory == null
         ? CopyWith$Input$stations_now_playing_bool_exp.stub(_then(_instance))
         : CopyWith$Input$stations_now_playing_bool_exp(
-            local$now_playing_history, (e) => call(now_playing_history: e));
+            local$nowPlayingHistory, (e) => call(now_playing_history: e));
   }
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get order {
     final local$order = _instance.order;
     return local$order == null
@@ -23467,6 +23941,7 @@ class _CopyWithImpl$Input$stations_bool_exp<TRes>
         : CopyWith$Input$Int_comparison_exp(local$order, (e) => call(order: e));
   }
 
+  @override
   CopyWith$Input$posts_bool_exp<TRes> get posts {
     final local$posts = _instance.posts;
     return local$posts == null
@@ -23474,22 +23949,25 @@ class _CopyWithImpl$Input$stations_bool_exp<TRes>
         : CopyWith$Input$posts_bool_exp(local$posts, (e) => call(posts: e));
   }
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get proxy_stream_url {
-    final local$proxy_stream_url = _instance.proxy_stream_url;
-    return local$proxy_stream_url == null
+    final local$proxyStreamUrl = _instance.proxy_stream_url;
+    return local$proxyStreamUrl == null
         ? CopyWith$Input$String_comparison_exp.stub(_then(_instance))
         : CopyWith$Input$String_comparison_exp(
-            local$proxy_stream_url, (e) => call(proxy_stream_url: e));
+            local$proxyStreamUrl, (e) => call(proxy_stream_url: e));
   }
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get radio_crestin_listeners {
-    final local$radio_crestin_listeners = _instance.radio_crestin_listeners;
-    return local$radio_crestin_listeners == null
+    final local$radioCrestinListeners = _instance.radio_crestin_listeners;
+    return local$radioCrestinListeners == null
         ? CopyWith$Input$Int_comparison_exp.stub(_then(_instance))
-        : CopyWith$Input$Int_comparison_exp(local$radio_crestin_listeners,
+        : CopyWith$Input$Int_comparison_exp(local$radioCrestinListeners,
             (e) => call(radio_crestin_listeners: e));
   }
 
+  @override
   CopyWith$Input$reviews_bool_exp<TRes> get reviews {
     final local$reviews = _instance.reviews;
     return local$reviews == null
@@ -23498,14 +23976,16 @@ class _CopyWithImpl$Input$stations_bool_exp<TRes>
             local$reviews, (e) => call(reviews: e));
   }
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get rss_feed {
-    final local$rss_feed = _instance.rss_feed;
-    return local$rss_feed == null
+    final local$rssFeed = _instance.rss_feed;
+    return local$rssFeed == null
         ? CopyWith$Input$String_comparison_exp.stub(_then(_instance))
         : CopyWith$Input$String_comparison_exp(
-            local$rss_feed, (e) => call(rss_feed: e));
+            local$rssFeed, (e) => call(rss_feed: e));
   }
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get slug {
     final local$slug = _instance.slug;
     return local$slug == null
@@ -23514,49 +23994,55 @@ class _CopyWithImpl$Input$stations_bool_exp<TRes>
             local$slug, (e) => call(slug: e));
   }
 
+  @override
   CopyWith$Input$station_streams_bool_exp<TRes> get station_streams {
-    final local$station_streams = _instance.station_streams;
-    return local$station_streams == null
+    final local$stationStreams = _instance.station_streams;
+    return local$stationStreams == null
         ? CopyWith$Input$station_streams_bool_exp.stub(_then(_instance))
         : CopyWith$Input$station_streams_bool_exp(
-            local$station_streams, (e) => call(station_streams: e));
+            local$stationStreams, (e) => call(station_streams: e));
   }
 
+  @override
   CopyWith$Input$station_to_station_group_bool_exp<TRes>
       get station_to_station_groups {
-    final local$station_to_station_groups = _instance.station_to_station_groups;
-    return local$station_to_station_groups == null
+    final local$stationToStationGroups = _instance.station_to_station_groups;
+    return local$stationToStationGroups == null
         ? CopyWith$Input$station_to_station_group_bool_exp.stub(
             _then(_instance))
         : CopyWith$Input$station_to_station_group_bool_exp(
-            local$station_to_station_groups,
+            local$stationToStationGroups,
             (e) => call(station_to_station_groups: e));
   }
 
+  @override
   CopyWith$Input$stations_now_playing_bool_exp<TRes> get stations_now_playing {
-    final local$stations_now_playing = _instance.stations_now_playing;
-    return local$stations_now_playing == null
+    final local$stationsNowPlaying = _instance.stations_now_playing;
+    return local$stationsNowPlaying == null
         ? CopyWith$Input$stations_now_playing_bool_exp.stub(_then(_instance))
         : CopyWith$Input$stations_now_playing_bool_exp(
-            local$stations_now_playing, (e) => call(stations_now_playing: e));
+            local$stationsNowPlaying, (e) => call(stations_now_playing: e));
   }
 
+  @override
   CopyWith$Input$stations_uptime_bool_exp<TRes> get stations_uptime {
-    final local$stations_uptime = _instance.stations_uptime;
-    return local$stations_uptime == null
+    final local$stationsUptime = _instance.stations_uptime;
+    return local$stationsUptime == null
         ? CopyWith$Input$stations_uptime_bool_exp.stub(_then(_instance))
         : CopyWith$Input$stations_uptime_bool_exp(
-            local$stations_uptime, (e) => call(stations_uptime: e));
+            local$stationsUptime, (e) => call(stations_uptime: e));
   }
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get stream_url {
-    final local$stream_url = _instance.stream_url;
-    return local$stream_url == null
+    final local$streamUrl = _instance.stream_url;
+    return local$streamUrl == null
         ? CopyWith$Input$String_comparison_exp.stub(_then(_instance))
         : CopyWith$Input$String_comparison_exp(
-            local$stream_url, (e) => call(stream_url: e));
+            local$streamUrl, (e) => call(stream_url: e));
   }
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get thumbnail {
     final local$thumbnail = _instance.thumbnail;
     return local$thumbnail == null
@@ -23565,14 +24051,16 @@ class _CopyWithImpl$Input$stations_bool_exp<TRes>
             local$thumbnail, (e) => call(thumbnail: e));
   }
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get thumbnail_url {
-    final local$thumbnail_url = _instance.thumbnail_url;
-    return local$thumbnail_url == null
+    final local$thumbnailUrl = _instance.thumbnail_url;
+    return local$thumbnailUrl == null
         ? CopyWith$Input$String_comparison_exp.stub(_then(_instance))
         : CopyWith$Input$String_comparison_exp(
-            local$thumbnail_url, (e) => call(thumbnail_url: e));
+            local$thumbnailUrl, (e) => call(thumbnail_url: e));
   }
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get title {
     final local$title = _instance.title;
     return local$title == null
@@ -23581,22 +24069,25 @@ class _CopyWithImpl$Input$stations_bool_exp<TRes>
             local$title, (e) => call(title: e));
   }
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get total_listeners {
-    final local$total_listeners = _instance.total_listeners;
-    return local$total_listeners == null
+    final local$totalListeners = _instance.total_listeners;
+    return local$totalListeners == null
         ? CopyWith$Input$Int_comparison_exp.stub(_then(_instance))
         : CopyWith$Input$Int_comparison_exp(
-            local$total_listeners, (e) => call(total_listeners: e));
+            local$totalListeners, (e) => call(total_listeners: e));
   }
 
+  @override
   CopyWith$Input$timestamptz_comparison_exp<TRes> get updated_at {
-    final local$updated_at = _instance.updated_at;
-    return local$updated_at == null
+    final local$updatedAt = _instance.updated_at;
+    return local$updatedAt == null
         ? CopyWith$Input$timestamptz_comparison_exp.stub(_then(_instance))
         : CopyWith$Input$timestamptz_comparison_exp(
-            local$updated_at, (e) => call(updated_at: e));
+            local$updatedAt, (e) => call(updated_at: e));
   }
 
+  @override
   CopyWith$Input$stations_uptime_bool_exp<TRes> get uptime {
     final local$uptime = _instance.uptime;
     return local$uptime == null
@@ -23605,14 +24096,16 @@ class _CopyWithImpl$Input$stations_bool_exp<TRes>
             local$uptime, (e) => call(uptime: e));
   }
 
+  @override
   CopyWith$Input$stations_uptime_bool_exp<TRes> get uptime_history {
-    final local$uptime_history = _instance.uptime_history;
-    return local$uptime_history == null
+    final local$uptimeHistory = _instance.uptime_history;
+    return local$uptimeHistory == null
         ? CopyWith$Input$stations_uptime_bool_exp.stub(_then(_instance))
         : CopyWith$Input$stations_uptime_bool_exp(
-            local$uptime_history, (e) => call(uptime_history: e));
+            local$uptimeHistory, (e) => call(uptime_history: e));
   }
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get website {
     final local$website = _instance.website;
     return local$website == null
@@ -23626,8 +24119,9 @@ class _CopyWithStubImpl$Input$stations_bool_exp<TRes>
     implements CopyWith$Input$stations_bool_exp<TRes> {
   _CopyWithStubImpl$Input$stations_bool_exp(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     List<Input$stations_bool_exp>? $_and,
     Input$stations_bool_exp? $_not,
@@ -23668,110 +24162,146 @@ class _CopyWithStubImpl$Input$stations_bool_exp<TRes>
   }) =>
       _res;
 
-  $_and(_fn) => _res;
+  @override
+  $_and(fn) => _res;
 
+  @override
   CopyWith$Input$stations_bool_exp<TRes> get $_not =>
       CopyWith$Input$stations_bool_exp.stub(_res);
 
-  $_or(_fn) => _res;
+  @override
+  $_or(fn) => _res;
 
+  @override
   CopyWith$Input$timestamptz_comparison_exp<TRes> get created_at =>
       CopyWith$Input$timestamptz_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get description =>
       CopyWith$Input$String_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get description_action_title =>
       CopyWith$Input$String_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get description_link =>
       CopyWith$Input$String_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get email =>
       CopyWith$Input$String_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get facebook_page_id =>
       CopyWith$Input$String_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$Boolean_comparison_exp<TRes> get feature_latest_post =>
       CopyWith$Input$Boolean_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get hls_stream_url =>
       CopyWith$Input$String_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get id =>
       CopyWith$Input$Int_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get latest_station_now_playing_id =>
       CopyWith$Input$Int_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get latest_station_uptime_id =>
       CopyWith$Input$Int_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$stations_now_playing_bool_exp<TRes> get now_playing =>
       CopyWith$Input$stations_now_playing_bool_exp.stub(_res);
 
+  @override
   CopyWith$Input$stations_now_playing_bool_exp<TRes> get now_playing_history =>
       CopyWith$Input$stations_now_playing_bool_exp.stub(_res);
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get order =>
       CopyWith$Input$Int_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$posts_bool_exp<TRes> get posts =>
       CopyWith$Input$posts_bool_exp.stub(_res);
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get proxy_stream_url =>
       CopyWith$Input$String_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get radio_crestin_listeners =>
       CopyWith$Input$Int_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$reviews_bool_exp<TRes> get reviews =>
       CopyWith$Input$reviews_bool_exp.stub(_res);
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get rss_feed =>
       CopyWith$Input$String_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get slug =>
       CopyWith$Input$String_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$station_streams_bool_exp<TRes> get station_streams =>
       CopyWith$Input$station_streams_bool_exp.stub(_res);
 
+  @override
   CopyWith$Input$station_to_station_group_bool_exp<TRes>
       get station_to_station_groups =>
           CopyWith$Input$station_to_station_group_bool_exp.stub(_res);
 
+  @override
   CopyWith$Input$stations_now_playing_bool_exp<TRes> get stations_now_playing =>
       CopyWith$Input$stations_now_playing_bool_exp.stub(_res);
 
+  @override
   CopyWith$Input$stations_uptime_bool_exp<TRes> get stations_uptime =>
       CopyWith$Input$stations_uptime_bool_exp.stub(_res);
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get stream_url =>
       CopyWith$Input$String_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get thumbnail =>
       CopyWith$Input$String_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get thumbnail_url =>
       CopyWith$Input$String_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get title =>
       CopyWith$Input$String_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get total_listeners =>
       CopyWith$Input$Int_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$timestamptz_comparison_exp<TRes> get updated_at =>
       CopyWith$Input$timestamptz_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$stations_uptime_bool_exp<TRes> get uptime =>
       CopyWith$Input$stations_uptime_bool_exp.stub(_res);
 
+  @override
   CopyWith$Input$stations_uptime_bool_exp<TRes> get uptime_history =>
       CopyWith$Input$stations_uptime_bool_exp.stub(_res);
 
+  @override
   CopyWith$Input$String_comparison_exp<TRes> get website =>
       CopyWith$Input$String_comparison_exp.stub(_res);
 }
@@ -23826,10 +24356,10 @@ class Input$stations_max_order_by {
   factory Input$stations_max_order_by.fromJson(Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
     if (data.containsKey('created_at')) {
-      final l$created_at = data['created_at'];
-      result$data['created_at'] = l$created_at == null
+      final l$createdAt = data['created_at'];
+      result$data['created_at'] = l$createdAt == null
           ? null
-          : fromJson$Enum$order_by((l$created_at as String));
+          : fromJson$Enum$order_by((l$createdAt as String));
     }
     if (data.containsKey('description')) {
       final l$description = data['description'];
@@ -23838,17 +24368,17 @@ class Input$stations_max_order_by {
           : fromJson$Enum$order_by((l$description as String));
     }
     if (data.containsKey('description_action_title')) {
-      final l$description_action_title = data['description_action_title'];
+      final l$descriptionActionTitle = data['description_action_title'];
       result$data['description_action_title'] =
-          l$description_action_title == null
+          l$descriptionActionTitle == null
               ? null
-              : fromJson$Enum$order_by((l$description_action_title as String));
+              : fromJson$Enum$order_by((l$descriptionActionTitle as String));
     }
     if (data.containsKey('description_link')) {
-      final l$description_link = data['description_link'];
-      result$data['description_link'] = l$description_link == null
+      final l$descriptionLink = data['description_link'];
+      result$data['description_link'] = l$descriptionLink == null
           ? null
-          : fromJson$Enum$order_by((l$description_link as String));
+          : fromJson$Enum$order_by((l$descriptionLink as String));
     }
     if (data.containsKey('email')) {
       final l$email = data['email'];
@@ -23856,10 +24386,10 @@ class Input$stations_max_order_by {
           l$email == null ? null : fromJson$Enum$order_by((l$email as String));
     }
     if (data.containsKey('facebook_page_id')) {
-      final l$facebook_page_id = data['facebook_page_id'];
-      result$data['facebook_page_id'] = l$facebook_page_id == null
+      final l$facebookPageId = data['facebook_page_id'];
+      result$data['facebook_page_id'] = l$facebookPageId == null
           ? null
-          : fromJson$Enum$order_by((l$facebook_page_id as String));
+          : fromJson$Enum$order_by((l$facebookPageId as String));
     }
     if (data.containsKey('id')) {
       final l$id = data['id'];
@@ -23867,20 +24397,20 @@ class Input$stations_max_order_by {
           l$id == null ? null : fromJson$Enum$order_by((l$id as String));
     }
     if (data.containsKey('latest_station_now_playing_id')) {
-      final l$latest_station_now_playing_id =
+      final l$latestStationNowPlayingId =
           data['latest_station_now_playing_id'];
       result$data['latest_station_now_playing_id'] =
-          l$latest_station_now_playing_id == null
+          l$latestStationNowPlayingId == null
               ? null
               : fromJson$Enum$order_by(
-                  (l$latest_station_now_playing_id as String));
+                  (l$latestStationNowPlayingId as String));
     }
     if (data.containsKey('latest_station_uptime_id')) {
-      final l$latest_station_uptime_id = data['latest_station_uptime_id'];
+      final l$latestStationUptimeId = data['latest_station_uptime_id'];
       result$data['latest_station_uptime_id'] =
-          l$latest_station_uptime_id == null
+          l$latestStationUptimeId == null
               ? null
-              : fromJson$Enum$order_by((l$latest_station_uptime_id as String));
+              : fromJson$Enum$order_by((l$latestStationUptimeId as String));
     }
     if (data.containsKey('order')) {
       final l$order = data['order'];
@@ -23888,10 +24418,10 @@ class Input$stations_max_order_by {
           l$order == null ? null : fromJson$Enum$order_by((l$order as String));
     }
     if (data.containsKey('rss_feed')) {
-      final l$rss_feed = data['rss_feed'];
-      result$data['rss_feed'] = l$rss_feed == null
+      final l$rssFeed = data['rss_feed'];
+      result$data['rss_feed'] = l$rssFeed == null
           ? null
-          : fromJson$Enum$order_by((l$rss_feed as String));
+          : fromJson$Enum$order_by((l$rssFeed as String));
     }
     if (data.containsKey('slug')) {
       final l$slug = data['slug'];
@@ -23899,10 +24429,10 @@ class Input$stations_max_order_by {
           l$slug == null ? null : fromJson$Enum$order_by((l$slug as String));
     }
     if (data.containsKey('stream_url')) {
-      final l$stream_url = data['stream_url'];
-      result$data['stream_url'] = l$stream_url == null
+      final l$streamUrl = data['stream_url'];
+      result$data['stream_url'] = l$streamUrl == null
           ? null
-          : fromJson$Enum$order_by((l$stream_url as String));
+          : fromJson$Enum$order_by((l$streamUrl as String));
     }
     if (data.containsKey('thumbnail')) {
       final l$thumbnail = data['thumbnail'];
@@ -23911,10 +24441,10 @@ class Input$stations_max_order_by {
           : fromJson$Enum$order_by((l$thumbnail as String));
     }
     if (data.containsKey('thumbnail_url')) {
-      final l$thumbnail_url = data['thumbnail_url'];
-      result$data['thumbnail_url'] = l$thumbnail_url == null
+      final l$thumbnailUrl = data['thumbnail_url'];
+      result$data['thumbnail_url'] = l$thumbnailUrl == null
           ? null
-          : fromJson$Enum$order_by((l$thumbnail_url as String));
+          : fromJson$Enum$order_by((l$thumbnailUrl as String));
     }
     if (data.containsKey('title')) {
       final l$title = data['title'];
@@ -23922,10 +24452,10 @@ class Input$stations_max_order_by {
           l$title == null ? null : fromJson$Enum$order_by((l$title as String));
     }
     if (data.containsKey('updated_at')) {
-      final l$updated_at = data['updated_at'];
-      result$data['updated_at'] = l$updated_at == null
+      final l$updatedAt = data['updated_at'];
+      result$data['updated_at'] = l$updatedAt == null
           ? null
-          : fromJson$Enum$order_by((l$updated_at as String));
+          : fromJson$Enum$order_by((l$updatedAt as String));
     }
     if (data.containsKey('website')) {
       final l$website = data['website'];
@@ -23983,9 +24513,9 @@ class Input$stations_max_order_by {
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
     if (_$data.containsKey('created_at')) {
-      final l$created_at = created_at;
+      final l$createdAt = created_at;
       result$data['created_at'] =
-          l$created_at == null ? null : toJson$Enum$order_by(l$created_at);
+          l$createdAt == null ? null : toJson$Enum$order_by(l$createdAt);
     }
     if (_$data.containsKey('description')) {
       final l$description = description;
@@ -23993,17 +24523,17 @@ class Input$stations_max_order_by {
           l$description == null ? null : toJson$Enum$order_by(l$description);
     }
     if (_$data.containsKey('description_action_title')) {
-      final l$description_action_title = description_action_title;
+      final l$descriptionActionTitle = description_action_title;
       result$data['description_action_title'] =
-          l$description_action_title == null
+          l$descriptionActionTitle == null
               ? null
-              : toJson$Enum$order_by(l$description_action_title);
+              : toJson$Enum$order_by(l$descriptionActionTitle);
     }
     if (_$data.containsKey('description_link')) {
-      final l$description_link = description_link;
-      result$data['description_link'] = l$description_link == null
+      final l$descriptionLink = description_link;
+      result$data['description_link'] = l$descriptionLink == null
           ? null
-          : toJson$Enum$order_by(l$description_link);
+          : toJson$Enum$order_by(l$descriptionLink);
     }
     if (_$data.containsKey('email')) {
       final l$email = email;
@@ -24011,28 +24541,28 @@ class Input$stations_max_order_by {
           l$email == null ? null : toJson$Enum$order_by(l$email);
     }
     if (_$data.containsKey('facebook_page_id')) {
-      final l$facebook_page_id = facebook_page_id;
-      result$data['facebook_page_id'] = l$facebook_page_id == null
+      final l$facebookPageId = facebook_page_id;
+      result$data['facebook_page_id'] = l$facebookPageId == null
           ? null
-          : toJson$Enum$order_by(l$facebook_page_id);
+          : toJson$Enum$order_by(l$facebookPageId);
     }
     if (_$data.containsKey('id')) {
       final l$id = id;
       result$data['id'] = l$id == null ? null : toJson$Enum$order_by(l$id);
     }
     if (_$data.containsKey('latest_station_now_playing_id')) {
-      final l$latest_station_now_playing_id = latest_station_now_playing_id;
+      final l$latestStationNowPlayingId = latest_station_now_playing_id;
       result$data['latest_station_now_playing_id'] =
-          l$latest_station_now_playing_id == null
+          l$latestStationNowPlayingId == null
               ? null
-              : toJson$Enum$order_by(l$latest_station_now_playing_id);
+              : toJson$Enum$order_by(l$latestStationNowPlayingId);
     }
     if (_$data.containsKey('latest_station_uptime_id')) {
-      final l$latest_station_uptime_id = latest_station_uptime_id;
+      final l$latestStationUptimeId = latest_station_uptime_id;
       result$data['latest_station_uptime_id'] =
-          l$latest_station_uptime_id == null
+          l$latestStationUptimeId == null
               ? null
-              : toJson$Enum$order_by(l$latest_station_uptime_id);
+              : toJson$Enum$order_by(l$latestStationUptimeId);
     }
     if (_$data.containsKey('order')) {
       final l$order = order;
@@ -24040,9 +24570,9 @@ class Input$stations_max_order_by {
           l$order == null ? null : toJson$Enum$order_by(l$order);
     }
     if (_$data.containsKey('rss_feed')) {
-      final l$rss_feed = rss_feed;
+      final l$rssFeed = rss_feed;
       result$data['rss_feed'] =
-          l$rss_feed == null ? null : toJson$Enum$order_by(l$rss_feed);
+          l$rssFeed == null ? null : toJson$Enum$order_by(l$rssFeed);
     }
     if (_$data.containsKey('slug')) {
       final l$slug = slug;
@@ -24050,9 +24580,9 @@ class Input$stations_max_order_by {
           l$slug == null ? null : toJson$Enum$order_by(l$slug);
     }
     if (_$data.containsKey('stream_url')) {
-      final l$stream_url = stream_url;
+      final l$streamUrl = stream_url;
       result$data['stream_url'] =
-          l$stream_url == null ? null : toJson$Enum$order_by(l$stream_url);
+          l$streamUrl == null ? null : toJson$Enum$order_by(l$streamUrl);
     }
     if (_$data.containsKey('thumbnail')) {
       final l$thumbnail = thumbnail;
@@ -24060,10 +24590,10 @@ class Input$stations_max_order_by {
           l$thumbnail == null ? null : toJson$Enum$order_by(l$thumbnail);
     }
     if (_$data.containsKey('thumbnail_url')) {
-      final l$thumbnail_url = thumbnail_url;
-      result$data['thumbnail_url'] = l$thumbnail_url == null
+      final l$thumbnailUrl = thumbnail_url;
+      result$data['thumbnail_url'] = l$thumbnailUrl == null
           ? null
-          : toJson$Enum$order_by(l$thumbnail_url);
+          : toJson$Enum$order_by(l$thumbnailUrl);
     }
     if (_$data.containsKey('title')) {
       final l$title = title;
@@ -24071,9 +24601,9 @@ class Input$stations_max_order_by {
           l$title == null ? null : toJson$Enum$order_by(l$title);
     }
     if (_$data.containsKey('updated_at')) {
-      final l$updated_at = updated_at;
+      final l$updatedAt = updated_at;
       result$data['updated_at'] =
-          l$updated_at == null ? null : toJson$Enum$order_by(l$updated_at);
+          l$updatedAt == null ? null : toJson$Enum$order_by(l$updatedAt);
     }
     if (_$data.containsKey('website')) {
       final l$website = website;
@@ -24094,17 +24624,17 @@ class Input$stations_max_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$stations_max_order_by) ||
+    if (other is! Input$stations_max_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$created_at = created_at;
-    final lOther$created_at = other.created_at;
+    final l$createdAt = created_at;
+    final lother$createdAt = other.created_at;
     if (_$data.containsKey('created_at') !=
         other._$data.containsKey('created_at')) {
       return false;
     }
-    if (l$created_at != lOther$created_at) {
+    if (l$createdAt != lother$createdAt) {
       return false;
     }
     final l$description = description;
@@ -24116,22 +24646,22 @@ class Input$stations_max_order_by {
     if (l$description != lOther$description) {
       return false;
     }
-    final l$description_action_title = description_action_title;
-    final lOther$description_action_title = other.description_action_title;
+    final l$descriptionActionTitle = description_action_title;
+    final lother$descriptionActionTitle = other.description_action_title;
     if (_$data.containsKey('description_action_title') !=
         other._$data.containsKey('description_action_title')) {
       return false;
     }
-    if (l$description_action_title != lOther$description_action_title) {
+    if (l$descriptionActionTitle != lother$descriptionActionTitle) {
       return false;
     }
-    final l$description_link = description_link;
-    final lOther$description_link = other.description_link;
+    final l$descriptionLink = description_link;
+    final lother$descriptionLink = other.description_link;
     if (_$data.containsKey('description_link') !=
         other._$data.containsKey('description_link')) {
       return false;
     }
-    if (l$description_link != lOther$description_link) {
+    if (l$descriptionLink != lother$descriptionLink) {
       return false;
     }
     final l$email = email;
@@ -24142,13 +24672,13 @@ class Input$stations_max_order_by {
     if (l$email != lOther$email) {
       return false;
     }
-    final l$facebook_page_id = facebook_page_id;
-    final lOther$facebook_page_id = other.facebook_page_id;
+    final l$facebookPageId = facebook_page_id;
+    final lother$facebookPageId = other.facebook_page_id;
     if (_$data.containsKey('facebook_page_id') !=
         other._$data.containsKey('facebook_page_id')) {
       return false;
     }
-    if (l$facebook_page_id != lOther$facebook_page_id) {
+    if (l$facebookPageId != lother$facebookPageId) {
       return false;
     }
     final l$id = id;
@@ -24159,24 +24689,24 @@ class Input$stations_max_order_by {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$latest_station_now_playing_id = latest_station_now_playing_id;
-    final lOther$latest_station_now_playing_id =
+    final l$latestStationNowPlayingId = latest_station_now_playing_id;
+    final lother$latestStationNowPlayingId =
         other.latest_station_now_playing_id;
     if (_$data.containsKey('latest_station_now_playing_id') !=
         other._$data.containsKey('latest_station_now_playing_id')) {
       return false;
     }
-    if (l$latest_station_now_playing_id !=
-        lOther$latest_station_now_playing_id) {
+    if (l$latestStationNowPlayingId !=
+        lother$latestStationNowPlayingId) {
       return false;
     }
-    final l$latest_station_uptime_id = latest_station_uptime_id;
-    final lOther$latest_station_uptime_id = other.latest_station_uptime_id;
+    final l$latestStationUptimeId = latest_station_uptime_id;
+    final lother$latestStationUptimeId = other.latest_station_uptime_id;
     if (_$data.containsKey('latest_station_uptime_id') !=
         other._$data.containsKey('latest_station_uptime_id')) {
       return false;
     }
-    if (l$latest_station_uptime_id != lOther$latest_station_uptime_id) {
+    if (l$latestStationUptimeId != lother$latestStationUptimeId) {
       return false;
     }
     final l$order = order;
@@ -24187,13 +24717,13 @@ class Input$stations_max_order_by {
     if (l$order != lOther$order) {
       return false;
     }
-    final l$rss_feed = rss_feed;
-    final lOther$rss_feed = other.rss_feed;
+    final l$rssFeed = rss_feed;
+    final lother$rssFeed = other.rss_feed;
     if (_$data.containsKey('rss_feed') !=
         other._$data.containsKey('rss_feed')) {
       return false;
     }
-    if (l$rss_feed != lOther$rss_feed) {
+    if (l$rssFeed != lother$rssFeed) {
       return false;
     }
     final l$slug = slug;
@@ -24204,13 +24734,13 @@ class Input$stations_max_order_by {
     if (l$slug != lOther$slug) {
       return false;
     }
-    final l$stream_url = stream_url;
-    final lOther$stream_url = other.stream_url;
+    final l$streamUrl = stream_url;
+    final lother$streamUrl = other.stream_url;
     if (_$data.containsKey('stream_url') !=
         other._$data.containsKey('stream_url')) {
       return false;
     }
-    if (l$stream_url != lOther$stream_url) {
+    if (l$streamUrl != lother$streamUrl) {
       return false;
     }
     final l$thumbnail = thumbnail;
@@ -24222,13 +24752,13 @@ class Input$stations_max_order_by {
     if (l$thumbnail != lOther$thumbnail) {
       return false;
     }
-    final l$thumbnail_url = thumbnail_url;
-    final lOther$thumbnail_url = other.thumbnail_url;
+    final l$thumbnailUrl = thumbnail_url;
+    final lother$thumbnailUrl = other.thumbnail_url;
     if (_$data.containsKey('thumbnail_url') !=
         other._$data.containsKey('thumbnail_url')) {
       return false;
     }
-    if (l$thumbnail_url != lOther$thumbnail_url) {
+    if (l$thumbnailUrl != lother$thumbnailUrl) {
       return false;
     }
     final l$title = title;
@@ -24239,13 +24769,13 @@ class Input$stations_max_order_by {
     if (l$title != lOther$title) {
       return false;
     }
-    final l$updated_at = updated_at;
-    final lOther$updated_at = other.updated_at;
+    final l$updatedAt = updated_at;
+    final lother$updatedAt = other.updated_at;
     if (_$data.containsKey('updated_at') !=
         other._$data.containsKey('updated_at')) {
       return false;
     }
-    if (l$updated_at != lOther$updated_at) {
+    if (l$updatedAt != lother$updatedAt) {
       return false;
     }
     final l$website = website;
@@ -24261,48 +24791,48 @@ class Input$stations_max_order_by {
 
   @override
   int get hashCode {
-    final l$created_at = created_at;
+    final l$createdAt = created_at;
     final l$description = description;
-    final l$description_action_title = description_action_title;
-    final l$description_link = description_link;
+    final l$descriptionActionTitle = description_action_title;
+    final l$descriptionLink = description_link;
     final l$email = email;
-    final l$facebook_page_id = facebook_page_id;
+    final l$facebookPageId = facebook_page_id;
     final l$id = id;
-    final l$latest_station_now_playing_id = latest_station_now_playing_id;
-    final l$latest_station_uptime_id = latest_station_uptime_id;
+    final l$latestStationNowPlayingId = latest_station_now_playing_id;
+    final l$latestStationUptimeId = latest_station_uptime_id;
     final l$order = order;
-    final l$rss_feed = rss_feed;
+    final l$rssFeed = rss_feed;
     final l$slug = slug;
-    final l$stream_url = stream_url;
+    final l$streamUrl = stream_url;
     final l$thumbnail = thumbnail;
-    final l$thumbnail_url = thumbnail_url;
+    final l$thumbnailUrl = thumbnail_url;
     final l$title = title;
-    final l$updated_at = updated_at;
+    final l$updatedAt = updated_at;
     final l$website = website;
     return Object.hashAll([
-      _$data.containsKey('created_at') ? l$created_at : const {},
+      _$data.containsKey('created_at') ? l$createdAt : const {},
       _$data.containsKey('description') ? l$description : const {},
       _$data.containsKey('description_action_title')
-          ? l$description_action_title
+          ? l$descriptionActionTitle
           : const {},
-      _$data.containsKey('description_link') ? l$description_link : const {},
+      _$data.containsKey('description_link') ? l$descriptionLink : const {},
       _$data.containsKey('email') ? l$email : const {},
-      _$data.containsKey('facebook_page_id') ? l$facebook_page_id : const {},
+      _$data.containsKey('facebook_page_id') ? l$facebookPageId : const {},
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('latest_station_now_playing_id')
-          ? l$latest_station_now_playing_id
+          ? l$latestStationNowPlayingId
           : const {},
       _$data.containsKey('latest_station_uptime_id')
-          ? l$latest_station_uptime_id
+          ? l$latestStationUptimeId
           : const {},
       _$data.containsKey('order') ? l$order : const {},
-      _$data.containsKey('rss_feed') ? l$rss_feed : const {},
+      _$data.containsKey('rss_feed') ? l$rssFeed : const {},
       _$data.containsKey('slug') ? l$slug : const {},
-      _$data.containsKey('stream_url') ? l$stream_url : const {},
+      _$data.containsKey('stream_url') ? l$streamUrl : const {},
       _$data.containsKey('thumbnail') ? l$thumbnail : const {},
-      _$data.containsKey('thumbnail_url') ? l$thumbnail_url : const {},
+      _$data.containsKey('thumbnail_url') ? l$thumbnailUrl : const {},
       _$data.containsKey('title') ? l$title : const {},
-      _$data.containsKey('updated_at') ? l$updated_at : const {},
+      _$data.containsKey('updated_at') ? l$updatedAt : const {},
       _$data.containsKey('website') ? l$website : const {},
     ]);
   }
@@ -24352,6 +24882,7 @@ class _CopyWithImpl$Input$stations_max_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? created_at = _undefined,
     Object? description = _undefined,
@@ -24412,8 +24943,9 @@ class _CopyWithStubImpl$Input$stations_max_order_by<TRes>
     implements CopyWith$Input$stations_max_order_by<TRes> {
   _CopyWithStubImpl$Input$stations_max_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? created_at,
     Enum$order_by? description,
@@ -24487,10 +25019,10 @@ class Input$stations_min_order_by {
   factory Input$stations_min_order_by.fromJson(Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
     if (data.containsKey('created_at')) {
-      final l$created_at = data['created_at'];
-      result$data['created_at'] = l$created_at == null
+      final l$createdAt = data['created_at'];
+      result$data['created_at'] = l$createdAt == null
           ? null
-          : fromJson$Enum$order_by((l$created_at as String));
+          : fromJson$Enum$order_by((l$createdAt as String));
     }
     if (data.containsKey('description')) {
       final l$description = data['description'];
@@ -24499,17 +25031,17 @@ class Input$stations_min_order_by {
           : fromJson$Enum$order_by((l$description as String));
     }
     if (data.containsKey('description_action_title')) {
-      final l$description_action_title = data['description_action_title'];
+      final l$descriptionActionTitle = data['description_action_title'];
       result$data['description_action_title'] =
-          l$description_action_title == null
+          l$descriptionActionTitle == null
               ? null
-              : fromJson$Enum$order_by((l$description_action_title as String));
+              : fromJson$Enum$order_by((l$descriptionActionTitle as String));
     }
     if (data.containsKey('description_link')) {
-      final l$description_link = data['description_link'];
-      result$data['description_link'] = l$description_link == null
+      final l$descriptionLink = data['description_link'];
+      result$data['description_link'] = l$descriptionLink == null
           ? null
-          : fromJson$Enum$order_by((l$description_link as String));
+          : fromJson$Enum$order_by((l$descriptionLink as String));
     }
     if (data.containsKey('email')) {
       final l$email = data['email'];
@@ -24517,10 +25049,10 @@ class Input$stations_min_order_by {
           l$email == null ? null : fromJson$Enum$order_by((l$email as String));
     }
     if (data.containsKey('facebook_page_id')) {
-      final l$facebook_page_id = data['facebook_page_id'];
-      result$data['facebook_page_id'] = l$facebook_page_id == null
+      final l$facebookPageId = data['facebook_page_id'];
+      result$data['facebook_page_id'] = l$facebookPageId == null
           ? null
-          : fromJson$Enum$order_by((l$facebook_page_id as String));
+          : fromJson$Enum$order_by((l$facebookPageId as String));
     }
     if (data.containsKey('id')) {
       final l$id = data['id'];
@@ -24528,20 +25060,20 @@ class Input$stations_min_order_by {
           l$id == null ? null : fromJson$Enum$order_by((l$id as String));
     }
     if (data.containsKey('latest_station_now_playing_id')) {
-      final l$latest_station_now_playing_id =
+      final l$latestStationNowPlayingId =
           data['latest_station_now_playing_id'];
       result$data['latest_station_now_playing_id'] =
-          l$latest_station_now_playing_id == null
+          l$latestStationNowPlayingId == null
               ? null
               : fromJson$Enum$order_by(
-                  (l$latest_station_now_playing_id as String));
+                  (l$latestStationNowPlayingId as String));
     }
     if (data.containsKey('latest_station_uptime_id')) {
-      final l$latest_station_uptime_id = data['latest_station_uptime_id'];
+      final l$latestStationUptimeId = data['latest_station_uptime_id'];
       result$data['latest_station_uptime_id'] =
-          l$latest_station_uptime_id == null
+          l$latestStationUptimeId == null
               ? null
-              : fromJson$Enum$order_by((l$latest_station_uptime_id as String));
+              : fromJson$Enum$order_by((l$latestStationUptimeId as String));
     }
     if (data.containsKey('order')) {
       final l$order = data['order'];
@@ -24549,10 +25081,10 @@ class Input$stations_min_order_by {
           l$order == null ? null : fromJson$Enum$order_by((l$order as String));
     }
     if (data.containsKey('rss_feed')) {
-      final l$rss_feed = data['rss_feed'];
-      result$data['rss_feed'] = l$rss_feed == null
+      final l$rssFeed = data['rss_feed'];
+      result$data['rss_feed'] = l$rssFeed == null
           ? null
-          : fromJson$Enum$order_by((l$rss_feed as String));
+          : fromJson$Enum$order_by((l$rssFeed as String));
     }
     if (data.containsKey('slug')) {
       final l$slug = data['slug'];
@@ -24560,10 +25092,10 @@ class Input$stations_min_order_by {
           l$slug == null ? null : fromJson$Enum$order_by((l$slug as String));
     }
     if (data.containsKey('stream_url')) {
-      final l$stream_url = data['stream_url'];
-      result$data['stream_url'] = l$stream_url == null
+      final l$streamUrl = data['stream_url'];
+      result$data['stream_url'] = l$streamUrl == null
           ? null
-          : fromJson$Enum$order_by((l$stream_url as String));
+          : fromJson$Enum$order_by((l$streamUrl as String));
     }
     if (data.containsKey('thumbnail')) {
       final l$thumbnail = data['thumbnail'];
@@ -24572,10 +25104,10 @@ class Input$stations_min_order_by {
           : fromJson$Enum$order_by((l$thumbnail as String));
     }
     if (data.containsKey('thumbnail_url')) {
-      final l$thumbnail_url = data['thumbnail_url'];
-      result$data['thumbnail_url'] = l$thumbnail_url == null
+      final l$thumbnailUrl = data['thumbnail_url'];
+      result$data['thumbnail_url'] = l$thumbnailUrl == null
           ? null
-          : fromJson$Enum$order_by((l$thumbnail_url as String));
+          : fromJson$Enum$order_by((l$thumbnailUrl as String));
     }
     if (data.containsKey('title')) {
       final l$title = data['title'];
@@ -24583,10 +25115,10 @@ class Input$stations_min_order_by {
           l$title == null ? null : fromJson$Enum$order_by((l$title as String));
     }
     if (data.containsKey('updated_at')) {
-      final l$updated_at = data['updated_at'];
-      result$data['updated_at'] = l$updated_at == null
+      final l$updatedAt = data['updated_at'];
+      result$data['updated_at'] = l$updatedAt == null
           ? null
-          : fromJson$Enum$order_by((l$updated_at as String));
+          : fromJson$Enum$order_by((l$updatedAt as String));
     }
     if (data.containsKey('website')) {
       final l$website = data['website'];
@@ -24644,9 +25176,9 @@ class Input$stations_min_order_by {
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
     if (_$data.containsKey('created_at')) {
-      final l$created_at = created_at;
+      final l$createdAt = created_at;
       result$data['created_at'] =
-          l$created_at == null ? null : toJson$Enum$order_by(l$created_at);
+          l$createdAt == null ? null : toJson$Enum$order_by(l$createdAt);
     }
     if (_$data.containsKey('description')) {
       final l$description = description;
@@ -24654,17 +25186,17 @@ class Input$stations_min_order_by {
           l$description == null ? null : toJson$Enum$order_by(l$description);
     }
     if (_$data.containsKey('description_action_title')) {
-      final l$description_action_title = description_action_title;
+      final l$descriptionActionTitle = description_action_title;
       result$data['description_action_title'] =
-          l$description_action_title == null
+          l$descriptionActionTitle == null
               ? null
-              : toJson$Enum$order_by(l$description_action_title);
+              : toJson$Enum$order_by(l$descriptionActionTitle);
     }
     if (_$data.containsKey('description_link')) {
-      final l$description_link = description_link;
-      result$data['description_link'] = l$description_link == null
+      final l$descriptionLink = description_link;
+      result$data['description_link'] = l$descriptionLink == null
           ? null
-          : toJson$Enum$order_by(l$description_link);
+          : toJson$Enum$order_by(l$descriptionLink);
     }
     if (_$data.containsKey('email')) {
       final l$email = email;
@@ -24672,28 +25204,28 @@ class Input$stations_min_order_by {
           l$email == null ? null : toJson$Enum$order_by(l$email);
     }
     if (_$data.containsKey('facebook_page_id')) {
-      final l$facebook_page_id = facebook_page_id;
-      result$data['facebook_page_id'] = l$facebook_page_id == null
+      final l$facebookPageId = facebook_page_id;
+      result$data['facebook_page_id'] = l$facebookPageId == null
           ? null
-          : toJson$Enum$order_by(l$facebook_page_id);
+          : toJson$Enum$order_by(l$facebookPageId);
     }
     if (_$data.containsKey('id')) {
       final l$id = id;
       result$data['id'] = l$id == null ? null : toJson$Enum$order_by(l$id);
     }
     if (_$data.containsKey('latest_station_now_playing_id')) {
-      final l$latest_station_now_playing_id = latest_station_now_playing_id;
+      final l$latestStationNowPlayingId = latest_station_now_playing_id;
       result$data['latest_station_now_playing_id'] =
-          l$latest_station_now_playing_id == null
+          l$latestStationNowPlayingId == null
               ? null
-              : toJson$Enum$order_by(l$latest_station_now_playing_id);
+              : toJson$Enum$order_by(l$latestStationNowPlayingId);
     }
     if (_$data.containsKey('latest_station_uptime_id')) {
-      final l$latest_station_uptime_id = latest_station_uptime_id;
+      final l$latestStationUptimeId = latest_station_uptime_id;
       result$data['latest_station_uptime_id'] =
-          l$latest_station_uptime_id == null
+          l$latestStationUptimeId == null
               ? null
-              : toJson$Enum$order_by(l$latest_station_uptime_id);
+              : toJson$Enum$order_by(l$latestStationUptimeId);
     }
     if (_$data.containsKey('order')) {
       final l$order = order;
@@ -24701,9 +25233,9 @@ class Input$stations_min_order_by {
           l$order == null ? null : toJson$Enum$order_by(l$order);
     }
     if (_$data.containsKey('rss_feed')) {
-      final l$rss_feed = rss_feed;
+      final l$rssFeed = rss_feed;
       result$data['rss_feed'] =
-          l$rss_feed == null ? null : toJson$Enum$order_by(l$rss_feed);
+          l$rssFeed == null ? null : toJson$Enum$order_by(l$rssFeed);
     }
     if (_$data.containsKey('slug')) {
       final l$slug = slug;
@@ -24711,9 +25243,9 @@ class Input$stations_min_order_by {
           l$slug == null ? null : toJson$Enum$order_by(l$slug);
     }
     if (_$data.containsKey('stream_url')) {
-      final l$stream_url = stream_url;
+      final l$streamUrl = stream_url;
       result$data['stream_url'] =
-          l$stream_url == null ? null : toJson$Enum$order_by(l$stream_url);
+          l$streamUrl == null ? null : toJson$Enum$order_by(l$streamUrl);
     }
     if (_$data.containsKey('thumbnail')) {
       final l$thumbnail = thumbnail;
@@ -24721,10 +25253,10 @@ class Input$stations_min_order_by {
           l$thumbnail == null ? null : toJson$Enum$order_by(l$thumbnail);
     }
     if (_$data.containsKey('thumbnail_url')) {
-      final l$thumbnail_url = thumbnail_url;
-      result$data['thumbnail_url'] = l$thumbnail_url == null
+      final l$thumbnailUrl = thumbnail_url;
+      result$data['thumbnail_url'] = l$thumbnailUrl == null
           ? null
-          : toJson$Enum$order_by(l$thumbnail_url);
+          : toJson$Enum$order_by(l$thumbnailUrl);
     }
     if (_$data.containsKey('title')) {
       final l$title = title;
@@ -24732,9 +25264,9 @@ class Input$stations_min_order_by {
           l$title == null ? null : toJson$Enum$order_by(l$title);
     }
     if (_$data.containsKey('updated_at')) {
-      final l$updated_at = updated_at;
+      final l$updatedAt = updated_at;
       result$data['updated_at'] =
-          l$updated_at == null ? null : toJson$Enum$order_by(l$updated_at);
+          l$updatedAt == null ? null : toJson$Enum$order_by(l$updatedAt);
     }
     if (_$data.containsKey('website')) {
       final l$website = website;
@@ -24755,17 +25287,17 @@ class Input$stations_min_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$stations_min_order_by) ||
+    if (other is! Input$stations_min_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$created_at = created_at;
-    final lOther$created_at = other.created_at;
+    final l$createdAt = created_at;
+    final lother$createdAt = other.created_at;
     if (_$data.containsKey('created_at') !=
         other._$data.containsKey('created_at')) {
       return false;
     }
-    if (l$created_at != lOther$created_at) {
+    if (l$createdAt != lother$createdAt) {
       return false;
     }
     final l$description = description;
@@ -24777,22 +25309,22 @@ class Input$stations_min_order_by {
     if (l$description != lOther$description) {
       return false;
     }
-    final l$description_action_title = description_action_title;
-    final lOther$description_action_title = other.description_action_title;
+    final l$descriptionActionTitle = description_action_title;
+    final lother$descriptionActionTitle = other.description_action_title;
     if (_$data.containsKey('description_action_title') !=
         other._$data.containsKey('description_action_title')) {
       return false;
     }
-    if (l$description_action_title != lOther$description_action_title) {
+    if (l$descriptionActionTitle != lother$descriptionActionTitle) {
       return false;
     }
-    final l$description_link = description_link;
-    final lOther$description_link = other.description_link;
+    final l$descriptionLink = description_link;
+    final lother$descriptionLink = other.description_link;
     if (_$data.containsKey('description_link') !=
         other._$data.containsKey('description_link')) {
       return false;
     }
-    if (l$description_link != lOther$description_link) {
+    if (l$descriptionLink != lother$descriptionLink) {
       return false;
     }
     final l$email = email;
@@ -24803,13 +25335,13 @@ class Input$stations_min_order_by {
     if (l$email != lOther$email) {
       return false;
     }
-    final l$facebook_page_id = facebook_page_id;
-    final lOther$facebook_page_id = other.facebook_page_id;
+    final l$facebookPageId = facebook_page_id;
+    final lother$facebookPageId = other.facebook_page_id;
     if (_$data.containsKey('facebook_page_id') !=
         other._$data.containsKey('facebook_page_id')) {
       return false;
     }
-    if (l$facebook_page_id != lOther$facebook_page_id) {
+    if (l$facebookPageId != lother$facebookPageId) {
       return false;
     }
     final l$id = id;
@@ -24820,24 +25352,24 @@ class Input$stations_min_order_by {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$latest_station_now_playing_id = latest_station_now_playing_id;
-    final lOther$latest_station_now_playing_id =
+    final l$latestStationNowPlayingId = latest_station_now_playing_id;
+    final lother$latestStationNowPlayingId =
         other.latest_station_now_playing_id;
     if (_$data.containsKey('latest_station_now_playing_id') !=
         other._$data.containsKey('latest_station_now_playing_id')) {
       return false;
     }
-    if (l$latest_station_now_playing_id !=
-        lOther$latest_station_now_playing_id) {
+    if (l$latestStationNowPlayingId !=
+        lother$latestStationNowPlayingId) {
       return false;
     }
-    final l$latest_station_uptime_id = latest_station_uptime_id;
-    final lOther$latest_station_uptime_id = other.latest_station_uptime_id;
+    final l$latestStationUptimeId = latest_station_uptime_id;
+    final lother$latestStationUptimeId = other.latest_station_uptime_id;
     if (_$data.containsKey('latest_station_uptime_id') !=
         other._$data.containsKey('latest_station_uptime_id')) {
       return false;
     }
-    if (l$latest_station_uptime_id != lOther$latest_station_uptime_id) {
+    if (l$latestStationUptimeId != lother$latestStationUptimeId) {
       return false;
     }
     final l$order = order;
@@ -24848,13 +25380,13 @@ class Input$stations_min_order_by {
     if (l$order != lOther$order) {
       return false;
     }
-    final l$rss_feed = rss_feed;
-    final lOther$rss_feed = other.rss_feed;
+    final l$rssFeed = rss_feed;
+    final lother$rssFeed = other.rss_feed;
     if (_$data.containsKey('rss_feed') !=
         other._$data.containsKey('rss_feed')) {
       return false;
     }
-    if (l$rss_feed != lOther$rss_feed) {
+    if (l$rssFeed != lother$rssFeed) {
       return false;
     }
     final l$slug = slug;
@@ -24865,13 +25397,13 @@ class Input$stations_min_order_by {
     if (l$slug != lOther$slug) {
       return false;
     }
-    final l$stream_url = stream_url;
-    final lOther$stream_url = other.stream_url;
+    final l$streamUrl = stream_url;
+    final lother$streamUrl = other.stream_url;
     if (_$data.containsKey('stream_url') !=
         other._$data.containsKey('stream_url')) {
       return false;
     }
-    if (l$stream_url != lOther$stream_url) {
+    if (l$streamUrl != lother$streamUrl) {
       return false;
     }
     final l$thumbnail = thumbnail;
@@ -24883,13 +25415,13 @@ class Input$stations_min_order_by {
     if (l$thumbnail != lOther$thumbnail) {
       return false;
     }
-    final l$thumbnail_url = thumbnail_url;
-    final lOther$thumbnail_url = other.thumbnail_url;
+    final l$thumbnailUrl = thumbnail_url;
+    final lother$thumbnailUrl = other.thumbnail_url;
     if (_$data.containsKey('thumbnail_url') !=
         other._$data.containsKey('thumbnail_url')) {
       return false;
     }
-    if (l$thumbnail_url != lOther$thumbnail_url) {
+    if (l$thumbnailUrl != lother$thumbnailUrl) {
       return false;
     }
     final l$title = title;
@@ -24900,13 +25432,13 @@ class Input$stations_min_order_by {
     if (l$title != lOther$title) {
       return false;
     }
-    final l$updated_at = updated_at;
-    final lOther$updated_at = other.updated_at;
+    final l$updatedAt = updated_at;
+    final lother$updatedAt = other.updated_at;
     if (_$data.containsKey('updated_at') !=
         other._$data.containsKey('updated_at')) {
       return false;
     }
-    if (l$updated_at != lOther$updated_at) {
+    if (l$updatedAt != lother$updatedAt) {
       return false;
     }
     final l$website = website;
@@ -24922,48 +25454,48 @@ class Input$stations_min_order_by {
 
   @override
   int get hashCode {
-    final l$created_at = created_at;
+    final l$createdAt = created_at;
     final l$description = description;
-    final l$description_action_title = description_action_title;
-    final l$description_link = description_link;
+    final l$descriptionActionTitle = description_action_title;
+    final l$descriptionLink = description_link;
     final l$email = email;
-    final l$facebook_page_id = facebook_page_id;
+    final l$facebookPageId = facebook_page_id;
     final l$id = id;
-    final l$latest_station_now_playing_id = latest_station_now_playing_id;
-    final l$latest_station_uptime_id = latest_station_uptime_id;
+    final l$latestStationNowPlayingId = latest_station_now_playing_id;
+    final l$latestStationUptimeId = latest_station_uptime_id;
     final l$order = order;
-    final l$rss_feed = rss_feed;
+    final l$rssFeed = rss_feed;
     final l$slug = slug;
-    final l$stream_url = stream_url;
+    final l$streamUrl = stream_url;
     final l$thumbnail = thumbnail;
-    final l$thumbnail_url = thumbnail_url;
+    final l$thumbnailUrl = thumbnail_url;
     final l$title = title;
-    final l$updated_at = updated_at;
+    final l$updatedAt = updated_at;
     final l$website = website;
     return Object.hashAll([
-      _$data.containsKey('created_at') ? l$created_at : const {},
+      _$data.containsKey('created_at') ? l$createdAt : const {},
       _$data.containsKey('description') ? l$description : const {},
       _$data.containsKey('description_action_title')
-          ? l$description_action_title
+          ? l$descriptionActionTitle
           : const {},
-      _$data.containsKey('description_link') ? l$description_link : const {},
+      _$data.containsKey('description_link') ? l$descriptionLink : const {},
       _$data.containsKey('email') ? l$email : const {},
-      _$data.containsKey('facebook_page_id') ? l$facebook_page_id : const {},
+      _$data.containsKey('facebook_page_id') ? l$facebookPageId : const {},
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('latest_station_now_playing_id')
-          ? l$latest_station_now_playing_id
+          ? l$latestStationNowPlayingId
           : const {},
       _$data.containsKey('latest_station_uptime_id')
-          ? l$latest_station_uptime_id
+          ? l$latestStationUptimeId
           : const {},
       _$data.containsKey('order') ? l$order : const {},
-      _$data.containsKey('rss_feed') ? l$rss_feed : const {},
+      _$data.containsKey('rss_feed') ? l$rssFeed : const {},
       _$data.containsKey('slug') ? l$slug : const {},
-      _$data.containsKey('stream_url') ? l$stream_url : const {},
+      _$data.containsKey('stream_url') ? l$streamUrl : const {},
       _$data.containsKey('thumbnail') ? l$thumbnail : const {},
-      _$data.containsKey('thumbnail_url') ? l$thumbnail_url : const {},
+      _$data.containsKey('thumbnail_url') ? l$thumbnailUrl : const {},
       _$data.containsKey('title') ? l$title : const {},
-      _$data.containsKey('updated_at') ? l$updated_at : const {},
+      _$data.containsKey('updated_at') ? l$updatedAt : const {},
       _$data.containsKey('website') ? l$website : const {},
     ]);
   }
@@ -25013,6 +25545,7 @@ class _CopyWithImpl$Input$stations_min_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? created_at = _undefined,
     Object? description = _undefined,
@@ -25073,8 +25606,9 @@ class _CopyWithStubImpl$Input$stations_min_order_by<TRes>
     implements CopyWith$Input$stations_min_order_by<TRes> {
   _CopyWithStubImpl$Input$stations_min_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? created_at,
     Enum$order_by? description,
@@ -25165,18 +25699,18 @@ class Input$stations_now_playing_aggregate_order_by {
               (l$stddev as Map<String, dynamic>));
     }
     if (data.containsKey('stddev_pop')) {
-      final l$stddev_pop = data['stddev_pop'];
-      result$data['stddev_pop'] = l$stddev_pop == null
+      final l$stddevPop = data['stddev_pop'];
+      result$data['stddev_pop'] = l$stddevPop == null
           ? null
           : Input$stations_now_playing_stddev_pop_order_by.fromJson(
-              (l$stddev_pop as Map<String, dynamic>));
+              (l$stddevPop as Map<String, dynamic>));
     }
     if (data.containsKey('stddev_samp')) {
-      final l$stddev_samp = data['stddev_samp'];
-      result$data['stddev_samp'] = l$stddev_samp == null
+      final l$stddevSamp = data['stddev_samp'];
+      result$data['stddev_samp'] = l$stddevSamp == null
           ? null
           : Input$stations_now_playing_stddev_samp_order_by.fromJson(
-              (l$stddev_samp as Map<String, dynamic>));
+              (l$stddevSamp as Map<String, dynamic>));
     }
     if (data.containsKey('sum')) {
       final l$sum = data['sum'];
@@ -25186,18 +25720,18 @@ class Input$stations_now_playing_aggregate_order_by {
               (l$sum as Map<String, dynamic>));
     }
     if (data.containsKey('var_pop')) {
-      final l$var_pop = data['var_pop'];
-      result$data['var_pop'] = l$var_pop == null
+      final l$varPop = data['var_pop'];
+      result$data['var_pop'] = l$varPop == null
           ? null
           : Input$stations_now_playing_var_pop_order_by.fromJson(
-              (l$var_pop as Map<String, dynamic>));
+              (l$varPop as Map<String, dynamic>));
     }
     if (data.containsKey('var_samp')) {
-      final l$var_samp = data['var_samp'];
-      result$data['var_samp'] = l$var_samp == null
+      final l$varSamp = data['var_samp'];
+      result$data['var_samp'] = l$varSamp == null
           ? null
           : Input$stations_now_playing_var_samp_order_by.fromJson(
-              (l$var_samp as Map<String, dynamic>));
+              (l$varSamp as Map<String, dynamic>));
     }
     if (data.containsKey('variance')) {
       final l$variance = data['variance'];
@@ -25268,24 +25802,24 @@ class Input$stations_now_playing_aggregate_order_by {
       result$data['stddev'] = l$stddev?.toJson();
     }
     if (_$data.containsKey('stddev_pop')) {
-      final l$stddev_pop = stddev_pop;
-      result$data['stddev_pop'] = l$stddev_pop?.toJson();
+      final l$stddevPop = stddev_pop;
+      result$data['stddev_pop'] = l$stddevPop?.toJson();
     }
     if (_$data.containsKey('stddev_samp')) {
-      final l$stddev_samp = stddev_samp;
-      result$data['stddev_samp'] = l$stddev_samp?.toJson();
+      final l$stddevSamp = stddev_samp;
+      result$data['stddev_samp'] = l$stddevSamp?.toJson();
     }
     if (_$data.containsKey('sum')) {
       final l$sum = sum;
       result$data['sum'] = l$sum?.toJson();
     }
     if (_$data.containsKey('var_pop')) {
-      final l$var_pop = var_pop;
-      result$data['var_pop'] = l$var_pop?.toJson();
+      final l$varPop = var_pop;
+      result$data['var_pop'] = l$varPop?.toJson();
     }
     if (_$data.containsKey('var_samp')) {
-      final l$var_samp = var_samp;
-      result$data['var_samp'] = l$var_samp?.toJson();
+      final l$varSamp = var_samp;
+      result$data['var_samp'] = l$varSamp?.toJson();
     }
     if (_$data.containsKey('variance')) {
       final l$variance = variance;
@@ -25306,7 +25840,7 @@ class Input$stations_now_playing_aggregate_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$stations_now_playing_aggregate_order_by) ||
+    if (other is! Input$stations_now_playing_aggregate_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -25350,22 +25884,22 @@ class Input$stations_now_playing_aggregate_order_by {
     if (l$stddev != lOther$stddev) {
       return false;
     }
-    final l$stddev_pop = stddev_pop;
-    final lOther$stddev_pop = other.stddev_pop;
+    final l$stddevPop = stddev_pop;
+    final lother$stddevPop = other.stddev_pop;
     if (_$data.containsKey('stddev_pop') !=
         other._$data.containsKey('stddev_pop')) {
       return false;
     }
-    if (l$stddev_pop != lOther$stddev_pop) {
+    if (l$stddevPop != lother$stddevPop) {
       return false;
     }
-    final l$stddev_samp = stddev_samp;
-    final lOther$stddev_samp = other.stddev_samp;
+    final l$stddevSamp = stddev_samp;
+    final lother$stddevSamp = other.stddev_samp;
     if (_$data.containsKey('stddev_samp') !=
         other._$data.containsKey('stddev_samp')) {
       return false;
     }
-    if (l$stddev_samp != lOther$stddev_samp) {
+    if (l$stddevSamp != lother$stddevSamp) {
       return false;
     }
     final l$sum = sum;
@@ -25376,21 +25910,21 @@ class Input$stations_now_playing_aggregate_order_by {
     if (l$sum != lOther$sum) {
       return false;
     }
-    final l$var_pop = var_pop;
-    final lOther$var_pop = other.var_pop;
+    final l$varPop = var_pop;
+    final lother$varPop = other.var_pop;
     if (_$data.containsKey('var_pop') != other._$data.containsKey('var_pop')) {
       return false;
     }
-    if (l$var_pop != lOther$var_pop) {
+    if (l$varPop != lother$varPop) {
       return false;
     }
-    final l$var_samp = var_samp;
-    final lOther$var_samp = other.var_samp;
+    final l$varSamp = var_samp;
+    final lother$varSamp = other.var_samp;
     if (_$data.containsKey('var_samp') !=
         other._$data.containsKey('var_samp')) {
       return false;
     }
-    if (l$var_samp != lOther$var_samp) {
+    if (l$varSamp != lother$varSamp) {
       return false;
     }
     final l$variance = variance;
@@ -25412,11 +25946,11 @@ class Input$stations_now_playing_aggregate_order_by {
     final l$max = max;
     final l$min = min;
     final l$stddev = stddev;
-    final l$stddev_pop = stddev_pop;
-    final l$stddev_samp = stddev_samp;
+    final l$stddevPop = stddev_pop;
+    final l$stddevSamp = stddev_samp;
     final l$sum = sum;
-    final l$var_pop = var_pop;
-    final l$var_samp = var_samp;
+    final l$varPop = var_pop;
+    final l$varSamp = var_samp;
     final l$variance = variance;
     return Object.hashAll([
       _$data.containsKey('avg') ? l$avg : const {},
@@ -25424,11 +25958,11 @@ class Input$stations_now_playing_aggregate_order_by {
       _$data.containsKey('max') ? l$max : const {},
       _$data.containsKey('min') ? l$min : const {},
       _$data.containsKey('stddev') ? l$stddev : const {},
-      _$data.containsKey('stddev_pop') ? l$stddev_pop : const {},
-      _$data.containsKey('stddev_samp') ? l$stddev_samp : const {},
+      _$data.containsKey('stddev_pop') ? l$stddevPop : const {},
+      _$data.containsKey('stddev_samp') ? l$stddevSamp : const {},
       _$data.containsKey('sum') ? l$sum : const {},
-      _$data.containsKey('var_pop') ? l$var_pop : const {},
-      _$data.containsKey('var_samp') ? l$var_samp : const {},
+      _$data.containsKey('var_pop') ? l$varPop : const {},
+      _$data.containsKey('var_samp') ? l$varSamp : const {},
       _$data.containsKey('variance') ? l$variance : const {},
     ]);
   }
@@ -25483,6 +26017,7 @@ class _CopyWithImpl$Input$stations_now_playing_aggregate_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? avg = _undefined,
     Object? count = _undefined,
@@ -25525,6 +26060,7 @@ class _CopyWithImpl$Input$stations_now_playing_aggregate_order_by<TRes>
               (variance as Input$stations_now_playing_variance_order_by?),
       }));
 
+  @override
   CopyWith$Input$stations_now_playing_avg_order_by<TRes> get avg {
     final local$avg = _instance.avg;
     return local$avg == null
@@ -25534,6 +26070,7 @@ class _CopyWithImpl$Input$stations_now_playing_aggregate_order_by<TRes>
             local$avg, (e) => call(avg: e));
   }
 
+  @override
   CopyWith$Input$stations_now_playing_max_order_by<TRes> get max {
     final local$max = _instance.max;
     return local$max == null
@@ -25543,6 +26080,7 @@ class _CopyWithImpl$Input$stations_now_playing_aggregate_order_by<TRes>
             local$max, (e) => call(max: e));
   }
 
+  @override
   CopyWith$Input$stations_now_playing_min_order_by<TRes> get min {
     final local$min = _instance.min;
     return local$min == null
@@ -25552,6 +26090,7 @@ class _CopyWithImpl$Input$stations_now_playing_aggregate_order_by<TRes>
             local$min, (e) => call(min: e));
   }
 
+  @override
   CopyWith$Input$stations_now_playing_stddev_order_by<TRes> get stddev {
     final local$stddev = _instance.stddev;
     return local$stddev == null
@@ -25561,25 +26100,28 @@ class _CopyWithImpl$Input$stations_now_playing_aggregate_order_by<TRes>
             local$stddev, (e) => call(stddev: e));
   }
 
+  @override
   CopyWith$Input$stations_now_playing_stddev_pop_order_by<TRes> get stddev_pop {
-    final local$stddev_pop = _instance.stddev_pop;
-    return local$stddev_pop == null
+    final local$stddevPop = _instance.stddev_pop;
+    return local$stddevPop == null
         ? CopyWith$Input$stations_now_playing_stddev_pop_order_by.stub(
             _then(_instance))
         : CopyWith$Input$stations_now_playing_stddev_pop_order_by(
-            local$stddev_pop, (e) => call(stddev_pop: e));
+            local$stddevPop, (e) => call(stddev_pop: e));
   }
 
+  @override
   CopyWith$Input$stations_now_playing_stddev_samp_order_by<TRes>
       get stddev_samp {
-    final local$stddev_samp = _instance.stddev_samp;
-    return local$stddev_samp == null
+    final local$stddevSamp = _instance.stddev_samp;
+    return local$stddevSamp == null
         ? CopyWith$Input$stations_now_playing_stddev_samp_order_by.stub(
             _then(_instance))
         : CopyWith$Input$stations_now_playing_stddev_samp_order_by(
-            local$stddev_samp, (e) => call(stddev_samp: e));
+            local$stddevSamp, (e) => call(stddev_samp: e));
   }
 
+  @override
   CopyWith$Input$stations_now_playing_sum_order_by<TRes> get sum {
     final local$sum = _instance.sum;
     return local$sum == null
@@ -25589,24 +26131,27 @@ class _CopyWithImpl$Input$stations_now_playing_aggregate_order_by<TRes>
             local$sum, (e) => call(sum: e));
   }
 
+  @override
   CopyWith$Input$stations_now_playing_var_pop_order_by<TRes> get var_pop {
-    final local$var_pop = _instance.var_pop;
-    return local$var_pop == null
+    final local$varPop = _instance.var_pop;
+    return local$varPop == null
         ? CopyWith$Input$stations_now_playing_var_pop_order_by.stub(
             _then(_instance))
         : CopyWith$Input$stations_now_playing_var_pop_order_by(
-            local$var_pop, (e) => call(var_pop: e));
+            local$varPop, (e) => call(var_pop: e));
   }
 
+  @override
   CopyWith$Input$stations_now_playing_var_samp_order_by<TRes> get var_samp {
-    final local$var_samp = _instance.var_samp;
-    return local$var_samp == null
+    final local$varSamp = _instance.var_samp;
+    return local$varSamp == null
         ? CopyWith$Input$stations_now_playing_var_samp_order_by.stub(
             _then(_instance))
         : CopyWith$Input$stations_now_playing_var_samp_order_by(
-            local$var_samp, (e) => call(var_samp: e));
+            local$varSamp, (e) => call(var_samp: e));
   }
 
+  @override
   CopyWith$Input$stations_now_playing_variance_order_by<TRes> get variance {
     final local$variance = _instance.variance;
     return local$variance == null
@@ -25621,8 +26166,9 @@ class _CopyWithStubImpl$Input$stations_now_playing_aggregate_order_by<TRes>
     implements CopyWith$Input$stations_now_playing_aggregate_order_by<TRes> {
   _CopyWithStubImpl$Input$stations_now_playing_aggregate_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Input$stations_now_playing_avg_order_by? avg,
     Enum$order_by? count,
@@ -25638,35 +26184,45 @@ class _CopyWithStubImpl$Input$stations_now_playing_aggregate_order_by<TRes>
   }) =>
       _res;
 
+  @override
   CopyWith$Input$stations_now_playing_avg_order_by<TRes> get avg =>
       CopyWith$Input$stations_now_playing_avg_order_by.stub(_res);
 
+  @override
   CopyWith$Input$stations_now_playing_max_order_by<TRes> get max =>
       CopyWith$Input$stations_now_playing_max_order_by.stub(_res);
 
+  @override
   CopyWith$Input$stations_now_playing_min_order_by<TRes> get min =>
       CopyWith$Input$stations_now_playing_min_order_by.stub(_res);
 
+  @override
   CopyWith$Input$stations_now_playing_stddev_order_by<TRes> get stddev =>
       CopyWith$Input$stations_now_playing_stddev_order_by.stub(_res);
 
+  @override
   CopyWith$Input$stations_now_playing_stddev_pop_order_by<TRes>
       get stddev_pop =>
           CopyWith$Input$stations_now_playing_stddev_pop_order_by.stub(_res);
 
+  @override
   CopyWith$Input$stations_now_playing_stddev_samp_order_by<TRes>
       get stddev_samp =>
           CopyWith$Input$stations_now_playing_stddev_samp_order_by.stub(_res);
 
+  @override
   CopyWith$Input$stations_now_playing_sum_order_by<TRes> get sum =>
       CopyWith$Input$stations_now_playing_sum_order_by.stub(_res);
 
+  @override
   CopyWith$Input$stations_now_playing_var_pop_order_by<TRes> get var_pop =>
       CopyWith$Input$stations_now_playing_var_pop_order_by.stub(_res);
 
+  @override
   CopyWith$Input$stations_now_playing_var_samp_order_by<TRes> get var_samp =>
       CopyWith$Input$stations_now_playing_var_samp_order_by.stub(_res);
 
+  @override
   CopyWith$Input$stations_now_playing_variance_order_by<TRes> get variance =>
       CopyWith$Input$stations_now_playing_variance_order_by.stub(_res);
 }
@@ -25694,16 +26250,16 @@ class Input$stations_now_playing_avg_order_by {
           l$id == null ? null : fromJson$Enum$order_by((l$id as String));
     }
     if (data.containsKey('song_id')) {
-      final l$song_id = data['song_id'];
-      result$data['song_id'] = l$song_id == null
+      final l$songId = data['song_id'];
+      result$data['song_id'] = l$songId == null
           ? null
-          : fromJson$Enum$order_by((l$song_id as String));
+          : fromJson$Enum$order_by((l$songId as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     return Input$stations_now_playing_avg_order_by._(result$data);
   }
@@ -25723,14 +26279,14 @@ class Input$stations_now_playing_avg_order_by {
       result$data['id'] = l$id == null ? null : toJson$Enum$order_by(l$id);
     }
     if (_$data.containsKey('song_id')) {
-      final l$song_id = song_id;
+      final l$songId = song_id;
       result$data['song_id'] =
-          l$song_id == null ? null : toJson$Enum$order_by(l$song_id);
+          l$songId == null ? null : toJson$Enum$order_by(l$songId);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     return result$data;
   }
@@ -25747,7 +26303,7 @@ class Input$stations_now_playing_avg_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$stations_now_playing_avg_order_by) ||
+    if (other is! Input$stations_now_playing_avg_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -25759,21 +26315,21 @@ class Input$stations_now_playing_avg_order_by {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$song_id = song_id;
-    final lOther$song_id = other.song_id;
+    final l$songId = song_id;
+    final lother$songId = other.song_id;
     if (_$data.containsKey('song_id') != other._$data.containsKey('song_id')) {
       return false;
     }
-    if (l$song_id != lOther$song_id) {
+    if (l$songId != lother$songId) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -25782,12 +26338,12 @@ class Input$stations_now_playing_avg_order_by {
   @override
   int get hashCode {
     final l$id = id;
-    final l$song_id = song_id;
-    final l$station_id = station_id;
+    final l$songId = song_id;
+    final l$stationId = station_id;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
-      _$data.containsKey('song_id') ? l$song_id : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('song_id') ? l$songId : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -25821,6 +26377,7 @@ class _CopyWithImpl$Input$stations_now_playing_avg_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? song_id = _undefined,
@@ -25839,8 +26396,9 @@ class _CopyWithStubImpl$Input$stations_now_playing_avg_order_by<TRes>
     implements CopyWith$Input$stations_now_playing_avg_order_by<TRes> {
   _CopyWithStubImpl$Input$stations_now_playing_avg_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? song_id,
@@ -25881,22 +26439,22 @@ class Input$stations_now_playing_bool_exp {
       Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
     if (data.containsKey('_and')) {
-      final l$$_and = data['_and'];
-      result$data['_and'] = (l$$_and as List<dynamic>?)
+      final l$$And = data['_and'];
+      result$data['_and'] = (l$$And as List<dynamic>?)
           ?.map((e) => Input$stations_now_playing_bool_exp.fromJson(
               (e as Map<String, dynamic>)))
           .toList();
     }
     if (data.containsKey('_not')) {
-      final l$$_not = data['_not'];
-      result$data['_not'] = l$$_not == null
+      final l$$Not = data['_not'];
+      result$data['_not'] = l$$Not == null
           ? null
           : Input$stations_now_playing_bool_exp.fromJson(
-              (l$$_not as Map<String, dynamic>));
+              (l$$Not as Map<String, dynamic>));
     }
     if (data.containsKey('_or')) {
-      final l$$_or = data['_or'];
-      result$data['_or'] = (l$$_or as List<dynamic>?)
+      final l$$Or = data['_or'];
+      result$data['_or'] = (l$$Or as List<dynamic>?)
           ?.map((e) => Input$stations_now_playing_bool_exp.fromJson(
               (e as Map<String, dynamic>)))
           .toList();
@@ -25914,11 +26472,11 @@ class Input$stations_now_playing_bool_exp {
           : Input$songs_bool_exp.fromJson((l$song as Map<String, dynamic>));
     }
     if (data.containsKey('song_id')) {
-      final l$song_id = data['song_id'];
-      result$data['song_id'] = l$song_id == null
+      final l$songId = data['song_id'];
+      result$data['song_id'] = l$songId == null
           ? null
           : Input$Int_comparison_exp.fromJson(
-              (l$song_id as Map<String, dynamic>));
+              (l$songId as Map<String, dynamic>));
     }
     if (data.containsKey('station')) {
       final l$station = data['station'];
@@ -25928,11 +26486,11 @@ class Input$stations_now_playing_bool_exp {
               (l$station as Map<String, dynamic>));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
           : Input$Int_comparison_exp.fromJson(
-              (l$station_id as Map<String, dynamic>));
+              (l$stationId as Map<String, dynamic>));
     }
     if (data.containsKey('stations')) {
       final l$stations = data['stations'];
@@ -25985,16 +26543,16 @@ class Input$stations_now_playing_bool_exp {
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
     if (_$data.containsKey('_and')) {
-      final l$$_and = $_and;
-      result$data['_and'] = l$$_and?.map((e) => e.toJson()).toList();
+      final l$$And = $_and;
+      result$data['_and'] = l$$And?.map((e) => e.toJson()).toList();
     }
     if (_$data.containsKey('_not')) {
-      final l$$_not = $_not;
-      result$data['_not'] = l$$_not?.toJson();
+      final l$$Not = $_not;
+      result$data['_not'] = l$$Not?.toJson();
     }
     if (_$data.containsKey('_or')) {
-      final l$$_or = $_or;
-      result$data['_or'] = l$$_or?.map((e) => e.toJson()).toList();
+      final l$$Or = $_or;
+      result$data['_or'] = l$$Or?.map((e) => e.toJson()).toList();
     }
     if (_$data.containsKey('id')) {
       final l$id = id;
@@ -26005,16 +26563,16 @@ class Input$stations_now_playing_bool_exp {
       result$data['song'] = l$song?.toJson();
     }
     if (_$data.containsKey('song_id')) {
-      final l$song_id = song_id;
-      result$data['song_id'] = l$song_id?.toJson();
+      final l$songId = song_id;
+      result$data['song_id'] = l$songId?.toJson();
     }
     if (_$data.containsKey('station')) {
       final l$station = station;
       result$data['station'] = l$station?.toJson();
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
-      result$data['station_id'] = l$station_id?.toJson();
+      final l$stationId = station_id;
+      result$data['station_id'] = l$stationId?.toJson();
     }
     if (_$data.containsKey('stations')) {
       final l$stations = stations;
@@ -26039,54 +26597,54 @@ class Input$stations_now_playing_bool_exp {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$stations_now_playing_bool_exp) ||
+    if (other is! Input$stations_now_playing_bool_exp ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$$_and = $_and;
-    final lOther$$_and = other.$_and;
+    final l$$And = $_and;
+    final lother$$And = other.$_and;
     if (_$data.containsKey('_and') != other._$data.containsKey('_and')) {
       return false;
     }
-    if (l$$_and != null && lOther$$_and != null) {
-      if (l$$_and.length != lOther$$_and.length) {
+    if (l$$And != null && lother$$And != null) {
+      if (l$$And.length != lother$$And.length) {
         return false;
       }
-      for (int i = 0; i < l$$_and.length; i++) {
-        final l$$_and$entry = l$$_and[i];
-        final lOther$$_and$entry = lOther$$_and[i];
-        if (l$$_and$entry != lOther$$_and$entry) {
+      for (int i = 0; i < l$$And.length; i++) {
+        final l$$And$entry = l$$And[i];
+        final lother$$And$entry = lother$$And[i];
+        if (l$$And$entry != lother$$And$entry) {
           return false;
         }
       }
-    } else if (l$$_and != lOther$$_and) {
+    } else if (l$$And != lother$$And) {
       return false;
     }
-    final l$$_not = $_not;
-    final lOther$$_not = other.$_not;
+    final l$$Not = $_not;
+    final lother$$Not = other.$_not;
     if (_$data.containsKey('_not') != other._$data.containsKey('_not')) {
       return false;
     }
-    if (l$$_not != lOther$$_not) {
+    if (l$$Not != lother$$Not) {
       return false;
     }
-    final l$$_or = $_or;
-    final lOther$$_or = other.$_or;
+    final l$$Or = $_or;
+    final lother$$Or = other.$_or;
     if (_$data.containsKey('_or') != other._$data.containsKey('_or')) {
       return false;
     }
-    if (l$$_or != null && lOther$$_or != null) {
-      if (l$$_or.length != lOther$$_or.length) {
+    if (l$$Or != null && lother$$Or != null) {
+      if (l$$Or.length != lother$$Or.length) {
         return false;
       }
-      for (int i = 0; i < l$$_or.length; i++) {
-        final l$$_or$entry = l$$_or[i];
-        final lOther$$_or$entry = lOther$$_or[i];
-        if (l$$_or$entry != lOther$$_or$entry) {
+      for (int i = 0; i < l$$Or.length; i++) {
+        final l$$Or$entry = l$$Or[i];
+        final lother$$Or$entry = lother$$Or[i];
+        if (l$$Or$entry != lother$$Or$entry) {
           return false;
         }
       }
-    } else if (l$$_or != lOther$$_or) {
+    } else if (l$$Or != lother$$Or) {
       return false;
     }
     final l$id = id;
@@ -26105,12 +26663,12 @@ class Input$stations_now_playing_bool_exp {
     if (l$song != lOther$song) {
       return false;
     }
-    final l$song_id = song_id;
-    final lOther$song_id = other.song_id;
+    final l$songId = song_id;
+    final lother$songId = other.song_id;
     if (_$data.containsKey('song_id') != other._$data.containsKey('song_id')) {
       return false;
     }
-    if (l$song_id != lOther$song_id) {
+    if (l$songId != lother$songId) {
       return false;
     }
     final l$station = station;
@@ -26121,13 +26679,13 @@ class Input$stations_now_playing_bool_exp {
     if (l$station != lOther$station) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     final l$stations = stations;
@@ -26153,33 +26711,33 @@ class Input$stations_now_playing_bool_exp {
 
   @override
   int get hashCode {
-    final l$$_and = $_and;
-    final l$$_not = $_not;
-    final l$$_or = $_or;
+    final l$$And = $_and;
+    final l$$Not = $_not;
+    final l$$Or = $_or;
     final l$id = id;
     final l$song = song;
-    final l$song_id = song_id;
+    final l$songId = song_id;
     final l$station = station;
-    final l$station_id = station_id;
+    final l$stationId = station_id;
     final l$stations = stations;
     final l$timestamp = timestamp;
     return Object.hashAll([
       _$data.containsKey('_and')
-          ? l$$_and == null
+          ? l$$And == null
               ? null
-              : Object.hashAll(l$$_and.map((v) => v))
+              : Object.hashAll(l$$And.map((v) => v))
           : const {},
-      _$data.containsKey('_not') ? l$$_not : const {},
+      _$data.containsKey('_not') ? l$$Not : const {},
       _$data.containsKey('_or')
-          ? l$$_or == null
+          ? l$$Or == null
               ? null
-              : Object.hashAll(l$$_or.map((v) => v))
+              : Object.hashAll(l$$Or.map((v) => v))
           : const {},
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('song') ? l$song : const {},
-      _$data.containsKey('song_id') ? l$song_id : const {},
+      _$data.containsKey('song_id') ? l$songId : const {},
       _$data.containsKey('station') ? l$station : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
       _$data.containsKey('stations') ? l$stations : const {},
       _$data.containsKey('timestamp') ? l$timestamp : const {},
     ]);
@@ -26212,14 +26770,14 @@ abstract class CopyWith$Input$stations_now_playing_bool_exp<TRes> {
               Iterable<
                   CopyWith$Input$stations_now_playing_bool_exp<
                       Input$stations_now_playing_bool_exp>>?)
-          _fn);
+          fn);
   CopyWith$Input$stations_now_playing_bool_exp<TRes> get $_not;
   TRes $_or(
       Iterable<Input$stations_now_playing_bool_exp>? Function(
               Iterable<
                   CopyWith$Input$stations_now_playing_bool_exp<
                       Input$stations_now_playing_bool_exp>>?)
-          _fn);
+          fn);
   CopyWith$Input$Int_comparison_exp<TRes> get id;
   CopyWith$Input$songs_bool_exp<TRes> get song;
   CopyWith$Input$Int_comparison_exp<TRes> get song_id;
@@ -26242,6 +26800,7 @@ class _CopyWithImpl$Input$stations_now_playing_bool_exp<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? $_and = _undefined,
     Object? $_not = _undefined,
@@ -26276,40 +26835,44 @@ class _CopyWithImpl$Input$stations_now_playing_bool_exp<TRes>
           'timestamp': (timestamp as Input$timestamptz_comparison_exp?),
       }));
 
+  @override
   TRes $_and(
           Iterable<Input$stations_now_playing_bool_exp>? Function(
                   Iterable<
                       CopyWith$Input$stations_now_playing_bool_exp<
                           Input$stations_now_playing_bool_exp>>?)
-              _fn) =>
+              fn) =>
       call(
-          $_and: _fn(_instance.$_and
+          $_and: fn(_instance.$_and
               ?.map((e) => CopyWith$Input$stations_now_playing_bool_exp(
                     e,
                     (i) => i,
                   )))?.toList());
 
+  @override
   CopyWith$Input$stations_now_playing_bool_exp<TRes> get $_not {
-    final local$$_not = _instance.$_not;
-    return local$$_not == null
+    final local$$Not = _instance.$_not;
+    return local$$Not == null
         ? CopyWith$Input$stations_now_playing_bool_exp.stub(_then(_instance))
         : CopyWith$Input$stations_now_playing_bool_exp(
-            local$$_not, (e) => call($_not: e));
+            local$$Not, (e) => call($_not: e));
   }
 
+  @override
   TRes $_or(
           Iterable<Input$stations_now_playing_bool_exp>? Function(
                   Iterable<
                       CopyWith$Input$stations_now_playing_bool_exp<
                           Input$stations_now_playing_bool_exp>>?)
-              _fn) =>
+              fn) =>
       call(
-          $_or: _fn(_instance.$_or
+          $_or: fn(_instance.$_or
               ?.map((e) => CopyWith$Input$stations_now_playing_bool_exp(
                     e,
                     (i) => i,
                   )))?.toList());
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get id {
     final local$id = _instance.id;
     return local$id == null
@@ -26317,6 +26880,7 @@ class _CopyWithImpl$Input$stations_now_playing_bool_exp<TRes>
         : CopyWith$Input$Int_comparison_exp(local$id, (e) => call(id: e));
   }
 
+  @override
   CopyWith$Input$songs_bool_exp<TRes> get song {
     final local$song = _instance.song;
     return local$song == null
@@ -26324,14 +26888,16 @@ class _CopyWithImpl$Input$stations_now_playing_bool_exp<TRes>
         : CopyWith$Input$songs_bool_exp(local$song, (e) => call(song: e));
   }
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get song_id {
-    final local$song_id = _instance.song_id;
-    return local$song_id == null
+    final local$songId = _instance.song_id;
+    return local$songId == null
         ? CopyWith$Input$Int_comparison_exp.stub(_then(_instance))
         : CopyWith$Input$Int_comparison_exp(
-            local$song_id, (e) => call(song_id: e));
+            local$songId, (e) => call(song_id: e));
   }
 
+  @override
   CopyWith$Input$stations_bool_exp<TRes> get station {
     final local$station = _instance.station;
     return local$station == null
@@ -26340,14 +26906,16 @@ class _CopyWithImpl$Input$stations_now_playing_bool_exp<TRes>
             local$station, (e) => call(station: e));
   }
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get station_id {
-    final local$station_id = _instance.station_id;
-    return local$station_id == null
+    final local$stationId = _instance.station_id;
+    return local$stationId == null
         ? CopyWith$Input$Int_comparison_exp.stub(_then(_instance))
         : CopyWith$Input$Int_comparison_exp(
-            local$station_id, (e) => call(station_id: e));
+            local$stationId, (e) => call(station_id: e));
   }
 
+  @override
   CopyWith$Input$stations_bool_exp<TRes> get stations {
     final local$stations = _instance.stations;
     return local$stations == null
@@ -26356,6 +26924,7 @@ class _CopyWithImpl$Input$stations_now_playing_bool_exp<TRes>
             local$stations, (e) => call(stations: e));
   }
 
+  @override
   CopyWith$Input$timestamptz_comparison_exp<TRes> get timestamp {
     final local$timestamp = _instance.timestamp;
     return local$timestamp == null
@@ -26369,8 +26938,9 @@ class _CopyWithStubImpl$Input$stations_now_playing_bool_exp<TRes>
     implements CopyWith$Input$stations_now_playing_bool_exp<TRes> {
   _CopyWithStubImpl$Input$stations_now_playing_bool_exp(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     List<Input$stations_now_playing_bool_exp>? $_and,
     Input$stations_now_playing_bool_exp? $_not,
@@ -26385,31 +26955,41 @@ class _CopyWithStubImpl$Input$stations_now_playing_bool_exp<TRes>
   }) =>
       _res;
 
-  $_and(_fn) => _res;
+  @override
+  $_and(fn) => _res;
 
+  @override
   CopyWith$Input$stations_now_playing_bool_exp<TRes> get $_not =>
       CopyWith$Input$stations_now_playing_bool_exp.stub(_res);
 
-  $_or(_fn) => _res;
+  @override
+  $_or(fn) => _res;
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get id =>
       CopyWith$Input$Int_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$songs_bool_exp<TRes> get song =>
       CopyWith$Input$songs_bool_exp.stub(_res);
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get song_id =>
       CopyWith$Input$Int_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$stations_bool_exp<TRes> get station =>
       CopyWith$Input$stations_bool_exp.stub(_res);
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get station_id =>
       CopyWith$Input$Int_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$stations_bool_exp<TRes> get stations =>
       CopyWith$Input$stations_bool_exp.stub(_res);
 
+  @override
   CopyWith$Input$timestamptz_comparison_exp<TRes> get timestamp =>
       CopyWith$Input$timestamptz_comparison_exp.stub(_res);
 }
@@ -26439,16 +27019,16 @@ class Input$stations_now_playing_max_order_by {
           l$id == null ? null : fromJson$Enum$order_by((l$id as String));
     }
     if (data.containsKey('song_id')) {
-      final l$song_id = data['song_id'];
-      result$data['song_id'] = l$song_id == null
+      final l$songId = data['song_id'];
+      result$data['song_id'] = l$songId == null
           ? null
-          : fromJson$Enum$order_by((l$song_id as String));
+          : fromJson$Enum$order_by((l$songId as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     if (data.containsKey('timestamp')) {
       final l$timestamp = data['timestamp'];
@@ -26476,14 +27056,14 @@ class Input$stations_now_playing_max_order_by {
       result$data['id'] = l$id == null ? null : toJson$Enum$order_by(l$id);
     }
     if (_$data.containsKey('song_id')) {
-      final l$song_id = song_id;
+      final l$songId = song_id;
       result$data['song_id'] =
-          l$song_id == null ? null : toJson$Enum$order_by(l$song_id);
+          l$songId == null ? null : toJson$Enum$order_by(l$songId);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     if (_$data.containsKey('timestamp')) {
       final l$timestamp = timestamp;
@@ -26505,7 +27085,7 @@ class Input$stations_now_playing_max_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$stations_now_playing_max_order_by) ||
+    if (other is! Input$stations_now_playing_max_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -26517,21 +27097,21 @@ class Input$stations_now_playing_max_order_by {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$song_id = song_id;
-    final lOther$song_id = other.song_id;
+    final l$songId = song_id;
+    final lother$songId = other.song_id;
     if (_$data.containsKey('song_id') != other._$data.containsKey('song_id')) {
       return false;
     }
-    if (l$song_id != lOther$song_id) {
+    if (l$songId != lother$songId) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     final l$timestamp = timestamp;
@@ -26549,13 +27129,13 @@ class Input$stations_now_playing_max_order_by {
   @override
   int get hashCode {
     final l$id = id;
-    final l$song_id = song_id;
-    final l$station_id = station_id;
+    final l$songId = song_id;
+    final l$stationId = station_id;
     final l$timestamp = timestamp;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
-      _$data.containsKey('song_id') ? l$song_id : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('song_id') ? l$songId : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
       _$data.containsKey('timestamp') ? l$timestamp : const {},
     ]);
   }
@@ -26591,6 +27171,7 @@ class _CopyWithImpl$Input$stations_now_playing_max_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? song_id = _undefined,
@@ -26611,8 +27192,9 @@ class _CopyWithStubImpl$Input$stations_now_playing_max_order_by<TRes>
     implements CopyWith$Input$stations_now_playing_max_order_by<TRes> {
   _CopyWithStubImpl$Input$stations_now_playing_max_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? song_id,
@@ -26647,16 +27229,16 @@ class Input$stations_now_playing_min_order_by {
           l$id == null ? null : fromJson$Enum$order_by((l$id as String));
     }
     if (data.containsKey('song_id')) {
-      final l$song_id = data['song_id'];
-      result$data['song_id'] = l$song_id == null
+      final l$songId = data['song_id'];
+      result$data['song_id'] = l$songId == null
           ? null
-          : fromJson$Enum$order_by((l$song_id as String));
+          : fromJson$Enum$order_by((l$songId as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     if (data.containsKey('timestamp')) {
       final l$timestamp = data['timestamp'];
@@ -26684,14 +27266,14 @@ class Input$stations_now_playing_min_order_by {
       result$data['id'] = l$id == null ? null : toJson$Enum$order_by(l$id);
     }
     if (_$data.containsKey('song_id')) {
-      final l$song_id = song_id;
+      final l$songId = song_id;
       result$data['song_id'] =
-          l$song_id == null ? null : toJson$Enum$order_by(l$song_id);
+          l$songId == null ? null : toJson$Enum$order_by(l$songId);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     if (_$data.containsKey('timestamp')) {
       final l$timestamp = timestamp;
@@ -26713,7 +27295,7 @@ class Input$stations_now_playing_min_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$stations_now_playing_min_order_by) ||
+    if (other is! Input$stations_now_playing_min_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -26725,21 +27307,21 @@ class Input$stations_now_playing_min_order_by {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$song_id = song_id;
-    final lOther$song_id = other.song_id;
+    final l$songId = song_id;
+    final lother$songId = other.song_id;
     if (_$data.containsKey('song_id') != other._$data.containsKey('song_id')) {
       return false;
     }
-    if (l$song_id != lOther$song_id) {
+    if (l$songId != lother$songId) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     final l$timestamp = timestamp;
@@ -26757,13 +27339,13 @@ class Input$stations_now_playing_min_order_by {
   @override
   int get hashCode {
     final l$id = id;
-    final l$song_id = song_id;
-    final l$station_id = station_id;
+    final l$songId = song_id;
+    final l$stationId = station_id;
     final l$timestamp = timestamp;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
-      _$data.containsKey('song_id') ? l$song_id : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('song_id') ? l$songId : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
       _$data.containsKey('timestamp') ? l$timestamp : const {},
     ]);
   }
@@ -26799,6 +27381,7 @@ class _CopyWithImpl$Input$stations_now_playing_min_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? song_id = _undefined,
@@ -26819,8 +27402,9 @@ class _CopyWithStubImpl$Input$stations_now_playing_min_order_by<TRes>
     implements CopyWith$Input$stations_now_playing_min_order_by<TRes> {
   _CopyWithStubImpl$Input$stations_now_playing_min_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? song_id,
@@ -26868,10 +27452,10 @@ class Input$stations_now_playing_order_by {
           : Input$songs_order_by.fromJson((l$song as Map<String, dynamic>));
     }
     if (data.containsKey('song_id')) {
-      final l$song_id = data['song_id'];
-      result$data['song_id'] = l$song_id == null
+      final l$songId = data['song_id'];
+      result$data['song_id'] = l$songId == null
           ? null
-          : fromJson$Enum$order_by((l$song_id as String));
+          : fromJson$Enum$order_by((l$songId as String));
     }
     if (data.containsKey('station')) {
       final l$station = data['station'];
@@ -26881,17 +27465,17 @@ class Input$stations_now_playing_order_by {
               (l$station as Map<String, dynamic>));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     if (data.containsKey('stations_aggregate')) {
-      final l$stations_aggregate = data['stations_aggregate'];
-      result$data['stations_aggregate'] = l$stations_aggregate == null
+      final l$stationsAggregate = data['stations_aggregate'];
+      result$data['stations_aggregate'] = l$stationsAggregate == null
           ? null
           : Input$stations_aggregate_order_by.fromJson(
-              (l$stations_aggregate as Map<String, dynamic>));
+              (l$stationsAggregate as Map<String, dynamic>));
     }
     if (data.containsKey('timestamp')) {
       final l$timestamp = data['timestamp'];
@@ -26931,22 +27515,22 @@ class Input$stations_now_playing_order_by {
       result$data['song'] = l$song?.toJson();
     }
     if (_$data.containsKey('song_id')) {
-      final l$song_id = song_id;
+      final l$songId = song_id;
       result$data['song_id'] =
-          l$song_id == null ? null : toJson$Enum$order_by(l$song_id);
+          l$songId == null ? null : toJson$Enum$order_by(l$songId);
     }
     if (_$data.containsKey('station')) {
       final l$station = station;
       result$data['station'] = l$station?.toJson();
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     if (_$data.containsKey('stations_aggregate')) {
-      final l$stations_aggregate = stations_aggregate;
-      result$data['stations_aggregate'] = l$stations_aggregate?.toJson();
+      final l$stationsAggregate = stations_aggregate;
+      result$data['stations_aggregate'] = l$stationsAggregate?.toJson();
     }
     if (_$data.containsKey('timestamp')) {
       final l$timestamp = timestamp;
@@ -26968,7 +27552,7 @@ class Input$stations_now_playing_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$stations_now_playing_order_by) ||
+    if (other is! Input$stations_now_playing_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -26988,12 +27572,12 @@ class Input$stations_now_playing_order_by {
     if (l$song != lOther$song) {
       return false;
     }
-    final l$song_id = song_id;
-    final lOther$song_id = other.song_id;
+    final l$songId = song_id;
+    final lother$songId = other.song_id;
     if (_$data.containsKey('song_id') != other._$data.containsKey('song_id')) {
       return false;
     }
-    if (l$song_id != lOther$song_id) {
+    if (l$songId != lother$songId) {
       return false;
     }
     final l$station = station;
@@ -27004,22 +27588,22 @@ class Input$stations_now_playing_order_by {
     if (l$station != lOther$station) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
-    final l$stations_aggregate = stations_aggregate;
-    final lOther$stations_aggregate = other.stations_aggregate;
+    final l$stationsAggregate = stations_aggregate;
+    final lother$stationsAggregate = other.stations_aggregate;
     if (_$data.containsKey('stations_aggregate') !=
         other._$data.containsKey('stations_aggregate')) {
       return false;
     }
-    if (l$stations_aggregate != lOther$stations_aggregate) {
+    if (l$stationsAggregate != lother$stationsAggregate) {
       return false;
     }
     final l$timestamp = timestamp;
@@ -27038,19 +27622,19 @@ class Input$stations_now_playing_order_by {
   int get hashCode {
     final l$id = id;
     final l$song = song;
-    final l$song_id = song_id;
+    final l$songId = song_id;
     final l$station = station;
-    final l$station_id = station_id;
-    final l$stations_aggregate = stations_aggregate;
+    final l$stationId = station_id;
+    final l$stationsAggregate = stations_aggregate;
     final l$timestamp = timestamp;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('song') ? l$song : const {},
-      _$data.containsKey('song_id') ? l$song_id : const {},
+      _$data.containsKey('song_id') ? l$songId : const {},
       _$data.containsKey('station') ? l$station : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
       _$data.containsKey('stations_aggregate')
-          ? l$stations_aggregate
+          ? l$stationsAggregate
           : const {},
       _$data.containsKey('timestamp') ? l$timestamp : const {},
     ]);
@@ -27093,6 +27677,7 @@ class _CopyWithImpl$Input$stations_now_playing_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? song = _undefined,
@@ -27117,6 +27702,7 @@ class _CopyWithImpl$Input$stations_now_playing_order_by<TRes>
         if (timestamp != _undefined) 'timestamp': (timestamp as Enum$order_by?),
       }));
 
+  @override
   CopyWith$Input$songs_order_by<TRes> get song {
     final local$song = _instance.song;
     return local$song == null
@@ -27124,6 +27710,7 @@ class _CopyWithImpl$Input$stations_now_playing_order_by<TRes>
         : CopyWith$Input$songs_order_by(local$song, (e) => call(song: e));
   }
 
+  @override
   CopyWith$Input$stations_order_by<TRes> get station {
     final local$station = _instance.station;
     return local$station == null
@@ -27132,12 +27719,13 @@ class _CopyWithImpl$Input$stations_now_playing_order_by<TRes>
             local$station, (e) => call(station: e));
   }
 
+  @override
   CopyWith$Input$stations_aggregate_order_by<TRes> get stations_aggregate {
-    final local$stations_aggregate = _instance.stations_aggregate;
-    return local$stations_aggregate == null
+    final local$stationsAggregate = _instance.stations_aggregate;
+    return local$stationsAggregate == null
         ? CopyWith$Input$stations_aggregate_order_by.stub(_then(_instance))
         : CopyWith$Input$stations_aggregate_order_by(
-            local$stations_aggregate, (e) => call(stations_aggregate: e));
+            local$stationsAggregate, (e) => call(stations_aggregate: e));
   }
 }
 
@@ -27145,8 +27733,9 @@ class _CopyWithStubImpl$Input$stations_now_playing_order_by<TRes>
     implements CopyWith$Input$stations_now_playing_order_by<TRes> {
   _CopyWithStubImpl$Input$stations_now_playing_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Input$songs_order_by? song,
@@ -27158,12 +27747,15 @@ class _CopyWithStubImpl$Input$stations_now_playing_order_by<TRes>
   }) =>
       _res;
 
+  @override
   CopyWith$Input$songs_order_by<TRes> get song =>
       CopyWith$Input$songs_order_by.stub(_res);
 
+  @override
   CopyWith$Input$stations_order_by<TRes> get station =>
       CopyWith$Input$stations_order_by.stub(_res);
 
+  @override
   CopyWith$Input$stations_aggregate_order_by<TRes> get stations_aggregate =>
       CopyWith$Input$stations_aggregate_order_by.stub(_res);
 }
@@ -27191,16 +27783,16 @@ class Input$stations_now_playing_stddev_order_by {
           l$id == null ? null : fromJson$Enum$order_by((l$id as String));
     }
     if (data.containsKey('song_id')) {
-      final l$song_id = data['song_id'];
-      result$data['song_id'] = l$song_id == null
+      final l$songId = data['song_id'];
+      result$data['song_id'] = l$songId == null
           ? null
-          : fromJson$Enum$order_by((l$song_id as String));
+          : fromJson$Enum$order_by((l$songId as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     return Input$stations_now_playing_stddev_order_by._(result$data);
   }
@@ -27220,14 +27812,14 @@ class Input$stations_now_playing_stddev_order_by {
       result$data['id'] = l$id == null ? null : toJson$Enum$order_by(l$id);
     }
     if (_$data.containsKey('song_id')) {
-      final l$song_id = song_id;
+      final l$songId = song_id;
       result$data['song_id'] =
-          l$song_id == null ? null : toJson$Enum$order_by(l$song_id);
+          l$songId == null ? null : toJson$Enum$order_by(l$songId);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     return result$data;
   }
@@ -27244,7 +27836,7 @@ class Input$stations_now_playing_stddev_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$stations_now_playing_stddev_order_by) ||
+    if (other is! Input$stations_now_playing_stddev_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -27256,21 +27848,21 @@ class Input$stations_now_playing_stddev_order_by {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$song_id = song_id;
-    final lOther$song_id = other.song_id;
+    final l$songId = song_id;
+    final lother$songId = other.song_id;
     if (_$data.containsKey('song_id') != other._$data.containsKey('song_id')) {
       return false;
     }
-    if (l$song_id != lOther$song_id) {
+    if (l$songId != lother$songId) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -27279,12 +27871,12 @@ class Input$stations_now_playing_stddev_order_by {
   @override
   int get hashCode {
     final l$id = id;
-    final l$song_id = song_id;
-    final l$station_id = station_id;
+    final l$songId = song_id;
+    final l$stationId = station_id;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
-      _$data.containsKey('song_id') ? l$song_id : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('song_id') ? l$songId : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -27318,6 +27910,7 @@ class _CopyWithImpl$Input$stations_now_playing_stddev_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? song_id = _undefined,
@@ -27336,8 +27929,9 @@ class _CopyWithStubImpl$Input$stations_now_playing_stddev_order_by<TRes>
     implements CopyWith$Input$stations_now_playing_stddev_order_by<TRes> {
   _CopyWithStubImpl$Input$stations_now_playing_stddev_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? song_id,
@@ -27369,16 +27963,16 @@ class Input$stations_now_playing_stddev_pop_order_by {
           l$id == null ? null : fromJson$Enum$order_by((l$id as String));
     }
     if (data.containsKey('song_id')) {
-      final l$song_id = data['song_id'];
-      result$data['song_id'] = l$song_id == null
+      final l$songId = data['song_id'];
+      result$data['song_id'] = l$songId == null
           ? null
-          : fromJson$Enum$order_by((l$song_id as String));
+          : fromJson$Enum$order_by((l$songId as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     return Input$stations_now_playing_stddev_pop_order_by._(result$data);
   }
@@ -27398,14 +27992,14 @@ class Input$stations_now_playing_stddev_pop_order_by {
       result$data['id'] = l$id == null ? null : toJson$Enum$order_by(l$id);
     }
     if (_$data.containsKey('song_id')) {
-      final l$song_id = song_id;
+      final l$songId = song_id;
       result$data['song_id'] =
-          l$song_id == null ? null : toJson$Enum$order_by(l$song_id);
+          l$songId == null ? null : toJson$Enum$order_by(l$songId);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     return result$data;
   }
@@ -27422,7 +28016,7 @@ class Input$stations_now_playing_stddev_pop_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$stations_now_playing_stddev_pop_order_by) ||
+    if (other is! Input$stations_now_playing_stddev_pop_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -27434,21 +28028,21 @@ class Input$stations_now_playing_stddev_pop_order_by {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$song_id = song_id;
-    final lOther$song_id = other.song_id;
+    final l$songId = song_id;
+    final lother$songId = other.song_id;
     if (_$data.containsKey('song_id') != other._$data.containsKey('song_id')) {
       return false;
     }
-    if (l$song_id != lOther$song_id) {
+    if (l$songId != lother$songId) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -27457,12 +28051,12 @@ class Input$stations_now_playing_stddev_pop_order_by {
   @override
   int get hashCode {
     final l$id = id;
-    final l$song_id = song_id;
-    final l$station_id = station_id;
+    final l$songId = song_id;
+    final l$stationId = station_id;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
-      _$data.containsKey('song_id') ? l$song_id : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('song_id') ? l$songId : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -27497,6 +28091,7 @@ class _CopyWithImpl$Input$stations_now_playing_stddev_pop_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? song_id = _undefined,
@@ -27515,8 +28110,9 @@ class _CopyWithStubImpl$Input$stations_now_playing_stddev_pop_order_by<TRes>
     implements CopyWith$Input$stations_now_playing_stddev_pop_order_by<TRes> {
   _CopyWithStubImpl$Input$stations_now_playing_stddev_pop_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? song_id,
@@ -27548,16 +28144,16 @@ class Input$stations_now_playing_stddev_samp_order_by {
           l$id == null ? null : fromJson$Enum$order_by((l$id as String));
     }
     if (data.containsKey('song_id')) {
-      final l$song_id = data['song_id'];
-      result$data['song_id'] = l$song_id == null
+      final l$songId = data['song_id'];
+      result$data['song_id'] = l$songId == null
           ? null
-          : fromJson$Enum$order_by((l$song_id as String));
+          : fromJson$Enum$order_by((l$songId as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     return Input$stations_now_playing_stddev_samp_order_by._(result$data);
   }
@@ -27577,14 +28173,14 @@ class Input$stations_now_playing_stddev_samp_order_by {
       result$data['id'] = l$id == null ? null : toJson$Enum$order_by(l$id);
     }
     if (_$data.containsKey('song_id')) {
-      final l$song_id = song_id;
+      final l$songId = song_id;
       result$data['song_id'] =
-          l$song_id == null ? null : toJson$Enum$order_by(l$song_id);
+          l$songId == null ? null : toJson$Enum$order_by(l$songId);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     return result$data;
   }
@@ -27601,7 +28197,7 @@ class Input$stations_now_playing_stddev_samp_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$stations_now_playing_stddev_samp_order_by) ||
+    if (other is! Input$stations_now_playing_stddev_samp_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -27613,21 +28209,21 @@ class Input$stations_now_playing_stddev_samp_order_by {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$song_id = song_id;
-    final lOther$song_id = other.song_id;
+    final l$songId = song_id;
+    final lother$songId = other.song_id;
     if (_$data.containsKey('song_id') != other._$data.containsKey('song_id')) {
       return false;
     }
-    if (l$song_id != lOther$song_id) {
+    if (l$songId != lother$songId) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -27636,12 +28232,12 @@ class Input$stations_now_playing_stddev_samp_order_by {
   @override
   int get hashCode {
     final l$id = id;
-    final l$song_id = song_id;
-    final l$station_id = station_id;
+    final l$songId = song_id;
+    final l$stationId = station_id;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
-      _$data.containsKey('song_id') ? l$song_id : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('song_id') ? l$songId : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -27676,6 +28272,7 @@ class _CopyWithImpl$Input$stations_now_playing_stddev_samp_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? song_id = _undefined,
@@ -27694,8 +28291,9 @@ class _CopyWithStubImpl$Input$stations_now_playing_stddev_samp_order_by<TRes>
     implements CopyWith$Input$stations_now_playing_stddev_samp_order_by<TRes> {
   _CopyWithStubImpl$Input$stations_now_playing_stddev_samp_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? song_id,
@@ -27719,10 +28317,10 @@ class Input$stations_now_playing_stream_cursor_input {
   factory Input$stations_now_playing_stream_cursor_input.fromJson(
       Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
-    final l$initial_value = data['initial_value'];
+    final l$initialValue = data['initial_value'];
     result$data['initial_value'] =
         Input$stations_now_playing_stream_cursor_value_input.fromJson(
-            (l$initial_value as Map<String, dynamic>));
+            (l$initialValue as Map<String, dynamic>));
     if (data.containsKey('ordering')) {
       final l$ordering = data['ordering'];
       result$data['ordering'] = l$ordering == null
@@ -27743,8 +28341,8 @@ class Input$stations_now_playing_stream_cursor_input {
 
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
-    final l$initial_value = initial_value;
-    result$data['initial_value'] = l$initial_value.toJson();
+    final l$initialValue = initial_value;
+    result$data['initial_value'] = l$initialValue.toJson();
     if (_$data.containsKey('ordering')) {
       final l$ordering = ordering;
       result$data['ordering'] =
@@ -27765,13 +28363,13 @@ class Input$stations_now_playing_stream_cursor_input {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$stations_now_playing_stream_cursor_input) ||
+    if (other is! Input$stations_now_playing_stream_cursor_input ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$initial_value = initial_value;
-    final lOther$initial_value = other.initial_value;
-    if (l$initial_value != lOther$initial_value) {
+    final l$initialValue = initial_value;
+    final lother$initialValue = other.initial_value;
+    if (l$initialValue != lother$initialValue) {
       return false;
     }
     final l$ordering = ordering;
@@ -27788,10 +28386,10 @@ class Input$stations_now_playing_stream_cursor_input {
 
   @override
   int get hashCode {
-    final l$initial_value = initial_value;
+    final l$initialValue = initial_value;
     final l$ordering = ordering;
     return Object.hashAll([
-      l$initial_value,
+      l$initialValue,
       _$data.containsKey('ordering') ? l$ordering : const {},
     ]);
   }
@@ -27828,6 +28426,7 @@ class _CopyWithImpl$Input$stations_now_playing_stream_cursor_input<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? initial_value = _undefined,
     Object? ordering = _undefined,
@@ -27841,11 +28440,12 @@ class _CopyWithImpl$Input$stations_now_playing_stream_cursor_input<TRes>
           'ordering': (ordering as Enum$cursor_ordering?),
       }));
 
+  @override
   CopyWith$Input$stations_now_playing_stream_cursor_value_input<TRes>
       get initial_value {
-    final local$initial_value = _instance.initial_value;
+    final local$initialValue = _instance.initial_value;
     return CopyWith$Input$stations_now_playing_stream_cursor_value_input(
-        local$initial_value, (e) => call(initial_value: e));
+        local$initialValue, (e) => call(initial_value: e));
   }
 }
 
@@ -27853,14 +28453,16 @@ class _CopyWithStubImpl$Input$stations_now_playing_stream_cursor_input<TRes>
     implements CopyWith$Input$stations_now_playing_stream_cursor_input<TRes> {
   _CopyWithStubImpl$Input$stations_now_playing_stream_cursor_input(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Input$stations_now_playing_stream_cursor_value_input? initial_value,
     Enum$cursor_ordering? ordering,
   }) =>
       _res;
 
+  @override
   CopyWith$Input$stations_now_playing_stream_cursor_value_input<TRes>
       get initial_value =>
           CopyWith$Input$stations_now_playing_stream_cursor_value_input.stub(
@@ -27891,12 +28493,12 @@ class Input$stations_now_playing_stream_cursor_value_input {
       result$data['id'] = (l$id as int?);
     }
     if (data.containsKey('song_id')) {
-      final l$song_id = data['song_id'];
-      result$data['song_id'] = (l$song_id as int?);
+      final l$songId = data['song_id'];
+      result$data['song_id'] = (l$songId as int?);
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = (l$station_id as int?);
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = (l$stationId as int?);
     }
     if (data.containsKey('timestamp')) {
       final l$timestamp = data['timestamp'];
@@ -27922,12 +28524,12 @@ class Input$stations_now_playing_stream_cursor_value_input {
       result$data['id'] = l$id;
     }
     if (_$data.containsKey('song_id')) {
-      final l$song_id = song_id;
-      result$data['song_id'] = l$song_id;
+      final l$songId = song_id;
+      result$data['song_id'] = l$songId;
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
-      result$data['station_id'] = l$station_id;
+      final l$stationId = station_id;
+      result$data['station_id'] = l$stationId;
     }
     if (_$data.containsKey('timestamp')) {
       final l$timestamp = timestamp;
@@ -27949,7 +28551,7 @@ class Input$stations_now_playing_stream_cursor_value_input {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$stations_now_playing_stream_cursor_value_input) ||
+    if (other is! Input$stations_now_playing_stream_cursor_value_input ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -27961,21 +28563,21 @@ class Input$stations_now_playing_stream_cursor_value_input {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$song_id = song_id;
-    final lOther$song_id = other.song_id;
+    final l$songId = song_id;
+    final lother$songId = other.song_id;
     if (_$data.containsKey('song_id') != other._$data.containsKey('song_id')) {
       return false;
     }
-    if (l$song_id != lOther$song_id) {
+    if (l$songId != lother$songId) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     final l$timestamp = timestamp;
@@ -27993,13 +28595,13 @@ class Input$stations_now_playing_stream_cursor_value_input {
   @override
   int get hashCode {
     final l$id = id;
-    final l$song_id = song_id;
-    final l$station_id = station_id;
+    final l$songId = song_id;
+    final l$stationId = station_id;
     final l$timestamp = timestamp;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
-      _$data.containsKey('song_id') ? l$song_id : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('song_id') ? l$songId : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
       _$data.containsKey('timestamp') ? l$timestamp : const {},
     ]);
   }
@@ -28039,6 +28641,7 @@ class _CopyWithImpl$Input$stations_now_playing_stream_cursor_value_input<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? song_id = _undefined,
@@ -28061,8 +28664,9 @@ class _CopyWithStubImpl$Input$stations_now_playing_stream_cursor_value_input<
   _CopyWithStubImpl$Input$stations_now_playing_stream_cursor_value_input(
       this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     int? id,
     int? song_id,
@@ -28095,16 +28699,16 @@ class Input$stations_now_playing_sum_order_by {
           l$id == null ? null : fromJson$Enum$order_by((l$id as String));
     }
     if (data.containsKey('song_id')) {
-      final l$song_id = data['song_id'];
-      result$data['song_id'] = l$song_id == null
+      final l$songId = data['song_id'];
+      result$data['song_id'] = l$songId == null
           ? null
-          : fromJson$Enum$order_by((l$song_id as String));
+          : fromJson$Enum$order_by((l$songId as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     return Input$stations_now_playing_sum_order_by._(result$data);
   }
@@ -28124,14 +28728,14 @@ class Input$stations_now_playing_sum_order_by {
       result$data['id'] = l$id == null ? null : toJson$Enum$order_by(l$id);
     }
     if (_$data.containsKey('song_id')) {
-      final l$song_id = song_id;
+      final l$songId = song_id;
       result$data['song_id'] =
-          l$song_id == null ? null : toJson$Enum$order_by(l$song_id);
+          l$songId == null ? null : toJson$Enum$order_by(l$songId);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     return result$data;
   }
@@ -28148,7 +28752,7 @@ class Input$stations_now_playing_sum_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$stations_now_playing_sum_order_by) ||
+    if (other is! Input$stations_now_playing_sum_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -28160,21 +28764,21 @@ class Input$stations_now_playing_sum_order_by {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$song_id = song_id;
-    final lOther$song_id = other.song_id;
+    final l$songId = song_id;
+    final lother$songId = other.song_id;
     if (_$data.containsKey('song_id') != other._$data.containsKey('song_id')) {
       return false;
     }
-    if (l$song_id != lOther$song_id) {
+    if (l$songId != lother$songId) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -28183,12 +28787,12 @@ class Input$stations_now_playing_sum_order_by {
   @override
   int get hashCode {
     final l$id = id;
-    final l$song_id = song_id;
-    final l$station_id = station_id;
+    final l$songId = song_id;
+    final l$stationId = station_id;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
-      _$data.containsKey('song_id') ? l$song_id : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('song_id') ? l$songId : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -28222,6 +28826,7 @@ class _CopyWithImpl$Input$stations_now_playing_sum_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? song_id = _undefined,
@@ -28240,8 +28845,9 @@ class _CopyWithStubImpl$Input$stations_now_playing_sum_order_by<TRes>
     implements CopyWith$Input$stations_now_playing_sum_order_by<TRes> {
   _CopyWithStubImpl$Input$stations_now_playing_sum_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? song_id,
@@ -28273,16 +28879,16 @@ class Input$stations_now_playing_var_pop_order_by {
           l$id == null ? null : fromJson$Enum$order_by((l$id as String));
     }
     if (data.containsKey('song_id')) {
-      final l$song_id = data['song_id'];
-      result$data['song_id'] = l$song_id == null
+      final l$songId = data['song_id'];
+      result$data['song_id'] = l$songId == null
           ? null
-          : fromJson$Enum$order_by((l$song_id as String));
+          : fromJson$Enum$order_by((l$songId as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     return Input$stations_now_playing_var_pop_order_by._(result$data);
   }
@@ -28302,14 +28908,14 @@ class Input$stations_now_playing_var_pop_order_by {
       result$data['id'] = l$id == null ? null : toJson$Enum$order_by(l$id);
     }
     if (_$data.containsKey('song_id')) {
-      final l$song_id = song_id;
+      final l$songId = song_id;
       result$data['song_id'] =
-          l$song_id == null ? null : toJson$Enum$order_by(l$song_id);
+          l$songId == null ? null : toJson$Enum$order_by(l$songId);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     return result$data;
   }
@@ -28326,7 +28932,7 @@ class Input$stations_now_playing_var_pop_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$stations_now_playing_var_pop_order_by) ||
+    if (other is! Input$stations_now_playing_var_pop_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -28338,21 +28944,21 @@ class Input$stations_now_playing_var_pop_order_by {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$song_id = song_id;
-    final lOther$song_id = other.song_id;
+    final l$songId = song_id;
+    final lother$songId = other.song_id;
     if (_$data.containsKey('song_id') != other._$data.containsKey('song_id')) {
       return false;
     }
-    if (l$song_id != lOther$song_id) {
+    if (l$songId != lother$songId) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -28361,12 +28967,12 @@ class Input$stations_now_playing_var_pop_order_by {
   @override
   int get hashCode {
     final l$id = id;
-    final l$song_id = song_id;
-    final l$station_id = station_id;
+    final l$songId = song_id;
+    final l$stationId = station_id;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
-      _$data.containsKey('song_id') ? l$song_id : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('song_id') ? l$songId : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -28400,6 +29006,7 @@ class _CopyWithImpl$Input$stations_now_playing_var_pop_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? song_id = _undefined,
@@ -28418,8 +29025,9 @@ class _CopyWithStubImpl$Input$stations_now_playing_var_pop_order_by<TRes>
     implements CopyWith$Input$stations_now_playing_var_pop_order_by<TRes> {
   _CopyWithStubImpl$Input$stations_now_playing_var_pop_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? song_id,
@@ -28451,16 +29059,16 @@ class Input$stations_now_playing_var_samp_order_by {
           l$id == null ? null : fromJson$Enum$order_by((l$id as String));
     }
     if (data.containsKey('song_id')) {
-      final l$song_id = data['song_id'];
-      result$data['song_id'] = l$song_id == null
+      final l$songId = data['song_id'];
+      result$data['song_id'] = l$songId == null
           ? null
-          : fromJson$Enum$order_by((l$song_id as String));
+          : fromJson$Enum$order_by((l$songId as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     return Input$stations_now_playing_var_samp_order_by._(result$data);
   }
@@ -28480,14 +29088,14 @@ class Input$stations_now_playing_var_samp_order_by {
       result$data['id'] = l$id == null ? null : toJson$Enum$order_by(l$id);
     }
     if (_$data.containsKey('song_id')) {
-      final l$song_id = song_id;
+      final l$songId = song_id;
       result$data['song_id'] =
-          l$song_id == null ? null : toJson$Enum$order_by(l$song_id);
+          l$songId == null ? null : toJson$Enum$order_by(l$songId);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     return result$data;
   }
@@ -28504,7 +29112,7 @@ class Input$stations_now_playing_var_samp_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$stations_now_playing_var_samp_order_by) ||
+    if (other is! Input$stations_now_playing_var_samp_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -28516,21 +29124,21 @@ class Input$stations_now_playing_var_samp_order_by {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$song_id = song_id;
-    final lOther$song_id = other.song_id;
+    final l$songId = song_id;
+    final lother$songId = other.song_id;
     if (_$data.containsKey('song_id') != other._$data.containsKey('song_id')) {
       return false;
     }
-    if (l$song_id != lOther$song_id) {
+    if (l$songId != lother$songId) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -28539,12 +29147,12 @@ class Input$stations_now_playing_var_samp_order_by {
   @override
   int get hashCode {
     final l$id = id;
-    final l$song_id = song_id;
-    final l$station_id = station_id;
+    final l$songId = song_id;
+    final l$stationId = station_id;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
-      _$data.containsKey('song_id') ? l$song_id : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('song_id') ? l$songId : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -28578,6 +29186,7 @@ class _CopyWithImpl$Input$stations_now_playing_var_samp_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? song_id = _undefined,
@@ -28596,8 +29205,9 @@ class _CopyWithStubImpl$Input$stations_now_playing_var_samp_order_by<TRes>
     implements CopyWith$Input$stations_now_playing_var_samp_order_by<TRes> {
   _CopyWithStubImpl$Input$stations_now_playing_var_samp_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? song_id,
@@ -28629,16 +29239,16 @@ class Input$stations_now_playing_variance_order_by {
           l$id == null ? null : fromJson$Enum$order_by((l$id as String));
     }
     if (data.containsKey('song_id')) {
-      final l$song_id = data['song_id'];
-      result$data['song_id'] = l$song_id == null
+      final l$songId = data['song_id'];
+      result$data['song_id'] = l$songId == null
           ? null
-          : fromJson$Enum$order_by((l$song_id as String));
+          : fromJson$Enum$order_by((l$songId as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     return Input$stations_now_playing_variance_order_by._(result$data);
   }
@@ -28658,14 +29268,14 @@ class Input$stations_now_playing_variance_order_by {
       result$data['id'] = l$id == null ? null : toJson$Enum$order_by(l$id);
     }
     if (_$data.containsKey('song_id')) {
-      final l$song_id = song_id;
+      final l$songId = song_id;
       result$data['song_id'] =
-          l$song_id == null ? null : toJson$Enum$order_by(l$song_id);
+          l$songId == null ? null : toJson$Enum$order_by(l$songId);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     return result$data;
   }
@@ -28682,7 +29292,7 @@ class Input$stations_now_playing_variance_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$stations_now_playing_variance_order_by) ||
+    if (other is! Input$stations_now_playing_variance_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -28694,21 +29304,21 @@ class Input$stations_now_playing_variance_order_by {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$song_id = song_id;
-    final lOther$song_id = other.song_id;
+    final l$songId = song_id;
+    final lother$songId = other.song_id;
     if (_$data.containsKey('song_id') != other._$data.containsKey('song_id')) {
       return false;
     }
-    if (l$song_id != lOther$song_id) {
+    if (l$songId != lother$songId) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -28717,12 +29327,12 @@ class Input$stations_now_playing_variance_order_by {
   @override
   int get hashCode {
     final l$id = id;
-    final l$song_id = song_id;
-    final l$station_id = station_id;
+    final l$songId = song_id;
+    final l$stationId = station_id;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
-      _$data.containsKey('song_id') ? l$song_id : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('song_id') ? l$songId : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -28756,6 +29366,7 @@ class _CopyWithImpl$Input$stations_now_playing_variance_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? song_id = _undefined,
@@ -28774,8 +29385,9 @@ class _CopyWithStubImpl$Input$stations_now_playing_variance_order_by<TRes>
     implements CopyWith$Input$stations_now_playing_variance_order_by<TRes> {
   _CopyWithStubImpl$Input$stations_now_playing_variance_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? song_id,
@@ -28874,10 +29486,10 @@ class Input$stations_order_by {
   factory Input$stations_order_by.fromJson(Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
     if (data.containsKey('created_at')) {
-      final l$created_at = data['created_at'];
-      result$data['created_at'] = l$created_at == null
+      final l$createdAt = data['created_at'];
+      result$data['created_at'] = l$createdAt == null
           ? null
-          : fromJson$Enum$order_by((l$created_at as String));
+          : fromJson$Enum$order_by((l$createdAt as String));
     }
     if (data.containsKey('description')) {
       final l$description = data['description'];
@@ -28886,17 +29498,17 @@ class Input$stations_order_by {
           : fromJson$Enum$order_by((l$description as String));
     }
     if (data.containsKey('description_action_title')) {
-      final l$description_action_title = data['description_action_title'];
+      final l$descriptionActionTitle = data['description_action_title'];
       result$data['description_action_title'] =
-          l$description_action_title == null
+          l$descriptionActionTitle == null
               ? null
-              : fromJson$Enum$order_by((l$description_action_title as String));
+              : fromJson$Enum$order_by((l$descriptionActionTitle as String));
     }
     if (data.containsKey('description_link')) {
-      final l$description_link = data['description_link'];
-      result$data['description_link'] = l$description_link == null
+      final l$descriptionLink = data['description_link'];
+      result$data['description_link'] = l$descriptionLink == null
           ? null
-          : fromJson$Enum$order_by((l$description_link as String));
+          : fromJson$Enum$order_by((l$descriptionLink as String));
     }
     if (data.containsKey('email')) {
       final l$email = data['email'];
@@ -28904,22 +29516,22 @@ class Input$stations_order_by {
           l$email == null ? null : fromJson$Enum$order_by((l$email as String));
     }
     if (data.containsKey('facebook_page_id')) {
-      final l$facebook_page_id = data['facebook_page_id'];
-      result$data['facebook_page_id'] = l$facebook_page_id == null
+      final l$facebookPageId = data['facebook_page_id'];
+      result$data['facebook_page_id'] = l$facebookPageId == null
           ? null
-          : fromJson$Enum$order_by((l$facebook_page_id as String));
+          : fromJson$Enum$order_by((l$facebookPageId as String));
     }
     if (data.containsKey('feature_latest_post')) {
-      final l$feature_latest_post = data['feature_latest_post'];
-      result$data['feature_latest_post'] = l$feature_latest_post == null
+      final l$featureLatestPost = data['feature_latest_post'];
+      result$data['feature_latest_post'] = l$featureLatestPost == null
           ? null
-          : fromJson$Enum$order_by((l$feature_latest_post as String));
+          : fromJson$Enum$order_by((l$featureLatestPost as String));
     }
     if (data.containsKey('hls_stream_url')) {
-      final l$hls_stream_url = data['hls_stream_url'];
-      result$data['hls_stream_url'] = l$hls_stream_url == null
+      final l$hlsStreamUrl = data['hls_stream_url'];
+      result$data['hls_stream_url'] = l$hlsStreamUrl == null
           ? null
-          : fromJson$Enum$order_by((l$hls_stream_url as String));
+          : fromJson$Enum$order_by((l$hlsStreamUrl as String));
     }
     if (data.containsKey('id')) {
       final l$id = data['id'];
@@ -28927,36 +29539,36 @@ class Input$stations_order_by {
           l$id == null ? null : fromJson$Enum$order_by((l$id as String));
     }
     if (data.containsKey('latest_station_now_playing_id')) {
-      final l$latest_station_now_playing_id =
+      final l$latestStationNowPlayingId =
           data['latest_station_now_playing_id'];
       result$data['latest_station_now_playing_id'] =
-          l$latest_station_now_playing_id == null
+          l$latestStationNowPlayingId == null
               ? null
               : fromJson$Enum$order_by(
-                  (l$latest_station_now_playing_id as String));
+                  (l$latestStationNowPlayingId as String));
     }
     if (data.containsKey('latest_station_uptime_id')) {
-      final l$latest_station_uptime_id = data['latest_station_uptime_id'];
+      final l$latestStationUptimeId = data['latest_station_uptime_id'];
       result$data['latest_station_uptime_id'] =
-          l$latest_station_uptime_id == null
+          l$latestStationUptimeId == null
               ? null
-              : fromJson$Enum$order_by((l$latest_station_uptime_id as String));
+              : fromJson$Enum$order_by((l$latestStationUptimeId as String));
     }
     if (data.containsKey('now_playing')) {
-      final l$now_playing = data['now_playing'];
-      result$data['now_playing'] = l$now_playing == null
+      final l$nowPlaying = data['now_playing'];
+      result$data['now_playing'] = l$nowPlaying == null
           ? null
           : Input$stations_now_playing_order_by.fromJson(
-              (l$now_playing as Map<String, dynamic>));
+              (l$nowPlaying as Map<String, dynamic>));
     }
     if (data.containsKey('now_playing_history_aggregate')) {
-      final l$now_playing_history_aggregate =
+      final l$nowPlayingHistoryAggregate =
           data['now_playing_history_aggregate'];
       result$data['now_playing_history_aggregate'] =
-          l$now_playing_history_aggregate == null
+          l$nowPlayingHistoryAggregate == null
               ? null
               : Input$stations_now_playing_aggregate_order_by.fromJson(
-                  (l$now_playing_history_aggregate as Map<String, dynamic>));
+                  (l$nowPlayingHistoryAggregate as Map<String, dynamic>));
     }
     if (data.containsKey('order')) {
       final l$order = data['order'];
@@ -28964,36 +29576,36 @@ class Input$stations_order_by {
           l$order == null ? null : fromJson$Enum$order_by((l$order as String));
     }
     if (data.containsKey('posts_aggregate')) {
-      final l$posts_aggregate = data['posts_aggregate'];
-      result$data['posts_aggregate'] = l$posts_aggregate == null
+      final l$postsAggregate = data['posts_aggregate'];
+      result$data['posts_aggregate'] = l$postsAggregate == null
           ? null
           : Input$posts_aggregate_order_by.fromJson(
-              (l$posts_aggregate as Map<String, dynamic>));
+              (l$postsAggregate as Map<String, dynamic>));
     }
     if (data.containsKey('proxy_stream_url')) {
-      final l$proxy_stream_url = data['proxy_stream_url'];
-      result$data['proxy_stream_url'] = l$proxy_stream_url == null
+      final l$proxyStreamUrl = data['proxy_stream_url'];
+      result$data['proxy_stream_url'] = l$proxyStreamUrl == null
           ? null
-          : fromJson$Enum$order_by((l$proxy_stream_url as String));
+          : fromJson$Enum$order_by((l$proxyStreamUrl as String));
     }
     if (data.containsKey('radio_crestin_listeners')) {
-      final l$radio_crestin_listeners = data['radio_crestin_listeners'];
-      result$data['radio_crestin_listeners'] = l$radio_crestin_listeners == null
+      final l$radioCrestinListeners = data['radio_crestin_listeners'];
+      result$data['radio_crestin_listeners'] = l$radioCrestinListeners == null
           ? null
-          : fromJson$Enum$order_by((l$radio_crestin_listeners as String));
+          : fromJson$Enum$order_by((l$radioCrestinListeners as String));
     }
     if (data.containsKey('reviews_aggregate')) {
-      final l$reviews_aggregate = data['reviews_aggregate'];
-      result$data['reviews_aggregate'] = l$reviews_aggregate == null
+      final l$reviewsAggregate = data['reviews_aggregate'];
+      result$data['reviews_aggregate'] = l$reviewsAggregate == null
           ? null
           : Input$reviews_aggregate_order_by.fromJson(
-              (l$reviews_aggregate as Map<String, dynamic>));
+              (l$reviewsAggregate as Map<String, dynamic>));
     }
     if (data.containsKey('rss_feed')) {
-      final l$rss_feed = data['rss_feed'];
-      result$data['rss_feed'] = l$rss_feed == null
+      final l$rssFeed = data['rss_feed'];
+      result$data['rss_feed'] = l$rssFeed == null
           ? null
-          : fromJson$Enum$order_by((l$rss_feed as String));
+          : fromJson$Enum$order_by((l$rssFeed as String));
     }
     if (data.containsKey('slug')) {
       final l$slug = data['slug'];
@@ -29001,42 +29613,42 @@ class Input$stations_order_by {
           l$slug == null ? null : fromJson$Enum$order_by((l$slug as String));
     }
     if (data.containsKey('station_streams_aggregate')) {
-      final l$station_streams_aggregate = data['station_streams_aggregate'];
+      final l$stationStreamsAggregate = data['station_streams_aggregate'];
       result$data['station_streams_aggregate'] =
-          l$station_streams_aggregate == null
+          l$stationStreamsAggregate == null
               ? null
               : Input$station_streams_aggregate_order_by.fromJson(
-                  (l$station_streams_aggregate as Map<String, dynamic>));
+                  (l$stationStreamsAggregate as Map<String, dynamic>));
     }
     if (data.containsKey('station_to_station_groups_aggregate')) {
-      final l$station_to_station_groups_aggregate =
+      final l$stationToStationGroupsAggregate =
           data['station_to_station_groups_aggregate'];
       result$data['station_to_station_groups_aggregate'] =
-          l$station_to_station_groups_aggregate == null
+          l$stationToStationGroupsAggregate == null
               ? null
               : Input$station_to_station_group_aggregate_order_by.fromJson(
-                  (l$station_to_station_groups_aggregate
+                  (l$stationToStationGroupsAggregate
                       as Map<String, dynamic>));
     }
     if (data.containsKey('stations_now_playing')) {
-      final l$stations_now_playing = data['stations_now_playing'];
-      result$data['stations_now_playing'] = l$stations_now_playing == null
+      final l$stationsNowPlaying = data['stations_now_playing'];
+      result$data['stations_now_playing'] = l$stationsNowPlaying == null
           ? null
           : Input$stations_now_playing_order_by.fromJson(
-              (l$stations_now_playing as Map<String, dynamic>));
+              (l$stationsNowPlaying as Map<String, dynamic>));
     }
     if (data.containsKey('stations_uptime')) {
-      final l$stations_uptime = data['stations_uptime'];
-      result$data['stations_uptime'] = l$stations_uptime == null
+      final l$stationsUptime = data['stations_uptime'];
+      result$data['stations_uptime'] = l$stationsUptime == null
           ? null
           : Input$stations_uptime_order_by.fromJson(
-              (l$stations_uptime as Map<String, dynamic>));
+              (l$stationsUptime as Map<String, dynamic>));
     }
     if (data.containsKey('stream_url')) {
-      final l$stream_url = data['stream_url'];
-      result$data['stream_url'] = l$stream_url == null
+      final l$streamUrl = data['stream_url'];
+      result$data['stream_url'] = l$streamUrl == null
           ? null
-          : fromJson$Enum$order_by((l$stream_url as String));
+          : fromJson$Enum$order_by((l$streamUrl as String));
     }
     if (data.containsKey('thumbnail')) {
       final l$thumbnail = data['thumbnail'];
@@ -29045,10 +29657,10 @@ class Input$stations_order_by {
           : fromJson$Enum$order_by((l$thumbnail as String));
     }
     if (data.containsKey('thumbnail_url')) {
-      final l$thumbnail_url = data['thumbnail_url'];
-      result$data['thumbnail_url'] = l$thumbnail_url == null
+      final l$thumbnailUrl = data['thumbnail_url'];
+      result$data['thumbnail_url'] = l$thumbnailUrl == null
           ? null
-          : fromJson$Enum$order_by((l$thumbnail_url as String));
+          : fromJson$Enum$order_by((l$thumbnailUrl as String));
     }
     if (data.containsKey('title')) {
       final l$title = data['title'];
@@ -29056,16 +29668,16 @@ class Input$stations_order_by {
           l$title == null ? null : fromJson$Enum$order_by((l$title as String));
     }
     if (data.containsKey('total_listeners')) {
-      final l$total_listeners = data['total_listeners'];
-      result$data['total_listeners'] = l$total_listeners == null
+      final l$totalListeners = data['total_listeners'];
+      result$data['total_listeners'] = l$totalListeners == null
           ? null
-          : fromJson$Enum$order_by((l$total_listeners as String));
+          : fromJson$Enum$order_by((l$totalListeners as String));
     }
     if (data.containsKey('updated_at')) {
-      final l$updated_at = data['updated_at'];
-      result$data['updated_at'] = l$updated_at == null
+      final l$updatedAt = data['updated_at'];
+      result$data['updated_at'] = l$updatedAt == null
           ? null
-          : fromJson$Enum$order_by((l$updated_at as String));
+          : fromJson$Enum$order_by((l$updatedAt as String));
     }
     if (data.containsKey('uptime')) {
       final l$uptime = data['uptime'];
@@ -29075,12 +29687,12 @@ class Input$stations_order_by {
               (l$uptime as Map<String, dynamic>));
     }
     if (data.containsKey('uptime_history_aggregate')) {
-      final l$uptime_history_aggregate = data['uptime_history_aggregate'];
+      final l$uptimeHistoryAggregate = data['uptime_history_aggregate'];
       result$data['uptime_history_aggregate'] =
-          l$uptime_history_aggregate == null
+          l$uptimeHistoryAggregate == null
               ? null
               : Input$stations_uptime_aggregate_order_by.fromJson(
-                  (l$uptime_history_aggregate as Map<String, dynamic>));
+                  (l$uptimeHistoryAggregate as Map<String, dynamic>));
     }
     if (data.containsKey('website')) {
       final l$website = data['website'];
@@ -29189,9 +29801,9 @@ class Input$stations_order_by {
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
     if (_$data.containsKey('created_at')) {
-      final l$created_at = created_at;
+      final l$createdAt = created_at;
       result$data['created_at'] =
-          l$created_at == null ? null : toJson$Enum$order_by(l$created_at);
+          l$createdAt == null ? null : toJson$Enum$order_by(l$createdAt);
     }
     if (_$data.containsKey('description')) {
       final l$description = description;
@@ -29199,17 +29811,17 @@ class Input$stations_order_by {
           l$description == null ? null : toJson$Enum$order_by(l$description);
     }
     if (_$data.containsKey('description_action_title')) {
-      final l$description_action_title = description_action_title;
+      final l$descriptionActionTitle = description_action_title;
       result$data['description_action_title'] =
-          l$description_action_title == null
+          l$descriptionActionTitle == null
               ? null
-              : toJson$Enum$order_by(l$description_action_title);
+              : toJson$Enum$order_by(l$descriptionActionTitle);
     }
     if (_$data.containsKey('description_link')) {
-      final l$description_link = description_link;
-      result$data['description_link'] = l$description_link == null
+      final l$descriptionLink = description_link;
+      result$data['description_link'] = l$descriptionLink == null
           ? null
-          : toJson$Enum$order_by(l$description_link);
+          : toJson$Enum$order_by(l$descriptionLink);
     }
     if (_$data.containsKey('email')) {
       final l$email = email;
@@ -29217,49 +29829,49 @@ class Input$stations_order_by {
           l$email == null ? null : toJson$Enum$order_by(l$email);
     }
     if (_$data.containsKey('facebook_page_id')) {
-      final l$facebook_page_id = facebook_page_id;
-      result$data['facebook_page_id'] = l$facebook_page_id == null
+      final l$facebookPageId = facebook_page_id;
+      result$data['facebook_page_id'] = l$facebookPageId == null
           ? null
-          : toJson$Enum$order_by(l$facebook_page_id);
+          : toJson$Enum$order_by(l$facebookPageId);
     }
     if (_$data.containsKey('feature_latest_post')) {
-      final l$feature_latest_post = feature_latest_post;
-      result$data['feature_latest_post'] = l$feature_latest_post == null
+      final l$featureLatestPost = feature_latest_post;
+      result$data['feature_latest_post'] = l$featureLatestPost == null
           ? null
-          : toJson$Enum$order_by(l$feature_latest_post);
+          : toJson$Enum$order_by(l$featureLatestPost);
     }
     if (_$data.containsKey('hls_stream_url')) {
-      final l$hls_stream_url = hls_stream_url;
-      result$data['hls_stream_url'] = l$hls_stream_url == null
+      final l$hlsStreamUrl = hls_stream_url;
+      result$data['hls_stream_url'] = l$hlsStreamUrl == null
           ? null
-          : toJson$Enum$order_by(l$hls_stream_url);
+          : toJson$Enum$order_by(l$hlsStreamUrl);
     }
     if (_$data.containsKey('id')) {
       final l$id = id;
       result$data['id'] = l$id == null ? null : toJson$Enum$order_by(l$id);
     }
     if (_$data.containsKey('latest_station_now_playing_id')) {
-      final l$latest_station_now_playing_id = latest_station_now_playing_id;
+      final l$latestStationNowPlayingId = latest_station_now_playing_id;
       result$data['latest_station_now_playing_id'] =
-          l$latest_station_now_playing_id == null
+          l$latestStationNowPlayingId == null
               ? null
-              : toJson$Enum$order_by(l$latest_station_now_playing_id);
+              : toJson$Enum$order_by(l$latestStationNowPlayingId);
     }
     if (_$data.containsKey('latest_station_uptime_id')) {
-      final l$latest_station_uptime_id = latest_station_uptime_id;
+      final l$latestStationUptimeId = latest_station_uptime_id;
       result$data['latest_station_uptime_id'] =
-          l$latest_station_uptime_id == null
+          l$latestStationUptimeId == null
               ? null
-              : toJson$Enum$order_by(l$latest_station_uptime_id);
+              : toJson$Enum$order_by(l$latestStationUptimeId);
     }
     if (_$data.containsKey('now_playing')) {
-      final l$now_playing = now_playing;
-      result$data['now_playing'] = l$now_playing?.toJson();
+      final l$nowPlaying = now_playing;
+      result$data['now_playing'] = l$nowPlaying?.toJson();
     }
     if (_$data.containsKey('now_playing_history_aggregate')) {
-      final l$now_playing_history_aggregate = now_playing_history_aggregate;
+      final l$nowPlayingHistoryAggregate = now_playing_history_aggregate;
       result$data['now_playing_history_aggregate'] =
-          l$now_playing_history_aggregate?.toJson();
+          l$nowPlayingHistoryAggregate?.toJson();
     }
     if (_$data.containsKey('order')) {
       final l$order = order;
@@ -29267,29 +29879,29 @@ class Input$stations_order_by {
           l$order == null ? null : toJson$Enum$order_by(l$order);
     }
     if (_$data.containsKey('posts_aggregate')) {
-      final l$posts_aggregate = posts_aggregate;
-      result$data['posts_aggregate'] = l$posts_aggregate?.toJson();
+      final l$postsAggregate = posts_aggregate;
+      result$data['posts_aggregate'] = l$postsAggregate?.toJson();
     }
     if (_$data.containsKey('proxy_stream_url')) {
-      final l$proxy_stream_url = proxy_stream_url;
-      result$data['proxy_stream_url'] = l$proxy_stream_url == null
+      final l$proxyStreamUrl = proxy_stream_url;
+      result$data['proxy_stream_url'] = l$proxyStreamUrl == null
           ? null
-          : toJson$Enum$order_by(l$proxy_stream_url);
+          : toJson$Enum$order_by(l$proxyStreamUrl);
     }
     if (_$data.containsKey('radio_crestin_listeners')) {
-      final l$radio_crestin_listeners = radio_crestin_listeners;
-      result$data['radio_crestin_listeners'] = l$radio_crestin_listeners == null
+      final l$radioCrestinListeners = radio_crestin_listeners;
+      result$data['radio_crestin_listeners'] = l$radioCrestinListeners == null
           ? null
-          : toJson$Enum$order_by(l$radio_crestin_listeners);
+          : toJson$Enum$order_by(l$radioCrestinListeners);
     }
     if (_$data.containsKey('reviews_aggregate')) {
-      final l$reviews_aggregate = reviews_aggregate;
-      result$data['reviews_aggregate'] = l$reviews_aggregate?.toJson();
+      final l$reviewsAggregate = reviews_aggregate;
+      result$data['reviews_aggregate'] = l$reviewsAggregate?.toJson();
     }
     if (_$data.containsKey('rss_feed')) {
-      final l$rss_feed = rss_feed;
+      final l$rssFeed = rss_feed;
       result$data['rss_feed'] =
-          l$rss_feed == null ? null : toJson$Enum$order_by(l$rss_feed);
+          l$rssFeed == null ? null : toJson$Enum$order_by(l$rssFeed);
     }
     if (_$data.containsKey('slug')) {
       final l$slug = slug;
@@ -29297,28 +29909,28 @@ class Input$stations_order_by {
           l$slug == null ? null : toJson$Enum$order_by(l$slug);
     }
     if (_$data.containsKey('station_streams_aggregate')) {
-      final l$station_streams_aggregate = station_streams_aggregate;
+      final l$stationStreamsAggregate = station_streams_aggregate;
       result$data['station_streams_aggregate'] =
-          l$station_streams_aggregate?.toJson();
+          l$stationStreamsAggregate?.toJson();
     }
     if (_$data.containsKey('station_to_station_groups_aggregate')) {
-      final l$station_to_station_groups_aggregate =
+      final l$stationToStationGroupsAggregate =
           station_to_station_groups_aggregate;
       result$data['station_to_station_groups_aggregate'] =
-          l$station_to_station_groups_aggregate?.toJson();
+          l$stationToStationGroupsAggregate?.toJson();
     }
     if (_$data.containsKey('stations_now_playing')) {
-      final l$stations_now_playing = stations_now_playing;
-      result$data['stations_now_playing'] = l$stations_now_playing?.toJson();
+      final l$stationsNowPlaying = stations_now_playing;
+      result$data['stations_now_playing'] = l$stationsNowPlaying?.toJson();
     }
     if (_$data.containsKey('stations_uptime')) {
-      final l$stations_uptime = stations_uptime;
-      result$data['stations_uptime'] = l$stations_uptime?.toJson();
+      final l$stationsUptime = stations_uptime;
+      result$data['stations_uptime'] = l$stationsUptime?.toJson();
     }
     if (_$data.containsKey('stream_url')) {
-      final l$stream_url = stream_url;
+      final l$streamUrl = stream_url;
       result$data['stream_url'] =
-          l$stream_url == null ? null : toJson$Enum$order_by(l$stream_url);
+          l$streamUrl == null ? null : toJson$Enum$order_by(l$streamUrl);
     }
     if (_$data.containsKey('thumbnail')) {
       final l$thumbnail = thumbnail;
@@ -29326,10 +29938,10 @@ class Input$stations_order_by {
           l$thumbnail == null ? null : toJson$Enum$order_by(l$thumbnail);
     }
     if (_$data.containsKey('thumbnail_url')) {
-      final l$thumbnail_url = thumbnail_url;
-      result$data['thumbnail_url'] = l$thumbnail_url == null
+      final l$thumbnailUrl = thumbnail_url;
+      result$data['thumbnail_url'] = l$thumbnailUrl == null
           ? null
-          : toJson$Enum$order_by(l$thumbnail_url);
+          : toJson$Enum$order_by(l$thumbnailUrl);
     }
     if (_$data.containsKey('title')) {
       final l$title = title;
@@ -29337,24 +29949,24 @@ class Input$stations_order_by {
           l$title == null ? null : toJson$Enum$order_by(l$title);
     }
     if (_$data.containsKey('total_listeners')) {
-      final l$total_listeners = total_listeners;
-      result$data['total_listeners'] = l$total_listeners == null
+      final l$totalListeners = total_listeners;
+      result$data['total_listeners'] = l$totalListeners == null
           ? null
-          : toJson$Enum$order_by(l$total_listeners);
+          : toJson$Enum$order_by(l$totalListeners);
     }
     if (_$data.containsKey('updated_at')) {
-      final l$updated_at = updated_at;
+      final l$updatedAt = updated_at;
       result$data['updated_at'] =
-          l$updated_at == null ? null : toJson$Enum$order_by(l$updated_at);
+          l$updatedAt == null ? null : toJson$Enum$order_by(l$updatedAt);
     }
     if (_$data.containsKey('uptime')) {
       final l$uptime = uptime;
       result$data['uptime'] = l$uptime?.toJson();
     }
     if (_$data.containsKey('uptime_history_aggregate')) {
-      final l$uptime_history_aggregate = uptime_history_aggregate;
+      final l$uptimeHistoryAggregate = uptime_history_aggregate;
       result$data['uptime_history_aggregate'] =
-          l$uptime_history_aggregate?.toJson();
+          l$uptimeHistoryAggregate?.toJson();
     }
     if (_$data.containsKey('website')) {
       final l$website = website;
@@ -29375,17 +29987,17 @@ class Input$stations_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$stations_order_by) ||
+    if (other is! Input$stations_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$created_at = created_at;
-    final lOther$created_at = other.created_at;
+    final l$createdAt = created_at;
+    final lother$createdAt = other.created_at;
     if (_$data.containsKey('created_at') !=
         other._$data.containsKey('created_at')) {
       return false;
     }
-    if (l$created_at != lOther$created_at) {
+    if (l$createdAt != lother$createdAt) {
       return false;
     }
     final l$description = description;
@@ -29397,22 +30009,22 @@ class Input$stations_order_by {
     if (l$description != lOther$description) {
       return false;
     }
-    final l$description_action_title = description_action_title;
-    final lOther$description_action_title = other.description_action_title;
+    final l$descriptionActionTitle = description_action_title;
+    final lother$descriptionActionTitle = other.description_action_title;
     if (_$data.containsKey('description_action_title') !=
         other._$data.containsKey('description_action_title')) {
       return false;
     }
-    if (l$description_action_title != lOther$description_action_title) {
+    if (l$descriptionActionTitle != lother$descriptionActionTitle) {
       return false;
     }
-    final l$description_link = description_link;
-    final lOther$description_link = other.description_link;
+    final l$descriptionLink = description_link;
+    final lother$descriptionLink = other.description_link;
     if (_$data.containsKey('description_link') !=
         other._$data.containsKey('description_link')) {
       return false;
     }
-    if (l$description_link != lOther$description_link) {
+    if (l$descriptionLink != lother$descriptionLink) {
       return false;
     }
     final l$email = email;
@@ -29423,31 +30035,31 @@ class Input$stations_order_by {
     if (l$email != lOther$email) {
       return false;
     }
-    final l$facebook_page_id = facebook_page_id;
-    final lOther$facebook_page_id = other.facebook_page_id;
+    final l$facebookPageId = facebook_page_id;
+    final lother$facebookPageId = other.facebook_page_id;
     if (_$data.containsKey('facebook_page_id') !=
         other._$data.containsKey('facebook_page_id')) {
       return false;
     }
-    if (l$facebook_page_id != lOther$facebook_page_id) {
+    if (l$facebookPageId != lother$facebookPageId) {
       return false;
     }
-    final l$feature_latest_post = feature_latest_post;
-    final lOther$feature_latest_post = other.feature_latest_post;
+    final l$featureLatestPost = feature_latest_post;
+    final lother$featureLatestPost = other.feature_latest_post;
     if (_$data.containsKey('feature_latest_post') !=
         other._$data.containsKey('feature_latest_post')) {
       return false;
     }
-    if (l$feature_latest_post != lOther$feature_latest_post) {
+    if (l$featureLatestPost != lother$featureLatestPost) {
       return false;
     }
-    final l$hls_stream_url = hls_stream_url;
-    final lOther$hls_stream_url = other.hls_stream_url;
+    final l$hlsStreamUrl = hls_stream_url;
+    final lother$hlsStreamUrl = other.hls_stream_url;
     if (_$data.containsKey('hls_stream_url') !=
         other._$data.containsKey('hls_stream_url')) {
       return false;
     }
-    if (l$hls_stream_url != lOther$hls_stream_url) {
+    if (l$hlsStreamUrl != lother$hlsStreamUrl) {
       return false;
     }
     final l$id = id;
@@ -29458,44 +30070,44 @@ class Input$stations_order_by {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$latest_station_now_playing_id = latest_station_now_playing_id;
-    final lOther$latest_station_now_playing_id =
+    final l$latestStationNowPlayingId = latest_station_now_playing_id;
+    final lother$latestStationNowPlayingId =
         other.latest_station_now_playing_id;
     if (_$data.containsKey('latest_station_now_playing_id') !=
         other._$data.containsKey('latest_station_now_playing_id')) {
       return false;
     }
-    if (l$latest_station_now_playing_id !=
-        lOther$latest_station_now_playing_id) {
+    if (l$latestStationNowPlayingId !=
+        lother$latestStationNowPlayingId) {
       return false;
     }
-    final l$latest_station_uptime_id = latest_station_uptime_id;
-    final lOther$latest_station_uptime_id = other.latest_station_uptime_id;
+    final l$latestStationUptimeId = latest_station_uptime_id;
+    final lother$latestStationUptimeId = other.latest_station_uptime_id;
     if (_$data.containsKey('latest_station_uptime_id') !=
         other._$data.containsKey('latest_station_uptime_id')) {
       return false;
     }
-    if (l$latest_station_uptime_id != lOther$latest_station_uptime_id) {
+    if (l$latestStationUptimeId != lother$latestStationUptimeId) {
       return false;
     }
-    final l$now_playing = now_playing;
-    final lOther$now_playing = other.now_playing;
+    final l$nowPlaying = now_playing;
+    final lother$nowPlaying = other.now_playing;
     if (_$data.containsKey('now_playing') !=
         other._$data.containsKey('now_playing')) {
       return false;
     }
-    if (l$now_playing != lOther$now_playing) {
+    if (l$nowPlaying != lother$nowPlaying) {
       return false;
     }
-    final l$now_playing_history_aggregate = now_playing_history_aggregate;
-    final lOther$now_playing_history_aggregate =
+    final l$nowPlayingHistoryAggregate = now_playing_history_aggregate;
+    final lother$nowPlayingHistoryAggregate =
         other.now_playing_history_aggregate;
     if (_$data.containsKey('now_playing_history_aggregate') !=
         other._$data.containsKey('now_playing_history_aggregate')) {
       return false;
     }
-    if (l$now_playing_history_aggregate !=
-        lOther$now_playing_history_aggregate) {
+    if (l$nowPlayingHistoryAggregate !=
+        lother$nowPlayingHistoryAggregate) {
       return false;
     }
     final l$order = order;
@@ -29506,49 +30118,49 @@ class Input$stations_order_by {
     if (l$order != lOther$order) {
       return false;
     }
-    final l$posts_aggregate = posts_aggregate;
-    final lOther$posts_aggregate = other.posts_aggregate;
+    final l$postsAggregate = posts_aggregate;
+    final lother$postsAggregate = other.posts_aggregate;
     if (_$data.containsKey('posts_aggregate') !=
         other._$data.containsKey('posts_aggregate')) {
       return false;
     }
-    if (l$posts_aggregate != lOther$posts_aggregate) {
+    if (l$postsAggregate != lother$postsAggregate) {
       return false;
     }
-    final l$proxy_stream_url = proxy_stream_url;
-    final lOther$proxy_stream_url = other.proxy_stream_url;
+    final l$proxyStreamUrl = proxy_stream_url;
+    final lother$proxyStreamUrl = other.proxy_stream_url;
     if (_$data.containsKey('proxy_stream_url') !=
         other._$data.containsKey('proxy_stream_url')) {
       return false;
     }
-    if (l$proxy_stream_url != lOther$proxy_stream_url) {
+    if (l$proxyStreamUrl != lother$proxyStreamUrl) {
       return false;
     }
-    final l$radio_crestin_listeners = radio_crestin_listeners;
-    final lOther$radio_crestin_listeners = other.radio_crestin_listeners;
+    final l$radioCrestinListeners = radio_crestin_listeners;
+    final lother$radioCrestinListeners = other.radio_crestin_listeners;
     if (_$data.containsKey('radio_crestin_listeners') !=
         other._$data.containsKey('radio_crestin_listeners')) {
       return false;
     }
-    if (l$radio_crestin_listeners != lOther$radio_crestin_listeners) {
+    if (l$radioCrestinListeners != lother$radioCrestinListeners) {
       return false;
     }
-    final l$reviews_aggregate = reviews_aggregate;
-    final lOther$reviews_aggregate = other.reviews_aggregate;
+    final l$reviewsAggregate = reviews_aggregate;
+    final lother$reviewsAggregate = other.reviews_aggregate;
     if (_$data.containsKey('reviews_aggregate') !=
         other._$data.containsKey('reviews_aggregate')) {
       return false;
     }
-    if (l$reviews_aggregate != lOther$reviews_aggregate) {
+    if (l$reviewsAggregate != lother$reviewsAggregate) {
       return false;
     }
-    final l$rss_feed = rss_feed;
-    final lOther$rss_feed = other.rss_feed;
+    final l$rssFeed = rss_feed;
+    final lother$rssFeed = other.rss_feed;
     if (_$data.containsKey('rss_feed') !=
         other._$data.containsKey('rss_feed')) {
       return false;
     }
-    if (l$rss_feed != lOther$rss_feed) {
+    if (l$rssFeed != lother$rssFeed) {
       return false;
     }
     final l$slug = slug;
@@ -29559,52 +30171,52 @@ class Input$stations_order_by {
     if (l$slug != lOther$slug) {
       return false;
     }
-    final l$station_streams_aggregate = station_streams_aggregate;
-    final lOther$station_streams_aggregate = other.station_streams_aggregate;
+    final l$stationStreamsAggregate = station_streams_aggregate;
+    final lother$stationStreamsAggregate = other.station_streams_aggregate;
     if (_$data.containsKey('station_streams_aggregate') !=
         other._$data.containsKey('station_streams_aggregate')) {
       return false;
     }
-    if (l$station_streams_aggregate != lOther$station_streams_aggregate) {
+    if (l$stationStreamsAggregate != lother$stationStreamsAggregate) {
       return false;
     }
-    final l$station_to_station_groups_aggregate =
+    final l$stationToStationGroupsAggregate =
         station_to_station_groups_aggregate;
-    final lOther$station_to_station_groups_aggregate =
+    final lother$stationToStationGroupsAggregate =
         other.station_to_station_groups_aggregate;
     if (_$data.containsKey('station_to_station_groups_aggregate') !=
         other._$data.containsKey('station_to_station_groups_aggregate')) {
       return false;
     }
-    if (l$station_to_station_groups_aggregate !=
-        lOther$station_to_station_groups_aggregate) {
+    if (l$stationToStationGroupsAggregate !=
+        lother$stationToStationGroupsAggregate) {
       return false;
     }
-    final l$stations_now_playing = stations_now_playing;
-    final lOther$stations_now_playing = other.stations_now_playing;
+    final l$stationsNowPlaying = stations_now_playing;
+    final lother$stationsNowPlaying = other.stations_now_playing;
     if (_$data.containsKey('stations_now_playing') !=
         other._$data.containsKey('stations_now_playing')) {
       return false;
     }
-    if (l$stations_now_playing != lOther$stations_now_playing) {
+    if (l$stationsNowPlaying != lother$stationsNowPlaying) {
       return false;
     }
-    final l$stations_uptime = stations_uptime;
-    final lOther$stations_uptime = other.stations_uptime;
+    final l$stationsUptime = stations_uptime;
+    final lother$stationsUptime = other.stations_uptime;
     if (_$data.containsKey('stations_uptime') !=
         other._$data.containsKey('stations_uptime')) {
       return false;
     }
-    if (l$stations_uptime != lOther$stations_uptime) {
+    if (l$stationsUptime != lother$stationsUptime) {
       return false;
     }
-    final l$stream_url = stream_url;
-    final lOther$stream_url = other.stream_url;
+    final l$streamUrl = stream_url;
+    final lother$streamUrl = other.stream_url;
     if (_$data.containsKey('stream_url') !=
         other._$data.containsKey('stream_url')) {
       return false;
     }
-    if (l$stream_url != lOther$stream_url) {
+    if (l$streamUrl != lother$streamUrl) {
       return false;
     }
     final l$thumbnail = thumbnail;
@@ -29616,13 +30228,13 @@ class Input$stations_order_by {
     if (l$thumbnail != lOther$thumbnail) {
       return false;
     }
-    final l$thumbnail_url = thumbnail_url;
-    final lOther$thumbnail_url = other.thumbnail_url;
+    final l$thumbnailUrl = thumbnail_url;
+    final lother$thumbnailUrl = other.thumbnail_url;
     if (_$data.containsKey('thumbnail_url') !=
         other._$data.containsKey('thumbnail_url')) {
       return false;
     }
-    if (l$thumbnail_url != lOther$thumbnail_url) {
+    if (l$thumbnailUrl != lother$thumbnailUrl) {
       return false;
     }
     final l$title = title;
@@ -29633,22 +30245,22 @@ class Input$stations_order_by {
     if (l$title != lOther$title) {
       return false;
     }
-    final l$total_listeners = total_listeners;
-    final lOther$total_listeners = other.total_listeners;
+    final l$totalListeners = total_listeners;
+    final lother$totalListeners = other.total_listeners;
     if (_$data.containsKey('total_listeners') !=
         other._$data.containsKey('total_listeners')) {
       return false;
     }
-    if (l$total_listeners != lOther$total_listeners) {
+    if (l$totalListeners != lother$totalListeners) {
       return false;
     }
-    final l$updated_at = updated_at;
-    final lOther$updated_at = other.updated_at;
+    final l$updatedAt = updated_at;
+    final lother$updatedAt = other.updated_at;
     if (_$data.containsKey('updated_at') !=
         other._$data.containsKey('updated_at')) {
       return false;
     }
-    if (l$updated_at != lOther$updated_at) {
+    if (l$updatedAt != lother$updatedAt) {
       return false;
     }
     final l$uptime = uptime;
@@ -29659,13 +30271,13 @@ class Input$stations_order_by {
     if (l$uptime != lOther$uptime) {
       return false;
     }
-    final l$uptime_history_aggregate = uptime_history_aggregate;
-    final lOther$uptime_history_aggregate = other.uptime_history_aggregate;
+    final l$uptimeHistoryAggregate = uptime_history_aggregate;
+    final lother$uptimeHistoryAggregate = other.uptime_history_aggregate;
     if (_$data.containsKey('uptime_history_aggregate') !=
         other._$data.containsKey('uptime_history_aggregate')) {
       return false;
     }
-    if (l$uptime_history_aggregate != lOther$uptime_history_aggregate) {
+    if (l$uptimeHistoryAggregate != lother$uptimeHistoryAggregate) {
       return false;
     }
     final l$website = website;
@@ -29681,92 +30293,92 @@ class Input$stations_order_by {
 
   @override
   int get hashCode {
-    final l$created_at = created_at;
+    final l$createdAt = created_at;
     final l$description = description;
-    final l$description_action_title = description_action_title;
-    final l$description_link = description_link;
+    final l$descriptionActionTitle = description_action_title;
+    final l$descriptionLink = description_link;
     final l$email = email;
-    final l$facebook_page_id = facebook_page_id;
-    final l$feature_latest_post = feature_latest_post;
-    final l$hls_stream_url = hls_stream_url;
+    final l$facebookPageId = facebook_page_id;
+    final l$featureLatestPost = feature_latest_post;
+    final l$hlsStreamUrl = hls_stream_url;
     final l$id = id;
-    final l$latest_station_now_playing_id = latest_station_now_playing_id;
-    final l$latest_station_uptime_id = latest_station_uptime_id;
-    final l$now_playing = now_playing;
-    final l$now_playing_history_aggregate = now_playing_history_aggregate;
+    final l$latestStationNowPlayingId = latest_station_now_playing_id;
+    final l$latestStationUptimeId = latest_station_uptime_id;
+    final l$nowPlaying = now_playing;
+    final l$nowPlayingHistoryAggregate = now_playing_history_aggregate;
     final l$order = order;
-    final l$posts_aggregate = posts_aggregate;
-    final l$proxy_stream_url = proxy_stream_url;
-    final l$radio_crestin_listeners = radio_crestin_listeners;
-    final l$reviews_aggregate = reviews_aggregate;
-    final l$rss_feed = rss_feed;
+    final l$postsAggregate = posts_aggregate;
+    final l$proxyStreamUrl = proxy_stream_url;
+    final l$radioCrestinListeners = radio_crestin_listeners;
+    final l$reviewsAggregate = reviews_aggregate;
+    final l$rssFeed = rss_feed;
     final l$slug = slug;
-    final l$station_streams_aggregate = station_streams_aggregate;
-    final l$station_to_station_groups_aggregate =
+    final l$stationStreamsAggregate = station_streams_aggregate;
+    final l$stationToStationGroupsAggregate =
         station_to_station_groups_aggregate;
-    final l$stations_now_playing = stations_now_playing;
-    final l$stations_uptime = stations_uptime;
-    final l$stream_url = stream_url;
+    final l$stationsNowPlaying = stations_now_playing;
+    final l$stationsUptime = stations_uptime;
+    final l$streamUrl = stream_url;
     final l$thumbnail = thumbnail;
-    final l$thumbnail_url = thumbnail_url;
+    final l$thumbnailUrl = thumbnail_url;
     final l$title = title;
-    final l$total_listeners = total_listeners;
-    final l$updated_at = updated_at;
+    final l$totalListeners = total_listeners;
+    final l$updatedAt = updated_at;
     final l$uptime = uptime;
-    final l$uptime_history_aggregate = uptime_history_aggregate;
+    final l$uptimeHistoryAggregate = uptime_history_aggregate;
     final l$website = website;
     return Object.hashAll([
-      _$data.containsKey('created_at') ? l$created_at : const {},
+      _$data.containsKey('created_at') ? l$createdAt : const {},
       _$data.containsKey('description') ? l$description : const {},
       _$data.containsKey('description_action_title')
-          ? l$description_action_title
+          ? l$descriptionActionTitle
           : const {},
-      _$data.containsKey('description_link') ? l$description_link : const {},
+      _$data.containsKey('description_link') ? l$descriptionLink : const {},
       _$data.containsKey('email') ? l$email : const {},
-      _$data.containsKey('facebook_page_id') ? l$facebook_page_id : const {},
+      _$data.containsKey('facebook_page_id') ? l$facebookPageId : const {},
       _$data.containsKey('feature_latest_post')
-          ? l$feature_latest_post
+          ? l$featureLatestPost
           : const {},
-      _$data.containsKey('hls_stream_url') ? l$hls_stream_url : const {},
+      _$data.containsKey('hls_stream_url') ? l$hlsStreamUrl : const {},
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('latest_station_now_playing_id')
-          ? l$latest_station_now_playing_id
+          ? l$latestStationNowPlayingId
           : const {},
       _$data.containsKey('latest_station_uptime_id')
-          ? l$latest_station_uptime_id
+          ? l$latestStationUptimeId
           : const {},
-      _$data.containsKey('now_playing') ? l$now_playing : const {},
+      _$data.containsKey('now_playing') ? l$nowPlaying : const {},
       _$data.containsKey('now_playing_history_aggregate')
-          ? l$now_playing_history_aggregate
+          ? l$nowPlayingHistoryAggregate
           : const {},
       _$data.containsKey('order') ? l$order : const {},
-      _$data.containsKey('posts_aggregate') ? l$posts_aggregate : const {},
-      _$data.containsKey('proxy_stream_url') ? l$proxy_stream_url : const {},
+      _$data.containsKey('posts_aggregate') ? l$postsAggregate : const {},
+      _$data.containsKey('proxy_stream_url') ? l$proxyStreamUrl : const {},
       _$data.containsKey('radio_crestin_listeners')
-          ? l$radio_crestin_listeners
+          ? l$radioCrestinListeners
           : const {},
-      _$data.containsKey('reviews_aggregate') ? l$reviews_aggregate : const {},
-      _$data.containsKey('rss_feed') ? l$rss_feed : const {},
+      _$data.containsKey('reviews_aggregate') ? l$reviewsAggregate : const {},
+      _$data.containsKey('rss_feed') ? l$rssFeed : const {},
       _$data.containsKey('slug') ? l$slug : const {},
       _$data.containsKey('station_streams_aggregate')
-          ? l$station_streams_aggregate
+          ? l$stationStreamsAggregate
           : const {},
       _$data.containsKey('station_to_station_groups_aggregate')
-          ? l$station_to_station_groups_aggregate
+          ? l$stationToStationGroupsAggregate
           : const {},
       _$data.containsKey('stations_now_playing')
-          ? l$stations_now_playing
+          ? l$stationsNowPlaying
           : const {},
-      _$data.containsKey('stations_uptime') ? l$stations_uptime : const {},
-      _$data.containsKey('stream_url') ? l$stream_url : const {},
+      _$data.containsKey('stations_uptime') ? l$stationsUptime : const {},
+      _$data.containsKey('stream_url') ? l$streamUrl : const {},
       _$data.containsKey('thumbnail') ? l$thumbnail : const {},
-      _$data.containsKey('thumbnail_url') ? l$thumbnail_url : const {},
+      _$data.containsKey('thumbnail_url') ? l$thumbnailUrl : const {},
       _$data.containsKey('title') ? l$title : const {},
-      _$data.containsKey('total_listeners') ? l$total_listeners : const {},
-      _$data.containsKey('updated_at') ? l$updated_at : const {},
+      _$data.containsKey('total_listeners') ? l$totalListeners : const {},
+      _$data.containsKey('updated_at') ? l$updatedAt : const {},
       _$data.containsKey('uptime') ? l$uptime : const {},
       _$data.containsKey('uptime_history_aggregate')
-          ? l$uptime_history_aggregate
+          ? l$uptimeHistoryAggregate
           : const {},
       _$data.containsKey('website') ? l$website : const {},
     ]);
@@ -29848,6 +30460,7 @@ class _CopyWithImpl$Input$stations_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? created_at = _undefined,
     Object? description = _undefined,
@@ -29958,81 +30571,90 @@ class _CopyWithImpl$Input$stations_order_by<TRes>
         if (website != _undefined) 'website': (website as Enum$order_by?),
       }));
 
+  @override
   CopyWith$Input$stations_now_playing_order_by<TRes> get now_playing {
-    final local$now_playing = _instance.now_playing;
-    return local$now_playing == null
+    final local$nowPlaying = _instance.now_playing;
+    return local$nowPlaying == null
         ? CopyWith$Input$stations_now_playing_order_by.stub(_then(_instance))
         : CopyWith$Input$stations_now_playing_order_by(
-            local$now_playing, (e) => call(now_playing: e));
+            local$nowPlaying, (e) => call(now_playing: e));
   }
 
+  @override
   CopyWith$Input$stations_now_playing_aggregate_order_by<TRes>
       get now_playing_history_aggregate {
-    final local$now_playing_history_aggregate =
+    final local$nowPlayingHistoryAggregate =
         _instance.now_playing_history_aggregate;
-    return local$now_playing_history_aggregate == null
+    return local$nowPlayingHistoryAggregate == null
         ? CopyWith$Input$stations_now_playing_aggregate_order_by.stub(
             _then(_instance))
         : CopyWith$Input$stations_now_playing_aggregate_order_by(
-            local$now_playing_history_aggregate,
+            local$nowPlayingHistoryAggregate,
             (e) => call(now_playing_history_aggregate: e));
   }
 
+  @override
   CopyWith$Input$posts_aggregate_order_by<TRes> get posts_aggregate {
-    final local$posts_aggregate = _instance.posts_aggregate;
-    return local$posts_aggregate == null
+    final local$postsAggregate = _instance.posts_aggregate;
+    return local$postsAggregate == null
         ? CopyWith$Input$posts_aggregate_order_by.stub(_then(_instance))
         : CopyWith$Input$posts_aggregate_order_by(
-            local$posts_aggregate, (e) => call(posts_aggregate: e));
+            local$postsAggregate, (e) => call(posts_aggregate: e));
   }
 
+  @override
   CopyWith$Input$reviews_aggregate_order_by<TRes> get reviews_aggregate {
-    final local$reviews_aggregate = _instance.reviews_aggregate;
-    return local$reviews_aggregate == null
+    final local$reviewsAggregate = _instance.reviews_aggregate;
+    return local$reviewsAggregate == null
         ? CopyWith$Input$reviews_aggregate_order_by.stub(_then(_instance))
         : CopyWith$Input$reviews_aggregate_order_by(
-            local$reviews_aggregate, (e) => call(reviews_aggregate: e));
+            local$reviewsAggregate, (e) => call(reviews_aggregate: e));
   }
 
+  @override
   CopyWith$Input$station_streams_aggregate_order_by<TRes>
       get station_streams_aggregate {
-    final local$station_streams_aggregate = _instance.station_streams_aggregate;
-    return local$station_streams_aggregate == null
+    final local$stationStreamsAggregate = _instance.station_streams_aggregate;
+    return local$stationStreamsAggregate == null
         ? CopyWith$Input$station_streams_aggregate_order_by.stub(
             _then(_instance))
         : CopyWith$Input$station_streams_aggregate_order_by(
-            local$station_streams_aggregate,
+            local$stationStreamsAggregate,
             (e) => call(station_streams_aggregate: e));
   }
 
+  @override
   CopyWith$Input$station_to_station_group_aggregate_order_by<TRes>
       get station_to_station_groups_aggregate {
-    final local$station_to_station_groups_aggregate =
+    final local$stationToStationGroupsAggregate =
         _instance.station_to_station_groups_aggregate;
-    return local$station_to_station_groups_aggregate == null
+    return local$stationToStationGroupsAggregate == null
         ? CopyWith$Input$station_to_station_group_aggregate_order_by.stub(
             _then(_instance))
         : CopyWith$Input$station_to_station_group_aggregate_order_by(
-            local$station_to_station_groups_aggregate,
+            local$stationToStationGroupsAggregate,
             (e) => call(station_to_station_groups_aggregate: e));
   }
 
+  @override
   CopyWith$Input$stations_now_playing_order_by<TRes> get stations_now_playing {
-    final local$stations_now_playing = _instance.stations_now_playing;
-    return local$stations_now_playing == null
+    final local$stationsNowPlaying = _instance.stations_now_playing;
+    return local$stationsNowPlaying == null
         ? CopyWith$Input$stations_now_playing_order_by.stub(_then(_instance))
         : CopyWith$Input$stations_now_playing_order_by(
-            local$stations_now_playing, (e) => call(stations_now_playing: e));
+            local$stationsNowPlaying, (e) => call(stations_now_playing: e));
   }
 
+  @override
   CopyWith$Input$stations_uptime_order_by<TRes> get stations_uptime {
-    final local$stations_uptime = _instance.stations_uptime;
-    return local$stations_uptime == null
+    final local$stationsUptime = _instance.stations_uptime;
+    return local$stationsUptime == null
         ? CopyWith$Input$stations_uptime_order_by.stub(_then(_instance))
         : CopyWith$Input$stations_uptime_order_by(
-            local$stations_uptime, (e) => call(stations_uptime: e));
+            local$stationsUptime, (e) => call(stations_uptime: e));
   }
 
+  @override
   CopyWith$Input$stations_uptime_order_by<TRes> get uptime {
     final local$uptime = _instance.uptime;
     return local$uptime == null
@@ -30041,14 +30663,15 @@ class _CopyWithImpl$Input$stations_order_by<TRes>
             local$uptime, (e) => call(uptime: e));
   }
 
+  @override
   CopyWith$Input$stations_uptime_aggregate_order_by<TRes>
       get uptime_history_aggregate {
-    final local$uptime_history_aggregate = _instance.uptime_history_aggregate;
-    return local$uptime_history_aggregate == null
+    final local$uptimeHistoryAggregate = _instance.uptime_history_aggregate;
+    return local$uptimeHistoryAggregate == null
         ? CopyWith$Input$stations_uptime_aggregate_order_by.stub(
             _then(_instance))
         : CopyWith$Input$stations_uptime_aggregate_order_by(
-            local$uptime_history_aggregate,
+            local$uptimeHistoryAggregate,
             (e) => call(uptime_history_aggregate: e));
   }
 }
@@ -30057,8 +30680,9 @@ class _CopyWithStubImpl$Input$stations_order_by<TRes>
     implements CopyWith$Input$stations_order_by<TRes> {
   _CopyWithStubImpl$Input$stations_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? created_at,
     Enum$order_by? description,
@@ -30098,36 +30722,46 @@ class _CopyWithStubImpl$Input$stations_order_by<TRes>
   }) =>
       _res;
 
+  @override
   CopyWith$Input$stations_now_playing_order_by<TRes> get now_playing =>
       CopyWith$Input$stations_now_playing_order_by.stub(_res);
 
+  @override
   CopyWith$Input$stations_now_playing_aggregate_order_by<TRes>
       get now_playing_history_aggregate =>
           CopyWith$Input$stations_now_playing_aggregate_order_by.stub(_res);
 
+  @override
   CopyWith$Input$posts_aggregate_order_by<TRes> get posts_aggregate =>
       CopyWith$Input$posts_aggregate_order_by.stub(_res);
 
+  @override
   CopyWith$Input$reviews_aggregate_order_by<TRes> get reviews_aggregate =>
       CopyWith$Input$reviews_aggregate_order_by.stub(_res);
 
+  @override
   CopyWith$Input$station_streams_aggregate_order_by<TRes>
       get station_streams_aggregate =>
           CopyWith$Input$station_streams_aggregate_order_by.stub(_res);
 
+  @override
   CopyWith$Input$station_to_station_group_aggregate_order_by<TRes>
       get station_to_station_groups_aggregate =>
           CopyWith$Input$station_to_station_group_aggregate_order_by.stub(_res);
 
+  @override
   CopyWith$Input$stations_now_playing_order_by<TRes> get stations_now_playing =>
       CopyWith$Input$stations_now_playing_order_by.stub(_res);
 
+  @override
   CopyWith$Input$stations_uptime_order_by<TRes> get stations_uptime =>
       CopyWith$Input$stations_uptime_order_by.stub(_res);
 
+  @override
   CopyWith$Input$stations_uptime_order_by<TRes> get uptime =>
       CopyWith$Input$stations_uptime_order_by.stub(_res);
 
+  @override
   CopyWith$Input$stations_uptime_aggregate_order_by<TRes>
       get uptime_history_aggregate =>
           CopyWith$Input$stations_uptime_aggregate_order_by.stub(_res);
@@ -30159,20 +30793,20 @@ class Input$stations_stddev_order_by {
           l$id == null ? null : fromJson$Enum$order_by((l$id as String));
     }
     if (data.containsKey('latest_station_now_playing_id')) {
-      final l$latest_station_now_playing_id =
+      final l$latestStationNowPlayingId =
           data['latest_station_now_playing_id'];
       result$data['latest_station_now_playing_id'] =
-          l$latest_station_now_playing_id == null
+          l$latestStationNowPlayingId == null
               ? null
               : fromJson$Enum$order_by(
-                  (l$latest_station_now_playing_id as String));
+                  (l$latestStationNowPlayingId as String));
     }
     if (data.containsKey('latest_station_uptime_id')) {
-      final l$latest_station_uptime_id = data['latest_station_uptime_id'];
+      final l$latestStationUptimeId = data['latest_station_uptime_id'];
       result$data['latest_station_uptime_id'] =
-          l$latest_station_uptime_id == null
+          l$latestStationUptimeId == null
               ? null
-              : fromJson$Enum$order_by((l$latest_station_uptime_id as String));
+              : fromJson$Enum$order_by((l$latestStationUptimeId as String));
     }
     if (data.containsKey('order')) {
       final l$order = data['order'];
@@ -30201,18 +30835,18 @@ class Input$stations_stddev_order_by {
       result$data['id'] = l$id == null ? null : toJson$Enum$order_by(l$id);
     }
     if (_$data.containsKey('latest_station_now_playing_id')) {
-      final l$latest_station_now_playing_id = latest_station_now_playing_id;
+      final l$latestStationNowPlayingId = latest_station_now_playing_id;
       result$data['latest_station_now_playing_id'] =
-          l$latest_station_now_playing_id == null
+          l$latestStationNowPlayingId == null
               ? null
-              : toJson$Enum$order_by(l$latest_station_now_playing_id);
+              : toJson$Enum$order_by(l$latestStationNowPlayingId);
     }
     if (_$data.containsKey('latest_station_uptime_id')) {
-      final l$latest_station_uptime_id = latest_station_uptime_id;
+      final l$latestStationUptimeId = latest_station_uptime_id;
       result$data['latest_station_uptime_id'] =
-          l$latest_station_uptime_id == null
+          l$latestStationUptimeId == null
               ? null
-              : toJson$Enum$order_by(l$latest_station_uptime_id);
+              : toJson$Enum$order_by(l$latestStationUptimeId);
     }
     if (_$data.containsKey('order')) {
       final l$order = order;
@@ -30233,7 +30867,7 @@ class Input$stations_stddev_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$stations_stddev_order_by) ||
+    if (other is! Input$stations_stddev_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -30245,24 +30879,24 @@ class Input$stations_stddev_order_by {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$latest_station_now_playing_id = latest_station_now_playing_id;
-    final lOther$latest_station_now_playing_id =
+    final l$latestStationNowPlayingId = latest_station_now_playing_id;
+    final lother$latestStationNowPlayingId =
         other.latest_station_now_playing_id;
     if (_$data.containsKey('latest_station_now_playing_id') !=
         other._$data.containsKey('latest_station_now_playing_id')) {
       return false;
     }
-    if (l$latest_station_now_playing_id !=
-        lOther$latest_station_now_playing_id) {
+    if (l$latestStationNowPlayingId !=
+        lother$latestStationNowPlayingId) {
       return false;
     }
-    final l$latest_station_uptime_id = latest_station_uptime_id;
-    final lOther$latest_station_uptime_id = other.latest_station_uptime_id;
+    final l$latestStationUptimeId = latest_station_uptime_id;
+    final lother$latestStationUptimeId = other.latest_station_uptime_id;
     if (_$data.containsKey('latest_station_uptime_id') !=
         other._$data.containsKey('latest_station_uptime_id')) {
       return false;
     }
-    if (l$latest_station_uptime_id != lOther$latest_station_uptime_id) {
+    if (l$latestStationUptimeId != lother$latestStationUptimeId) {
       return false;
     }
     final l$order = order;
@@ -30279,16 +30913,16 @@ class Input$stations_stddev_order_by {
   @override
   int get hashCode {
     final l$id = id;
-    final l$latest_station_now_playing_id = latest_station_now_playing_id;
-    final l$latest_station_uptime_id = latest_station_uptime_id;
+    final l$latestStationNowPlayingId = latest_station_now_playing_id;
+    final l$latestStationUptimeId = latest_station_uptime_id;
     final l$order = order;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('latest_station_now_playing_id')
-          ? l$latest_station_now_playing_id
+          ? l$latestStationNowPlayingId
           : const {},
       _$data.containsKey('latest_station_uptime_id')
-          ? l$latest_station_uptime_id
+          ? l$latestStationUptimeId
           : const {},
       _$data.containsKey('order') ? l$order : const {},
     ]);
@@ -30325,6 +30959,7 @@ class _CopyWithImpl$Input$stations_stddev_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? latest_station_now_playing_id = _undefined,
@@ -30348,8 +30983,9 @@ class _CopyWithStubImpl$Input$stations_stddev_order_by<TRes>
     implements CopyWith$Input$stations_stddev_order_by<TRes> {
   _CopyWithStubImpl$Input$stations_stddev_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? latest_station_now_playing_id,
@@ -30386,20 +31022,20 @@ class Input$stations_stddev_pop_order_by {
           l$id == null ? null : fromJson$Enum$order_by((l$id as String));
     }
     if (data.containsKey('latest_station_now_playing_id')) {
-      final l$latest_station_now_playing_id =
+      final l$latestStationNowPlayingId =
           data['latest_station_now_playing_id'];
       result$data['latest_station_now_playing_id'] =
-          l$latest_station_now_playing_id == null
+          l$latestStationNowPlayingId == null
               ? null
               : fromJson$Enum$order_by(
-                  (l$latest_station_now_playing_id as String));
+                  (l$latestStationNowPlayingId as String));
     }
     if (data.containsKey('latest_station_uptime_id')) {
-      final l$latest_station_uptime_id = data['latest_station_uptime_id'];
+      final l$latestStationUptimeId = data['latest_station_uptime_id'];
       result$data['latest_station_uptime_id'] =
-          l$latest_station_uptime_id == null
+          l$latestStationUptimeId == null
               ? null
-              : fromJson$Enum$order_by((l$latest_station_uptime_id as String));
+              : fromJson$Enum$order_by((l$latestStationUptimeId as String));
     }
     if (data.containsKey('order')) {
       final l$order = data['order'];
@@ -30428,18 +31064,18 @@ class Input$stations_stddev_pop_order_by {
       result$data['id'] = l$id == null ? null : toJson$Enum$order_by(l$id);
     }
     if (_$data.containsKey('latest_station_now_playing_id')) {
-      final l$latest_station_now_playing_id = latest_station_now_playing_id;
+      final l$latestStationNowPlayingId = latest_station_now_playing_id;
       result$data['latest_station_now_playing_id'] =
-          l$latest_station_now_playing_id == null
+          l$latestStationNowPlayingId == null
               ? null
-              : toJson$Enum$order_by(l$latest_station_now_playing_id);
+              : toJson$Enum$order_by(l$latestStationNowPlayingId);
     }
     if (_$data.containsKey('latest_station_uptime_id')) {
-      final l$latest_station_uptime_id = latest_station_uptime_id;
+      final l$latestStationUptimeId = latest_station_uptime_id;
       result$data['latest_station_uptime_id'] =
-          l$latest_station_uptime_id == null
+          l$latestStationUptimeId == null
               ? null
-              : toJson$Enum$order_by(l$latest_station_uptime_id);
+              : toJson$Enum$order_by(l$latestStationUptimeId);
     }
     if (_$data.containsKey('order')) {
       final l$order = order;
@@ -30461,7 +31097,7 @@ class Input$stations_stddev_pop_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$stations_stddev_pop_order_by) ||
+    if (other is! Input$stations_stddev_pop_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -30473,24 +31109,24 @@ class Input$stations_stddev_pop_order_by {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$latest_station_now_playing_id = latest_station_now_playing_id;
-    final lOther$latest_station_now_playing_id =
+    final l$latestStationNowPlayingId = latest_station_now_playing_id;
+    final lother$latestStationNowPlayingId =
         other.latest_station_now_playing_id;
     if (_$data.containsKey('latest_station_now_playing_id') !=
         other._$data.containsKey('latest_station_now_playing_id')) {
       return false;
     }
-    if (l$latest_station_now_playing_id !=
-        lOther$latest_station_now_playing_id) {
+    if (l$latestStationNowPlayingId !=
+        lother$latestStationNowPlayingId) {
       return false;
     }
-    final l$latest_station_uptime_id = latest_station_uptime_id;
-    final lOther$latest_station_uptime_id = other.latest_station_uptime_id;
+    final l$latestStationUptimeId = latest_station_uptime_id;
+    final lother$latestStationUptimeId = other.latest_station_uptime_id;
     if (_$data.containsKey('latest_station_uptime_id') !=
         other._$data.containsKey('latest_station_uptime_id')) {
       return false;
     }
-    if (l$latest_station_uptime_id != lOther$latest_station_uptime_id) {
+    if (l$latestStationUptimeId != lother$latestStationUptimeId) {
       return false;
     }
     final l$order = order;
@@ -30507,16 +31143,16 @@ class Input$stations_stddev_pop_order_by {
   @override
   int get hashCode {
     final l$id = id;
-    final l$latest_station_now_playing_id = latest_station_now_playing_id;
-    final l$latest_station_uptime_id = latest_station_uptime_id;
+    final l$latestStationNowPlayingId = latest_station_now_playing_id;
+    final l$latestStationUptimeId = latest_station_uptime_id;
     final l$order = order;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('latest_station_now_playing_id')
-          ? l$latest_station_now_playing_id
+          ? l$latestStationNowPlayingId
           : const {},
       _$data.containsKey('latest_station_uptime_id')
-          ? l$latest_station_uptime_id
+          ? l$latestStationUptimeId
           : const {},
       _$data.containsKey('order') ? l$order : const {},
     ]);
@@ -30553,6 +31189,7 @@ class _CopyWithImpl$Input$stations_stddev_pop_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? latest_station_now_playing_id = _undefined,
@@ -30576,8 +31213,9 @@ class _CopyWithStubImpl$Input$stations_stddev_pop_order_by<TRes>
     implements CopyWith$Input$stations_stddev_pop_order_by<TRes> {
   _CopyWithStubImpl$Input$stations_stddev_pop_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? latest_station_now_playing_id,
@@ -30614,20 +31252,20 @@ class Input$stations_stddev_samp_order_by {
           l$id == null ? null : fromJson$Enum$order_by((l$id as String));
     }
     if (data.containsKey('latest_station_now_playing_id')) {
-      final l$latest_station_now_playing_id =
+      final l$latestStationNowPlayingId =
           data['latest_station_now_playing_id'];
       result$data['latest_station_now_playing_id'] =
-          l$latest_station_now_playing_id == null
+          l$latestStationNowPlayingId == null
               ? null
               : fromJson$Enum$order_by(
-                  (l$latest_station_now_playing_id as String));
+                  (l$latestStationNowPlayingId as String));
     }
     if (data.containsKey('latest_station_uptime_id')) {
-      final l$latest_station_uptime_id = data['latest_station_uptime_id'];
+      final l$latestStationUptimeId = data['latest_station_uptime_id'];
       result$data['latest_station_uptime_id'] =
-          l$latest_station_uptime_id == null
+          l$latestStationUptimeId == null
               ? null
-              : fromJson$Enum$order_by((l$latest_station_uptime_id as String));
+              : fromJson$Enum$order_by((l$latestStationUptimeId as String));
     }
     if (data.containsKey('order')) {
       final l$order = data['order'];
@@ -30656,18 +31294,18 @@ class Input$stations_stddev_samp_order_by {
       result$data['id'] = l$id == null ? null : toJson$Enum$order_by(l$id);
     }
     if (_$data.containsKey('latest_station_now_playing_id')) {
-      final l$latest_station_now_playing_id = latest_station_now_playing_id;
+      final l$latestStationNowPlayingId = latest_station_now_playing_id;
       result$data['latest_station_now_playing_id'] =
-          l$latest_station_now_playing_id == null
+          l$latestStationNowPlayingId == null
               ? null
-              : toJson$Enum$order_by(l$latest_station_now_playing_id);
+              : toJson$Enum$order_by(l$latestStationNowPlayingId);
     }
     if (_$data.containsKey('latest_station_uptime_id')) {
-      final l$latest_station_uptime_id = latest_station_uptime_id;
+      final l$latestStationUptimeId = latest_station_uptime_id;
       result$data['latest_station_uptime_id'] =
-          l$latest_station_uptime_id == null
+          l$latestStationUptimeId == null
               ? null
-              : toJson$Enum$order_by(l$latest_station_uptime_id);
+              : toJson$Enum$order_by(l$latestStationUptimeId);
     }
     if (_$data.containsKey('order')) {
       final l$order = order;
@@ -30689,7 +31327,7 @@ class Input$stations_stddev_samp_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$stations_stddev_samp_order_by) ||
+    if (other is! Input$stations_stddev_samp_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -30701,24 +31339,24 @@ class Input$stations_stddev_samp_order_by {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$latest_station_now_playing_id = latest_station_now_playing_id;
-    final lOther$latest_station_now_playing_id =
+    final l$latestStationNowPlayingId = latest_station_now_playing_id;
+    final lother$latestStationNowPlayingId =
         other.latest_station_now_playing_id;
     if (_$data.containsKey('latest_station_now_playing_id') !=
         other._$data.containsKey('latest_station_now_playing_id')) {
       return false;
     }
-    if (l$latest_station_now_playing_id !=
-        lOther$latest_station_now_playing_id) {
+    if (l$latestStationNowPlayingId !=
+        lother$latestStationNowPlayingId) {
       return false;
     }
-    final l$latest_station_uptime_id = latest_station_uptime_id;
-    final lOther$latest_station_uptime_id = other.latest_station_uptime_id;
+    final l$latestStationUptimeId = latest_station_uptime_id;
+    final lother$latestStationUptimeId = other.latest_station_uptime_id;
     if (_$data.containsKey('latest_station_uptime_id') !=
         other._$data.containsKey('latest_station_uptime_id')) {
       return false;
     }
-    if (l$latest_station_uptime_id != lOther$latest_station_uptime_id) {
+    if (l$latestStationUptimeId != lother$latestStationUptimeId) {
       return false;
     }
     final l$order = order;
@@ -30735,16 +31373,16 @@ class Input$stations_stddev_samp_order_by {
   @override
   int get hashCode {
     final l$id = id;
-    final l$latest_station_now_playing_id = latest_station_now_playing_id;
-    final l$latest_station_uptime_id = latest_station_uptime_id;
+    final l$latestStationNowPlayingId = latest_station_now_playing_id;
+    final l$latestStationUptimeId = latest_station_uptime_id;
     final l$order = order;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('latest_station_now_playing_id')
-          ? l$latest_station_now_playing_id
+          ? l$latestStationNowPlayingId
           : const {},
       _$data.containsKey('latest_station_uptime_id')
-          ? l$latest_station_uptime_id
+          ? l$latestStationUptimeId
           : const {},
       _$data.containsKey('order') ? l$order : const {},
     ]);
@@ -30781,6 +31419,7 @@ class _CopyWithImpl$Input$stations_stddev_samp_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? latest_station_now_playing_id = _undefined,
@@ -30804,8 +31443,9 @@ class _CopyWithStubImpl$Input$stations_stddev_samp_order_by<TRes>
     implements CopyWith$Input$stations_stddev_samp_order_by<TRes> {
   _CopyWithStubImpl$Input$stations_stddev_samp_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? latest_station_now_playing_id,
@@ -30830,10 +31470,10 @@ class Input$stations_stream_cursor_input {
   factory Input$stations_stream_cursor_input.fromJson(
       Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
-    final l$initial_value = data['initial_value'];
+    final l$initialValue = data['initial_value'];
     result$data['initial_value'] =
         Input$stations_stream_cursor_value_input.fromJson(
-            (l$initial_value as Map<String, dynamic>));
+            (l$initialValue as Map<String, dynamic>));
     if (data.containsKey('ordering')) {
       final l$ordering = data['ordering'];
       result$data['ordering'] = l$ordering == null
@@ -30853,8 +31493,8 @@ class Input$stations_stream_cursor_input {
 
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
-    final l$initial_value = initial_value;
-    result$data['initial_value'] = l$initial_value.toJson();
+    final l$initialValue = initial_value;
+    result$data['initial_value'] = l$initialValue.toJson();
     if (_$data.containsKey('ordering')) {
       final l$ordering = ordering;
       result$data['ordering'] =
@@ -30875,13 +31515,13 @@ class Input$stations_stream_cursor_input {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$stations_stream_cursor_input) ||
+    if (other is! Input$stations_stream_cursor_input ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$initial_value = initial_value;
-    final lOther$initial_value = other.initial_value;
-    if (l$initial_value != lOther$initial_value) {
+    final l$initialValue = initial_value;
+    final lother$initialValue = other.initial_value;
+    if (l$initialValue != lother$initialValue) {
       return false;
     }
     final l$ordering = ordering;
@@ -30898,10 +31538,10 @@ class Input$stations_stream_cursor_input {
 
   @override
   int get hashCode {
-    final l$initial_value = initial_value;
+    final l$initialValue = initial_value;
     final l$ordering = ordering;
     return Object.hashAll([
-      l$initial_value,
+      l$initialValue,
       _$data.containsKey('ordering') ? l$ordering : const {},
     ]);
   }
@@ -30936,6 +31576,7 @@ class _CopyWithImpl$Input$stations_stream_cursor_input<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? initial_value = _undefined,
     Object? ordering = _undefined,
@@ -30949,10 +31590,11 @@ class _CopyWithImpl$Input$stations_stream_cursor_input<TRes>
           'ordering': (ordering as Enum$cursor_ordering?),
       }));
 
+  @override
   CopyWith$Input$stations_stream_cursor_value_input<TRes> get initial_value {
-    final local$initial_value = _instance.initial_value;
+    final local$initialValue = _instance.initial_value;
     return CopyWith$Input$stations_stream_cursor_value_input(
-        local$initial_value, (e) => call(initial_value: e));
+        local$initialValue, (e) => call(initial_value: e));
   }
 }
 
@@ -30960,14 +31602,16 @@ class _CopyWithStubImpl$Input$stations_stream_cursor_input<TRes>
     implements CopyWith$Input$stations_stream_cursor_input<TRes> {
   _CopyWithStubImpl$Input$stations_stream_cursor_input(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Input$stations_stream_cursor_value_input? initial_value,
     Enum$cursor_ordering? ordering,
   }) =>
       _res;
 
+  @override
   CopyWith$Input$stations_stream_cursor_value_input<TRes> get initial_value =>
       CopyWith$Input$stations_stream_cursor_value_input.stub(_res);
 }
@@ -31026,80 +31670,80 @@ class Input$stations_stream_cursor_value_input {
       Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
     if (data.containsKey('created_at')) {
-      final l$created_at = data['created_at'];
-      result$data['created_at'] = (l$created_at as String?);
+      final l$createdAt = data['created_at'];
+      result$data['created_at'] = (l$createdAt as String?);
     }
     if (data.containsKey('description')) {
       final l$description = data['description'];
       result$data['description'] = (l$description as String?);
     }
     if (data.containsKey('description_action_title')) {
-      final l$description_action_title = data['description_action_title'];
+      final l$descriptionActionTitle = data['description_action_title'];
       result$data['description_action_title'] =
-          (l$description_action_title as String?);
+          (l$descriptionActionTitle as String?);
     }
     if (data.containsKey('description_link')) {
-      final l$description_link = data['description_link'];
-      result$data['description_link'] = (l$description_link as String?);
+      final l$descriptionLink = data['description_link'];
+      result$data['description_link'] = (l$descriptionLink as String?);
     }
     if (data.containsKey('email')) {
       final l$email = data['email'];
       result$data['email'] = (l$email as String?);
     }
     if (data.containsKey('facebook_page_id')) {
-      final l$facebook_page_id = data['facebook_page_id'];
-      result$data['facebook_page_id'] = (l$facebook_page_id as String?);
+      final l$facebookPageId = data['facebook_page_id'];
+      result$data['facebook_page_id'] = (l$facebookPageId as String?);
     }
     if (data.containsKey('feature_latest_post')) {
-      final l$feature_latest_post = data['feature_latest_post'];
-      result$data['feature_latest_post'] = (l$feature_latest_post as bool?);
+      final l$featureLatestPost = data['feature_latest_post'];
+      result$data['feature_latest_post'] = (l$featureLatestPost as bool?);
     }
     if (data.containsKey('id')) {
       final l$id = data['id'];
       result$data['id'] = (l$id as int?);
     }
     if (data.containsKey('latest_station_now_playing_id')) {
-      final l$latest_station_now_playing_id =
+      final l$latestStationNowPlayingId =
           data['latest_station_now_playing_id'];
       result$data['latest_station_now_playing_id'] =
-          (l$latest_station_now_playing_id as int?);
+          (l$latestStationNowPlayingId as int?);
     }
     if (data.containsKey('latest_station_uptime_id')) {
-      final l$latest_station_uptime_id = data['latest_station_uptime_id'];
+      final l$latestStationUptimeId = data['latest_station_uptime_id'];
       result$data['latest_station_uptime_id'] =
-          (l$latest_station_uptime_id as int?);
+          (l$latestStationUptimeId as int?);
     }
     if (data.containsKey('order')) {
       final l$order = data['order'];
       result$data['order'] = (l$order as int?);
     }
     if (data.containsKey('rss_feed')) {
-      final l$rss_feed = data['rss_feed'];
-      result$data['rss_feed'] = (l$rss_feed as String?);
+      final l$rssFeed = data['rss_feed'];
+      result$data['rss_feed'] = (l$rssFeed as String?);
     }
     if (data.containsKey('slug')) {
       final l$slug = data['slug'];
       result$data['slug'] = (l$slug as String?);
     }
     if (data.containsKey('stream_url')) {
-      final l$stream_url = data['stream_url'];
-      result$data['stream_url'] = (l$stream_url as String?);
+      final l$streamUrl = data['stream_url'];
+      result$data['stream_url'] = (l$streamUrl as String?);
     }
     if (data.containsKey('thumbnail')) {
       final l$thumbnail = data['thumbnail'];
       result$data['thumbnail'] = (l$thumbnail as String?);
     }
     if (data.containsKey('thumbnail_url')) {
-      final l$thumbnail_url = data['thumbnail_url'];
-      result$data['thumbnail_url'] = (l$thumbnail_url as String?);
+      final l$thumbnailUrl = data['thumbnail_url'];
+      result$data['thumbnail_url'] = (l$thumbnailUrl as String?);
     }
     if (data.containsKey('title')) {
       final l$title = data['title'];
       result$data['title'] = (l$title as String?);
     }
     if (data.containsKey('updated_at')) {
-      final l$updated_at = data['updated_at'];
-      result$data['updated_at'] = (l$updated_at as String?);
+      final l$updatedAt = data['updated_at'];
+      result$data['updated_at'] = (l$updatedAt as String?);
     }
     if (data.containsKey('website')) {
       final l$website = data['website'];
@@ -31154,77 +31798,77 @@ class Input$stations_stream_cursor_value_input {
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
     if (_$data.containsKey('created_at')) {
-      final l$created_at = created_at;
-      result$data['created_at'] = l$created_at;
+      final l$createdAt = created_at;
+      result$data['created_at'] = l$createdAt;
     }
     if (_$data.containsKey('description')) {
       final l$description = description;
       result$data['description'] = l$description;
     }
     if (_$data.containsKey('description_action_title')) {
-      final l$description_action_title = description_action_title;
-      result$data['description_action_title'] = l$description_action_title;
+      final l$descriptionActionTitle = description_action_title;
+      result$data['description_action_title'] = l$descriptionActionTitle;
     }
     if (_$data.containsKey('description_link')) {
-      final l$description_link = description_link;
-      result$data['description_link'] = l$description_link;
+      final l$descriptionLink = description_link;
+      result$data['description_link'] = l$descriptionLink;
     }
     if (_$data.containsKey('email')) {
       final l$email = email;
       result$data['email'] = l$email;
     }
     if (_$data.containsKey('facebook_page_id')) {
-      final l$facebook_page_id = facebook_page_id;
-      result$data['facebook_page_id'] = l$facebook_page_id;
+      final l$facebookPageId = facebook_page_id;
+      result$data['facebook_page_id'] = l$facebookPageId;
     }
     if (_$data.containsKey('feature_latest_post')) {
-      final l$feature_latest_post = feature_latest_post;
-      result$data['feature_latest_post'] = l$feature_latest_post;
+      final l$featureLatestPost = feature_latest_post;
+      result$data['feature_latest_post'] = l$featureLatestPost;
     }
     if (_$data.containsKey('id')) {
       final l$id = id;
       result$data['id'] = l$id;
     }
     if (_$data.containsKey('latest_station_now_playing_id')) {
-      final l$latest_station_now_playing_id = latest_station_now_playing_id;
+      final l$latestStationNowPlayingId = latest_station_now_playing_id;
       result$data['latest_station_now_playing_id'] =
-          l$latest_station_now_playing_id;
+          l$latestStationNowPlayingId;
     }
     if (_$data.containsKey('latest_station_uptime_id')) {
-      final l$latest_station_uptime_id = latest_station_uptime_id;
-      result$data['latest_station_uptime_id'] = l$latest_station_uptime_id;
+      final l$latestStationUptimeId = latest_station_uptime_id;
+      result$data['latest_station_uptime_id'] = l$latestStationUptimeId;
     }
     if (_$data.containsKey('order')) {
       final l$order = order;
       result$data['order'] = l$order;
     }
     if (_$data.containsKey('rss_feed')) {
-      final l$rss_feed = rss_feed;
-      result$data['rss_feed'] = l$rss_feed;
+      final l$rssFeed = rss_feed;
+      result$data['rss_feed'] = l$rssFeed;
     }
     if (_$data.containsKey('slug')) {
       final l$slug = slug;
       result$data['slug'] = l$slug;
     }
     if (_$data.containsKey('stream_url')) {
-      final l$stream_url = stream_url;
-      result$data['stream_url'] = l$stream_url;
+      final l$streamUrl = stream_url;
+      result$data['stream_url'] = l$streamUrl;
     }
     if (_$data.containsKey('thumbnail')) {
       final l$thumbnail = thumbnail;
       result$data['thumbnail'] = l$thumbnail;
     }
     if (_$data.containsKey('thumbnail_url')) {
-      final l$thumbnail_url = thumbnail_url;
-      result$data['thumbnail_url'] = l$thumbnail_url;
+      final l$thumbnailUrl = thumbnail_url;
+      result$data['thumbnail_url'] = l$thumbnailUrl;
     }
     if (_$data.containsKey('title')) {
       final l$title = title;
       result$data['title'] = l$title;
     }
     if (_$data.containsKey('updated_at')) {
-      final l$updated_at = updated_at;
-      result$data['updated_at'] = l$updated_at;
+      final l$updatedAt = updated_at;
+      result$data['updated_at'] = l$updatedAt;
     }
     if (_$data.containsKey('website')) {
       final l$website = website;
@@ -31245,17 +31889,17 @@ class Input$stations_stream_cursor_value_input {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$stations_stream_cursor_value_input) ||
+    if (other is! Input$stations_stream_cursor_value_input ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$created_at = created_at;
-    final lOther$created_at = other.created_at;
+    final l$createdAt = created_at;
+    final lother$createdAt = other.created_at;
     if (_$data.containsKey('created_at') !=
         other._$data.containsKey('created_at')) {
       return false;
     }
-    if (l$created_at != lOther$created_at) {
+    if (l$createdAt != lother$createdAt) {
       return false;
     }
     final l$description = description;
@@ -31267,22 +31911,22 @@ class Input$stations_stream_cursor_value_input {
     if (l$description != lOther$description) {
       return false;
     }
-    final l$description_action_title = description_action_title;
-    final lOther$description_action_title = other.description_action_title;
+    final l$descriptionActionTitle = description_action_title;
+    final lother$descriptionActionTitle = other.description_action_title;
     if (_$data.containsKey('description_action_title') !=
         other._$data.containsKey('description_action_title')) {
       return false;
     }
-    if (l$description_action_title != lOther$description_action_title) {
+    if (l$descriptionActionTitle != lother$descriptionActionTitle) {
       return false;
     }
-    final l$description_link = description_link;
-    final lOther$description_link = other.description_link;
+    final l$descriptionLink = description_link;
+    final lother$descriptionLink = other.description_link;
     if (_$data.containsKey('description_link') !=
         other._$data.containsKey('description_link')) {
       return false;
     }
-    if (l$description_link != lOther$description_link) {
+    if (l$descriptionLink != lother$descriptionLink) {
       return false;
     }
     final l$email = email;
@@ -31293,22 +31937,22 @@ class Input$stations_stream_cursor_value_input {
     if (l$email != lOther$email) {
       return false;
     }
-    final l$facebook_page_id = facebook_page_id;
-    final lOther$facebook_page_id = other.facebook_page_id;
+    final l$facebookPageId = facebook_page_id;
+    final lother$facebookPageId = other.facebook_page_id;
     if (_$data.containsKey('facebook_page_id') !=
         other._$data.containsKey('facebook_page_id')) {
       return false;
     }
-    if (l$facebook_page_id != lOther$facebook_page_id) {
+    if (l$facebookPageId != lother$facebookPageId) {
       return false;
     }
-    final l$feature_latest_post = feature_latest_post;
-    final lOther$feature_latest_post = other.feature_latest_post;
+    final l$featureLatestPost = feature_latest_post;
+    final lother$featureLatestPost = other.feature_latest_post;
     if (_$data.containsKey('feature_latest_post') !=
         other._$data.containsKey('feature_latest_post')) {
       return false;
     }
-    if (l$feature_latest_post != lOther$feature_latest_post) {
+    if (l$featureLatestPost != lother$featureLatestPost) {
       return false;
     }
     final l$id = id;
@@ -31319,24 +31963,24 @@ class Input$stations_stream_cursor_value_input {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$latest_station_now_playing_id = latest_station_now_playing_id;
-    final lOther$latest_station_now_playing_id =
+    final l$latestStationNowPlayingId = latest_station_now_playing_id;
+    final lother$latestStationNowPlayingId =
         other.latest_station_now_playing_id;
     if (_$data.containsKey('latest_station_now_playing_id') !=
         other._$data.containsKey('latest_station_now_playing_id')) {
       return false;
     }
-    if (l$latest_station_now_playing_id !=
-        lOther$latest_station_now_playing_id) {
+    if (l$latestStationNowPlayingId !=
+        lother$latestStationNowPlayingId) {
       return false;
     }
-    final l$latest_station_uptime_id = latest_station_uptime_id;
-    final lOther$latest_station_uptime_id = other.latest_station_uptime_id;
+    final l$latestStationUptimeId = latest_station_uptime_id;
+    final lother$latestStationUptimeId = other.latest_station_uptime_id;
     if (_$data.containsKey('latest_station_uptime_id') !=
         other._$data.containsKey('latest_station_uptime_id')) {
       return false;
     }
-    if (l$latest_station_uptime_id != lOther$latest_station_uptime_id) {
+    if (l$latestStationUptimeId != lother$latestStationUptimeId) {
       return false;
     }
     final l$order = order;
@@ -31347,13 +31991,13 @@ class Input$stations_stream_cursor_value_input {
     if (l$order != lOther$order) {
       return false;
     }
-    final l$rss_feed = rss_feed;
-    final lOther$rss_feed = other.rss_feed;
+    final l$rssFeed = rss_feed;
+    final lother$rssFeed = other.rss_feed;
     if (_$data.containsKey('rss_feed') !=
         other._$data.containsKey('rss_feed')) {
       return false;
     }
-    if (l$rss_feed != lOther$rss_feed) {
+    if (l$rssFeed != lother$rssFeed) {
       return false;
     }
     final l$slug = slug;
@@ -31364,13 +32008,13 @@ class Input$stations_stream_cursor_value_input {
     if (l$slug != lOther$slug) {
       return false;
     }
-    final l$stream_url = stream_url;
-    final lOther$stream_url = other.stream_url;
+    final l$streamUrl = stream_url;
+    final lother$streamUrl = other.stream_url;
     if (_$data.containsKey('stream_url') !=
         other._$data.containsKey('stream_url')) {
       return false;
     }
-    if (l$stream_url != lOther$stream_url) {
+    if (l$streamUrl != lother$streamUrl) {
       return false;
     }
     final l$thumbnail = thumbnail;
@@ -31382,13 +32026,13 @@ class Input$stations_stream_cursor_value_input {
     if (l$thumbnail != lOther$thumbnail) {
       return false;
     }
-    final l$thumbnail_url = thumbnail_url;
-    final lOther$thumbnail_url = other.thumbnail_url;
+    final l$thumbnailUrl = thumbnail_url;
+    final lother$thumbnailUrl = other.thumbnail_url;
     if (_$data.containsKey('thumbnail_url') !=
         other._$data.containsKey('thumbnail_url')) {
       return false;
     }
-    if (l$thumbnail_url != lOther$thumbnail_url) {
+    if (l$thumbnailUrl != lother$thumbnailUrl) {
       return false;
     }
     final l$title = title;
@@ -31399,13 +32043,13 @@ class Input$stations_stream_cursor_value_input {
     if (l$title != lOther$title) {
       return false;
     }
-    final l$updated_at = updated_at;
-    final lOther$updated_at = other.updated_at;
+    final l$updatedAt = updated_at;
+    final lother$updatedAt = other.updated_at;
     if (_$data.containsKey('updated_at') !=
         other._$data.containsKey('updated_at')) {
       return false;
     }
-    if (l$updated_at != lOther$updated_at) {
+    if (l$updatedAt != lother$updatedAt) {
       return false;
     }
     final l$website = website;
@@ -31421,52 +32065,52 @@ class Input$stations_stream_cursor_value_input {
 
   @override
   int get hashCode {
-    final l$created_at = created_at;
+    final l$createdAt = created_at;
     final l$description = description;
-    final l$description_action_title = description_action_title;
-    final l$description_link = description_link;
+    final l$descriptionActionTitle = description_action_title;
+    final l$descriptionLink = description_link;
     final l$email = email;
-    final l$facebook_page_id = facebook_page_id;
-    final l$feature_latest_post = feature_latest_post;
+    final l$facebookPageId = facebook_page_id;
+    final l$featureLatestPost = feature_latest_post;
     final l$id = id;
-    final l$latest_station_now_playing_id = latest_station_now_playing_id;
-    final l$latest_station_uptime_id = latest_station_uptime_id;
+    final l$latestStationNowPlayingId = latest_station_now_playing_id;
+    final l$latestStationUptimeId = latest_station_uptime_id;
     final l$order = order;
-    final l$rss_feed = rss_feed;
+    final l$rssFeed = rss_feed;
     final l$slug = slug;
-    final l$stream_url = stream_url;
+    final l$streamUrl = stream_url;
     final l$thumbnail = thumbnail;
-    final l$thumbnail_url = thumbnail_url;
+    final l$thumbnailUrl = thumbnail_url;
     final l$title = title;
-    final l$updated_at = updated_at;
+    final l$updatedAt = updated_at;
     final l$website = website;
     return Object.hashAll([
-      _$data.containsKey('created_at') ? l$created_at : const {},
+      _$data.containsKey('created_at') ? l$createdAt : const {},
       _$data.containsKey('description') ? l$description : const {},
       _$data.containsKey('description_action_title')
-          ? l$description_action_title
+          ? l$descriptionActionTitle
           : const {},
-      _$data.containsKey('description_link') ? l$description_link : const {},
+      _$data.containsKey('description_link') ? l$descriptionLink : const {},
       _$data.containsKey('email') ? l$email : const {},
-      _$data.containsKey('facebook_page_id') ? l$facebook_page_id : const {},
+      _$data.containsKey('facebook_page_id') ? l$facebookPageId : const {},
       _$data.containsKey('feature_latest_post')
-          ? l$feature_latest_post
+          ? l$featureLatestPost
           : const {},
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('latest_station_now_playing_id')
-          ? l$latest_station_now_playing_id
+          ? l$latestStationNowPlayingId
           : const {},
       _$data.containsKey('latest_station_uptime_id')
-          ? l$latest_station_uptime_id
+          ? l$latestStationUptimeId
           : const {},
       _$data.containsKey('order') ? l$order : const {},
-      _$data.containsKey('rss_feed') ? l$rss_feed : const {},
+      _$data.containsKey('rss_feed') ? l$rssFeed : const {},
       _$data.containsKey('slug') ? l$slug : const {},
-      _$data.containsKey('stream_url') ? l$stream_url : const {},
+      _$data.containsKey('stream_url') ? l$streamUrl : const {},
       _$data.containsKey('thumbnail') ? l$thumbnail : const {},
-      _$data.containsKey('thumbnail_url') ? l$thumbnail_url : const {},
+      _$data.containsKey('thumbnail_url') ? l$thumbnailUrl : const {},
       _$data.containsKey('title') ? l$title : const {},
-      _$data.containsKey('updated_at') ? l$updated_at : const {},
+      _$data.containsKey('updated_at') ? l$updatedAt : const {},
       _$data.containsKey('website') ? l$website : const {},
     ]);
   }
@@ -31517,6 +32161,7 @@ class _CopyWithImpl$Input$stations_stream_cursor_value_input<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? created_at = _undefined,
     Object? description = _undefined,
@@ -31574,8 +32219,9 @@ class _CopyWithStubImpl$Input$stations_stream_cursor_value_input<TRes>
     implements CopyWith$Input$stations_stream_cursor_value_input<TRes> {
   _CopyWithStubImpl$Input$stations_stream_cursor_value_input(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     String? created_at,
     String? description,
@@ -31626,20 +32272,20 @@ class Input$stations_sum_order_by {
           l$id == null ? null : fromJson$Enum$order_by((l$id as String));
     }
     if (data.containsKey('latest_station_now_playing_id')) {
-      final l$latest_station_now_playing_id =
+      final l$latestStationNowPlayingId =
           data['latest_station_now_playing_id'];
       result$data['latest_station_now_playing_id'] =
-          l$latest_station_now_playing_id == null
+          l$latestStationNowPlayingId == null
               ? null
               : fromJson$Enum$order_by(
-                  (l$latest_station_now_playing_id as String));
+                  (l$latestStationNowPlayingId as String));
     }
     if (data.containsKey('latest_station_uptime_id')) {
-      final l$latest_station_uptime_id = data['latest_station_uptime_id'];
+      final l$latestStationUptimeId = data['latest_station_uptime_id'];
       result$data['latest_station_uptime_id'] =
-          l$latest_station_uptime_id == null
+          l$latestStationUptimeId == null
               ? null
-              : fromJson$Enum$order_by((l$latest_station_uptime_id as String));
+              : fromJson$Enum$order_by((l$latestStationUptimeId as String));
     }
     if (data.containsKey('order')) {
       final l$order = data['order'];
@@ -31668,18 +32314,18 @@ class Input$stations_sum_order_by {
       result$data['id'] = l$id == null ? null : toJson$Enum$order_by(l$id);
     }
     if (_$data.containsKey('latest_station_now_playing_id')) {
-      final l$latest_station_now_playing_id = latest_station_now_playing_id;
+      final l$latestStationNowPlayingId = latest_station_now_playing_id;
       result$data['latest_station_now_playing_id'] =
-          l$latest_station_now_playing_id == null
+          l$latestStationNowPlayingId == null
               ? null
-              : toJson$Enum$order_by(l$latest_station_now_playing_id);
+              : toJson$Enum$order_by(l$latestStationNowPlayingId);
     }
     if (_$data.containsKey('latest_station_uptime_id')) {
-      final l$latest_station_uptime_id = latest_station_uptime_id;
+      final l$latestStationUptimeId = latest_station_uptime_id;
       result$data['latest_station_uptime_id'] =
-          l$latest_station_uptime_id == null
+          l$latestStationUptimeId == null
               ? null
-              : toJson$Enum$order_by(l$latest_station_uptime_id);
+              : toJson$Enum$order_by(l$latestStationUptimeId);
     }
     if (_$data.containsKey('order')) {
       final l$order = order;
@@ -31700,7 +32346,7 @@ class Input$stations_sum_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$stations_sum_order_by) ||
+    if (other is! Input$stations_sum_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -31712,24 +32358,24 @@ class Input$stations_sum_order_by {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$latest_station_now_playing_id = latest_station_now_playing_id;
-    final lOther$latest_station_now_playing_id =
+    final l$latestStationNowPlayingId = latest_station_now_playing_id;
+    final lother$latestStationNowPlayingId =
         other.latest_station_now_playing_id;
     if (_$data.containsKey('latest_station_now_playing_id') !=
         other._$data.containsKey('latest_station_now_playing_id')) {
       return false;
     }
-    if (l$latest_station_now_playing_id !=
-        lOther$latest_station_now_playing_id) {
+    if (l$latestStationNowPlayingId !=
+        lother$latestStationNowPlayingId) {
       return false;
     }
-    final l$latest_station_uptime_id = latest_station_uptime_id;
-    final lOther$latest_station_uptime_id = other.latest_station_uptime_id;
+    final l$latestStationUptimeId = latest_station_uptime_id;
+    final lother$latestStationUptimeId = other.latest_station_uptime_id;
     if (_$data.containsKey('latest_station_uptime_id') !=
         other._$data.containsKey('latest_station_uptime_id')) {
       return false;
     }
-    if (l$latest_station_uptime_id != lOther$latest_station_uptime_id) {
+    if (l$latestStationUptimeId != lother$latestStationUptimeId) {
       return false;
     }
     final l$order = order;
@@ -31746,16 +32392,16 @@ class Input$stations_sum_order_by {
   @override
   int get hashCode {
     final l$id = id;
-    final l$latest_station_now_playing_id = latest_station_now_playing_id;
-    final l$latest_station_uptime_id = latest_station_uptime_id;
+    final l$latestStationNowPlayingId = latest_station_now_playing_id;
+    final l$latestStationUptimeId = latest_station_uptime_id;
     final l$order = order;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('latest_station_now_playing_id')
-          ? l$latest_station_now_playing_id
+          ? l$latestStationNowPlayingId
           : const {},
       _$data.containsKey('latest_station_uptime_id')
-          ? l$latest_station_uptime_id
+          ? l$latestStationUptimeId
           : const {},
       _$data.containsKey('order') ? l$order : const {},
     ]);
@@ -31792,6 +32438,7 @@ class _CopyWithImpl$Input$stations_sum_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? latest_station_now_playing_id = _undefined,
@@ -31815,8 +32462,9 @@ class _CopyWithStubImpl$Input$stations_sum_order_by<TRes>
     implements CopyWith$Input$stations_sum_order_by<TRes> {
   _CopyWithStubImpl$Input$stations_sum_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? latest_station_now_playing_id,
@@ -31893,18 +32541,18 @@ class Input$stations_uptime_aggregate_order_by {
               (l$stddev as Map<String, dynamic>));
     }
     if (data.containsKey('stddev_pop')) {
-      final l$stddev_pop = data['stddev_pop'];
-      result$data['stddev_pop'] = l$stddev_pop == null
+      final l$stddevPop = data['stddev_pop'];
+      result$data['stddev_pop'] = l$stddevPop == null
           ? null
           : Input$stations_uptime_stddev_pop_order_by.fromJson(
-              (l$stddev_pop as Map<String, dynamic>));
+              (l$stddevPop as Map<String, dynamic>));
     }
     if (data.containsKey('stddev_samp')) {
-      final l$stddev_samp = data['stddev_samp'];
-      result$data['stddev_samp'] = l$stddev_samp == null
+      final l$stddevSamp = data['stddev_samp'];
+      result$data['stddev_samp'] = l$stddevSamp == null
           ? null
           : Input$stations_uptime_stddev_samp_order_by.fromJson(
-              (l$stddev_samp as Map<String, dynamic>));
+              (l$stddevSamp as Map<String, dynamic>));
     }
     if (data.containsKey('sum')) {
       final l$sum = data['sum'];
@@ -31914,18 +32562,18 @@ class Input$stations_uptime_aggregate_order_by {
               (l$sum as Map<String, dynamic>));
     }
     if (data.containsKey('var_pop')) {
-      final l$var_pop = data['var_pop'];
-      result$data['var_pop'] = l$var_pop == null
+      final l$varPop = data['var_pop'];
+      result$data['var_pop'] = l$varPop == null
           ? null
           : Input$stations_uptime_var_pop_order_by.fromJson(
-              (l$var_pop as Map<String, dynamic>));
+              (l$varPop as Map<String, dynamic>));
     }
     if (data.containsKey('var_samp')) {
-      final l$var_samp = data['var_samp'];
-      result$data['var_samp'] = l$var_samp == null
+      final l$varSamp = data['var_samp'];
+      result$data['var_samp'] = l$varSamp == null
           ? null
           : Input$stations_uptime_var_samp_order_by.fromJson(
-              (l$var_samp as Map<String, dynamic>));
+              (l$varSamp as Map<String, dynamic>));
     }
     if (data.containsKey('variance')) {
       final l$variance = data['variance'];
@@ -31995,24 +32643,24 @@ class Input$stations_uptime_aggregate_order_by {
       result$data['stddev'] = l$stddev?.toJson();
     }
     if (_$data.containsKey('stddev_pop')) {
-      final l$stddev_pop = stddev_pop;
-      result$data['stddev_pop'] = l$stddev_pop?.toJson();
+      final l$stddevPop = stddev_pop;
+      result$data['stddev_pop'] = l$stddevPop?.toJson();
     }
     if (_$data.containsKey('stddev_samp')) {
-      final l$stddev_samp = stddev_samp;
-      result$data['stddev_samp'] = l$stddev_samp?.toJson();
+      final l$stddevSamp = stddev_samp;
+      result$data['stddev_samp'] = l$stddevSamp?.toJson();
     }
     if (_$data.containsKey('sum')) {
       final l$sum = sum;
       result$data['sum'] = l$sum?.toJson();
     }
     if (_$data.containsKey('var_pop')) {
-      final l$var_pop = var_pop;
-      result$data['var_pop'] = l$var_pop?.toJson();
+      final l$varPop = var_pop;
+      result$data['var_pop'] = l$varPop?.toJson();
     }
     if (_$data.containsKey('var_samp')) {
-      final l$var_samp = var_samp;
-      result$data['var_samp'] = l$var_samp?.toJson();
+      final l$varSamp = var_samp;
+      result$data['var_samp'] = l$varSamp?.toJson();
     }
     if (_$data.containsKey('variance')) {
       final l$variance = variance;
@@ -32033,7 +32681,7 @@ class Input$stations_uptime_aggregate_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$stations_uptime_aggregate_order_by) ||
+    if (other is! Input$stations_uptime_aggregate_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -32077,22 +32725,22 @@ class Input$stations_uptime_aggregate_order_by {
     if (l$stddev != lOther$stddev) {
       return false;
     }
-    final l$stddev_pop = stddev_pop;
-    final lOther$stddev_pop = other.stddev_pop;
+    final l$stddevPop = stddev_pop;
+    final lother$stddevPop = other.stddev_pop;
     if (_$data.containsKey('stddev_pop') !=
         other._$data.containsKey('stddev_pop')) {
       return false;
     }
-    if (l$stddev_pop != lOther$stddev_pop) {
+    if (l$stddevPop != lother$stddevPop) {
       return false;
     }
-    final l$stddev_samp = stddev_samp;
-    final lOther$stddev_samp = other.stddev_samp;
+    final l$stddevSamp = stddev_samp;
+    final lother$stddevSamp = other.stddev_samp;
     if (_$data.containsKey('stddev_samp') !=
         other._$data.containsKey('stddev_samp')) {
       return false;
     }
-    if (l$stddev_samp != lOther$stddev_samp) {
+    if (l$stddevSamp != lother$stddevSamp) {
       return false;
     }
     final l$sum = sum;
@@ -32103,21 +32751,21 @@ class Input$stations_uptime_aggregate_order_by {
     if (l$sum != lOther$sum) {
       return false;
     }
-    final l$var_pop = var_pop;
-    final lOther$var_pop = other.var_pop;
+    final l$varPop = var_pop;
+    final lother$varPop = other.var_pop;
     if (_$data.containsKey('var_pop') != other._$data.containsKey('var_pop')) {
       return false;
     }
-    if (l$var_pop != lOther$var_pop) {
+    if (l$varPop != lother$varPop) {
       return false;
     }
-    final l$var_samp = var_samp;
-    final lOther$var_samp = other.var_samp;
+    final l$varSamp = var_samp;
+    final lother$varSamp = other.var_samp;
     if (_$data.containsKey('var_samp') !=
         other._$data.containsKey('var_samp')) {
       return false;
     }
-    if (l$var_samp != lOther$var_samp) {
+    if (l$varSamp != lother$varSamp) {
       return false;
     }
     final l$variance = variance;
@@ -32139,11 +32787,11 @@ class Input$stations_uptime_aggregate_order_by {
     final l$max = max;
     final l$min = min;
     final l$stddev = stddev;
-    final l$stddev_pop = stddev_pop;
-    final l$stddev_samp = stddev_samp;
+    final l$stddevPop = stddev_pop;
+    final l$stddevSamp = stddev_samp;
     final l$sum = sum;
-    final l$var_pop = var_pop;
-    final l$var_samp = var_samp;
+    final l$varPop = var_pop;
+    final l$varSamp = var_samp;
     final l$variance = variance;
     return Object.hashAll([
       _$data.containsKey('avg') ? l$avg : const {},
@@ -32151,11 +32799,11 @@ class Input$stations_uptime_aggregate_order_by {
       _$data.containsKey('max') ? l$max : const {},
       _$data.containsKey('min') ? l$min : const {},
       _$data.containsKey('stddev') ? l$stddev : const {},
-      _$data.containsKey('stddev_pop') ? l$stddev_pop : const {},
-      _$data.containsKey('stddev_samp') ? l$stddev_samp : const {},
+      _$data.containsKey('stddev_pop') ? l$stddevPop : const {},
+      _$data.containsKey('stddev_samp') ? l$stddevSamp : const {},
       _$data.containsKey('sum') ? l$sum : const {},
-      _$data.containsKey('var_pop') ? l$var_pop : const {},
-      _$data.containsKey('var_samp') ? l$var_samp : const {},
+      _$data.containsKey('var_pop') ? l$varPop : const {},
+      _$data.containsKey('var_samp') ? l$varSamp : const {},
       _$data.containsKey('variance') ? l$variance : const {},
     ]);
   }
@@ -32208,6 +32856,7 @@ class _CopyWithImpl$Input$stations_uptime_aggregate_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? avg = _undefined,
     Object? count = _undefined,
@@ -32248,6 +32897,7 @@ class _CopyWithImpl$Input$stations_uptime_aggregate_order_by<TRes>
           'variance': (variance as Input$stations_uptime_variance_order_by?),
       }));
 
+  @override
   CopyWith$Input$stations_uptime_avg_order_by<TRes> get avg {
     final local$avg = _instance.avg;
     return local$avg == null
@@ -32256,6 +32906,7 @@ class _CopyWithImpl$Input$stations_uptime_aggregate_order_by<TRes>
             local$avg, (e) => call(avg: e));
   }
 
+  @override
   CopyWith$Input$stations_uptime_max_order_by<TRes> get max {
     final local$max = _instance.max;
     return local$max == null
@@ -32264,6 +32915,7 @@ class _CopyWithImpl$Input$stations_uptime_aggregate_order_by<TRes>
             local$max, (e) => call(max: e));
   }
 
+  @override
   CopyWith$Input$stations_uptime_min_order_by<TRes> get min {
     final local$min = _instance.min;
     return local$min == null
@@ -32272,6 +32924,7 @@ class _CopyWithImpl$Input$stations_uptime_aggregate_order_by<TRes>
             local$min, (e) => call(min: e));
   }
 
+  @override
   CopyWith$Input$stations_uptime_stddev_order_by<TRes> get stddev {
     final local$stddev = _instance.stddev;
     return local$stddev == null
@@ -32280,24 +32933,27 @@ class _CopyWithImpl$Input$stations_uptime_aggregate_order_by<TRes>
             local$stddev, (e) => call(stddev: e));
   }
 
+  @override
   CopyWith$Input$stations_uptime_stddev_pop_order_by<TRes> get stddev_pop {
-    final local$stddev_pop = _instance.stddev_pop;
-    return local$stddev_pop == null
+    final local$stddevPop = _instance.stddev_pop;
+    return local$stddevPop == null
         ? CopyWith$Input$stations_uptime_stddev_pop_order_by.stub(
             _then(_instance))
         : CopyWith$Input$stations_uptime_stddev_pop_order_by(
-            local$stddev_pop, (e) => call(stddev_pop: e));
+            local$stddevPop, (e) => call(stddev_pop: e));
   }
 
+  @override
   CopyWith$Input$stations_uptime_stddev_samp_order_by<TRes> get stddev_samp {
-    final local$stddev_samp = _instance.stddev_samp;
-    return local$stddev_samp == null
+    final local$stddevSamp = _instance.stddev_samp;
+    return local$stddevSamp == null
         ? CopyWith$Input$stations_uptime_stddev_samp_order_by.stub(
             _then(_instance))
         : CopyWith$Input$stations_uptime_stddev_samp_order_by(
-            local$stddev_samp, (e) => call(stddev_samp: e));
+            local$stddevSamp, (e) => call(stddev_samp: e));
   }
 
+  @override
   CopyWith$Input$stations_uptime_sum_order_by<TRes> get sum {
     final local$sum = _instance.sum;
     return local$sum == null
@@ -32306,23 +32962,26 @@ class _CopyWithImpl$Input$stations_uptime_aggregate_order_by<TRes>
             local$sum, (e) => call(sum: e));
   }
 
+  @override
   CopyWith$Input$stations_uptime_var_pop_order_by<TRes> get var_pop {
-    final local$var_pop = _instance.var_pop;
-    return local$var_pop == null
+    final local$varPop = _instance.var_pop;
+    return local$varPop == null
         ? CopyWith$Input$stations_uptime_var_pop_order_by.stub(_then(_instance))
         : CopyWith$Input$stations_uptime_var_pop_order_by(
-            local$var_pop, (e) => call(var_pop: e));
+            local$varPop, (e) => call(var_pop: e));
   }
 
+  @override
   CopyWith$Input$stations_uptime_var_samp_order_by<TRes> get var_samp {
-    final local$var_samp = _instance.var_samp;
-    return local$var_samp == null
+    final local$varSamp = _instance.var_samp;
+    return local$varSamp == null
         ? CopyWith$Input$stations_uptime_var_samp_order_by.stub(
             _then(_instance))
         : CopyWith$Input$stations_uptime_var_samp_order_by(
-            local$var_samp, (e) => call(var_samp: e));
+            local$varSamp, (e) => call(var_samp: e));
   }
 
+  @override
   CopyWith$Input$stations_uptime_variance_order_by<TRes> get variance {
     final local$variance = _instance.variance;
     return local$variance == null
@@ -32337,8 +32996,9 @@ class _CopyWithStubImpl$Input$stations_uptime_aggregate_order_by<TRes>
     implements CopyWith$Input$stations_uptime_aggregate_order_by<TRes> {
   _CopyWithStubImpl$Input$stations_uptime_aggregate_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Input$stations_uptime_avg_order_by? avg,
     Enum$order_by? count,
@@ -32354,33 +33014,43 @@ class _CopyWithStubImpl$Input$stations_uptime_aggregate_order_by<TRes>
   }) =>
       _res;
 
+  @override
   CopyWith$Input$stations_uptime_avg_order_by<TRes> get avg =>
       CopyWith$Input$stations_uptime_avg_order_by.stub(_res);
 
+  @override
   CopyWith$Input$stations_uptime_max_order_by<TRes> get max =>
       CopyWith$Input$stations_uptime_max_order_by.stub(_res);
 
+  @override
   CopyWith$Input$stations_uptime_min_order_by<TRes> get min =>
       CopyWith$Input$stations_uptime_min_order_by.stub(_res);
 
+  @override
   CopyWith$Input$stations_uptime_stddev_order_by<TRes> get stddev =>
       CopyWith$Input$stations_uptime_stddev_order_by.stub(_res);
 
+  @override
   CopyWith$Input$stations_uptime_stddev_pop_order_by<TRes> get stddev_pop =>
       CopyWith$Input$stations_uptime_stddev_pop_order_by.stub(_res);
 
+  @override
   CopyWith$Input$stations_uptime_stddev_samp_order_by<TRes> get stddev_samp =>
       CopyWith$Input$stations_uptime_stddev_samp_order_by.stub(_res);
 
+  @override
   CopyWith$Input$stations_uptime_sum_order_by<TRes> get sum =>
       CopyWith$Input$stations_uptime_sum_order_by.stub(_res);
 
+  @override
   CopyWith$Input$stations_uptime_var_pop_order_by<TRes> get var_pop =>
       CopyWith$Input$stations_uptime_var_pop_order_by.stub(_res);
 
+  @override
   CopyWith$Input$stations_uptime_var_samp_order_by<TRes> get var_samp =>
       CopyWith$Input$stations_uptime_var_samp_order_by.stub(_res);
 
+  @override
   CopyWith$Input$stations_uptime_variance_order_by<TRes> get variance =>
       CopyWith$Input$stations_uptime_variance_order_by.stub(_res);
 }
@@ -32408,16 +33078,16 @@ class Input$stations_uptime_avg_order_by {
           l$id == null ? null : fromJson$Enum$order_by((l$id as String));
     }
     if (data.containsKey('latency_ms')) {
-      final l$latency_ms = data['latency_ms'];
-      result$data['latency_ms'] = l$latency_ms == null
+      final l$latencyMs = data['latency_ms'];
+      result$data['latency_ms'] = l$latencyMs == null
           ? null
-          : fromJson$Enum$order_by((l$latency_ms as String));
+          : fromJson$Enum$order_by((l$latencyMs as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     return Input$stations_uptime_avg_order_by._(result$data);
   }
@@ -32437,14 +33107,14 @@ class Input$stations_uptime_avg_order_by {
       result$data['id'] = l$id == null ? null : toJson$Enum$order_by(l$id);
     }
     if (_$data.containsKey('latency_ms')) {
-      final l$latency_ms = latency_ms;
+      final l$latencyMs = latency_ms;
       result$data['latency_ms'] =
-          l$latency_ms == null ? null : toJson$Enum$order_by(l$latency_ms);
+          l$latencyMs == null ? null : toJson$Enum$order_by(l$latencyMs);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     return result$data;
   }
@@ -32461,7 +33131,7 @@ class Input$stations_uptime_avg_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$stations_uptime_avg_order_by) ||
+    if (other is! Input$stations_uptime_avg_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -32473,22 +33143,22 @@ class Input$stations_uptime_avg_order_by {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$latency_ms = latency_ms;
-    final lOther$latency_ms = other.latency_ms;
+    final l$latencyMs = latency_ms;
+    final lother$latencyMs = other.latency_ms;
     if (_$data.containsKey('latency_ms') !=
         other._$data.containsKey('latency_ms')) {
       return false;
     }
-    if (l$latency_ms != lOther$latency_ms) {
+    if (l$latencyMs != lother$latencyMs) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -32497,12 +33167,12 @@ class Input$stations_uptime_avg_order_by {
   @override
   int get hashCode {
     final l$id = id;
-    final l$latency_ms = latency_ms;
-    final l$station_id = station_id;
+    final l$latencyMs = latency_ms;
+    final l$stationId = station_id;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
-      _$data.containsKey('latency_ms') ? l$latency_ms : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('latency_ms') ? l$latencyMs : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -32536,6 +33206,7 @@ class _CopyWithImpl$Input$stations_uptime_avg_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? latency_ms = _undefined,
@@ -32555,8 +33226,9 @@ class _CopyWithStubImpl$Input$stations_uptime_avg_order_by<TRes>
     implements CopyWith$Input$stations_uptime_avg_order_by<TRes> {
   _CopyWithStubImpl$Input$stations_uptime_avg_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? latency_ms,
@@ -32596,22 +33268,22 @@ class Input$stations_uptime_bool_exp {
   factory Input$stations_uptime_bool_exp.fromJson(Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
     if (data.containsKey('_and')) {
-      final l$$_and = data['_and'];
-      result$data['_and'] = (l$$_and as List<dynamic>?)
+      final l$$And = data['_and'];
+      result$data['_and'] = (l$$And as List<dynamic>?)
           ?.map((e) => Input$stations_uptime_bool_exp.fromJson(
               (e as Map<String, dynamic>)))
           .toList();
     }
     if (data.containsKey('_not')) {
-      final l$$_not = data['_not'];
-      result$data['_not'] = l$$_not == null
+      final l$$Not = data['_not'];
+      result$data['_not'] = l$$Not == null
           ? null
           : Input$stations_uptime_bool_exp.fromJson(
-              (l$$_not as Map<String, dynamic>));
+              (l$$Not as Map<String, dynamic>));
     }
     if (data.containsKey('_or')) {
-      final l$$_or = data['_or'];
-      result$data['_or'] = (l$$_or as List<dynamic>?)
+      final l$$Or = data['_or'];
+      result$data['_or'] = (l$$Or as List<dynamic>?)
           ?.map((e) => Input$stations_uptime_bool_exp.fromJson(
               (e as Map<String, dynamic>)))
           .toList();
@@ -32623,18 +33295,18 @@ class Input$stations_uptime_bool_exp {
           : Input$Int_comparison_exp.fromJson((l$id as Map<String, dynamic>));
     }
     if (data.containsKey('is_up')) {
-      final l$is_up = data['is_up'];
-      result$data['is_up'] = l$is_up == null
+      final l$isUp = data['is_up'];
+      result$data['is_up'] = l$isUp == null
           ? null
           : Input$Boolean_comparison_exp.fromJson(
-              (l$is_up as Map<String, dynamic>));
+              (l$isUp as Map<String, dynamic>));
     }
     if (data.containsKey('latency_ms')) {
-      final l$latency_ms = data['latency_ms'];
-      result$data['latency_ms'] = l$latency_ms == null
+      final l$latencyMs = data['latency_ms'];
+      result$data['latency_ms'] = l$latencyMs == null
           ? null
           : Input$Int_comparison_exp.fromJson(
-              (l$latency_ms as Map<String, dynamic>));
+              (l$latencyMs as Map<String, dynamic>));
     }
     if (data.containsKey('station')) {
       final l$station = data['station'];
@@ -32644,11 +33316,11 @@ class Input$stations_uptime_bool_exp {
               (l$station as Map<String, dynamic>));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
           : Input$Int_comparison_exp.fromJson(
-              (l$station_id as Map<String, dynamic>));
+              (l$stationId as Map<String, dynamic>));
     }
     if (data.containsKey('stations')) {
       final l$stations = data['stations'];
@@ -32702,36 +33374,36 @@ class Input$stations_uptime_bool_exp {
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
     if (_$data.containsKey('_and')) {
-      final l$$_and = $_and;
-      result$data['_and'] = l$$_and?.map((e) => e.toJson()).toList();
+      final l$$And = $_and;
+      result$data['_and'] = l$$And?.map((e) => e.toJson()).toList();
     }
     if (_$data.containsKey('_not')) {
-      final l$$_not = $_not;
-      result$data['_not'] = l$$_not?.toJson();
+      final l$$Not = $_not;
+      result$data['_not'] = l$$Not?.toJson();
     }
     if (_$data.containsKey('_or')) {
-      final l$$_or = $_or;
-      result$data['_or'] = l$$_or?.map((e) => e.toJson()).toList();
+      final l$$Or = $_or;
+      result$data['_or'] = l$$Or?.map((e) => e.toJson()).toList();
     }
     if (_$data.containsKey('id')) {
       final l$id = id;
       result$data['id'] = l$id?.toJson();
     }
     if (_$data.containsKey('is_up')) {
-      final l$is_up = is_up;
-      result$data['is_up'] = l$is_up?.toJson();
+      final l$isUp = is_up;
+      result$data['is_up'] = l$isUp?.toJson();
     }
     if (_$data.containsKey('latency_ms')) {
-      final l$latency_ms = latency_ms;
-      result$data['latency_ms'] = l$latency_ms?.toJson();
+      final l$latencyMs = latency_ms;
+      result$data['latency_ms'] = l$latencyMs?.toJson();
     }
     if (_$data.containsKey('station')) {
       final l$station = station;
       result$data['station'] = l$station?.toJson();
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
-      result$data['station_id'] = l$station_id?.toJson();
+      final l$stationId = station_id;
+      result$data['station_id'] = l$stationId?.toJson();
     }
     if (_$data.containsKey('stations')) {
       final l$stations = stations;
@@ -32755,54 +33427,54 @@ class Input$stations_uptime_bool_exp {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$stations_uptime_bool_exp) ||
+    if (other is! Input$stations_uptime_bool_exp ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$$_and = $_and;
-    final lOther$$_and = other.$_and;
+    final l$$And = $_and;
+    final lother$$And = other.$_and;
     if (_$data.containsKey('_and') != other._$data.containsKey('_and')) {
       return false;
     }
-    if (l$$_and != null && lOther$$_and != null) {
-      if (l$$_and.length != lOther$$_and.length) {
+    if (l$$And != null && lother$$And != null) {
+      if (l$$And.length != lother$$And.length) {
         return false;
       }
-      for (int i = 0; i < l$$_and.length; i++) {
-        final l$$_and$entry = l$$_and[i];
-        final lOther$$_and$entry = lOther$$_and[i];
-        if (l$$_and$entry != lOther$$_and$entry) {
+      for (int i = 0; i < l$$And.length; i++) {
+        final l$$And$entry = l$$And[i];
+        final lother$$And$entry = lother$$And[i];
+        if (l$$And$entry != lother$$And$entry) {
           return false;
         }
       }
-    } else if (l$$_and != lOther$$_and) {
+    } else if (l$$And != lother$$And) {
       return false;
     }
-    final l$$_not = $_not;
-    final lOther$$_not = other.$_not;
+    final l$$Not = $_not;
+    final lother$$Not = other.$_not;
     if (_$data.containsKey('_not') != other._$data.containsKey('_not')) {
       return false;
     }
-    if (l$$_not != lOther$$_not) {
+    if (l$$Not != lother$$Not) {
       return false;
     }
-    final l$$_or = $_or;
-    final lOther$$_or = other.$_or;
+    final l$$Or = $_or;
+    final lother$$Or = other.$_or;
     if (_$data.containsKey('_or') != other._$data.containsKey('_or')) {
       return false;
     }
-    if (l$$_or != null && lOther$$_or != null) {
-      if (l$$_or.length != lOther$$_or.length) {
+    if (l$$Or != null && lother$$Or != null) {
+      if (l$$Or.length != lother$$Or.length) {
         return false;
       }
-      for (int i = 0; i < l$$_or.length; i++) {
-        final l$$_or$entry = l$$_or[i];
-        final lOther$$_or$entry = lOther$$_or[i];
-        if (l$$_or$entry != lOther$$_or$entry) {
+      for (int i = 0; i < l$$Or.length; i++) {
+        final l$$Or$entry = l$$Or[i];
+        final lother$$Or$entry = lother$$Or[i];
+        if (l$$Or$entry != lother$$Or$entry) {
           return false;
         }
       }
-    } else if (l$$_or != lOther$$_or) {
+    } else if (l$$Or != lother$$Or) {
       return false;
     }
     final l$id = id;
@@ -32813,21 +33485,21 @@ class Input$stations_uptime_bool_exp {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$is_up = is_up;
-    final lOther$is_up = other.is_up;
+    final l$isUp = is_up;
+    final lother$isUp = other.is_up;
     if (_$data.containsKey('is_up') != other._$data.containsKey('is_up')) {
       return false;
     }
-    if (l$is_up != lOther$is_up) {
+    if (l$isUp != lother$isUp) {
       return false;
     }
-    final l$latency_ms = latency_ms;
-    final lOther$latency_ms = other.latency_ms;
+    final l$latencyMs = latency_ms;
+    final lother$latencyMs = other.latency_ms;
     if (_$data.containsKey('latency_ms') !=
         other._$data.containsKey('latency_ms')) {
       return false;
     }
-    if (l$latency_ms != lOther$latency_ms) {
+    if (l$latencyMs != lother$latencyMs) {
       return false;
     }
     final l$station = station;
@@ -32838,13 +33510,13 @@ class Input$stations_uptime_bool_exp {
     if (l$station != lOther$station) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     final l$stations = stations;
@@ -32870,33 +33542,33 @@ class Input$stations_uptime_bool_exp {
 
   @override
   int get hashCode {
-    final l$$_and = $_and;
-    final l$$_not = $_not;
-    final l$$_or = $_or;
+    final l$$And = $_and;
+    final l$$Not = $_not;
+    final l$$Or = $_or;
     final l$id = id;
-    final l$is_up = is_up;
-    final l$latency_ms = latency_ms;
+    final l$isUp = is_up;
+    final l$latencyMs = latency_ms;
     final l$station = station;
-    final l$station_id = station_id;
+    final l$stationId = station_id;
     final l$stations = stations;
     final l$timestamp = timestamp;
     return Object.hashAll([
       _$data.containsKey('_and')
-          ? l$$_and == null
+          ? l$$And == null
               ? null
-              : Object.hashAll(l$$_and.map((v) => v))
+              : Object.hashAll(l$$And.map((v) => v))
           : const {},
-      _$data.containsKey('_not') ? l$$_not : const {},
+      _$data.containsKey('_not') ? l$$Not : const {},
       _$data.containsKey('_or')
-          ? l$$_or == null
+          ? l$$Or == null
               ? null
-              : Object.hashAll(l$$_or.map((v) => v))
+              : Object.hashAll(l$$Or.map((v) => v))
           : const {},
       _$data.containsKey('id') ? l$id : const {},
-      _$data.containsKey('is_up') ? l$is_up : const {},
-      _$data.containsKey('latency_ms') ? l$latency_ms : const {},
+      _$data.containsKey('is_up') ? l$isUp : const {},
+      _$data.containsKey('latency_ms') ? l$latencyMs : const {},
       _$data.containsKey('station') ? l$station : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
       _$data.containsKey('stations') ? l$stations : const {},
       _$data.containsKey('timestamp') ? l$timestamp : const {},
     ]);
@@ -32929,14 +33601,14 @@ abstract class CopyWith$Input$stations_uptime_bool_exp<TRes> {
               Iterable<
                   CopyWith$Input$stations_uptime_bool_exp<
                       Input$stations_uptime_bool_exp>>?)
-          _fn);
+          fn);
   CopyWith$Input$stations_uptime_bool_exp<TRes> get $_not;
   TRes $_or(
       Iterable<Input$stations_uptime_bool_exp>? Function(
               Iterable<
                   CopyWith$Input$stations_uptime_bool_exp<
                       Input$stations_uptime_bool_exp>>?)
-          _fn);
+          fn);
   CopyWith$Input$Int_comparison_exp<TRes> get id;
   CopyWith$Input$Boolean_comparison_exp<TRes> get is_up;
   CopyWith$Input$Int_comparison_exp<TRes> get latency_ms;
@@ -32959,6 +33631,7 @@ class _CopyWithImpl$Input$stations_uptime_bool_exp<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? $_and = _undefined,
     Object? $_not = _undefined,
@@ -32994,40 +33667,44 @@ class _CopyWithImpl$Input$stations_uptime_bool_exp<TRes>
           'timestamp': (timestamp as Input$timestamptz_comparison_exp?),
       }));
 
+  @override
   TRes $_and(
           Iterable<Input$stations_uptime_bool_exp>? Function(
                   Iterable<
                       CopyWith$Input$stations_uptime_bool_exp<
                           Input$stations_uptime_bool_exp>>?)
-              _fn) =>
+              fn) =>
       call(
-          $_and: _fn(_instance.$_and
+          $_and: fn(_instance.$_and
               ?.map((e) => CopyWith$Input$stations_uptime_bool_exp(
                     e,
                     (i) => i,
                   )))?.toList());
 
+  @override
   CopyWith$Input$stations_uptime_bool_exp<TRes> get $_not {
-    final local$$_not = _instance.$_not;
-    return local$$_not == null
+    final local$$Not = _instance.$_not;
+    return local$$Not == null
         ? CopyWith$Input$stations_uptime_bool_exp.stub(_then(_instance))
         : CopyWith$Input$stations_uptime_bool_exp(
-            local$$_not, (e) => call($_not: e));
+            local$$Not, (e) => call($_not: e));
   }
 
+  @override
   TRes $_or(
           Iterable<Input$stations_uptime_bool_exp>? Function(
                   Iterable<
                       CopyWith$Input$stations_uptime_bool_exp<
                           Input$stations_uptime_bool_exp>>?)
-              _fn) =>
+              fn) =>
       call(
-          $_or: _fn(_instance.$_or
+          $_or: fn(_instance.$_or
               ?.map((e) => CopyWith$Input$stations_uptime_bool_exp(
                     e,
                     (i) => i,
                   )))?.toList());
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get id {
     final local$id = _instance.id;
     return local$id == null
@@ -33035,22 +33712,25 @@ class _CopyWithImpl$Input$stations_uptime_bool_exp<TRes>
         : CopyWith$Input$Int_comparison_exp(local$id, (e) => call(id: e));
   }
 
+  @override
   CopyWith$Input$Boolean_comparison_exp<TRes> get is_up {
-    final local$is_up = _instance.is_up;
-    return local$is_up == null
+    final local$isUp = _instance.is_up;
+    return local$isUp == null
         ? CopyWith$Input$Boolean_comparison_exp.stub(_then(_instance))
         : CopyWith$Input$Boolean_comparison_exp(
-            local$is_up, (e) => call(is_up: e));
+            local$isUp, (e) => call(is_up: e));
   }
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get latency_ms {
-    final local$latency_ms = _instance.latency_ms;
-    return local$latency_ms == null
+    final local$latencyMs = _instance.latency_ms;
+    return local$latencyMs == null
         ? CopyWith$Input$Int_comparison_exp.stub(_then(_instance))
         : CopyWith$Input$Int_comparison_exp(
-            local$latency_ms, (e) => call(latency_ms: e));
+            local$latencyMs, (e) => call(latency_ms: e));
   }
 
+  @override
   CopyWith$Input$stations_bool_exp<TRes> get station {
     final local$station = _instance.station;
     return local$station == null
@@ -33059,14 +33739,16 @@ class _CopyWithImpl$Input$stations_uptime_bool_exp<TRes>
             local$station, (e) => call(station: e));
   }
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get station_id {
-    final local$station_id = _instance.station_id;
-    return local$station_id == null
+    final local$stationId = _instance.station_id;
+    return local$stationId == null
         ? CopyWith$Input$Int_comparison_exp.stub(_then(_instance))
         : CopyWith$Input$Int_comparison_exp(
-            local$station_id, (e) => call(station_id: e));
+            local$stationId, (e) => call(station_id: e));
   }
 
+  @override
   CopyWith$Input$stations_bool_exp<TRes> get stations {
     final local$stations = _instance.stations;
     return local$stations == null
@@ -33075,6 +33757,7 @@ class _CopyWithImpl$Input$stations_uptime_bool_exp<TRes>
             local$stations, (e) => call(stations: e));
   }
 
+  @override
   CopyWith$Input$timestamptz_comparison_exp<TRes> get timestamp {
     final local$timestamp = _instance.timestamp;
     return local$timestamp == null
@@ -33088,8 +33771,9 @@ class _CopyWithStubImpl$Input$stations_uptime_bool_exp<TRes>
     implements CopyWith$Input$stations_uptime_bool_exp<TRes> {
   _CopyWithStubImpl$Input$stations_uptime_bool_exp(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     List<Input$stations_uptime_bool_exp>? $_and,
     Input$stations_uptime_bool_exp? $_not,
@@ -33104,31 +33788,41 @@ class _CopyWithStubImpl$Input$stations_uptime_bool_exp<TRes>
   }) =>
       _res;
 
-  $_and(_fn) => _res;
+  @override
+  $_and(fn) => _res;
 
+  @override
   CopyWith$Input$stations_uptime_bool_exp<TRes> get $_not =>
       CopyWith$Input$stations_uptime_bool_exp.stub(_res);
 
-  $_or(_fn) => _res;
+  @override
+  $_or(fn) => _res;
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get id =>
       CopyWith$Input$Int_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$Boolean_comparison_exp<TRes> get is_up =>
       CopyWith$Input$Boolean_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get latency_ms =>
       CopyWith$Input$Int_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$stations_bool_exp<TRes> get station =>
       CopyWith$Input$stations_bool_exp.stub(_res);
 
+  @override
   CopyWith$Input$Int_comparison_exp<TRes> get station_id =>
       CopyWith$Input$Int_comparison_exp.stub(_res);
 
+  @override
   CopyWith$Input$stations_bool_exp<TRes> get stations =>
       CopyWith$Input$stations_bool_exp.stub(_res);
 
+  @override
   CopyWith$Input$timestamptz_comparison_exp<TRes> get timestamp =>
       CopyWith$Input$timestamptz_comparison_exp.stub(_res);
 }
@@ -33158,16 +33852,16 @@ class Input$stations_uptime_max_order_by {
           l$id == null ? null : fromJson$Enum$order_by((l$id as String));
     }
     if (data.containsKey('latency_ms')) {
-      final l$latency_ms = data['latency_ms'];
-      result$data['latency_ms'] = l$latency_ms == null
+      final l$latencyMs = data['latency_ms'];
+      result$data['latency_ms'] = l$latencyMs == null
           ? null
-          : fromJson$Enum$order_by((l$latency_ms as String));
+          : fromJson$Enum$order_by((l$latencyMs as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     if (data.containsKey('timestamp')) {
       final l$timestamp = data['timestamp'];
@@ -33195,14 +33889,14 @@ class Input$stations_uptime_max_order_by {
       result$data['id'] = l$id == null ? null : toJson$Enum$order_by(l$id);
     }
     if (_$data.containsKey('latency_ms')) {
-      final l$latency_ms = latency_ms;
+      final l$latencyMs = latency_ms;
       result$data['latency_ms'] =
-          l$latency_ms == null ? null : toJson$Enum$order_by(l$latency_ms);
+          l$latencyMs == null ? null : toJson$Enum$order_by(l$latencyMs);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     if (_$data.containsKey('timestamp')) {
       final l$timestamp = timestamp;
@@ -33224,7 +33918,7 @@ class Input$stations_uptime_max_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$stations_uptime_max_order_by) ||
+    if (other is! Input$stations_uptime_max_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -33236,22 +33930,22 @@ class Input$stations_uptime_max_order_by {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$latency_ms = latency_ms;
-    final lOther$latency_ms = other.latency_ms;
+    final l$latencyMs = latency_ms;
+    final lother$latencyMs = other.latency_ms;
     if (_$data.containsKey('latency_ms') !=
         other._$data.containsKey('latency_ms')) {
       return false;
     }
-    if (l$latency_ms != lOther$latency_ms) {
+    if (l$latencyMs != lother$latencyMs) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     final l$timestamp = timestamp;
@@ -33269,13 +33963,13 @@ class Input$stations_uptime_max_order_by {
   @override
   int get hashCode {
     final l$id = id;
-    final l$latency_ms = latency_ms;
-    final l$station_id = station_id;
+    final l$latencyMs = latency_ms;
+    final l$stationId = station_id;
     final l$timestamp = timestamp;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
-      _$data.containsKey('latency_ms') ? l$latency_ms : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('latency_ms') ? l$latencyMs : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
       _$data.containsKey('timestamp') ? l$timestamp : const {},
     ]);
   }
@@ -33311,6 +34005,7 @@ class _CopyWithImpl$Input$stations_uptime_max_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? latency_ms = _undefined,
@@ -33332,8 +34027,9 @@ class _CopyWithStubImpl$Input$stations_uptime_max_order_by<TRes>
     implements CopyWith$Input$stations_uptime_max_order_by<TRes> {
   _CopyWithStubImpl$Input$stations_uptime_max_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? latency_ms,
@@ -33368,16 +34064,16 @@ class Input$stations_uptime_min_order_by {
           l$id == null ? null : fromJson$Enum$order_by((l$id as String));
     }
     if (data.containsKey('latency_ms')) {
-      final l$latency_ms = data['latency_ms'];
-      result$data['latency_ms'] = l$latency_ms == null
+      final l$latencyMs = data['latency_ms'];
+      result$data['latency_ms'] = l$latencyMs == null
           ? null
-          : fromJson$Enum$order_by((l$latency_ms as String));
+          : fromJson$Enum$order_by((l$latencyMs as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     if (data.containsKey('timestamp')) {
       final l$timestamp = data['timestamp'];
@@ -33405,14 +34101,14 @@ class Input$stations_uptime_min_order_by {
       result$data['id'] = l$id == null ? null : toJson$Enum$order_by(l$id);
     }
     if (_$data.containsKey('latency_ms')) {
-      final l$latency_ms = latency_ms;
+      final l$latencyMs = latency_ms;
       result$data['latency_ms'] =
-          l$latency_ms == null ? null : toJson$Enum$order_by(l$latency_ms);
+          l$latencyMs == null ? null : toJson$Enum$order_by(l$latencyMs);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     if (_$data.containsKey('timestamp')) {
       final l$timestamp = timestamp;
@@ -33434,7 +34130,7 @@ class Input$stations_uptime_min_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$stations_uptime_min_order_by) ||
+    if (other is! Input$stations_uptime_min_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -33446,22 +34142,22 @@ class Input$stations_uptime_min_order_by {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$latency_ms = latency_ms;
-    final lOther$latency_ms = other.latency_ms;
+    final l$latencyMs = latency_ms;
+    final lother$latencyMs = other.latency_ms;
     if (_$data.containsKey('latency_ms') !=
         other._$data.containsKey('latency_ms')) {
       return false;
     }
-    if (l$latency_ms != lOther$latency_ms) {
+    if (l$latencyMs != lother$latencyMs) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     final l$timestamp = timestamp;
@@ -33479,13 +34175,13 @@ class Input$stations_uptime_min_order_by {
   @override
   int get hashCode {
     final l$id = id;
-    final l$latency_ms = latency_ms;
-    final l$station_id = station_id;
+    final l$latencyMs = latency_ms;
+    final l$stationId = station_id;
     final l$timestamp = timestamp;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
-      _$data.containsKey('latency_ms') ? l$latency_ms : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('latency_ms') ? l$latencyMs : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
       _$data.containsKey('timestamp') ? l$timestamp : const {},
     ]);
   }
@@ -33521,6 +34217,7 @@ class _CopyWithImpl$Input$stations_uptime_min_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? latency_ms = _undefined,
@@ -33542,8 +34239,9 @@ class _CopyWithStubImpl$Input$stations_uptime_min_order_by<TRes>
     implements CopyWith$Input$stations_uptime_min_order_by<TRes> {
   _CopyWithStubImpl$Input$stations_uptime_min_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? latency_ms,
@@ -33584,15 +34282,15 @@ class Input$stations_uptime_order_by {
           l$id == null ? null : fromJson$Enum$order_by((l$id as String));
     }
     if (data.containsKey('is_up')) {
-      final l$is_up = data['is_up'];
+      final l$isUp = data['is_up'];
       result$data['is_up'] =
-          l$is_up == null ? null : fromJson$Enum$order_by((l$is_up as String));
+          l$isUp == null ? null : fromJson$Enum$order_by((l$isUp as String));
     }
     if (data.containsKey('latency_ms')) {
-      final l$latency_ms = data['latency_ms'];
-      result$data['latency_ms'] = l$latency_ms == null
+      final l$latencyMs = data['latency_ms'];
+      result$data['latency_ms'] = l$latencyMs == null
           ? null
-          : fromJson$Enum$order_by((l$latency_ms as String));
+          : fromJson$Enum$order_by((l$latencyMs as String));
     }
     if (data.containsKey('station')) {
       final l$station = data['station'];
@@ -33602,17 +34300,17 @@ class Input$stations_uptime_order_by {
               (l$station as Map<String, dynamic>));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     if (data.containsKey('stations_aggregate')) {
-      final l$stations_aggregate = data['stations_aggregate'];
-      result$data['stations_aggregate'] = l$stations_aggregate == null
+      final l$stationsAggregate = data['stations_aggregate'];
+      result$data['stations_aggregate'] = l$stationsAggregate == null
           ? null
           : Input$stations_aggregate_order_by.fromJson(
-              (l$stations_aggregate as Map<String, dynamic>));
+              (l$stationsAggregate as Map<String, dynamic>));
     }
     if (data.containsKey('timestamp')) {
       final l$timestamp = data['timestamp'];
@@ -33648,27 +34346,27 @@ class Input$stations_uptime_order_by {
       result$data['id'] = l$id == null ? null : toJson$Enum$order_by(l$id);
     }
     if (_$data.containsKey('is_up')) {
-      final l$is_up = is_up;
+      final l$isUp = is_up;
       result$data['is_up'] =
-          l$is_up == null ? null : toJson$Enum$order_by(l$is_up);
+          l$isUp == null ? null : toJson$Enum$order_by(l$isUp);
     }
     if (_$data.containsKey('latency_ms')) {
-      final l$latency_ms = latency_ms;
+      final l$latencyMs = latency_ms;
       result$data['latency_ms'] =
-          l$latency_ms == null ? null : toJson$Enum$order_by(l$latency_ms);
+          l$latencyMs == null ? null : toJson$Enum$order_by(l$latencyMs);
     }
     if (_$data.containsKey('station')) {
       final l$station = station;
       result$data['station'] = l$station?.toJson();
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     if (_$data.containsKey('stations_aggregate')) {
-      final l$stations_aggregate = stations_aggregate;
-      result$data['stations_aggregate'] = l$stations_aggregate?.toJson();
+      final l$stationsAggregate = stations_aggregate;
+      result$data['stations_aggregate'] = l$stationsAggregate?.toJson();
     }
     if (_$data.containsKey('timestamp')) {
       final l$timestamp = timestamp;
@@ -33689,7 +34387,7 @@ class Input$stations_uptime_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$stations_uptime_order_by) ||
+    if (other is! Input$stations_uptime_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -33701,21 +34399,21 @@ class Input$stations_uptime_order_by {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$is_up = is_up;
-    final lOther$is_up = other.is_up;
+    final l$isUp = is_up;
+    final lother$isUp = other.is_up;
     if (_$data.containsKey('is_up') != other._$data.containsKey('is_up')) {
       return false;
     }
-    if (l$is_up != lOther$is_up) {
+    if (l$isUp != lother$isUp) {
       return false;
     }
-    final l$latency_ms = latency_ms;
-    final lOther$latency_ms = other.latency_ms;
+    final l$latencyMs = latency_ms;
+    final lother$latencyMs = other.latency_ms;
     if (_$data.containsKey('latency_ms') !=
         other._$data.containsKey('latency_ms')) {
       return false;
     }
-    if (l$latency_ms != lOther$latency_ms) {
+    if (l$latencyMs != lother$latencyMs) {
       return false;
     }
     final l$station = station;
@@ -33726,22 +34424,22 @@ class Input$stations_uptime_order_by {
     if (l$station != lOther$station) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
-    final l$stations_aggregate = stations_aggregate;
-    final lOther$stations_aggregate = other.stations_aggregate;
+    final l$stationsAggregate = stations_aggregate;
+    final lother$stationsAggregate = other.stations_aggregate;
     if (_$data.containsKey('stations_aggregate') !=
         other._$data.containsKey('stations_aggregate')) {
       return false;
     }
-    if (l$stations_aggregate != lOther$stations_aggregate) {
+    if (l$stationsAggregate != lother$stationsAggregate) {
       return false;
     }
     final l$timestamp = timestamp;
@@ -33759,20 +34457,20 @@ class Input$stations_uptime_order_by {
   @override
   int get hashCode {
     final l$id = id;
-    final l$is_up = is_up;
-    final l$latency_ms = latency_ms;
+    final l$isUp = is_up;
+    final l$latencyMs = latency_ms;
     final l$station = station;
-    final l$station_id = station_id;
-    final l$stations_aggregate = stations_aggregate;
+    final l$stationId = station_id;
+    final l$stationsAggregate = stations_aggregate;
     final l$timestamp = timestamp;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
-      _$data.containsKey('is_up') ? l$is_up : const {},
-      _$data.containsKey('latency_ms') ? l$latency_ms : const {},
+      _$data.containsKey('is_up') ? l$isUp : const {},
+      _$data.containsKey('latency_ms') ? l$latencyMs : const {},
       _$data.containsKey('station') ? l$station : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
       _$data.containsKey('stations_aggregate')
-          ? l$stations_aggregate
+          ? l$stationsAggregate
           : const {},
       _$data.containsKey('timestamp') ? l$timestamp : const {},
     ]);
@@ -33814,6 +34512,7 @@ class _CopyWithImpl$Input$stations_uptime_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? is_up = _undefined,
@@ -33839,6 +34538,7 @@ class _CopyWithImpl$Input$stations_uptime_order_by<TRes>
         if (timestamp != _undefined) 'timestamp': (timestamp as Enum$order_by?),
       }));
 
+  @override
   CopyWith$Input$stations_order_by<TRes> get station {
     final local$station = _instance.station;
     return local$station == null
@@ -33847,12 +34547,13 @@ class _CopyWithImpl$Input$stations_uptime_order_by<TRes>
             local$station, (e) => call(station: e));
   }
 
+  @override
   CopyWith$Input$stations_aggregate_order_by<TRes> get stations_aggregate {
-    final local$stations_aggregate = _instance.stations_aggregate;
-    return local$stations_aggregate == null
+    final local$stationsAggregate = _instance.stations_aggregate;
+    return local$stationsAggregate == null
         ? CopyWith$Input$stations_aggregate_order_by.stub(_then(_instance))
         : CopyWith$Input$stations_aggregate_order_by(
-            local$stations_aggregate, (e) => call(stations_aggregate: e));
+            local$stationsAggregate, (e) => call(stations_aggregate: e));
   }
 }
 
@@ -33860,8 +34561,9 @@ class _CopyWithStubImpl$Input$stations_uptime_order_by<TRes>
     implements CopyWith$Input$stations_uptime_order_by<TRes> {
   _CopyWithStubImpl$Input$stations_uptime_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? is_up,
@@ -33873,9 +34575,11 @@ class _CopyWithStubImpl$Input$stations_uptime_order_by<TRes>
   }) =>
       _res;
 
+  @override
   CopyWith$Input$stations_order_by<TRes> get station =>
       CopyWith$Input$stations_order_by.stub(_res);
 
+  @override
   CopyWith$Input$stations_aggregate_order_by<TRes> get stations_aggregate =>
       CopyWith$Input$stations_aggregate_order_by.stub(_res);
 }
@@ -33903,16 +34607,16 @@ class Input$stations_uptime_stddev_order_by {
           l$id == null ? null : fromJson$Enum$order_by((l$id as String));
     }
     if (data.containsKey('latency_ms')) {
-      final l$latency_ms = data['latency_ms'];
-      result$data['latency_ms'] = l$latency_ms == null
+      final l$latencyMs = data['latency_ms'];
+      result$data['latency_ms'] = l$latencyMs == null
           ? null
-          : fromJson$Enum$order_by((l$latency_ms as String));
+          : fromJson$Enum$order_by((l$latencyMs as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     return Input$stations_uptime_stddev_order_by._(result$data);
   }
@@ -33932,14 +34636,14 @@ class Input$stations_uptime_stddev_order_by {
       result$data['id'] = l$id == null ? null : toJson$Enum$order_by(l$id);
     }
     if (_$data.containsKey('latency_ms')) {
-      final l$latency_ms = latency_ms;
+      final l$latencyMs = latency_ms;
       result$data['latency_ms'] =
-          l$latency_ms == null ? null : toJson$Enum$order_by(l$latency_ms);
+          l$latencyMs == null ? null : toJson$Enum$order_by(l$latencyMs);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     return result$data;
   }
@@ -33956,7 +34660,7 @@ class Input$stations_uptime_stddev_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$stations_uptime_stddev_order_by) ||
+    if (other is! Input$stations_uptime_stddev_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -33968,22 +34672,22 @@ class Input$stations_uptime_stddev_order_by {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$latency_ms = latency_ms;
-    final lOther$latency_ms = other.latency_ms;
+    final l$latencyMs = latency_ms;
+    final lother$latencyMs = other.latency_ms;
     if (_$data.containsKey('latency_ms') !=
         other._$data.containsKey('latency_ms')) {
       return false;
     }
-    if (l$latency_ms != lOther$latency_ms) {
+    if (l$latencyMs != lother$latencyMs) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -33992,12 +34696,12 @@ class Input$stations_uptime_stddev_order_by {
   @override
   int get hashCode {
     final l$id = id;
-    final l$latency_ms = latency_ms;
-    final l$station_id = station_id;
+    final l$latencyMs = latency_ms;
+    final l$stationId = station_id;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
-      _$data.containsKey('latency_ms') ? l$latency_ms : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('latency_ms') ? l$latencyMs : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -34031,6 +34735,7 @@ class _CopyWithImpl$Input$stations_uptime_stddev_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? latency_ms = _undefined,
@@ -34050,8 +34755,9 @@ class _CopyWithStubImpl$Input$stations_uptime_stddev_order_by<TRes>
     implements CopyWith$Input$stations_uptime_stddev_order_by<TRes> {
   _CopyWithStubImpl$Input$stations_uptime_stddev_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? latency_ms,
@@ -34083,16 +34789,16 @@ class Input$stations_uptime_stddev_pop_order_by {
           l$id == null ? null : fromJson$Enum$order_by((l$id as String));
     }
     if (data.containsKey('latency_ms')) {
-      final l$latency_ms = data['latency_ms'];
-      result$data['latency_ms'] = l$latency_ms == null
+      final l$latencyMs = data['latency_ms'];
+      result$data['latency_ms'] = l$latencyMs == null
           ? null
-          : fromJson$Enum$order_by((l$latency_ms as String));
+          : fromJson$Enum$order_by((l$latencyMs as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     return Input$stations_uptime_stddev_pop_order_by._(result$data);
   }
@@ -34112,14 +34818,14 @@ class Input$stations_uptime_stddev_pop_order_by {
       result$data['id'] = l$id == null ? null : toJson$Enum$order_by(l$id);
     }
     if (_$data.containsKey('latency_ms')) {
-      final l$latency_ms = latency_ms;
+      final l$latencyMs = latency_ms;
       result$data['latency_ms'] =
-          l$latency_ms == null ? null : toJson$Enum$order_by(l$latency_ms);
+          l$latencyMs == null ? null : toJson$Enum$order_by(l$latencyMs);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     return result$data;
   }
@@ -34136,7 +34842,7 @@ class Input$stations_uptime_stddev_pop_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$stations_uptime_stddev_pop_order_by) ||
+    if (other is! Input$stations_uptime_stddev_pop_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -34148,22 +34854,22 @@ class Input$stations_uptime_stddev_pop_order_by {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$latency_ms = latency_ms;
-    final lOther$latency_ms = other.latency_ms;
+    final l$latencyMs = latency_ms;
+    final lother$latencyMs = other.latency_ms;
     if (_$data.containsKey('latency_ms') !=
         other._$data.containsKey('latency_ms')) {
       return false;
     }
-    if (l$latency_ms != lOther$latency_ms) {
+    if (l$latencyMs != lother$latencyMs) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -34172,12 +34878,12 @@ class Input$stations_uptime_stddev_pop_order_by {
   @override
   int get hashCode {
     final l$id = id;
-    final l$latency_ms = latency_ms;
-    final l$station_id = station_id;
+    final l$latencyMs = latency_ms;
+    final l$stationId = station_id;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
-      _$data.containsKey('latency_ms') ? l$latency_ms : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('latency_ms') ? l$latencyMs : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -34211,6 +34917,7 @@ class _CopyWithImpl$Input$stations_uptime_stddev_pop_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? latency_ms = _undefined,
@@ -34230,8 +34937,9 @@ class _CopyWithStubImpl$Input$stations_uptime_stddev_pop_order_by<TRes>
     implements CopyWith$Input$stations_uptime_stddev_pop_order_by<TRes> {
   _CopyWithStubImpl$Input$stations_uptime_stddev_pop_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? latency_ms,
@@ -34263,16 +34971,16 @@ class Input$stations_uptime_stddev_samp_order_by {
           l$id == null ? null : fromJson$Enum$order_by((l$id as String));
     }
     if (data.containsKey('latency_ms')) {
-      final l$latency_ms = data['latency_ms'];
-      result$data['latency_ms'] = l$latency_ms == null
+      final l$latencyMs = data['latency_ms'];
+      result$data['latency_ms'] = l$latencyMs == null
           ? null
-          : fromJson$Enum$order_by((l$latency_ms as String));
+          : fromJson$Enum$order_by((l$latencyMs as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     return Input$stations_uptime_stddev_samp_order_by._(result$data);
   }
@@ -34292,14 +35000,14 @@ class Input$stations_uptime_stddev_samp_order_by {
       result$data['id'] = l$id == null ? null : toJson$Enum$order_by(l$id);
     }
     if (_$data.containsKey('latency_ms')) {
-      final l$latency_ms = latency_ms;
+      final l$latencyMs = latency_ms;
       result$data['latency_ms'] =
-          l$latency_ms == null ? null : toJson$Enum$order_by(l$latency_ms);
+          l$latencyMs == null ? null : toJson$Enum$order_by(l$latencyMs);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     return result$data;
   }
@@ -34316,7 +35024,7 @@ class Input$stations_uptime_stddev_samp_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$stations_uptime_stddev_samp_order_by) ||
+    if (other is! Input$stations_uptime_stddev_samp_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -34328,22 +35036,22 @@ class Input$stations_uptime_stddev_samp_order_by {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$latency_ms = latency_ms;
-    final lOther$latency_ms = other.latency_ms;
+    final l$latencyMs = latency_ms;
+    final lother$latencyMs = other.latency_ms;
     if (_$data.containsKey('latency_ms') !=
         other._$data.containsKey('latency_ms')) {
       return false;
     }
-    if (l$latency_ms != lOther$latency_ms) {
+    if (l$latencyMs != lother$latencyMs) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -34352,12 +35060,12 @@ class Input$stations_uptime_stddev_samp_order_by {
   @override
   int get hashCode {
     final l$id = id;
-    final l$latency_ms = latency_ms;
-    final l$station_id = station_id;
+    final l$latencyMs = latency_ms;
+    final l$stationId = station_id;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
-      _$data.containsKey('latency_ms') ? l$latency_ms : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('latency_ms') ? l$latencyMs : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -34391,6 +35099,7 @@ class _CopyWithImpl$Input$stations_uptime_stddev_samp_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? latency_ms = _undefined,
@@ -34410,8 +35119,9 @@ class _CopyWithStubImpl$Input$stations_uptime_stddev_samp_order_by<TRes>
     implements CopyWith$Input$stations_uptime_stddev_samp_order_by<TRes> {
   _CopyWithStubImpl$Input$stations_uptime_stddev_samp_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? latency_ms,
@@ -34435,10 +35145,10 @@ class Input$stations_uptime_stream_cursor_input {
   factory Input$stations_uptime_stream_cursor_input.fromJson(
       Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
-    final l$initial_value = data['initial_value'];
+    final l$initialValue = data['initial_value'];
     result$data['initial_value'] =
         Input$stations_uptime_stream_cursor_value_input.fromJson(
-            (l$initial_value as Map<String, dynamic>));
+            (l$initialValue as Map<String, dynamic>));
     if (data.containsKey('ordering')) {
       final l$ordering = data['ordering'];
       result$data['ordering'] = l$ordering == null
@@ -34459,8 +35169,8 @@ class Input$stations_uptime_stream_cursor_input {
 
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
-    final l$initial_value = initial_value;
-    result$data['initial_value'] = l$initial_value.toJson();
+    final l$initialValue = initial_value;
+    result$data['initial_value'] = l$initialValue.toJson();
     if (_$data.containsKey('ordering')) {
       final l$ordering = ordering;
       result$data['ordering'] =
@@ -34481,13 +35191,13 @@ class Input$stations_uptime_stream_cursor_input {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$stations_uptime_stream_cursor_input) ||
+    if (other is! Input$stations_uptime_stream_cursor_input ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$initial_value = initial_value;
-    final lOther$initial_value = other.initial_value;
-    if (l$initial_value != lOther$initial_value) {
+    final l$initialValue = initial_value;
+    final lother$initialValue = other.initial_value;
+    if (l$initialValue != lother$initialValue) {
       return false;
     }
     final l$ordering = ordering;
@@ -34504,10 +35214,10 @@ class Input$stations_uptime_stream_cursor_input {
 
   @override
   int get hashCode {
-    final l$initial_value = initial_value;
+    final l$initialValue = initial_value;
     final l$ordering = ordering;
     return Object.hashAll([
-      l$initial_value,
+      l$initialValue,
       _$data.containsKey('ordering') ? l$ordering : const {},
     ]);
   }
@@ -34543,6 +35253,7 @@ class _CopyWithImpl$Input$stations_uptime_stream_cursor_input<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? initial_value = _undefined,
     Object? ordering = _undefined,
@@ -34556,11 +35267,12 @@ class _CopyWithImpl$Input$stations_uptime_stream_cursor_input<TRes>
           'ordering': (ordering as Enum$cursor_ordering?),
       }));
 
+  @override
   CopyWith$Input$stations_uptime_stream_cursor_value_input<TRes>
       get initial_value {
-    final local$initial_value = _instance.initial_value;
+    final local$initialValue = _instance.initial_value;
     return CopyWith$Input$stations_uptime_stream_cursor_value_input(
-        local$initial_value, (e) => call(initial_value: e));
+        local$initialValue, (e) => call(initial_value: e));
   }
 }
 
@@ -34568,14 +35280,16 @@ class _CopyWithStubImpl$Input$stations_uptime_stream_cursor_input<TRes>
     implements CopyWith$Input$stations_uptime_stream_cursor_input<TRes> {
   _CopyWithStubImpl$Input$stations_uptime_stream_cursor_input(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Input$stations_uptime_stream_cursor_value_input? initial_value,
     Enum$cursor_ordering? ordering,
   }) =>
       _res;
 
+  @override
   CopyWith$Input$stations_uptime_stream_cursor_value_input<TRes>
       get initial_value =>
           CopyWith$Input$stations_uptime_stream_cursor_value_input.stub(_res);
@@ -34607,16 +35321,16 @@ class Input$stations_uptime_stream_cursor_value_input {
       result$data['id'] = (l$id as int?);
     }
     if (data.containsKey('is_up')) {
-      final l$is_up = data['is_up'];
-      result$data['is_up'] = (l$is_up as bool?);
+      final l$isUp = data['is_up'];
+      result$data['is_up'] = (l$isUp as bool?);
     }
     if (data.containsKey('latency_ms')) {
-      final l$latency_ms = data['latency_ms'];
-      result$data['latency_ms'] = (l$latency_ms as int?);
+      final l$latencyMs = data['latency_ms'];
+      result$data['latency_ms'] = (l$latencyMs as int?);
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = (l$station_id as int?);
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = (l$stationId as int?);
     }
     if (data.containsKey('timestamp')) {
       final l$timestamp = data['timestamp'];
@@ -34644,16 +35358,16 @@ class Input$stations_uptime_stream_cursor_value_input {
       result$data['id'] = l$id;
     }
     if (_$data.containsKey('is_up')) {
-      final l$is_up = is_up;
-      result$data['is_up'] = l$is_up;
+      final l$isUp = is_up;
+      result$data['is_up'] = l$isUp;
     }
     if (_$data.containsKey('latency_ms')) {
-      final l$latency_ms = latency_ms;
-      result$data['latency_ms'] = l$latency_ms;
+      final l$latencyMs = latency_ms;
+      result$data['latency_ms'] = l$latencyMs;
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
-      result$data['station_id'] = l$station_id;
+      final l$stationId = station_id;
+      result$data['station_id'] = l$stationId;
     }
     if (_$data.containsKey('timestamp')) {
       final l$timestamp = timestamp;
@@ -34674,7 +35388,7 @@ class Input$stations_uptime_stream_cursor_value_input {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$stations_uptime_stream_cursor_value_input) ||
+    if (other is! Input$stations_uptime_stream_cursor_value_input ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -34686,30 +35400,30 @@ class Input$stations_uptime_stream_cursor_value_input {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$is_up = is_up;
-    final lOther$is_up = other.is_up;
+    final l$isUp = is_up;
+    final lother$isUp = other.is_up;
     if (_$data.containsKey('is_up') != other._$data.containsKey('is_up')) {
       return false;
     }
-    if (l$is_up != lOther$is_up) {
+    if (l$isUp != lother$isUp) {
       return false;
     }
-    final l$latency_ms = latency_ms;
-    final lOther$latency_ms = other.latency_ms;
+    final l$latencyMs = latency_ms;
+    final lother$latencyMs = other.latency_ms;
     if (_$data.containsKey('latency_ms') !=
         other._$data.containsKey('latency_ms')) {
       return false;
     }
-    if (l$latency_ms != lOther$latency_ms) {
+    if (l$latencyMs != lother$latencyMs) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     final l$timestamp = timestamp;
@@ -34727,15 +35441,15 @@ class Input$stations_uptime_stream_cursor_value_input {
   @override
   int get hashCode {
     final l$id = id;
-    final l$is_up = is_up;
-    final l$latency_ms = latency_ms;
-    final l$station_id = station_id;
+    final l$isUp = is_up;
+    final l$latencyMs = latency_ms;
+    final l$stationId = station_id;
     final l$timestamp = timestamp;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
-      _$data.containsKey('is_up') ? l$is_up : const {},
-      _$data.containsKey('latency_ms') ? l$latency_ms : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('is_up') ? l$isUp : const {},
+      _$data.containsKey('latency_ms') ? l$latencyMs : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
       _$data.containsKey('timestamp') ? l$timestamp : const {},
     ]);
   }
@@ -34773,6 +35487,7 @@ class _CopyWithImpl$Input$stations_uptime_stream_cursor_value_input<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? is_up = _undefined,
@@ -34794,8 +35509,9 @@ class _CopyWithStubImpl$Input$stations_uptime_stream_cursor_value_input<TRes>
     implements CopyWith$Input$stations_uptime_stream_cursor_value_input<TRes> {
   _CopyWithStubImpl$Input$stations_uptime_stream_cursor_value_input(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     int? id,
     bool? is_up,
@@ -34829,16 +35545,16 @@ class Input$stations_uptime_sum_order_by {
           l$id == null ? null : fromJson$Enum$order_by((l$id as String));
     }
     if (data.containsKey('latency_ms')) {
-      final l$latency_ms = data['latency_ms'];
-      result$data['latency_ms'] = l$latency_ms == null
+      final l$latencyMs = data['latency_ms'];
+      result$data['latency_ms'] = l$latencyMs == null
           ? null
-          : fromJson$Enum$order_by((l$latency_ms as String));
+          : fromJson$Enum$order_by((l$latencyMs as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     return Input$stations_uptime_sum_order_by._(result$data);
   }
@@ -34858,14 +35574,14 @@ class Input$stations_uptime_sum_order_by {
       result$data['id'] = l$id == null ? null : toJson$Enum$order_by(l$id);
     }
     if (_$data.containsKey('latency_ms')) {
-      final l$latency_ms = latency_ms;
+      final l$latencyMs = latency_ms;
       result$data['latency_ms'] =
-          l$latency_ms == null ? null : toJson$Enum$order_by(l$latency_ms);
+          l$latencyMs == null ? null : toJson$Enum$order_by(l$latencyMs);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     return result$data;
   }
@@ -34882,7 +35598,7 @@ class Input$stations_uptime_sum_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$stations_uptime_sum_order_by) ||
+    if (other is! Input$stations_uptime_sum_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -34894,22 +35610,22 @@ class Input$stations_uptime_sum_order_by {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$latency_ms = latency_ms;
-    final lOther$latency_ms = other.latency_ms;
+    final l$latencyMs = latency_ms;
+    final lother$latencyMs = other.latency_ms;
     if (_$data.containsKey('latency_ms') !=
         other._$data.containsKey('latency_ms')) {
       return false;
     }
-    if (l$latency_ms != lOther$latency_ms) {
+    if (l$latencyMs != lother$latencyMs) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -34918,12 +35634,12 @@ class Input$stations_uptime_sum_order_by {
   @override
   int get hashCode {
     final l$id = id;
-    final l$latency_ms = latency_ms;
-    final l$station_id = station_id;
+    final l$latencyMs = latency_ms;
+    final l$stationId = station_id;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
-      _$data.containsKey('latency_ms') ? l$latency_ms : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('latency_ms') ? l$latencyMs : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -34957,6 +35673,7 @@ class _CopyWithImpl$Input$stations_uptime_sum_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? latency_ms = _undefined,
@@ -34976,8 +35693,9 @@ class _CopyWithStubImpl$Input$stations_uptime_sum_order_by<TRes>
     implements CopyWith$Input$stations_uptime_sum_order_by<TRes> {
   _CopyWithStubImpl$Input$stations_uptime_sum_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? latency_ms,
@@ -35009,16 +35727,16 @@ class Input$stations_uptime_var_pop_order_by {
           l$id == null ? null : fromJson$Enum$order_by((l$id as String));
     }
     if (data.containsKey('latency_ms')) {
-      final l$latency_ms = data['latency_ms'];
-      result$data['latency_ms'] = l$latency_ms == null
+      final l$latencyMs = data['latency_ms'];
+      result$data['latency_ms'] = l$latencyMs == null
           ? null
-          : fromJson$Enum$order_by((l$latency_ms as String));
+          : fromJson$Enum$order_by((l$latencyMs as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     return Input$stations_uptime_var_pop_order_by._(result$data);
   }
@@ -35038,14 +35756,14 @@ class Input$stations_uptime_var_pop_order_by {
       result$data['id'] = l$id == null ? null : toJson$Enum$order_by(l$id);
     }
     if (_$data.containsKey('latency_ms')) {
-      final l$latency_ms = latency_ms;
+      final l$latencyMs = latency_ms;
       result$data['latency_ms'] =
-          l$latency_ms == null ? null : toJson$Enum$order_by(l$latency_ms);
+          l$latencyMs == null ? null : toJson$Enum$order_by(l$latencyMs);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     return result$data;
   }
@@ -35062,7 +35780,7 @@ class Input$stations_uptime_var_pop_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$stations_uptime_var_pop_order_by) ||
+    if (other is! Input$stations_uptime_var_pop_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -35074,22 +35792,22 @@ class Input$stations_uptime_var_pop_order_by {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$latency_ms = latency_ms;
-    final lOther$latency_ms = other.latency_ms;
+    final l$latencyMs = latency_ms;
+    final lother$latencyMs = other.latency_ms;
     if (_$data.containsKey('latency_ms') !=
         other._$data.containsKey('latency_ms')) {
       return false;
     }
-    if (l$latency_ms != lOther$latency_ms) {
+    if (l$latencyMs != lother$latencyMs) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -35098,12 +35816,12 @@ class Input$stations_uptime_var_pop_order_by {
   @override
   int get hashCode {
     final l$id = id;
-    final l$latency_ms = latency_ms;
-    final l$station_id = station_id;
+    final l$latencyMs = latency_ms;
+    final l$stationId = station_id;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
-      _$data.containsKey('latency_ms') ? l$latency_ms : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('latency_ms') ? l$latencyMs : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -35137,6 +35855,7 @@ class _CopyWithImpl$Input$stations_uptime_var_pop_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? latency_ms = _undefined,
@@ -35156,8 +35875,9 @@ class _CopyWithStubImpl$Input$stations_uptime_var_pop_order_by<TRes>
     implements CopyWith$Input$stations_uptime_var_pop_order_by<TRes> {
   _CopyWithStubImpl$Input$stations_uptime_var_pop_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? latency_ms,
@@ -35189,16 +35909,16 @@ class Input$stations_uptime_var_samp_order_by {
           l$id == null ? null : fromJson$Enum$order_by((l$id as String));
     }
     if (data.containsKey('latency_ms')) {
-      final l$latency_ms = data['latency_ms'];
-      result$data['latency_ms'] = l$latency_ms == null
+      final l$latencyMs = data['latency_ms'];
+      result$data['latency_ms'] = l$latencyMs == null
           ? null
-          : fromJson$Enum$order_by((l$latency_ms as String));
+          : fromJson$Enum$order_by((l$latencyMs as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     return Input$stations_uptime_var_samp_order_by._(result$data);
   }
@@ -35218,14 +35938,14 @@ class Input$stations_uptime_var_samp_order_by {
       result$data['id'] = l$id == null ? null : toJson$Enum$order_by(l$id);
     }
     if (_$data.containsKey('latency_ms')) {
-      final l$latency_ms = latency_ms;
+      final l$latencyMs = latency_ms;
       result$data['latency_ms'] =
-          l$latency_ms == null ? null : toJson$Enum$order_by(l$latency_ms);
+          l$latencyMs == null ? null : toJson$Enum$order_by(l$latencyMs);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     return result$data;
   }
@@ -35242,7 +35962,7 @@ class Input$stations_uptime_var_samp_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$stations_uptime_var_samp_order_by) ||
+    if (other is! Input$stations_uptime_var_samp_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -35254,22 +35974,22 @@ class Input$stations_uptime_var_samp_order_by {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$latency_ms = latency_ms;
-    final lOther$latency_ms = other.latency_ms;
+    final l$latencyMs = latency_ms;
+    final lother$latencyMs = other.latency_ms;
     if (_$data.containsKey('latency_ms') !=
         other._$data.containsKey('latency_ms')) {
       return false;
     }
-    if (l$latency_ms != lOther$latency_ms) {
+    if (l$latencyMs != lother$latencyMs) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -35278,12 +35998,12 @@ class Input$stations_uptime_var_samp_order_by {
   @override
   int get hashCode {
     final l$id = id;
-    final l$latency_ms = latency_ms;
-    final l$station_id = station_id;
+    final l$latencyMs = latency_ms;
+    final l$stationId = station_id;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
-      _$data.containsKey('latency_ms') ? l$latency_ms : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('latency_ms') ? l$latencyMs : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -35317,6 +36037,7 @@ class _CopyWithImpl$Input$stations_uptime_var_samp_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? latency_ms = _undefined,
@@ -35336,8 +36057,9 @@ class _CopyWithStubImpl$Input$stations_uptime_var_samp_order_by<TRes>
     implements CopyWith$Input$stations_uptime_var_samp_order_by<TRes> {
   _CopyWithStubImpl$Input$stations_uptime_var_samp_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? latency_ms,
@@ -35369,16 +36091,16 @@ class Input$stations_uptime_variance_order_by {
           l$id == null ? null : fromJson$Enum$order_by((l$id as String));
     }
     if (data.containsKey('latency_ms')) {
-      final l$latency_ms = data['latency_ms'];
-      result$data['latency_ms'] = l$latency_ms == null
+      final l$latencyMs = data['latency_ms'];
+      result$data['latency_ms'] = l$latencyMs == null
           ? null
-          : fromJson$Enum$order_by((l$latency_ms as String));
+          : fromJson$Enum$order_by((l$latencyMs as String));
     }
     if (data.containsKey('station_id')) {
-      final l$station_id = data['station_id'];
-      result$data['station_id'] = l$station_id == null
+      final l$stationId = data['station_id'];
+      result$data['station_id'] = l$stationId == null
           ? null
-          : fromJson$Enum$order_by((l$station_id as String));
+          : fromJson$Enum$order_by((l$stationId as String));
     }
     return Input$stations_uptime_variance_order_by._(result$data);
   }
@@ -35398,14 +36120,14 @@ class Input$stations_uptime_variance_order_by {
       result$data['id'] = l$id == null ? null : toJson$Enum$order_by(l$id);
     }
     if (_$data.containsKey('latency_ms')) {
-      final l$latency_ms = latency_ms;
+      final l$latencyMs = latency_ms;
       result$data['latency_ms'] =
-          l$latency_ms == null ? null : toJson$Enum$order_by(l$latency_ms);
+          l$latencyMs == null ? null : toJson$Enum$order_by(l$latencyMs);
     }
     if (_$data.containsKey('station_id')) {
-      final l$station_id = station_id;
+      final l$stationId = station_id;
       result$data['station_id'] =
-          l$station_id == null ? null : toJson$Enum$order_by(l$station_id);
+          l$stationId == null ? null : toJson$Enum$order_by(l$stationId);
     }
     return result$data;
   }
@@ -35422,7 +36144,7 @@ class Input$stations_uptime_variance_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$stations_uptime_variance_order_by) ||
+    if (other is! Input$stations_uptime_variance_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -35434,22 +36156,22 @@ class Input$stations_uptime_variance_order_by {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$latency_ms = latency_ms;
-    final lOther$latency_ms = other.latency_ms;
+    final l$latencyMs = latency_ms;
+    final lother$latencyMs = other.latency_ms;
     if (_$data.containsKey('latency_ms') !=
         other._$data.containsKey('latency_ms')) {
       return false;
     }
-    if (l$latency_ms != lOther$latency_ms) {
+    if (l$latencyMs != lother$latencyMs) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
     if (_$data.containsKey('station_id') !=
         other._$data.containsKey('station_id')) {
       return false;
     }
-    if (l$station_id != lOther$station_id) {
+    if (l$stationId != lother$stationId) {
       return false;
     }
     return true;
@@ -35458,12 +36180,12 @@ class Input$stations_uptime_variance_order_by {
   @override
   int get hashCode {
     final l$id = id;
-    final l$latency_ms = latency_ms;
-    final l$station_id = station_id;
+    final l$latencyMs = latency_ms;
+    final l$stationId = station_id;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
-      _$data.containsKey('latency_ms') ? l$latency_ms : const {},
-      _$data.containsKey('station_id') ? l$station_id : const {},
+      _$data.containsKey('latency_ms') ? l$latencyMs : const {},
+      _$data.containsKey('station_id') ? l$stationId : const {},
     ]);
   }
 }
@@ -35497,6 +36219,7 @@ class _CopyWithImpl$Input$stations_uptime_variance_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? latency_ms = _undefined,
@@ -35516,8 +36239,9 @@ class _CopyWithStubImpl$Input$stations_uptime_variance_order_by<TRes>
     implements CopyWith$Input$stations_uptime_variance_order_by<TRes> {
   _CopyWithStubImpl$Input$stations_uptime_variance_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? latency_ms,
@@ -35552,20 +36276,20 @@ class Input$stations_var_pop_order_by {
           l$id == null ? null : fromJson$Enum$order_by((l$id as String));
     }
     if (data.containsKey('latest_station_now_playing_id')) {
-      final l$latest_station_now_playing_id =
+      final l$latestStationNowPlayingId =
           data['latest_station_now_playing_id'];
       result$data['latest_station_now_playing_id'] =
-          l$latest_station_now_playing_id == null
+          l$latestStationNowPlayingId == null
               ? null
               : fromJson$Enum$order_by(
-                  (l$latest_station_now_playing_id as String));
+                  (l$latestStationNowPlayingId as String));
     }
     if (data.containsKey('latest_station_uptime_id')) {
-      final l$latest_station_uptime_id = data['latest_station_uptime_id'];
+      final l$latestStationUptimeId = data['latest_station_uptime_id'];
       result$data['latest_station_uptime_id'] =
-          l$latest_station_uptime_id == null
+          l$latestStationUptimeId == null
               ? null
-              : fromJson$Enum$order_by((l$latest_station_uptime_id as String));
+              : fromJson$Enum$order_by((l$latestStationUptimeId as String));
     }
     if (data.containsKey('order')) {
       final l$order = data['order'];
@@ -35594,18 +36318,18 @@ class Input$stations_var_pop_order_by {
       result$data['id'] = l$id == null ? null : toJson$Enum$order_by(l$id);
     }
     if (_$data.containsKey('latest_station_now_playing_id')) {
-      final l$latest_station_now_playing_id = latest_station_now_playing_id;
+      final l$latestStationNowPlayingId = latest_station_now_playing_id;
       result$data['latest_station_now_playing_id'] =
-          l$latest_station_now_playing_id == null
+          l$latestStationNowPlayingId == null
               ? null
-              : toJson$Enum$order_by(l$latest_station_now_playing_id);
+              : toJson$Enum$order_by(l$latestStationNowPlayingId);
     }
     if (_$data.containsKey('latest_station_uptime_id')) {
-      final l$latest_station_uptime_id = latest_station_uptime_id;
+      final l$latestStationUptimeId = latest_station_uptime_id;
       result$data['latest_station_uptime_id'] =
-          l$latest_station_uptime_id == null
+          l$latestStationUptimeId == null
               ? null
-              : toJson$Enum$order_by(l$latest_station_uptime_id);
+              : toJson$Enum$order_by(l$latestStationUptimeId);
     }
     if (_$data.containsKey('order')) {
       final l$order = order;
@@ -35626,7 +36350,7 @@ class Input$stations_var_pop_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$stations_var_pop_order_by) ||
+    if (other is! Input$stations_var_pop_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -35638,24 +36362,24 @@ class Input$stations_var_pop_order_by {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$latest_station_now_playing_id = latest_station_now_playing_id;
-    final lOther$latest_station_now_playing_id =
+    final l$latestStationNowPlayingId = latest_station_now_playing_id;
+    final lother$latestStationNowPlayingId =
         other.latest_station_now_playing_id;
     if (_$data.containsKey('latest_station_now_playing_id') !=
         other._$data.containsKey('latest_station_now_playing_id')) {
       return false;
     }
-    if (l$latest_station_now_playing_id !=
-        lOther$latest_station_now_playing_id) {
+    if (l$latestStationNowPlayingId !=
+        lother$latestStationNowPlayingId) {
       return false;
     }
-    final l$latest_station_uptime_id = latest_station_uptime_id;
-    final lOther$latest_station_uptime_id = other.latest_station_uptime_id;
+    final l$latestStationUptimeId = latest_station_uptime_id;
+    final lother$latestStationUptimeId = other.latest_station_uptime_id;
     if (_$data.containsKey('latest_station_uptime_id') !=
         other._$data.containsKey('latest_station_uptime_id')) {
       return false;
     }
-    if (l$latest_station_uptime_id != lOther$latest_station_uptime_id) {
+    if (l$latestStationUptimeId != lother$latestStationUptimeId) {
       return false;
     }
     final l$order = order;
@@ -35672,16 +36396,16 @@ class Input$stations_var_pop_order_by {
   @override
   int get hashCode {
     final l$id = id;
-    final l$latest_station_now_playing_id = latest_station_now_playing_id;
-    final l$latest_station_uptime_id = latest_station_uptime_id;
+    final l$latestStationNowPlayingId = latest_station_now_playing_id;
+    final l$latestStationUptimeId = latest_station_uptime_id;
     final l$order = order;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('latest_station_now_playing_id')
-          ? l$latest_station_now_playing_id
+          ? l$latestStationNowPlayingId
           : const {},
       _$data.containsKey('latest_station_uptime_id')
-          ? l$latest_station_uptime_id
+          ? l$latestStationUptimeId
           : const {},
       _$data.containsKey('order') ? l$order : const {},
     ]);
@@ -35718,6 +36442,7 @@ class _CopyWithImpl$Input$stations_var_pop_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? latest_station_now_playing_id = _undefined,
@@ -35741,8 +36466,9 @@ class _CopyWithStubImpl$Input$stations_var_pop_order_by<TRes>
     implements CopyWith$Input$stations_var_pop_order_by<TRes> {
   _CopyWithStubImpl$Input$stations_var_pop_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? latest_station_now_playing_id,
@@ -35778,20 +36504,20 @@ class Input$stations_var_samp_order_by {
           l$id == null ? null : fromJson$Enum$order_by((l$id as String));
     }
     if (data.containsKey('latest_station_now_playing_id')) {
-      final l$latest_station_now_playing_id =
+      final l$latestStationNowPlayingId =
           data['latest_station_now_playing_id'];
       result$data['latest_station_now_playing_id'] =
-          l$latest_station_now_playing_id == null
+          l$latestStationNowPlayingId == null
               ? null
               : fromJson$Enum$order_by(
-                  (l$latest_station_now_playing_id as String));
+                  (l$latestStationNowPlayingId as String));
     }
     if (data.containsKey('latest_station_uptime_id')) {
-      final l$latest_station_uptime_id = data['latest_station_uptime_id'];
+      final l$latestStationUptimeId = data['latest_station_uptime_id'];
       result$data['latest_station_uptime_id'] =
-          l$latest_station_uptime_id == null
+          l$latestStationUptimeId == null
               ? null
-              : fromJson$Enum$order_by((l$latest_station_uptime_id as String));
+              : fromJson$Enum$order_by((l$latestStationUptimeId as String));
     }
     if (data.containsKey('order')) {
       final l$order = data['order'];
@@ -35820,18 +36546,18 @@ class Input$stations_var_samp_order_by {
       result$data['id'] = l$id == null ? null : toJson$Enum$order_by(l$id);
     }
     if (_$data.containsKey('latest_station_now_playing_id')) {
-      final l$latest_station_now_playing_id = latest_station_now_playing_id;
+      final l$latestStationNowPlayingId = latest_station_now_playing_id;
       result$data['latest_station_now_playing_id'] =
-          l$latest_station_now_playing_id == null
+          l$latestStationNowPlayingId == null
               ? null
-              : toJson$Enum$order_by(l$latest_station_now_playing_id);
+              : toJson$Enum$order_by(l$latestStationNowPlayingId);
     }
     if (_$data.containsKey('latest_station_uptime_id')) {
-      final l$latest_station_uptime_id = latest_station_uptime_id;
+      final l$latestStationUptimeId = latest_station_uptime_id;
       result$data['latest_station_uptime_id'] =
-          l$latest_station_uptime_id == null
+          l$latestStationUptimeId == null
               ? null
-              : toJson$Enum$order_by(l$latest_station_uptime_id);
+              : toJson$Enum$order_by(l$latestStationUptimeId);
     }
     if (_$data.containsKey('order')) {
       final l$order = order;
@@ -35852,7 +36578,7 @@ class Input$stations_var_samp_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$stations_var_samp_order_by) ||
+    if (other is! Input$stations_var_samp_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -35864,24 +36590,24 @@ class Input$stations_var_samp_order_by {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$latest_station_now_playing_id = latest_station_now_playing_id;
-    final lOther$latest_station_now_playing_id =
+    final l$latestStationNowPlayingId = latest_station_now_playing_id;
+    final lother$latestStationNowPlayingId =
         other.latest_station_now_playing_id;
     if (_$data.containsKey('latest_station_now_playing_id') !=
         other._$data.containsKey('latest_station_now_playing_id')) {
       return false;
     }
-    if (l$latest_station_now_playing_id !=
-        lOther$latest_station_now_playing_id) {
+    if (l$latestStationNowPlayingId !=
+        lother$latestStationNowPlayingId) {
       return false;
     }
-    final l$latest_station_uptime_id = latest_station_uptime_id;
-    final lOther$latest_station_uptime_id = other.latest_station_uptime_id;
+    final l$latestStationUptimeId = latest_station_uptime_id;
+    final lother$latestStationUptimeId = other.latest_station_uptime_id;
     if (_$data.containsKey('latest_station_uptime_id') !=
         other._$data.containsKey('latest_station_uptime_id')) {
       return false;
     }
-    if (l$latest_station_uptime_id != lOther$latest_station_uptime_id) {
+    if (l$latestStationUptimeId != lother$latestStationUptimeId) {
       return false;
     }
     final l$order = order;
@@ -35898,16 +36624,16 @@ class Input$stations_var_samp_order_by {
   @override
   int get hashCode {
     final l$id = id;
-    final l$latest_station_now_playing_id = latest_station_now_playing_id;
-    final l$latest_station_uptime_id = latest_station_uptime_id;
+    final l$latestStationNowPlayingId = latest_station_now_playing_id;
+    final l$latestStationUptimeId = latest_station_uptime_id;
     final l$order = order;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('latest_station_now_playing_id')
-          ? l$latest_station_now_playing_id
+          ? l$latestStationNowPlayingId
           : const {},
       _$data.containsKey('latest_station_uptime_id')
-          ? l$latest_station_uptime_id
+          ? l$latestStationUptimeId
           : const {},
       _$data.containsKey('order') ? l$order : const {},
     ]);
@@ -35944,6 +36670,7 @@ class _CopyWithImpl$Input$stations_var_samp_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? latest_station_now_playing_id = _undefined,
@@ -35967,8 +36694,9 @@ class _CopyWithStubImpl$Input$stations_var_samp_order_by<TRes>
     implements CopyWith$Input$stations_var_samp_order_by<TRes> {
   _CopyWithStubImpl$Input$stations_var_samp_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? latest_station_now_playing_id,
@@ -36004,20 +36732,20 @@ class Input$stations_variance_order_by {
           l$id == null ? null : fromJson$Enum$order_by((l$id as String));
     }
     if (data.containsKey('latest_station_now_playing_id')) {
-      final l$latest_station_now_playing_id =
+      final l$latestStationNowPlayingId =
           data['latest_station_now_playing_id'];
       result$data['latest_station_now_playing_id'] =
-          l$latest_station_now_playing_id == null
+          l$latestStationNowPlayingId == null
               ? null
               : fromJson$Enum$order_by(
-                  (l$latest_station_now_playing_id as String));
+                  (l$latestStationNowPlayingId as String));
     }
     if (data.containsKey('latest_station_uptime_id')) {
-      final l$latest_station_uptime_id = data['latest_station_uptime_id'];
+      final l$latestStationUptimeId = data['latest_station_uptime_id'];
       result$data['latest_station_uptime_id'] =
-          l$latest_station_uptime_id == null
+          l$latestStationUptimeId == null
               ? null
-              : fromJson$Enum$order_by((l$latest_station_uptime_id as String));
+              : fromJson$Enum$order_by((l$latestStationUptimeId as String));
     }
     if (data.containsKey('order')) {
       final l$order = data['order'];
@@ -36046,18 +36774,18 @@ class Input$stations_variance_order_by {
       result$data['id'] = l$id == null ? null : toJson$Enum$order_by(l$id);
     }
     if (_$data.containsKey('latest_station_now_playing_id')) {
-      final l$latest_station_now_playing_id = latest_station_now_playing_id;
+      final l$latestStationNowPlayingId = latest_station_now_playing_id;
       result$data['latest_station_now_playing_id'] =
-          l$latest_station_now_playing_id == null
+          l$latestStationNowPlayingId == null
               ? null
-              : toJson$Enum$order_by(l$latest_station_now_playing_id);
+              : toJson$Enum$order_by(l$latestStationNowPlayingId);
     }
     if (_$data.containsKey('latest_station_uptime_id')) {
-      final l$latest_station_uptime_id = latest_station_uptime_id;
+      final l$latestStationUptimeId = latest_station_uptime_id;
       result$data['latest_station_uptime_id'] =
-          l$latest_station_uptime_id == null
+          l$latestStationUptimeId == null
               ? null
-              : toJson$Enum$order_by(l$latest_station_uptime_id);
+              : toJson$Enum$order_by(l$latestStationUptimeId);
     }
     if (_$data.containsKey('order')) {
       final l$order = order;
@@ -36078,7 +36806,7 @@ class Input$stations_variance_order_by {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$stations_variance_order_by) ||
+    if (other is! Input$stations_variance_order_by ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -36090,24 +36818,24 @@ class Input$stations_variance_order_by {
     if (l$id != lOther$id) {
       return false;
     }
-    final l$latest_station_now_playing_id = latest_station_now_playing_id;
-    final lOther$latest_station_now_playing_id =
+    final l$latestStationNowPlayingId = latest_station_now_playing_id;
+    final lother$latestStationNowPlayingId =
         other.latest_station_now_playing_id;
     if (_$data.containsKey('latest_station_now_playing_id') !=
         other._$data.containsKey('latest_station_now_playing_id')) {
       return false;
     }
-    if (l$latest_station_now_playing_id !=
-        lOther$latest_station_now_playing_id) {
+    if (l$latestStationNowPlayingId !=
+        lother$latestStationNowPlayingId) {
       return false;
     }
-    final l$latest_station_uptime_id = latest_station_uptime_id;
-    final lOther$latest_station_uptime_id = other.latest_station_uptime_id;
+    final l$latestStationUptimeId = latest_station_uptime_id;
+    final lother$latestStationUptimeId = other.latest_station_uptime_id;
     if (_$data.containsKey('latest_station_uptime_id') !=
         other._$data.containsKey('latest_station_uptime_id')) {
       return false;
     }
-    if (l$latest_station_uptime_id != lOther$latest_station_uptime_id) {
+    if (l$latestStationUptimeId != lother$latestStationUptimeId) {
       return false;
     }
     final l$order = order;
@@ -36124,16 +36852,16 @@ class Input$stations_variance_order_by {
   @override
   int get hashCode {
     final l$id = id;
-    final l$latest_station_now_playing_id = latest_station_now_playing_id;
-    final l$latest_station_uptime_id = latest_station_uptime_id;
+    final l$latestStationNowPlayingId = latest_station_now_playing_id;
+    final l$latestStationUptimeId = latest_station_uptime_id;
     final l$order = order;
     return Object.hashAll([
       _$data.containsKey('id') ? l$id : const {},
       _$data.containsKey('latest_station_now_playing_id')
-          ? l$latest_station_now_playing_id
+          ? l$latestStationNowPlayingId
           : const {},
       _$data.containsKey('latest_station_uptime_id')
-          ? l$latest_station_uptime_id
+          ? l$latestStationUptimeId
           : const {},
       _$data.containsKey('order') ? l$order : const {},
     ]);
@@ -36170,6 +36898,7 @@ class _CopyWithImpl$Input$stations_variance_order_by<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? latest_station_now_playing_id = _undefined,
@@ -36193,8 +36922,9 @@ class _CopyWithStubImpl$Input$stations_variance_order_by<TRes>
     implements CopyWith$Input$stations_variance_order_by<TRes> {
   _CopyWithStubImpl$Input$stations_variance_order_by(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     Enum$order_by? id,
     Enum$order_by? latest_station_now_playing_id,
@@ -36253,82 +36983,82 @@ class Input$String_comparison_exp {
   factory Input$String_comparison_exp.fromJson(Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
     if (data.containsKey('_eq')) {
-      final l$$_eq = data['_eq'];
-      result$data['_eq'] = (l$$_eq as String?);
+      final l$$Eq = data['_eq'];
+      result$data['_eq'] = (l$$Eq as String?);
     }
     if (data.containsKey('_gt')) {
-      final l$$_gt = data['_gt'];
-      result$data['_gt'] = (l$$_gt as String?);
+      final l$$Gt = data['_gt'];
+      result$data['_gt'] = (l$$Gt as String?);
     }
     if (data.containsKey('_gte')) {
-      final l$$_gte = data['_gte'];
-      result$data['_gte'] = (l$$_gte as String?);
+      final l$$Gte = data['_gte'];
+      result$data['_gte'] = (l$$Gte as String?);
     }
     if (data.containsKey('_ilike')) {
-      final l$$_ilike = data['_ilike'];
-      result$data['_ilike'] = (l$$_ilike as String?);
+      final l$$Ilike = data['_ilike'];
+      result$data['_ilike'] = (l$$Ilike as String?);
     }
     if (data.containsKey('_in')) {
-      final l$$_in = data['_in'];
+      final l$$In = data['_in'];
       result$data['_in'] =
-          (l$$_in as List<dynamic>?)?.map((e) => (e as String)).toList();
+          (l$$In as List<dynamic>?)?.map((e) => (e as String)).toList();
     }
     if (data.containsKey('_iregex')) {
-      final l$$_iregex = data['_iregex'];
-      result$data['_iregex'] = (l$$_iregex as String?);
+      final l$$Iregex = data['_iregex'];
+      result$data['_iregex'] = (l$$Iregex as String?);
     }
     if (data.containsKey('_is_null')) {
-      final l$$_is_null = data['_is_null'];
-      result$data['_is_null'] = (l$$_is_null as bool?);
+      final l$$IsNull = data['_is_null'];
+      result$data['_is_null'] = (l$$IsNull as bool?);
     }
     if (data.containsKey('_like')) {
-      final l$$_like = data['_like'];
-      result$data['_like'] = (l$$_like as String?);
+      final l$$Like = data['_like'];
+      result$data['_like'] = (l$$Like as String?);
     }
     if (data.containsKey('_lt')) {
-      final l$$_lt = data['_lt'];
-      result$data['_lt'] = (l$$_lt as String?);
+      final l$$Lt = data['_lt'];
+      result$data['_lt'] = (l$$Lt as String?);
     }
     if (data.containsKey('_lte')) {
-      final l$$_lte = data['_lte'];
-      result$data['_lte'] = (l$$_lte as String?);
+      final l$$Lte = data['_lte'];
+      result$data['_lte'] = (l$$Lte as String?);
     }
     if (data.containsKey('_neq')) {
-      final l$$_neq = data['_neq'];
-      result$data['_neq'] = (l$$_neq as String?);
+      final l$$Neq = data['_neq'];
+      result$data['_neq'] = (l$$Neq as String?);
     }
     if (data.containsKey('_nilike')) {
-      final l$$_nilike = data['_nilike'];
-      result$data['_nilike'] = (l$$_nilike as String?);
+      final l$$Nilike = data['_nilike'];
+      result$data['_nilike'] = (l$$Nilike as String?);
     }
     if (data.containsKey('_nin')) {
-      final l$$_nin = data['_nin'];
+      final l$$Nin = data['_nin'];
       result$data['_nin'] =
-          (l$$_nin as List<dynamic>?)?.map((e) => (e as String)).toList();
+          (l$$Nin as List<dynamic>?)?.map((e) => (e as String)).toList();
     }
     if (data.containsKey('_niregex')) {
-      final l$$_niregex = data['_niregex'];
-      result$data['_niregex'] = (l$$_niregex as String?);
+      final l$$Niregex = data['_niregex'];
+      result$data['_niregex'] = (l$$Niregex as String?);
     }
     if (data.containsKey('_nlike')) {
-      final l$$_nlike = data['_nlike'];
-      result$data['_nlike'] = (l$$_nlike as String?);
+      final l$$Nlike = data['_nlike'];
+      result$data['_nlike'] = (l$$Nlike as String?);
     }
     if (data.containsKey('_nregex')) {
-      final l$$_nregex = data['_nregex'];
-      result$data['_nregex'] = (l$$_nregex as String?);
+      final l$$Nregex = data['_nregex'];
+      result$data['_nregex'] = (l$$Nregex as String?);
     }
     if (data.containsKey('_nsimilar')) {
-      final l$$_nsimilar = data['_nsimilar'];
-      result$data['_nsimilar'] = (l$$_nsimilar as String?);
+      final l$$Nsimilar = data['_nsimilar'];
+      result$data['_nsimilar'] = (l$$Nsimilar as String?);
     }
     if (data.containsKey('_regex')) {
-      final l$$_regex = data['_regex'];
-      result$data['_regex'] = (l$$_regex as String?);
+      final l$$Regex = data['_regex'];
+      result$data['_regex'] = (l$$Regex as String?);
     }
     if (data.containsKey('_similar')) {
-      final l$$_similar = data['_similar'];
-      result$data['_similar'] = (l$$_similar as String?);
+      final l$$Similar = data['_similar'];
+      result$data['_similar'] = (l$$Similar as String?);
     }
     return Input$String_comparison_exp._(result$data);
   }
@@ -36376,80 +37106,80 @@ class Input$String_comparison_exp {
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
     if (_$data.containsKey('_eq')) {
-      final l$$_eq = $_eq;
-      result$data['_eq'] = l$$_eq;
+      final l$$Eq = $_eq;
+      result$data['_eq'] = l$$Eq;
     }
     if (_$data.containsKey('_gt')) {
-      final l$$_gt = $_gt;
-      result$data['_gt'] = l$$_gt;
+      final l$$Gt = $_gt;
+      result$data['_gt'] = l$$Gt;
     }
     if (_$data.containsKey('_gte')) {
-      final l$$_gte = $_gte;
-      result$data['_gte'] = l$$_gte;
+      final l$$Gte = $_gte;
+      result$data['_gte'] = l$$Gte;
     }
     if (_$data.containsKey('_ilike')) {
-      final l$$_ilike = $_ilike;
-      result$data['_ilike'] = l$$_ilike;
+      final l$$Ilike = $_ilike;
+      result$data['_ilike'] = l$$Ilike;
     }
     if (_$data.containsKey('_in')) {
-      final l$$_in = $_in;
-      result$data['_in'] = l$$_in?.map((e) => e).toList();
+      final l$$In = $_in;
+      result$data['_in'] = l$$In?.map((e) => e).toList();
     }
     if (_$data.containsKey('_iregex')) {
-      final l$$_iregex = $_iregex;
-      result$data['_iregex'] = l$$_iregex;
+      final l$$Iregex = $_iregex;
+      result$data['_iregex'] = l$$Iregex;
     }
     if (_$data.containsKey('_is_null')) {
-      final l$$_is_null = $_is_null;
-      result$data['_is_null'] = l$$_is_null;
+      final l$$IsNull = $_is_null;
+      result$data['_is_null'] = l$$IsNull;
     }
     if (_$data.containsKey('_like')) {
-      final l$$_like = $_like;
-      result$data['_like'] = l$$_like;
+      final l$$Like = $_like;
+      result$data['_like'] = l$$Like;
     }
     if (_$data.containsKey('_lt')) {
-      final l$$_lt = $_lt;
-      result$data['_lt'] = l$$_lt;
+      final l$$Lt = $_lt;
+      result$data['_lt'] = l$$Lt;
     }
     if (_$data.containsKey('_lte')) {
-      final l$$_lte = $_lte;
-      result$data['_lte'] = l$$_lte;
+      final l$$Lte = $_lte;
+      result$data['_lte'] = l$$Lte;
     }
     if (_$data.containsKey('_neq')) {
-      final l$$_neq = $_neq;
-      result$data['_neq'] = l$$_neq;
+      final l$$Neq = $_neq;
+      result$data['_neq'] = l$$Neq;
     }
     if (_$data.containsKey('_nilike')) {
-      final l$$_nilike = $_nilike;
-      result$data['_nilike'] = l$$_nilike;
+      final l$$Nilike = $_nilike;
+      result$data['_nilike'] = l$$Nilike;
     }
     if (_$data.containsKey('_nin')) {
-      final l$$_nin = $_nin;
-      result$data['_nin'] = l$$_nin?.map((e) => e).toList();
+      final l$$Nin = $_nin;
+      result$data['_nin'] = l$$Nin?.map((e) => e).toList();
     }
     if (_$data.containsKey('_niregex')) {
-      final l$$_niregex = $_niregex;
-      result$data['_niregex'] = l$$_niregex;
+      final l$$Niregex = $_niregex;
+      result$data['_niregex'] = l$$Niregex;
     }
     if (_$data.containsKey('_nlike')) {
-      final l$$_nlike = $_nlike;
-      result$data['_nlike'] = l$$_nlike;
+      final l$$Nlike = $_nlike;
+      result$data['_nlike'] = l$$Nlike;
     }
     if (_$data.containsKey('_nregex')) {
-      final l$$_nregex = $_nregex;
-      result$data['_nregex'] = l$$_nregex;
+      final l$$Nregex = $_nregex;
+      result$data['_nregex'] = l$$Nregex;
     }
     if (_$data.containsKey('_nsimilar')) {
-      final l$$_nsimilar = $_nsimilar;
-      result$data['_nsimilar'] = l$$_nsimilar;
+      final l$$Nsimilar = $_nsimilar;
+      result$data['_nsimilar'] = l$$Nsimilar;
     }
     if (_$data.containsKey('_regex')) {
-      final l$$_regex = $_regex;
-      result$data['_regex'] = l$$_regex;
+      final l$$Regex = $_regex;
+      result$data['_regex'] = l$$Regex;
     }
     if (_$data.containsKey('_similar')) {
-      final l$$_similar = $_similar;
-      result$data['_similar'] = l$$_similar;
+      final l$$Similar = $_similar;
+      result$data['_similar'] = l$$Similar;
     }
     return result$data;
   }
@@ -36465,186 +37195,186 @@ class Input$String_comparison_exp {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$String_comparison_exp) ||
+    if (other is! Input$String_comparison_exp ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$$_eq = $_eq;
-    final lOther$$_eq = other.$_eq;
+    final l$$Eq = $_eq;
+    final lother$$Eq = other.$_eq;
     if (_$data.containsKey('_eq') != other._$data.containsKey('_eq')) {
       return false;
     }
-    if (l$$_eq != lOther$$_eq) {
+    if (l$$Eq != lother$$Eq) {
       return false;
     }
-    final l$$_gt = $_gt;
-    final lOther$$_gt = other.$_gt;
+    final l$$Gt = $_gt;
+    final lother$$Gt = other.$_gt;
     if (_$data.containsKey('_gt') != other._$data.containsKey('_gt')) {
       return false;
     }
-    if (l$$_gt != lOther$$_gt) {
+    if (l$$Gt != lother$$Gt) {
       return false;
     }
-    final l$$_gte = $_gte;
-    final lOther$$_gte = other.$_gte;
+    final l$$Gte = $_gte;
+    final lother$$Gte = other.$_gte;
     if (_$data.containsKey('_gte') != other._$data.containsKey('_gte')) {
       return false;
     }
-    if (l$$_gte != lOther$$_gte) {
+    if (l$$Gte != lother$$Gte) {
       return false;
     }
-    final l$$_ilike = $_ilike;
-    final lOther$$_ilike = other.$_ilike;
+    final l$$Ilike = $_ilike;
+    final lother$$Ilike = other.$_ilike;
     if (_$data.containsKey('_ilike') != other._$data.containsKey('_ilike')) {
       return false;
     }
-    if (l$$_ilike != lOther$$_ilike) {
+    if (l$$Ilike != lother$$Ilike) {
       return false;
     }
-    final l$$_in = $_in;
-    final lOther$$_in = other.$_in;
+    final l$$In = $_in;
+    final lother$$In = other.$_in;
     if (_$data.containsKey('_in') != other._$data.containsKey('_in')) {
       return false;
     }
-    if (l$$_in != null && lOther$$_in != null) {
-      if (l$$_in.length != lOther$$_in.length) {
+    if (l$$In != null && lother$$In != null) {
+      if (l$$In.length != lother$$In.length) {
         return false;
       }
-      for (int i = 0; i < l$$_in.length; i++) {
-        final l$$_in$entry = l$$_in[i];
-        final lOther$$_in$entry = lOther$$_in[i];
-        if (l$$_in$entry != lOther$$_in$entry) {
+      for (int i = 0; i < l$$In.length; i++) {
+        final l$$In$entry = l$$In[i];
+        final lother$$In$entry = lother$$In[i];
+        if (l$$In$entry != lother$$In$entry) {
           return false;
         }
       }
-    } else if (l$$_in != lOther$$_in) {
+    } else if (l$$In != lother$$In) {
       return false;
     }
-    final l$$_iregex = $_iregex;
-    final lOther$$_iregex = other.$_iregex;
+    final l$$Iregex = $_iregex;
+    final lother$$Iregex = other.$_iregex;
     if (_$data.containsKey('_iregex') != other._$data.containsKey('_iregex')) {
       return false;
     }
-    if (l$$_iregex != lOther$$_iregex) {
+    if (l$$Iregex != lother$$Iregex) {
       return false;
     }
-    final l$$_is_null = $_is_null;
-    final lOther$$_is_null = other.$_is_null;
+    final l$$IsNull = $_is_null;
+    final lother$$IsNull = other.$_is_null;
     if (_$data.containsKey('_is_null') !=
         other._$data.containsKey('_is_null')) {
       return false;
     }
-    if (l$$_is_null != lOther$$_is_null) {
+    if (l$$IsNull != lother$$IsNull) {
       return false;
     }
-    final l$$_like = $_like;
-    final lOther$$_like = other.$_like;
+    final l$$Like = $_like;
+    final lother$$Like = other.$_like;
     if (_$data.containsKey('_like') != other._$data.containsKey('_like')) {
       return false;
     }
-    if (l$$_like != lOther$$_like) {
+    if (l$$Like != lother$$Like) {
       return false;
     }
-    final l$$_lt = $_lt;
-    final lOther$$_lt = other.$_lt;
+    final l$$Lt = $_lt;
+    final lother$$Lt = other.$_lt;
     if (_$data.containsKey('_lt') != other._$data.containsKey('_lt')) {
       return false;
     }
-    if (l$$_lt != lOther$$_lt) {
+    if (l$$Lt != lother$$Lt) {
       return false;
     }
-    final l$$_lte = $_lte;
-    final lOther$$_lte = other.$_lte;
+    final l$$Lte = $_lte;
+    final lother$$Lte = other.$_lte;
     if (_$data.containsKey('_lte') != other._$data.containsKey('_lte')) {
       return false;
     }
-    if (l$$_lte != lOther$$_lte) {
+    if (l$$Lte != lother$$Lte) {
       return false;
     }
-    final l$$_neq = $_neq;
-    final lOther$$_neq = other.$_neq;
+    final l$$Neq = $_neq;
+    final lother$$Neq = other.$_neq;
     if (_$data.containsKey('_neq') != other._$data.containsKey('_neq')) {
       return false;
     }
-    if (l$$_neq != lOther$$_neq) {
+    if (l$$Neq != lother$$Neq) {
       return false;
     }
-    final l$$_nilike = $_nilike;
-    final lOther$$_nilike = other.$_nilike;
+    final l$$Nilike = $_nilike;
+    final lother$$Nilike = other.$_nilike;
     if (_$data.containsKey('_nilike') != other._$data.containsKey('_nilike')) {
       return false;
     }
-    if (l$$_nilike != lOther$$_nilike) {
+    if (l$$Nilike != lother$$Nilike) {
       return false;
     }
-    final l$$_nin = $_nin;
-    final lOther$$_nin = other.$_nin;
+    final l$$Nin = $_nin;
+    final lother$$Nin = other.$_nin;
     if (_$data.containsKey('_nin') != other._$data.containsKey('_nin')) {
       return false;
     }
-    if (l$$_nin != null && lOther$$_nin != null) {
-      if (l$$_nin.length != lOther$$_nin.length) {
+    if (l$$Nin != null && lother$$Nin != null) {
+      if (l$$Nin.length != lother$$Nin.length) {
         return false;
       }
-      for (int i = 0; i < l$$_nin.length; i++) {
-        final l$$_nin$entry = l$$_nin[i];
-        final lOther$$_nin$entry = lOther$$_nin[i];
-        if (l$$_nin$entry != lOther$$_nin$entry) {
+      for (int i = 0; i < l$$Nin.length; i++) {
+        final l$$Nin$entry = l$$Nin[i];
+        final lother$$Nin$entry = lother$$Nin[i];
+        if (l$$Nin$entry != lother$$Nin$entry) {
           return false;
         }
       }
-    } else if (l$$_nin != lOther$$_nin) {
+    } else if (l$$Nin != lother$$Nin) {
       return false;
     }
-    final l$$_niregex = $_niregex;
-    final lOther$$_niregex = other.$_niregex;
+    final l$$Niregex = $_niregex;
+    final lother$$Niregex = other.$_niregex;
     if (_$data.containsKey('_niregex') !=
         other._$data.containsKey('_niregex')) {
       return false;
     }
-    if (l$$_niregex != lOther$$_niregex) {
+    if (l$$Niregex != lother$$Niregex) {
       return false;
     }
-    final l$$_nlike = $_nlike;
-    final lOther$$_nlike = other.$_nlike;
+    final l$$Nlike = $_nlike;
+    final lother$$Nlike = other.$_nlike;
     if (_$data.containsKey('_nlike') != other._$data.containsKey('_nlike')) {
       return false;
     }
-    if (l$$_nlike != lOther$$_nlike) {
+    if (l$$Nlike != lother$$Nlike) {
       return false;
     }
-    final l$$_nregex = $_nregex;
-    final lOther$$_nregex = other.$_nregex;
+    final l$$Nregex = $_nregex;
+    final lother$$Nregex = other.$_nregex;
     if (_$data.containsKey('_nregex') != other._$data.containsKey('_nregex')) {
       return false;
     }
-    if (l$$_nregex != lOther$$_nregex) {
+    if (l$$Nregex != lother$$Nregex) {
       return false;
     }
-    final l$$_nsimilar = $_nsimilar;
-    final lOther$$_nsimilar = other.$_nsimilar;
+    final l$$Nsimilar = $_nsimilar;
+    final lother$$Nsimilar = other.$_nsimilar;
     if (_$data.containsKey('_nsimilar') !=
         other._$data.containsKey('_nsimilar')) {
       return false;
     }
-    if (l$$_nsimilar != lOther$$_nsimilar) {
+    if (l$$Nsimilar != lother$$Nsimilar) {
       return false;
     }
-    final l$$_regex = $_regex;
-    final lOther$$_regex = other.$_regex;
+    final l$$Regex = $_regex;
+    final lother$$Regex = other.$_regex;
     if (_$data.containsKey('_regex') != other._$data.containsKey('_regex')) {
       return false;
     }
-    if (l$$_regex != lOther$$_regex) {
+    if (l$$Regex != lother$$Regex) {
       return false;
     }
-    final l$$_similar = $_similar;
-    final lOther$$_similar = other.$_similar;
+    final l$$Similar = $_similar;
+    final lother$$Similar = other.$_similar;
     if (_$data.containsKey('_similar') !=
         other._$data.containsKey('_similar')) {
       return false;
     }
-    if (l$$_similar != lOther$$_similar) {
+    if (l$$Similar != lother$$Similar) {
       return false;
     }
     return true;
@@ -36652,53 +37382,53 @@ class Input$String_comparison_exp {
 
   @override
   int get hashCode {
-    final l$$_eq = $_eq;
-    final l$$_gt = $_gt;
-    final l$$_gte = $_gte;
-    final l$$_ilike = $_ilike;
-    final l$$_in = $_in;
-    final l$$_iregex = $_iregex;
-    final l$$_is_null = $_is_null;
-    final l$$_like = $_like;
-    final l$$_lt = $_lt;
-    final l$$_lte = $_lte;
-    final l$$_neq = $_neq;
-    final l$$_nilike = $_nilike;
-    final l$$_nin = $_nin;
-    final l$$_niregex = $_niregex;
-    final l$$_nlike = $_nlike;
-    final l$$_nregex = $_nregex;
-    final l$$_nsimilar = $_nsimilar;
-    final l$$_regex = $_regex;
-    final l$$_similar = $_similar;
+    final l$$Eq = $_eq;
+    final l$$Gt = $_gt;
+    final l$$Gte = $_gte;
+    final l$$Ilike = $_ilike;
+    final l$$In = $_in;
+    final l$$Iregex = $_iregex;
+    final l$$IsNull = $_is_null;
+    final l$$Like = $_like;
+    final l$$Lt = $_lt;
+    final l$$Lte = $_lte;
+    final l$$Neq = $_neq;
+    final l$$Nilike = $_nilike;
+    final l$$Nin = $_nin;
+    final l$$Niregex = $_niregex;
+    final l$$Nlike = $_nlike;
+    final l$$Nregex = $_nregex;
+    final l$$Nsimilar = $_nsimilar;
+    final l$$Regex = $_regex;
+    final l$$Similar = $_similar;
     return Object.hashAll([
-      _$data.containsKey('_eq') ? l$$_eq : const {},
-      _$data.containsKey('_gt') ? l$$_gt : const {},
-      _$data.containsKey('_gte') ? l$$_gte : const {},
-      _$data.containsKey('_ilike') ? l$$_ilike : const {},
+      _$data.containsKey('_eq') ? l$$Eq : const {},
+      _$data.containsKey('_gt') ? l$$Gt : const {},
+      _$data.containsKey('_gte') ? l$$Gte : const {},
+      _$data.containsKey('_ilike') ? l$$Ilike : const {},
       _$data.containsKey('_in')
-          ? l$$_in == null
+          ? l$$In == null
               ? null
-              : Object.hashAll(l$$_in.map((v) => v))
+              : Object.hashAll(l$$In.map((v) => v))
           : const {},
-      _$data.containsKey('_iregex') ? l$$_iregex : const {},
-      _$data.containsKey('_is_null') ? l$$_is_null : const {},
-      _$data.containsKey('_like') ? l$$_like : const {},
-      _$data.containsKey('_lt') ? l$$_lt : const {},
-      _$data.containsKey('_lte') ? l$$_lte : const {},
-      _$data.containsKey('_neq') ? l$$_neq : const {},
-      _$data.containsKey('_nilike') ? l$$_nilike : const {},
+      _$data.containsKey('_iregex') ? l$$Iregex : const {},
+      _$data.containsKey('_is_null') ? l$$IsNull : const {},
+      _$data.containsKey('_like') ? l$$Like : const {},
+      _$data.containsKey('_lt') ? l$$Lt : const {},
+      _$data.containsKey('_lte') ? l$$Lte : const {},
+      _$data.containsKey('_neq') ? l$$Neq : const {},
+      _$data.containsKey('_nilike') ? l$$Nilike : const {},
       _$data.containsKey('_nin')
-          ? l$$_nin == null
+          ? l$$Nin == null
               ? null
-              : Object.hashAll(l$$_nin.map((v) => v))
+              : Object.hashAll(l$$Nin.map((v) => v))
           : const {},
-      _$data.containsKey('_niregex') ? l$$_niregex : const {},
-      _$data.containsKey('_nlike') ? l$$_nlike : const {},
-      _$data.containsKey('_nregex') ? l$$_nregex : const {},
-      _$data.containsKey('_nsimilar') ? l$$_nsimilar : const {},
-      _$data.containsKey('_regex') ? l$$_regex : const {},
-      _$data.containsKey('_similar') ? l$$_similar : const {},
+      _$data.containsKey('_niregex') ? l$$Niregex : const {},
+      _$data.containsKey('_nlike') ? l$$Nlike : const {},
+      _$data.containsKey('_nregex') ? l$$Nregex : const {},
+      _$data.containsKey('_nsimilar') ? l$$Nsimilar : const {},
+      _$data.containsKey('_regex') ? l$$Regex : const {},
+      _$data.containsKey('_similar') ? l$$Similar : const {},
     ]);
   }
 }
@@ -36748,6 +37478,7 @@ class _CopyWithImpl$Input$String_comparison_exp<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? $_eq = _undefined,
     Object? $_gt = _undefined,
@@ -36797,8 +37528,9 @@ class _CopyWithStubImpl$Input$String_comparison_exp<TRes>
     implements CopyWith$Input$String_comparison_exp<TRes> {
   _CopyWithStubImpl$Input$String_comparison_exp(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     String? $_eq,
     String? $_gt,
@@ -36852,42 +37584,42 @@ class Input$timestamptz_comparison_exp {
   factory Input$timestamptz_comparison_exp.fromJson(Map<String, dynamic> data) {
     final result$data = <String, dynamic>{};
     if (data.containsKey('_eq')) {
-      final l$$_eq = data['_eq'];
-      result$data['_eq'] = (l$$_eq as String?);
+      final l$$Eq = data['_eq'];
+      result$data['_eq'] = (l$$Eq as String?);
     }
     if (data.containsKey('_gt')) {
-      final l$$_gt = data['_gt'];
-      result$data['_gt'] = (l$$_gt as String?);
+      final l$$Gt = data['_gt'];
+      result$data['_gt'] = (l$$Gt as String?);
     }
     if (data.containsKey('_gte')) {
-      final l$$_gte = data['_gte'];
-      result$data['_gte'] = (l$$_gte as String?);
+      final l$$Gte = data['_gte'];
+      result$data['_gte'] = (l$$Gte as String?);
     }
     if (data.containsKey('_in')) {
-      final l$$_in = data['_in'];
+      final l$$In = data['_in'];
       result$data['_in'] =
-          (l$$_in as List<dynamic>?)?.map((e) => (e as String)).toList();
+          (l$$In as List<dynamic>?)?.map((e) => (e as String)).toList();
     }
     if (data.containsKey('_is_null')) {
-      final l$$_is_null = data['_is_null'];
-      result$data['_is_null'] = (l$$_is_null as bool?);
+      final l$$IsNull = data['_is_null'];
+      result$data['_is_null'] = (l$$IsNull as bool?);
     }
     if (data.containsKey('_lt')) {
-      final l$$_lt = data['_lt'];
-      result$data['_lt'] = (l$$_lt as String?);
+      final l$$Lt = data['_lt'];
+      result$data['_lt'] = (l$$Lt as String?);
     }
     if (data.containsKey('_lte')) {
-      final l$$_lte = data['_lte'];
-      result$data['_lte'] = (l$$_lte as String?);
+      final l$$Lte = data['_lte'];
+      result$data['_lte'] = (l$$Lte as String?);
     }
     if (data.containsKey('_neq')) {
-      final l$$_neq = data['_neq'];
-      result$data['_neq'] = (l$$_neq as String?);
+      final l$$Neq = data['_neq'];
+      result$data['_neq'] = (l$$Neq as String?);
     }
     if (data.containsKey('_nin')) {
-      final l$$_nin = data['_nin'];
+      final l$$Nin = data['_nin'];
       result$data['_nin'] =
-          (l$$_nin as List<dynamic>?)?.map((e) => (e as String)).toList();
+          (l$$Nin as List<dynamic>?)?.map((e) => (e as String)).toList();
     }
     return Input$timestamptz_comparison_exp._(result$data);
   }
@@ -36915,40 +37647,40 @@ class Input$timestamptz_comparison_exp {
   Map<String, dynamic> toJson() {
     final result$data = <String, dynamic>{};
     if (_$data.containsKey('_eq')) {
-      final l$$_eq = $_eq;
-      result$data['_eq'] = l$$_eq;
+      final l$$Eq = $_eq;
+      result$data['_eq'] = l$$Eq;
     }
     if (_$data.containsKey('_gt')) {
-      final l$$_gt = $_gt;
-      result$data['_gt'] = l$$_gt;
+      final l$$Gt = $_gt;
+      result$data['_gt'] = l$$Gt;
     }
     if (_$data.containsKey('_gte')) {
-      final l$$_gte = $_gte;
-      result$data['_gte'] = l$$_gte;
+      final l$$Gte = $_gte;
+      result$data['_gte'] = l$$Gte;
     }
     if (_$data.containsKey('_in')) {
-      final l$$_in = $_in;
-      result$data['_in'] = l$$_in?.map((e) => e).toList();
+      final l$$In = $_in;
+      result$data['_in'] = l$$In?.map((e) => e).toList();
     }
     if (_$data.containsKey('_is_null')) {
-      final l$$_is_null = $_is_null;
-      result$data['_is_null'] = l$$_is_null;
+      final l$$IsNull = $_is_null;
+      result$data['_is_null'] = l$$IsNull;
     }
     if (_$data.containsKey('_lt')) {
-      final l$$_lt = $_lt;
-      result$data['_lt'] = l$$_lt;
+      final l$$Lt = $_lt;
+      result$data['_lt'] = l$$Lt;
     }
     if (_$data.containsKey('_lte')) {
-      final l$$_lte = $_lte;
-      result$data['_lte'] = l$$_lte;
+      final l$$Lte = $_lte;
+      result$data['_lte'] = l$$Lte;
     }
     if (_$data.containsKey('_neq')) {
-      final l$$_neq = $_neq;
-      result$data['_neq'] = l$$_neq;
+      final l$$Neq = $_neq;
+      result$data['_neq'] = l$$Neq;
     }
     if (_$data.containsKey('_nin')) {
-      final l$$_nin = $_nin;
-      result$data['_nin'] = l$$_nin?.map((e) => e).toList();
+      final l$$Nin = $_nin;
+      result$data['_nin'] = l$$Nin?.map((e) => e).toList();
     }
     return result$data;
   }
@@ -36964,103 +37696,103 @@ class Input$timestamptz_comparison_exp {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Input$timestamptz_comparison_exp) ||
+    if (other is! Input$timestamptz_comparison_exp ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$$_eq = $_eq;
-    final lOther$$_eq = other.$_eq;
+    final l$$Eq = $_eq;
+    final lother$$Eq = other.$_eq;
     if (_$data.containsKey('_eq') != other._$data.containsKey('_eq')) {
       return false;
     }
-    if (l$$_eq != lOther$$_eq) {
+    if (l$$Eq != lother$$Eq) {
       return false;
     }
-    final l$$_gt = $_gt;
-    final lOther$$_gt = other.$_gt;
+    final l$$Gt = $_gt;
+    final lother$$Gt = other.$_gt;
     if (_$data.containsKey('_gt') != other._$data.containsKey('_gt')) {
       return false;
     }
-    if (l$$_gt != lOther$$_gt) {
+    if (l$$Gt != lother$$Gt) {
       return false;
     }
-    final l$$_gte = $_gte;
-    final lOther$$_gte = other.$_gte;
+    final l$$Gte = $_gte;
+    final lother$$Gte = other.$_gte;
     if (_$data.containsKey('_gte') != other._$data.containsKey('_gte')) {
       return false;
     }
-    if (l$$_gte != lOther$$_gte) {
+    if (l$$Gte != lother$$Gte) {
       return false;
     }
-    final l$$_in = $_in;
-    final lOther$$_in = other.$_in;
+    final l$$In = $_in;
+    final lother$$In = other.$_in;
     if (_$data.containsKey('_in') != other._$data.containsKey('_in')) {
       return false;
     }
-    if (l$$_in != null && lOther$$_in != null) {
-      if (l$$_in.length != lOther$$_in.length) {
+    if (l$$In != null && lother$$In != null) {
+      if (l$$In.length != lother$$In.length) {
         return false;
       }
-      for (int i = 0; i < l$$_in.length; i++) {
-        final l$$_in$entry = l$$_in[i];
-        final lOther$$_in$entry = lOther$$_in[i];
-        if (l$$_in$entry != lOther$$_in$entry) {
+      for (int i = 0; i < l$$In.length; i++) {
+        final l$$In$entry = l$$In[i];
+        final lother$$In$entry = lother$$In[i];
+        if (l$$In$entry != lother$$In$entry) {
           return false;
         }
       }
-    } else if (l$$_in != lOther$$_in) {
+    } else if (l$$In != lother$$In) {
       return false;
     }
-    final l$$_is_null = $_is_null;
-    final lOther$$_is_null = other.$_is_null;
+    final l$$IsNull = $_is_null;
+    final lother$$IsNull = other.$_is_null;
     if (_$data.containsKey('_is_null') !=
         other._$data.containsKey('_is_null')) {
       return false;
     }
-    if (l$$_is_null != lOther$$_is_null) {
+    if (l$$IsNull != lother$$IsNull) {
       return false;
     }
-    final l$$_lt = $_lt;
-    final lOther$$_lt = other.$_lt;
+    final l$$Lt = $_lt;
+    final lother$$Lt = other.$_lt;
     if (_$data.containsKey('_lt') != other._$data.containsKey('_lt')) {
       return false;
     }
-    if (l$$_lt != lOther$$_lt) {
+    if (l$$Lt != lother$$Lt) {
       return false;
     }
-    final l$$_lte = $_lte;
-    final lOther$$_lte = other.$_lte;
+    final l$$Lte = $_lte;
+    final lother$$Lte = other.$_lte;
     if (_$data.containsKey('_lte') != other._$data.containsKey('_lte')) {
       return false;
     }
-    if (l$$_lte != lOther$$_lte) {
+    if (l$$Lte != lother$$Lte) {
       return false;
     }
-    final l$$_neq = $_neq;
-    final lOther$$_neq = other.$_neq;
+    final l$$Neq = $_neq;
+    final lother$$Neq = other.$_neq;
     if (_$data.containsKey('_neq') != other._$data.containsKey('_neq')) {
       return false;
     }
-    if (l$$_neq != lOther$$_neq) {
+    if (l$$Neq != lother$$Neq) {
       return false;
     }
-    final l$$_nin = $_nin;
-    final lOther$$_nin = other.$_nin;
+    final l$$Nin = $_nin;
+    final lother$$Nin = other.$_nin;
     if (_$data.containsKey('_nin') != other._$data.containsKey('_nin')) {
       return false;
     }
-    if (l$$_nin != null && lOther$$_nin != null) {
-      if (l$$_nin.length != lOther$$_nin.length) {
+    if (l$$Nin != null && lother$$Nin != null) {
+      if (l$$Nin.length != lother$$Nin.length) {
         return false;
       }
-      for (int i = 0; i < l$$_nin.length; i++) {
-        final l$$_nin$entry = l$$_nin[i];
-        final lOther$$_nin$entry = lOther$$_nin[i];
-        if (l$$_nin$entry != lOther$$_nin$entry) {
+      for (int i = 0; i < l$$Nin.length; i++) {
+        final l$$Nin$entry = l$$Nin[i];
+        final lother$$Nin$entry = lother$$Nin[i];
+        if (l$$Nin$entry != lother$$Nin$entry) {
           return false;
         }
       }
-    } else if (l$$_nin != lOther$$_nin) {
+    } else if (l$$Nin != lother$$Nin) {
       return false;
     }
     return true;
@@ -37068,32 +37800,32 @@ class Input$timestamptz_comparison_exp {
 
   @override
   int get hashCode {
-    final l$$_eq = $_eq;
-    final l$$_gt = $_gt;
-    final l$$_gte = $_gte;
-    final l$$_in = $_in;
-    final l$$_is_null = $_is_null;
-    final l$$_lt = $_lt;
-    final l$$_lte = $_lte;
-    final l$$_neq = $_neq;
-    final l$$_nin = $_nin;
+    final l$$Eq = $_eq;
+    final l$$Gt = $_gt;
+    final l$$Gte = $_gte;
+    final l$$In = $_in;
+    final l$$IsNull = $_is_null;
+    final l$$Lt = $_lt;
+    final l$$Lte = $_lte;
+    final l$$Neq = $_neq;
+    final l$$Nin = $_nin;
     return Object.hashAll([
-      _$data.containsKey('_eq') ? l$$_eq : const {},
-      _$data.containsKey('_gt') ? l$$_gt : const {},
-      _$data.containsKey('_gte') ? l$$_gte : const {},
+      _$data.containsKey('_eq') ? l$$Eq : const {},
+      _$data.containsKey('_gt') ? l$$Gt : const {},
+      _$data.containsKey('_gte') ? l$$Gte : const {},
       _$data.containsKey('_in')
-          ? l$$_in == null
+          ? l$$In == null
               ? null
-              : Object.hashAll(l$$_in.map((v) => v))
+              : Object.hashAll(l$$In.map((v) => v))
           : const {},
-      _$data.containsKey('_is_null') ? l$$_is_null : const {},
-      _$data.containsKey('_lt') ? l$$_lt : const {},
-      _$data.containsKey('_lte') ? l$$_lte : const {},
-      _$data.containsKey('_neq') ? l$$_neq : const {},
+      _$data.containsKey('_is_null') ? l$$IsNull : const {},
+      _$data.containsKey('_lt') ? l$$Lt : const {},
+      _$data.containsKey('_lte') ? l$$Lte : const {},
+      _$data.containsKey('_neq') ? l$$Neq : const {},
       _$data.containsKey('_nin')
-          ? l$$_nin == null
+          ? l$$Nin == null
               ? null
-              : Object.hashAll(l$$_nin.map((v) => v))
+              : Object.hashAll(l$$Nin.map((v) => v))
           : const {},
     ]);
   }
@@ -37134,6 +37866,7 @@ class _CopyWithImpl$Input$timestamptz_comparison_exp<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? $_eq = _undefined,
     Object? $_gt = _undefined,
@@ -37163,8 +37896,9 @@ class _CopyWithStubImpl$Input$timestamptz_comparison_exp<TRes>
     implements CopyWith$Input$timestamptz_comparison_exp<TRes> {
   _CopyWithStubImpl$Input$timestamptz_comparison_exp(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     String? $_eq,
     String? $_gt,

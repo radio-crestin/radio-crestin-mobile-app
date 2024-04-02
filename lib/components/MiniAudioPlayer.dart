@@ -44,7 +44,7 @@ class MiniAudioPlayer extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
                 Container(
-                  margin: EdgeInsets.only(top: 3.0),
+                  margin: const EdgeInsets.only(top: 3.0),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: <Widget>[

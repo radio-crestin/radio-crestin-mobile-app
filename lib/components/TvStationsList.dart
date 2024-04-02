@@ -130,7 +130,7 @@ class TvStationsList extends StatelessWidget {
                                           fontSize: 21,
                                         ),
                                         overflow: TextOverflow.ellipsis,
-                                        maxLines: 1,
+                                        maxLines: 2,
                                       ),
                                       Container(
                                           margin: const EdgeInsets.only(top: 0, bottom: 4),

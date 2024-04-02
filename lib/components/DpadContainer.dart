@@ -20,12 +20,12 @@ class DpadContainer extends HookWidget {
   final Widget child;
 
   const DpadContainer({
-    Key? key,
+    super.key,
     required this.onClick,
     required this.onEvent,
     required this.child,
     required this.onFocus,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

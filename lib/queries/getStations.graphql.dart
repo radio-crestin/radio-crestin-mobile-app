@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:flutter/widgets.dart' as widgets;
 import 'package:gql/ast.dart';
 import 'package:graphql/client.dart' as graphql;
 import 'package:graphql_flutter/graphql_flutter.dart' as graphql_flutter;
@@ -13,14 +12,14 @@ class Query$GetStations {
 
   factory Query$GetStations.fromJson(Map<String, dynamic> json) {
     final l$stations = json['stations'];
-    final l$station_groups = json['station_groups'];
+    final l$stationGroups = json['station_groups'];
     final l$$__typename = json['__typename'];
     return Query$GetStations(
       stations: (l$stations as List<dynamic>)
           .map((e) =>
               Query$GetStations$stations.fromJson((e as Map<String, dynamic>)))
           .toList(),
-      station_groups: (l$station_groups as List<dynamic>)
+      station_groups: (l$stationGroups as List<dynamic>)
           .map((e) => Query$GetStations$station_groups.fromJson(
               (e as Map<String, dynamic>)))
           .toList(),
@@ -35,25 +34,25 @@ class Query$GetStations {
   final String $__typename;
 
   Map<String, dynamic> toJson() {
-    final _resultData = <String, dynamic>{};
+    final resultData = <String, dynamic>{};
     final l$stations = stations;
-    _resultData['stations'] = l$stations.map((e) => e.toJson()).toList();
-    final l$station_groups = station_groups;
-    _resultData['station_groups'] =
-        l$station_groups.map((e) => e.toJson()).toList();
+    resultData['stations'] = l$stations.map((e) => e.toJson()).toList();
+    final l$stationGroups = station_groups;
+    resultData['station_groups'] =
+        l$stationGroups.map((e) => e.toJson()).toList();
     final l$$__typename = $__typename;
-    _resultData['__typename'] = l$$__typename;
-    return _resultData;
+    resultData['__typename'] = l$$__typename;
+    return resultData;
   }
 
   @override
   int get hashCode {
     final l$stations = stations;
-    final l$station_groups = station_groups;
+    final l$stationGroups = station_groups;
     final l$$__typename = $__typename;
     return Object.hashAll([
       Object.hashAll(l$stations.map((v) => v)),
-      Object.hashAll(l$station_groups.map((v) => v)),
+      Object.hashAll(l$stationGroups.map((v) => v)),
       l$$__typename,
     ]);
   }
@@ -63,7 +62,7 @@ class Query$GetStations {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Query$GetStations) || runtimeType != other.runtimeType) {
+    if (other is! Query$GetStations || runtimeType != other.runtimeType) {
       return false;
     }
     final l$stations = stations;
@@ -78,15 +77,15 @@ class Query$GetStations {
         return false;
       }
     }
-    final l$station_groups = station_groups;
-    final lOther$station_groups = other.station_groups;
-    if (l$station_groups.length != lOther$station_groups.length) {
+    final l$stationGroups = station_groups;
+    final lother$stationGroups = other.station_groups;
+    if (l$stationGroups.length != lother$stationGroups.length) {
       return false;
     }
-    for (int i = 0; i < l$station_groups.length; i++) {
-      final l$station_groups$entry = l$station_groups[i];
-      final lOther$station_groups$entry = lOther$station_groups[i];
-      if (l$station_groups$entry != lOther$station_groups$entry) {
+    for (int i = 0; i < l$stationGroups.length; i++) {
+      final l$stationGroups$entry = l$stationGroups[i];
+      final lother$stationGroups$entry = lother$stationGroups[i];
+      if (l$stationGroups$entry != lother$stationGroups$entry) {
         return false;
       }
     }
@@ -126,13 +125,13 @@ abstract class CopyWith$Query$GetStations<TRes> {
               Iterable<
                   CopyWith$Query$GetStations$stations<
                       Query$GetStations$stations>>)
-          _fn);
+          fn);
   TRes station_groups(
       Iterable<Query$GetStations$station_groups> Function(
               Iterable<
                   CopyWith$Query$GetStations$station_groups<
                       Query$GetStations$station_groups>>)
-          _fn);
+          fn);
 }
 
 class _CopyWithImpl$Query$GetStations<TRes>
@@ -148,6 +147,7 @@ class _CopyWithImpl$Query$GetStations<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? stations = _undefined,
     Object? station_groups = _undefined,
@@ -165,27 +165,29 @@ class _CopyWithImpl$Query$GetStations<TRes>
             : ($__typename as String),
       ));
 
+  @override
   TRes stations(
           Iterable<Query$GetStations$stations> Function(
                   Iterable<
                       CopyWith$Query$GetStations$stations<
                           Query$GetStations$stations>>)
-              _fn) =>
+              fn) =>
       call(
-          stations: _fn(
+          stations: fn(
               _instance.stations.map((e) => CopyWith$Query$GetStations$stations(
                     e,
                     (i) => i,
                   ))).toList());
 
+  @override
   TRes station_groups(
           Iterable<Query$GetStations$station_groups> Function(
                   Iterable<
                       CopyWith$Query$GetStations$station_groups<
                           Query$GetStations$station_groups>>)
-              _fn) =>
+              fn) =>
       call(
-          station_groups: _fn(_instance.station_groups
+          station_groups: fn(_instance.station_groups
               .map((e) => CopyWith$Query$GetStations$station_groups(
                     e,
                     (i) => i,
@@ -196,8 +198,9 @@ class _CopyWithStubImpl$Query$GetStations<TRes>
     implements CopyWith$Query$GetStations<TRes> {
   _CopyWithStubImpl$Query$GetStations(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     List<Query$GetStations$stations>? stations,
     List<Query$GetStations$station_groups>? station_groups,
@@ -205,9 +208,11 @@ class _CopyWithStubImpl$Query$GetStations<TRes>
   }) =>
       _res;
 
-  stations(_fn) => _res;
+  @override
+  stations(fn) => _res;
 
-  station_groups(_fn) => _res;
+  @override
+  station_groups(fn) => _res;
 }
 
 const documentNodeQueryGetStations = DocumentNode(definitions: [
@@ -702,32 +707,25 @@ typedef OnQueryComplete$Query$GetStations = FutureOr<void> Function(
 class Options$Query$GetStations
     extends graphql.QueryOptions<Query$GetStations> {
   Options$Query$GetStations({
-    String? operationName,
-    graphql.FetchPolicy? fetchPolicy,
-    graphql.ErrorPolicy? errorPolicy,
-    graphql.CacheRereadPolicy? cacheRereadPolicy,
+    super.operationName,
+    super.fetchPolicy,
+    super.errorPolicy,
+    super.cacheRereadPolicy,
     Object? optimisticResult,
     Query$GetStations? typedOptimisticResult,
-    Duration? pollInterval,
-    graphql.Context? context,
+    super.pollInterval,
+    super.context,
     OnQueryComplete$Query$GetStations? onComplete,
-    graphql.OnQueryError? onError,
+    super.onError,
   })  : onCompleteWithParsed = onComplete,
         super(
-          operationName: operationName,
-          fetchPolicy: fetchPolicy,
-          errorPolicy: errorPolicy,
-          cacheRereadPolicy: cacheRereadPolicy,
           optimisticResult: optimisticResult ?? typedOptimisticResult?.toJson(),
-          pollInterval: pollInterval,
-          context: context,
           onComplete: onComplete == null
               ? null
               : (data) => onComplete(
                     data,
                     data == null ? null : _parserFn$Query$GetStations(data),
                   ),
-          onError: onError,
           document: documentNodeQueryGetStations,
           parserFn: _parserFn$Query$GetStations,
         );
@@ -746,37 +744,27 @@ class Options$Query$GetStations
 class WatchOptions$Query$GetStations
     extends graphql.WatchQueryOptions<Query$GetStations> {
   WatchOptions$Query$GetStations({
-    String? operationName,
-    graphql.FetchPolicy? fetchPolicy,
-    graphql.ErrorPolicy? errorPolicy,
-    graphql.CacheRereadPolicy? cacheRereadPolicy,
+    super.operationName,
+    super.fetchPolicy,
+    super.errorPolicy,
+    super.cacheRereadPolicy,
     Object? optimisticResult,
     Query$GetStations? typedOptimisticResult,
-    graphql.Context? context,
-    Duration? pollInterval,
-    bool? eagerlyFetchResults,
-    bool carryForwardDataOnException = true,
-    bool fetchResults = false,
+    super.context,
+    super.pollInterval,
+    super.eagerlyFetchResults,
+    super.carryForwardDataOnException,
+    super.fetchResults,
   }) : super(
-          operationName: operationName,
-          fetchPolicy: fetchPolicy,
-          errorPolicy: errorPolicy,
-          cacheRereadPolicy: cacheRereadPolicy,
           optimisticResult: optimisticResult ?? typedOptimisticResult?.toJson(),
-          context: context,
           document: documentNodeQueryGetStations,
-          pollInterval: pollInterval,
-          eagerlyFetchResults: eagerlyFetchResults,
-          carryForwardDataOnException: carryForwardDataOnException,
-          fetchResults: fetchResults,
           parserFn: _parserFn$Query$GetStations,
         );
 }
 
 class FetchMoreOptions$Query$GetStations extends graphql.FetchMoreOptions {
-  FetchMoreOptions$Query$GetStations({required graphql.UpdateQuery updateQuery})
+  FetchMoreOptions$Query$GetStations({required super.updateQuery})
       : super(
-          updateQuery: updateQuery,
           document: documentNodeQueryGetStations,
         );
 }
@@ -784,24 +772,24 @@ class FetchMoreOptions$Query$GetStations extends graphql.FetchMoreOptions {
 extension ClientExtension$Query$GetStations on graphql.GraphQLClient {
   Future<graphql.QueryResult<Query$GetStations>> query$GetStations(
           [Options$Query$GetStations? options]) async =>
-      await this.query(options ?? Options$Query$GetStations());
+      await query(options ?? Options$Query$GetStations());
   graphql.ObservableQuery<Query$GetStations> watchQuery$GetStations(
           [WatchOptions$Query$GetStations? options]) =>
-      this.watchQuery(options ?? WatchOptions$Query$GetStations());
+      watchQuery(options ?? WatchOptions$Query$GetStations());
   void writeQuery$GetStations({
     required Query$GetStations data,
     bool broadcast = true,
   }) =>
-      this.writeQuery(
-        graphql.Request(
+      writeQuery(
+        const graphql.Request(
             operation:
                 graphql.Operation(document: documentNodeQueryGetStations)),
         data: data.toJson(),
         broadcast: broadcast,
       );
   Query$GetStations? readQuery$GetStations({bool optimistic = true}) {
-    final result = this.readQuery(
-      graphql.Request(
+    final result = readQuery(
+      const graphql.Request(
           operation: graphql.Operation(document: documentNodeQueryGetStations)),
       optimistic: optimistic,
     );
@@ -819,13 +807,11 @@ graphql.ObservableQuery<Query$GetStations> useWatchQuery$GetStations(
 class Query$GetStations$Widget
     extends graphql_flutter.Query<Query$GetStations> {
   Query$GetStations$Widget({
-    widgets.Key? key,
+    super.key,
     Options$Query$GetStations? options,
-    required graphql_flutter.QueryBuilder<Query$GetStations> builder,
+    required super.builder,
   }) : super(
-          key: key,
           options: options ?? Options$Query$GetStations(),
-          builder: builder,
         );
 }
 
@@ -859,17 +845,17 @@ class Query$GetStations$stations {
     final l$title = json['title'];
     final l$website = json['website'];
     final l$email = json['email'];
-    final l$thumbnail_url = json['thumbnail_url'];
-    final l$total_listeners = json['total_listeners'];
+    final l$thumbnailUrl = json['thumbnail_url'];
+    final l$totalListeners = json['total_listeners'];
     final l$description = json['description'];
-    final l$description_action_title = json['description_action_title'];
-    final l$description_link = json['description_link'];
-    final l$feature_latest_post = json['feature_latest_post'];
-    final l$facebook_page_id = json['facebook_page_id'];
-    final l$station_streams = json['station_streams'];
+    final l$descriptionActionTitle = json['description_action_title'];
+    final l$descriptionLink = json['description_link'];
+    final l$featureLatestPost = json['feature_latest_post'];
+    final l$facebookPageId = json['facebook_page_id'];
+    final l$stationStreams = json['station_streams'];
     final l$posts = json['posts'];
     final l$uptime = json['uptime'];
-    final l$now_playing = json['now_playing'];
+    final l$nowPlaying = json['now_playing'];
     final l$reviews = json['reviews'];
     final l$$__typename = json['__typename'];
     return Query$GetStations$stations(
@@ -879,14 +865,14 @@ class Query$GetStations$stations {
       title: (l$title as String),
       website: (l$website as String),
       email: (l$email as String),
-      thumbnail_url: (l$thumbnail_url as String?),
-      total_listeners: (l$total_listeners as int?),
+      thumbnail_url: (l$thumbnailUrl as String?),
+      total_listeners: (l$totalListeners as int?),
       description: (l$description as String?),
-      description_action_title: (l$description_action_title as String?),
-      description_link: (l$description_link as String?),
-      feature_latest_post: (l$feature_latest_post as bool),
-      facebook_page_id: (l$facebook_page_id as String?),
-      station_streams: (l$station_streams as List<dynamic>)
+      description_action_title: (l$descriptionActionTitle as String?),
+      description_link: (l$descriptionLink as String?),
+      feature_latest_post: (l$featureLatestPost as bool),
+      facebook_page_id: (l$facebookPageId as String?),
+      station_streams: (l$stationStreams as List<dynamic>)
           .map((e) => Query$GetStations$stations$station_streams.fromJson(
               (e as Map<String, dynamic>)))
           .toList(),
@@ -898,10 +884,10 @@ class Query$GetStations$stations {
           ? null
           : Query$GetStations$stations$uptime.fromJson(
               (l$uptime as Map<String, dynamic>)),
-      now_playing: l$now_playing == null
+      now_playing: l$nowPlaying == null
           ? null
           : Query$GetStations$stations$now_playing.fromJson(
-              (l$now_playing as Map<String, dynamic>)),
+              (l$nowPlaying as Map<String, dynamic>)),
       reviews: (l$reviews as List<dynamic>)
           .map((e) => Query$GetStations$stations$reviews.fromJson(
               (e as Map<String, dynamic>)))
@@ -949,47 +935,47 @@ class Query$GetStations$stations {
   final String $__typename;
 
   Map<String, dynamic> toJson() {
-    final _resultData = <String, dynamic>{};
+    final resultData = <String, dynamic>{};
     final l$id = id;
-    _resultData['id'] = l$id;
+    resultData['id'] = l$id;
     final l$slug = slug;
-    _resultData['slug'] = l$slug;
+    resultData['slug'] = l$slug;
     final l$order = order;
-    _resultData['order'] = l$order;
+    resultData['order'] = l$order;
     final l$title = title;
-    _resultData['title'] = l$title;
+    resultData['title'] = l$title;
     final l$website = website;
-    _resultData['website'] = l$website;
+    resultData['website'] = l$website;
     final l$email = email;
-    _resultData['email'] = l$email;
-    final l$thumbnail_url = thumbnail_url;
-    _resultData['thumbnail_url'] = l$thumbnail_url;
-    final l$total_listeners = total_listeners;
-    _resultData['total_listeners'] = l$total_listeners;
+    resultData['email'] = l$email;
+    final l$thumbnailUrl = thumbnail_url;
+    resultData['thumbnail_url'] = l$thumbnailUrl;
+    final l$totalListeners = total_listeners;
+    resultData['total_listeners'] = l$totalListeners;
     final l$description = description;
-    _resultData['description'] = l$description;
-    final l$description_action_title = description_action_title;
-    _resultData['description_action_title'] = l$description_action_title;
-    final l$description_link = description_link;
-    _resultData['description_link'] = l$description_link;
-    final l$feature_latest_post = feature_latest_post;
-    _resultData['feature_latest_post'] = l$feature_latest_post;
-    final l$facebook_page_id = facebook_page_id;
-    _resultData['facebook_page_id'] = l$facebook_page_id;
-    final l$station_streams = station_streams;
-    _resultData['station_streams'] =
-        l$station_streams.map((e) => e.toJson()).toList();
+    resultData['description'] = l$description;
+    final l$descriptionActionTitle = description_action_title;
+    resultData['description_action_title'] = l$descriptionActionTitle;
+    final l$descriptionLink = description_link;
+    resultData['description_link'] = l$descriptionLink;
+    final l$featureLatestPost = feature_latest_post;
+    resultData['feature_latest_post'] = l$featureLatestPost;
+    final l$facebookPageId = facebook_page_id;
+    resultData['facebook_page_id'] = l$facebookPageId;
+    final l$stationStreams = station_streams;
+    resultData['station_streams'] =
+        l$stationStreams.map((e) => e.toJson()).toList();
     final l$posts = posts;
-    _resultData['posts'] = l$posts.map((e) => e.toJson()).toList();
+    resultData['posts'] = l$posts.map((e) => e.toJson()).toList();
     final l$uptime = uptime;
-    _resultData['uptime'] = l$uptime?.toJson();
-    final l$now_playing = now_playing;
-    _resultData['now_playing'] = l$now_playing?.toJson();
+    resultData['uptime'] = l$uptime?.toJson();
+    final l$nowPlaying = now_playing;
+    resultData['now_playing'] = l$nowPlaying?.toJson();
     final l$reviews = reviews;
-    _resultData['reviews'] = l$reviews.map((e) => e.toJson()).toList();
+    resultData['reviews'] = l$reviews.map((e) => e.toJson()).toList();
     final l$$__typename = $__typename;
-    _resultData['__typename'] = l$$__typename;
-    return _resultData;
+    resultData['__typename'] = l$$__typename;
+    return resultData;
   }
 
   @override
@@ -1000,17 +986,17 @@ class Query$GetStations$stations {
     final l$title = title;
     final l$website = website;
     final l$email = email;
-    final l$thumbnail_url = thumbnail_url;
-    final l$total_listeners = total_listeners;
+    final l$thumbnailUrl = thumbnail_url;
+    final l$totalListeners = total_listeners;
     final l$description = description;
-    final l$description_action_title = description_action_title;
-    final l$description_link = description_link;
-    final l$feature_latest_post = feature_latest_post;
-    final l$facebook_page_id = facebook_page_id;
-    final l$station_streams = station_streams;
+    final l$descriptionActionTitle = description_action_title;
+    final l$descriptionLink = description_link;
+    final l$featureLatestPost = feature_latest_post;
+    final l$facebookPageId = facebook_page_id;
+    final l$stationStreams = station_streams;
     final l$posts = posts;
     final l$uptime = uptime;
-    final l$now_playing = now_playing;
+    final l$nowPlaying = now_playing;
     final l$reviews = reviews;
     final l$$__typename = $__typename;
     return Object.hashAll([
@@ -1020,17 +1006,17 @@ class Query$GetStations$stations {
       l$title,
       l$website,
       l$email,
-      l$thumbnail_url,
-      l$total_listeners,
+      l$thumbnailUrl,
+      l$totalListeners,
       l$description,
-      l$description_action_title,
-      l$description_link,
-      l$feature_latest_post,
-      l$facebook_page_id,
-      Object.hashAll(l$station_streams.map((v) => v)),
+      l$descriptionActionTitle,
+      l$descriptionLink,
+      l$featureLatestPost,
+      l$facebookPageId,
+      Object.hashAll(l$stationStreams.map((v) => v)),
       Object.hashAll(l$posts.map((v) => v)),
       l$uptime,
-      l$now_playing,
+      l$nowPlaying,
       Object.hashAll(l$reviews.map((v) => v)),
       l$$__typename,
     ]);
@@ -1041,7 +1027,7 @@ class Query$GetStations$stations {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Query$GetStations$stations) ||
+    if (other is! Query$GetStations$stations ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -1075,14 +1061,14 @@ class Query$GetStations$stations {
     if (l$email != lOther$email) {
       return false;
     }
-    final l$thumbnail_url = thumbnail_url;
-    final lOther$thumbnail_url = other.thumbnail_url;
-    if (l$thumbnail_url != lOther$thumbnail_url) {
+    final l$thumbnailUrl = thumbnail_url;
+    final lother$thumbnailUrl = other.thumbnail_url;
+    if (l$thumbnailUrl != lother$thumbnailUrl) {
       return false;
     }
-    final l$total_listeners = total_listeners;
-    final lOther$total_listeners = other.total_listeners;
-    if (l$total_listeners != lOther$total_listeners) {
+    final l$totalListeners = total_listeners;
+    final lother$totalListeners = other.total_listeners;
+    if (l$totalListeners != lother$totalListeners) {
       return false;
     }
     final l$description = description;
@@ -1090,35 +1076,35 @@ class Query$GetStations$stations {
     if (l$description != lOther$description) {
       return false;
     }
-    final l$description_action_title = description_action_title;
-    final lOther$description_action_title = other.description_action_title;
-    if (l$description_action_title != lOther$description_action_title) {
+    final l$descriptionActionTitle = description_action_title;
+    final lother$descriptionActionTitle = other.description_action_title;
+    if (l$descriptionActionTitle != lother$descriptionActionTitle) {
       return false;
     }
-    final l$description_link = description_link;
-    final lOther$description_link = other.description_link;
-    if (l$description_link != lOther$description_link) {
+    final l$descriptionLink = description_link;
+    final lother$descriptionLink = other.description_link;
+    if (l$descriptionLink != lother$descriptionLink) {
       return false;
     }
-    final l$feature_latest_post = feature_latest_post;
-    final lOther$feature_latest_post = other.feature_latest_post;
-    if (l$feature_latest_post != lOther$feature_latest_post) {
+    final l$featureLatestPost = feature_latest_post;
+    final lother$featureLatestPost = other.feature_latest_post;
+    if (l$featureLatestPost != lother$featureLatestPost) {
       return false;
     }
-    final l$facebook_page_id = facebook_page_id;
-    final lOther$facebook_page_id = other.facebook_page_id;
-    if (l$facebook_page_id != lOther$facebook_page_id) {
+    final l$facebookPageId = facebook_page_id;
+    final lother$facebookPageId = other.facebook_page_id;
+    if (l$facebookPageId != lother$facebookPageId) {
       return false;
     }
-    final l$station_streams = station_streams;
-    final lOther$station_streams = other.station_streams;
-    if (l$station_streams.length != lOther$station_streams.length) {
+    final l$stationStreams = station_streams;
+    final lother$stationStreams = other.station_streams;
+    if (l$stationStreams.length != lother$stationStreams.length) {
       return false;
     }
-    for (int i = 0; i < l$station_streams.length; i++) {
-      final l$station_streams$entry = l$station_streams[i];
-      final lOther$station_streams$entry = lOther$station_streams[i];
-      if (l$station_streams$entry != lOther$station_streams$entry) {
+    for (int i = 0; i < l$stationStreams.length; i++) {
+      final l$stationStreams$entry = l$stationStreams[i];
+      final lother$stationStreams$entry = lother$stationStreams[i];
+      if (l$stationStreams$entry != lother$stationStreams$entry) {
         return false;
       }
     }
@@ -1139,9 +1125,9 @@ class Query$GetStations$stations {
     if (l$uptime != lOther$uptime) {
       return false;
     }
-    final l$now_playing = now_playing;
-    final lOther$now_playing = other.now_playing;
-    if (l$now_playing != lOther$now_playing) {
+    final l$nowPlaying = now_playing;
+    final lother$nowPlaying = other.now_playing;
+    if (l$nowPlaying != lother$nowPlaying) {
       return false;
     }
     final l$reviews = reviews;
@@ -1209,13 +1195,13 @@ abstract class CopyWith$Query$GetStations$stations<TRes> {
               Iterable<
                   CopyWith$Query$GetStations$stations$station_streams<
                       Query$GetStations$stations$station_streams>>)
-          _fn);
+          fn);
   TRes posts(
       Iterable<Query$GetStations$stations$posts> Function(
               Iterable<
                   CopyWith$Query$GetStations$stations$posts<
                       Query$GetStations$stations$posts>>)
-          _fn);
+          fn);
   CopyWith$Query$GetStations$stations$uptime<TRes> get uptime;
   CopyWith$Query$GetStations$stations$now_playing<TRes> get now_playing;
   TRes reviews(
@@ -1223,7 +1209,7 @@ abstract class CopyWith$Query$GetStations$stations<TRes> {
               Iterable<
                   CopyWith$Query$GetStations$stations$reviews<
                       Query$GetStations$stations$reviews>>)
-          _fn);
+          fn);
 }
 
 class _CopyWithImpl$Query$GetStations$stations<TRes>
@@ -1239,6 +1225,7 @@ class _CopyWithImpl$Query$GetStations$stations<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? slug = _undefined,
@@ -1321,32 +1308,35 @@ class _CopyWithImpl$Query$GetStations$stations<TRes>
             : ($__typename as String),
       ));
 
+  @override
   TRes station_streams(
           Iterable<Query$GetStations$stations$station_streams> Function(
                   Iterable<
                       CopyWith$Query$GetStations$stations$station_streams<
                           Query$GetStations$stations$station_streams>>)
-              _fn) =>
+              fn) =>
       call(
-          station_streams: _fn(_instance.station_streams
+          station_streams: fn(_instance.station_streams
               .map((e) => CopyWith$Query$GetStations$stations$station_streams(
                     e,
                     (i) => i,
                   ))).toList());
 
+  @override
   TRes posts(
           Iterable<Query$GetStations$stations$posts> Function(
                   Iterable<
                       CopyWith$Query$GetStations$stations$posts<
                           Query$GetStations$stations$posts>>)
-              _fn) =>
+              fn) =>
       call(
-          posts: _fn(_instance.posts
+          posts: fn(_instance.posts
               .map((e) => CopyWith$Query$GetStations$stations$posts(
                     e,
                     (i) => i,
                   ))).toList());
 
+  @override
   CopyWith$Query$GetStations$stations$uptime<TRes> get uptime {
     final local$uptime = _instance.uptime;
     return local$uptime == null
@@ -1355,22 +1345,24 @@ class _CopyWithImpl$Query$GetStations$stations<TRes>
             local$uptime, (e) => call(uptime: e));
   }
 
+  @override
   CopyWith$Query$GetStations$stations$now_playing<TRes> get now_playing {
-    final local$now_playing = _instance.now_playing;
-    return local$now_playing == null
+    final local$nowPlaying = _instance.now_playing;
+    return local$nowPlaying == null
         ? CopyWith$Query$GetStations$stations$now_playing.stub(_then(_instance))
         : CopyWith$Query$GetStations$stations$now_playing(
-            local$now_playing, (e) => call(now_playing: e));
+            local$nowPlaying, (e) => call(now_playing: e));
   }
 
+  @override
   TRes reviews(
           Iterable<Query$GetStations$stations$reviews> Function(
                   Iterable<
                       CopyWith$Query$GetStations$stations$reviews<
                           Query$GetStations$stations$reviews>>)
-              _fn) =>
+              fn) =>
       call(
-          reviews: _fn(_instance.reviews
+          reviews: fn(_instance.reviews
               .map((e) => CopyWith$Query$GetStations$stations$reviews(
                     e,
                     (i) => i,
@@ -1381,8 +1373,9 @@ class _CopyWithStubImpl$Query$GetStations$stations<TRes>
     implements CopyWith$Query$GetStations$stations<TRes> {
   _CopyWithStubImpl$Query$GetStations$stations(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     int? id,
     String? slug,
@@ -1406,17 +1399,22 @@ class _CopyWithStubImpl$Query$GetStations$stations<TRes>
   }) =>
       _res;
 
-  station_streams(_fn) => _res;
+  @override
+  station_streams(fn) => _res;
 
-  posts(_fn) => _res;
+  @override
+  posts(fn) => _res;
 
+  @override
   CopyWith$Query$GetStations$stations$uptime<TRes> get uptime =>
       CopyWith$Query$GetStations$stations$uptime.stub(_res);
 
+  @override
   CopyWith$Query$GetStations$stations$now_playing<TRes> get now_playing =>
       CopyWith$Query$GetStations$stations$now_playing.stub(_res);
 
-  reviews(_fn) => _res;
+  @override
+  reviews(fn) => _res;
 }
 
 class Query$GetStations$stations$station_streams {
@@ -1431,12 +1429,12 @@ class Query$GetStations$stations$station_streams {
       Map<String, dynamic> json) {
     final l$order = json['order'];
     final l$type = json['type'];
-    final l$stream_url = json['stream_url'];
+    final l$streamUrl = json['stream_url'];
     final l$$__typename = json['__typename'];
     return Query$GetStations$stations$station_streams(
       order: (l$order as int),
       type: (l$type as String),
-      stream_url: (l$stream_url as String),
+      stream_url: (l$streamUrl as String),
       $__typename: (l$$__typename as String),
     );
   }
@@ -1450,28 +1448,28 @@ class Query$GetStations$stations$station_streams {
   final String $__typename;
 
   Map<String, dynamic> toJson() {
-    final _resultData = <String, dynamic>{};
+    final resultData = <String, dynamic>{};
     final l$order = order;
-    _resultData['order'] = l$order;
+    resultData['order'] = l$order;
     final l$type = type;
-    _resultData['type'] = l$type;
-    final l$stream_url = stream_url;
-    _resultData['stream_url'] = l$stream_url;
+    resultData['type'] = l$type;
+    final l$streamUrl = stream_url;
+    resultData['stream_url'] = l$streamUrl;
     final l$$__typename = $__typename;
-    _resultData['__typename'] = l$$__typename;
-    return _resultData;
+    resultData['__typename'] = l$$__typename;
+    return resultData;
   }
 
   @override
   int get hashCode {
     final l$order = order;
     final l$type = type;
-    final l$stream_url = stream_url;
+    final l$streamUrl = stream_url;
     final l$$__typename = $__typename;
     return Object.hashAll([
       l$order,
       l$type,
-      l$stream_url,
+      l$streamUrl,
       l$$__typename,
     ]);
   }
@@ -1481,7 +1479,7 @@ class Query$GetStations$stations$station_streams {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Query$GetStations$stations$station_streams) ||
+    if (other is! Query$GetStations$stations$station_streams ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -1495,9 +1493,9 @@ class Query$GetStations$stations$station_streams {
     if (l$type != lOther$type) {
       return false;
     }
-    final l$stream_url = stream_url;
-    final lOther$stream_url = other.stream_url;
-    if (l$stream_url != lOther$stream_url) {
+    final l$streamUrl = stream_url;
+    final lother$streamUrl = other.stream_url;
+    if (l$streamUrl != lother$streamUrl) {
       return false;
     }
     final l$$__typename = $__typename;
@@ -1549,6 +1547,7 @@ class _CopyWithImpl$Query$GetStations$stations$station_streams<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? order = _undefined,
     Object? type = _undefined,
@@ -1575,8 +1574,9 @@ class _CopyWithStubImpl$Query$GetStations$stations$station_streams<TRes>
     implements CopyWith$Query$GetStations$stations$station_streams<TRes> {
   _CopyWithStubImpl$Query$GetStations$stations$station_streams(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     int? order,
     String? type,
@@ -1626,20 +1626,20 @@ class Query$GetStations$stations$posts {
   final String $__typename;
 
   Map<String, dynamic> toJson() {
-    final _resultData = <String, dynamic>{};
+    final resultData = <String, dynamic>{};
     final l$id = id;
-    _resultData['id'] = l$id;
+    resultData['id'] = l$id;
     final l$title = title;
-    _resultData['title'] = l$title;
+    resultData['title'] = l$title;
     final l$description = description;
-    _resultData['description'] = l$description;
+    resultData['description'] = l$description;
     final l$link = link;
-    _resultData['link'] = l$link;
+    resultData['link'] = l$link;
     final l$published = published;
-    _resultData['published'] = l$published;
+    resultData['published'] = l$published;
     final l$$__typename = $__typename;
-    _resultData['__typename'] = l$$__typename;
-    return _resultData;
+    resultData['__typename'] = l$$__typename;
+    return resultData;
   }
 
   @override
@@ -1665,7 +1665,7 @@ class Query$GetStations$stations$posts {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Query$GetStations$stations$posts) ||
+    if (other is! Query$GetStations$stations$posts ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -1744,6 +1744,7 @@ class _CopyWithImpl$Query$GetStations$stations$posts<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? title = _undefined,
@@ -1776,8 +1777,9 @@ class _CopyWithStubImpl$Query$GetStations$stations$posts<TRes>
     implements CopyWith$Query$GetStations$stations$posts<TRes> {
   _CopyWithStubImpl$Query$GetStations$stations$posts(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     int? id,
     String? title,
@@ -1799,13 +1801,13 @@ class Query$GetStations$stations$uptime {
 
   factory Query$GetStations$stations$uptime.fromJson(
       Map<String, dynamic> json) {
-    final l$is_up = json['is_up'];
-    final l$latency_ms = json['latency_ms'];
+    final l$isUp = json['is_up'];
+    final l$latencyMs = json['latency_ms'];
     final l$timestamp = json['timestamp'];
     final l$$__typename = json['__typename'];
     return Query$GetStations$stations$uptime(
-      is_up: (l$is_up as bool),
-      latency_ms: (l$latency_ms as int),
+      is_up: (l$isUp as bool),
+      latency_ms: (l$latencyMs as int),
       timestamp: (l$timestamp as String),
       $__typename: (l$$__typename as String),
     );
@@ -1820,27 +1822,27 @@ class Query$GetStations$stations$uptime {
   final String $__typename;
 
   Map<String, dynamic> toJson() {
-    final _resultData = <String, dynamic>{};
-    final l$is_up = is_up;
-    _resultData['is_up'] = l$is_up;
-    final l$latency_ms = latency_ms;
-    _resultData['latency_ms'] = l$latency_ms;
+    final resultData = <String, dynamic>{};
+    final l$isUp = is_up;
+    resultData['is_up'] = l$isUp;
+    final l$latencyMs = latency_ms;
+    resultData['latency_ms'] = l$latencyMs;
     final l$timestamp = timestamp;
-    _resultData['timestamp'] = l$timestamp;
+    resultData['timestamp'] = l$timestamp;
     final l$$__typename = $__typename;
-    _resultData['__typename'] = l$$__typename;
-    return _resultData;
+    resultData['__typename'] = l$$__typename;
+    return resultData;
   }
 
   @override
   int get hashCode {
-    final l$is_up = is_up;
-    final l$latency_ms = latency_ms;
+    final l$isUp = is_up;
+    final l$latencyMs = latency_ms;
     final l$timestamp = timestamp;
     final l$$__typename = $__typename;
     return Object.hashAll([
-      l$is_up,
-      l$latency_ms,
+      l$isUp,
+      l$latencyMs,
       l$timestamp,
       l$$__typename,
     ]);
@@ -1851,18 +1853,18 @@ class Query$GetStations$stations$uptime {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Query$GetStations$stations$uptime) ||
+    if (other is! Query$GetStations$stations$uptime ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$is_up = is_up;
-    final lOther$is_up = other.is_up;
-    if (l$is_up != lOther$is_up) {
+    final l$isUp = is_up;
+    final lother$isUp = other.is_up;
+    if (l$isUp != lother$isUp) {
       return false;
     }
-    final l$latency_ms = latency_ms;
-    final lOther$latency_ms = other.latency_ms;
-    if (l$latency_ms != lOther$latency_ms) {
+    final l$latencyMs = latency_ms;
+    final lother$latencyMs = other.latency_ms;
+    if (l$latencyMs != lother$latencyMs) {
       return false;
     }
     final l$timestamp = timestamp;
@@ -1918,6 +1920,7 @@ class _CopyWithImpl$Query$GetStations$stations$uptime<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? is_up = _undefined,
     Object? latency_ms = _undefined,
@@ -1944,8 +1947,9 @@ class _CopyWithStubImpl$Query$GetStations$stations$uptime<TRes>
     implements CopyWith$Query$GetStations$stations$uptime<TRes> {
   _CopyWithStubImpl$Query$GetStations$stations$uptime(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     bool? is_up,
     int? latency_ms,
@@ -1989,16 +1993,16 @@ class Query$GetStations$stations$now_playing {
   final String $__typename;
 
   Map<String, dynamic> toJson() {
-    final _resultData = <String, dynamic>{};
+    final resultData = <String, dynamic>{};
     final l$id = id;
-    _resultData['id'] = l$id;
+    resultData['id'] = l$id;
     final l$timestamp = timestamp;
-    _resultData['timestamp'] = l$timestamp;
+    resultData['timestamp'] = l$timestamp;
     final l$song = song;
-    _resultData['song'] = l$song?.toJson();
+    resultData['song'] = l$song?.toJson();
     final l$$__typename = $__typename;
-    _resultData['__typename'] = l$$__typename;
-    return _resultData;
+    resultData['__typename'] = l$$__typename;
+    return resultData;
   }
 
   @override
@@ -2020,7 +2024,7 @@ class Query$GetStations$stations$now_playing {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Query$GetStations$stations$now_playing) ||
+    if (other is! Query$GetStations$stations$now_playing ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -2089,6 +2093,7 @@ class _CopyWithImpl$Query$GetStations$stations$now_playing<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? timestamp = _undefined,
@@ -2108,6 +2113,7 @@ class _CopyWithImpl$Query$GetStations$stations$now_playing<TRes>
             : ($__typename as String),
       ));
 
+  @override
   CopyWith$Query$GetStations$stations$now_playing$song<TRes> get song {
     final local$song = _instance.song;
     return local$song == null
@@ -2122,8 +2128,9 @@ class _CopyWithStubImpl$Query$GetStations$stations$now_playing<TRes>
     implements CopyWith$Query$GetStations$stations$now_playing<TRes> {
   _CopyWithStubImpl$Query$GetStations$stations$now_playing(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     int? id,
     String? timestamp,
@@ -2132,6 +2139,7 @@ class _CopyWithStubImpl$Query$GetStations$stations$now_playing<TRes>
   }) =>
       _res;
 
+  @override
   CopyWith$Query$GetStations$stations$now_playing$song<TRes> get song =>
       CopyWith$Query$GetStations$stations$now_playing$song.stub(_res);
 }
@@ -2149,13 +2157,13 @@ class Query$GetStations$stations$now_playing$song {
       Map<String, dynamic> json) {
     final l$id = json['id'];
     final l$name = json['name'];
-    final l$thumbnail_url = json['thumbnail_url'];
+    final l$thumbnailUrl = json['thumbnail_url'];
     final l$artist = json['artist'];
     final l$$__typename = json['__typename'];
     return Query$GetStations$stations$now_playing$song(
       id: (l$id as int),
       name: (l$name as String?),
-      thumbnail_url: (l$thumbnail_url as String?),
+      thumbnail_url: (l$thumbnailUrl as String?),
       artist: l$artist == null
           ? null
           : Query$GetStations$stations$now_playing$song$artist.fromJson(
@@ -2175,31 +2183,31 @@ class Query$GetStations$stations$now_playing$song {
   final String $__typename;
 
   Map<String, dynamic> toJson() {
-    final _resultData = <String, dynamic>{};
+    final resultData = <String, dynamic>{};
     final l$id = id;
-    _resultData['id'] = l$id;
+    resultData['id'] = l$id;
     final l$name = name;
-    _resultData['name'] = l$name;
-    final l$thumbnail_url = thumbnail_url;
-    _resultData['thumbnail_url'] = l$thumbnail_url;
+    resultData['name'] = l$name;
+    final l$thumbnailUrl = thumbnail_url;
+    resultData['thumbnail_url'] = l$thumbnailUrl;
     final l$artist = artist;
-    _resultData['artist'] = l$artist?.toJson();
+    resultData['artist'] = l$artist?.toJson();
     final l$$__typename = $__typename;
-    _resultData['__typename'] = l$$__typename;
-    return _resultData;
+    resultData['__typename'] = l$$__typename;
+    return resultData;
   }
 
   @override
   int get hashCode {
     final l$id = id;
     final l$name = name;
-    final l$thumbnail_url = thumbnail_url;
+    final l$thumbnailUrl = thumbnail_url;
     final l$artist = artist;
     final l$$__typename = $__typename;
     return Object.hashAll([
       l$id,
       l$name,
-      l$thumbnail_url,
+      l$thumbnailUrl,
       l$artist,
       l$$__typename,
     ]);
@@ -2210,7 +2218,7 @@ class Query$GetStations$stations$now_playing$song {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Query$GetStations$stations$now_playing$song) ||
+    if (other is! Query$GetStations$stations$now_playing$song ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -2224,9 +2232,9 @@ class Query$GetStations$stations$now_playing$song {
     if (l$name != lOther$name) {
       return false;
     }
-    final l$thumbnail_url = thumbnail_url;
-    final lOther$thumbnail_url = other.thumbnail_url;
-    if (l$thumbnail_url != lOther$thumbnail_url) {
+    final l$thumbnailUrl = thumbnail_url;
+    final lother$thumbnailUrl = other.thumbnail_url;
+    if (l$thumbnailUrl != lother$thumbnailUrl) {
       return false;
     }
     final l$artist = artist;
@@ -2285,6 +2293,7 @@ class _CopyWithImpl$Query$GetStations$stations$now_playing$song<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? name = _undefined,
@@ -2306,6 +2315,7 @@ class _CopyWithImpl$Query$GetStations$stations$now_playing$song<TRes>
             : ($__typename as String),
       ));
 
+  @override
   CopyWith$Query$GetStations$stations$now_playing$song$artist<TRes> get artist {
     final local$artist = _instance.artist;
     return local$artist == null
@@ -2320,8 +2330,9 @@ class _CopyWithStubImpl$Query$GetStations$stations$now_playing$song<TRes>
     implements CopyWith$Query$GetStations$stations$now_playing$song<TRes> {
   _CopyWithStubImpl$Query$GetStations$stations$now_playing$song(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     int? id,
     String? name,
@@ -2331,6 +2342,7 @@ class _CopyWithStubImpl$Query$GetStations$stations$now_playing$song<TRes>
   }) =>
       _res;
 
+  @override
   CopyWith$Query$GetStations$stations$now_playing$song$artist<TRes>
       get artist =>
           CopyWith$Query$GetStations$stations$now_playing$song$artist.stub(
@@ -2349,12 +2361,12 @@ class Query$GetStations$stations$now_playing$song$artist {
       Map<String, dynamic> json) {
     final l$id = json['id'];
     final l$name = json['name'];
-    final l$thumbnail_url = json['thumbnail_url'];
+    final l$thumbnailUrl = json['thumbnail_url'];
     final l$$__typename = json['__typename'];
     return Query$GetStations$stations$now_playing$song$artist(
       id: (l$id as int),
       name: (l$name as String?),
-      thumbnail_url: (l$thumbnail_url as String?),
+      thumbnail_url: (l$thumbnailUrl as String?),
       $__typename: (l$$__typename as String),
     );
   }
@@ -2368,28 +2380,28 @@ class Query$GetStations$stations$now_playing$song$artist {
   final String $__typename;
 
   Map<String, dynamic> toJson() {
-    final _resultData = <String, dynamic>{};
+    final resultData = <String, dynamic>{};
     final l$id = id;
-    _resultData['id'] = l$id;
+    resultData['id'] = l$id;
     final l$name = name;
-    _resultData['name'] = l$name;
-    final l$thumbnail_url = thumbnail_url;
-    _resultData['thumbnail_url'] = l$thumbnail_url;
+    resultData['name'] = l$name;
+    final l$thumbnailUrl = thumbnail_url;
+    resultData['thumbnail_url'] = l$thumbnailUrl;
     final l$$__typename = $__typename;
-    _resultData['__typename'] = l$$__typename;
-    return _resultData;
+    resultData['__typename'] = l$$__typename;
+    return resultData;
   }
 
   @override
   int get hashCode {
     final l$id = id;
     final l$name = name;
-    final l$thumbnail_url = thumbnail_url;
+    final l$thumbnailUrl = thumbnail_url;
     final l$$__typename = $__typename;
     return Object.hashAll([
       l$id,
       l$name,
-      l$thumbnail_url,
+      l$thumbnailUrl,
       l$$__typename,
     ]);
   }
@@ -2399,7 +2411,7 @@ class Query$GetStations$stations$now_playing$song$artist {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Query$GetStations$stations$now_playing$song$artist) ||
+    if (other is! Query$GetStations$stations$now_playing$song$artist ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -2413,9 +2425,9 @@ class Query$GetStations$stations$now_playing$song$artist {
     if (l$name != lOther$name) {
       return false;
     }
-    final l$thumbnail_url = thumbnail_url;
-    final lOther$thumbnail_url = other.thumbnail_url;
-    if (l$thumbnail_url != lOther$thumbnail_url) {
+    final l$thumbnailUrl = thumbnail_url;
+    final lother$thumbnailUrl = other.thumbnail_url;
+    if (l$thumbnailUrl != lother$thumbnailUrl) {
       return false;
     }
     final l$$__typename = $__typename;
@@ -2471,6 +2483,7 @@ class _CopyWithImpl$Query$GetStations$stations$now_playing$song$artist<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? name = _undefined,
@@ -2495,8 +2508,9 @@ class _CopyWithStubImpl$Query$GetStations$stations$now_playing$song$artist<TRes>
   _CopyWithStubImpl$Query$GetStations$stations$now_playing$song$artist(
       this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     int? id,
     String? name,
@@ -2537,16 +2551,16 @@ class Query$GetStations$stations$reviews {
   final String $__typename;
 
   Map<String, dynamic> toJson() {
-    final _resultData = <String, dynamic>{};
+    final resultData = <String, dynamic>{};
     final l$id = id;
-    _resultData['id'] = l$id;
+    resultData['id'] = l$id;
     final l$stars = stars;
-    _resultData['stars'] = l$stars;
+    resultData['stars'] = l$stars;
     final l$message = message;
-    _resultData['message'] = l$message;
+    resultData['message'] = l$message;
     final l$$__typename = $__typename;
-    _resultData['__typename'] = l$$__typename;
-    return _resultData;
+    resultData['__typename'] = l$$__typename;
+    return resultData;
   }
 
   @override
@@ -2568,7 +2582,7 @@ class Query$GetStations$stations$reviews {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Query$GetStations$stations$reviews) ||
+    if (other is! Query$GetStations$stations$reviews ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -2636,6 +2650,7 @@ class _CopyWithImpl$Query$GetStations$stations$reviews<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? stars = _undefined,
@@ -2659,8 +2674,9 @@ class _CopyWithStubImpl$Query$GetStations$stations$reviews<TRes>
     implements CopyWith$Query$GetStations$stations$reviews<TRes> {
   _CopyWithStubImpl$Query$GetStations$stations$reviews(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     int? id,
     int? stars,
@@ -2685,14 +2701,14 @@ class Query$GetStations$station_groups {
     final l$name = json['name'];
     final l$order = json['order'];
     final l$slug = json['slug'];
-    final l$station_to_station_groups = json['station_to_station_groups'];
+    final l$stationToStationGroups = json['station_to_station_groups'];
     final l$$__typename = json['__typename'];
     return Query$GetStations$station_groups(
       id: (l$id as int),
       name: (l$name as String),
       order: (l$order as int),
       slug: (l$slug as String),
-      station_to_station_groups: (l$station_to_station_groups as List<dynamic>)
+      station_to_station_groups: (l$stationToStationGroups as List<dynamic>)
           .map((e) => Query$GetStations$station_groups$station_to_station_groups
               .fromJson((e as Map<String, dynamic>)))
           .toList(),
@@ -2714,21 +2730,21 @@ class Query$GetStations$station_groups {
   final String $__typename;
 
   Map<String, dynamic> toJson() {
-    final _resultData = <String, dynamic>{};
+    final resultData = <String, dynamic>{};
     final l$id = id;
-    _resultData['id'] = l$id;
+    resultData['id'] = l$id;
     final l$name = name;
-    _resultData['name'] = l$name;
+    resultData['name'] = l$name;
     final l$order = order;
-    _resultData['order'] = l$order;
+    resultData['order'] = l$order;
     final l$slug = slug;
-    _resultData['slug'] = l$slug;
-    final l$station_to_station_groups = station_to_station_groups;
-    _resultData['station_to_station_groups'] =
-        l$station_to_station_groups.map((e) => e.toJson()).toList();
+    resultData['slug'] = l$slug;
+    final l$stationToStationGroups = station_to_station_groups;
+    resultData['station_to_station_groups'] =
+        l$stationToStationGroups.map((e) => e.toJson()).toList();
     final l$$__typename = $__typename;
-    _resultData['__typename'] = l$$__typename;
-    return _resultData;
+    resultData['__typename'] = l$$__typename;
+    return resultData;
   }
 
   @override
@@ -2737,14 +2753,14 @@ class Query$GetStations$station_groups {
     final l$name = name;
     final l$order = order;
     final l$slug = slug;
-    final l$station_to_station_groups = station_to_station_groups;
+    final l$stationToStationGroups = station_to_station_groups;
     final l$$__typename = $__typename;
     return Object.hashAll([
       l$id,
       l$name,
       l$order,
       l$slug,
-      Object.hashAll(l$station_to_station_groups.map((v) => v)),
+      Object.hashAll(l$stationToStationGroups.map((v) => v)),
       l$$__typename,
     ]);
   }
@@ -2754,7 +2770,7 @@ class Query$GetStations$station_groups {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Query$GetStations$station_groups) ||
+    if (other is! Query$GetStations$station_groups ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -2778,18 +2794,18 @@ class Query$GetStations$station_groups {
     if (l$slug != lOther$slug) {
       return false;
     }
-    final l$station_to_station_groups = station_to_station_groups;
-    final lOther$station_to_station_groups = other.station_to_station_groups;
-    if (l$station_to_station_groups.length !=
-        lOther$station_to_station_groups.length) {
+    final l$stationToStationGroups = station_to_station_groups;
+    final lother$stationToStationGroups = other.station_to_station_groups;
+    if (l$stationToStationGroups.length !=
+        lother$stationToStationGroups.length) {
       return false;
     }
-    for (int i = 0; i < l$station_to_station_groups.length; i++) {
-      final l$station_to_station_groups$entry = l$station_to_station_groups[i];
-      final lOther$station_to_station_groups$entry =
-          lOther$station_to_station_groups[i];
-      if (l$station_to_station_groups$entry !=
-          lOther$station_to_station_groups$entry) {
+    for (int i = 0; i < l$stationToStationGroups.length; i++) {
+      final l$stationToStationGroups$entry = l$stationToStationGroups[i];
+      final lother$stationToStationGroups$entry =
+          lother$stationToStationGroups[i];
+      if (l$stationToStationGroups$entry !=
+          lother$stationToStationGroups$entry) {
         return false;
       }
     }
@@ -2834,7 +2850,7 @@ abstract class CopyWith$Query$GetStations$station_groups<TRes> {
               Iterable<
                   CopyWith$Query$GetStations$station_groups$station_to_station_groups<
                       Query$GetStations$station_groups$station_to_station_groups>>)
-          _fn);
+          fn);
 }
 
 class _CopyWithImpl$Query$GetStations$station_groups<TRes>
@@ -2850,6 +2866,7 @@ class _CopyWithImpl$Query$GetStations$station_groups<TRes>
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? id = _undefined,
     Object? name = _undefined,
@@ -2879,14 +2896,15 @@ class _CopyWithImpl$Query$GetStations$station_groups<TRes>
             : ($__typename as String),
       ));
 
+  @override
   TRes station_to_station_groups(
           Iterable<Query$GetStations$station_groups$station_to_station_groups> Function(
                   Iterable<
                       CopyWith$Query$GetStations$station_groups$station_to_station_groups<
                           Query$GetStations$station_groups$station_to_station_groups>>)
-              _fn) =>
+              fn) =>
       call(
-          station_to_station_groups: _fn(_instance.station_to_station_groups
+          station_to_station_groups: fn(_instance.station_to_station_groups
               .map((e) =>
                   CopyWith$Query$GetStations$station_groups$station_to_station_groups(
                     e,
@@ -2898,8 +2916,9 @@ class _CopyWithStubImpl$Query$GetStations$station_groups<TRes>
     implements CopyWith$Query$GetStations$station_groups<TRes> {
   _CopyWithStubImpl$Query$GetStations$station_groups(this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     int? id,
     String? name,
@@ -2911,7 +2930,8 @@ class _CopyWithStubImpl$Query$GetStations$station_groups<TRes>
   }) =>
       _res;
 
-  station_to_station_groups(_fn) => _res;
+  @override
+  station_to_station_groups(fn) => _res;
 }
 
 class Query$GetStations$station_groups$station_to_station_groups {
@@ -2923,11 +2943,11 @@ class Query$GetStations$station_groups$station_to_station_groups {
 
   factory Query$GetStations$station_groups$station_to_station_groups.fromJson(
       Map<String, dynamic> json) {
-    final l$station_id = json['station_id'];
+    final l$stationId = json['station_id'];
     final l$order = json['order'];
     final l$$__typename = json['__typename'];
     return Query$GetStations$station_groups$station_to_station_groups(
-      station_id: (l$station_id as int),
+      station_id: (l$stationId as int),
       order: (l$order as int?),
       $__typename: (l$$__typename as String),
     );
@@ -2940,23 +2960,23 @@ class Query$GetStations$station_groups$station_to_station_groups {
   final String $__typename;
 
   Map<String, dynamic> toJson() {
-    final _resultData = <String, dynamic>{};
-    final l$station_id = station_id;
-    _resultData['station_id'] = l$station_id;
+    final resultData = <String, dynamic>{};
+    final l$stationId = station_id;
+    resultData['station_id'] = l$stationId;
     final l$order = order;
-    _resultData['order'] = l$order;
+    resultData['order'] = l$order;
     final l$$__typename = $__typename;
-    _resultData['__typename'] = l$$__typename;
-    return _resultData;
+    resultData['__typename'] = l$$__typename;
+    return resultData;
   }
 
   @override
   int get hashCode {
-    final l$station_id = station_id;
+    final l$stationId = station_id;
     final l$order = order;
     final l$$__typename = $__typename;
     return Object.hashAll([
-      l$station_id,
+      l$stationId,
       l$order,
       l$$__typename,
     ]);
@@ -2967,14 +2987,14 @@ class Query$GetStations$station_groups$station_to_station_groups {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other
-            is Query$GetStations$station_groups$station_to_station_groups) ||
+    if (other
+            is! Query$GetStations$station_groups$station_to_station_groups ||
         runtimeType != other.runtimeType) {
       return false;
     }
-    final l$station_id = station_id;
-    final lOther$station_id = other.station_id;
-    if (l$station_id != lOther$station_id) {
+    final l$stationId = station_id;
+    final lother$stationId = other.station_id;
+    if (l$stationId != lother$stationId) {
       return false;
     }
     final l$order = order;
@@ -3038,6 +3058,7 @@ class _CopyWithImpl$Query$GetStations$station_groups$station_to_station_groups<
 
   static const _undefined = <dynamic, dynamic>{};
 
+  @override
   TRes call({
     Object? station_id = _undefined,
     Object? order = _undefined,
@@ -3062,8 +3083,9 @@ class _CopyWithStubImpl$Query$GetStations$station_groups$station_to_station_grou
   _CopyWithStubImpl$Query$GetStations$station_groups$station_to_station_groups(
       this._res);
 
-  TRes _res;
+  final TRes _res;
 
+  @override
   call({
     int? station_id,
     int? order,

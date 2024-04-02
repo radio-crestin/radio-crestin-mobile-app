@@ -14,6 +14,8 @@ import 'WriteNfcTag.dart';
 final remoteConfig = FirebaseRemoteConfig.instance;
 
 class SettingsPage extends StatefulWidget {
+  const SettingsPage({super.key});
+
   @override
   _SettingsPageState createState() => _SettingsPageState();
 }
@@ -49,7 +51,7 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
         appBar: AppBar(
-          title: Text('Setări'),
+          title: const Text('Setări'),
         ),
         body: Container(
           margin: const EdgeInsets.only(top: 10),
@@ -103,7 +105,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   onTap: () => {
                     Navigator.push(context, MaterialPageRoute<void>(
                       builder: (BuildContext context) {
-                        return WriteNfcTagPage();
+                        return const WriteNfcTagPage();
                       },
                     ))
                   },

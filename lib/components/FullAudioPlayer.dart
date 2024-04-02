@@ -281,7 +281,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: <Widget>[
                 InkWell(
-                  customBorder: CircleBorder(),
+                  customBorder: const CircleBorder(),
                   onTap: () {
                     showSleepTimerDialog(context);
                   },
@@ -295,7 +295,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                           size: 24,
                         ),
                         Padding(
-                          padding: EdgeInsets.only(top: 8.0),
+                          padding: const EdgeInsets.only(top: 8.0),
                           child: Text(
                             'somn',
                             style: TextStyle(
@@ -383,7 +383,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                             size: 24,
                           ),
                           Padding(
-                            padding: EdgeInsets.only(top: 8.0),
+                            padding: const EdgeInsets.only(top: 8.0),
                             child: Text('youtube', style: TextStyle(fontSize: 12, color: hasYoutubeLink? Colors.black : Colors.grey)),
                           ),
                         ],
@@ -391,7 +391,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                     ),
                   ),
                 InkWell(
-                  customBorder: CircleBorder(),
+                  customBorder: const CircleBorder(),
                   onTap: () {
                     if (currentStation != null) {
                       var linkMessage = "";
@@ -450,8 +450,8 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                 ),
               if (isTimerActive)
                 CupertinoActionSheetAction(
-                  child: const Text('Anulează închiderea'),
                   onPressed: cancelSleepTimer,
+                  child: const Text('Anulează închiderea'),
                 ),
             ],
             cancelButton: CupertinoActionSheetAction(

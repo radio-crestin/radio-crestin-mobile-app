@@ -9,6 +9,8 @@ import 'package:radio_crestin/main.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class WriteNfcTagPage extends StatefulWidget {
+  const WriteNfcTagPage({super.key});
+
   @override
   _WriteNfcTagPageState createState() => _WriteNfcTagPageState();
 }
@@ -34,7 +36,7 @@ class _WriteNfcTagPageState extends State<WriteNfcTagPage> {
 
     return Scaffold(
         appBar: AppBar(
-          title: Text('Inscripționare tag NFC'),
+          title: const Text('Inscripționare tag NFC'),
         ),
         body: Container(
           margin: const EdgeInsets.symmetric(vertical: 18.0, horizontal: 20.0),

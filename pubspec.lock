@@ -511,7 +511,7 @@ packages:
     source: hosted
     version: "3.3.1"
   flutter_hooks:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: flutter_hooks
       sha256: "6a126f703b89499818d73305e4ce1e3de33b4ae1c5512e3b8eab4b986f46774c"
@@ -601,7 +601,7 @@ packages:
     source: hosted
     version: "2.1.2"
   gql:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: gql
       sha256: "5b39e4f5262e0a9675a97da1da3adae6a33eaa935513b074a2e5940327ffc058"
@@ -889,7 +889,7 @@ packages:
     source: hosted
     version: "1.0.5"
   ndef:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: ndef
       sha256: "634d2b5c6f2c186e953218bac9905f3f5e1824b15e30bd1ed6e03a91cdbc7293"

@@ -73,13 +73,13 @@ class _HomePageState extends State<HomePage> {
   _HomePageState() {
     try {
       AndroidPlayInstallReferrer.installReferrer.then((value) {
-        developer.log("AndroidPlayInstallReferrer:" + value.toString());
+        developer.log("AndroidPlayInstallReferrer:$value");
         if (value.installReferrer != null) {
           playByStationSlug(value.installReferrer!);
         }
       });
     } catch (e) {
-      developer.log("AndroidPlayInstallReferrer err:" + e.toString());
+      developer.log("AndroidPlayInstallReferrer err:$e");
     }
 
     getInitialUri().then((value) => {processIntentUri(value)});
@@ -87,7 +87,7 @@ class _HomePageState extends State<HomePage> {
     _sub = uriLinkStream.listen((Uri? uri) {
       processIntentUri(uri);
     }, onError: (err) {
-      developer.log("initialLink err:" + err.toString());
+      developer.log("initialLink err:$err");
     });
   }
 
@@ -164,7 +164,7 @@ class _HomePageState extends State<HomePage> {
             ),
             builder: (context, snapshot) {
               // final currentImageBackgroundSrc = snapshot.data?.currentImageBackgroundSrc;
-              final currentImageBackgroundSrc =
+              const currentImageBackgroundSrc =
                   'https://images.unsplash.com/photo-1619903774373-7dea6886db8e?ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&ixlib=rb-1.2.1&auto=format&fit=crop&w=774&q=80';
               final currentStation = snapshot.data?.currentStation;
               final focusedStation = snapshot.data?.focusedStation;
@@ -193,11 +193,10 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ),
                     ),
-                    if (currentImageBackgroundSrc != null)
-                      SizedBox(
-                        width: double.infinity,
-                        child: Utils.displayImage(currentImageBackgroundSrc, cache: false),
-                      ),
+                    SizedBox(
+                      width: double.infinity,
+                      child: Utils.displayImage(currentImageBackgroundSrc, cache: false),
+                    ),
                     Positioned(
                       left: 20,
                       right: 20,
@@ -285,11 +284,11 @@ class ImageCard extends StatelessWidget {
   final String image;
 
   const ImageCard({
-    Key? key,
+    super.key,
     required this.selected,
     required this.image,
     required this.focus,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

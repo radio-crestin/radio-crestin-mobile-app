@@ -467,9 +467,9 @@ class AppAudioHandler extends BaseAudioHandler {
     timer?.cancel();
     timer = Timer.periodic(
         const Duration(seconds: 5),
-        (Timer t) => {
+        (Timer t) {
               if (currentStation.value != null && player.playing)
-                {AppTracking.trackListenStation(currentStation.value!, currentStreamUrl)}
+                {AppTracking.trackListenStation(currentStation.value!, currentStreamUrl);}
             });
   }
 

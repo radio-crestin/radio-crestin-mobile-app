@@ -10,6 +10,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get_it/get_it.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:package_info/package_info.dart';
@@ -153,16 +154,20 @@ class RadioCrestinApp extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-
-    return MaterialApp(
-      navigatorKey: globals.navigatorKey,
-      title: 'Radio Crestin',
-      debugShowCheckedModeBanner: false,
-      theme: appTheme,
-      home: UpgradeAlert(
-        dialogStyle: Platform.isIOS ? UpgradeDialogStyle.cupertino : UpgradeDialogStyle.material,
-        upgrader: Upgrader(),
-        child: const HomePage(),
+    return Shortcuts(
+        shortcuts: <LogicalKeySet, Intent>{
+          LogicalKeySet(LogicalKeyboardKey.select): const ActivateIntent(),
+        },
+      child: MaterialApp(
+        navigatorKey: globals.navigatorKey,
+        title: 'Radio Crestin',
+        debugShowCheckedModeBanner: false,
+        theme: appTheme,
+        home: UpgradeAlert(
+          dialogStyle: Platform.isIOS ? UpgradeDialogStyle.cupertino : UpgradeDialogStyle.material,
+          upgrader: Upgrader(),
+          child: const HomePage(),
+        ),
       ),
     );
   }
