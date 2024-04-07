@@ -36,7 +36,7 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.2
   just_audio: ^0.9.34
-  graphql_flutter: ^5.1.2
+  graphql_flutter: ^5.2.0-beta.6
   provider: ^6.0.5
   graphql: ^5.1.3
   audio_service: ^0.18.10
@@ -44,7 +44,7 @@ dependencies:
   url_launcher: ^6.2.2
   package_info: ^2.0.2
   shared_preferences: ^2.1.1
-  share_plus: ^7.0.2
+  share_plus: ^8.0.2
   firebase_core: ^2.13.1
   firebase_messaging: ^14.6.2
   firebase_analytics: ^10.4.2
@@ -55,13 +55,15 @@ dependencies:
   rxdart: ^0.27.7
   fuzzywuzzy: ^1.1.6
   uni_links_nfc_support: ^0.6.1
-  flutter_nfc_kit: ^3.4.2
+  flutter_nfc_kit:
+    git:
+      url: https://github.com/iosifnicolae2/flutter_nfc_kit.git
   firebase_instance_id: ^1.0.0
-  android_play_install_referrer: ^0.3.0
+  android_play_install_referrer: ^0.4.0
   sliding_up_panel:
     git:
       url: https://github.com/Deskhunters/sliding_up_panel.git
-  upgrader: ^9.0.0
+  upgrader: ^10.1.0
   fluttertoast: ^8.2.4
   easy_search_bar: ^2.5.0
   flutter_sticky_header: ^0.6.5
