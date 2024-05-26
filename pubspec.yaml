@@ -44,7 +44,7 @@ dependencies:
   url_launcher: ^6.2.2
   package_info: ^2.0.2
   shared_preferences: ^2.1.1
-  share_plus: ^8.0.2
+  share_plus: ^9.0.0
   firebase_core: ^2.13.1
   firebase_messaging: ^14.6.2
   firebase_analytics: ^10.4.2
@@ -72,7 +72,7 @@ dependencies:
   extended_image: ^8.2.0
 
 dev_dependencies:
-  dependency_validator: ^3.2.2
+  dependency_validator: ^4.0.0
   flutter_test:
     sdk: flutter
 
@@ -81,8 +81,8 @@ dev_dependencies:
   # activated in the `analysis_options.yaml` file located at the root of your
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
-  flutter_lints: ^3.0.1
-  graphql_codegen: ^0.13.5
+  flutter_lints: ^4.0.0
+  graphql_codegen: ^0.14.0
   build_runner: ^2.4.4
 
 # For information on the generic Dart part of this file, see the
