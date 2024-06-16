@@ -110,10 +110,10 @@ class _HomePageState extends State<HomePage> {
             _audioHandler.selectedStationGroup.stream,
             _audioHandler.mediaItem,
             slidingUpPanelController.isDraggableSubject,
-            (currentStation, stations, filteredStations, stationGroups,
-                    selectedStationGroup, mediaItem, isDraggable) =>
-                HomePageState(currentStation, stations, filteredStations,
-                    stationGroups, selectedStationGroup, mediaItem, isDraggable),
+            (currentStation, stations, filteredStations, stationGroups, selectedStationGroup,
+                    mediaItem, isDraggable) =>
+                HomePageState(currentStation, stations, filteredStations, stationGroups,
+                    selectedStationGroup, mediaItem, isDraggable),
           ),
           builder: (context, snapshot) {
             final currentStation = snapshot.data?.currentStation;
@@ -225,98 +225,102 @@ class _HomePageState extends State<HomePage> {
                               panelController: null,
                             )),
                       ),
-                    if(stations.isEmpty)
+                    if (stations.isEmpty)
                       SliverToBoxAdapter(
                         child: Container(
                           margin: const EdgeInsets.all(16),
                           child: const Text(
-                              "Statiile se incarca..",
+                            "Statiile se incarca..",
                             style: TextStyle(fontSize: 16),
                           ),
                         ),
                       ),
-                    if(stations.isNotEmpty)
-                    SliverStickyHeader(
-                      header: Container(
-                        height: 60.0,
-                        color: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                        alignment: Alignment.centerLeft,
-                        child: Row(
-                          children: [
-                            Text(
-                              selectedStationGroup?.name ?? "Toate stațiile radio",
-                              style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.grey[800]),
-                            ),
-                            const Spacer(),
-                            TextButton(
-                                onPressed: () {
-                                  showDialog(
-                                    context: context,
-                                    builder: (BuildContext context) {
-                                      final stationGroupOptions = [
-                                        Query$GetStations$station_groups(
-                                          id: -1,
-                                          name: 'Toate stațiile radio',
-                                          order: -1,
-                                          slug: 'all-stations',
-                                          station_to_station_groups: [],
-                                        ),
-                                        ...stationGroups..sort((a, b) => a.order.compareTo(b.order))
-                                      ];
-                                      return SelectDialog<Query$GetStations$station_groups>(
-                                        items: stationGroupOptions,
-                                        displayFunction:
-                                            (Query$GetStations$station_groups stationGroup) =>
-                                                stationGroup.name,
-                                        onItemSelected:
-                                            (Query$GetStations$station_groups stationGroup) {
-                                          setState(() {
-                                            if (stationGroup.slug == 'all-stations') {
-                                              _audioHandler.selectedStationGroup.add(null);
-                                            } else {
-                                              _audioHandler.selectedStationGroup.add(stationGroup);
-                                            }
-                                          });
-                                        },
-                                      );
-                                    },
-                                  );
-                                },
-                                child: Text(
-                                  "Filtrează",
-                                  style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
-                                      color: Colors.blue[700]),
-                                ))
-                          ],
+                    if (stations.isNotEmpty)
+                      SliverStickyHeader(
+                        header: Container(
+                          height: 60.0,
+                          color: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                          alignment: Alignment.centerLeft,
+                          child: Row(
+                            children: [
+                              Text(
+                                selectedStationGroup?.name ?? "Toate stațiile radio",
+                                style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.grey[800]),
+                              ),
+                              const Spacer(),
+                              TextButton(
+                                  onPressed: () {
+                                    showDialog(
+                                      context: context,
+                                      builder: (BuildContext context) {
+                                        final stationGroupOptions = [
+                                          Query$GetStations$station_groups(
+                                            id: -1,
+                                            name: 'Toate stațiile radio',
+                                            order: -1,
+                                            slug: 'all-stations',
+                                            station_to_station_groups: [],
+                                          ),
+                                          ...stationGroups
+                                            ..sort((a, b) => a.order.compareTo(b.order))
+                                        ];
+                                        return SelectDialog<Query$GetStations$station_groups>(
+                                          items: stationGroupOptions,
+                                          displayFunction:
+                                              (Query$GetStations$station_groups stationGroup) =>
+                                                  stationGroup.name,
+                                          onItemSelected:
+                                              (Query$GetStations$station_groups stationGroup) {
+                                            setState(() {
+                                              if (stationGroup.slug == 'all-stations') {
+                                                _audioHandler.selectedStationGroup.add(null);
+                                              } else {
+                                                _audioHandler.selectedStationGroup
+                                                    .add(stationGroup);
+                                              }
+                                            });
+                                          },
+                                        );
+                                      },
+                                    );
+                                  },
+                                  child: Text(
+                                    "Filtrează",
+                                    style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                        color: Colors.blue[700]),
+                                  ))
+                            ],
+                          ),
                         ),
+                        sliver: SliverPadding(
+                            padding: EdgeInsets.only(bottom: Platform.isIOS ? 80.0 : 110.0),
+                            sliver: StationsList(
+                              stations: filteredStations,
+                              currentStation: currentStation,
+                              audioHandler: _audioHandler,
+                              panelController: null,
+                            )),
                       ),
-                      sliver: SliverPadding(
-                          padding: EdgeInsets.only(bottom: Platform.isIOS ? 80.0 : 110.0),
-                          sliver: StationsList(
-                            stations: filteredStations,
-                            currentStation: currentStation,
-                            audioHandler: _audioHandler,
-                            panelController: null,
-                          )),
-                    ),
                   ],
                 ),
               ),
-              collapsed: currentStation != null ? Container(
-                padding: EdgeInsets.only(bottom: Platform.isIOS ? 17 : 12, left: 8, right: 8),
-                color: Theme.of(context).scaffoldBackgroundColor,
-                child: MiniAudioPlayer(
-                  currentStation: currentStation,
-                  audioHandler: _audioHandler,
-                  panelController: slidingUpPanelController,
-                ),
-              ): null,
+              collapsed: currentStation != null
+                  ? Container(
+                      padding: EdgeInsets.only(bottom: Platform.isIOS ? 17 : 12, left: 8, right: 8),
+                      color: Theme.of(context).scaffoldBackgroundColor,
+                      child: MiniAudioPlayer(
+                        currentStation: currentStation,
+                        audioHandler: _audioHandler,
+                        panelController: slidingUpPanelController,
+                      ),
+                    )
+                  : null,
               panel: Container(
                 decoration: const BoxDecoration(
                   color: Colors.transparent,
@@ -325,10 +329,12 @@ class _HomePageState extends State<HomePage> {
                     topRight: Radius.circular(16.0),
                   ),
                 ),
-                child: currentStation != null ? FullAudioPlayer(
-                  audioHandler: _audioHandler,
-                  slidingUpPanelController: slidingUpPanelController,
-                ): null,
+                child: currentStation != null
+                    ? FullAudioPlayer(
+                        audioHandler: _audioHandler,
+                        slidingUpPanelController: slidingUpPanelController,
+                      )
+                    : null,
               ),
             );
           }),
