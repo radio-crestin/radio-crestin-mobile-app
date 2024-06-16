@@ -67,15 +67,17 @@ class _HomePageState extends State<HomePage> {
   final AppAudioHandler _audioHandler = getIt<AppAudioHandler>();
 
   _HomePageState() {
-    try {
-      AndroidPlayInstallReferrer.installReferrer.then((value) {
-        developer.log("AndroidPlayInstallReferrer:" + value.toString());
-        if (value.installReferrer != null) {
-          playByStationSlug(value.installReferrer!);
-        }
-      });
-    } catch (e) {
-      developer.log("AndroidPlayInstallReferrer err:" + e.toString());
+    if (Platform.isAndroid) {
+      try {
+        AndroidPlayInstallReferrer.installReferrer.then((value) {
+          developer.log("AndroidPlayInstallReferrer:" + value.toString());
+          if (value.installReferrer != null) {
+            playByStationSlug(value.installReferrer!);
+          }
+        });
+      } catch (e) {
+        developer.log("AndroidPlayInstallReferrer err:" + e.toString());
+      }
     }
 
     getInitialUri().then((value) => {processIntentUri(value)});
