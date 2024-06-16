@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-
-
 final ThemeData appTheme = ThemeData(
   useMaterial3: true,
   // fontFamily: 'Inter',
@@ -23,21 +21,20 @@ final ThemeData appTheme = ThemeData(
   dialogBackgroundColor: Colors.white,
   indicatorColor: const Color(0xffe91e63),
   appBarTheme: AppBarTheme(
-    // backgroundColor: Colors.grey[200],
-    surfaceTintColor: null,
-    systemOverlayStyle: const SystemUiOverlayStyle(
-      statusBarColor: Color(0xfffafafa),
+      // backgroundColor: Colors.grey[200],
+      surfaceTintColor: null,
+      systemOverlayStyle: const SystemUiOverlayStyle(
+        statusBarColor: Color(0xfffafafa),
 
-      // Status bar brightness (optional)
-      statusBarIconBrightness: Brightness.dark, // For Android (dark icons)
-      statusBarBrightness: Brightness.light, // For iOS (dark icons)
-    ),
-    titleTextStyle: TextStyle(
-      color: Colors.grey.shade800,
-      fontSize: 19,
-      fontWeight: FontWeight.bold,
-    )
-  ),
+        // Status bar brightness (optional)
+        statusBarIconBrightness: Brightness.dark, // For Android (dark icons)
+        statusBarBrightness: Brightness.light, // For iOS (dark icons)
+      ),
+      titleTextStyle: TextStyle(
+        color: Colors.grey.shade800,
+        fontSize: 19,
+        fontWeight: FontWeight.bold,
+      )),
   bottomAppBarTheme: BottomAppBarTheme(
     color: Colors.grey[900],
   ),
@@ -76,41 +73,35 @@ final ThemeData appTheme = ThemeData(
     ),
   ),
   textTheme: const TextTheme(
-    caption: TextStyle(
+    bodySmall: TextStyle(
       color: Color(0x8a000000),
-      fontSize: null,
       fontWeight: FontWeight.w400,
       fontStyle: FontStyle.normal,
     ),
-    button: TextStyle(
+    labelLarge: TextStyle(
       color: Color(0xdd000000),
-      fontSize: null,
       fontWeight: FontWeight.w400,
       fontStyle: FontStyle.normal,
     ),
-    overline: TextStyle(
+    titleSmall: TextStyle(
       color: Color(0xff000000),
-      fontSize: null,
       fontWeight: FontWeight.w400,
       fontStyle: FontStyle.normal,
     ),
   ),
   primaryTextTheme: const TextTheme(
-    caption: TextStyle(
+    bodySmall: TextStyle(
       color: Color(0xb3ffffff),
-      fontSize: null,
       fontWeight: FontWeight.w400,
       fontStyle: FontStyle.normal,
     ),
-    button: TextStyle(
+    labelLarge: TextStyle(
       color: Color(0xffffffff),
-      fontSize: null,
       fontWeight: FontWeight.w400,
       fontStyle: FontStyle.normal,
     ),
-    overline: TextStyle(
+    titleSmall: TextStyle(
       color: Color(0xffffffff),
-      fontSize: null,
       fontWeight: FontWeight.w400,
       fontStyle: FontStyle.normal,
     ),
@@ -118,25 +109,21 @@ final ThemeData appTheme = ThemeData(
   inputDecorationTheme: const InputDecorationTheme(
     labelStyle: TextStyle(
       color: Color(0xdd000000),
-      fontSize: null,
       fontWeight: FontWeight.w400,
       fontStyle: FontStyle.normal,
     ),
     helperStyle: TextStyle(
       color: Color(0xdd000000),
-      fontSize: null,
       fontWeight: FontWeight.w400,
       fontStyle: FontStyle.normal,
     ),
     hintStyle: TextStyle(
       color: Color(0xdd000000),
-      fontSize: null,
       fontWeight: FontWeight.w400,
       fontStyle: FontStyle.normal,
     ),
     errorStyle: TextStyle(
       color: Color(0xdd000000),
-      fontSize: null,
       fontWeight: FontWeight.w400,
       fontStyle: FontStyle.normal,
     ),
@@ -146,19 +133,16 @@ final ThemeData appTheme = ThemeData(
     isCollapsed: false,
     prefixStyle: TextStyle(
       color: Color(0xdd000000),
-      fontSize: null,
       fontWeight: FontWeight.w400,
       fontStyle: FontStyle.normal,
     ),
     suffixStyle: TextStyle(
       color: Color(0xdd000000),
-      fontSize: null,
       fontWeight: FontWeight.w400,
       fontStyle: FontStyle.normal,
     ),
     counterStyle: TextStyle(
       color: Color(0xdd000000),
-      fontSize: null,
       fontWeight: FontWeight.w400,
       fontStyle: FontStyle.normal,
     ),
@@ -224,22 +208,8 @@ final ThemeData appTheme = ThemeData(
     size: 24,
   ),
   sliderTheme: const SliderThemeData(
-    activeTrackColor: null,
-    inactiveTrackColor: null,
-    disabledActiveTrackColor: null,
-    disabledInactiveTrackColor: null,
-    activeTickMarkColor: null,
-    inactiveTickMarkColor: null,
-    disabledActiveTickMarkColor: null,
-    disabledInactiveTickMarkColor: null,
-    thumbColor: null,
-    disabledThumbColor: null,
-    overlayColor: null,
-    valueIndicatorColor: null,
-    showValueIndicator: null,
     valueIndicatorTextStyle: TextStyle(
       color: Color(0xffffffff),
-      fontSize: null,
       fontWeight: FontWeight.w400,
       fontStyle: FontStyle.normal,
     ),
@@ -257,14 +227,12 @@ final ThemeData appTheme = ThemeData(
     labelPadding: EdgeInsets.only(top: 0, bottom: 0, left: 8, right: 8),
     labelStyle: TextStyle(
       color: Color(0xde000000),
-      fontSize: null,
       fontWeight: FontWeight.w400,
       fontStyle: FontStyle.normal,
     ),
     padding: EdgeInsets.only(top: 4, bottom: 4, left: 4, right: 4),
     secondaryLabelStyle: TextStyle(
       color: Color(0x3d000000),
-      fontSize: null,
       fontWeight: FontWeight.w400,
       fontStyle: FontStyle.normal,
     ),
