@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.1.1">
+<plist version="1.0">
 <dict>
 	<key>com.apple.developer.nfc.readersession.felica.systemcodes</key>
 	<array>
@@ -61,7 +61,32 @@
 	</array>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
+	<key>LSApplicationCategoryType</key>
+	<string></string>
+	<key>CFBundleGetInfoString</key>
+	<string></string>
+	<key>NSHumanReadableCopyright</key>
+	<string></string>
+	<key>CFBundleIconFile</key>
+	<string></string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string></string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>yourScheme</string>
+			</array>
+		</dict>
+	</array>
+    <key>FlutterDeepLinkingEnabled</key>
+    <true/>
+    <key>NSUserActivityTypes</key>
+    <array>
+        <string>NSUserActivityTypeBrowsingWeb</string>
+    </array>
 </dict>
 </plist>

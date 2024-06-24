@@ -7,4 +7,12 @@
 		<string>TAG</string>
 	</array>
 </dict>
+<dict>
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:yourDomain.com</string>
+		<string>applinks:radiocrestin.ro</string>
+		<string>applinks:share.radiocrestin.ro</string>
+	</array>
+</dict>
 </plist>

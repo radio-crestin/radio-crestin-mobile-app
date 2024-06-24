@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:developer' as developer;
 import 'dart:io' show Platform;
 
-import 'package:android_play_install_referrer/android_play_install_referrer.dart';
+import 'package:app_links/app_links.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter/material.dart';
@@ -11,7 +11,6 @@ import 'package:radio_crestin/appAudioHandler.dart';
 import 'package:radio_crestin/components/FullAudioPlayer.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
-import 'package:uni_links_nfc_support/uni_links_nfc_support.dart';
 
 import '../components/MiniAudioPlayer.dart';
 import '../components/SelectDialog.dart';
@@ -65,24 +64,14 @@ class _HomePageState extends State<HomePage> {
   CustomPanelController slidingUpPanelController = CustomPanelController();
 
   final AppAudioHandler _audioHandler = getIt<AppAudioHandler>();
+  final AppLinks _appLinks = AppLinks();
 
   _HomePageState() {
-    if (Platform.isAndroid) {
-      try {
-        AndroidPlayInstallReferrer.installReferrer.then((value) {
-          developer.log("AndroidPlayInstallReferrer:" + value.toString());
-          if (value.installReferrer != null) {
-            playByStationSlug(value.installReferrer!);
-          }
-        });
-      } catch (e) {
-        developer.log("AndroidPlayInstallReferrer err:" + e.toString());
-      }
-    }
+    _appLinks.getInitialLink().then((uri) {
+      processIntentUri(uri);
+    });
 
-    getInitialUri().then((value) => {processIntentUri(value)});
-
-    _sub = uriLinkStream.listen((Uri? uri) {
+    _sub = _appLinks.uriLinkStream.listen((Uri? uri) {
       processIntentUri(uri);
     }, onError: (err) {
       developer.log("initialLink err:" + err.toString());
