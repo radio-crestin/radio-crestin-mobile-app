@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.2.3+29
+version: 1.2.4+31
 
 
 environment:
@@ -45,12 +45,10 @@ dependencies:
   package_info: ^2.0.2
   shared_preferences: ^2.1.1
   share_plus: ^9.0.0
-  firebase_core: ^2.13.1
-  firebase_messaging: ^14.6.2
-  firebase_analytics: ^10.4.2
-  firebase_crashlytics: ^3.4.3
-  firebase_remote_config: ^4.2.2
-  firebase_in_app_messaging: ^0.7.3+3
+  firebase_core: ^3.3.0
+  firebase_analytics: ^11.2.1
+  firebase_crashlytics: ^4.0.4
+  firebase_remote_config: ^5.0.4
   flutter_launcher_icons: ^0.13.1
   rxdart: ^0.27.7
   fuzzywuzzy: ^1.1.6
@@ -58,7 +56,7 @@ dependencies:
   flutter_nfc_kit:
     git:
       url: https://github.com/iosifnicolae2/flutter_nfc_kit.git
-  firebase_instance_id: ^1.0.0
+  firebase_instance_id: ^1.1.0
   sliding_up_panel:
     git:
       url: https://github.com/Deskhunters/sliding_up_panel.git
@@ -70,6 +68,7 @@ dependencies:
   like_button: ^2.0.5
   extended_image: ^8.2.0
   app_links: ^6.1.1
+  firebase_messaging: ^15.0.4
 
 dev_dependencies:
   dependency_validator: ^4.0.0

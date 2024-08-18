@@ -37,28 +37,16 @@ void main() async {
   };
   // Pass all uncaught asynchronous errors that aren't handled by the Flutter framework to Crashlytics
   PlatformDispatcher.instance.onError = (error, stack) {
+    developer.log('PlatformDispatcher.instance.onError', error: error, stackTrace: stack);
     FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
     return true;
   };
 
-  FirebaseMessaging messaging = FirebaseMessaging.instance;
-
-  NotificationSettings settings = await messaging.requestPermission(
-    alert: true,
-    announcement: true,
-    badge: true,
-    carPlay: false,
-    criticalAlert: true,
-    provisional: true,
-    sound: true,
-  );
-  developer.log('User granted permission: ${settings.authorizationStatus}');
+  await FirebaseMessaging.instance.setAutoInitEnabled(true);
+  final fcmToken = await FirebaseMessaging.instance.getToken();
+  developer.log("FCMToken $fcmToken");
 
   final prefs = await SharedPreferences.getInstance();
-
-  if (prefs.getBool('_autoStartStation') == null) {
-    prefs.setBool('_autoStartStation', true);
-  }
 
   if (prefs.getBool('_notificationsEnabled') ?? true) {
     FirebaseAnalytics.instance.setUserProperty(name: 'personalized_n', value: 'true');
@@ -146,6 +134,7 @@ void main() async {
 
   runApp(const RadioCrestinApp());
 }
+
 
 class RadioCrestinApp extends StatelessWidget {
   const RadioCrestinApp({super.key});

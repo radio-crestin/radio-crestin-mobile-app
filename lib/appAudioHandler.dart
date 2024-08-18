@@ -57,7 +57,6 @@ class AppAudioHandler extends BaseAudioHandler {
   int stationStreamSourceIdx = 0;
   bool started = false;
   int? playerIndex;
-  bool onOpenEventTriggered = false;
 
   final BehaviorSubject<List<Station>> stations = BehaviorSubject.seeded(<Station>[]);
   final BehaviorSubject<List<Station>> filteredStations = BehaviorSubject.seeded(<Station>[]);
@@ -378,18 +377,6 @@ class AppAudioHandler extends BaseAudioHandler {
               isFavorite: favoriteStationSlugs.value.contains(rawStationData.slug)))
           .toList());
       stationGroups.add(parsedData.station_groups);
-
-      if (!onOpenEventTriggered) {
-        final prefs = await SharedPreferences.getInstance();
-        final autoStart = prefs.getBool('_autoStartStation') ?? true;
-        var station = await getLastPlayedStation();
-        if (autoStart) {
-          playStation(station);
-        } else {
-          selectStation(station);
-        }
-        onOpenEventTriggered = true;
-      }
       loadThumbnailsInCache();
     });
   }

@@ -30,3 +30,8 @@ Obs. This project can be used only by Christian organizations for non-commercial
 brew install --cask flutter
 
 ```
+
+## Create an Android release
+1. Copy `radio_crestin_key.properties` from 1Password into `android/key.properties`
+2. Copy `radio-crestin-app-keystore.jks` from 1Password into `android/app/radio_crestin_key.jks`
+3. Run `flutter build appbundle --release` to build the APK
