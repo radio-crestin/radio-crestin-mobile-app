@@ -57,24 +57,25 @@ class _SettingsPageState extends State<SettingsPage> {
             visible: _notificationsEnabled != null,
             child: Column(
               children: [
-                ListTile(
-                  leading: const Icon(Icons.radio),
-                  title: const Text('Pornește automat ultima stație la deschiderea aplicației'),
-                  trailing: Switch(
-                    activeColor: Theme.of(context).primaryColor,
-                    activeTrackColor: Theme.of(context).primaryColorLight,
-                    inactiveThumbColor: Theme.of(context).primaryColorDark,
-                    inactiveTrackColor: const Color(0xffdcdcdc),
-                    onChanged: (bool? value) async {
-                      final prefs = await SharedPreferences.getInstance();
-                      await prefs.setBool('_autoStartStation', value!);
-                      setState(() {
-                        _autoStartStation = value;
-                      });
-                    },
-                    value: _autoStartStation ?? true,
-                  ),
-                ),
+                // TODO: disabled until we fix the issue with the audio player starting on reboot
+                // ListTile(
+                //   leading: const Icon(Icons.radio),
+                //   title: const Text('Pornește automat ultima stație la deschiderea aplicației'),
+                //   trailing: Switch(
+                //     activeColor: Theme.of(context).primaryColor,
+                //     activeTrackColor: Theme.of(context).primaryColorLight,
+                //     inactiveThumbColor: Theme.of(context).primaryColorDark,
+                //     inactiveTrackColor: const Color(0xffdcdcdc),
+                //     onChanged: (bool? value) async {
+                //       final prefs = await SharedPreferences.getInstance();
+                //       await prefs.setBool('_autoStartStation', value!);
+                //       setState(() {
+                //         _autoStartStation = value;
+                //       });
+                //     },
+                //     value: _autoStartStation ?? true,
+                //   ),
+                // ),
                 ListTile(
                   leading: const Icon(Icons.notification_important_rounded),
                   title: const Text('Notificări personalizate'),

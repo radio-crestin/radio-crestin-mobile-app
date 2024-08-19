@@ -83,23 +83,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-  }
-
-  @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
     _sub.cancel();
     super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      playerAutoplay();
-    }
   }
 
 
@@ -381,20 +367,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       playByStationSlug(stationSlug);
     } catch (e) {
       developer.log("processIntentUri error:$e");
-    }
-  }
-
-  Future<void> playerAutoplay() async {
-    if(!autoPlayProcessed) {
-      autoPlayProcessed = true;
-      final prefs = await SharedPreferences.getInstance();
-      final autoStart = prefs.getBool('_autoStartStation') ?? true;
-      var station = await _audioHandler.getLastPlayedStation();
-      if (autoStart) {
-        _audioHandler.playStation(station);
-      } else {
-        _audioHandler.selectStation(station);
-      }
     }
   }
 }

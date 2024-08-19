@@ -39,7 +39,7 @@ Future<AppAudioHandler> initAudioService({required graphqlClient}) async {
       notificationColor: Color(0xffe91e63),
       preloadArtwork: true,
       // androidShowNotificationBadge: true,
-      // androidStopForegroundOnPause: true,
+      androidStopForegroundOnPause: true,
     ),
   );
 }
@@ -57,6 +57,7 @@ class AppAudioHandler extends BaseAudioHandler {
   int stationStreamSourceIdx = 0;
   bool started = false;
   int? playerIndex;
+  bool onOpenEventTriggered = false;
 
   final BehaviorSubject<List<Station>> stations = BehaviorSubject.seeded(<Station>[]);
   final BehaviorSubject<List<Station>> filteredStations = BehaviorSubject.seeded(<Station>[]);
@@ -139,6 +140,8 @@ class AppAudioHandler extends BaseAudioHandler {
 
   // Audio Player
   Future<void> _initPlayer() async {
+    _log("initPlayer");
+
     // For Android 11, record the most recent item so it can be resumed.
     mediaItem.whereType<MediaItem>().listen((item) {
       _recentSubject.add([item]);
@@ -377,6 +380,22 @@ class AppAudioHandler extends BaseAudioHandler {
               isFavorite: favoriteStationSlugs.value.contains(rawStationData.slug)))
           .toList());
       stationGroups.add(parsedData.station_groups);
+
+      if (!onOpenEventTriggered) {
+        final prefs = await SharedPreferences.getInstance();
+        var station = await getLastPlayedStation();
+        // TODO: this is temporary disabled until we find a fix for the bug when the music starts on reboot
+        // final autoStart = prefs.getBool('_autoStartStation') ?? true;
+        // if (autoStart) {
+        //   playStation(station);
+        // } else {
+        //   selectStation(station);
+        // }
+        if(currentStation.valueOrNull == null) {
+          selectStation(station);
+        }
+        onOpenEventTriggered = true;
+      }
       loadThumbnailsInCache();
     });
   }
@@ -413,6 +432,7 @@ class AppAudioHandler extends BaseAudioHandler {
     player.stop();
     // player.dispose();
     watchStations.cancel();
+    onOpenEventTriggered = false;
     return super.onTaskRemoved();
   }
 
