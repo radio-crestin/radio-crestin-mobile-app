@@ -547,15 +547,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.0.0"
-  flutter_nfc_kit:
-    dependency: "direct main"
-    description:
-      path: "."
-      ref: HEAD
-      resolved-ref: "1270d461661e398597c82f0a6ec90c13e335b2e4"
-      url: "https://github.com/iosifnicolae2/flutter_nfc_kit.git"
-    source: git
-    version: "3.5.0"
   flutter_sticky_header:
     dependency: "direct main"
     description:
@@ -810,10 +801,10 @@ packages:
     dependency: transitive
     description:
       name: js
-      sha256: f2c445dce49627136094980615a031419f7f3eb393237e4ecd97ac15dea343f3
+      sha256: c1b2e9b5ea78c45e1a0788d29606ba27dc5f71f019f32ca5140f61ef071838cf
       url: "https://pub.dev"
     source: hosted
-    version: "0.6.7"
+    version: "0.7.1"
   json_annotation:
     dependency: transitive
     description:
@@ -934,14 +925,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.6"
-  ndef:
-    dependency: transitive
-    description:
-      name: ndef
-      sha256: "634d2b5c6f2c186e953218bac9905f3f5e1824b15e30bd1ed6e03a91cdbc7293"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.3.3"
   nested:
     dependency: transitive
     description:

@@ -9,7 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../globals.dart' as globals;
-import 'WriteNfcTag.dart';
+// import 'WriteNfcTag.dart';
 
 final remoteConfig = FirebaseRemoteConfig.instance;
 
@@ -98,17 +98,17 @@ class _SettingsPageState extends State<SettingsPage> {
                     value: _notificationsEnabled ?? true,
                   ),
                 ),
-                ListTile(
-                  leading: const Icon(Icons.nfc),
-                  title: const Text('Inscripționează un tag NFC'),
-                  onTap: () => {
-                    Navigator.push(context, MaterialPageRoute<void>(
-                      builder: (BuildContext context) {
-                        return WriteNfcTagPage();
-                      },
-                    ))
-                  },
-                ),
+                // ListTile(
+                //   leading: const Icon(Icons.nfc),
+                //   title: const Text('Inscripționează un tag NFC'),
+                //   onTap: () => {
+                //     Navigator.push(context, MaterialPageRoute<void>(
+                //       builder: (BuildContext context) {
+                //         return WriteNfcTagPage();
+                //       },
+                //     ))
+                //   },
+                // ),
                 ListTile(
                   leading: const Icon(Icons.share_rounded),
                   title: const Text('Trimite aplicația'),
