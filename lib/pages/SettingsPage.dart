@@ -9,7 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../globals.dart' as globals;
-// import 'WriteNfcTag.dart';
+import 'WriteNfcTag.dart';
 
 final remoteConfig = FirebaseRemoteConfig.instance;
 
@@ -57,25 +57,24 @@ class _SettingsPageState extends State<SettingsPage> {
             visible: _notificationsEnabled != null,
             child: Column(
               children: [
-                // TODO: disabled until we fix the issue with the audio player starting on reboot
-                // ListTile(
-                //   leading: const Icon(Icons.radio),
-                //   title: const Text('Pornește automat ultima stație la deschiderea aplicației'),
-                //   trailing: Switch(
-                //     activeColor: Theme.of(context).primaryColor,
-                //     activeTrackColor: Theme.of(context).primaryColorLight,
-                //     inactiveThumbColor: Theme.of(context).primaryColorDark,
-                //     inactiveTrackColor: const Color(0xffdcdcdc),
-                //     onChanged: (bool? value) async {
-                //       final prefs = await SharedPreferences.getInstance();
-                //       await prefs.setBool('_autoStartStation', value!);
-                //       setState(() {
-                //         _autoStartStation = value;
-                //       });
-                //     },
-                //     value: _autoStartStation ?? true,
-                //   ),
-                // ),
+                ListTile(
+                  leading: const Icon(Icons.radio),
+                  title: const Text('Pornește automat ultima stație la deschiderea aplicației'),
+                  trailing: Switch(
+                    activeColor: Theme.of(context).primaryColor,
+                    activeTrackColor: Theme.of(context).primaryColorLight,
+                    inactiveThumbColor: Theme.of(context).primaryColorDark,
+                    inactiveTrackColor: const Color(0xffdcdcdc),
+                    onChanged: (bool? value) async {
+                      final prefs = await SharedPreferences.getInstance();
+                      await prefs.setBool('_autoStartStation', value!);
+                      setState(() {
+                        _autoStartStation = value;
+                      });
+                    },
+                    value: _autoStartStation ?? true,
+                  ),
+                ),
                 ListTile(
                   leading: const Icon(Icons.notification_important_rounded),
                   title: const Text('Notificări personalizate'),
@@ -98,17 +97,17 @@ class _SettingsPageState extends State<SettingsPage> {
                     value: _notificationsEnabled ?? true,
                   ),
                 ),
-                // ListTile(
-                //   leading: const Icon(Icons.nfc),
-                //   title: const Text('Inscripționează un tag NFC'),
-                //   onTap: () => {
-                //     Navigator.push(context, MaterialPageRoute<void>(
-                //       builder: (BuildContext context) {
-                //         return WriteNfcTagPage();
-                //       },
-                //     ))
-                //   },
-                // ),
+                ListTile(
+                  leading: const Icon(Icons.nfc),
+                  title: const Text('Inscripționează un tag NFC'),
+                  onTap: () => {
+                    Navigator.push(context, MaterialPageRoute<void>(
+                      builder: (BuildContext context) {
+                        return WriteNfcTagPage();
+                      },
+                    ))
+                  },
+                ),
                 ListTile(
                   leading: const Icon(Icons.share_rounded),
                   title: const Text('Trimite aplicația'),

@@ -229,7 +229,7 @@ class AppAudioHandler extends BaseAudioHandler {
     while (true && item != null) {
       if (retry < maxRetries) {
         final streamUrl = item.extras?["station_streams"]
-                [retry % item.extras?["station_streams"].length] ??
+        [retry % item.extras?["station_streams"].length] ??
             item.id;
         _log("playMediaItem: $streamUrl");
         try {

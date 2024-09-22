@@ -52,9 +52,7 @@ dependencies:
   flutter_launcher_icons: ^0.14.0
   rxdart: ^0.28.0
   fuzzywuzzy: ^1.1.6
-#  flutter_nfc_kit:
-#    git:
-#      url: https://github.com/iosifnicolae2/flutter_nfc_kit.git
+  flutter_nfc_kit: 3.5.2
   firebase_instance_id: ^1.1.0
   sliding_up_panel:
     git:

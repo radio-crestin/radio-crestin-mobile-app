@@ -38,7 +38,6 @@ class CustomPanelController extends PanelController {
     assert(isAttached, "PanelController must be attached to a SlidingUpPanel");
     isDraggableSubject.add(isDraggable);
   }
-
 }
 
 class HomePageState {
@@ -84,10 +83,37 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _sub.cancel();
     super.dispose();
   }
 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      playerAutoplay();
+    }
+  }
+
+  Future<void> playerAutoplay() async {
+    if(!autoPlayProcessed) {
+      autoPlayProcessed = true;
+      final prefs = await SharedPreferences.getInstance();
+      final autoStart = prefs.getBool('_autoStartStation') ?? true;
+      var station = await _audioHandler.getLastPlayedStation();
+      if (autoStart) {
+        _audioHandler.playStation(station);
+      } else {
+        _audioHandler.selectStation(station);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
