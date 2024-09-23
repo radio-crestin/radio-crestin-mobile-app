@@ -83,36 +83,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
     _sub.cancel();
     super.dispose();
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      playerAutoplay();
-    }
-  }
-
-  Future<void> playerAutoplay() async {
-    if(!autoPlayProcessed) {
-      autoPlayProcessed = true;
-      final prefs = await SharedPreferences.getInstance();
-      final autoStart = prefs.getBool('_autoStartStation') ?? true;
-      var station = await _audioHandler.getLastPlayedStation();
-      if (autoStart) {
-        _audioHandler.playStation(station);
-      } else {
-        _audioHandler.selectStation(station);
-      }
-    }
   }
 
   @override
@@ -376,17 +348,31 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (station != null) {
       developer.log("found station:$station");
       await _audioHandler.playMediaItem(station);
+    } else {
+      developer.log("station not found:$stationSlug");
     }
+  }
+
+  String extractSlugWithRegex(String url) {
+    final regex = RegExp(r'https?://[^/]+/([^/]+)');
+    final match = regex.firstMatch(url);
+
+    if (match != null && match.groupCount >= 1) {
+      return match.group(1)!;
+    }
+
+    return '';
   }
 
   processIntentUri(Uri? uri) async {
     try {
+      developer.log("processIntentUri:$uri");
       if (uri == null) {
         return;
       }
-      developer.log("processIntentUri:$uri");
-      var stationSlug =
-          uri.path.replaceAll("/share/", "").replaceAll("/radio/", "").replaceAll("/", "");
+
+      var stationSlug = extractSlugWithRegex(uri.toString());
+
       if (stationSlug == "") {
         stationSlug = uri.host;
       }
