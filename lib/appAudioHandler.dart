@@ -21,14 +21,14 @@ import 'constants.dart';
 enum PlayerState { started, stopped, playing, buffering, error }
 
 Future<AppAudioHandler> initAudioService({required graphqlClient}) async {
+  final AudioPlayer player = AudioPlayer(
+    // TODO: enable userAgent to identify users
+    // Currently it's disabled because it creates an insecure proxy on localhost to add this header
+    // and it's needs more configuration
+    // userAgent: 'radiocrestinapp/1.0 (Linux;Android 11) https://www.radio-crestin.com',
+  );
   return await AudioService.init(
     builder: () {
-      final AudioPlayer player = AudioPlayer(
-          // TODO: enable userAgent to identify users
-          // Currently it's disabled because it creates an insecure proxy on localhost to add this header
-          // and it's needs more configuration
-          // userAgent: 'radiocrestinapp/1.0 (Linux;Android 11) https://www.radio-crestin.com',
-          );
       return AppAudioHandler(player: player, graphqlClient: graphqlClient);
     },
     config: const AudioServiceConfig(
@@ -226,7 +226,8 @@ class AppAudioHandler extends BaseAudioHandler {
 
     var retry = 0;
     var item = mediaItem.valueOrNull;
-    while (true && item != null) {
+    var initialStation = currentStation.valueOrNull;
+    while (item != null && initialStation == currentStation.valueOrNull) {
       if (retry < maxRetries) {
         final streamUrl = item.extras?["station_streams"]
         [retry % item.extras?["station_streams"].length] ??
@@ -384,13 +385,12 @@ class AppAudioHandler extends BaseAudioHandler {
       if (!onOpenEventTriggered) {
         final prefs = await SharedPreferences.getInstance();
         var station = await getLastPlayedStation();
-        // TODO: this is temporary disabled until we find a fix for the bug when the music starts on reboot
-        // final autoStart = prefs.getBool('_autoStartStation') ?? true;
-        // if (autoStart) {
-        //   playStation(station);
-        // } else {
-        //   selectStation(station);
-        // }
+        final autoStart = prefs.getBool('_autoStartStation') ?? true;
+        if (autoStart) {
+          playStation(station);
+        } else {
+          selectStation(station);
+        }
         if(currentStation.valueOrNull == null) {
           selectStation(station);
         }
