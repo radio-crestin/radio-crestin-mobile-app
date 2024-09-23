@@ -13,8 +13,6 @@
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../lib/appAudioHandler.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/appAudioHandler.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../lib/pages/HomePage.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/pages/HomePage.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../lib/pages/SettingsPage.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/pages/SettingsPage.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../lib/pages/WriteNfcTag.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/pages/WriteNfcTag.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../pubspec.lock" beforeDir="false" afterPath="$PROJECT_DIR$/../pubspec.lock" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../pubspec.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/../pubspec.yaml" afterDir="false" />
     </list>
