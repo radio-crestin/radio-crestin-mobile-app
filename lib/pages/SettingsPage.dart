@@ -22,6 +22,7 @@ class _SettingsPageState extends State<SettingsPage> {
   bool? _notificationsEnabled;
   bool? _autoStartStation;
   final String _version = globals.appVersion;
+  final String _buildNumber = globals.buildNumber;
   final String _deviceId = globals.deviceId;
 
   @override
@@ -147,7 +148,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     mainAxisAlignment: MainAxisAlignment.start,
                     children: [
                       Text(
-                        'Versiune aplicatie $_version',
+                        'Versiune aplicatie $_version ($_buildNumber)',
                         style: const TextStyle(color: Colors.grey),
                       ),
                     ],

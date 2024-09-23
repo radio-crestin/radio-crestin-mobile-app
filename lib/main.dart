@@ -125,7 +125,10 @@ void main() async {
 
   getIt.registerSingleton<AppAudioHandler>(await initAudioService(graphqlClient: graphqlClient));
 
-  PackageInfo.fromPlatform().then((value) => {globals.appVersion = value.version});
+  PackageInfo.fromPlatform().then((value) {
+    globals.appVersion = value.version;
+    globals.buildNumber = value.buildNumber;
+  });
 
   FirebaseInstanceId.appInstanceId.then((value) {
     globals.deviceId = value ?? "";
@@ -134,7 +137,6 @@ void main() async {
 
   runApp(const RadioCrestinApp());
 }
-
 
 class RadioCrestinApp extends StatelessWidget {
   const RadioCrestinApp({super.key});

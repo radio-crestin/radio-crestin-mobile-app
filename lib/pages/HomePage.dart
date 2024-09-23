@@ -370,7 +370,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   waitForStationsUpdate() async {
-    await _audioHandler.stations.first;
+    while (true) {
+      if (_audioHandler.stations.value.isNotEmpty) {
+        break;
+      }
+      await Future.delayed(const Duration(milliseconds: 100));
+    }
   }
 
   String extractSlugWithRegex(String url) {
