@@ -1,0 +1,6 @@
+sdk.dir=/Users/iosif/Library/Android/sdk
+flutter.sdk=/opt/homebrew/Caskroom/flutter/3.19.5/flutter
+flutter.buildMode=release
+flutter.versionName=1.2.6
+flutter.versionCode=34
+flutter.minSdkVersion=26

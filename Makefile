@@ -16,6 +16,9 @@ generate-new-play-store-keystore:
 build-android-release:
 	flutter build appbundle --release --no-tree-shake-icons
 
+build-android-apk-release:
+	flutter build apk --release --no-tree-shake-icons
+
 start-android-auto:
 	# Connect your phone via USB
 	~/Library/Android/sdk/extras/google/auto/desktop-head-unit --usb -c ./dhu/landscape.ini
