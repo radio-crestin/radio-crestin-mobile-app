@@ -66,6 +66,7 @@ dependencies:
   extended_image: ^8.2.0
   app_links: ^6.1.1
   firebase_messaging: ^15.0.4
+  receive_intent: ^0.2.5
 
 dev_dependencies:
   dependency_validator: ^4.0.0

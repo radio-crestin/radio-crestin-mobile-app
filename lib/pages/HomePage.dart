@@ -5,10 +5,11 @@ import 'dart:io' show Platform;
 import 'package:app_links/app_links.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Intent;
 import 'package:flutter_sticky_header/flutter_sticky_header.dart';
 import 'package:radio_crestin/appAudioHandler.dart';
 import 'package:radio_crestin/components/FullAudioPlayer.dart';
+import 'package:receive_intent/receive_intent.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
@@ -78,6 +79,20 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       processIntentUri(uri);
     }, onError: (err) {
       developer.log("initialLink err:" + err.toString());
+    });
+
+
+    _sub = ReceiveIntent.receivedIntentStream.listen((Intent? intent) {
+      developer.log("receivedIntentStream:" + intent.toString());
+      if (intent == null) {
+        return;
+      }
+
+      if (intent.action == 'android.intent.action.MAIN') {
+        processIntentUri(null);
+      }
+    }, onError: (err) {
+      developer.log("receivedIntentStream err:" + err.toString());
     });
   }
 
@@ -343,6 +358,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   playByStationSlug(String stationSlug) async {
     developer.log("playByStationSlug:$stationSlug");
+    await waitForStationsUpdate();
     var stations = await _audioHandler.stationsMediaItems.first;
     var station = stations.where((item) => item.extras?['station_slug'] == stationSlug).firstOrNull;
     if (station != null) {
@@ -351,6 +367,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     } else {
       developer.log("station not found:$stationSlug");
     }
+  }
+
+  waitForStationsUpdate() async {
+    await _audioHandler.stations.first;
   }
 
   String extractSlugWithRegex(String url) {
@@ -368,6 +388,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     try {
       developer.log("processIntentUri:$uri");
       if (uri == null) {
+        playerAutoplay();
         return;
       }
 
@@ -379,6 +400,21 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       playByStationSlug(stationSlug);
     } catch (e) {
       developer.log("processIntentUri error:$e");
+    }
+  }
+
+  Future<void> playerAutoplay() async {
+    if(!autoPlayProcessed) {
+      autoPlayProcessed = true;
+      await waitForStationsUpdate();
+      final prefs = await SharedPreferences.getInstance();
+      final autoStart = prefs.getBool('_autoStartStation') ?? true;
+      var station = await _audioHandler.getLastPlayedStation();
+      if (autoStart) {
+        _audioHandler.playStation(station);
+      } else {
+        _audioHandler.selectStation(station);
+      }
     }
   }
 }
