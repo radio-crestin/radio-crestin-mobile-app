@@ -10,6 +10,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:get_it/get_it.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:package_info/package_info.dart';
@@ -25,12 +26,34 @@ import 'globals.dart' as globals;
 
 final getIt = GetIt.instance;
 
+Future<void> initializeFirebaseMessaging() async {
+  if (Platform.isIOS) {
+    FirebaseMessaging messaging = FirebaseMessaging.instance;
+    await messaging.requestPermission(
+      alert: true,
+      announcement: true,
+      badge: true,
+      carPlay: false,
+      criticalAlert: true,
+      provisional: true,
+      sound: true,
+    );
+  } else {
+    await FirebaseMessaging.instance.setAutoInitEnabled(true);
+    final fcmToken = await FirebaseMessaging.instance.getToken();
+    developer.log("FCMToken $fcmToken");
+  }
+}
+
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
+  FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
 
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  await initializeFirebaseMessaging();
 
   FlutterError.onError = (errorDetails) {
     FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);
@@ -41,10 +64,6 @@ void main() async {
     FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
     return true;
   };
-
-  await FirebaseMessaging.instance.setAutoInitEnabled(true);
-  final fcmToken = await FirebaseMessaging.instance.getToken();
-  developer.log("FCMToken $fcmToken");
 
   final prefs = await SharedPreferences.getInstance();
 
@@ -134,6 +153,8 @@ void main() async {
     globals.deviceId = value ?? "";
     FirebaseCrashlytics.instance.setUserIdentifier(globals.deviceId);
   });
+
+  FlutterNativeSplash.remove();
 
   runApp(const RadioCrestinApp());
 }
