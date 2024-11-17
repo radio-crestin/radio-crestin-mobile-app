@@ -22,3 +22,6 @@ build-android-apk-release:
 start-android-auto:
 	# Connect your phone via USB
 	~/Library/Android/sdk/extras/google/auto/desktop-head-unit --usb -c ./dhu/landscape.ini
+
+aider:
+	aider --yes --dark-mode --model anthropic/claude-3-5-sonnet-20241022 --env-file ~/.aider.env
