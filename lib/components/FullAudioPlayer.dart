@@ -114,7 +114,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                         width: 32,
                         height: 4,
                         decoration: BoxDecoration(
-                            color: Colors.grey[300],
+                            color: Theme.of(context).colorScheme.surfaceVariant,
                             borderRadius: const BorderRadius.all(Radius.circular(12.0))),
                       ),
                     ],
@@ -161,7 +161,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                       height: 260.0,
                       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: Theme.of(context).colorScheme.surface,
                         borderRadius: const BorderRadius.all(Radius.circular(8)),
                         boxShadow: [
                           BoxShadow(
@@ -182,13 +182,15 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
               ),
             ),
             const SizedBox(height: 18.0),
-            Text(
-              currentStation?.songTitle ?? "Metadate indisponibile",
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 21,
+            Padding(padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Text(
+                currentStation?.songTitle ?? "Metadate indisponibile",
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 21,
+                ),
               ),
             ),
             Text(
@@ -198,7 +200,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
-                color: Colors.grey[700],
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
             const Spacer(),
@@ -207,12 +209,12 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
               children: <Widget>[
                 InkWell(
                   onTap: widget.audioHandler.skipToPrevious,
-                  child: const Padding(
+                  child: Padding(
                     padding: EdgeInsets.all(8.0),
                     child: Icon(
                       Icons.skip_previous,
                       size: 34,
-                      color: Colors.black,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
                 ),
@@ -226,18 +228,18 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                     final buffering = processingState == AudioProcessingState.loading ||
                         processingState == AudioProcessingState.buffering;
                     if (buffering) {
-                      return const Stack(
+                      return Stack(
                         alignment: Alignment.center,
                         children: [
-                          ClipOval(
+                          const ClipOval(
                             child: Material(
-                              color: Colors.pink,
+                              color: Colors.transparent,
                               child: SizedBox(width: 62, height: 62,),
                             ),
                           ),
                           CircularProgressIndicator(
                             valueColor: AlwaysStoppedAnimation<Color>(
-                              Colors.white,
+                              Theme.of(context).colorScheme.onPrimary,
                             ),
                           )
                         ],
@@ -248,11 +250,11 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                       children: [
                         ClipOval(
                           child: Material(
-                              color: Colors.pink,
+                              color: Theme.of(context).primaryColor,
                               child: IconButton(
                                 icon: (playing
-                                    ? const Icon(Icons.pause_rounded, color: Colors.white)
-                                    : const Icon(Icons.play_arrow_rounded, color: Colors.white)),
+                                    ? Icon(Icons.pause_rounded, color: Theme.of(context).colorScheme.onPrimary)
+                                    : Icon(Icons.play_arrow_rounded, color: Theme.of(context).colorScheme.onPrimary)),
                                 iconSize: 46,
                                 onPressed:
                                     playing ? widget.audioHandler.pause : widget.audioHandler.play,
@@ -265,12 +267,12 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                 const SizedBox(width: 24.0),
                 InkWell(
                   onTap: widget.audioHandler.skipToNext,
-                  child: const Padding(
-                    padding: EdgeInsets.all(8.0),
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
                     child: Icon(
                       Icons.skip_next_rounded,
                       size: 34,
-                      color: Colors.black,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
                 ),
@@ -291,7 +293,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                       children: [
                         Icon(
                           Icons.nights_stay_sharp,
-                          color: isTimerActive ? Theme.of(context).primaryColor : Colors.black,
+                          color: isTimerActive ? Theme.of(context).primaryColor : Theme.of(context).colorScheme.onSurface,
                           size: 24,
                         ),
                         Padding(
@@ -301,7 +303,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                             style: TextStyle(
                                 fontSize: 12,
                                 color:
-                                    isTimerActive ? Theme.of(context).primaryColor : Colors.black),
+                                    isTimerActive ? Theme.of(context).primaryColor : Theme.of(context).colorScheme.onSurface),
                           ),
                         ),
                       ],
@@ -320,7 +322,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                           likeBuilder: (bool isLiked) {
                             return Icon(
                               isLiked ? Icons.favorite_sharp : Icons.favorite_border_sharp,
-                              color: isLiked ? Theme.of(context).primaryColor : Colors.black,
+                              color: isLiked ? Theme.of(context).primaryColor : Theme.of(context).colorScheme.onSurface,
                               size: 23,
                             );
                           },
@@ -331,7 +333,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                             return !isLiked;
                           },
                         ),
-                        const Padding(
+                        Padding(
                           padding: EdgeInsets.only(top: 8.0),
                           child: Text('favorit', style: TextStyle(fontSize: 12)),
                         ),
@@ -358,8 +360,8 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                               toastLength: Toast.LENGTH_SHORT,
                               gravity: ToastGravity.BOTTOM,
                               timeInSecForIosWeb: 1,
-                              backgroundColor: Colors.black,
-                              textColor: Colors.white,
+                              backgroundColor: Theme.of(context).colorScheme.onSurface,
+                              textColor: Theme.of(context).colorScheme.surface,
                               fontSize: 16.0);
                         }
                       } else {
@@ -368,8 +370,8 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                             toastLength: Toast.LENGTH_SHORT,
                             gravity: ToastGravity.BOTTOM,
                             timeInSecForIosWeb: 1,
-                            backgroundColor: Colors.black,
-                            textColor: Colors.white,
+                            backgroundColor: Theme.of(context).colorScheme.onSurface,
+                            textColor: Theme.of(context).colorScheme.surface,
                             fontSize: 16.0);
                       }
                     },
@@ -379,12 +381,12 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                         children: [
                           Icon(
                             Icons.video_collection,
-                            color: hasYoutubeLink? Colors.black : Colors.grey,
+                            color: hasYoutubeLink ? Theme.of(context).colorScheme.onSurface : Theme.of(context).colorScheme.onSurfaceVariant,
                             size: 24,
                           ),
                           Padding(
                             padding: EdgeInsets.only(top: 8.0),
-                            child: Text('youtube', style: TextStyle(fontSize: 12, color: hasYoutubeLink? Colors.black : Colors.grey)),
+                            child: Text('youtube', style: TextStyle(fontSize: 12, color: hasYoutubeLink ? Theme.of(context).colorScheme.onSurface : Theme.of(context).colorScheme.onSurfaceVariant)),
                           ),
                         ],
                       ),
@@ -407,14 +409,14 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                   },
                   child: Container(
                     padding: const EdgeInsets.all(10.0),
-                    child: const Column(
+                    child: Column(
                       children: [
                         Icon(
                           Icons.share_outlined,
-                          color: Colors.black,
+                          color: Theme.of(context).colorScheme.onSurface,
                           size: 24,
                         ),
-                        Padding(
+                        const Padding(
                           padding: EdgeInsets.only(top: 8.0),
                           child: Text('share', style: TextStyle(fontSize: 12)),
                         ),
@@ -472,7 +474,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
               'Oprește radioul după:',
               style: TextStyle(fontSize: 18),
             ),
-            backgroundColor: Colors.white,
+            backgroundColor: Theme.of(context).colorScheme.surface,
             content: SingleChildScrollView(
               child: Column(
                 children: [5, 10, 15, 30, 60]

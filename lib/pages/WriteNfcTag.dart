@@ -73,7 +73,7 @@ class _WriteNfcTagPageState extends State<WriteNfcTagPage> {
                     items: mediaItems.map((e) {
                       return DropdownMenuItem<String>(
                         value: e.extras?['station_slug'],
-                        child: Text(e.title, style: const TextStyle(color: Colors.black)),
+                        child: Text(e.title),
                       );
                     }).toList(),
                     onChanged: (value) {
@@ -85,7 +85,7 @@ class _WriteNfcTagPageState extends State<WriteNfcTagPage> {
                         ];
                       });
                     },
-                    hint: const Text('Selectează o stație pentru inscripționare', style: TextStyle(color: Colors.black)),
+                    hint: const Text('Selectează o stație pentru inscripționare'),
                   );
                 },
               ),

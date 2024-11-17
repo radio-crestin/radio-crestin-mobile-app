@@ -107,7 +107,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     double panelMaxHeight = MediaQuery.of(context).size.height * .9;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: StreamBuilder<HomePageState>(
           stream: Rx.combineLatest7<
               Station?,
@@ -161,8 +161,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   cacheExtent: 300.0,
                   slivers: <Widget>[
                     SliverAppBar(
+                      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
                       flexibleSpace: FlexibleSpaceBar(
-                        background: Container(color: const Color(0xfffafafa)),
+                        background: Container(color: Theme.of(context).scaffoldBackgroundColor),
                       ),
                       floating: true,
                       centerTitle: true,
@@ -186,7 +187,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       actions: [
                         IconButton(
                           icon: const Icon(Icons.search),
-                          color: Colors.grey[800],
+                          color: Theme.of(context).colorScheme.onSurface,
                           tooltip: 'Caută o stație radio',
                           onPressed: () {
                             showDialog(
@@ -206,7 +207,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         ),
                         IconButton(
                           icon: const Icon(Icons.settings),
-                          color: Colors.grey[800],
+                          color: Theme.of(context).colorScheme.onSurface,
                           tooltip: 'Setări aplicație',
                           onPressed: () {
                             Navigator.push(context, MaterialPageRoute<void>(
@@ -222,13 +223,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       SliverStickyHeader(
                         header: Container(
                           height: 60.0,
-                          color: Colors.white,
+                          color: Theme.of(context).scaffoldBackgroundColor,
                           padding: const EdgeInsets.symmetric(horizontal: 16.0),
                           alignment: Alignment.centerLeft,
                           child: Text(
                             'Favorite',
                             style: TextStyle(
-                                fontSize: 18, fontWeight: FontWeight.w600, color: Colors.grey[800]),
+                                fontSize: 18, fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurface),
                           ),
                         ),
                         sliver: SliverPadding(
@@ -254,7 +255,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       SliverStickyHeader(
                         header: Container(
                           height: 60.0,
-                          color: Colors.white,
+                          color: Theme.of(context).scaffoldBackgroundColor,
                           padding: const EdgeInsets.symmetric(horizontal: 16.0),
                           alignment: Alignment.centerLeft,
                           child: Row(
@@ -264,7 +265,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                 style: TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w600,
-                                    color: Colors.grey[800]),
+                                    color: Theme.of(context).colorScheme.onSurface),
                               ),
                               const Spacer(),
                               TextButton(
@@ -308,7 +309,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                     style: TextStyle(
                                         fontSize: 14,
                                         fontWeight: FontWeight.w500,
-                                        color: Colors.blue[700]),
+                                        color: Theme.of(context).colorScheme.primary),
                                   ))
                             ],
                           ),

@@ -43,7 +43,7 @@ class _SelectDialogState<T> extends State<SelectDialog<T>> {
   Widget build(BuildContext context) {
     return Dialog(
       surfaceTintColor: Colors.transparent,
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).cardColor,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(8.0),
       ),
@@ -67,7 +67,7 @@ class _SelectDialogState<T> extends State<SelectDialog<T>> {
                     ),
                   ),
                   CloseButton(
-                    color: Colors.grey[800],
+                    color: Theme.of(context).colorScheme.onSurface,
                     onPressed: () => Navigator.of(context).pop(),
                   )
                 ],
@@ -75,7 +75,12 @@ class _SelectDialogState<T> extends State<SelectDialog<T>> {
             const SizedBox(height: 16.0),
             Flexible(
               child: searchResults.isEmpty
-                  ? const Center(child: Text('No results found.'))
+                  ? Center(
+                      child: Text(
+                        'No results found.',
+                        style: TextStyle(color: Theme.of(context).colorScheme.onSurface),
+                      ),
+                    )
                   : ListView.builder(
                 itemCount: searchResults.length,
                 itemBuilder: (context, index) {

@@ -16,6 +16,7 @@ import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:package_info/package_info.dart';
 import 'package:radio_crestin/pages/HomePage.dart';
 import 'package:radio_crestin/theme.dart';
+import 'package:radio_crestin/theme_manager.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:upgrader/upgrader.dart';
 
@@ -156,6 +157,8 @@ void main() async {
 
   FlutterNativeSplash.remove();
 
+  await ThemeManager.initialize();
+  
   runApp(const RadioCrestinApp());
 }
 
@@ -165,16 +168,23 @@ class RadioCrestinApp extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      navigatorKey: globals.navigatorKey,
-      title: 'Radio Crestin',
-      debugShowCheckedModeBanner: false,
-      theme: appTheme,
-      home: UpgradeAlert(
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: ThemeManager.themeMode,
+      builder: (context, themeMode, child) {
+        return MaterialApp(
+          navigatorKey: globals.navigatorKey,
+          title: 'Radio Crestin',
+          debugShowCheckedModeBanner: false,
+          theme: lightTheme,
+          darkTheme: darkTheme,
+          themeMode: themeMode,
+          home: UpgradeAlert(
         dialogStyle: Platform.isIOS ? UpgradeDialogStyle.cupertino : UpgradeDialogStyle.material,
         upgrader: Upgrader(),
         child: const HomePage(),
-      ),
+          ),
+        );
+      },
     );
   }
 }

@@ -20,9 +20,6 @@ class MiniAudioPlayer extends StatelessWidget {
   Widget build(BuildContext context) {
     String displayTitle = currentStation?.displayTitle ?? "";
     String displaySubtitle = currentStation?.displaySubtitle ?? "";
-    Color primaryColor = Theme
-        .of(context)
-        .primaryColor;
     return GestureDetector(
       onTap: () {
         // developer.log("panelController: ${panelController.toString()}");
@@ -35,7 +32,7 @@ class MiniAudioPlayer extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         decoration: BoxDecoration(
-          color: primaryColor,
+          color: Theme.of(context).bottomAppBarTheme.color,
           borderRadius: BorderRadius.circular(16.0),
         ),
         child: Column(
