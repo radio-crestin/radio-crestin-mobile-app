@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../globals.dart' as globals;
+import '../theme_manager.dart';
 import 'WriteNfcTag.dart';
 
 final remoteConfig = FirebaseRemoteConfig.instance;
@@ -21,6 +22,7 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   bool? _notificationsEnabled;
   bool? _autoStartStation;
+  ThemeMode _themeMode = ThemeMode.system;
   final String _version = globals.appVersion;
   final String _buildNumber = globals.buildNumber;
   final String _deviceId = globals.deviceId;
@@ -30,6 +32,7 @@ class _SettingsPageState extends State<SettingsPage> {
     super.initState();
     _getNotificationsEnabled();
     _getAutoStartStation();
+    _loadThemeMode();
   }
 
   Future<void> _getNotificationsEnabled() async {
@@ -50,6 +53,7 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
         appBar: AppBar(
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           title: Text('Setări'),
         ),
         body: Container(
@@ -58,6 +62,36 @@ class _SettingsPageState extends State<SettingsPage> {
             visible: _notificationsEnabled != null,
             child: Column(
               children: [
+                ListTile(
+                  leading: const Icon(Icons.brightness_6),
+                  title: const Text('Interfata temei'),
+                  trailing: DropdownButton<ThemeMode>(
+                    value: _themeMode,
+                    onChanged: (ThemeMode? newValue) async {
+                      if (newValue != null) {
+                        setState(() {
+                          _themeMode = newValue;
+                        });
+                        await ThemeManager.saveThemeMode(newValue);
+                        ThemeManager.changeThemeMode(newValue);
+                      }
+                    },
+                    items: const [
+                      DropdownMenuItem(
+                        value: ThemeMode.system,
+                        child: Text('Sistem'),
+                      ),
+                      DropdownMenuItem(
+                        value: ThemeMode.light,
+                        child: Text('Luminos'),
+                      ),
+                      DropdownMenuItem(
+                        value: ThemeMode.dark,
+                        child: Text('Întunecat'),
+                      ),
+                    ],
+                  ),
+                ),
                 ListTile(
                   leading: const Icon(Icons.radio),
                   title: const Text('Pornește automat ultima stație la deschiderea aplicației'),
@@ -122,7 +156,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Theme.of(context).primaryColor,
                       shape: const RoundedRectangleBorder(
-                        borderRadius: BorderRadius.zero, // Makes the button square
+                        borderRadius: BorderRadius.all(Radius.circular(8.0)),
                       ),
                     ),
                     onPressed: () async {
@@ -149,7 +183,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     children: [
                       Text(
                         'Versiune aplicatie $_version ($_buildNumber)',
-                        style: const TextStyle(color: Colors.grey),
+                        style: const TextStyle(color: Colors.grey, fontSize: 10.0),
                       ),
                     ],
                   ),
@@ -162,7 +196,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       Expanded(
                         child: Text(
                           'Device ID: $_deviceId',
-                          style: const TextStyle(color: Colors.grey, fontSize: 10.0),
+                          style: const TextStyle(color: Colors.grey, fontSize: 8.0),
                         ),
                       ),
                     ],
@@ -173,5 +207,12 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
           ),
         ));
+  }
+
+  Future<void> _loadThemeMode() async {
+    final themeMode = await ThemeManager.loadThemeMode();
+    setState(() {
+      _themeMode = themeMode;
+    });
   }
 }

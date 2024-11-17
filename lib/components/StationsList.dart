@@ -39,7 +39,9 @@ class StationsList extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 0, horizontal: 10),
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: isSelected ? Colors.grey.shade300 : Colors.grey.shade100,
+                  color: isSelected 
+                    ? Theme.of(context).cardColorSelected
+                    : Theme.of(context).cardColor,
                   borderRadius: const BorderRadius.all(Radius.circular(16.0)),
                 ),
                 child: Stack(
@@ -63,8 +65,8 @@ class StationsList extends StatelessWidget {
                             children: [
                               Text(
                                 station.displayTitle,
-                                style: const TextStyle(
-                                  color: Colors.black,
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.onSurface,
                                   fontWeight: FontWeight.normal,
                                   fontSize: 16,
                                 ),
@@ -78,7 +80,7 @@ class StationsList extends StatelessWidget {
                                       if (station.isUp == false)
                                         Text(
                                           "Stație offline",
-                                          style: TextStyle(color: appTheme.primaryColor),
+                                          style: TextStyle(color: Theme.of(context).primaryColor),
                                         ),
                                       if (station.displaySubtitle != "")
                                         Text(
@@ -87,7 +89,7 @@ class StationsList extends StatelessWidget {
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                           style: TextStyle(
-                                            color: isSelected ? Colors.grey[700] : Colors.grey[600],
+                                            color: Theme.of(context).colorScheme.onSurfaceVariant,
                                             fontSize: 13,
                                           ),
                                         )
@@ -101,16 +103,16 @@ class StationsList extends StatelessWidget {
                                       height: 8,
                                       margin: const EdgeInsets.only(right: 4),
                                       decoration: BoxDecoration(
-                                        shape: BoxShape.circle, // Make it a circular shape
+                                        shape: BoxShape.circle,
                                         color: station.isUp
-                                            ? Colors.green
-                                            : Colors.red, // Set the background color to green
+                                            ? AppColors.success
+                                            : AppColors.offline,
                                       ),
                                     ),
                                     Text(
                                       '${station.totalListeners} ascultator${station.totalListeners == 1 ? "" : "i"}',
                                       style: TextStyle(
-                                        color: Colors.grey[600],
+                                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                                         fontSize: 12,
                                       ),
                                     ),
@@ -133,7 +135,9 @@ class StationsList extends StatelessWidget {
                             padding: const EdgeInsets.all(8),
                             child: Icon(
                               isLiked? Icons.favorite_sharp: Icons.favorite_border_sharp,
-                              color: isLiked ? Theme.of(context).primaryColor : Colors.grey,
+                              color: isLiked 
+                                ? Theme.of(context).primaryColor 
+                                : Theme.of(context).colorScheme.onSurfaceVariant,
                               size: 23,
                             ),);
                         },
