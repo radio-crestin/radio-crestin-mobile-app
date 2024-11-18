@@ -114,7 +114,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                         width: 32,
                         height: 4,
                         decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.surfaceVariant,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
                             borderRadius: const BorderRadius.all(Radius.circular(12.0))),
                       ),
                     ],
@@ -231,10 +231,10 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                       return Stack(
                         alignment: Alignment.center,
                         children: [
-                          const ClipOval(
+                          ClipOval(
                             child: Material(
-                              color: Colors.transparent,
-                              child: SizedBox(width: 62, height: 62,),
+                              color: Theme.of(context).bottomAppBarTheme.color,
+                              child: const SizedBox(width: 62, height: 62,),
                             ),
                           ),
                           CircularProgressIndicator(
@@ -250,7 +250,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                       children: [
                         ClipOval(
                           child: Material(
-                              color: Theme.of(context).primaryColorDark,
+                              color: Theme.of(context).bottomAppBarTheme.color,
                               child: IconButton(
                                 icon: (playing
                                     ? Icon(Icons.pause_rounded, color: Theme.of(context).colorScheme.onPrimary)
