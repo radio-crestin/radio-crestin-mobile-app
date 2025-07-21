@@ -23,7 +23,7 @@
         android:appCategory="audio"
         android:name="${applicationName}"
         android:networkSecurityConfig="@xml/network_security_config"
-        android:icon="@drawable/ic_launcher_background"
+        android:icon="@mipmap/ic_launcher"
         >
         <meta-data android:name="asset_statements" android:resource="@string/asset_statements" />
 
