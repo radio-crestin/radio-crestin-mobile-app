@@ -5,11 +5,10 @@ import 'dart:io' show Platform;
 import 'package:app_links/app_links.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
-import 'package:flutter/material.dart' hide Intent;
+import 'package:flutter/material.dart';
 import 'package:flutter_sticky_header/flutter_sticky_header.dart';
 import 'package:radio_crestin/appAudioHandler.dart';
 import 'package:radio_crestin/components/FullAudioPlayer.dart';
-import 'package:receive_intent/receive_intent.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
@@ -82,18 +81,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     });
 
 
-    _sub = ReceiveIntent.receivedIntentStream.listen((Intent? intent) {
-      developer.log("receivedIntentStream:" + intent.toString());
-      if (intent == null) {
-        return;
-      }
-
-      if (intent.action == 'android.intent.action.MAIN') {
-        processIntentUri(null);
-      }
-    }, onError: (err) {
-      developer.log("receivedIntentStream err:" + err.toString());
-    });
   }
 
   @override
