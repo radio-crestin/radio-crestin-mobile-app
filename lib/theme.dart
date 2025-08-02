@@ -3,8 +3,8 @@ import 'package:flutter/services.dart';
 
 extension CustomThemeColors on ThemeData {
   Color get cardColorSelected => brightness == Brightness.light
-      ? Color(0xFFCFCFCF)
-      : Color(0xFF353535);
+      ? const Color(0xFFCFCFCF)
+      : const Color(0xFF353535);
 }
 
 // App Colors
@@ -53,8 +53,6 @@ final ThemeData lightTheme = ThemeData(
   unselectedWidgetColor: const Color(0x8a000000),
   disabledColor: const Color(0x61000000),
   secondaryHeaderColor: Colors.white,
-  dialogBackgroundColor: Colors.white,
-  indicatorColor: const Color(0xffe91e63),
   appBarTheme: AppBarTheme(
       // backgroundColor: Colors.grey[200],
       surfaceTintColor: null,
@@ -97,12 +95,10 @@ final ThemeData lightTheme = ThemeData(
       primary: Color(0xffe91e63),
       secondary: Color(0xffe91e63),
       surface: Color(0xffffffff),
-      background: Colors.white,
       error: Color(0xffd32f2f),
       onPrimary: Color(0xffffffff),
       onSecondary: Color(0xffffffff),
       onSurface: Color(0xff000000),
-      onBackground: Color(0xffffffff),
       onError: Color(0xffffffff),
       brightness: Brightness.light,
     ),
@@ -249,7 +245,7 @@ final ThemeData lightTheme = ThemeData(
       fontStyle: FontStyle.normal,
     ),
   ),
-  tabBarTheme: const TabBarTheme(
+  tabBarTheme: const TabBarThemeData(
     indicatorSize: TabBarIndicatorSize.tab,
     labelColor: Color(0xffffffff),
     unselectedLabelColor: Color(0xb2ffffff),
@@ -280,7 +276,7 @@ final ThemeData lightTheme = ThemeData(
       style: BorderStyle.none,
     )),
   ),
-  dialogTheme: const DialogTheme(
+  dialogTheme: const DialogThemeData(
       shape: RoundedRectangleBorder(
     side: BorderSide(
       color: Color(0xff000000),
@@ -290,30 +286,29 @@ final ThemeData lightTheme = ThemeData(
     borderRadius: BorderRadius.all(Radius.circular(0.0)),
   )),
   checkboxTheme: CheckboxThemeData(
-    fillColor: MaterialStateProperty.resolveWith<Color?>((Set<MaterialState> states) {
-      if (states.contains(MaterialState.disabled)) {
+    fillColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
+      if (states.contains(WidgetState.disabled)) {
         return null;
       }
-      if (states.contains(MaterialState.selected)) {
-        return Color(0xffd81b60);
+      if (states.contains(WidgetState.selected)) {
+        return const Color(0xffd81b60);
       }
       return null;
     }),
   ),
   radioTheme: RadioThemeData(
-    fillColor: MaterialStateProperty.resolveWith<Color?>((Set<MaterialState> states) {
-      if (states.contains(MaterialState.disabled)) {
+    fillColor: WidgetStateProperty.resolveWith<Color?>((Set<WidgetState> states) {
+      if (states.contains(WidgetState.disabled)) {
         return null;
       }
-      if (states.contains(MaterialState.selected)) {
-        return Color(0xffd81b60);
+      if (states.contains(WidgetState.selected)) {
+        return const Color(0xffd81b60);
       }
       return null;
     }),
   ),
   colorScheme: ColorScheme.fromSwatch(primarySwatch: Colors.pink)
-      .copyWith(background: Color(0xfff48fb1))
-      .copyWith(error: Color(0xffd32f2f)),
+      .copyWith(error: const Color(0xffd32f2f)),
   textSelectionTheme: const TextSelectionThemeData(
     cursorColor: Color(0xff4285f4),
     selectionColor: Color(0xfff48fb1),
@@ -337,8 +332,6 @@ final ThemeData darkTheme = ThemeData(
   unselectedWidgetColor: const Color(0xb3ffffff),
   disabledColor: const Color(0x62ffffff),
   secondaryHeaderColor: const Color(0xff616161),
-  dialogBackgroundColor: const Color(0xff1e1e1e),
-  indicatorColor: const Color(0xffe91e63),
   appBarTheme: AppBarTheme(
     surfaceTintColor: null,
     systemOverlayStyle: const SystemUiOverlayStyle(
@@ -379,12 +372,10 @@ final ThemeData darkTheme = ThemeData(
       primary: Color(0xffe91e63),
       secondary: Color(0xffe91e63),
       surface: Color(0xff1e1e1e),
-      background: Color(0xff121212),
       error: Color(0xffd32f2f),
       onPrimary: Color(0xff000000),
       onSecondary: Color(0xff000000),
       onSurface: Color(0xffffffff),
-      onBackground: Color(0xffffffff),
       onError: Color(0xff000000),
       brightness: Brightness.dark,
     ),
@@ -437,7 +428,6 @@ final ThemeData darkTheme = ThemeData(
     primarySwatch: Colors.pink,
     brightness: Brightness.dark,
   ).copyWith(
-    background: const Color(0xff121212),
     error: const Color(0xffd32f2f),
   ),
 );

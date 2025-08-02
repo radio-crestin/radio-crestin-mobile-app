@@ -2,7 +2,7 @@ import Cocoa
 import FlutterMacOS
 import FirebaseCore
 
-@NSApplicationMain
+@main
 class AppDelegate: FlutterAppDelegate {
   override func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
     FirebaseApp.configure()

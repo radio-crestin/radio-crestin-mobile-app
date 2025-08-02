@@ -2,7 +2,7 @@ install-deps:
 	npm install -g get-graphql-schema
 
 introspect-graphql:
-	get-graphql-schema https://graphql.radio-crestin.com/v1/graphql > lib/schema.graphql
+	get-graphql-schema http://localhost:8080/v1/graphql > lib/schema.graphql
 
 generate-graphql-types:
 	dart run build_runner build
