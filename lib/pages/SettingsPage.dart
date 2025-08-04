@@ -181,8 +181,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
                 ListTile(
                   leading: const Icon(Icons.campaign_rounded),
-                  title: const Text('Promovare aplicație'),
-                  subtitle: const Text('Afișează secțiunea de distribuire a aplicației'),
+                  title: const Text('Invită prieteni'),
+                  subtitle: const Text('Afișează secțiunea de partajare cu prietenii'),
                   trailing: Switch(
                     activeColor: Theme.of(context).primaryColor,
                     activeTrackColor: Theme.of(context).primaryColorLight,

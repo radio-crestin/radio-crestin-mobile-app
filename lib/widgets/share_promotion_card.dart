@@ -432,8 +432,8 @@ class _SharePromotionCardState extends State<SharePromotionCard> {
         MaterialPageRoute(builder: (context) => SettingsPage()),
       );
       
-      // Add a small delay to allow the settings page to load before toggling
-      await Future.delayed(const Duration(milliseconds: 500));
+      // Add a delay to allow the settings page to load before toggling
+      await Future.delayed(const Duration(milliseconds: 800));
     }
   }
 }
