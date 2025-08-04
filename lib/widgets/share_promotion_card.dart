@@ -39,6 +39,32 @@ class _SharePromotionCardState extends State<SharePromotionCard> {
     _checkSharePromotionVisibility();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Re-check visibility when widget rebuilds (e.g., returning from settings)
+    _recheckVisibility();
+  }
+
+  Future<void> _recheckVisibility() async {
+    final prefs = await SharedPreferences.getInstance();
+    bool showSharePromotion = prefs.getBool('show_share_promotion') ?? true;
+    
+    // Only update if the visibility has changed
+    if (showSharePromotion != _shouldShow) {
+      if (mounted) {
+        setState(() {
+          _shouldShow = showSharePromotion;
+        });
+        
+        // If we're now showing and haven't loaded data yet, load it
+        if (showSharePromotion && _shareLinkData == null) {
+          _loadShareLink();
+        }
+      }
+    }
+  }
+
   Future<void> _checkSharePromotionVisibility() async {
     final prefs = await SharedPreferences.getInstance();
     
@@ -476,12 +502,17 @@ class _SharePromotionCardState extends State<SharePromotionCard> {
       });
     }
     
-    // Navigate to settings page
+    // Navigate to settings page and refresh on return
     if (mounted) {
-      Navigator.push(
+      await Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => SettingsPage()),
       );
+      
+      // Re-check visibility when returning from settings
+      if (mounted) {
+        _recheckVisibility();
+      }
     }
   }
 }

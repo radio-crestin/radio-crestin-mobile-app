@@ -194,12 +194,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           icon: const Icon(Icons.settings),
                           color: Theme.of(context).colorScheme.onSurface,
                           tooltip: 'Setări aplicație',
-                          onPressed: () {
-                            Navigator.push(context, MaterialPageRoute<void>(
+                          onPressed: () async {
+                            await Navigator.push(context, MaterialPageRoute<void>(
                               builder: (BuildContext context) {
                                 return SettingsPage();
                               },
                             ));
+                            // Trigger a rebuild to refresh SharePromotionCard
+                            if (mounted) {
+                              setState(() {});
+                            }
                           },
                         ),
                       ],
