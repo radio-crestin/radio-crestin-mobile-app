@@ -111,9 +111,9 @@ class _SharePromotionCardState extends State<SharePromotionCard> {
     }
 
     return Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
               Theme.of(context).primaryColor.withOpacity(0.1),
@@ -135,20 +135,22 @@ class _SharePromotionCardState extends State<SharePromotionCard> {
             ),
           ],
         ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Theme.of(context).primaryColor.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(12),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).primaryColor.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.share_rounded,
+                  color: Theme.of(context).primaryColor,
+                  size: 24,
+                ),
               ),
-              child: Icon(
-                Icons.share_rounded,
-                color: Theme.of(context).primaryColor,
-                size: 24,
-              ),
-            ),
             const SizedBox(width: 15),
             Expanded(
               child: Column(
@@ -205,35 +207,36 @@ class _SharePromotionCardState extends State<SharePromotionCard> {
                 ],
               ),
             ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            _buildShareButton(
-              context: context,
-              icon: Icons.facebook,
-              color: const Color(0xFF1877F2),
-              onTap: () => _shareToFacebook(),
-            ),
-            const SizedBox(width: 8),
-            _buildShareButton(
-              context: context,
-              iconData: Icons.chat,
-              color: const Color(0xFF25D366),
-              onTap: () => _shareToWhatsApp(),
-            ),
-            const SizedBox(width: 8),
-            _buildShareButton(
-              context: context,
-              icon: Icons.share,
-              label: 'Distribuie',
-              color: Theme.of(context).primaryColor,
-              onTap: () => _shareGeneric(context),
-            ),
-          ],
-        ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              _buildShareButton(
+                context: context,
+                icon: Icons.facebook,
+                color: const Color(0xFF1877F2),
+                onTap: () => _shareToFacebook(),
+              ),
+              const SizedBox(width: 8),
+              _buildShareButton(
+                context: context,
+                iconData: Icons.chat,
+                color: const Color(0xFF25D366),
+                onTap: () => _shareToWhatsApp(),
+              ),
+              const SizedBox(width: 8),
+              _buildShareButton(
+                context: context,
+                icon: Icons.share,
+                label: 'Distribuie',
+                color: Theme.of(context).primaryColor,
+                onTap: () => _shareGeneric(context),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
