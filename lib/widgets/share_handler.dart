@@ -57,27 +57,23 @@ class ShareHandler {
     ShareLinkData shareLinkData,
     String? stationName,
   ) async {
-    await showGeneralDialog(
+    await showDialog(
       context: context,
       barrierDismissible: true,
-      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
       barrierColor: Colors.black54,
-      transitionDuration: const Duration(milliseconds: 200),
-      pageBuilder: (BuildContext buildContext, Animation<double> animation, Animation<double> secondaryAnimation) {
-        return Center(
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          elevation: 8,
+          backgroundColor: Theme.of(context).dialogBackgroundColor,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
           child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-            child: Material(
-              type: MaterialType.transparency,
-              child: Dialog(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24),
-                ),
-                elevation: 8,
-                backgroundColor: Theme.of(context).dialogBackgroundColor,
-                insetPadding: EdgeInsets.zero,
-                child: Container(
-                  constraints: const BoxConstraints(maxWidth: 400),
+            constraints: const BoxConstraints(maxWidth: 400),
+            child: Stack(
+              children: [
+                Padding(
                   padding: const EdgeInsets.all(24),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -241,26 +237,34 @@ class ShareHandler {
                     ],
                   ),
                 ),
-              ),
+                // X close button in top-right corner
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.05),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.close,
+                        size: 20,
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                      ),
+                    ),
+                    splashRadius: 20,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ),
-        );
-      },
-      transitionBuilder: (BuildContext context, Animation<double> animation, Animation<double> secondaryAnimation, Widget child) {
-        return FadeTransition(
-          opacity: CurvedAnimation(
-            parent: animation,
-            curve: Curves.easeOut,
-          ),
-          child: ScaleTransition(
-            scale: Tween<double>(
-              begin: 0.95,
-              end: 1.0,
-            ).animate(CurvedAnimation(
-              parent: animation,
-              curve: Curves.easeOut,
-            )),
-            child: child,
           ),
         );
       },
