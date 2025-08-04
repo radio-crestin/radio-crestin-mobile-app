@@ -47,6 +47,7 @@ dependencies:
   http: ^1.2.0
   shared_preferences: ^2.1.1
   share_plus: ^10.0.2
+  device_info_plus: ^10.1.2
   firebase_core: ^3.3.0
   firebase_analytics: ^11.2.1
   firebase_crashlytics: ^4.0.4
