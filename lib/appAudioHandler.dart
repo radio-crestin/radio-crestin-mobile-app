@@ -218,7 +218,7 @@ class AppAudioHandler extends BaseAudioHandler {
   Future<void> play() async {
     _log("play");
     if (currentStation.value != null) {
-      AppTracking.trackPlayStation(currentStation.value!);
+      AppTracking.trackPlayStation(currentStation.value!, graphQLClient: graphqlClient);
       AppTracking.trackListenStation(currentStation.value!, currentStreamUrl);
     }
     startListeningTracker();
@@ -503,7 +503,10 @@ class AppAudioHandler extends BaseAudioHandler {
 
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.setString(_favoriteStationsKey, json.encode(favoriteStationSlugs.value));
-    Utils.incrementActionsMade();
+    Utils.incrementActionsMade(
+      graphQLClient: graphqlClient,
+      currentStationName: currentStation.valueOrNull?.title,
+    );
   }
 
   updateStationsFavoriteStatus() {

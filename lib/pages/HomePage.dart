@@ -5,13 +5,10 @@ import 'dart:io' show Platform;
 
 import 'package:app_links/app_links.dart';
 import 'package:audio_service/audio_service.dart';
-import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_sticky_header/flutter_sticky_header.dart';
 import 'package:radio_crestin/appAudioHandler.dart';
 import 'package:radio_crestin/components/FullAudioPlayer.dart';
-import 'package:radio_crestin/services/share_service.dart';
-import 'package:radio_crestin/widgets/share_handler.dart';
 import 'package:radio_crestin/widgets/share_promotion_card.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -71,8 +68,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   var autoPlayProcessed = false;
   bool _showSharePromotion = true;
-  int _actionCounter = 0;
-  bool _hasShownShareDialog = false;
 
   _HomePageState() {
     _appLinks.getInitialLink().then((uri) {
@@ -92,31 +87,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     _checkSharePromotionVisibility();
-    _initActionTracking();
-  }
-
-  void _initActionTracking() {
-    // Listen to station changes to track actions
-    _audioHandler.currentStation.stream.listen((station) {
-      if (station != null) {
-        _incrementActionAndCheck();
-      }
-    });
-  }
-
-  Future<void> _incrementActionAndCheck() async {
-    _actionCounter++;
-    
-    // Check share promotion visibility every 5 actions
-    if (_actionCounter % 5 == 0) {
-      await _checkSharePromotionVisibility();
-    }
   }
 
   Future<void> _checkSharePromotionVisibility() async {
     final prefs = await SharedPreferences.getInstance();
     bool shouldShow = prefs.getBool('show_share_promotion') ?? true;
-    bool wasShowing = _showSharePromotion;
     
     // Check if we've already auto-enabled before (to not override user's choice)
     bool hasAutoEnabled = prefs.getBool('share_promotion_auto_enabled') ?? false;
@@ -141,74 +116,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       setState(() {
         _showSharePromotion = shouldShow;
       });
-      
-      // Show share dialog when share promotion becomes visible
-      // either by auto-enable or user re-enabling in settings
-      if (shouldShow && !wasShowing && !_hasShownShareDialog) {
-        _showShareDialogAfterDelay();
-      }
     }
-  }
-
-  Future<void> _showShareDialogAfterDelay() async {
-    // Wait a bit for UI to settle
-    await Future.delayed(const Duration(milliseconds: 500));
-    
-    if (!mounted || _hasShownShareDialog) return;
-    
-    _hasShownShareDialog = true;
-    
-    // Get share data
-    final prefs = await SharedPreferences.getInstance();
-    String? deviceId = prefs.getString('device_id');
-    
-    if (deviceId == null) {
-      // Get device-specific ID
-      final DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
-      if (Platform.isAndroid) {
-        final androidInfo = await deviceInfo.androidInfo;
-        deviceId = androidInfo.id;
-      } else if (Platform.isIOS) {
-        final iosInfo = await deviceInfo.iosInfo;
-        deviceId = iosInfo.identifierForVendor;
-      } else {
-        deviceId = DateTime.now().millisecondsSinceEpoch.toString();
-      }
-      
-      if (deviceId != null) {
-        await prefs.setString('device_id', deviceId);
-      }
-    }
-    
-    if (deviceId != null) {
-      try {
-        final shareService = ShareService(_audioHandler.graphqlClient);
-        final shareLinkData = await shareService.getShareLink(deviceId);
-        
-        if (mounted && shareLinkData != null) {
-          final shareUrl = shareLinkData.url;
-          final shareMessage = shareLinkData.shareSectionTitle.isNotEmpty
-              ? shareLinkData.shareSectionTitle
-              : 'Ascultă posturile de radio creștine din România și Internațional';
-          
-          ShareHandler.shareApp(
-            context: context,
-            shareUrl: shareUrl,
-            shareMessage: shareMessage,
-            stationName: _audioHandler.currentStation.valueOrNull?.title,
-            shareLinkData: shareLinkData,
-            showDialog: true,
-          );
-        }
-      } catch (e) {
-        developer.log('Error showing share dialog: $e');
-      }
-    }
-    
-    // Reset flag after some time so dialog can be shown again if needed
-    Future.delayed(const Duration(hours: 24), () {
-      _hasShownShareDialog = false;
-    });
   }
 
   @override

@@ -1,14 +1,18 @@
 import 'dart:developer' as developer;
 
 import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:radio_crestin/types/Station.dart';
 import 'package:radio_crestin/utils.dart';
 
 FirebaseAnalytics analytics = FirebaseAnalytics.instance;
 
 class AppTracking {
-  static trackPlayStation(Station station) async {
-    Utils.incrementActionsMade();
+  static trackPlayStation(Station station, {GraphQLClient? graphQLClient}) async {
+    Utils.incrementActionsMade(
+      graphQLClient: graphQLClient,
+      currentStationName: station.title,
+    );
     developer.log("trackPlayStation");
     await FirebaseAnalytics.instance.logEvent(name: "listen_radio_start", parameters: {
       "station_id": station.id,
