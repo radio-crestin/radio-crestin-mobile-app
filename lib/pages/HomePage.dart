@@ -235,7 +235,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           onPressed: () async {
                             await Navigator.push(context, MaterialPageRoute<void>(
                               builder: (BuildContext context) {
-                                return SettingsPage();
+                                return const SettingsPage();
                               },
                             ));
                             // Check share promotion visibility after returning from settings

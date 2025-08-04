@@ -17,7 +17,7 @@ class ThemeManager {
     final themeModeString = prefs.getString(_themeModeKey);
     
     if (themeModeString == null) {
-      return ThemeMode.system;
+      return ThemeMode.dark;
     }
 
     switch (themeModeString) {

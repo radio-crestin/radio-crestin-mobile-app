@@ -420,20 +420,21 @@ class _SharePromotionCardState extends State<SharePromotionCard> {
   }
 
   Future<void> _handleClose() async {
-    // Call the onClose callback if provided
+    // Call the onClose callback if provided (this hides the card immediately)
     if (widget.onClose != null) {
       widget.onClose!();
     }
     
-    // Navigate to settings page with a delay
+    // Navigate to settings page
     if (mounted) {
       await Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => SettingsPage()),
+        MaterialPageRoute(
+          builder: (context) => SettingsPage(
+            highlightSharePromotion: true, // Pass flag to highlight the toggle
+          ),
+        ),
       );
-      
-      // Add a delay to allow the settings page to load before toggling
-      await Future.delayed(const Duration(milliseconds: 800));
     }
   }
 }

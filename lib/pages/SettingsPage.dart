@@ -18,11 +18,18 @@ import 'WriteNfcTag.dart';
 final remoteConfig = FirebaseRemoteConfig.instance;
 
 class SettingsPage extends StatefulWidget {
+  final bool highlightSharePromotion;
+  
+  const SettingsPage({
+    Key? key,
+    this.highlightSharePromotion = false,
+  }) : super(key: key);
+  
   @override
   _SettingsPageState createState() => _SettingsPageState();
 }
 
-class _SettingsPageState extends State<SettingsPage> {
+class _SettingsPageState extends State<SettingsPage> with TickerProviderStateMixin {
   bool? _notificationsEnabled;
   bool? _autoStartStation;
   bool? _showSharePromotion;
@@ -30,6 +37,10 @@ class _SettingsPageState extends State<SettingsPage> {
   final String _version = globals.appVersion;
   final String _buildNumber = globals.buildNumber;
   final String _deviceId = globals.deviceId;
+  
+  late AnimationController _animationController;
+  late Animation<Color?> _colorAnimation;
+  bool _shouldHighlight = false;
 
   @override
   void initState() {
@@ -38,6 +49,64 @@ class _SettingsPageState extends State<SettingsPage> {
     _getAutoStartStation();
     _getShowSharePromotion();
     _loadThemeMode();
+    
+    // Initialize animation controller for highlighting
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    );
+    
+    _colorAnimation = ColorTween(
+      begin: Colors.transparent,
+      end: Colors.orange.withOpacity(0.3),
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    ));
+    
+    // If we should highlight the share promotion toggle
+    if (widget.highlightSharePromotion) {
+      _shouldHighlight = true;
+      // Start the animation after the page loads
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted) {
+            // Animate the toggle switch after a delay
+            _animateToggleSwitch();
+          }
+        });
+      });
+    }
+  }
+  
+  void _animateToggleSwitch() async {
+    // First highlight the row
+    _animationController.repeat(reverse: true);
+    
+    // Wait for user to see the highlight
+    await Future.delayed(const Duration(milliseconds: 1200));
+    
+    // Then toggle the switch with animation
+    if (mounted && _showSharePromotion == true) {
+      await _setShowSharePromotion(false);
+    }
+    
+    // Continue highlighting for a bit
+    await Future.delayed(const Duration(milliseconds: 800));
+    
+    // Stop highlighting
+    if (mounted) {
+      _animationController.stop();
+      setState(() {
+        _shouldHighlight = false;
+      });
+    }
+  }
+  
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
   }
 
   Future<void> _getNotificationsEnabled() async {
@@ -179,20 +248,28 @@ class _SettingsPageState extends State<SettingsPage> {
                     value: _autoStartStation ?? true,
                   ),
                 ),
-                ListTile(
-                  leading: const Icon(Icons.campaign_rounded),
-                  title: const Text('Invită prieteni'),
-                  subtitle: const Text('Afișează secțiunea de partajare cu prietenii'),
-                  trailing: Switch(
-                    activeColor: Theme.of(context).primaryColor,
-                    activeTrackColor: Theme.of(context).primaryColorLight,
-                    inactiveThumbColor: Theme.of(context).primaryColorDark,
-                    inactiveTrackColor: const Color(0xffdcdcdc),
-                    onChanged: (bool? value) async {
-                      await _setShowSharePromotion(value!);
-                    },
-                    value: _showSharePromotion ?? true,
-                  ),
+                AnimatedBuilder(
+                  animation: _colorAnimation,
+                  builder: (context, child) {
+                    return Container(
+                      color: _shouldHighlight ? _colorAnimation.value : Colors.transparent,
+                      child: ListTile(
+                        leading: const Icon(Icons.campaign_rounded),
+                        title: const Text('Invită prieteni'),
+                        subtitle: const Text('Afișează secțiunea de partajare cu prietenii'),
+                        trailing: Switch(
+                          activeColor: Theme.of(context).primaryColor,
+                          activeTrackColor: Theme.of(context).primaryColorLight,
+                          inactiveThumbColor: Theme.of(context).primaryColorDark,
+                          inactiveTrackColor: const Color(0xffdcdcdc),
+                          onChanged: (bool? value) async {
+                            await _setShowSharePromotion(value!);
+                          },
+                          value: _showSharePromotion ?? true,
+                        ),
+                      ),
+                    );
+                  },
                 ),
                 ListTile(
                   leading: const Icon(Icons.notification_important_rounded),
