@@ -130,37 +130,52 @@ class ShareHandler {
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             colors: [
-                              Theme.of(context).primaryColor.withOpacity(0.15),
-                              Theme.of(context).primaryColor.withOpacity(0.08),
+                              const Color(0xFF4CAF50).withOpacity(0.15),
+                              const Color(0xFF66BB6A).withOpacity(0.10),
                             ],
-                            begin: Alignment.centerLeft,
-                            end: Alignment.centerRight,
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
                           ),
                           borderRadius: BorderRadius.circular(24),
                           border: Border.all(
-                            color: Theme.of(context).primaryColor.withOpacity(0.2),
-                            width: 1,
+                            color: const Color(0xFF4CAF50).withOpacity(0.3),
+                            width: 1.5,
                           ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF4CAF50).withOpacity(0.12),
+                              blurRadius: 10,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(
-                              Icons.people_outline_rounded,
-                              size: 18,
-                              color: Theme.of(context).primaryColor,
+                            Container(
+                              padding: const EdgeInsets.all(5),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF4CAF50).withOpacity(0.2),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.favorite_rounded,
+                                size: 16,
+                                color: Color(0xFF388E3C),
+                              ),
                             ),
                             const SizedBox(width: 8),
                             Text(
                               shareLinkData.visitCount == 0
                                   ? 'Niciun prieten nu a accesat link-ul tău'
                                   : shareLinkData.visitCount == 1
-                                      ? '1 prieten a accesat invitația ta'
-                                      : '${shareLinkData.visitCount} prieteni au accesat invitația ta',
-                              style: TextStyle(
+                                      ? '🎉 1 prieten a accesat invitația ta!'
+                                      : '🎉 ${shareLinkData.visitCount} prieteni au accesat invitația ta!',
+                              style: const TextStyle(
                                 fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: Theme.of(context).primaryColor,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF2E7D32),
+                                letterSpacing: 0.3,
                               ),
                             ),
                           ],

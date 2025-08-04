@@ -1,3 +1,4 @@
+import 'package:radio_crestin/constants.dart';
 import 'package:radio_crestin/graphql_to_rest_interceptor.dart';
 import 'package:radio_crestin/queries/getStations.graphql.dart';
 import 'package:radio_crestin/queries/getShareLink.graphql.dart';
@@ -23,20 +24,20 @@ Map<String, RestApiConfig> createGraphQLToRestMappings() {
   
   // Query mappings
   mappings['GetStations'] = RestApiConfig(
-    restApiUrl: 'https://api.radiocrestin.ro/api/v1/stations',
+    restApiUrl: CONSTANTS.GRAPHQL_ENDPOINT.replaceAll("/v1/graphql", "/api/v1/stations"),
     transformer: _transformStationsData,
     documentNode: documentNodeQueryGetStations,
-    urlBuilder: (_) => _addTimestampToUrl('http://192.168.88.12:8080/api/v1/stations'),
+    urlBuilder: (_) => _addTimestampToUrl(CONSTANTS.GRAPHQL_ENDPOINT.replaceAll("/v1/graphql", "/api/v1/stations")),
   );
   
   // Mutation mappings
   mappings['GetShareLink'] = RestApiConfig(
-    restApiUrl: 'https://api.radiocrestin.ro/api/v1/share-links/',
+    restApiUrl: CONSTANTS.GRAPHQL_ENDPOINT.replaceAll("/v1/graphql", "/api/v1/share-links/"),
     transformer: _transformShareLinkData,
     documentNode: documentNodeMutationGetShareLink,
     urlBuilder: (variables) {
       final anonymousId = variables['anonymous_id'];
-      final url = 'https://api.radiocrestin.ro/api/v1/share-links/$anonymousId/';
+      final url = CONSTANTS.GRAPHQL_ENDPOINT.replaceAll("/v1/graphql", '/api/v1/share-links/$anonymousId/');
       return _addTimestampToUrl(url);
     },
   );
