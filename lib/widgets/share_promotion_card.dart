@@ -102,7 +102,20 @@ class _SharePromotionCardState extends State<SharePromotionCard> {
       );
     }
 
-    return Container(
+    return GestureDetector(
+      onTap: () {
+        if (_shareLinkData != null) {
+          final shareUrl = _shareLinkData!.generateShareUrl(
+            stationSlug: widget.currentStationSlug,
+          );
+          ShareHandler.shareApp(
+            context: context,
+            shareUrl: shareUrl,
+            shareMessage: _shareLinkData!.shareMessage,
+          );
+        }
+      },
+      child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
@@ -129,6 +142,19 @@ class _SharePromotionCardState extends State<SharePromotionCard> {
         ),
         child: Row(
           children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).primaryColor.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                Icons.share_rounded,
+                color: Theme.of(context).primaryColor,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 15),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -182,39 +208,14 @@ class _SharePromotionCardState extends State<SharePromotionCard> {
                 ],
               ),
             ),
-            const SizedBox(width: 12),
-            Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(12),
-                onTap: () {
-                  if (_shareLinkData != null) {
-                    final shareUrl = _shareLinkData!.generateShareUrl(
-                      stationSlug: widget.currentStationSlug,
-                    );
-                    ShareHandler.shareApp(
-                      context: context,
-                      shareUrl: shareUrl,
-                      shareMessage: _shareLinkData!.shareMessage,
-                    );
-                  }
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).primaryColor.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    Icons.share_rounded,
-                    color: Theme.of(context).primaryColor,
-                    size: 24,
-                  ),
-                ),
-              ),
+            Icon(
+              Icons.arrow_forward_ios,
+              color: Theme.of(context).primaryColor.withOpacity(0.5),
+              size: 16,
             ),
           ],
         ),
+      ),
     );
   }
 }
