@@ -19,24 +19,29 @@ int _getRoundedTimestamp() {
 }
 
 Map<String, RestApiConfig> createGraphQLToRestMappings() {
-  return {
-    'GetStations': RestApiConfig(
-      restApiUrl: 'http://192.168.88.12:8080/api/v1/stations',
-      transformer: _transformStationsData,
-      documentNode: documentNodeQueryGetStations,
-      urlBuilder: (_) => _addTimestampToUrl('http://192.168.88.12:8080/api/v1/stations'),
-    ),
-    'GetShareLink': RestApiConfig(
-      restApiUrl: 'http://192.168.88.12:8080/api/v1/share-links/',
-      transformer: _transformShareLinkData,
-      documentNode: documentNodeMutationGetShareLink,
-      urlBuilder: (variables) {
-        final anonymousId = variables['anonymous_id'];
-        final url = 'http://192.168.88.12:8080/api/v1/share-links/$anonymousId/';
-        return _addTimestampToUrl(url);
-      },
-    ),
-  };
+  final mappings = <String, RestApiConfig>{};
+  
+  // Query mappings
+  mappings['GetStations'] = RestApiConfig(
+    restApiUrl: 'http://192.168.88.12:8080/api/v1/stations',
+    transformer: _transformStationsData,
+    documentNode: documentNodeQueryGetStations,
+    urlBuilder: (_) => _addTimestampToUrl('http://192.168.88.12:8080/api/v1/stations'),
+  );
+  
+  // Mutation mappings
+  mappings['GetShareLink'] = RestApiConfig(
+    restApiUrl: 'http://192.168.88.12:8080/api/v1/share-links/',
+    transformer: _transformShareLinkData,
+    documentNode: documentNodeMutationGetShareLink,
+    urlBuilder: (variables) {
+      final anonymousId = variables['anonymous_id'];
+      final url = 'http://192.168.88.12:8080/api/v1/share-links/$anonymousId/';
+      return _addTimestampToUrl(url);
+    },
+  );
+  
+  return mappings;
 }
 
 Map<String, dynamic> _transformStationsData(dynamic jsonData) {
