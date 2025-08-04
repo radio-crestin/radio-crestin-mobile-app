@@ -195,52 +195,34 @@ class SharePromotionCardState extends State<SharePromotionCard> {
                   if (_shareLinkData != null) ...[
                     const SizedBox(height: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [
-                            Color(0xFF25D366),
-                            Color(0xFF128C7E),
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
+                        color: const Color(0xFF00ACC1).withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: const Color(0xFF00ACC1).withOpacity(0.3),
+                          width: 1,
                         ),
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF25D366).withOpacity(0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.people_outline,
-                              size: 16,
-                              color: Colors.white,
-                            ),
+                          Icon(
+                            Icons.people_outline,
+                            size: 16,
+                            color: const Color(0xFF00ACC1),
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 6),
                           Text(
                             _shareLinkData!.visitCount == 0
                                 ? 'Niciun prieten nu a accesat link-ul tău'
                                 : _shareLinkData!.visitCount == 1
                                     ? '1 prieten a accesat invitația ta'
                                     : '${_shareLinkData!.visitCount} prieteni au accesat invitația ta',
-                            style: const TextStyle(
-                              fontSize: 13,
+                            style: TextStyle(
+                              fontSize: 12,
                               fontWeight: FontWeight.w600,
-                              color: Colors.white,
-                              letterSpacing: 0.2,
+                              color: const Color(0xFF00ACC1),
                             ),
                           ),
                         ],

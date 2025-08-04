@@ -128,37 +128,20 @@ class ShareHandler {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                         decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [
-                              Color(0xFF25D366),
-                              Color(0xFF128C7E),
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
+                          color: const Color(0xFF00ACC1).withOpacity(0.12),
                           borderRadius: BorderRadius.circular(24),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF25D366).withOpacity(0.3),
-                              blurRadius: 10,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
+                          border: Border.all(
+                            color: const Color(0xFF00ACC1).withOpacity(0.3),
+                            width: 1,
+                          ),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Container(
-                              padding: const EdgeInsets.all(5),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.2),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.people_outline_rounded,
-                                size: 18,
-                                color: Colors.white,
-                              ),
+                            Icon(
+                              Icons.people_outline_rounded,
+                              size: 18,
+                              color: const Color(0xFF00ACC1),
                             ),
                             const SizedBox(width: 8),
                             Text(
@@ -167,11 +150,10 @@ class ShareHandler {
                                   : shareLinkData.visitCount == 1
                                       ? '1 prieten a accesat invitația ta'
                                       : '${shareLinkData.visitCount} prieteni au accesat invitația ta',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
-                                color: Colors.white,
-                                letterSpacing: 0.2,
+                                color: const Color(0xFF00ACC1),
                               ),
                             ),
                           ],
