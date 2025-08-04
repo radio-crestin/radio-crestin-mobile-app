@@ -2,12 +2,29 @@ import 'package:radio_crestin/graphql_to_rest_interceptor.dart';
 import 'package:radio_crestin/queries/getStations.graphql.dart';
 import 'package:radio_crestin/queries/getShareLink.graphql.dart';
 
+String _addTimestampToUrl(String url) {
+  final timestamp = _getRoundedTimestamp();
+  final uri = Uri.parse(url);
+  final queryParams = Map<String, String>.from(uri.queryParameters);
+  queryParams['_t'] = timestamp.toString();
+  
+  return uri.replace(queryParameters: queryParams).toString();
+}
+
+int _getRoundedTimestamp() {
+  final now = DateTime.now();
+  final epochSeconds = now.millisecondsSinceEpoch ~/ 1000;
+  // Round to nearest 10 seconds
+  return (epochSeconds ~/ 10) * 10;
+}
+
 Map<String, RestApiConfig> createGraphQLToRestMappings() {
   return {
     'GetStations': RestApiConfig(
       restApiUrl: 'http://192.168.88.12:8080/api/v1/stations',
       transformer: _transformStationsData,
       documentNode: documentNodeQueryGetStations,
+      urlBuilder: (_) => _addTimestampToUrl('http://192.168.88.12:8080/api/v1/stations'),
     ),
     'GetShareLink': RestApiConfig(
       restApiUrl: 'http://192.168.88.12:8080/api/v1/share-links/',
@@ -15,7 +32,8 @@ Map<String, RestApiConfig> createGraphQLToRestMappings() {
       documentNode: documentNodeMutationGetShareLink,
       urlBuilder: (variables) {
         final anonymousId = variables['anonymous_id'];
-        return 'http://192.168.88.12:8080/api/v1/share-links/$anonymousId/';
+        final url = 'http://192.168.88.12:8080/api/v1/share-links/$anonymousId/';
+        return _addTimestampToUrl(url);
       },
     ),
   };
