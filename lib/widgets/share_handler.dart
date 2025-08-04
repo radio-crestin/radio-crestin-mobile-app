@@ -82,163 +82,164 @@ class ShareHandler {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                    // Icon with gradient background
-                    Container(
-                      width: 72,
-                      height: 72,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            Theme.of(context).primaryColor.withOpacity(0.2),
-                            Theme.of(context).primaryColor.withOpacity(0.1),
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Icon(
-                        Icons.share_rounded,
-                        color: Theme.of(context).primaryColor,
-                        size: 36,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    
-                    // Title
-                    Text(
-                      shareLinkData.shareSectionTitle.isNotEmpty 
-                        ? shareLinkData.shareSectionTitle
-                        : 'Distribuie aplicația',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 12),
-                    
-                    // Message
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: Text(
-                        shareLinkData.shareSectionMessage.isNotEmpty 
-                          ? shareLinkData.shareSectionMessage
-                          : 'Ajută la răspândirea Evangheliei prin intermediul radioului creștin.',
-                        style: TextStyle(
-                          fontSize: 15,
-                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.75),
-                          height: 1.5,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                    
-                    // Visitor count if available
-                    if (shareLinkData.visitCount > 0) ...[
-                      const SizedBox(height: 20),
+                      // Icon with gradient background
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        width: 72,
+                        height: 72,
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             colors: [
-                              Theme.of(context).primaryColor.withOpacity(0.15),
-                              Theme.of(context).primaryColor.withOpacity(0.08),
+                              Theme.of(context).primaryColor.withOpacity(0.2),
+                              Theme.of(context).primaryColor.withOpacity(0.1),
                             ],
-                            begin: Alignment.centerLeft,
-                            end: Alignment.centerRight,
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
                           ),
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(
-                            color: Theme.of(context).primaryColor.withOpacity(0.2),
-                            width: 1,
-                          ),
+                          borderRadius: BorderRadius.circular(20),
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.people_outline_rounded,
-                              size: 18,
-                              color: Theme.of(context).primaryColor,
+                        child: Icon(
+                          Icons.share_rounded,
+                          color: Theme.of(context).primaryColor,
+                          size: 36,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      
+                      // Title
+                      Text(
+                        shareLinkData.shareSectionTitle.isNotEmpty 
+                          ? shareLinkData.shareSectionTitle
+                          : 'Distribuie aplicația',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 12),
+                      
+                      // Message
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: Text(
+                          shareLinkData.shareSectionMessage.isNotEmpty 
+                            ? shareLinkData.shareSectionMessage
+                            : 'Ajută la răspândirea Evangheliei prin intermediul radioului creștin.',
+                          style: TextStyle(
+                            fontSize: 15,
+                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.75),
+                            height: 1.5,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      
+                      // Visitor count if available
+                      if (shareLinkData.visitCount > 0) ...[
+                        const SizedBox(height: 20),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                Theme.of(context).primaryColor.withOpacity(0.15),
+                                Theme.of(context).primaryColor.withOpacity(0.08),
+                              ],
+                              begin: Alignment.centerLeft,
+                              end: Alignment.centerRight,
                             ),
-                            const SizedBox(width: 8),
-                            Text(
-                              '${shareLinkData.visitCount} ${shareLinkData.visitCount == 1 ? 'ascultător' : 'ascultători'} invitați',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(
+                              color: Theme.of(context).primaryColor.withOpacity(0.2),
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.people_outline_rounded,
+                                size: 18,
                                 color: Theme.of(context).primaryColor,
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 8),
+                              Text(
+                                '${shareLinkData.visitCount} ${shareLinkData.visitCount == 1 ? 'ascultător' : 'ascultători'} invitați',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Theme.of(context).primaryColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                      
+                      const SizedBox(height: 28),
+                      
+                      // Share buttons grid
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
+                        alignment: WrapAlignment.center,
+                        children: [
+                          _buildShareOption(
+                            context: context,
+                            icon: FontAwesomeIcons.whatsapp,
+                            label: 'WhatsApp',
+                            color: const Color(0xFF25D366),
+                            onTap: () async {
+                              Navigator.pop(context);
+                              await _shareToWhatsApp(shareMessage, shareUrl);
+                            },
+                          ),
+                          _buildShareOption(
+                            context: context,
+                            icon: FontAwesomeIcons.facebook,
+                            label: 'Facebook',
+                            color: const Color(0xFF1877F2),
+                            onTap: () async {
+                              Navigator.pop(context);
+                              await _shareToFacebook(shareUrl);
+                            },
+                          ),
+                          _buildShareOption(
+                            context: context,
+                            icon: Icons.more_horiz_rounded,
+                            label: 'Altele',
+                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
+                            onTap: () async {
+                              Navigator.pop(context);
+                              await _performShare(context, shareUrl, shareMessage, stationName);
+                            },
+                          ),
+                        ],
+                      ),
+                      
+                      const SizedBox(height: 20),
+                      
+                      // Close button
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Text(
+                          'Închide',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                          ),
                         ),
                       ),
                     ],
-                    
-                    const SizedBox(height: 28),
-                    
-                    // Share buttons grid
-                    Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
-                      alignment: WrapAlignment.center,
-                      children: [
-                        _buildShareOption(
-                          context: context,
-                          icon: FontAwesomeIcons.whatsapp,
-                          label: 'WhatsApp',
-                          color: const Color(0xFF25D366),
-                          onTap: () async {
-                            Navigator.pop(context);
-                            await _shareToWhatsApp(shareMessage, shareUrl);
-                          },
-                        ),
-                        _buildShareOption(
-                          context: context,
-                          icon: FontAwesomeIcons.facebook,
-                          label: 'Facebook',
-                          color: const Color(0xFF1877F2),
-                          onTap: () async {
-                            Navigator.pop(context);
-                            await _shareToFacebook(shareUrl);
-                          },
-                        ),
-                        _buildShareOption(
-                          context: context,
-                          icon: Icons.more_horiz_rounded,
-                          label: 'Altele',
-                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
-                          onTap: () async {
-                            Navigator.pop(context);
-                            await _performShare(context, shareUrl, shareMessage, stationName);
-                          },
-                        ),
-                      ],
-                    ),
-                    
-                    const SizedBox(height: 20),
-                    
-                    // Close button
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: Text(
-                        'Închide',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500,
-                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
