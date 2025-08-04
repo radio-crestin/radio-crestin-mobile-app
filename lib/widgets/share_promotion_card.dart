@@ -195,26 +195,22 @@ class SharePromotionCardState extends State<SharePromotionCard> {
                   if (_shareLinkData != null) ...[
                     const SizedBox(height: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
+                        gradient: const LinearGradient(
                           colors: [
-                            const Color(0xFFBFE738).withOpacity(0.20),
-                            const Color(0xFFBFE738).withOpacity(0.12),
+                            Color(0xFF25D366),
+                            Color(0xFF128C7E),
                           ],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: const Color(0xFFBFE738).withOpacity(0.5),
-                          width: 1.5,
-                        ),
+                        borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFFBFE738).withOpacity(0.25),
-                            blurRadius: 12,
-                            offset: const Offset(0, 3),
+                            color: const Color(0xFF25D366).withOpacity(0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
                           ),
                         ],
                       ),
@@ -224,34 +220,27 @@ class SharePromotionCardState extends State<SharePromotionCard> {
                           Container(
                             padding: const EdgeInsets.all(4),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFBFE738).withOpacity(0.3),
+                              color: Colors.white.withOpacity(0.2),
                               shape: BoxShape.circle,
                             ),
-                            child: Icon(
+                            child: const Icon(
                               Icons.people_outline,
-                              size: 14,
-                              color: const Color(0xFF7A9E1F),
+                              size: 16,
+                              color: Colors.white,
                             ),
                           ),
-                          const SizedBox(width: 6),
+                          const SizedBox(width: 8),
                           Text(
                             _shareLinkData!.visitCount == 0
                                 ? 'Niciun prieten nu a accesat link-ul tău'
                                 : _shareLinkData!.visitCount == 1
-                                    ? '🎉 1 prieten a accesat invitația ta!'
-                                    : '🎉 ${_shareLinkData!.visitCount} prieteni au accesat link-ul tău!',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: const Color(0xFF5C7A0F),
-                              letterSpacing: 0.3,
-                              shadows: [
-                                Shadow(
-                                  color: const Color(0xFFBFE738).withOpacity(0.3),
-                                  offset: const Offset(0, 1),
-                                  blurRadius: 2,
-                                ),
-                              ],
+                                    ? '1 prieten a accesat invitația ta'
+                                    : '${_shareLinkData!.visitCount} prieteni au accesat invitația ta',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                              letterSpacing: 0.2,
                             ),
                           ),
                         ],
