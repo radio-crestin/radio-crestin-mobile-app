@@ -1,28 +1,31 @@
 mutation GetShareLink($anonymous_id: String!) {
-  get_share_link(anonymous_id: $anonymous_id) {
-    ... on GetShareLinkResponse {
-      anonymous_id
-      message
-      share_link {
-        visit_count
-        url
-        share_id
-        is_active
-        created_at
-        share_message
-        share_section_message
-        share_section_title
+      get_share_link(anonymous_id: $anonymous_id) {
+        __typename
+        ... on GetShareLinkResponse {
+          anonymous_id
+          message
+          share_link {
+            __typename
+            visit_count
+            url
+            share_id
+            is_active
+            created_at
+            share_message
+            share_section_message
+            share_section_title
+          }
+          success
+        }
+        ... on OperationInfo {
+          __typename
+          messages {
+            __typename
+            code
+            field
+            kind
+            message
+          }
+        }
       }
-      success
     }
-    ... on OperationInfo {
-      __typename
-      messages {
-        code
-        field
-        kind
-        message
-      }
-    }
-  }
-}

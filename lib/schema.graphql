@@ -65,7 +65,6 @@ type GetShareLinkResponse {
   message: String!
   anonymous_id: String
   share_link: ShareLinkData
-  share_section_message: String
 }
 
 """
@@ -175,6 +174,8 @@ type ShareLinkData {
   visit_count: Int!
   created_at: String!
   is_active: Boolean!
+  share_section_title: String
+  share_section_message: String
 }
 
 type SongType {

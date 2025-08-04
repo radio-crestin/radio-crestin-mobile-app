@@ -49,7 +49,5 @@ Map<String, dynamic> _transformStationsData(dynamic jsonData) {
 }
 
 Map<String, dynamic> _transformShareLinkData(dynamic jsonData) {
-  return {
-    'get_share_link': jsonData['data'],
-  };
+  return jsonData['data'];
 }

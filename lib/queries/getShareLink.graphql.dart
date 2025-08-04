@@ -265,6 +265,13 @@ const documentNodeMutationGetShareLink = DocumentNode(definitions: [
         ],
         directives: [],
         selectionSet: SelectionSetNode(selections: [
+          FieldNode(
+            name: NameNode(value: '__typename'),
+            alias: null,
+            arguments: [],
+            directives: [],
+            selectionSet: null,
+          ),
           InlineFragmentNode(
             typeCondition: TypeConditionNode(
                 on: NamedTypeNode(
@@ -294,6 +301,13 @@ const documentNodeMutationGetShareLink = DocumentNode(definitions: [
                 directives: [],
                 selectionSet: SelectionSetNode(selections: [
                   FieldNode(
+                    name: NameNode(value: '__typename'),
+                    alias: null,
+                    arguments: [],
+                    directives: [],
+                    selectionSet: null,
+                  ),
+                  FieldNode(
                     name: NameNode(value: 'visit_count'),
                     alias: null,
                     arguments: [],
@@ -315,6 +329,13 @@ const documentNodeMutationGetShareLink = DocumentNode(definitions: [
                     selectionSet: null,
                   ),
                   FieldNode(
+                    name: NameNode(value: 'is_active'),
+                    alias: null,
+                    arguments: [],
+                    directives: [],
+                    selectionSet: null,
+                  ),
+                  FieldNode(
                     name: NameNode(value: 'created_at'),
                     alias: null,
                     arguments: [],
@@ -329,20 +350,20 @@ const documentNodeMutationGetShareLink = DocumentNode(definitions: [
                     selectionSet: null,
                   ),
                   FieldNode(
-                    name: NameNode(value: '__typename'),
+                    name: NameNode(value: 'share_section_message'),
+                    alias: null,
+                    arguments: [],
+                    directives: [],
+                    selectionSet: null,
+                  ),
+                  FieldNode(
+                    name: NameNode(value: 'share_section_title'),
                     alias: null,
                     arguments: [],
                     directives: [],
                     selectionSet: null,
                   ),
                 ]),
-              ),
-              FieldNode(
-                name: NameNode(value: 'share_section_message'),
-                alias: null,
-                arguments: [],
-                directives: [],
-                selectionSet: null,
               ),
               FieldNode(
                 name: NameNode(value: 'success'),
@@ -382,6 +403,13 @@ const documentNodeMutationGetShareLink = DocumentNode(definitions: [
                 directives: [],
                 selectionSet: SelectionSetNode(selections: [
                   FieldNode(
+                    name: NameNode(value: '__typename'),
+                    alias: null,
+                    arguments: [],
+                    directives: [],
+                    selectionSet: null,
+                  ),
+                  FieldNode(
                     name: NameNode(value: 'code'),
                     alias: null,
                     arguments: [],
@@ -409,23 +437,9 @@ const documentNodeMutationGetShareLink = DocumentNode(definitions: [
                     directives: [],
                     selectionSet: null,
                   ),
-                  FieldNode(
-                    name: NameNode(value: '__typename'),
-                    alias: null,
-                    arguments: [],
-                    directives: [],
-                    selectionSet: null,
-                  ),
                 ]),
               ),
             ]),
-          ),
-          FieldNode(
-            name: NameNode(value: '__typename'),
-            alias: null,
-            arguments: [],
-            directives: [],
-            selectionSet: null,
           ),
         ]),
       ),
@@ -808,7 +822,6 @@ class Mutation$GetShareLink$get_share_link$$GetShareLinkResponse
     this.anonymous_id,
     required this.message,
     this.share_link,
-    this.share_section_message,
     required this.success,
     this.$__typename = 'GetShareLinkResponse',
   });
@@ -818,7 +831,6 @@ class Mutation$GetShareLink$get_share_link$$GetShareLinkResponse
     final l$anonymous_id = json['anonymous_id'];
     final l$message = json['message'];
     final l$share_link = json['share_link'];
-    final l$share_section_message = json['share_section_message'];
     final l$success = json['success'];
     final l$$__typename = json['__typename'];
     return Mutation$GetShareLink$get_share_link$$GetShareLinkResponse(
@@ -828,7 +840,6 @@ class Mutation$GetShareLink$get_share_link$$GetShareLinkResponse
           ? null
           : Mutation$GetShareLink$get_share_link$$GetShareLinkResponse$share_link
               .fromJson((l$share_link as Map<String, dynamic>)),
-      share_section_message: (l$share_section_message as String?),
       success: (l$success as bool),
       $__typename: (l$$__typename as String),
     );
@@ -840,8 +851,6 @@ class Mutation$GetShareLink$get_share_link$$GetShareLinkResponse
 
   final Mutation$GetShareLink$get_share_link$$GetShareLinkResponse$share_link?
       share_link;
-
-  final String? share_section_message;
 
   final bool success;
 
@@ -855,8 +864,6 @@ class Mutation$GetShareLink$get_share_link$$GetShareLinkResponse
     _resultData['message'] = l$message;
     final l$share_link = share_link;
     _resultData['share_link'] = l$share_link?.toJson();
-    final l$share_section_message = share_section_message;
-    _resultData['share_section_message'] = l$share_section_message;
     final l$success = success;
     _resultData['success'] = l$success;
     final l$$__typename = $__typename;
@@ -869,14 +876,12 @@ class Mutation$GetShareLink$get_share_link$$GetShareLinkResponse
     final l$anonymous_id = anonymous_id;
     final l$message = message;
     final l$share_link = share_link;
-    final l$share_section_message = share_section_message;
     final l$success = success;
     final l$$__typename = $__typename;
     return Object.hashAll([
       l$anonymous_id,
       l$message,
       l$share_link,
-      l$share_section_message,
       l$success,
       l$$__typename,
     ]);
@@ -905,11 +910,6 @@ class Mutation$GetShareLink$get_share_link$$GetShareLinkResponse
     final l$share_link = share_link;
     final lOther$share_link = other.share_link;
     if (l$share_link != lOther$share_link) {
-      return false;
-    }
-    final l$share_section_message = share_section_message;
-    final lOther$share_section_message = other.share_section_message;
-    if (l$share_section_message != lOther$share_section_message) {
       return false;
     }
     final l$success = success;
@@ -954,7 +954,6 @@ abstract class CopyWith$Mutation$GetShareLink$get_share_link$$GetShareLinkRespon
     String? message,
     Mutation$GetShareLink$get_share_link$$GetShareLinkResponse$share_link?
         share_link,
-    String? share_section_message,
     bool? success,
     String? $__typename,
   });
@@ -983,7 +982,6 @@ class _CopyWithImpl$Mutation$GetShareLink$get_share_link$$GetShareLinkResponse<
     Object? anonymous_id = _undefined,
     Object? message = _undefined,
     Object? share_link = _undefined,
-    Object? share_section_message = _undefined,
     Object? success = _undefined,
     Object? $__typename = _undefined,
   }) =>
@@ -998,9 +996,6 @@ class _CopyWithImpl$Mutation$GetShareLink$get_share_link$$GetShareLinkResponse<
             ? _instance.share_link
             : (share_link
                 as Mutation$GetShareLink$get_share_link$$GetShareLinkResponse$share_link?),
-        share_section_message: share_section_message == _undefined
-            ? _instance.share_section_message
-            : (share_section_message as String?),
         success: success == _undefined || success == null
             ? _instance.success
             : (success as bool),
@@ -1035,7 +1030,6 @@ class _CopyWithStubImpl$Mutation$GetShareLink$get_share_link$$GetShareLinkRespon
     String? message,
     Mutation$GetShareLink$get_share_link$$GetShareLinkResponse$share_link?
         share_link,
-    String? share_section_message,
     bool? success,
     String? $__typename,
   }) =>
@@ -1050,31 +1044,42 @@ class _CopyWithStubImpl$Mutation$GetShareLink$get_share_link$$GetShareLinkRespon
 
 class Mutation$GetShareLink$get_share_link$$GetShareLinkResponse$share_link {
   Mutation$GetShareLink$get_share_link$$GetShareLinkResponse$share_link({
+    this.$__typename = 'ShareLinkData',
     required this.visit_count,
     required this.url,
     required this.share_id,
+    required this.is_active,
     required this.created_at,
     required this.share_message,
-    this.$__typename = 'ShareLinkData',
+    this.share_section_message,
+    this.share_section_title,
   });
 
   factory Mutation$GetShareLink$get_share_link$$GetShareLinkResponse$share_link.fromJson(
       Map<String, dynamic> json) {
+    final l$$__typename = json['__typename'];
     final l$visit_count = json['visit_count'];
     final l$url = json['url'];
     final l$share_id = json['share_id'];
+    final l$is_active = json['is_active'];
     final l$created_at = json['created_at'];
     final l$share_message = json['share_message'];
-    final l$$__typename = json['__typename'];
+    final l$share_section_message = json['share_section_message'];
+    final l$share_section_title = json['share_section_title'];
     return Mutation$GetShareLink$get_share_link$$GetShareLinkResponse$share_link(
+      $__typename: (l$$__typename as String),
       visit_count: (l$visit_count as int),
       url: (l$url as String),
       share_id: (l$share_id as String),
+      is_active: (l$is_active as bool),
       created_at: (l$created_at as String),
       share_message: (l$share_message as String),
-      $__typename: (l$$__typename as String),
+      share_section_message: (l$share_section_message as String?),
+      share_section_title: (l$share_section_title as String?),
     );
   }
+
+  final String $__typename;
 
   final int visit_count;
 
@@ -1082,44 +1087,60 @@ class Mutation$GetShareLink$get_share_link$$GetShareLinkResponse$share_link {
 
   final String share_id;
 
+  final bool is_active;
+
   final String created_at;
 
   final String share_message;
 
-  final String $__typename;
+  final String? share_section_message;
+
+  final String? share_section_title;
 
   Map<String, dynamic> toJson() {
     final _resultData = <String, dynamic>{};
+    final l$$__typename = $__typename;
+    _resultData['__typename'] = l$$__typename;
     final l$visit_count = visit_count;
     _resultData['visit_count'] = l$visit_count;
     final l$url = url;
     _resultData['url'] = l$url;
     final l$share_id = share_id;
     _resultData['share_id'] = l$share_id;
+    final l$is_active = is_active;
+    _resultData['is_active'] = l$is_active;
     final l$created_at = created_at;
     _resultData['created_at'] = l$created_at;
     final l$share_message = share_message;
     _resultData['share_message'] = l$share_message;
-    final l$$__typename = $__typename;
-    _resultData['__typename'] = l$$__typename;
+    final l$share_section_message = share_section_message;
+    _resultData['share_section_message'] = l$share_section_message;
+    final l$share_section_title = share_section_title;
+    _resultData['share_section_title'] = l$share_section_title;
     return _resultData;
   }
 
   @override
   int get hashCode {
+    final l$$__typename = $__typename;
     final l$visit_count = visit_count;
     final l$url = url;
     final l$share_id = share_id;
+    final l$is_active = is_active;
     final l$created_at = created_at;
     final l$share_message = share_message;
-    final l$$__typename = $__typename;
+    final l$share_section_message = share_section_message;
+    final l$share_section_title = share_section_title;
     return Object.hashAll([
+      l$$__typename,
       l$visit_count,
       l$url,
       l$share_id,
+      l$is_active,
       l$created_at,
       l$share_message,
-      l$$__typename,
+      l$share_section_message,
+      l$share_section_title,
     ]);
   }
 
@@ -1131,6 +1152,11 @@ class Mutation$GetShareLink$get_share_link$$GetShareLinkResponse$share_link {
     if (!(other
             is Mutation$GetShareLink$get_share_link$$GetShareLinkResponse$share_link) ||
         runtimeType != other.runtimeType) {
+      return false;
+    }
+    final l$$__typename = $__typename;
+    final lOther$$__typename = other.$__typename;
+    if (l$$__typename != lOther$$__typename) {
       return false;
     }
     final l$visit_count = visit_count;
@@ -1148,6 +1174,11 @@ class Mutation$GetShareLink$get_share_link$$GetShareLinkResponse$share_link {
     if (l$share_id != lOther$share_id) {
       return false;
     }
+    final l$is_active = is_active;
+    final lOther$is_active = other.is_active;
+    if (l$is_active != lOther$is_active) {
+      return false;
+    }
     final l$created_at = created_at;
     final lOther$created_at = other.created_at;
     if (l$created_at != lOther$created_at) {
@@ -1158,9 +1189,14 @@ class Mutation$GetShareLink$get_share_link$$GetShareLinkResponse$share_link {
     if (l$share_message != lOther$share_message) {
       return false;
     }
-    final l$$__typename = $__typename;
-    final lOther$$__typename = other.$__typename;
-    if (l$$__typename != lOther$$__typename) {
+    final l$share_section_message = share_section_message;
+    final lOther$share_section_message = other.share_section_message;
+    if (l$share_section_message != lOther$share_section_message) {
+      return false;
+    }
+    final l$share_section_title = share_section_title;
+    final lOther$share_section_title = other.share_section_title;
+    if (l$share_section_title != lOther$share_section_title) {
       return false;
     }
     return true;
@@ -1193,12 +1229,15 @@ abstract class CopyWith$Mutation$GetShareLink$get_share_link$$GetShareLinkRespon
       _CopyWithStubImpl$Mutation$GetShareLink$get_share_link$$GetShareLinkResponse$share_link;
 
   TRes call({
+    String? $__typename,
     int? visit_count,
     String? url,
     String? share_id,
+    bool? is_active,
     String? created_at,
     String? share_message,
-    String? $__typename,
+    String? share_section_message,
+    String? share_section_title,
   });
 }
 
@@ -1222,15 +1261,21 @@ class _CopyWithImpl$Mutation$GetShareLink$get_share_link$$GetShareLinkResponse$s
   static const _undefined = <dynamic, dynamic>{};
 
   TRes call({
+    Object? $__typename = _undefined,
     Object? visit_count = _undefined,
     Object? url = _undefined,
     Object? share_id = _undefined,
+    Object? is_active = _undefined,
     Object? created_at = _undefined,
     Object? share_message = _undefined,
-    Object? $__typename = _undefined,
+    Object? share_section_message = _undefined,
+    Object? share_section_title = _undefined,
   }) =>
       _then(
           Mutation$GetShareLink$get_share_link$$GetShareLinkResponse$share_link(
+        $__typename: $__typename == _undefined || $__typename == null
+            ? _instance.$__typename
+            : ($__typename as String),
         visit_count: visit_count == _undefined || visit_count == null
             ? _instance.visit_count
             : (visit_count as int),
@@ -1238,15 +1283,21 @@ class _CopyWithImpl$Mutation$GetShareLink$get_share_link$$GetShareLinkResponse$s
         share_id: share_id == _undefined || share_id == null
             ? _instance.share_id
             : (share_id as String),
+        is_active: is_active == _undefined || is_active == null
+            ? _instance.is_active
+            : (is_active as bool),
         created_at: created_at == _undefined || created_at == null
             ? _instance.created_at
             : (created_at as String),
         share_message: share_message == _undefined || share_message == null
             ? _instance.share_message
             : (share_message as String),
-        $__typename: $__typename == _undefined || $__typename == null
-            ? _instance.$__typename
-            : ($__typename as String),
+        share_section_message: share_section_message == _undefined
+            ? _instance.share_section_message
+            : (share_section_message as String?),
+        share_section_title: share_section_title == _undefined
+            ? _instance.share_section_title
+            : (share_section_title as String?),
       ));
 }
 
@@ -1261,12 +1312,15 @@ class _CopyWithStubImpl$Mutation$GetShareLink$get_share_link$$GetShareLinkRespon
   TRes _res;
 
   call({
+    String? $__typename,
     int? visit_count,
     String? url,
     String? share_id,
+    bool? is_active,
     String? created_at,
     String? share_message,
-    String? $__typename,
+    String? share_section_message,
+    String? share_section_title,
   }) =>
       _res;
 }
@@ -1445,28 +1499,30 @@ class _CopyWithStubImpl$Mutation$GetShareLink$get_share_link$$OperationInfo<
 
 class Mutation$GetShareLink$get_share_link$$OperationInfo$messages {
   Mutation$GetShareLink$get_share_link$$OperationInfo$messages({
+    this.$__typename = 'OperationMessage',
     this.code,
     this.field,
     required this.kind,
     required this.message,
-    this.$__typename = 'OperationMessage',
   });
 
   factory Mutation$GetShareLink$get_share_link$$OperationInfo$messages.fromJson(
       Map<String, dynamic> json) {
+    final l$$__typename = json['__typename'];
     final l$code = json['code'];
     final l$field = json['field'];
     final l$kind = json['kind'];
     final l$message = json['message'];
-    final l$$__typename = json['__typename'];
     return Mutation$GetShareLink$get_share_link$$OperationInfo$messages(
+      $__typename: (l$$__typename as String),
       code: (l$code as String?),
       field: (l$field as String?),
       kind: fromJson$Enum$OperationMessageKind((l$kind as String)),
       message: (l$message as String),
-      $__typename: (l$$__typename as String),
     );
   }
+
+  final String $__typename;
 
   final String? code;
 
@@ -1476,10 +1532,10 @@ class Mutation$GetShareLink$get_share_link$$OperationInfo$messages {
 
   final String message;
 
-  final String $__typename;
-
   Map<String, dynamic> toJson() {
     final _resultData = <String, dynamic>{};
+    final l$$__typename = $__typename;
+    _resultData['__typename'] = l$$__typename;
     final l$code = code;
     _resultData['code'] = l$code;
     final l$field = field;
@@ -1488,24 +1544,22 @@ class Mutation$GetShareLink$get_share_link$$OperationInfo$messages {
     _resultData['kind'] = toJson$Enum$OperationMessageKind(l$kind);
     final l$message = message;
     _resultData['message'] = l$message;
-    final l$$__typename = $__typename;
-    _resultData['__typename'] = l$$__typename;
     return _resultData;
   }
 
   @override
   int get hashCode {
+    final l$$__typename = $__typename;
     final l$code = code;
     final l$field = field;
     final l$kind = kind;
     final l$message = message;
-    final l$$__typename = $__typename;
     return Object.hashAll([
+      l$$__typename,
       l$code,
       l$field,
       l$kind,
       l$message,
-      l$$__typename,
     ]);
   }
 
@@ -1517,6 +1571,11 @@ class Mutation$GetShareLink$get_share_link$$OperationInfo$messages {
     if (!(other
             is Mutation$GetShareLink$get_share_link$$OperationInfo$messages) ||
         runtimeType != other.runtimeType) {
+      return false;
+    }
+    final l$$__typename = $__typename;
+    final lOther$$__typename = other.$__typename;
+    if (l$$__typename != lOther$$__typename) {
       return false;
     }
     final l$code = code;
@@ -1537,11 +1596,6 @@ class Mutation$GetShareLink$get_share_link$$OperationInfo$messages {
     final l$message = message;
     final lOther$message = other.message;
     if (l$message != lOther$message) {
-      return false;
-    }
-    final l$$__typename = $__typename;
-    final lOther$$__typename = other.$__typename;
-    if (l$$__typename != lOther$$__typename) {
       return false;
     }
     return true;
@@ -1572,11 +1626,11 @@ abstract class CopyWith$Mutation$GetShareLink$get_share_link$$OperationInfo$mess
       _CopyWithStubImpl$Mutation$GetShareLink$get_share_link$$OperationInfo$messages;
 
   TRes call({
+    String? $__typename,
     String? code,
     String? field,
     Enum$OperationMessageKind? kind,
     String? message,
-    String? $__typename,
   });
 }
 
@@ -1598,13 +1652,16 @@ class _CopyWithImpl$Mutation$GetShareLink$get_share_link$$OperationInfo$messages
   static const _undefined = <dynamic, dynamic>{};
 
   TRes call({
+    Object? $__typename = _undefined,
     Object? code = _undefined,
     Object? field = _undefined,
     Object? kind = _undefined,
     Object? message = _undefined,
-    Object? $__typename = _undefined,
   }) =>
       _then(Mutation$GetShareLink$get_share_link$$OperationInfo$messages(
+        $__typename: $__typename == _undefined || $__typename == null
+            ? _instance.$__typename
+            : ($__typename as String),
         code: code == _undefined ? _instance.code : (code as String?),
         field: field == _undefined ? _instance.field : (field as String?),
         kind: kind == _undefined || kind == null
@@ -1613,9 +1670,6 @@ class _CopyWithImpl$Mutation$GetShareLink$get_share_link$$OperationInfo$messages
         message: message == _undefined || message == null
             ? _instance.message
             : (message as String),
-        $__typename: $__typename == _undefined || $__typename == null
-            ? _instance.$__typename
-            : ($__typename as String),
       ));
 }
 
@@ -1630,11 +1684,11 @@ class _CopyWithStubImpl$Mutation$GetShareLink$get_share_link$$OperationInfo$mess
   TRes _res;
 
   call({
+    String? $__typename,
     String? code,
     String? field,
     Enum$OperationMessageKind? kind,
     String? message,
-    String? $__typename,
   }) =>
       _res;
 }
