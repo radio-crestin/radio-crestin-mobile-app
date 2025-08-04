@@ -9,11 +9,13 @@ import 'dart:io';
 class SharePromotionCard extends StatefulWidget {
   final GraphQLClient client;
   final String? currentStationSlug;
+  final String? currentStationName;
 
   const SharePromotionCard({
     Key? key,
     required this.client,
     this.currentStationSlug,
+    this.currentStationName,
   }) : super(key: key);
 
   @override
@@ -109,18 +111,28 @@ class _SharePromotionCardState extends State<SharePromotionCard> {
 
     return GestureDetector(
       onTap: () {
+        // Only include station slug in URL if station is actually playing
         final shareUrl = _shareLinkData!.generateShareUrl(
-          stationSlug: widget.currentStationSlug,
+          stationSlug: widget.currentStationName != null ? widget.currentStationSlug : null,
         );
-        // Replace {url} placeholder in shareMessage with actual URL
-        final formattedMessage = _shareLinkData!.shareMessage.replaceAll(
-          '{url}',
-          shareUrl,
-        );
+        
+        // Use station message if station is playing, otherwise use general message
+        String messageTemplate;
+        if (widget.currentStationName != null) {
+          // Station is playing, use share_station_message
+          messageTemplate = _shareLinkData!.shareStationMessage
+            .replaceAll('{station_name}', widget.currentStationName!)
+            .replaceAll('{url}', shareUrl);
+        } else {
+          // No station playing, use share_message
+          messageTemplate = _shareLinkData!.shareMessage
+            .replaceAll('{url}', shareUrl);
+        }
+        
         ShareHandler.shareApp(
           context: context,
           shareUrl: shareUrl,
-          shareMessage: formattedMessage,
+          shareMessage: messageTemplate,
         );
       },
       child: Container(

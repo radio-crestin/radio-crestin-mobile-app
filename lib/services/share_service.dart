@@ -30,6 +30,7 @@ class ShareService {
           shareId: data['share_link']['share_id'] ?? '',
           url: data['share_link']['url'] ?? '',
           shareMessage: data['share_link']['share_message'] ?? '',
+          shareStationMessage: data['share_link']['share_station_message'] ?? '',
           visitCount: data['share_link']['visit_count'] ?? 0,
           createdAt: data['share_link']['created_at'] ?? '',
           isActive: data['share_link']['is_active'] ?? true,
@@ -50,6 +51,7 @@ class ShareLinkData {
   final String shareId;
   final String url;
   final String shareMessage;
+  final String shareStationMessage;
   final int visitCount;
   final String createdAt;
   final bool isActive;
@@ -60,6 +62,7 @@ class ShareLinkData {
     required this.shareId,
     required this.url,
     required this.shareMessage,
+    required this.shareStationMessage,
     required this.visitCount,
     required this.createdAt,
     required this.isActive,

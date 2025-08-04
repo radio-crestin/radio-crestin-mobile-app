@@ -4,9 +4,12 @@ import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter/material.dart';
-import 'package:share_plus/share_plus.dart';
+import 'package:graphql_flutter/graphql_flutter.dart';
+import 'package:radio_crestin/services/share_service.dart';
+import 'package:radio_crestin/widgets/share_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 
 import '../globals.dart' as globals;
 import '../theme_manager.dart';
@@ -47,6 +50,55 @@ class _SettingsPageState extends State<SettingsPage> {
     setState(() {
       _autoStartStation = prefs.getBool('_autoStartStation') ?? true;
     });
+  }
+
+  Future<void> _shareApp(BuildContext context) async {
+    try {
+      // Get device ID
+      final prefs = await SharedPreferences.getInstance();
+      String? deviceId = prefs.getString('device_id');
+      
+      if (deviceId == null) {
+        final DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
+        if (Platform.isAndroid) {
+          final androidInfo = await deviceInfo.androidInfo;
+          deviceId = androidInfo.id;
+        } else if (Platform.isIOS) {
+          final iosInfo = await deviceInfo.iosInfo;
+          deviceId = iosInfo.identifierForVendor;
+        } else {
+          deviceId = DateTime.now().millisecondsSinceEpoch.toString();
+        }
+        
+        if (deviceId != null) {
+          await prefs.setString('device_id', deviceId);
+        }
+      }
+
+      // Get GraphQL client
+      final client = GraphQLProvider.of(context).value;
+      final shareService = ShareService(client);
+      final shareLinkData = await shareService.getShareLink(deviceId!);
+      
+      if (shareLinkData != null) {
+        final shareUrl = shareLinkData.generateShareUrl();
+        final shareMessage = shareLinkData.shareMessage.replaceAll('{url}', shareUrl);
+        
+        ShareHandler.shareApp(
+          context: context,
+          shareUrl: shareUrl,
+          shareMessage: shareMessage,
+        );
+      }
+    } catch (e) {
+      // Fallback to old method if something fails
+      final remoteMessage = remoteConfig.getString("share_app_message");
+      ShareHandler.shareApp(
+        context: context,
+        shareUrl: 'https://asculta.radiocrestin.ro',
+        shareMessage: remoteMessage.isNotEmpty ? remoteMessage : 'Aplicația Radio Creștin:\nhttps://asculta.radiocrestin.ro',
+      );
+    }
   }
 
   @override
@@ -146,8 +198,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 ListTile(
                   leading: const Icon(Icons.share_rounded),
                   title: const Text('Trimite aplicația'),
-                  onTap: () {
-                    Share.share(remoteConfig.getString("share_app_message"));
+                  onTap: () async {
+                    await _shareApp(context);
                   },
                 ),
                 const Spacer(),

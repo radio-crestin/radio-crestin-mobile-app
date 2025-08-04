@@ -4,7 +4,6 @@ import 'dart:io' show Platform;
 
 import 'package:app_links/app_links.dart';
 import 'package:audio_service/audio_service.dart';
-import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_sticky_header/flutter_sticky_header.dart';
 import 'package:radio_crestin/appAudioHandler.dart';
@@ -22,8 +21,6 @@ import '../queries/getStations.graphql.dart';
 import '../types/Station.dart';
 import '../utils/PositionRetainedScrollPhysics.dart';
 import 'SettingsPage.dart';
-
-final remoteConfig = FirebaseRemoteConfig.instance;
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -211,6 +208,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       child: SharePromotionCard(
                         client: _audioHandler.graphqlClient,
                         currentStationSlug: currentStation?.slug,
+                        currentStationName: currentStation?.title,
                       ),
                     ),
                     if (favoriteStations.isNotEmpty)

@@ -7,7 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:like_button/like_button.dart';
 import 'package:radio_crestin/pages/HomePage.dart';
-import 'package:share_plus/share_plus.dart';
+import 'package:radio_crestin/widgets/share_promotion_card.dart';
+import 'package:radio_crestin/widgets/share_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../appAudioHandler.dart';
@@ -393,19 +394,9 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                     ),
                   ),
                 InkWell(
-                  customBorder: CircleBorder(),
+                  customBorder: const CircleBorder(),
                   onTap: () {
-                    if (currentStation != null) {
-                      var linkMessage = "";
-                      linkMessage += "${currentStation?.title ?? "Asculta Radio Crestin"}\n";
-                      linkMessage +=
-                          "https://share.radiocrestin.ro/${currentStation?.slug ?? ""}/${currentStation?.songId ?? ""}";
-
-                      Share.share(
-                          remoteConfig.getString("share_app_station_message") + linkMessage);
-                    } else {
-                      Share.share(remoteConfig.getString("share_app_message"));
-                    }
+                    _showShareDialog(context);
                   },
                   child: Container(
                     padding: const EdgeInsets.all(10.0),
@@ -430,6 +421,30 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
           ],
         ),
       ),
+    );
+  }
+
+  void _showShareDialog(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext context) {
+        return Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(20),
+              topRight: Radius.circular(20),
+            ),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 20),
+          child: SharePromotionCard(
+            client: widget.audioHandler.graphqlClient,
+            currentStationSlug: currentStation?.slug,
+            currentStationName: currentStation?.title,
+          ),
+        );
+      },
     );
   }
 
