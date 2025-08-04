@@ -58,17 +58,6 @@ class _SharePromotionCardState extends State<SharePromotionCard> {
     }
   }
 
-  String _getDisplayMessage() {
-    if (_shareLinkData == null) {
-      return 'Ajută la răspândirea Evangheliei prin intermediul radioului creștin. Apasă aici pentru a trimite această aplicație prietenilor tăi.';
-    }
-
-    final message = _shareLinkData!.shareSectionMessage.isNotEmpty 
-      ? _shareLinkData!.shareSectionMessage
-      : 'Ajută la răspândirea Evangheliei prin intermediul radioului creștin. Apasă aici pentru a trimite această aplicație prietenilor tăi.';
-    
-    return message;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -97,18 +86,20 @@ class _SharePromotionCardState extends State<SharePromotionCard> {
       );
     }
 
+    if (_shareLinkData == null) {
+      return const SizedBox.shrink();
+    }
+
     return GestureDetector(
       onTap: () {
-        if (_shareLinkData != null) {
-          final shareUrl = _shareLinkData!.generateShareUrl(
-            stationSlug: widget.currentStationSlug,
-          );
-          ShareHandler.shareApp(
-            context: context,
-            shareUrl: shareUrl,
-            shareMessage: _shareLinkData!.shareMessage,
-          );
-        }
+        final shareUrl = _shareLinkData!.generateShareUrl(
+          stationSlug: widget.currentStationSlug,
+        );
+        ShareHandler.shareApp(
+          context: context,
+          shareUrl: shareUrl,
+          shareMessage: _shareLinkData!.shareMessage,
+        );
       },
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -164,7 +155,9 @@ class _SharePromotionCardState extends State<SharePromotionCard> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    _getDisplayMessage(),
+                    _shareLinkData!.shareSectionMessage.isNotEmpty 
+                      ? _shareLinkData!.shareSectionMessage
+                      : 'Ajută la răspândirea Evangheliei prin intermediul radioului creștin. Apasă aici pentru a trimite această aplicație prietenilor tăi.',
                     style: TextStyle(
                       fontSize: 13,
                       color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
