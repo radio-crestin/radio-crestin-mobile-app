@@ -10,9 +10,16 @@ class ShareHandler {
     String? stationName,
   }) async {
     try {
+      // Check if shareMessage already contains the URL
+      final messageContainsUrl = shareMessage.contains(shareUrl);
+      
       final message = stationName != null 
-        ? '$shareMessage\n\nAscultă acum: $stationName\n$shareUrl'
-        : '$shareMessage\n$shareUrl';
+        ? messageContainsUrl 
+          ? '$shareMessage\n\nAscultă acum: $stationName'
+          : '$shareMessage\n\nAscultă acum: $stationName\n$shareUrl'
+        : messageContainsUrl
+          ? shareMessage
+          : '$shareMessage\n$shareUrl';
 
       await Share.share(
         message,
@@ -82,21 +89,25 @@ class ShareHandler {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      shareMessage,
+                      shareMessage.contains(shareUrl) 
+                        ? shareMessage
+                        : shareMessage,
                       style: TextStyle(
                         color: Colors.grey[700],
                         fontSize: 14,
                       ),
                     ),
-                    const SizedBox(height: 10),
-                    Text(
-                      shareUrl,
-                      style: TextStyle(
-                        color: Theme.of(context).primaryColor,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
+                    if (!shareMessage.contains(shareUrl)) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        shareUrl,
+                        style: TextStyle(
+                          color: Theme.of(context).primaryColor,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),
@@ -106,9 +117,11 @@ class ShareHandler {
                   Expanded(
                     child: ElevatedButton.icon(
                       onPressed: () {
-                        Clipboard.setData(ClipboardData(
-                          text: '$shareMessage\n$shareUrl',
-                        ));
+                        final messageContainsUrl = shareMessage.contains(shareUrl);
+                        final textToCopy = messageContainsUrl 
+                          ? shareMessage 
+                          : '$shareMessage\n$shareUrl';
+                        Clipboard.setData(ClipboardData(text: textToCopy));
                         Navigator.pop(context);
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
@@ -132,7 +145,11 @@ class ShareHandler {
                     child: OutlinedButton.icon(
                       onPressed: () {
                         Navigator.pop(context);
-                        Share.share('$shareMessage\n$shareUrl');
+                        final messageContainsUrl = shareMessage.contains(shareUrl);
+                        final textToShare = messageContainsUrl 
+                          ? shareMessage 
+                          : '$shareMessage\n$shareUrl';
+                        Share.share(textToShare);
                       },
                       icon: const Icon(Icons.share),
                       label: const Text('Distribuie'),

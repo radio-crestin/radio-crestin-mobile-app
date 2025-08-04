@@ -112,10 +112,15 @@ class _SharePromotionCardState extends State<SharePromotionCard> {
         final shareUrl = _shareLinkData!.generateShareUrl(
           stationSlug: widget.currentStationSlug,
         );
+        // Replace {url} placeholder in shareMessage with actual URL
+        final formattedMessage = _shareLinkData!.shareMessage.replaceAll(
+          '{url}',
+          shareUrl,
+        );
         ShareHandler.shareApp(
           context: context,
           shareUrl: shareUrl,
-          shareMessage: _shareLinkData!.shareMessage,
+          shareMessage: formattedMessage,
         );
       },
       child: Container(
