@@ -36,7 +36,6 @@ class _SharePromotionCardState extends State<SharePromotionCard> {
   void initState() {
     super.initState();
     _checkSharePromotionVisibility();
-    _loadShareLink();
   }
 
   Future<void> _checkSharePromotionVisibility() async {
@@ -60,10 +59,20 @@ class _SharePromotionCardState extends State<SharePromotionCard> {
       }
     }
     
-    if (!showSharePromotion && mounted) {
+    if (mounted) {
       setState(() {
-        _shouldShow = false;
+        _shouldShow = showSharePromotion;
       });
+      
+      // Only load share link if we should show the card
+      if (showSharePromotion) {
+        _loadShareLink();
+      } else {
+        // Set loading to false since we won't be loading
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
