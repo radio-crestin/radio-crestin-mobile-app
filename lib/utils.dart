@@ -198,8 +198,10 @@ class Utils {
         // Save the updated preferences
         await prefs.setString('_reviewStatus', json.encode(reviewStatus));
         
-        // Show rating dialog at 20 actions (if not already completed)
-        if (actionsMade == 20 && reviewStatus['review_completed'] != true) {
+        // Show rating dialog at 20+ actions (if not already shown or completed)
+        bool hasShownRatingAt20 = prefs.getBool('rating_dialog_shown_at_20') ?? false;
+        if (actionsMade >= 20 && !hasShownRatingAt20 && reviewStatus['review_completed'] != true) {
+          await prefs.setBool('rating_dialog_shown_at_20', true);
           final navigator = navigatorKey.currentState;
           if (navigator != null && navigator.mounted) {
             Future.delayed(const Duration(seconds: 3), () {
@@ -208,8 +210,10 @@ class Utils {
           }
         }
         
-        // Show share dialog at 40 actions
-        if (actionsMade == 40) {
+        // Show share dialog at 40+ actions (if not already shown)
+        bool hasShownShareAt40 = prefs.getBool('share_dialog_shown_at_40') ?? false;
+        if (actionsMade >= 40 && !hasShownShareAt40) {
+          await prefs.setBool('share_dialog_shown_at_40', true);
           await _showShareDialog(prefs, graphQLClient, currentStationName);
         }
       }
@@ -224,14 +228,11 @@ class Utils {
     String? currentStationName,
   ) async {
     try {
-      // Check if already shown at 40 actions
-      bool hasShownDialogAt40 = prefs.getBool('share_dialog_shown_at_40') ?? false;
-      if (hasShownDialogAt40 || graphQLClient == null) {
+      if (graphQLClient == null) {
         return;
       }
       
-      // Mark as shown
-      await prefs.setBool('share_dialog_shown_at_40', true);
+      // Enable share promotion
       await prefs.setBool('show_share_promotion', true);
       
       // Get or create device ID
