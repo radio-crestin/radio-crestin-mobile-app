@@ -4,6 +4,7 @@ import 'package:radio_crestin/services/share_service.dart';
 import 'package:radio_crestin/widgets/share_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'dart:io';
 
 class SharePromotionCard extends StatefulWidget {
@@ -109,33 +110,7 @@ class _SharePromotionCardState extends State<SharePromotionCard> {
       return const SizedBox.shrink();
     }
 
-    return GestureDetector(
-      onTap: () {
-        // Only include station slug in URL if station is actually playing
-        final shareUrl = _shareLinkData!.generateShareUrl(
-          stationSlug: widget.currentStationName != null ? widget.currentStationSlug : null,
-        );
-        
-        // Use station message if station is playing, otherwise use general message
-        String messageTemplate;
-        if (widget.currentStationName != null) {
-          // Station is playing, use share_station_message
-          messageTemplate = _shareLinkData!.shareStationMessage
-            .replaceAll('{station_name}', widget.currentStationName!)
-            .replaceAll('{url}', shareUrl);
-        } else {
-          // No station playing, use share_message
-          messageTemplate = _shareLinkData!.shareMessage
-            .replaceAll('{url}', shareUrl);
-        }
-        
-        ShareHandler.shareApp(
-          context: context,
-          shareUrl: shareUrl,
-          shareMessage: messageTemplate,
-        );
-      },
-      child: Container(
+    return Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
@@ -230,14 +205,158 @@ class _SharePromotionCardState extends State<SharePromotionCard> {
                 ],
               ),
             ),
-            Icon(
-              Icons.arrow_forward_ios,
-              color: Theme.of(context).primaryColor.withOpacity(0.5),
-              size: 16,
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            _buildShareButton(
+              context: context,
+              icon: Icons.facebook,
+              color: const Color(0xFF1877F2),
+              onTap: () => _shareToFacebook(),
+            ),
+            const SizedBox(width: 8),
+            _buildShareButton(
+              context: context,
+              iconData: Icons.chat,
+              color: const Color(0xFF25D366),
+              onTap: () => _shareToWhatsApp(),
+            ),
+            const SizedBox(width: 8),
+            _buildShareButton(
+              context: context,
+              icon: Icons.share,
+              label: 'Distribuie',
+              color: Theme.of(context).primaryColor,
+              onTap: () => _shareGeneric(context),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildShareButton({
+    required BuildContext context,
+    IconData? icon,
+    IconData? iconData,
+    String? label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    final iconToUse = icon ?? iconData ?? Icons.share;
+    
+    if (label != null) {
+      return Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(20),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: color.withOpacity(0.3),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(iconToUse, size: 18, color: color),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(iconToUse, size: 20, color: color),
+        ),
+      ),
+    );
+  }
+
+  String _getShareMessage() {
+    final shareUrl = _shareLinkData!.generateShareUrl(
+      stationSlug: widget.currentStationName != null ? widget.currentStationSlug : null,
+    );
+    
+    String messageTemplate;
+    if (widget.currentStationName != null) {
+      messageTemplate = _shareLinkData!.shareStationMessage
+        .replaceAll('{station_name}', widget.currentStationName!)
+        .replaceAll('{url}', shareUrl);
+    } else {
+      messageTemplate = _shareLinkData!.shareMessage
+        .replaceAll('{url}', shareUrl);
+    }
+    
+    return messageTemplate;
+  }
+
+  String _getShareUrl() {
+    return _shareLinkData!.generateShareUrl(
+      stationSlug: widget.currentStationName != null ? widget.currentStationSlug : null,
+    );
+  }
+
+  void _shareToFacebook() async {
+    final shareUrl = _getShareUrl();
+    final encodedUrl = Uri.encodeComponent(shareUrl);
+    final facebookUrl = 'https://www.facebook.com/sharer/sharer.php?u=$encodedUrl';
+    
+    if (await canLaunchUrl(Uri.parse(facebookUrl))) {
+      await launchUrl(Uri.parse(facebookUrl), mode: LaunchMode.externalApplication);
+    } else {
+      _shareGeneric(context);
+    }
+  }
+
+  void _shareToWhatsApp() async {
+    final message = _getShareMessage();
+    final encodedMessage = Uri.encodeComponent(message);
+    final whatsappUrl = 'https://wa.me/?text=$encodedMessage';
+    
+    if (await canLaunchUrl(Uri.parse(whatsappUrl))) {
+      await launchUrl(Uri.parse(whatsappUrl), mode: LaunchMode.externalApplication);
+    } else {
+      _shareGeneric(context);
+    }
+  }
+
+  void _shareGeneric(BuildContext context) {
+    final shareUrl = _getShareUrl();
+    final shareMessage = _getShareMessage();
+    
+    ShareHandler.shareApp(
+      context: context,
+      shareUrl: shareUrl,
+      shareMessage: shareMessage,
     );
   }
 }
