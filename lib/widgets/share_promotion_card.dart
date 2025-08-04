@@ -15,12 +15,14 @@ class SharePromotionCard extends StatefulWidget {
   final GraphQLClient client;
   final String? currentStationSlug;
   final String? currentStationName;
+  final VoidCallback? onClose;
 
   const SharePromotionCard({
     Key? key,
     required this.client,
     this.currentStationSlug,
     this.currentStationName,
+    this.onClose,
   }) : super(key: key);
 
   @override
@@ -30,81 +32,12 @@ class SharePromotionCard extends StatefulWidget {
 class _SharePromotionCardState extends State<SharePromotionCard> {
   ShareLinkData? _shareLinkData;
   bool _isLoading = true;
-  bool _shouldShow = true;
   String? _anonymousId;
 
   @override
   void initState() {
     super.initState();
-    _checkSharePromotionVisibility();
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Re-check visibility when widget rebuilds (e.g., returning from settings)
-    _recheckVisibility();
-  }
-
-  Future<void> _recheckVisibility() async {
-    final prefs = await SharedPreferences.getInstance();
-    bool showSharePromotion = prefs.getBool('show_share_promotion') ?? true;
-    
-    // Only update if the visibility has changed
-    if (showSharePromotion != _shouldShow) {
-      if (mounted) {
-        setState(() {
-          _shouldShow = showSharePromotion;
-        });
-        
-        // If we're now showing and haven't loaded data yet, load it
-        if (showSharePromotion && _shareLinkData == null) {
-          _loadShareLink();
-        }
-      }
-    }
-  }
-
-  Future<void> _checkSharePromotionVisibility() async {
-    final prefs = await SharedPreferences.getInstance();
-    
-    // Check if share promotion is enabled
-    bool showSharePromotion = prefs.getBool('show_share_promotion') ?? true;
-    
-    // Check if we've already auto-enabled before (to not override user's choice)
-    bool hasAutoEnabled = prefs.getBool('share_promotion_auto_enabled') ?? false;
-    
-    // Auto-enable after 40 actions (2X the review threshold) - but only once
-    if (!showSharePromotion && !hasAutoEnabled) {
-      String? reviewStatusJson = prefs.getString('_reviewStatus');
-      if (reviewStatusJson != null) {
-        Map<String, dynamic> reviewStatus = json.decode(reviewStatusJson);
-        int actionsMade = reviewStatus['actions_made'] ?? 0;
-        
-        // Auto-enable at 40 actions (2X the first review threshold of 20)
-        if (actionsMade >= 40) {
-          await prefs.setBool('show_share_promotion', true);
-          await prefs.setBool('share_promotion_auto_enabled', true);
-          showSharePromotion = true;
-        }
-      }
-    }
-    
-    if (mounted) {
-      setState(() {
-        _shouldShow = showSharePromotion;
-      });
-      
-      // Only load share link if we should show the card
-      if (showSharePromotion) {
-        _loadShareLink();
-      } else {
-        // Set loading to false since we won't be loading
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
+    _loadShareLink();
   }
 
   Future<void> _loadShareLink() async {
@@ -154,10 +87,6 @@ class _SharePromotionCardState extends State<SharePromotionCard> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_shouldShow) {
-      return const SizedBox.shrink();
-    }
-    
     if (_isLoading) {
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -491,28 +420,20 @@ class _SharePromotionCardState extends State<SharePromotionCard> {
   }
 
   Future<void> _handleClose() async {
-    // Disable the share promotion
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('show_share_promotion', false);
-    
-    // Hide the card immediately
-    if (mounted) {
-      setState(() {
-        _shouldShow = false;
-      });
+    // Call the onClose callback if provided
+    if (widget.onClose != null) {
+      widget.onClose!();
     }
     
-    // Navigate to settings page and refresh on return
+    // Navigate to settings page with a delay
     if (mounted) {
       await Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => SettingsPage()),
       );
       
-      // Re-check visibility when returning from settings
-      if (mounted) {
-        _recheckVisibility();
-      }
+      // Add a small delay to allow the settings page to load before toggling
+      await Future.delayed(const Duration(milliseconds: 500));
     }
   }
 }

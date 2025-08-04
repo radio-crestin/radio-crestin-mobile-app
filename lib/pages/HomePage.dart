@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:developer' as developer;
 import 'dart:io' show Platform;
 
@@ -66,6 +67,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   final AppLinks _appLinks = AppLinks();
 
   var autoPlayProcessed = false;
+  bool _showSharePromotion = true;
 
   _HomePageState() {
     _appLinks.getInitialLink().then((uri) {
@@ -79,6 +81,42 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     });
 
 
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _checkSharePromotionVisibility();
+  }
+
+  Future<void> _checkSharePromotionVisibility() async {
+    final prefs = await SharedPreferences.getInstance();
+    bool shouldShow = prefs.getBool('show_share_promotion') ?? true;
+    
+    // Check if we've already auto-enabled before (to not override user's choice)
+    bool hasAutoEnabled = prefs.getBool('share_promotion_auto_enabled') ?? false;
+    
+    // Auto-enable after 40 actions (2X the review threshold) - but only once
+    if (!shouldShow && !hasAutoEnabled) {
+      String? reviewStatusJson = prefs.getString('_reviewStatus');
+      if (reviewStatusJson != null) {
+        Map<String, dynamic> reviewStatus = json.decode(reviewStatusJson);
+        int actionsMade = reviewStatus['actions_made'] ?? 0;
+        
+        // Auto-enable at 40 actions (2X the first review threshold of 20)
+        if (actionsMade >= 40) {
+          await prefs.setBool('show_share_promotion', true);
+          await prefs.setBool('share_promotion_auto_enabled', true);
+          shouldShow = true;
+        }
+      }
+    }
+    
+    if (mounted && shouldShow != _showSharePromotion) {
+      setState(() {
+        _showSharePromotion = shouldShow;
+      });
+    }
   }
 
   @override
@@ -200,21 +238,31 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                 return SettingsPage();
                               },
                             ));
-                            // Trigger a rebuild to refresh SharePromotionCard
+                            // Check share promotion visibility after returning from settings
                             if (mounted) {
-                              setState(() {});
+                              await _checkSharePromotionVisibility();
                             }
                           },
                         ),
                       ],
                     ),
-                    SliverToBoxAdapter(
-                      child: SharePromotionCard(
-                        client: _audioHandler.graphqlClient,
-                        currentStationSlug: currentStation?.slug,
-                        currentStationName: currentStation?.title,
+                    if (_showSharePromotion)
+                      SliverToBoxAdapter(
+                        child: SharePromotionCard(
+                          client: _audioHandler.graphqlClient,
+                          currentStationSlug: currentStation?.slug,
+                          currentStationName: currentStation?.title,
+                          onClose: () async {
+                            // Update local state immediately
+                            setState(() {
+                              _showSharePromotion = false;
+                            });
+                            // Save to preferences
+                            final prefs = await SharedPreferences.getInstance();
+                            await prefs.setBool('show_share_promotion', false);
+                          },
+                        ),
                       ),
-                    ),
                     if (favoriteStations.isNotEmpty)
                       SliverStickyHeader(
                         header: Container(

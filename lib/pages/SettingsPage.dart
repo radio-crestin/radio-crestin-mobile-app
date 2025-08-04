@@ -229,7 +229,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
                 ListTile(
                   leading: const Icon(Icons.share_rounded),
-                  title: const Text('Trimite aplicația'),
+                  title: const Text('Distribuie aplicația'),
                   onTap: () async {
                     await _shareApp(context);
                   },
