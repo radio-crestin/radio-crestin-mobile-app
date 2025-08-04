@@ -40,6 +40,8 @@ class _SettingsPageState extends State<SettingsPage> with TickerProviderStateMix
   
   late AnimationController _animationController;
   late Animation<Color?> _colorAnimation;
+  late AnimationController _switchAnimationController;
+  late Animation<double> _switchAnimation;
   bool _shouldHighlight = false;
 
   @override
@@ -64,6 +66,20 @@ class _SettingsPageState extends State<SettingsPage> with TickerProviderStateMix
       curve: Curves.easeInOut,
     ));
     
+    // Initialize switch animation controller
+    _switchAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+    
+    _switchAnimation = Tween<double>(
+      begin: 1.0,
+      end: 0.0,
+    ).animate(CurvedAnimation(
+      parent: _switchAnimationController,
+      curve: Curves.easeInOutCubic,
+    ));
+    
     // If we should highlight the share promotion toggle
     if (widget.highlightSharePromotion) {
       _shouldHighlight = true;
@@ -86,17 +102,36 @@ class _SettingsPageState extends State<SettingsPage> with TickerProviderStateMix
     // Wait for user to see the highlight
     await Future.delayed(const Duration(milliseconds: 1200));
     
-    // Then toggle the switch with animation
+    // Then animate the switch toggle with a smooth transition
     if (mounted && _showSharePromotion == true) {
-      await _setShowSharePromotion(false);
+      // Start the switch animation
+      _switchAnimationController.forward();
+      
+      // Gradually update the switch value to create smooth animation
+      _switchAnimationController.addListener(() {
+        if (mounted && _switchAnimation.value < 0.5 && _showSharePromotion == true) {
+          setState(() {
+            _showSharePromotion = false;
+          });
+          
+          // Save to preferences
+          SharedPreferences.getInstance().then((prefs) {
+            prefs.setBool('show_share_promotion', false);
+          });
+        }
+      });
+      
+      // Wait for switch animation to complete
+      await _switchAnimationController.forward();
     }
     
     // Continue highlighting for a bit
-    await Future.delayed(const Duration(milliseconds: 800));
+    await Future.delayed(const Duration(milliseconds: 1000));
     
     // Stop highlighting
     if (mounted) {
       _animationController.stop();
+      _animationController.reset();
       setState(() {
         _shouldHighlight = false;
       });
@@ -106,6 +141,7 @@ class _SettingsPageState extends State<SettingsPage> with TickerProviderStateMix
   @override
   void dispose() {
     _animationController.dispose();
+    _switchAnimationController.dispose();
     super.dispose();
   }
 
@@ -257,15 +293,19 @@ class _SettingsPageState extends State<SettingsPage> with TickerProviderStateMix
                         leading: const Icon(Icons.campaign_rounded),
                         title: const Text('Invită prieteni'),
                         subtitle: const Text('Afișează secțiunea de partajare cu prietenii'),
-                        trailing: Switch(
-                          activeColor: Theme.of(context).primaryColor,
-                          activeTrackColor: Theme.of(context).primaryColorLight,
-                          inactiveThumbColor: Theme.of(context).primaryColorDark,
-                          inactiveTrackColor: const Color(0xffdcdcdc),
-                          onChanged: (bool? value) async {
-                            await _setShowSharePromotion(value!);
-                          },
-                          value: _showSharePromotion ?? true,
+                        trailing: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 200),
+                          child: Switch(
+                            key: ValueKey(_showSharePromotion),
+                            activeColor: Theme.of(context).primaryColor,
+                            activeTrackColor: Theme.of(context).primaryColorLight,
+                            inactiveThumbColor: Theme.of(context).primaryColorDark,
+                            inactiveTrackColor: const Color(0xffdcdcdc),
+                            onChanged: _shouldHighlight ? null : (bool? value) async {
+                              await _setShowSharePromotion(value!);
+                            },
+                            value: _showSharePromotion ?? true,
+                          ),
                         ),
                       ),
                     );
