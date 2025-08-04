@@ -68,6 +68,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   var autoPlayProcessed = false;
   bool _showSharePromotion = false;
+  final GlobalKey<SharePromotionCardState> _sharePromotionKey = GlobalKey();
 
   _HomePageState() {
     _appLinks.getInitialLink().then((uri) {
@@ -87,6 +88,23 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     _checkSharePromotionVisibility();
+  }
+
+  Future<void> _handleRefresh() async {
+    try {
+      // Refresh stations
+      await _audioHandler.refreshStations();
+      
+      // Refresh share promotion visibility
+      await _checkSharePromotionVisibility();
+      
+      // Refresh share promotion card if it's visible
+      if (_showSharePromotion && _sharePromotionKey.currentState != null) {
+        await _sharePromotionKey.currentState!.refreshShareLink();
+      }
+    } catch (e) {
+      developer.log('Error refreshing: $e');
+    }
   }
 
   Future<void> _checkSharePromotionVisibility() async {
@@ -228,10 +246,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           slidingUpPanelController.isPanelClosed)) ||
                   isDraggable,
               body: SafeArea(
-                child: CustomScrollView(
-                  physics: const PositionRetainedScrollPhysics(),
-                  cacheExtent: 300.0,
-                  slivers: <Widget>[
+                child: RefreshIndicator(
+                  onRefresh: _handleRefresh,
+                  color: Theme.of(context).primaryColor,
+                  child: CustomScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    cacheExtent: 300.0,
+                    slivers: <Widget>[
                     SliverAppBar(
                       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
                       flexibleSpace: FlexibleSpaceBar(
@@ -298,6 +319,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     if (_showSharePromotion)
                       SliverToBoxAdapter(
                         child: SharePromotionCard(
+                          key: _sharePromotionKey,
                           client: _audioHandler.graphqlClient,
                           currentStationSlug: currentStation?.slug,
                           currentStationName: currentStation?.title,
@@ -407,6 +429,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             )),
                       ),
                   ],
+                  ),
                 ),
               ),
               collapsed: currentStation != null && stations.isNotEmpty

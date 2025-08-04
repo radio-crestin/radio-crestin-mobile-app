@@ -27,10 +27,10 @@ class SharePromotionCard extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<SharePromotionCard> createState() => _SharePromotionCardState();
+  State<SharePromotionCard> createState() => SharePromotionCardState();
 }
 
-class _SharePromotionCardState extends State<SharePromotionCard> {
+class SharePromotionCardState extends State<SharePromotionCard> {
   ShareLinkData? _shareLinkData;
   bool _isLoading = true;
   String? _anonymousId;
@@ -39,6 +39,13 @@ class _SharePromotionCardState extends State<SharePromotionCard> {
   void initState() {
     super.initState();
     _loadShareLink();
+  }
+
+  Future<void> refreshShareLink() async {
+    setState(() {
+      _isLoading = true;
+    });
+    await _loadShareLink();
   }
 
   Future<void> _loadShareLink() async {

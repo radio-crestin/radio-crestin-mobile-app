@@ -346,6 +346,29 @@ class AppAudioHandler extends BaseAudioHandler {
     ));
   }
 
+  Future<void> refreshStations() async {
+    _log("Manually refreshing stations");
+    try {
+      final result = await graphqlClient.query(
+        Options$Query$GetStations(
+          fetchPolicy: FetchPolicy.networkOnly,
+        ),
+      );
+      final parsedData = result.parsedData;
+      if (parsedData != null) {
+        stations.add((parsedData.stations)
+            .map((rawStationData) => Station(
+                rawStationData: rawStationData,
+                isFavorite: favoriteStationSlugs.value.contains(rawStationData.slug)))
+            .toList());
+        stationGroups.add(parsedData.station_groups);
+        loadThumbnailsInCache();
+      }
+    } catch (e) {
+      _log("Error refreshing stations: $e");
+    }
+  }
+
   void _setupRefreshStations() async {
     _log("Starting to fetch stations");
     final parsedData = (await graphqlClient.query(Options$Query$GetStations())).parsedData;
