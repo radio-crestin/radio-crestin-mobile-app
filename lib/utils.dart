@@ -190,12 +190,6 @@ class Utils {
       if (reviewStatusJson != null) {
         Map<String, dynamic> reviewStatus = json.decode(reviewStatusJson);
 
-        if (reviewStatus['review_completed'] == true) {
-          // Even if review is completed, still check for share promotion
-          await _checkAndShowSharePromotion(prefs, reviewStatus['actions_made'] ?? 0, graphQLClient, currentStationName);
-          return;
-        }
-
         // Increment the actions_made counter
         reviewStatus['actions_made'] = (reviewStatus['actions_made'] ?? 0) + 1;
         int actionsMade = reviewStatus['actions_made'];
@@ -203,27 +197,19 @@ class Utils {
         // Save the updated preferences
         await prefs.setString('_reviewStatus', json.encode(reviewStatus));
         
-        // Check for share promotion
-        await _checkAndShowSharePromotion(prefs, actionsMade, graphQLClient, currentStationName);
+        // Show rating dialog at 20 actions (if not already completed)
+        if (actionsMade == 20 && reviewStatus['review_completed'] != true) {
+          final navigator = navigatorKey.currentState;
+          if (navigator != null && navigator.mounted) {
+            Future.delayed(const Duration(seconds: 3), () {
+              Utils.show5StarReviewDialog();
+            });
+          }
+        }
         
-        // Check for review dialog
-        switch (actionsMade) {
-          case 20:
-          case 80:
-          case 200:
-          case 1000:
-          case 5000:
-          case 10000:
-          case 20000:
-            final navigator = navigatorKey.currentState;
-            if (navigator != null && navigator.mounted) {
-              Future.delayed(const Duration(seconds: 3), () {
-                Utils.show5StarReviewDialog();
-              });
-            }
-            break;
-          default:
-            break;
+        // Show share dialog at 40 actions
+        if (actionsMade == 40) {
+          await _showShareDialog(prefs, graphQLClient, currentStationName);
         }
       }
     } catch (e) {
@@ -231,84 +217,69 @@ class Utils {
     }
   }
 
-  static Future<void> _checkAndShowSharePromotion(
+  static Future<void> _showShareDialog(
     SharedPreferences prefs,
-    int actionsMade,
     GraphQLClient? graphQLClient,
     String? currentStationName,
   ) async {
     try {
-      bool shouldShowPromotion = prefs.getBool('show_share_promotion') ?? false;
-      bool hasAutoEnabled = prefs.getBool('share_promotion_auto_enabled') ?? false;
-      bool hasShownDialogAt40Actions = prefs.getBool('share_dialog_shown_at_40') ?? false;
+      // Check if already shown at 40 actions
+      bool hasShownDialogAt40 = prefs.getBool('share_dialog_shown_at_40') ?? false;
+      if (hasShownDialogAt40 || graphQLClient == null) {
+        return;
+      }
       
-      // Auto-enable share promotion after 40 actions if not already done
-      // AND show the dialog only at this specific moment
-      if (!shouldShowPromotion && !hasAutoEnabled && actionsMade >= 40) {
-        await prefs.setBool('show_share_promotion', true);
-        await prefs.setBool('share_promotion_auto_enabled', true);
-        shouldShowPromotion = true;
+      // Mark as shown
+      await prefs.setBool('share_dialog_shown_at_40', true);
+      await prefs.setBool('show_share_promotion', true);
+      
+      // Get or create device ID
+      String? deviceId = prefs.getString('device_id');
+      if (deviceId == null) {
+        final DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
+        if (Platform.isAndroid) {
+          final androidInfo = await deviceInfo.androidInfo;
+          deviceId = androidInfo.id;
+        } else if (Platform.isIOS) {
+          final iosInfo = await deviceInfo.iosInfo;
+          deviceId = iosInfo.identifierForVendor;
+        } else {
+          deviceId = DateTime.now().millisecondsSinceEpoch.toString();
+        }
         
-        // Show dialog ONLY when hitting 40 actions for the first time
-        if (!hasShownDialogAt40Actions && graphQLClient != null) {
-          await prefs.setBool('share_dialog_shown_at_40', true);
+        if (deviceId != null) {
+          await prefs.setString('device_id', deviceId);
+        }
+      }
+      
+      if (deviceId != null) {
+        final shareService = ShareService(graphQLClient);
+        final shareLinkData = await shareService.getShareLink(deviceId);
+        
+        if (shareLinkData != null) {
+          final shareUrl = shareLinkData.url;
+          final shareMessage = shareLinkData.shareSectionTitle.isNotEmpty
+              ? shareLinkData.shareSectionTitle
+              : 'Ascultă posturile de radio creștine din România și Internațional';
           
-          final context = navigatorKey.currentContext;
-          if (context != null) {
-            // Get or create device ID
-            String? deviceId = prefs.getString('device_id');
-            if (deviceId == null) {
-              final DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
-              if (Platform.isAndroid) {
-                final androidInfo = await deviceInfo.androidInfo;
-                deviceId = androidInfo.id;
-              } else if (Platform.isIOS) {
-                final iosInfo = await deviceInfo.iosInfo;
-                deviceId = iosInfo.identifierForVendor;
-              } else {
-                deviceId = DateTime.now().millisecondsSinceEpoch.toString();
-              }
-              
-              if (deviceId != null) {
-                await prefs.setString('device_id', deviceId);
-              }
+          // Show dialog after a small delay
+          Future.delayed(const Duration(milliseconds: 500), () {
+            final context = navigatorKey.currentContext;
+            if (context != null) {
+              ShareHandler.shareApp(
+                context: context,
+                shareUrl: shareUrl,
+                shareMessage: shareMessage,
+                stationName: currentStationName,
+                shareLinkData: shareLinkData,
+                showDialog: true,
+              );
             }
-            
-            if (deviceId != null) {
-              try {
-                final shareService = ShareService(graphQLClient);
-                final shareLinkData = await shareService.getShareLink(deviceId);
-                
-                if (shareLinkData != null) {
-                  final shareUrl = shareLinkData.url;
-                  final shareMessage = shareLinkData.shareSectionTitle.isNotEmpty
-                      ? shareLinkData.shareSectionTitle
-                      : 'Ascultă posturile de radio creștine din România și Internațional';
-                  
-                  // Show dialog after a small delay to let UI settle
-                  Future.delayed(const Duration(milliseconds: 500), () {
-                    final currentContext = navigatorKey.currentContext;
-                    if (currentContext != null) {
-                      ShareHandler.shareApp(
-                        context: currentContext,
-                        shareUrl: shareUrl,
-                        shareMessage: shareMessage,
-                        stationName: currentStationName,
-                        shareLinkData: shareLinkData,
-                        showDialog: true,
-                      );
-                    }
-                  });
-                }
-              } catch (e) {
-                developer.log('Error showing share dialog: $e');
-              }
-            }
-          }
+          });
         }
       }
     } catch (e) {
-      developer.log('Error in _checkAndShowSharePromotion: $e');
+      developer.log('Error showing share dialog: $e');
     }
   }
 }
