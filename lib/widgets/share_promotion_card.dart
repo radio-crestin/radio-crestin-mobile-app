@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:radio_crestin/services/share_service.dart';
 import 'package:radio_crestin/widgets/share_handler.dart';
+import 'package:radio_crestin/pages/SettingsPage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -44,8 +45,11 @@ class _SharePromotionCardState extends State<SharePromotionCard> {
     // Check if share promotion is enabled
     bool showSharePromotion = prefs.getBool('show_share_promotion') ?? true;
     
-    // Auto-enable after 40 actions (2X the review threshold)
-    if (!showSharePromotion) {
+    // Check if we've already auto-enabled before (to not override user's choice)
+    bool hasAutoEnabled = prefs.getBool('share_promotion_auto_enabled') ?? false;
+    
+    // Auto-enable after 40 actions (2X the review threshold) - but only once
+    if (!showSharePromotion && !hasAutoEnabled) {
       String? reviewStatusJson = prefs.getString('_reviewStatus');
       if (reviewStatusJson != null) {
         Map<String, dynamic> reviewStatus = json.decode(reviewStatusJson);
@@ -54,6 +58,7 @@ class _SharePromotionCardState extends State<SharePromotionCard> {
         // Auto-enable at 40 actions (2X the first review threshold of 20)
         if (actionsMade >= 40) {
           await prefs.setBool('show_share_promotion', true);
+          await prefs.setBool('share_promotion_auto_enabled', true);
           showSharePromotion = true;
         }
       }
@@ -158,34 +163,37 @@ class _SharePromotionCardState extends State<SharePromotionCard> {
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 14),
       decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              Theme.of(context).primaryColor.withOpacity(0.1),
-              Theme.of(context).primaryColor.withOpacity(0.05),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(15),
-          border: Border.all(
-            color: Theme.of(context).primaryColor.withOpacity(0.2),
-            width: 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
+        gradient: LinearGradient(
+          colors: [
+            Theme.of(context).primaryColor.withOpacity(0.1),
+            Theme.of(context).primaryColor.withOpacity(0.05),
           ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-      child: Column(
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(
+          color: Theme.of(context).primaryColor.withOpacity(0.2),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Stack(
         children: [
-          Row(
-            children: [
-              Container(
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 14),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: Theme.of(context).primaryColor.withOpacity(0.15),
@@ -280,7 +288,34 @@ class _SharePromotionCardState extends State<SharePromotionCard> {
                 color: Theme.of(context).primaryColor,
                 onTap: () => _shareGeneric(context),
               ),
+                ],
+              ),
             ],
+          ),
+          ),
+          // Close X button
+          Positioned(
+            top: 8,
+            right: 8,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: _handleClose,
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.05),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.close,
+                    size: 18,
+                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                  ),
+                ),
+              ),
+            ),
           ),
         ],
       ),
@@ -427,5 +462,26 @@ class _SharePromotionCardState extends State<SharePromotionCard> {
       shareUrl: shareUrl,
       shareMessage: shareMessage,
     );
+  }
+
+  Future<void> _handleClose() async {
+    // Disable the share promotion
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('show_share_promotion', false);
+    
+    // Hide the card immediately
+    if (mounted) {
+      setState(() {
+        _shouldShow = false;
+      });
+    }
+    
+    // Navigate to settings page
+    if (mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => SettingsPage()),
+      );
+    }
   }
 }
