@@ -210,7 +210,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   ),
                 ),
                 body: Container(
-                  padding: const EdgeInsets.only(top: 100),
+                  padding: const EdgeInsets.only(top: 180),
                   child: Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.start,
