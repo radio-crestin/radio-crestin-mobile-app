@@ -25,7 +25,7 @@ class GraphQLToRestInterceptorLink extends Link {
   
   Stream<Response> _handleRestApiRequest(Request request, RestApiConfig config) async* {
     try {
-      final variables = request.operation.variables;
+      final variables = request.variables;
       final baseUrl = config.urlBuilder != null 
         ? config.urlBuilder!(variables) 
         : config.restApiUrl;
