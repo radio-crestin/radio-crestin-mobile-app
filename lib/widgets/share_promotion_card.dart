@@ -5,6 +5,7 @@ import 'package:radio_crestin/widgets/share_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'dart:io';
 
 class SharePromotionCard extends StatefulWidget {
@@ -209,27 +210,27 @@ class _SharePromotionCardState extends State<SharePromotionCard> {
             ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               _buildShareButton(
                 context: context,
-                icon: Icons.facebook,
-                color: const Color(0xFF1877F2),
-                onTap: () => _shareToFacebook(),
-              ),
-              const SizedBox(width: 8),
-              _buildShareButton(
-                context: context,
-                iconData: Icons.chat,
+                icon: FontAwesomeIcons.whatsapp,
                 color: const Color(0xFF25D366),
                 onTap: () => _shareToWhatsApp(),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
               _buildShareButton(
                 context: context,
-                icon: Icons.share,
+                icon: FontAwesomeIcons.facebook,
+                color: const Color(0xFF1877F2),
+                onTap: () => _shareToFacebook(),
+              ),
+              const SizedBox(width: 10),
+              _buildShareButton(
+                context: context,
+                icon: Icons.share_rounded,
                 label: 'Distribuie',
                 color: Theme.of(context).primaryColor,
                 onTap: () => _shareGeneric(context),
@@ -256,12 +257,12 @@ class _SharePromotionCardState extends State<SharePromotionCard> {
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(24),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: BoxDecoration(
               color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(24),
               border: Border.all(
                 color: color.withOpacity(0.3),
                 width: 1,
@@ -270,13 +271,13 @@ class _SharePromotionCardState extends State<SharePromotionCard> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(iconToUse, size: 18, color: color),
-                const SizedBox(width: 6),
+                Icon(iconToUse, size: 20, color: color),
+                const SizedBox(width: 8),
                 Text(
                   label,
                   style: TextStyle(
                     color: color,
-                    fontSize: 13,
+                    fontSize: 14,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -291,14 +292,14 @@ class _SharePromotionCardState extends State<SharePromotionCard> {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         child: Container(
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
             color: color.withOpacity(0.1),
             shape: BoxShape.circle,
           ),
-          child: Icon(iconToUse, size: 20, color: color),
+          child: Icon(iconToUse, size: 24, color: color),
         ),
       ),
     );
@@ -343,11 +344,31 @@ class _SharePromotionCardState extends State<SharePromotionCard> {
   void _shareToWhatsApp() async {
     final message = _getShareMessage();
     final encodedMessage = Uri.encodeComponent(message);
-    final whatsappUrl = 'https://wa.me/?text=$encodedMessage';
     
-    if (await canLaunchUrl(Uri.parse(whatsappUrl))) {
-      await launchUrl(Uri.parse(whatsappUrl), mode: LaunchMode.externalApplication);
-    } else {
+    // Try WhatsApp app first (allows contact selection)
+    final whatsappAppUrl = 'whatsapp://send?text=$encodedMessage';
+    
+    // Fallback to WhatsApp Web
+    final whatsappWebUrl = 'https://wa.me/?text=$encodedMessage';
+    
+    try {
+      // First try to open WhatsApp app which allows contact/group selection
+      if (await canLaunchUrl(Uri.parse(whatsappAppUrl))) {
+        await launchUrl(
+          Uri.parse(whatsappAppUrl), 
+          mode: LaunchMode.externalApplication,
+        );
+      } else if (await canLaunchUrl(Uri.parse(whatsappWebUrl))) {
+        // Fallback to WhatsApp Web
+        await launchUrl(
+          Uri.parse(whatsappWebUrl), 
+          mode: LaunchMode.externalApplication,
+        );
+      } else {
+        // Final fallback to generic share
+        _shareGeneric(context);
+      }
+    } catch (e) {
       _shareGeneric(context);
     }
   }
