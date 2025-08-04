@@ -240,76 +240,69 @@ class Utils {
     try {
       bool shouldShowPromotion = prefs.getBool('show_share_promotion') ?? true;
       bool hasAutoEnabled = prefs.getBool('share_promotion_auto_enabled') ?? false;
-      bool hasShownDialog = prefs.getBool('share_dialog_shown_this_session') ?? false;
+      bool hasShownDialogAt40Actions = prefs.getBool('share_dialog_shown_at_40') ?? false;
       
       // Auto-enable share promotion after 40 actions if not already done
+      // AND show the dialog only at this specific moment
       if (!shouldShowPromotion && !hasAutoEnabled && actionsMade >= 40) {
         await prefs.setBool('show_share_promotion', true);
         await prefs.setBool('share_promotion_auto_enabled', true);
         shouldShowPromotion = true;
-        hasShownDialog = false; // Reset to show dialog for auto-enable
-      }
-      
-      // Show share dialog when promotion is enabled and dialog hasn't been shown yet
-      if (shouldShowPromotion && !hasShownDialog && graphQLClient != null) {
-        final context = navigatorKey.currentContext;
-        if (context != null) {
-          // Mark dialog as shown for this session
-          await prefs.setBool('share_dialog_shown_this_session', true);
+        
+        // Show dialog ONLY when hitting 40 actions for the first time
+        if (!hasShownDialogAt40Actions && graphQLClient != null) {
+          await prefs.setBool('share_dialog_shown_at_40', true);
           
-          // Reset flag after 24 hours
-          Future.delayed(const Duration(hours: 24), () async {
-            final prefs = await SharedPreferences.getInstance();
-            await prefs.setBool('share_dialog_shown_this_session', false);
-          });
-          
-          // Get or create device ID
-          String? deviceId = prefs.getString('device_id');
-          if (deviceId == null) {
-            final DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
-            if (Platform.isAndroid) {
-              final androidInfo = await deviceInfo.androidInfo;
-              deviceId = androidInfo.id;
-            } else if (Platform.isIOS) {
-              final iosInfo = await deviceInfo.iosInfo;
-              deviceId = iosInfo.identifierForVendor;
-            } else {
-              deviceId = DateTime.now().millisecondsSinceEpoch.toString();
+          final context = navigatorKey.currentContext;
+          if (context != null) {
+            // Get or create device ID
+            String? deviceId = prefs.getString('device_id');
+            if (deviceId == null) {
+              final DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
+              if (Platform.isAndroid) {
+                final androidInfo = await deviceInfo.androidInfo;
+                deviceId = androidInfo.id;
+              } else if (Platform.isIOS) {
+                final iosInfo = await deviceInfo.iosInfo;
+                deviceId = iosInfo.identifierForVendor;
+              } else {
+                deviceId = DateTime.now().millisecondsSinceEpoch.toString();
+              }
+              
+              if (deviceId != null) {
+                await prefs.setString('device_id', deviceId);
+              }
             }
             
             if (deviceId != null) {
-              await prefs.setString('device_id', deviceId);
-            }
-          }
-          
-          if (deviceId != null) {
-            try {
-              final shareService = ShareService(graphQLClient);
-              final shareLinkData = await shareService.getShareLink(deviceId);
-              
-              if (shareLinkData != null) {
-                final shareUrl = shareLinkData.url;
-                final shareMessage = shareLinkData.shareSectionTitle.isNotEmpty
-                    ? shareLinkData.shareSectionTitle
-                    : 'Ascultă posturile de radio creștine din România și Internațional';
+              try {
+                final shareService = ShareService(graphQLClient);
+                final shareLinkData = await shareService.getShareLink(deviceId);
                 
-                // Show dialog after a small delay to let UI settle
-                Future.delayed(const Duration(milliseconds: 500), () {
-                  final currentContext = navigatorKey.currentContext;
-                  if (currentContext != null) {
-                    ShareHandler.shareApp(
-                      context: currentContext,
-                      shareUrl: shareUrl,
-                      shareMessage: shareMessage,
-                      stationName: currentStationName,
-                      shareLinkData: shareLinkData,
-                      showDialog: true,
-                    );
-                  }
-                });
+                if (shareLinkData != null) {
+                  final shareUrl = shareLinkData.url;
+                  final shareMessage = shareLinkData.shareSectionTitle.isNotEmpty
+                      ? shareLinkData.shareSectionTitle
+                      : 'Ascultă posturile de radio creștine din România și Internațional';
+                  
+                  // Show dialog after a small delay to let UI settle
+                  Future.delayed(const Duration(milliseconds: 500), () {
+                    final currentContext = navigatorKey.currentContext;
+                    if (currentContext != null) {
+                      ShareHandler.shareApp(
+                        context: currentContext,
+                        shareUrl: shareUrl,
+                        shareMessage: shareMessage,
+                        stationName: currentStationName,
+                        shareLinkData: shareLinkData,
+                        showDialog: true,
+                      );
+                    }
+                  });
+                }
+              } catch (e) {
+                developer.log('Error showing share dialog: $e');
               }
-            } catch (e) {
-              developer.log('Error showing share dialog: $e');
             }
           }
         }
