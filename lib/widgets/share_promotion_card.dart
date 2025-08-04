@@ -113,7 +113,7 @@ class _SharePromotionCardState extends State<SharePromotionCard> {
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
       decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
@@ -172,7 +172,7 @@ class _SharePromotionCardState extends State<SharePromotionCard> {
                       : 'Ajută la răspândirea Evangheliei prin intermediul radioului creștin. Apasă aici pentru a trimite această aplicație prietenilor tăi.',
                     style: TextStyle(
                       fontSize: 13,
-                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.85),
                       height: 1.4,
                     ),
                   ),
@@ -210,7 +210,7 @@ class _SharePromotionCardState extends State<SharePromotionCard> {
             ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
@@ -220,14 +220,14 @@ class _SharePromotionCardState extends State<SharePromotionCard> {
                 color: const Color(0xFF25D366),
                 onTap: () => _shareToWhatsApp(),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 6),
               _buildShareButton(
                 context: context,
                 icon: FontAwesomeIcons.facebook,
                 color: const Color(0xFF1877F2),
                 onTap: () => _shareToFacebook(),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 6),
               _buildShareButton(
                 context: context,
                 icon: Icons.share_rounded,
