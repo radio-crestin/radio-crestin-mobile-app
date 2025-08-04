@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:radio_crestin/services/share_service.dart';
@@ -6,7 +9,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'dart:io';
 
 class SharePromotionCard extends StatefulWidget {
   final GraphQLClient client;
@@ -27,12 +29,42 @@ class SharePromotionCard extends StatefulWidget {
 class _SharePromotionCardState extends State<SharePromotionCard> {
   ShareLinkData? _shareLinkData;
   bool _isLoading = true;
+  bool _shouldShow = true;
   String? _anonymousId;
 
   @override
   void initState() {
     super.initState();
+    _checkSharePromotionVisibility();
     _loadShareLink();
+  }
+
+  Future<void> _checkSharePromotionVisibility() async {
+    final prefs = await SharedPreferences.getInstance();
+    
+    // Check if share promotion is enabled
+    bool showSharePromotion = prefs.getBool('show_share_promotion') ?? true;
+    
+    // Auto-enable after 40 actions (2X the review threshold)
+    if (!showSharePromotion) {
+      String? reviewStatusJson = prefs.getString('_reviewStatus');
+      if (reviewStatusJson != null) {
+        Map<String, dynamic> reviewStatus = json.decode(reviewStatusJson);
+        int actionsMade = reviewStatus['actions_made'] ?? 0;
+        
+        // Auto-enable at 40 actions (2X the first review threshold of 20)
+        if (actionsMade >= 40) {
+          await prefs.setBool('show_share_promotion', true);
+          showSharePromotion = true;
+        }
+      }
+    }
+    
+    if (!showSharePromotion && mounted) {
+      setState(() {
+        _shouldShow = false;
+      });
+    }
   }
 
   Future<void> _loadShareLink() async {
@@ -82,6 +114,10 @@ class _SharePromotionCardState extends State<SharePromotionCard> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_shouldShow) {
+      return const SizedBox.shrink();
+    }
+    
     if (_isLoading) {
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -112,8 +148,8 @@ class _SharePromotionCardState extends State<SharePromotionCard> {
     }
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 14),
       decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [

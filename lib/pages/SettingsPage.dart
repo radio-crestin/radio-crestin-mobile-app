@@ -25,6 +25,7 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   bool? _notificationsEnabled;
   bool? _autoStartStation;
+  bool? _showSharePromotion;
   ThemeMode _themeMode = ThemeMode.system;
   final String _version = globals.appVersion;
   final String _buildNumber = globals.buildNumber;
@@ -35,6 +36,7 @@ class _SettingsPageState extends State<SettingsPage> {
     super.initState();
     _getNotificationsEnabled();
     _getAutoStartStation();
+    _getShowSharePromotion();
     _loadThemeMode();
   }
 
@@ -49,6 +51,21 @@ class _SettingsPageState extends State<SettingsPage> {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _autoStartStation = prefs.getBool('_autoStartStation') ?? true;
+    });
+  }
+
+  Future<void> _getShowSharePromotion() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _showSharePromotion = prefs.getBool('show_share_promotion') ?? true;
+    });
+  }
+
+  Future<void> _setShowSharePromotion(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('show_share_promotion', value);
+    setState(() {
+      _showSharePromotion = value;
     });
   }
 
@@ -160,6 +177,21 @@ class _SettingsPageState extends State<SettingsPage> {
                       });
                     },
                     value: _autoStartStation ?? true,
+                  ),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.campaign_rounded),
+                  title: const Text('Promovare aplicație'),
+                  subtitle: const Text('Afișează secțiunea de distribuire a aplicației'),
+                  trailing: Switch(
+                    activeColor: Theme.of(context).primaryColor,
+                    activeTrackColor: Theme.of(context).primaryColorLight,
+                    inactiveThumbColor: Theme.of(context).primaryColorDark,
+                    inactiveTrackColor: const Color(0xffdcdcdc),
+                    onChanged: (bool? value) async {
+                      await _setShowSharePromotion(value!);
+                    },
+                    value: _showSharePromotion ?? true,
                   ),
                 ),
                 ListTile(
