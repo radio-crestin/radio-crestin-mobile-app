@@ -57,25 +57,31 @@ class ShareHandler {
     ShareLinkData shareLinkData,
     String? stationName,
   ) async {
-    await showDialog(
+    await showGeneralDialog(
       context: context,
       barrierDismissible: true,
-      builder: (BuildContext dialogContext) {
+      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+      barrierColor: Colors.black54,
+      transitionDuration: const Duration(milliseconds: 200),
+      pageBuilder: (BuildContext buildContext, Animation<double> animation, Animation<double> secondaryAnimation) {
         return Center(
-          child: SingleChildScrollView(
-            child: Dialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24),
-              ),
-              elevation: 8,
-              backgroundColor: Theme.of(context).dialogBackgroundColor,
-              insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-              child: Container(
-                constraints: const BoxConstraints(maxWidth: 400),
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+            child: Material(
+              type: MaterialType.transparency,
+              child: Dialog(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                elevation: 8,
+                backgroundColor: Theme.of(context).dialogBackgroundColor,
+                insetPadding: EdgeInsets.zero,
+                child: Container(
+                  constraints: const BoxConstraints(maxWidth: 400),
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
                     // Icon with gradient background
                     Container(
                       width: 72,
@@ -185,7 +191,7 @@ class ShareHandler {
                           label: 'WhatsApp',
                           color: const Color(0xFF25D366),
                           onTap: () async {
-                            Navigator.pop(dialogContext);
+                            Navigator.pop(context);
                             await _shareToWhatsApp(shareMessage, shareUrl);
                           },
                         ),
@@ -195,7 +201,7 @@ class ShareHandler {
                           label: 'Facebook',
                           color: const Color(0xFF1877F2),
                           onTap: () async {
-                            Navigator.pop(dialogContext);
+                            Navigator.pop(context);
                             await _shareToFacebook(shareUrl);
                           },
                         ),
@@ -205,7 +211,7 @@ class ShareHandler {
                           label: 'Altele',
                           color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
                           onTap: () async {
-                            Navigator.pop(dialogContext);
+                            Navigator.pop(context);
                             await _performShare(context, shareUrl, shareMessage, stationName);
                           },
                         ),
@@ -216,7 +222,7 @@ class ShareHandler {
                     
                     // Close button
                     TextButton(
-                      onPressed: () => Navigator.pop(dialogContext),
+                      onPressed: () => Navigator.pop(context),
                       style: TextButton.styleFrom(
                         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                         shape: RoundedRectangleBorder(
@@ -236,6 +242,24 @@ class ShareHandler {
                 ),
               ),
             ),
+          ),
+        );
+      },
+      transitionBuilder: (BuildContext context, Animation<double> animation, Animation<double> secondaryAnimation, Widget child) {
+        return FadeTransition(
+          opacity: CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOut,
+          ),
+          child: ScaleTransition(
+            scale: Tween<double>(
+              begin: 0.95,
+              end: 1.0,
+            ).animate(CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOut,
+            )),
+            child: child,
           ),
         );
       },
