@@ -9,6 +9,7 @@ import 'package:like_button/like_button.dart';
 import 'package:radio_crestin/pages/HomePage.dart';
 import 'package:radio_crestin/widgets/share_handler.dart';
 import 'package:radio_crestin/services/share_service.dart';
+import 'package:radio_crestin/utils/share_utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -463,15 +464,11 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
         stationSlug: currentStation?.title != null ? currentStation?.slug : null,
       );
       
-      String shareMessage;
-      if (currentStation?.title != null) {
-        shareMessage = shareLinkData.shareStationMessage
-          .replaceAll('{station_name}', currentStation!.title)
-          .replaceAll('{url}', shareUrl);
-      } else {
-        shareMessage = shareLinkData.shareMessage
-          .replaceAll('{url}', shareUrl);
-      }
+      final shareMessage = ShareUtils.formatShareMessage(
+        shareLinkData: shareLinkData,
+        stationName: currentStation?.title,
+        stationSlug: currentStation?.slug,
+      );
       
       // Show the share dialog
       ShareHandler.shareApp(

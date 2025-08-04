@@ -6,6 +6,7 @@ import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:radio_crestin/services/share_service.dart';
 import 'package:radio_crestin/widgets/share_handler.dart';
 import 'package:radio_crestin/pages/SettingsPage.dart';
+import 'package:radio_crestin/utils/share_utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -341,21 +342,11 @@ class _SharePromotionCardState extends State<SharePromotionCard> {
   }
 
   String _getShareMessage() {
-    final shareUrl = _shareLinkData!.generateShareUrl(
-      stationSlug: widget.currentStationName != null ? widget.currentStationSlug : null,
+    return ShareUtils.formatShareMessage(
+      shareLinkData: _shareLinkData!,
+      stationName: widget.currentStationName,
+      stationSlug: widget.currentStationSlug,
     );
-    
-    String messageTemplate;
-    if (widget.currentStationName != null) {
-      messageTemplate = _shareLinkData!.shareStationMessage
-        .replaceAll('{station_name}', widget.currentStationName!)
-        .replaceAll('{url}', shareUrl);
-    } else {
-      messageTemplate = _shareLinkData!.shareMessage
-        .replaceAll('{url}', shareUrl);
-    }
-    
-    return messageTemplate;
   }
 
   String _getShareUrl() {

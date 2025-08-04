@@ -4,6 +4,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:radio_crestin/services/share_service.dart';
+import 'package:radio_crestin/utils/share_utils.dart';
 
 class ShareHandler {
   static Future<void> shareApp({
@@ -30,16 +31,7 @@ class ShareHandler {
     String? stationName,
   ) async {
     try {
-      // Check if shareMessage already contains the URL
-      final messageContainsUrl = shareMessage.contains(shareUrl);
-      
-      final message = stationName != null 
-        ? messageContainsUrl 
-          ? '$shareMessage\n\nAscultă acum: $stationName'
-          : '$shareMessage\n\nAscultă acum: $stationName\n$shareUrl'
-        : messageContainsUrl
-          ? shareMessage
-          : '$shareMessage\n$shareUrl';
+      final message = ShareUtils.formatMessageWithStation(shareMessage, shareUrl, stationName);
 
       await Share.share(
         message,
@@ -303,6 +295,7 @@ class ShareHandler {
   }
 
   static Future<void> _shareToWhatsApp(String message, String shareUrl) async {
+    // Message already contains the URL from ShareUtils.formatShareMessage
     final encodedMessage = Uri.encodeComponent(message);
     final whatsappAppUrl = 'whatsapp://send?text=$encodedMessage';
     final whatsappWebUrl = 'https://wa.me/?text=$encodedMessage';
@@ -396,9 +389,7 @@ class ShareHandler {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      shareMessage.contains(shareUrl) 
-                        ? shareMessage
-                        : shareMessage,
+                      shareMessage,
                       style: TextStyle(
                         color: Colors.grey[700],
                         fontSize: 14,
@@ -424,10 +415,7 @@ class ShareHandler {
                   Expanded(
                     child: ElevatedButton.icon(
                       onPressed: () {
-                        final messageContainsUrl = shareMessage.contains(shareUrl);
-                        final textToCopy = messageContainsUrl 
-                          ? shareMessage 
-                          : '$shareMessage\n$shareUrl';
+                        final textToCopy = ShareUtils.combineMessageWithUrl(shareMessage, shareUrl);
                         Clipboard.setData(ClipboardData(text: textToCopy));
                         Navigator.pop(context);
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -452,10 +440,7 @@ class ShareHandler {
                     child: OutlinedButton.icon(
                       onPressed: () {
                         Navigator.pop(context);
-                        final messageContainsUrl = shareMessage.contains(shareUrl);
-                        final textToShare = messageContainsUrl 
-                          ? shareMessage 
-                          : '$shareMessage\n$shareUrl';
+                        final textToShare = ShareUtils.combineMessageWithUrl(shareMessage, shareUrl);
                         Share.share(textToShare);
                       },
                       icon: const Icon(Icons.share),

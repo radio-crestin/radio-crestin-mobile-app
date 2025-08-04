@@ -11,6 +11,7 @@ import 'package:in_app_review/in_app_review.dart';
 import 'package:radio_crestin/queries/getStations.graphql.dart';
 import 'package:radio_crestin/services/share_service.dart';
 import 'package:radio_crestin/widgets/share_handler.dart';
+import 'package:radio_crestin/utils/share_utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'constants.dart';
@@ -258,9 +259,11 @@ class Utils {
         
         if (shareLinkData != null) {
           final shareUrl = shareLinkData.url;
-          final shareMessage = shareLinkData.shareSectionTitle.isNotEmpty
-              ? shareLinkData.shareSectionTitle
-              : 'Ascultă posturile de radio creștine din România și Internațional';
+          final shareMessage = ShareUtils.formatShareMessage(
+            shareLinkData: shareLinkData,
+            stationName: currentStationName,
+            stationSlug: null,
+          );
           
           // Show dialog after a small delay
           Future.delayed(const Duration(milliseconds: 500), () {

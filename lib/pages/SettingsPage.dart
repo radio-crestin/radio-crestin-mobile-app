@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:radio_crestin/services/share_service.dart';
 import 'package:radio_crestin/widgets/share_handler.dart';
+import 'package:radio_crestin/utils/share_utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:device_info_plus/device_info_plus.dart';
@@ -174,7 +175,11 @@ class _SettingsPageState extends State<SettingsPage> with TickerProviderStateMix
       
       if (shareLinkData != null) {
         final shareUrl = shareLinkData.generateShareUrl();
-        final shareMessage = shareLinkData.shareMessage.replaceAll('{url}', shareUrl);
+        final shareMessage = ShareUtils.formatShareMessage(
+          shareLinkData: shareLinkData,
+          stationName: null,
+          stationSlug: null,
+        );
         
         // Show dialog with share options
         ShareHandler.shareApp(
