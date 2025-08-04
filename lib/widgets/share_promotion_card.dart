@@ -192,7 +192,7 @@ class SharePromotionCardState extends State<SharePromotionCard> {
                       height: 1.4,
                     ),
                   ),
-                  if (_shareLinkData != null && _shareLinkData!.visitCount > 0) ...[
+                  if (_shareLinkData != null) ...[
                     const SizedBox(height: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -210,7 +210,11 @@ class SharePromotionCardState extends State<SharePromotionCard> {
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            '${_shareLinkData!.visitCount} ${_shareLinkData!.visitCount == 1 ? 'ascultător' : 'ascultători'}',
+                            _shareLinkData!.visitCount == 0
+                                ? 'Niciun prieten nu a accesat link-ul tău'
+                                : _shareLinkData!.visitCount == 1
+                                    ? '1 prieten a accesat invitația ta'
+                                    : '${_shareLinkData!.visitCount} prieteni au accesat invitația ta',
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,

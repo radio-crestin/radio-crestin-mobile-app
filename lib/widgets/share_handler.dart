@@ -123,47 +123,49 @@ class ShareHandler {
                         ),
                       ),
                       
-                      // Visitor count if available
-                      if (shareLinkData.visitCount > 0) ...[
-                        const SizedBox(height: 20),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                Theme.of(context).primaryColor.withOpacity(0.15),
-                                Theme.of(context).primaryColor.withOpacity(0.08),
-                              ],
-                              begin: Alignment.centerLeft,
-                              end: Alignment.centerRight,
-                            ),
-                            borderRadius: BorderRadius.circular(24),
-                            border: Border.all(
-                              color: Theme.of(context).primaryColor.withOpacity(0.2),
-                              width: 1,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.people_outline_rounded,
-                                size: 18,
-                                color: Theme.of(context).primaryColor,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                '${shareLinkData.visitCount} ${shareLinkData.visitCount == 1 ? 'ascultător' : 'ascultători'} invitați',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: Theme.of(context).primaryColor,
-                                ),
-                              ),
+                      // Visitor count
+                      const SizedBox(height: 20),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              Theme.of(context).primaryColor.withOpacity(0.15),
+                              Theme.of(context).primaryColor.withOpacity(0.08),
                             ],
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                          ),
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(
+                            color: Theme.of(context).primaryColor.withOpacity(0.2),
+                            width: 1,
                           ),
                         ),
-                      ],
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.people_outline_rounded,
+                              size: 18,
+                              color: Theme.of(context).primaryColor,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              shareLinkData.visitCount == 0
+                                  ? 'Niciun prieten nu a accesat link-ul tău'
+                                  : shareLinkData.visitCount == 1
+                                      ? '1 prieten a accesat invitația ta'
+                                      : '${shareLinkData.visitCount} prieteni au accesat invitația ta',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: Theme.of(context).primaryColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                       
                       const SizedBox(height: 28),
                       

@@ -23,7 +23,7 @@ Map<String, RestApiConfig> createGraphQLToRestMappings() {
   
   // Query mappings
   mappings['GetStations'] = RestApiConfig(
-    restApiUrl: 'http://192.168.88.12:8080/api/v1/stations',
+    restApiUrl: 'https://api.radiocrestin.ro/api/v1/stations',
     transformer: _transformStationsData,
     documentNode: documentNodeQueryGetStations,
     urlBuilder: (_) => _addTimestampToUrl('http://192.168.88.12:8080/api/v1/stations'),
@@ -31,12 +31,12 @@ Map<String, RestApiConfig> createGraphQLToRestMappings() {
   
   // Mutation mappings
   mappings['GetShareLink'] = RestApiConfig(
-    restApiUrl: 'http://192.168.88.12:8080/api/v1/share-links/',
+    restApiUrl: 'https://api.radiocrestin.ro/api/v1/share-links/',
     transformer: _transformShareLinkData,
     documentNode: documentNodeMutationGetShareLink,
     urlBuilder: (variables) {
       final anonymousId = variables['anonymous_id'];
-      final url = 'http://192.168.88.12:8080/api/v1/share-links/$anonymousId/';
+      final url = 'https://api.radiocrestin.ro/api/v1/share-links/$anonymousId/';
       return _addTimestampToUrl(url);
     },
   );
