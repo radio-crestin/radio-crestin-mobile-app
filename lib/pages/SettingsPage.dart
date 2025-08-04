@@ -15,8 +15,6 @@ import '../globals.dart' as globals;
 import '../theme_manager.dart';
 import 'WriteNfcTag.dart';
 
-final remoteConfig = FirebaseRemoteConfig.instance;
-
 class SettingsPage extends StatefulWidget {
   final bool highlightSharePromotion;
   
@@ -189,11 +187,10 @@ class _SettingsPageState extends State<SettingsPage> with TickerProviderStateMix
       }
     } catch (e) {
       // Fallback to old method if something fails
-      final remoteMessage = remoteConfig.getString("share_app_message");
       ShareHandler.shareApp(
         context: context,
         shareUrl: 'https://asculta.radiocrestin.ro',
-        shareMessage: remoteMessage.isNotEmpty ? remoteMessage : 'Aplicația Radio Creștin:\nhttps://asculta.radiocrestin.ro',
+        shareMessage: 'Aplicația Radio Creștin:\nhttps://asculta.radiocrestin.ro',
         showDialog: false, // Direct share for fallback
       );
     }

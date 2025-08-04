@@ -83,19 +83,6 @@ void main() async {
     prefs.setString('_reviewStatus', json.encode(defaultReviewStatus));
   }
 
-  final remoteConfig = FirebaseRemoteConfig.instance;
-  await remoteConfig.setConfigSettings(RemoteConfigSettings(
-    fetchTimeout: const Duration(minutes: 0),
-    minimumFetchInterval: const Duration(hours: 1),
-  ));
-
-  await remoteConfig.setDefaults(const {
-    "share_app_message": "Aplicația Radio Creștin:\nhttps://asculta.radiocrestin.ro",
-    "share_app_station_message": "Ascultă și tu ",
-  });
-
-  remoteConfig.fetchAndActivate();
-
   // We're using HiveStore for persistence,
   // so we need to initialize Hive.
   await initHiveForFlutter();
