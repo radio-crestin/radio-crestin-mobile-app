@@ -14,10 +14,12 @@ class ShareService {
           variables: {
             'anonymous_id': anonymousId,
           },
+          fetchPolicy: FetchPolicy.noCache,
         ),
       );
 
-      if (result.hasException) {
+      // Check for actual errors, not cache write errors
+      if (result.hasException && result.data == null) {
         print('Error fetching share link: ${result.exception}');
         return null;
       }
