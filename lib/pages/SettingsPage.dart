@@ -40,8 +40,6 @@ class _SettingsPageState extends State<SettingsPage> with TickerProviderStateMix
   
   late AnimationController _animationController;
   late Animation<Color?> _colorAnimation;
-  late AnimationController _switchAnimationController;
-  late Animation<double> _switchAnimation;
   bool _shouldHighlight = false;
 
   @override
@@ -66,63 +64,38 @@ class _SettingsPageState extends State<SettingsPage> with TickerProviderStateMix
       curve: Curves.easeInOut,
     ));
     
-    // Initialize switch animation controller
-    _switchAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 800),
-      vsync: this,
-    );
-    
-    _switchAnimation = Tween<double>(
-      begin: 1.0,
-      end: 0.0,
-    ).animate(CurvedAnimation(
-      parent: _switchAnimationController,
-      curve: Curves.easeInOutCubic,
-    ));
-    
     // If we should highlight the share promotion toggle
     if (widget.highlightSharePromotion) {
       _shouldHighlight = true;
+      // Temporarily override the switch to be ON for animation
+      _showSharePromotion = true;
+      
       // Start the animation after the page loads
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        Future.delayed(const Duration(milliseconds: 500), () {
-          if (mounted) {
-            // Animate the toggle switch after a delay
-            _animateToggleSwitch();
-          }
-        });
+        if (mounted) {
+          _animateToggleSwitch();
+        }
       });
     }
   }
   
   void _animateToggleSwitch() async {
-    // First highlight the row
+    // Start highlighting
     _animationController.repeat(reverse: true);
     
-    // Wait for user to see the highlight
-    await Future.delayed(const Duration(milliseconds: 1200));
+    // Wait for user to see the switch is ON
+    await Future.delayed(const Duration(milliseconds: 1500));
     
-    // Then animate the switch toggle with a smooth transition
-    if (mounted && _showSharePromotion == true) {
-      // Start the switch animation
-      _switchAnimationController.forward();
-      
-      // Gradually update the switch value to create smooth animation
-      _switchAnimationController.addListener(() {
-        if (mounted && _switchAnimation.value < 0.5 && _showSharePromotion == true) {
-          setState(() {
-            _showSharePromotion = false;
-          });
-          
-          // Save to preferences
-          SharedPreferences.getInstance().then((prefs) {
-            prefs.setBool('show_share_promotion', false);
-          });
-        }
+    // Toggle the switch to OFF
+    if (mounted) {
+      setState(() {
+        _showSharePromotion = false;
       });
       
-      // Wait for switch animation to complete
-      await _switchAnimationController.forward();
+      // Save to preferences
+      SharedPreferences.getInstance().then((prefs) {
+        prefs.setBool('show_share_promotion', false);
+      });
     }
     
     // Continue highlighting for a bit
@@ -141,7 +114,6 @@ class _SettingsPageState extends State<SettingsPage> with TickerProviderStateMix
   @override
   void dispose() {
     _animationController.dispose();
-    _switchAnimationController.dispose();
     super.dispose();
   }
 
@@ -206,10 +178,13 @@ class _SettingsPageState extends State<SettingsPage> with TickerProviderStateMix
         final shareUrl = shareLinkData.generateShareUrl();
         final shareMessage = shareLinkData.shareMessage.replaceAll('{url}', shareUrl);
         
+        // Show dialog with share options
         ShareHandler.shareApp(
           context: context,
           shareUrl: shareUrl,
           shareMessage: shareMessage,
+          shareLinkData: shareLinkData,
+          showDialog: true,
         );
       }
     } catch (e) {
@@ -219,6 +194,7 @@ class _SettingsPageState extends State<SettingsPage> with TickerProviderStateMix
         context: context,
         shareUrl: 'https://asculta.radiocrestin.ro',
         shareMessage: remoteMessage.isNotEmpty ? remoteMessage : 'Aplicația Radio Creștin:\nhttps://asculta.radiocrestin.ro',
+        showDialog: false, // Direct share for fallback
       );
     }
   }
