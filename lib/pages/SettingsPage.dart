@@ -132,7 +132,7 @@ class _SettingsPageState extends State<SettingsPage> with TickerProviderStateMix
   Future<void> _getShowSharePromotion() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _showSharePromotion = prefs.getBool('show_share_promotion') ?? true;
+      _showSharePromotion = prefs.getBool('show_share_promotion') ?? false;
     });
   }
 

@@ -67,7 +67,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   final AppLinks _appLinks = AppLinks();
 
   var autoPlayProcessed = false;
-  bool _showSharePromotion = true;
+  bool _showSharePromotion = false;
 
   _HomePageState() {
     _appLinks.getInitialLink().then((uri) {
@@ -91,7 +91,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   Future<void> _checkSharePromotionVisibility() async {
     final prefs = await SharedPreferences.getInstance();
-    bool shouldShow = prefs.getBool('show_share_promotion') ?? true;
+    bool shouldShow = prefs.getBool('show_share_promotion') ?? false;
     
     // Check if we've already auto-enabled before (to not override user's choice)
     bool hasAutoEnabled = prefs.getBool('share_promotion_auto_enabled') ?? false;

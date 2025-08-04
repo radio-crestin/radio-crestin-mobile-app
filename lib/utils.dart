@@ -238,7 +238,7 @@ class Utils {
     String? currentStationName,
   ) async {
     try {
-      bool shouldShowPromotion = prefs.getBool('show_share_promotion') ?? true;
+      bool shouldShowPromotion = prefs.getBool('show_share_promotion') ?? false;
       bool hasAutoEnabled = prefs.getBool('share_promotion_auto_enabled') ?? false;
       bool hasShownDialogAt40Actions = prefs.getBool('share_dialog_shown_at_40') ?? false;
       
