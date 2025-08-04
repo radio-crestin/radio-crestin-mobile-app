@@ -7,10 +7,12 @@ mutation GetShareLink($anonymous_id: String!) {
         visit_count
         url
         share_id
+        is_active
         created_at
         share_message
+        share_section_message
+        share_section_title
       }
-      share_section_message
       success
     }
     ... on OperationInfo {

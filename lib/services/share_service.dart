@@ -30,7 +30,9 @@ class ShareService {
           shareMessage: data['share_link']['share_message'] ?? '',
           visitCount: data['share_link']['visit_count'] ?? 0,
           createdAt: data['share_link']['created_at'] ?? '',
-          shareSectionMessage: data['share_section_message'] ?? '',
+          isActive: data['share_link']['is_active'] ?? true,
+          shareSectionMessage: data['share_link']['share_section_message'] ?? '',
+          shareSectionTitle: data['share_link']['share_section_title'] ?? '',
         );
       }
 
@@ -48,7 +50,9 @@ class ShareLinkData {
   final String shareMessage;
   final int visitCount;
   final String createdAt;
+  final bool isActive;
   final String shareSectionMessage;
+  final String shareSectionTitle;
 
   ShareLinkData({
     required this.shareId,
@@ -56,7 +60,9 @@ class ShareLinkData {
     required this.shareMessage,
     required this.visitCount,
     required this.createdAt,
+    required this.isActive,
     required this.shareSectionMessage,
+    required this.shareSectionTitle,
   });
 
   String generateShareUrl({String? stationSlug}) {
@@ -64,7 +70,7 @@ class ShareLinkData {
     final shareParam = '?s=$shareId';
     
     if (stationSlug != null && stationSlug.isNotEmpty) {
-      return '$baseUrl/station/$stationSlug$shareParam';
+      return '$baseUrl/$stationSlug$shareParam';
     }
     
     return '$baseUrl$shareParam';

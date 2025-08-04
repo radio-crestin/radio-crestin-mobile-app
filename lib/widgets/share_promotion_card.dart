@@ -63,14 +63,9 @@ class _SharePromotionCardState extends State<SharePromotionCard> {
       return 'Ajută la răspândirea Evangheliei prin intermediul radioului creștin. Apasă aici pentru a trimite această aplicație prietenilor tăi.';
     }
 
-    final visitCount = _shareLinkData!.visitCount;
-    var message = _shareLinkData?.shareSectionMessage ?? 
-      'Ajută la răspândirea Evangheliei prin intermediul radioului creștin. Apasă aici pentru a trimite această aplicație prietenilor tăi.';
-    
-    if (visitCount > 0) {
-      message = message.replaceAll('...', '');
-      message += ' Link-ul tău a generat $visitCount ${visitCount == 1 ? 'ascultător' : 'ascultători'}.';
-    }
+    final message = _shareLinkData!.shareSectionMessage.isNotEmpty 
+      ? _shareLinkData!.shareSectionMessage
+      : 'Ajută la răspândirea Evangheliei prin intermediul radioului creștin. Apasă aici pentru a trimite această aplicație prietenilor tăi.';
     
     return message;
   }
@@ -160,7 +155,7 @@ class _SharePromotionCardState extends State<SharePromotionCard> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Distribuie aplicația',
+                    _shareLinkData?.shareSectionTitle ?? 'Distribuie aplicația',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
