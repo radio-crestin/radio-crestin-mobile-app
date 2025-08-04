@@ -162,6 +162,55 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             final filteredStations = snapshot.data?.filteredStations ?? [];
 
             final favoriteStations = stations.where((station) => station.isFavorite).toList();
+            final isLoading = stations.isEmpty;
+
+            // Show centered loading indicator when stations are loading
+            if (isLoading) {
+              return Scaffold(
+                backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+                appBar: AppBar(
+                  backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+                  elevation: 0,
+                  centerTitle: true,
+                  toolbarHeight: 75,
+                  automaticallyImplyLeading: false,
+                  title: Container(
+                    margin: const EdgeInsets.only(top: 6),
+                    child: const Row(
+                      children: [
+                        Image(
+                          image: AssetImage('assets/icons/ic_logo_filled.png'),
+                          width: 40,
+                        ),
+                        SizedBox(width: 10),
+                        Text(
+                          "Radio Creștin",
+                          style: TextStyle(fontSize: 21),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                body: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(
+                        color: Theme.of(context).primaryColor,
+                      ),
+                      const SizedBox(height: 20),
+                      Text(
+                        "Stațiile se încarcă...",
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
 
             return SlidingUpPanel(
               maxHeight: panelMaxHeight,
@@ -285,16 +334,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                               panelController: null,
                             )),
                       ),
-                    if (stations.isEmpty)
-                      SliverToBoxAdapter(
-                        child: Container(
-                          margin: const EdgeInsets.all(16),
-                          child: const Text(
-                            "Statiile se incarca..",
-                            style: TextStyle(fontSize: 16),
-                          ),
-                        ),
-                      ),
                     if (stations.isNotEmpty)
                       SliverStickyHeader(
                         header: Container(
@@ -370,7 +409,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   ],
                 ),
               ),
-              collapsed: currentStation != null
+              collapsed: currentStation != null && stations.isNotEmpty
                   ? Container(
                       padding: EdgeInsets.only(bottom: Platform.isIOS ? 17 : 12, left: 8, right: 8),
                       color: Theme.of(context).scaffoldBackgroundColor,
