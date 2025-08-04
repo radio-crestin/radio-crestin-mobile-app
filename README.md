@@ -35,3 +35,9 @@ brew install --cask flutter
 1. Copy `radio_crestin_key.properties` from 1Password into `android/key.properties`
 2. Copy `radio-crestin-app-keystore.jks` from 1Password into `android/app/radio_crestin_key.jks`
 3. Run `flutter build appbundle --release` to build the APK
+
+## Create an iOS release
+1. Open the project in Xcode
+2. Select the target `Runner` and go to the `Signing & Capabilities` tab
+3. Select your team and make sure the `Automatically manage signing` is checked
+4. Run `flutter build ios --release` to build the iOS app
