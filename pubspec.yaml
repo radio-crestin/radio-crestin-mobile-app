@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.2.7+39
+version: 1.3.0+40
 
 
 environment:
@@ -62,7 +62,7 @@ dependencies:
     git:
       url: https://github.com/Deskhunters/sliding_up_panel.git
   upgrader: ^11.1.0
-  fluttertoast: ^8.2.4
+  fluttertoast: ^8.2.10
   easy_search_bar: ^2.5.0
   flutter_sticky_header: ^0.8.0
   in_app_review: ^2.0.8
