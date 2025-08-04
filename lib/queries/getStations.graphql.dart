@@ -8,7 +8,7 @@ class Query$GetStations {
   Query$GetStations({
     required this.stations,
     required this.station_groups,
-    this.$__typename = 'query_root',
+    this.$__typename = 'queryRoot',
   });
 
   factory Query$GetStations.fromJson(Map<String, dynamic> json) {
@@ -849,7 +849,7 @@ class Query$GetStations$stations {
     this.uptime,
     this.now_playing,
     required this.reviews,
-    this.$__typename = 'stations',
+    this.$__typename = 'StationType',
   });
 
   factory Query$GetStations$stations.fromJson(Map<String, dynamic> json) {
@@ -1424,7 +1424,7 @@ class Query$GetStations$stations$station_streams {
     required this.order,
     required this.type,
     required this.stream_url,
-    this.$__typename = 'station_streams',
+    this.$__typename = 'StationStreamType',
   });
 
   factory Query$GetStations$stations$station_streams.fromJson(
@@ -1590,10 +1590,10 @@ class Query$GetStations$stations$posts {
   Query$GetStations$stations$posts({
     required this.id,
     required this.title,
-    required this.description,
+    this.description,
     required this.link,
     required this.published,
-    this.$__typename = 'posts',
+    this.$__typename = 'PostType',
   });
 
   factory Query$GetStations$stations$posts.fromJson(Map<String, dynamic> json) {
@@ -1606,7 +1606,7 @@ class Query$GetStations$stations$posts {
     return Query$GetStations$stations$posts(
       id: (l$id as int),
       title: (l$title as String),
-      description: (l$description as String),
+      description: (l$description as String?),
       link: (l$link as String),
       published: (l$published as String),
       $__typename: (l$$__typename as String),
@@ -1617,7 +1617,7 @@ class Query$GetStations$stations$posts {
 
   final String title;
 
-  final String description;
+  final String? description;
 
   final String link;
 
@@ -1757,9 +1757,9 @@ class _CopyWithImpl$Query$GetStations$stations$posts<TRes>
         title: title == _undefined || title == null
             ? _instance.title
             : (title as String),
-        description: description == _undefined || description == null
+        description: description == _undefined
             ? _instance.description
-            : (description as String),
+            : (description as String?),
         link: link == _undefined || link == null
             ? _instance.link
             : (link as String),
@@ -1792,9 +1792,9 @@ class _CopyWithStubImpl$Query$GetStations$stations$posts<TRes>
 class Query$GetStations$stations$uptime {
   Query$GetStations$stations$uptime({
     required this.is_up,
-    required this.latency_ms,
+    this.latency_ms,
     required this.timestamp,
-    this.$__typename = 'stations_uptime',
+    this.$__typename = 'StationUptimeType',
   });
 
   factory Query$GetStations$stations$uptime.fromJson(
@@ -1805,7 +1805,7 @@ class Query$GetStations$stations$uptime {
     final l$$__typename = json['__typename'];
     return Query$GetStations$stations$uptime(
       is_up: (l$is_up as bool),
-      latency_ms: (l$latency_ms as int),
+      latency_ms: (l$latency_ms as int?),
       timestamp: (l$timestamp as String),
       $__typename: (l$$__typename as String),
     );
@@ -1813,7 +1813,7 @@ class Query$GetStations$stations$uptime {
 
   final bool is_up;
 
-  final int latency_ms;
+  final int? latency_ms;
 
   final String timestamp;
 
@@ -1928,9 +1928,9 @@ class _CopyWithImpl$Query$GetStations$stations$uptime<TRes>
         is_up: is_up == _undefined || is_up == null
             ? _instance.is_up
             : (is_up as bool),
-        latency_ms: latency_ms == _undefined || latency_ms == null
+        latency_ms: latency_ms == _undefined
             ? _instance.latency_ms
-            : (latency_ms as int),
+            : (latency_ms as int?),
         timestamp: timestamp == _undefined || timestamp == null
             ? _instance.timestamp
             : (timestamp as String),
@@ -1960,7 +1960,7 @@ class Query$GetStations$stations$now_playing {
     required this.id,
     required this.timestamp,
     this.song,
-    this.$__typename = 'stations_now_playing',
+    this.$__typename = 'StationNowPlayingType',
   });
 
   factory Query$GetStations$stations$now_playing.fromJson(
@@ -2139,10 +2139,10 @@ class _CopyWithStubImpl$Query$GetStations$stations$now_playing<TRes>
 class Query$GetStations$stations$now_playing$song {
   Query$GetStations$stations$now_playing$song({
     required this.id,
-    this.name,
+    required this.name,
     this.thumbnail_url,
     this.artist,
-    this.$__typename = 'songs',
+    this.$__typename = 'SongType',
   });
 
   factory Query$GetStations$stations$now_playing$song.fromJson(
@@ -2154,7 +2154,7 @@ class Query$GetStations$stations$now_playing$song {
     final l$$__typename = json['__typename'];
     return Query$GetStations$stations$now_playing$song(
       id: (l$id as int),
-      name: (l$name as String?),
+      name: (l$name as String),
       thumbnail_url: (l$thumbnail_url as String?),
       artist: l$artist == null
           ? null
@@ -2166,7 +2166,7 @@ class Query$GetStations$stations$now_playing$song {
 
   final int id;
 
-  final String? name;
+  final String name;
 
   final String? thumbnail_url;
 
@@ -2294,7 +2294,9 @@ class _CopyWithImpl$Query$GetStations$stations$now_playing$song<TRes>
   }) =>
       _then(Query$GetStations$stations$now_playing$song(
         id: id == _undefined || id == null ? _instance.id : (id as int),
-        name: name == _undefined ? _instance.name : (name as String?),
+        name: name == _undefined || name == null
+            ? _instance.name
+            : (name as String),
         thumbnail_url: thumbnail_url == _undefined
             ? _instance.thumbnail_url
             : (thumbnail_url as String?),
@@ -2340,9 +2342,9 @@ class _CopyWithStubImpl$Query$GetStations$stations$now_playing$song<TRes>
 class Query$GetStations$stations$now_playing$song$artist {
   Query$GetStations$stations$now_playing$song$artist({
     required this.id,
-    this.name,
+    required this.name,
     this.thumbnail_url,
-    this.$__typename = 'artists',
+    this.$__typename = 'ArtistType',
   });
 
   factory Query$GetStations$stations$now_playing$song$artist.fromJson(
@@ -2353,7 +2355,7 @@ class Query$GetStations$stations$now_playing$song$artist {
     final l$$__typename = json['__typename'];
     return Query$GetStations$stations$now_playing$song$artist(
       id: (l$id as int),
-      name: (l$name as String?),
+      name: (l$name as String),
       thumbnail_url: (l$thumbnail_url as String?),
       $__typename: (l$$__typename as String),
     );
@@ -2361,7 +2363,7 @@ class Query$GetStations$stations$now_playing$song$artist {
 
   final int id;
 
-  final String? name;
+  final String name;
 
   final String? thumbnail_url;
 
@@ -2479,7 +2481,9 @@ class _CopyWithImpl$Query$GetStations$stations$now_playing$song$artist<TRes>
   }) =>
       _then(Query$GetStations$stations$now_playing$song$artist(
         id: id == _undefined || id == null ? _instance.id : (id as int),
-        name: name == _undefined ? _instance.name : (name as String?),
+        name: name == _undefined || name == null
+            ? _instance.name
+            : (name as String),
         thumbnail_url: thumbnail_url == _undefined
             ? _instance.thumbnail_url
             : (thumbnail_url as String?),
@@ -2510,8 +2514,8 @@ class Query$GetStations$stations$reviews {
   Query$GetStations$stations$reviews({
     required this.id,
     required this.stars,
-    this.message,
-    this.$__typename = 'reviews',
+    required this.message,
+    this.$__typename = 'ReviewType',
   });
 
   factory Query$GetStations$stations$reviews.fromJson(
@@ -2523,7 +2527,7 @@ class Query$GetStations$stations$reviews {
     return Query$GetStations$stations$reviews(
       id: (l$id as int),
       stars: (l$stars as int),
-      message: (l$message as String?),
+      message: (l$message as String),
       $__typename: (l$$__typename as String),
     );
   }
@@ -2532,7 +2536,7 @@ class Query$GetStations$stations$reviews {
 
   final int stars;
 
-  final String? message;
+  final String message;
 
   final String $__typename;
 
@@ -2647,8 +2651,9 @@ class _CopyWithImpl$Query$GetStations$stations$reviews<TRes>
         stars: stars == _undefined || stars == null
             ? _instance.stars
             : (stars as int),
-        message:
-            message == _undefined ? _instance.message : (message as String?),
+        message: message == _undefined || message == null
+            ? _instance.message
+            : (message as String),
         $__typename: $__typename == _undefined || $__typename == null
             ? _instance.$__typename
             : ($__typename as String),
@@ -2677,7 +2682,7 @@ class Query$GetStations$station_groups {
     required this.order,
     required this.slug,
     required this.station_to_station_groups,
-    this.$__typename = 'station_groups',
+    this.$__typename = 'StationGroupType',
   });
 
   factory Query$GetStations$station_groups.fromJson(Map<String, dynamic> json) {
@@ -2917,8 +2922,8 @@ class _CopyWithStubImpl$Query$GetStations$station_groups<TRes>
 class Query$GetStations$station_groups$station_to_station_groups {
   Query$GetStations$station_groups$station_to_station_groups({
     required this.station_id,
-    this.order,
-    this.$__typename = 'station_to_station_group',
+    required this.order,
+    this.$__typename = 'StationToStationGroupType',
   });
 
   factory Query$GetStations$station_groups$station_to_station_groups.fromJson(
@@ -2928,14 +2933,14 @@ class Query$GetStations$station_groups$station_to_station_groups {
     final l$$__typename = json['__typename'];
     return Query$GetStations$station_groups$station_to_station_groups(
       station_id: (l$station_id as int),
-      order: (l$order as int?),
+      order: (l$order as int),
       $__typename: (l$$__typename as String),
     );
   }
 
   final int station_id;
 
-  final int? order;
+  final int order;
 
   final String $__typename;
 
@@ -3047,7 +3052,9 @@ class _CopyWithImpl$Query$GetStations$station_groups$station_to_station_groups<
         station_id: station_id == _undefined || station_id == null
             ? _instance.station_id
             : (station_id as int),
-        order: order == _undefined ? _instance.order : (order as int?),
+        order: order == _undefined || order == null
+            ? _instance.order
+            : (order as int),
         $__typename: $__typename == _undefined || $__typename == null
             ? _instance.$__typename
             : ($__typename as String),

@@ -1,0 +1,26 @@
+mutation GetShareLink($anonymous_id: String!) {
+  get_share_link(anonymous_id: $anonymous_id) {
+    ... on GetShareLinkResponse {
+      anonymous_id
+      message
+      share_link {
+        visit_count
+        url
+        share_id
+        created_at
+        share_message
+      }
+      share_section_message
+      success
+    }
+    ... on OperationInfo {
+      __typename
+      messages {
+        code
+        field
+        kind
+        message
+      }
+    }
+  }
+}

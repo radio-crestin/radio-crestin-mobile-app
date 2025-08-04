@@ -90,7 +90,7 @@ void main() async {
   ));
 
   await remoteConfig.setDefaults(const {
-    "share_app_message": "Aplicația Radio Creștin:\nhttps://share.radiocrestin.ro",
+    "share_app_message": "Aplicația Radio Creștin:\nhttps://asculta.radiocrestin.ro",
     "share_app_station_message": "Ascultă și tu ",
   });
 

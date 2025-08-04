@@ -13,6 +13,7 @@
 		<string>applinks:yourDomain.com</string>
 		<string>applinks:radiocrestin.ro</string>
 		<string>applinks:share.radiocrestin.ro</string>
+		<string>applinks:asculta.radiocrestin.ro</string>
 	</array>
 </dict>
 </plist>

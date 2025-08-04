@@ -1,33 +1,32 @@
 import 'package:radio_crestin/graphql_to_rest_interceptor.dart';
 import 'package:radio_crestin/queries/getStations.graphql.dart';
+import 'package:radio_crestin/queries/getShareLink.graphql.dart';
 
 Map<String, RestApiConfig> createGraphQLToRestMappings() {
   return {
     'GetStations': RestApiConfig(
-      restApiUrl: 'https://api.radiocrestin.ro/api/v1/stations',
+      restApiUrl: 'http://192.168.88.12:8080/api/v1/stations',
       transformer: _transformStationsData,
       documentNode: documentNodeQueryGetStations,
     ),
-    // Add more query mappings here as needed
-    // 'OtherQuery': RestApiConfig(
-    //   restApiUrl: 'https://api.example.com/endpoint',
-    //   transformer: _transformOtherData,
-    //   documentNode: documentNodeQueryOtherQuery,
-    // ),
+    'GetShareLink': RestApiConfig(
+      restApiUrl: 'http://192.168.88.12:8080/api/v1/share-links/',
+      transformer: _transformShareLinkData,
+      documentNode: documentNodeMutationGetShareLink,
+      urlBuilder: (variables) {
+        final anonymousId = variables['anonymous_id'];
+        return 'http://192.168.88.12:8080/api/v1/share-links/$anonymousId/';
+      },
+    ),
   };
 }
 
 Map<String, dynamic> _transformStationsData(dynamic jsonData) {
-  return {
-    'stations': jsonData['stations'] ?? [],
-    'station_groups': jsonData['station_groups'] ?? [],
-  };
+  return jsonData['data'];
 }
 
-// Add more transformer functions here as needed
-// Map<String, dynamic> _transformOtherData(dynamic jsonData) {
-//   return {
-//     'field1': jsonData['field1'] ?? [],
-//     'field2': jsonData['field2'] ?? {},
-//   };
-// }
+Map<String, dynamic> _transformShareLinkData(dynamic jsonData) {
+  return {
+    'get_share_link': jsonData['data'],
+  };
+}

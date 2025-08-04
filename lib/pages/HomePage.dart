@@ -7,8 +7,10 @@ import 'package:audio_service/audio_service.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_sticky_header/flutter_sticky_header.dart';
+import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:radio_crestin/appAudioHandler.dart';
 import 'package:radio_crestin/components/FullAudioPlayer.dart';
+import 'package:radio_crestin/widgets/share_promotion_card.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
@@ -205,6 +207,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           },
                         ),
                       ],
+                    ),
+                    SliverToBoxAdapter(
+                      child: SharePromotionCard(
+                        client: GraphQLProvider.of(context).value,
+                        currentStationSlug: currentStation?.slug,
+                      ),
                     ),
                     if (favoriteStations.isNotEmpty)
                       SliverStickyHeader(

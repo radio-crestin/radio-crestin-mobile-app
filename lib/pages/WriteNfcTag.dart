@@ -81,7 +81,7 @@ class _WriteNfcTagPageState extends State<WriteNfcTagPage> {
                         selectedOption = value!;
                         _records = [
                           // ndef.UriRecord.fromString("android-app://com.radiocrestin.radio_crestin/https/www.radiocrestin.ro/radio/${value}/?nfc_tag=true"),
-                          ndef.UriRecord.fromString("https://share.radiocrestin.ro/$value?ref=nfc"),
+                          ndef.UriRecord.fromString("https://asculta.radiocrestin.ro/$value?ref=nfc"),
                         ];
                       });
                     },

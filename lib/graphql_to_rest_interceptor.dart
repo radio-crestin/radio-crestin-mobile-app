@@ -25,7 +25,11 @@ class GraphQLToRestInterceptorLink extends Link {
   
   Stream<Response> _handleRestApiRequest(Request request, RestApiConfig config) async* {
     try {
-      final urlWithTimestamp = _addTimestampToUrl(config.restApiUrl);
+      final variables = request.operation.variables;
+      final baseUrl = config.urlBuilder != null 
+        ? config.urlBuilder!(variables) 
+        : config.restApiUrl;
+      final urlWithTimestamp = _addTimestampToUrl(baseUrl);
       final response = await _fetchFromRestApi(urlWithTimestamp);
       
       if (response.statusCode == 200) {
@@ -110,10 +114,12 @@ class RestApiConfig {
   final String restApiUrl;
   final RestApiTransformer transformer;
   final DocumentNode? documentNode;
+  final String Function(Map<String, dynamic> variables)? urlBuilder;
   
   RestApiConfig({
     required this.restApiUrl,
     required this.transformer,
     this.documentNode,
+    this.urlBuilder,
   });
 }
