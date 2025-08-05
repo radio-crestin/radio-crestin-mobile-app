@@ -65,10 +65,10 @@ class ShareHandler {
             constraints: const BoxConstraints(maxWidth: 400),
             decoration: BoxDecoration(
               color: Color.alphaBlend(
-                Theme.of(context).primaryColor.withOpacity(0.08),
+                Theme.of(context).primaryColor.withOpacity(0.15),
                 Theme.of(context).brightness == Brightness.dark 
-                  ? Colors.black 
-                  : Colors.white,
+                  ? Colors.grey[900]! 
+                  : Colors.grey[50]!,
               ),
               borderRadius: BorderRadius.circular(24),
               border: Border.all(
