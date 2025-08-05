@@ -207,7 +207,7 @@ class SharePromotionCardState extends State<SharePromotionCard> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            Icons.people_outline,
+                            Icons.people_outline_rounded,
                             size: 16,
                             color: const Color(0xFF00ACC1),
                           ),

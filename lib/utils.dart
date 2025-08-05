@@ -116,6 +116,9 @@ class Utils {
   static Future<void> show5StarReviewDialog() async {
     final navigator = navigatorKey.currentState;
     if (navigator != null && navigator.mounted) {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? reviewStatusJson = prefs.getString('_reviewStatus');
+      
       return showDialog(
         context: navigator.context,
         barrierDismissible: false,
@@ -131,7 +134,14 @@ class Utils {
                     'Nu acum',
                     style: TextStyle(color: Colors.blue),
                   ),
-                  onPressed: () {
+                  onPressed: () async {
+                    // Track that user canceled the dialog
+                    if (reviewStatusJson != null) {
+                      Map<String, dynamic> reviewStatus = json.decode(reviewStatusJson);
+                      reviewStatus['last_rating_dialog_canceled'] = true;
+                      reviewStatus['last_rating_dialog_canceled_at'] = DateTime.now().toIso8601String();
+                      await prefs.setString('_reviewStatus', json.encode(reviewStatus));
+                    }
                     navigator.pop();
                   },
                 ),
@@ -162,7 +172,14 @@ class Utils {
                     'Nu acum',
                     style: TextStyle(color: Colors.blue),
                   ),
-                  onPressed: () {
+                  onPressed: () async {
+                    // Track that user canceled the dialog
+                    if (reviewStatusJson != null) {
+                      Map<String, dynamic> reviewStatus = json.decode(reviewStatusJson);
+                      reviewStatus['last_rating_dialog_canceled'] = true;
+                      reviewStatus['last_rating_dialog_canceled_at'] = DateTime.now().toIso8601String();
+                      await prefs.setString('_reviewStatus', json.encode(reviewStatus));
+                    }
                     navigator.pop();
                   },
                 ),
@@ -198,23 +215,63 @@ class Utils {
         // Save the updated preferences
         await prefs.setString('_reviewStatus', json.encode(reviewStatus));
         
-        // Show rating dialog at 20+ actions (if not already shown or completed)
-        bool hasShownRatingAt20 = prefs.getBool('rating_dialog_shown_at_20') ?? false;
-        if (actionsMade >= 20 && !hasShownRatingAt20 && reviewStatus['review_completed'] != true) {
-          await prefs.setBool('rating_dialog_shown_at_20', true);
-          final navigator = navigatorKey.currentState;
-          if (navigator != null && navigator.mounted) {
-            Future.delayed(const Duration(seconds: 3), () {
-              Utils.show5StarReviewDialog();
-            });
+        // Check if user has already completed 5-star review
+        bool reviewCompleted = reviewStatus['review_completed'] == true;
+        
+        // Rating dialog intervals: 20, 100, 200, 400
+        List<int> ratingIntervals = [20, 100, 200, 400];
+        
+        // Check rating dialog display conditions
+        if (!reviewCompleted) {
+          for (int interval in ratingIntervals) {
+            if (actionsMade >= interval) {
+              String prefKey = 'rating_dialog_shown_at_$interval';
+              bool hasShownAtInterval = prefs.getBool(prefKey) ?? false;
+              
+              if (!hasShownAtInterval) {
+                // Check if user canceled previous rating dialogs
+                bool shouldShow = true;
+                for (int prevInterval in ratingIntervals) {
+                  if (prevInterval >= interval) break;
+                  String prevPrefKey = 'rating_dialog_shown_at_$prevInterval';
+                  bool prevShown = prefs.getBool(prevPrefKey) ?? false;
+                  if (prevShown) {
+                    // Dialog was shown at a previous interval, only show again if user didn't complete review
+                    shouldShow = !reviewCompleted;
+                    break;
+                  }
+                }
+                
+                if (shouldShow) {
+                  await prefs.setBool(prefKey, true);
+                  final navigator = navigatorKey.currentState;
+                  if (navigator != null && navigator.mounted) {
+                    Future.delayed(const Duration(seconds: 3), () {
+                      Utils.show5StarReviewDialog();
+                    });
+                  }
+                  break; // Only show one dialog at a time
+                }
+              }
+            }
           }
         }
         
-        // Show share dialog at 40+ actions (if not already shown)
-        bool hasShownShareAt40 = prefs.getBool('share_dialog_shown_at_40') ?? false;
-        if (actionsMade >= 40 && !hasShownShareAt40) {
-          await prefs.setBool('share_dialog_shown_at_40', true);
-          await _showShareDialog(prefs, graphQLClient, currentStationName);
+        // Share dialog intervals: 40, 150, 250, 600, 800, 1000
+        List<int> shareIntervals = [40, 150, 250, 600, 800, 1000];
+        
+        // Check share dialog display conditions
+        for (int interval in shareIntervals) {
+          if (actionsMade >= interval) {
+            String prefKey = 'share_dialog_shown_at_$interval';
+            bool hasShownAtInterval = prefs.getBool(prefKey) ?? false;
+            
+            if (!hasShownAtInterval) {
+              await prefs.setBool(prefKey, true);
+              await _showShareDialog(prefs, graphQLClient, currentStationName);
+              break; // Only show one dialog at a time
+            }
+          }
         }
       }
     } catch (e) {
@@ -284,6 +341,73 @@ class Utils {
       }
     } catch (e) {
       developer.log('Error showing share dialog: $e');
+    }
+  }
+  
+  static Future<void> resetDialogTracking() async {
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      
+      // Rating dialog intervals: 20, 100, 200, 400
+      List<int> ratingIntervals = [20, 100, 200, 400];
+      for (int interval in ratingIntervals) {
+        await prefs.remove('rating_dialog_shown_at_$interval');
+      }
+      
+      // Share dialog intervals: 40, 150, 250, 600, 800, 1000
+      List<int> shareIntervals = [40, 150, 250, 600, 800, 1000];
+      for (int interval in shareIntervals) {
+        await prefs.remove('share_dialog_shown_at_$interval');
+      }
+      
+      // Reset cancellation tracking
+      String? reviewStatusJson = prefs.getString('_reviewStatus');
+      if (reviewStatusJson != null) {
+        Map<String, dynamic> reviewStatus = json.decode(reviewStatusJson);
+        reviewStatus.remove('last_rating_dialog_canceled');
+        reviewStatus.remove('last_rating_dialog_canceled_at');
+        await prefs.setString('_reviewStatus', json.encode(reviewStatus));
+      }
+    } catch (e) {
+      developer.log('Error resetting dialog tracking: $e');
+    }
+  }
+  
+  static Future<Map<String, dynamic>> getDialogTrackingStatus() async {
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      Map<String, dynamic> status = {};
+      
+      // Get review status
+      String? reviewStatusJson = prefs.getString('_reviewStatus');
+      if (reviewStatusJson != null) {
+        Map<String, dynamic> reviewStatus = json.decode(reviewStatusJson);
+        status['review_completed'] = reviewStatus['review_completed'] ?? false;
+        status['actions_made'] = reviewStatus['actions_made'] ?? 0;
+        status['last_rating_dialog_canceled'] = reviewStatus['last_rating_dialog_canceled'] ?? false;
+        status['last_rating_dialog_canceled_at'] = reviewStatus['last_rating_dialog_canceled_at'];
+      }
+      
+      // Check which rating dialogs have been shown
+      List<int> ratingIntervals = [20, 100, 200, 400];
+      Map<int, bool> ratingDialogsShown = {};
+      for (int interval in ratingIntervals) {
+        ratingDialogsShown[interval] = prefs.getBool('rating_dialog_shown_at_$interval') ?? false;
+      }
+      status['rating_dialogs_shown'] = ratingDialogsShown;
+      
+      // Check which share dialogs have been shown
+      List<int> shareIntervals = [40, 150, 250, 600, 800, 1000];
+      Map<int, bool> shareDialogsShown = {};
+      for (int interval in shareIntervals) {
+        shareDialogsShown[interval] = prefs.getBool('share_dialog_shown_at_$interval') ?? false;
+      }
+      status['share_dialogs_shown'] = shareDialogsShown;
+      
+      return status;
+    } catch (e) {
+      developer.log('Error getting dialog tracking status: $e');
+      return {};
     }
   }
 }
