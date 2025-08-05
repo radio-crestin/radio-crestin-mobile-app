@@ -59,27 +59,10 @@ class ShareHandler {
             borderRadius: BorderRadius.circular(24),
           ),
           elevation: 8,
-          backgroundColor: Colors.transparent,
+          backgroundColor: Theme.of(context).dialogBackgroundColor,
           insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
           child: Container(
             constraints: const BoxConstraints(maxWidth: 400),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Theme.of(context).dialogBackgroundColor,
-                  Theme.of(context).primaryColor.withOpacity(0.05),
-                  Theme.of(context).dialogBackgroundColor,
-                ],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                stops: const [0.0, 0.5, 1.0],
-              ),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                color: Theme.of(context).primaryColor.withOpacity(0.1),
-                width: 1,
-              ),
-            ),
             child: Stack(
               children: [
                 Padding(
@@ -89,30 +72,23 @@ class ShareHandler {
                     children: [
                       // Icon with gradient background
                       Container(
-                        width: 80,
-                        height: 80,
+                        width: 72,
+                        height: 72,
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             colors: [
-                              Theme.of(context).primaryColor,
-                              Theme.of(context).primaryColor.withOpacity(0.8),
+                              Theme.of(context).primaryColor.withOpacity(0.2),
+                              Theme.of(context).primaryColor.withOpacity(0.1),
                             ],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
-                          borderRadius: BorderRadius.circular(24),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Theme.of(context).primaryColor.withOpacity(0.3),
-                              blurRadius: 20,
-                              offset: const Offset(0, 8),
-                            ),
-                          ],
+                          borderRadius: BorderRadius.circular(20),
                         ),
                         child: Icon(
                           Icons.share_rounded,
-                          color: Colors.white,
-                          size: 40,
+                          color: Theme.of(context).primaryColor,
+                          size: 36,
                         ),
                       ),
                       const SizedBox(height: 20),
@@ -148,40 +124,26 @@ class ShareHandler {
                       ),
                       
                       // Visitor count
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 20),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                         decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              const Color(0xFF00ACC1).withOpacity(0.1),
-                              const Color(0xFF00ACC1).withOpacity(0.05),
-                            ],
-                            begin: Alignment.centerLeft,
-                            end: Alignment.centerRight,
-                          ),
-                          borderRadius: BorderRadius.circular(28),
+                          color: const Color(0xFF00ACC1).withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(24),
                           border: Border.all(
                             color: const Color(0xFF00ACC1).withOpacity(0.3),
-                            width: 1.5,
+                            width: 1,
                           ),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF00ACC1).withOpacity(0.15),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                Icons.people_outline_rounded,
-                                size: 20,
-                                color: const Color(0xFF00ACC1),
-                              ),
+                            Icon(
+                              Icons.people_outline_rounded,
+                              size: 18,
+                              color: const Color(0xFF00ACC1),
                             ),
-                            const SizedBox(width: 12),
+                            const SizedBox(width: 8),
                             Text(
                               shareLinkData.visitCount == 0
                                   ? 'Niciun prieten nu a accesat link-ul tău'
@@ -192,7 +154,6 @@ class ShareHandler {
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
                                 color: const Color(0xFF00ACC1),
-                                letterSpacing: 0.2,
                               ),
                             ),
                           ],
@@ -244,36 +205,27 @@ class ShareHandler {
                 ),
                 // X close button in top-right corner
                 Positioned(
-                  top: 12,
-                  right: 12,
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () => Navigator.pop(context),
-                      borderRadius: BorderRadius.circular(20),
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              Theme.of(context).primaryColor.withOpacity(0.1),
-                              Theme.of(context).primaryColor.withOpacity(0.05),
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Theme.of(context).primaryColor.withOpacity(0.2),
-                            width: 1,
-                          ),
-                        ),
-                        child: Icon(
-                          Icons.close_rounded,
-                          size: 20,
-                          color: Theme.of(context).primaryColor,
-                        ),
+                  top: 8,
+                  right: 8,
+                  child: IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.05),
+                        shape: BoxShape.circle,
                       ),
+                      child: Icon(
+                        Icons.close,
+                        size: 20,
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                      ),
+                    ),
+                    splashRadius: 20,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
                     ),
                   ),
                 ),
@@ -296,42 +248,28 @@ class ShareHandler {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         child: Container(
-          width: 95,
+          width: 90,
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                width: 60,
-                height: 60,
+                width: 56,
+                height: 56,
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      color.withOpacity(0.15),
-                      color.withOpacity(0.08),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(18),
+                  color: color.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: color.withOpacity(0.25),
-                    width: 1.5,
+                    color: color.withOpacity(0.2),
+                    width: 1,
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: color.withOpacity(0.15),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
                 ),
                 child: Icon(
                   icon,
                   color: color,
-                  size: 28,
+                  size: 26,
                 ),
               ),
               const SizedBox(height: 10),
@@ -339,9 +277,8 @@ class ShareHandler {
                 label,
                 style: TextStyle(
                   fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.85),
-                  letterSpacing: 0.2,
+                  fontWeight: FontWeight.w500,
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
                 ),
                 textAlign: TextAlign.center,
               ),
