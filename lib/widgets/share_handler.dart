@@ -59,10 +59,25 @@ class ShareHandler {
             borderRadius: BorderRadius.circular(24),
           ),
           elevation: 8,
-          backgroundColor: Theme.of(context).dialogBackgroundColor,
+          backgroundColor: Colors.transparent,
           insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
           child: Container(
             constraints: const BoxConstraints(maxWidth: 400),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Theme.of(context).primaryColor.withOpacity(0.1),
+                  Theme.of(context).primaryColor.withOpacity(0.05),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: Theme.of(context).primaryColor.withOpacity(0.2),
+                width: 1,
+              ),
+            ),
             child: Stack(
               children: [
                 Padding(
