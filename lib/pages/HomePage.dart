@@ -411,7 +411,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Icon(
-                                    Icons.people_outline_rounded,
+                                    Icons.bolt,
                                     size: 18,
                                     color: const Color(0xFF00ACC1),
                                   ),
