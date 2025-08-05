@@ -430,7 +430,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           )
                         else
                           IconButton(
-                            icon: const Icon(Icons.people_outline_rounded),
+                            icon: const Icon(Icons.bolt),
                             color: const Color(0xFF00ACC1),
                             tooltip: 'Distribuie aplicația',
                             onPressed: () {
