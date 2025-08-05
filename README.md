@@ -37,7 +37,11 @@ brew install --cask flutter
 3. Run `flutter build appbundle --release` to build the APK
 
 ## Create an iOS release
+For more information please check out https://docs.flutter.dev/deployment/ios
 1. Open the project in Xcode
 2. Select the target `Runner` and go to the `Signing & Capabilities` tab
 3. Select your team and make sure the `Automatically manage signing` is checked
 4. Run `flutter build ios --release` to build the iOS app
+5. Open Xcode and select the `Runner` scheme
+6. Select `Product` > `Archive` to create an archive of the app
+7. Once the archive is created, click on `Distribute App`

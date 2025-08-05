@@ -603,7 +603,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               ),
               collapsed: currentStation != null && stations.isNotEmpty
                   ? Container(
-                      padding: EdgeInsets.only(bottom: Platform.isIOS ? 17 : 12, left: 8, right: 8),
+                      padding: EdgeInsets.only(bottom: Platform.isIOS ? 20 : 12, left: 8, right: 8),
                       color: Theme.of(context).scaffoldBackgroundColor,
                       child: MiniAudioPlayer(
                         currentStation: currentStation,
