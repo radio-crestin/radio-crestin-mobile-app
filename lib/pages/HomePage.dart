@@ -73,6 +73,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   var autoPlayProcessed = false;
   bool _showSharePromotion = false;
   final GlobalKey<SharePromotionCardState> _sharePromotionKey = GlobalKey();
+  ShareLinkData? _shareLinkData;
+  bool _isLoadingShareData = true;
 
   _HomePageState() {
     _appLinks.getInitialLink().then((uri) {
@@ -92,6 +94,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     _checkSharePromotionVisibility();
+    _loadShareLinkData();
   }
 
   Future<void> _handleRefresh() async {
@@ -101,6 +104,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       
       // Refresh share promotion visibility
       await _checkSharePromotionVisibility();
+      
+      // Refresh share link data
+      await _loadShareLinkData();
       
       // Refresh share promotion card if it's visible
       if (_showSharePromotion && _sharePromotionKey.currentState != null) {
@@ -138,6 +144,46 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       setState(() {
         _showSharePromotion = shouldShow;
       });
+    }
+  }
+
+  Future<void> _loadShareLinkData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      String? deviceId = prefs.getString('device_id');
+      
+      if (deviceId == null) {
+        final DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
+        if (Platform.isAndroid) {
+          final androidInfo = await deviceInfo.androidInfo;
+          deviceId = androidInfo.id;
+        } else if (Platform.isIOS) {
+          final iosInfo = await deviceInfo.iosInfo;
+          deviceId = iosInfo.identifierForVendor;
+        } else {
+          deviceId = DateTime.now().millisecondsSinceEpoch.toString();
+        }
+        
+        if (deviceId != null) {
+          await prefs.setString('device_id', deviceId);
+        }
+      }
+
+      final shareService = ShareService(_audioHandler.graphqlClient);
+      final data = await shareService.getShareLink(deviceId!);
+      
+      if (mounted) {
+        setState(() {
+          _shareLinkData = data;
+          _isLoadingShareData = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingShareData = false;
+        });
+      }
     }
   }
 
@@ -344,6 +390,53 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             ],
                           )),
                       actions: [
+                        if (_shareLinkData != null && _shareLinkData!.visitCount > 0)
+                          InkWell(
+                            onTap: () {
+                              _shareApp(context);
+                            },
+                            borderRadius: BorderRadius.circular(20),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              margin: const EdgeInsets.only(right: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF00ACC1).withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: const Color(0xFF00ACC1).withOpacity(0.3),
+                                  width: 1,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.people_outline_rounded,
+                                    size: 18,
+                                    color: const Color(0xFF00ACC1),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    '${_shareLinkData!.visitCount}',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: const Color(0xFF00ACC1),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        else
+                          IconButton(
+                            icon: const Icon(Icons.people_outline_rounded),
+                            color: const Color(0xFF00ACC1),
+                            tooltip: 'Distribuie aplicația',
+                            onPressed: () {
+                              _shareApp(context);
+                            },
+                          ),
                         IconButton(
                           icon: const Icon(Icons.search),
                           color: Theme.of(context).colorScheme.onSurface,
@@ -365,14 +458,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           },
                         ),
                         IconButton(
-                          icon: const Icon(Icons.share_rounded),
-                          color: const Color(0xFF25D366),  // Green color from share section
-                          tooltip: 'Distribuie aplicația',
-                          onPressed: () {
-                            _shareApp(context);
-                          },
-                        ),
-                        IconButton(
                           icon: const Icon(Icons.settings),
                           color: Theme.of(context).colorScheme.onSurface,
                           tooltip: 'Setări aplicație',
@@ -385,6 +470,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             // Check share promotion visibility after returning from settings
                             if (mounted) {
                               await _checkSharePromotionVisibility();
+                              await _loadShareLinkData();
                             }
                           },
                         ),
