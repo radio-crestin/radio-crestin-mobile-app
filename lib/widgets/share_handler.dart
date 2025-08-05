@@ -69,7 +69,9 @@ class ShareHandler {
                   : const Color(0xFFFAF0F5), // Light wine red tinted background
               borderRadius: BorderRadius.circular(24),
               border: Border.all(
-                color: Theme.of(context).primaryColor.withOpacity(0.2),
+                color: Theme.of(context).brightness == Brightness.dark 
+                    ? const Color(0xFF1A0B10) // Darker version of #251118
+                    : Theme.of(context).primaryColor.withOpacity(0.2),
                 width: 1,
               ),
             ),
