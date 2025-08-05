@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as developer;
+import 'dart:io';
 import 'dart:ui';
 
 import 'package:audio_service/audio_service.dart';
@@ -17,6 +18,7 @@ import 'package:rxdart/rxdart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'constants.dart';
+import 'globals.dart' as globals;
 
 enum PlayerState { started, stopped, playing, buffering, error }
 
@@ -214,6 +216,19 @@ class AppAudioHandler extends BaseAudioHandler {
     return super.skipToQueueItem(index);
   }
 
+  String addTrackingParametersToUrl(String url) {
+    final platform = Platform.isIOS ? "ios" : (Platform.isAndroid ? "android" : "unknown");
+    final deviceId = globals.deviceId;
+    
+    final uri = Uri.parse(url);
+    final queryParams = Map<String, String>.from(uri.queryParameters);
+    
+    queryParams['ref'] = 'radio-crestin-mobile-app-$platform';
+    queryParams['s'] = deviceId;
+    
+    return uri.replace(queryParameters: queryParams).toString();
+  }
+
   @override
   Future<void> play() async {
     _log("play");
@@ -233,8 +248,9 @@ class AppAudioHandler extends BaseAudioHandler {
             item.id;
         _log("playMediaItem: $streamUrl");
         try {
+          final trackedUrl = addTrackingParametersToUrl(streamUrl);
           await player.setAudioSource(
-            AudioSource.uri(Uri.parse(streamUrl)),
+            AudioSource.uri(Uri.parse(trackedUrl)),
             preload: true,
           );
           break;
