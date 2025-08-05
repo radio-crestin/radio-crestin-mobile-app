@@ -162,7 +162,7 @@ class SharePromotionCardState extends State<SharePromotionCard> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
-                  Icons.share_rounded,
+                  Icons.people_outline_rounded,
                   color: Theme.of(context).primaryColor,
                   size: 24,
                 ),
@@ -253,7 +253,7 @@ class SharePromotionCardState extends State<SharePromotionCard> {
               const SizedBox(width: 6),
               _buildShareButton(
                 context: context,
-                icon: Icons.share_rounded,
+                icon: Icons.people_outline_rounded,
                 label: 'Distribuie',
                 color: Theme.of(context).primaryColor,
                 onTap: () => _shareGeneric(context),
@@ -300,7 +300,7 @@ class SharePromotionCardState extends State<SharePromotionCard> {
     required Color color,
     required VoidCallback onTap,
   }) {
-    final iconToUse = icon ?? iconData ?? Icons.share;
+    final iconToUse = icon ?? iconData ?? Icons.people_outline_rounded;
     
     if (label != null) {
       return Material(
