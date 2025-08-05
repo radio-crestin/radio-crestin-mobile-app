@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:radio_crestin/services/share_service.dart';
@@ -17,103 +18,27 @@ import '../theme_manager.dart';
 import 'WriteNfcTag.dart';
 
 class SettingsPage extends StatefulWidget {
-  final bool highlightSharePromotion;
-  
-  const SettingsPage({
-    Key? key,
-    this.highlightSharePromotion = false,
-  }) : super(key: key);
+  const SettingsPage({Key? key}) : super(key: key);
   
   @override
   _SettingsPageState createState() => _SettingsPageState();
 }
 
-class _SettingsPageState extends State<SettingsPage> with TickerProviderStateMixin {
+class _SettingsPageState extends State<SettingsPage> {
   bool? _notificationsEnabled;
   bool? _autoStartStation;
-  bool? _showSharePromotion;
   ThemeMode _themeMode = ThemeMode.system;
   final String _version = globals.appVersion;
   final String _buildNumber = globals.buildNumber;
   final String _deviceId = globals.deviceId;
   
-  late AnimationController _animationController;
-  late Animation<Color?> _colorAnimation;
-  bool _shouldHighlight = false;
 
   @override
   void initState() {
     super.initState();
     _getNotificationsEnabled();
     _getAutoStartStation();
-    _getShowSharePromotion();
     _loadThemeMode();
-    
-    // Initialize animation controller for highlighting
-    _animationController = AnimationController(
-      duration: const Duration(milliseconds: 1500),
-      vsync: this,
-    );
-    
-    _colorAnimation = ColorTween(
-      begin: Colors.transparent,
-      end: Colors.orange.withOpacity(0.3),
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
-    
-    // If we should highlight the share promotion toggle
-    if (widget.highlightSharePromotion) {
-      _shouldHighlight = true;
-      // Temporarily override the switch to be ON for animation
-      _showSharePromotion = true;
-      
-      // Start the animation after the page loads
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          _animateToggleSwitch();
-        }
-      });
-    }
-  }
-  
-  void _animateToggleSwitch() async {
-    // Start highlighting
-    _animationController.repeat(reverse: true);
-    
-    // Wait for user to see the switch is ON
-    await Future.delayed(const Duration(milliseconds: 1500));
-    
-    // Toggle the switch to OFF
-    if (mounted) {
-      setState(() {
-        _showSharePromotion = false;
-      });
-      
-      // Save to preferences
-      SharedPreferences.getInstance().then((prefs) {
-        prefs.setBool('show_share_promotion', false);
-      });
-    }
-    
-    // Continue highlighting for a bit
-    await Future.delayed(const Duration(milliseconds: 1000));
-    
-    // Stop highlighting
-    if (mounted) {
-      _animationController.stop();
-      _animationController.reset();
-      setState(() {
-        _shouldHighlight = false;
-      });
-    }
-  }
-  
-  @override
-  void dispose() {
-    _animationController.dispose();
-    super.dispose();
   }
 
   Future<void> _getNotificationsEnabled() async {
@@ -130,20 +55,6 @@ class _SettingsPageState extends State<SettingsPage> with TickerProviderStateMix
     });
   }
 
-  Future<void> _getShowSharePromotion() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _showSharePromotion = prefs.getBool('show_share_promotion') ?? false;
-    });
-  }
-
-  Future<void> _setShowSharePromotion(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('show_share_promotion', value);
-    setState(() {
-      _showSharePromotion = value;
-    });
-  }
 
   Future<void> _shareApp(BuildContext context) async {
     try {
@@ -262,33 +173,6 @@ class _SettingsPageState extends State<SettingsPage> with TickerProviderStateMix
                     value: _autoStartStation ?? true,
                   ),
                 ),
-                AnimatedBuilder(
-                  animation: _colorAnimation,
-                  builder: (context, child) {
-                    return Container(
-                      color: _shouldHighlight ? _colorAnimation.value : Colors.transparent,
-                      child: ListTile(
-                        leading: const Icon(Icons.campaign_rounded),
-                        title: const Text('Invită prieteni'),
-                        subtitle: const Text('Afișează secțiunea de partajare cu prietenii'),
-                        trailing: AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 200),
-                          child: Switch(
-                            key: ValueKey(_showSharePromotion),
-                            activeColor: Theme.of(context).primaryColor,
-                            activeTrackColor: Theme.of(context).primaryColorLight,
-                            inactiveThumbColor: Theme.of(context).primaryColorDark,
-                            inactiveTrackColor: const Color(0xffdcdcdc),
-                            onChanged: _shouldHighlight ? null : (bool? value) async {
-                              await _setShowSharePromotion(value!);
-                            },
-                            value: _showSharePromotion ?? true,
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
                 ListTile(
                   leading: const Icon(Icons.notification_important_rounded),
                   title: const Text('Notificări personalizate'),
@@ -329,6 +213,63 @@ class _SettingsPageState extends State<SettingsPage> with TickerProviderStateMix
                     await _shareApp(context);
                   },
                 ),
+                if (kDebugMode) ...[
+                  const Divider(),
+                  ListTile(
+                    leading: const Icon(Icons.delete_sweep, color: Colors.red),
+                    title: const Text('Șterge datele aplicației'),
+                    subtitle: const Text('Șterge preferințele și cache-ul (doar în modul debug)'),
+                    onTap: () async {
+                      showDialog(
+                        context: context,
+                        builder: (BuildContext context) {
+                          return AlertDialog(
+                            title: const Text('Confirmare ștergere'),
+                            content: const Text('Ești sigur că vrei să ștergi toate datele salvate și cache-ul aplicației?'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text('Anulează'),
+                              ),
+                              TextButton(
+                                onPressed: () async {
+                                  Navigator.pop(context);
+                                  // Clear shared preferences
+                                  final prefs = await SharedPreferences.getInstance();
+                                  await prefs.clear();
+                                  
+                                  // Clear GraphQL cache
+                                  final client = GraphQLProvider.of(context).value;
+                                  client.cache.store.reset();
+                                  
+                                  // Show confirmation
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Datele aplicației au fost șterse!'),
+                                      duration: Duration(seconds: 2),
+                                    ),
+                                  );
+                                  
+                                  // Refresh the settings page
+                                  setState(() {
+                                    _notificationsEnabled = null;
+                                    _autoStartStation = null;
+                                  });
+                                  _getNotificationsEnabled();
+                                  _getAutoStartStation();
+                                },
+                                style: TextButton.styleFrom(
+                                  foregroundColor: Colors.red,
+                                ),
+                                child: const Text('Șterge'),
+                              ),
+                            ],
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ],
                 const Spacer(),
                 ListTile(
                   title: ElevatedButton(

@@ -10,6 +10,10 @@ import 'package:flutter_sticky_header/flutter_sticky_header.dart';
 import 'package:radio_crestin/appAudioHandler.dart';
 import 'package:radio_crestin/components/FullAudioPlayer.dart';
 import 'package:radio_crestin/widgets/share_promotion_card.dart';
+import 'package:radio_crestin/widgets/share_handler.dart';
+import 'package:radio_crestin/services/share_service.dart';
+import 'package:radio_crestin/utils/share_utils.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
@@ -141,6 +145,65 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   void dispose() {
     _sub.cancel();
     super.dispose();
+  }
+
+  Future<void> _shareApp(BuildContext context) async {
+    try {
+      // Get device ID
+      final prefs = await SharedPreferences.getInstance();
+      String? deviceId = prefs.getString('device_id');
+      
+      if (deviceId == null) {
+        final DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
+        if (Platform.isAndroid) {
+          final androidInfo = await deviceInfo.androidInfo;
+          deviceId = androidInfo.id;
+        } else if (Platform.isIOS) {
+          final iosInfo = await deviceInfo.iosInfo;
+          deviceId = iosInfo.identifierForVendor;
+        } else {
+          deviceId = DateTime.now().millisecondsSinceEpoch.toString();
+        }
+        
+        if (deviceId != null) {
+          await prefs.setString('device_id', deviceId);
+        }
+      }
+
+      // Get GraphQL client
+      final shareService = ShareService(_audioHandler.graphqlClient);
+      final shareLinkData = await shareService.getShareLink(deviceId!);
+      
+      if (shareLinkData != null) {
+        final shareUrl = shareLinkData.generateShareUrl();
+        final shareMessage = ShareUtils.formatShareMessage(
+          shareLinkData: shareLinkData,
+          stationName: null,
+          stationSlug: null,
+        );
+        
+        // Show dialog with share options
+        if (mounted) {
+          ShareHandler.shareApp(
+            context: context,
+            shareUrl: shareUrl,
+            shareMessage: shareMessage,
+            shareLinkData: shareLinkData,
+            showDialog: true,
+          );
+        }
+      }
+    } catch (e) {
+      // Fallback to old method if something fails
+      if (mounted) {
+        ShareHandler.shareApp(
+          context: context,
+          shareUrl: 'https://asculta.radiocrestin.ro',
+          shareMessage: 'Aplicația Radio Creștin:\nhttps://asculta.radiocrestin.ro',
+          showDialog: false, // Direct share for fallback
+        );
+      }
+    }
   }
 
   @override
@@ -299,6 +362,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                 );
                               },
                             );
+                          },
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.share_rounded),
+                          color: const Color(0xFF25D366),  // Green color from share section
+                          tooltip: 'Distribuie aplicația',
+                          onPressed: () {
+                            _shareApp(context);
                           },
                         ),
                         IconButton(
