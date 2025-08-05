@@ -193,6 +193,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     super.dispose();
   }
 
+  String _formatVisitCount(int count) {
+    if (count >= 1000000) {
+      return '${(count / 1000000).toStringAsFixed(count % 1000000 == 0 ? 0 : 1)}M';
+    } else if (count >= 1000) {
+      return '${(count / 1000).toStringAsFixed(count % 1000 == 0 ? 0 : 1)}k';
+    }
+    return count.toString();
+  }
+
   Future<void> _shareApp(BuildContext context) async {
     try {
       // Get device ID
@@ -415,9 +424,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                     size: 18,
                                     color: const Color(0xFF00ACC1),
                                   ),
-                                  const SizedBox(width: 6),
+                                  const SizedBox(width: 4),
                                   Text(
-                                    '${_shareLinkData!.visitCount}',
+                                    _formatVisitCount(_shareLinkData!.visitCount),
                                     style: TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w600,
