@@ -65,7 +65,7 @@ class ShareHandler {
             constraints: const BoxConstraints(maxWidth: 400),
             decoration: BoxDecoration(
               color: Theme.of(context).brightness == Brightness.dark 
-                  ? const Color(0xFF2D1520) // Dark wine red background
+                  ? const Color(0xFF251118) // Dark background
                   : const Color(0xFFFAF0F5), // Light wine red tinted background
               borderRadius: BorderRadius.circular(24),
               border: Border.all(
