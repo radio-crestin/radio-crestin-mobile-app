@@ -65,12 +65,12 @@ class ShareHandler {
             constraints: const BoxConstraints(maxWidth: 400),
             decoration: BoxDecoration(
               color: Theme.of(context).brightness == Brightness.dark 
-                  ? const Color(0xFF251118) // Dark background
+                  ? const Color(0xFF34131E) // Dark background
                   : const Color(0xFFFAF0F5), // Light wine red tinted background
               borderRadius: BorderRadius.circular(24),
               border: Border.all(
                 color: Theme.of(context).brightness == Brightness.dark 
-                    ? const Color(0xFF1A0B10) // Darker version of #251118
+                    ? const Color(0xFF220D15) // Darker version of #34131E
                     : Theme.of(context).primaryColor.withOpacity(0.2),
                 width: 1,
               ),
