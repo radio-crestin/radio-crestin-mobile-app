@@ -420,7 +420,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Icon(
-                                    Icons.bolt,
+                                    Icons.people_outline_rounded,
                                     size: 18,
                                     color: const Color(0xFF00ACC1),
                                   ),
@@ -439,7 +439,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           )
                         else
                           IconButton(
-                            icon: const Icon(Icons.bolt),
+                            icon: const Icon(Icons.people_outline_rounded),
                             color: const Color(0xFF00ACC1),
                             tooltip: 'Distribuie aplicația',
                             onPressed: () {
