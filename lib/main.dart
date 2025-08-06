@@ -30,21 +30,35 @@ import 'globals.dart' as globals;
 final getIt = GetIt.instance;
 
 Future<void> initializeFirebaseMessaging() async {
-  if (Platform.isIOS) {
-    FirebaseMessaging messaging = FirebaseMessaging.instance;
-    await messaging.requestPermission(
-      alert: true,
-      announcement: true,
-      badge: true,
-      carPlay: false,
-      criticalAlert: true,
-      provisional: true,
-      sound: true,
-    );
-  } else {
-    await FirebaseMessaging.instance.setAutoInitEnabled(true);
-    final fcmToken = await FirebaseMessaging.instance.getToken();
-    developer.log("FCMToken $fcmToken");
+  try {
+    if (Platform.isIOS) {
+      FirebaseMessaging messaging = FirebaseMessaging.instance;
+      await messaging.requestPermission(
+        alert: true,
+        announcement: true,
+        badge: true,
+        carPlay: false,
+        criticalAlert: true,
+        provisional: true,
+        sound: true,
+      );
+    } else {
+      await FirebaseMessaging.instance.setAutoInitEnabled(true);
+      try {
+        final fcmToken = await FirebaseMessaging.instance.getToken();
+        developer.log("FCMToken $fcmToken");
+      } catch (e) {
+        developer.log("Failed to get FCM token: $e");
+        if (e.toString().contains('SERVICE_NOT_AVAILABLE')) {
+          developer.log("Firebase Messaging service not available - likely running on emulator without Google Play Services");
+        }
+      }
+    }
+  } catch (e, stackTrace) {
+    developer.log("Firebase Messaging initialization failed", error: e, stackTrace: stackTrace);
+    if (!e.toString().contains('SERVICE_NOT_AVAILABLE')) {
+      FirebaseCrashlytics.instance.recordError(e, stackTrace, fatal: false);
+    }
   }
 }
 
