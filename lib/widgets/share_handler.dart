@@ -156,16 +156,21 @@ class ShareHandler {
                               color: const Color(0xFF00ACC1),
                             ),
                             const SizedBox(width: 8),
-                            Text(
-                              shareLinkData.visitCount == 0
-                                  ? 'Niciun prieten nu a accesat link-ul tău'
-                                  : shareLinkData.visitCount == 1
-                                      ? '1 prieten a accesat invitația ta'
-                                      : '${shareLinkData.visitCount} prieteni au accesat invitația ta',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xFF00ACC1),
+                            Flexible(
+                              child: Text(
+                                shareLinkData.visitCount == 0
+                                    ? 'Niciun prieten nu a accesat link-ul tău'
+                                    : shareLinkData.visitCount == 1
+                                        ? '1 prieten a accesat invitația ta'
+                                        : '${shareLinkData.visitCount} prieteni au accesat invitația ta',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xFF00ACC1),
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.center,
                               ),
                             ),
                           ],
