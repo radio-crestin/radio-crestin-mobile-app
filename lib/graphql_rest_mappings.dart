@@ -7,7 +7,7 @@ String _addTimestampToUrl(String url) {
   final timestamp = _getRoundedTimestamp();
   final uri = Uri.parse(url);
   final queryParams = Map<String, String>.from(uri.queryParameters);
-  queryParams['t'] = timestamp.toString();
+  queryParams['timestamp'] = timestamp.toString();
   
   return uri.replace(queryParameters: queryParams).toString();
 }
