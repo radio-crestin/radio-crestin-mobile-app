@@ -64,7 +64,7 @@ dependencies:
   upgrader: ^11.1.0
   fluttertoast: ^8.2.10
   easy_search_bar: ^2.5.0
-  flutter_sticky_header: ^0.8.0
+  flutter_sticky_header: ^0.7.0
   in_app_review: ^2.0.8
   like_button: ^2.0.5
   extended_image: ^8.2.0
