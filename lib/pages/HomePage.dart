@@ -93,6 +93,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _checkSharePromotionVisibility();
     _loadShareLinkData();
   }
@@ -189,8 +190,24 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _sub.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) async {
+    if (state == AppLifecycleState.resumed) {
+      try {
+        final isPlaying = (await _audioHandler.playbackState.first).playing;
+        if (!isPlaying) {
+          autoPlayProcessed = false;
+          playerAutoplay();
+        }
+      } catch (e) {
+        developer.log('Error autoplaying on resume: $e');
+      }
+    }
   }
 
   String _formatVisitCount(int count) {
