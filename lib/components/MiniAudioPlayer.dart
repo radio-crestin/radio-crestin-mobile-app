@@ -134,7 +134,7 @@ class MiniAudioPlayer extends StatelessWidget {
                               ? IconButton(
                             iconSize: 31,
                             tooltip: "Pauza",
-                            onPressed: audioHandler.stop,
+                            onPressed: audioHandler.pause,
                             icon: const Icon(
                               Icons.pause_rounded,
                             ),

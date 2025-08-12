@@ -290,7 +290,13 @@ class AppAudioHandler extends BaseAudioHandler {
 
   @override
   Future<void> stop() async {
-    return pause();
+    _log("stop");
+    if (currentStation.value != null) {
+      AppTracking.trackStopStation(currentStation.value!);
+    }
+    stopListeningTracker();
+    await player.stop();
+    return super.stop();
   }
 
   @override
@@ -453,10 +459,21 @@ class AppAudioHandler extends BaseAudioHandler {
   @override
   Future<void> onTaskRemoved() {
     _log('onTaskRemoved()');
+    stopListeningTracker();
     player.stop();
     // player.dispose();
     watchStations.cancel();
     return super.onTaskRemoved();
+  }
+
+  // Method to completely stop and cleanup the audio service
+  Future<void> dispose() async {
+    _log('dispose()');
+    stopListeningTracker();
+    await player.stop();
+    await player.dispose();
+    watchStations.cancel();
+    await super.stop();
   }
 
   @override

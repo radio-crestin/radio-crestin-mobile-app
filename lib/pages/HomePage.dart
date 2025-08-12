@@ -207,6 +207,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       } catch (e) {
         developer.log('Error autoplaying on resume: $e');
       }
+    } else if (state == AppLifecycleState.detached) {
+      // Stop the audio service when app is being terminated
+      try {
+        await _audioHandler.stop();
+      } catch (e) {
+        developer.log('Error stopping audio service on detach: $e');
+      }
     }
   }
 
