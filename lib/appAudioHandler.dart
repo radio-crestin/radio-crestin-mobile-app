@@ -173,6 +173,7 @@ class AppAudioHandler extends BaseAudioHandler {
   Future<void> playStation(Station station) async {
     _log('playStation($station)');
     await selectStation(station);
+    await Future.delayed(const Duration(milliseconds: 100));
 
     return play();
   }
