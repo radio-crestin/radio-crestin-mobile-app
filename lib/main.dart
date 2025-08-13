@@ -21,11 +21,15 @@ import 'package:radio_crestin/theme.dart';
 import 'package:radio_crestin/theme_manager.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:upgrader/upgrader.dart';
+import 'package:provider/provider.dart';
+import 'package:flutter_mobx/flutter_mobx.dart';
 
 import 'appAudioHandler.dart';
+import 'components/NotificationBanner.dart';
 import 'constants.dart';
 import 'firebase_options.dart';
 import 'globals.dart' as globals;
+import 'stores/app_settings_store.dart';
 
 final getIt = GetIt.instance;
 
@@ -169,32 +173,63 @@ void main() async {
 
   await ThemeManager.initialize();
   
-  runApp(const RadioCrestinApp());
+  final appStore = AppStore();
+  await appStore.initConnectivity();
+  
+  runApp(RadioCrestinApp(appStore: appStore));
 }
 
 class RadioCrestinApp extends StatelessWidget {
-  const RadioCrestinApp({super.key});
+  final AppStore appStore;
+  
+  const RadioCrestinApp({super.key, required this.appStore});
 
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<ThemeMode>(
-      valueListenable: ThemeManager.themeMode,
-      builder: (context, themeMode, child) {
-        return MaterialApp(
-          navigatorKey: globals.navigatorKey,
-          title: 'Radio Crestin',
-          debugShowCheckedModeBanner: false,
-          theme: lightTheme,
-          darkTheme: darkTheme,
-          themeMode: themeMode,
-          home: UpgradeAlert(
-        dialogStyle: Platform.isIOS ? UpgradeDialogStyle.cupertino : UpgradeDialogStyle.material,
-        upgrader: Upgrader(),
-        child: const HomePage(),
-          ),
-        );
-      },
+    return Provider<AppStore>(
+      create: (_) => appStore,
+      child: ValueListenableBuilder<ThemeMode>(
+        valueListenable: ThemeManager.themeMode,
+        builder: (context, themeMode, child) {
+          return MaterialApp(
+            navigatorKey: globals.navigatorKey,
+            title: 'Radio Crestin',
+            debugShowCheckedModeBanner: false,
+            theme: lightTheme,
+            darkTheme: darkTheme,
+            themeMode: themeMode,
+            builder: (context, child) {
+              return Observer(
+                builder: (_) {
+                  final appStore = Provider.of<AppStore>(context);
+                  final shouldShowBanner = appStore.showNotification;
+                  
+                  return Stack(
+                    children: [
+                      child!,
+                      if (shouldShowBanner)
+                        NotificationBanner(
+                          key: const ValueKey('notification_banner'),
+                          notificationType:
+                              appStore.currentNotificationType ??
+                              NotificationType.network,
+                          message: appStore.currentNotificationMessage,
+                          onDismiss: () => appStore.clearNotification(),
+                        ),
+                    ],
+                  );
+                },
+              );
+            },
+            home: UpgradeAlert(
+              dialogStyle: Platform.isIOS ? UpgradeDialogStyle.cupertino : UpgradeDialogStyle.material,
+              upgrader: Upgrader(),
+              child: const HomePage(),
+            ),
+          );
+        },
+      ),
     );
   }
 }
