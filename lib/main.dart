@@ -157,6 +157,12 @@ void main() async {
     ),
   );
 
+  await ThemeManager.initialize();
+  
+  final appStore = AppStore();
+  await appStore.initConnectivity();
+  globals.appStore = appStore;
+
   getIt.registerSingleton<AppAudioHandler>(await initAudioService(graphqlClient: graphqlClient));
 
   PackageInfo.fromPlatform().then((value) {
@@ -170,11 +176,6 @@ void main() async {
   });
 
   FlutterNativeSplash.remove();
-
-  await ThemeManager.initialize();
-  
-  final appStore = AppStore();
-  await appStore.initConnectivity();
   
   runApp(RadioCrestinApp(appStore: appStore));
 }

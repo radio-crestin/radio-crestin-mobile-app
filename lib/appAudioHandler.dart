@@ -18,6 +18,7 @@ import 'package:rxdart/rxdart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:extended_image/extended_image.dart';
 
+import 'components/NotificationBanner.dart';
 import 'constants.dart';
 import 'globals.dart' as globals;
 
@@ -150,7 +151,11 @@ class AppAudioHandler extends BaseAudioHandler {
     });
 
     // Propagate all events from the audio player to AudioService clients.
-    player.playbackEventStream.listen(_broadcastState);
+    player.playbackEventStream.listen(_broadcastState, onError: (error) {
+      _log("Player stream error: $error");
+      globals.appStore?.handleError(error);
+      stop();
+    });
 
     // In this example, the service stops when reaching the end.
     player.processingStateStream.listen((state) {
@@ -261,11 +266,13 @@ class AppAudioHandler extends BaseAudioHandler {
         } catch (e) {
           _log("playMediaItem: Player Error: $e");
           retry++;
+          if (retry >= maxRetries) {
+            _log("playMediaItem: max retries reached");
+            globals.appStore?.handleError(e);
+            stop();
+            return;
+          }
         }
-      } else {
-        _log("playMediaItem: max retries reached");
-        stop();
-        break;
       }
     }
 
