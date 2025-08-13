@@ -24,7 +24,7 @@ class StationsList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SliverFixedExtentList(
-      itemExtent: Platform.isIOS ? 105.0 : 135.0,
+      itemExtent: 105.0,
       delegate: SliverChildBuilderDelegate(
         (context, itemIdx) {
           final station = stations[itemIdx];
@@ -50,8 +50,8 @@ class StationsList extends StatelessWidget {
                       children: [
                         Container(
                           margin: const EdgeInsets.only(right: 14),
-                          width: Platform.isIOS ? 70.0 : 100.0,
-                          height: Platform.isIOS ? 70.0 : 100.0,
+                          width: 70.0,
+                          height: 70.0,
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(12.0),
                             child: station.thumbnail,
