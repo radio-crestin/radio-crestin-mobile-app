@@ -438,49 +438,51 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             );
                           },
                           child: _shareLinkData != null && _shareLinkData!.visitCount != null
-                            ? InkWell(
+                            ? Container(
                               key: ValueKey('share-badge'),
-                              onTap: () {
-                                _shareApp(context);
-                              },
-                              borderRadius: BorderRadius.circular(20),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                margin: const EdgeInsets.only(right: 4),
-                                decoration: BoxDecoration(
-                                  color: (Theme.of(context).brightness == Brightness.light
-                                      ? const Color(0xFFFF6B35) // Orange for light theme
-                                      : const Color(0xFFffc700)).withOpacity(0.12), // Yellow for dark theme
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(
+                              margin: const EdgeInsets.only(right: 4),
+                              child: InkWell(
+                                onTap: () {
+                                  _shareApp(context);
+                                },
+                                borderRadius: BorderRadius.circular(20),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
                                     color: (Theme.of(context).brightness == Brightness.light
-                                        ? const Color(0xFFFF6B35)
-                                        : const Color(0xFFffc700)).withOpacity(0.3),
-                                    width: 1,
+                                        ? const Color(0xFFFF6B35) // Orange for light theme
+                                        : const Color(0xFFffc700)).withOpacity(0.12), // Yellow for dark theme
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                      color: (Theme.of(context).brightness == Brightness.light
+                                          ? const Color(0xFFFF6B35)
+                                          : const Color(0xFFffc700)).withOpacity(0.3),
+                                      width: 1,
+                                    ),
                                   ),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      _formatVisitCount(_shareLinkData!.visitCount),
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        _formatVisitCount(_shareLinkData!.visitCount),
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: Theme.of(context).brightness == Brightness.light
+                                              ? const Color(0xFFFF6B35) // Orange for light theme
+                                              : const Color(0xFFffc700), // Yellow for dark theme
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Icon(
+                                        Icons.people_outline_rounded,
+                                        size: 18,
                                         color: Theme.of(context).brightness == Brightness.light
                                             ? const Color(0xFFFF6B35) // Orange for light theme
                                             : const Color(0xFFffc700), // Yellow for dark theme
                                       ),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Icon(
-                                      Icons.people_outline_rounded,
-                                      size: 18,
-                                      color: Theme.of(context).brightness == Brightness.light
-                                          ? const Color(0xFFFF6B35) // Orange for light theme
-                                          : const Color(0xFFffc700), // Yellow for dark theme
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
                               ),
                             )
