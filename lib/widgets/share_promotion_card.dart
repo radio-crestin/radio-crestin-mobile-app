@@ -30,6 +30,16 @@ class SharePromotionCard extends StatefulWidget {
 }
 
 class SharePromotionCardState extends State<SharePromotionCard> {
+  // Color constants
+  static Color _accentColor(BuildContext context) {
+    // Use orange for light theme, keep yellow for dark theme
+    return Theme.of(context).brightness == Brightness.light
+        ? const Color(0xFFFF6B35) // Orange for light theme
+        : const Color(0xFFffc700); // Yellow for dark theme
+  }
+  static const Color _whatsappColor = Color(0xFF25D366);
+  static const Color _facebookColor = Color(0xFF1877F2);
+  
   ShareLinkData? _shareLinkData;
   bool _isLoading = true;
   String? _anonymousId;
@@ -196,32 +206,36 @@ class SharePromotionCardState extends State<SharePromotionCard> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF00ACC1).withOpacity(0.12),
+                        color: _accentColor(context).withOpacity(0.12),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: const Color(0xFF00ACC1).withOpacity(0.3),
+                          color: _accentColor(context).withOpacity(0.3),
                           width: 1,
                         ),
                       ),
                       child: Row(
-                        mainAxisSize: MainAxisSize.min,
+                        mainAxisSize: MainAxisSize.max,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Icon(
                             Icons.people_outline_rounded,
                             size: 16,
-                            color: const Color(0xFF00ACC1),
+                            color: _accentColor(context),
                           ),
                           const SizedBox(width: 6),
-                          Text(
-                            _shareLinkData!.visitCount == 0
-                                ? 'Niciun prieten nu a accesat link-ul tău'
-                                : _shareLinkData!.visitCount == 1
-                                    ? '1 prieten a accesat invitația ta'
-                                    : '${_shareLinkData!.visitCount} prieteni au accesat invitația ta',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xFF00ACC1),
+                          Expanded(
+                            child: Text(
+                              _shareLinkData!.visitCount == 0
+                                  ? 'Niciun prieten nu a accesat link-ul tău'
+                                  : _shareLinkData!.visitCount == 1
+                                      ? '1 prieten a accesat invitația ta'
+                                      : '${_shareLinkData!.visitCount} prieteni au accesat invitația ta',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: _accentColor(context),
+                              ),
+                              textAlign: TextAlign.left,
                             ),
                           ),
                         ],
@@ -240,14 +254,14 @@ class SharePromotionCardState extends State<SharePromotionCard> {
               _buildShareButton(
                 context: context,
                 icon: FontAwesomeIcons.whatsapp,
-                color: const Color(0xFF25D366),
+                color: _whatsappColor,
                 onTap: () => _shareToWhatsApp(),
               ),
               const SizedBox(width: 6),
               _buildShareButton(
                 context: context,
                 icon: FontAwesomeIcons.facebook,
-                color: const Color(0xFF1877F2),
+                color: _facebookColor,
                 onTap: () => _shareToFacebook(),
               ),
               const SizedBox(width: 6),

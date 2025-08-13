@@ -423,53 +423,69 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             ],
                           )),
                       actions: [
-                        if (_shareLinkData != null && _shareLinkData!.visitCount > 0)
-                          InkWell(
-                            onTap: () {
-                              _shareApp(context);
-                            },
-                            borderRadius: BorderRadius.circular(20),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                              margin: const EdgeInsets.only(right: 4),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF00ACC1).withOpacity(0.12),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: const Color(0xFF00ACC1).withOpacity(0.3),
-                                  width: 1,
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 600),
+                          transitionBuilder: (Widget child, Animation<double> animation) {
+                            return ScaleTransition(
+                              scale: Tween<double>(
+                                begin: 0.3,
+                                end: 1.0,
+                              ).animate(CurvedAnimation(
+                                parent: animation,
+                                curve: Curves.easeOutBack,
+                              )),
+                              child: child,
+                            );
+                          },
+                          child: _shareLinkData != null && _shareLinkData!.visitCount != null
+                            ? InkWell(
+                              key: ValueKey('share-badge'),
+                              onTap: () {
+                                _shareApp(context);
+                              },
+                              borderRadius: BorderRadius.circular(20),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                margin: const EdgeInsets.only(right: 4),
+                                decoration: BoxDecoration(
+                                  color: (Theme.of(context).brightness == Brightness.light
+                                      ? const Color(0xFFFF6B35) // Orange for light theme
+                                      : const Color(0xFFffc700)).withOpacity(0.12), // Yellow for dark theme
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: (Theme.of(context).brightness == Brightness.light
+                                        ? const Color(0xFFFF6B35)
+                                        : const Color(0xFFffc700)).withOpacity(0.3),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      _formatVisitCount(_shareLinkData!.visitCount),
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: Theme.of(context).brightness == Brightness.light
+                                            ? const Color(0xFFFF6B35) // Orange for light theme
+                                            : const Color(0xFFffc700), // Yellow for dark theme
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Icon(
+                                      Icons.people_outline_rounded,
+                                      size: 18,
+                                      color: Theme.of(context).brightness == Brightness.light
+                                          ? const Color(0xFFFF6B35) // Orange for light theme
+                                          : const Color(0xFFffc700), // Yellow for dark theme
+                                    ),
+                                  ],
                                 ),
                               ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.people_outline_rounded,
-                                    size: 18,
-                                    color: const Color(0xFF00ACC1),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    _formatVisitCount(_shareLinkData!.visitCount),
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                      color: const Color(0xFF00ACC1),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          )
-                        else
-                          IconButton(
-                            icon: const Icon(Icons.people_outline_rounded),
-                            color: const Color(0xFF00ACC1),
-                            tooltip: 'Distribuie aplicația',
-                            onPressed: () {
-                              _shareApp(context);
-                            },
-                          ),
+                            )
+                            : SizedBox.shrink(key: ValueKey('empty')),
+                        ),
                         IconButton(
                           icon: const Icon(Icons.search),
                           color: Theme.of(context).colorScheme.onSurface,

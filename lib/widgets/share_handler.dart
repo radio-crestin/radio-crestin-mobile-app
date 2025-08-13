@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
@@ -140,23 +142,30 @@ class ShareHandler {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF00ACC1).withOpacity(0.12),
+                          color: (Theme.of(context).brightness == Brightness.light
+                              ? const Color(0xFFFF6B35) // Orange for light theme
+                              : const Color(0xFFffc700)).withOpacity(0.12), // Yellow for dark theme
                           borderRadius: BorderRadius.circular(24),
                           border: Border.all(
-                            color: const Color(0xFF00ACC1).withOpacity(0.3),
+                            color: (Theme.of(context).brightness == Brightness.light
+                                ? const Color(0xFFFF6B35)
+                                : const Color(0xFFffc700)).withOpacity(0.3),
                             width: 1,
                           ),
                         ),
                         child: Row(
-                          mainAxisSize: MainAxisSize.min,
+                          mainAxisSize: MainAxisSize.max,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Icon(
                               Icons.people_outline_rounded,
-                              size: 18,
-                              color: const Color(0xFF00ACC1),
+                              size: 16,
+                              color: Theme.of(context).brightness == Brightness.light
+                                  ? const Color(0xFFFF6B35) // Orange for light theme
+                                  : const Color(0xFFffc700), // Yellow for dark theme
                             ),
                             const SizedBox(width: 8),
-                            Flexible(
+                            Expanded(
                               child: Text(
                                 shareLinkData.visitCount == 0
                                     ? 'Niciun prieten nu a accesat link-ul tău'
@@ -164,26 +173,55 @@ class ShareHandler {
                                         ? '1 prieten a accesat invitația ta'
                                         : '${shareLinkData.visitCount} prieteni au accesat invitația ta',
                                 style: TextStyle(
-                                  fontSize: 14,
+                                  fontSize: 12,
                                   fontWeight: FontWeight.w600,
-                                  color: const Color(0xFF00ACC1),
+                                  color: Theme.of(context).brightness == Brightness.light
+                                      ? const Color(0xFFFF6B35) // Orange for light theme
+                                      : const Color(0xFFffc700), // Yellow for dark theme
                                 ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                textAlign: TextAlign.center,
+                                textAlign: TextAlign.left,
                               ),
                             ),
                           ],
                         ),
                       ),
                       
-                      const SizedBox(height: 28),
+                      const SizedBox(height: 20),
+                      
+                      // Divider with text
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              height: 1,
+                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.1),
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: Text(
+                              'distribuie',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: Container(
+                              height: 1,
+                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.1),
+                            ),
+                          ),
+                        ],
+                      ),
+                      
+                      const SizedBox(height: 20),
                       
                       // Share buttons grid
-                      Wrap(
-                        spacing: 12,
-                        runSpacing: 12,
-                        alignment: WrapAlignment.center,
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           _buildShareOption(
                             context: context,
@@ -195,6 +233,7 @@ class ShareHandler {
                               await _shareToWhatsApp(shareMessage, shareUrl);
                             },
                           ),
+                          const SizedBox(width: 10),
                           _buildShareOption(
                             context: context,
                             icon: FontAwesomeIcons.facebook,
@@ -205,10 +244,11 @@ class ShareHandler {
                               await _shareToFacebook(shareUrl);
                             },
                           ),
+                          const SizedBox(width: 10),
                           _buildShareOption(
                             context: context,
-                            icon: Icons.more_horiz_rounded,
-                            label: 'Altele',
+                            icon: Platform.isIOS ? Icons.ios_share : Icons.share,
+                            label: 'Share',
                             color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
                             onTap: () async {
                               Navigator.pop(context);
@@ -216,6 +256,86 @@ class ShareHandler {
                             },
                           ),
                         ],
+                      ),
+                      
+                      // Share link with copy button
+                      const SizedBox(height: 20),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.1),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                shareUrl,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            InkWell(
+                              onTap: () {
+                                Clipboard.setData(ClipboardData(text: shareUrl));
+                                // Show custom overlay toast
+                                final overlay = Overlay.of(context);
+                                final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
+                                final overlayEntry = OverlayEntry(
+                                  builder: (context) => Positioned(
+                                    bottom: MediaQuery.of(context).size.height * 0.1,
+                                    left: MediaQuery.of(context).size.width * 0.25,
+                                    right: MediaQuery.of(context).size.width * 0.25,
+                                    child: Material(
+                                      color: Colors.transparent,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                        decoration: BoxDecoration(
+                                          color: isDarkTheme ? Colors.white : Colors.black87,
+                                          borderRadius: BorderRadius.circular(20),
+                                        ),
+                                        child: Text(
+                                          'Link copiat!',
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            color: isDarkTheme ? Colors.black : Colors.white,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                                overlay.insert(overlayEntry);
+                                Future.delayed(const Duration(seconds: 2), () {
+                                  overlayEntry.remove();
+                                });
+                              },
+                              borderRadius: BorderRadius.circular(8),
+                              child: Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).primaryColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Icon(
+                                  Icons.copy,
+                                  size: 16,
+                                  color: Theme.of(context).primaryColor,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -267,17 +387,17 @@ class ShareHandler {
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
         child: Container(
-          width: 90,
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+          width: 75,
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                width: 56,
-                height: 56,
+                width: 44,
+                height: 44,
                 decoration: BoxDecoration(
                   color: color.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: color.withOpacity(0.2),
                     width: 1,
@@ -286,14 +406,14 @@ class ShareHandler {
                 child: Icon(
                   icon,
                   color: color,
-                  size: 26,
+                  size: 20,
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 6),
               Text(
                 label,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: 11,
                   fontWeight: FontWeight.w500,
                   color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
                 ),
