@@ -158,19 +158,40 @@ class Utils {
             );
           } else {
             // AlertDialog for Android
+            final theme = Theme.of(context);
+            final isDarkMode = theme.brightness == Brightness.dark;
+            
             return AlertDialog(
-              title: const Text(
+              title: Text(
                 'Lasă-ne un review de 5 stele',
-                style: TextStyle(fontSize: 18),
+                style: TextStyle(
+                  fontSize: 18,
+                  color: theme.textTheme.titleLarge?.color,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-              backgroundColor: Colors.white,
+              backgroundColor: isDarkMode ? const Color(0xff1e1e1e) : Colors.white,
               surfaceTintColor: Colors.transparent,
-              content: const Text('Lasă-ne feedback dacă îți place\nRadio Creștin.'),
+              content: Text(
+                'Lasă-ne feedback dacă îți place\nRadio Creștin.',
+                style: TextStyle(
+                  color: theme.textTheme.bodyMedium?.color,
+                ),
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              actionsPadding: const EdgeInsets.only(bottom: 8, right: 8),
               actions: <Widget>[
                 TextButton(
-                  child: const Text(
+                  child: Text(
                     'Nu acum',
-                    style: TextStyle(color: Colors.blue),
+                    style: TextStyle(
+                      color: isDarkMode 
+                        ? const Color(0xffb3b3b3)  // Lighter gray for dark mode
+                        : const Color(0xff757575),  // Medium gray for light mode
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                   onPressed: () async {
                     // Track that user canceled the dialog
@@ -184,9 +205,21 @@ class Utils {
                   },
                 ),
                 TextButton(
-                  child: const Text(
-                    '5 stele',
-                    style: TextStyle(color: Colors.blue),
+                  style: TextButton.styleFrom(
+                    backgroundColor: const Color(0xffe91e63).withOpacity(0.1),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8),
+                    child: Text(
+                      '5 stele ⭐',
+                      style: TextStyle(
+                        color: Color(0xffe91e63),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                   onPressed: () async {
                     await requestReviewAndUpdateStatus(navigator);
