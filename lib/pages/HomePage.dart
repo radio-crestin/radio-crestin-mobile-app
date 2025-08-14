@@ -336,17 +336,19 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   automaticallyImplyLeading: false,
                   title: Container(
                     margin: const EdgeInsets.only(top: 6),
-                    child: const Row(
+                    child: Row(
                       children: [
-                        Image(
+                        const Image(
                           image: AssetImage('assets/icons/ic_logo_filled.png'),
                           width: 40,
                         ),
-                        SizedBox(width: 10),
-                        Text(
-                          "Radio Creștin",
-                          style: TextStyle(fontSize: 21),
-                        ),
+                        if (MediaQuery.of(context).size.width >= 380) ...[
+                          const SizedBox(width: 10),
+                          const Text(
+                            "Radio Creștin",
+                            style: TextStyle(fontSize: 21),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -409,17 +411,19 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       automaticallyImplyLeading: false,
                       title: Container(
                           margin: const EdgeInsets.only(top: 6),
-                          child: const Row(
+                          child: Row(
                             children: [
-                              Image(
+                              const Image(
                                 image: AssetImage('assets/icons/ic_logo_filled.png'),
                                 width: 40,
                               ),
-                              SizedBox(width: 10),
-                              Text(
-                                "Radio Creștin",
-                                style: TextStyle(fontSize: 21),
-                              ),
+                              if (MediaQuery.of(context).size.width >= 380) ...[
+                                const SizedBox(width: 10),
+                                const Text(
+                                  "Radio Creștin",
+                                  style: TextStyle(fontSize: 21),
+                                ),
+                              ],
                             ],
                           )),
                       actions: [
