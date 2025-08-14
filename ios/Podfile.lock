@@ -121,8 +121,6 @@ PODS:
   - Flutter (1.0.0)
   - flutter_native_splash (0.0.1):
     - Flutter
-  - flutter_nfc_kit (2.0.0):
-    - Flutter
   - fluttertoast (0.0.2):
     - Flutter
   - GoogleAppMeasurement (11.0.0):
@@ -217,7 +215,6 @@ DEPENDENCIES:
   - firebase_remote_config (from `.symlinks/plugins/firebase_remote_config/ios`)
   - Flutter (from `Flutter`)
   - flutter_native_splash (from `.symlinks/plugins/flutter_native_splash/ios`)
-  - flutter_nfc_kit (from `.symlinks/plugins/flutter_nfc_kit/ios`)
   - fluttertoast (from `.symlinks/plugins/fluttertoast/ios`)
   - in_app_review (from `.symlinks/plugins/in_app_review/ios`)
   - just_audio (from `.symlinks/plugins/just_audio/ios`)
@@ -277,8 +274,6 @@ EXTERNAL SOURCES:
     :path: Flutter
   flutter_native_splash:
     :path: ".symlinks/plugins/flutter_native_splash/ios"
-  flutter_nfc_kit:
-    :path: ".symlinks/plugins/flutter_nfc_kit/ios"
   fluttertoast:
     :path: ".symlinks/plugins/fluttertoast/ios"
   in_app_review:
@@ -325,7 +320,6 @@ SPEC CHECKSUMS:
   FirebaseSharedSwift: e17c654ef1f1a616b0b33054e663ad1035c8fd40
   Flutter: e0871f40cf51350855a761d2e70bf5af5b9b5de7
   flutter_native_splash: edf599c81f74d093a4daf8e17bd7a018854bc778
-  flutter_nfc_kit: 965c98c3fa68f5609f1cc89abb968fe1b8ffdbaa
   fluttertoast: 21eecd6935e7064cc1fcb733a4c5a428f3f24f0f
   GoogleAppMeasurement: 6e49ffac7d3f2c3ded9cc663f912a13b67bbd0de
   GoogleDataTransport: aae35b7ea0c09004c3797d53c8c41f66f219d6a7

@@ -15,7 +15,6 @@ import 'package:device_info_plus/device_info_plus.dart';
 
 import '../globals.dart' as globals;
 import '../theme_manager.dart';
-import 'WriteNfcTag.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({Key? key}) : super(key: key);
@@ -196,18 +195,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                 ),
                 ListTile(
-                  leading: const Icon(Icons.nfc),
-                  title: const Text('Inscripționează un tag NFC'),
-                  onTap: () => {
-                    Navigator.push(context, MaterialPageRoute<void>(
-                      builder: (BuildContext context) {
-                        return WriteNfcTagPage();
-                      },
-                    ))
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.share_rounded),
+                  leading: Icon(Platform.isIOS ? Icons.ios_share : Icons.share_rounded),
                   title: const Text('Distribuie aplicația'),
                   onTap: () async {
                     await _shareApp(context);
