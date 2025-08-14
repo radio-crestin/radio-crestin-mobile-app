@@ -69,8 +69,18 @@ class ShareHandler {
             child: Container(
               constraints: const BoxConstraints(maxWidth: 400),
               decoration: BoxDecoration(
+                gradient: Theme.of(context).brightness == Brightness.dark 
+                    ? LinearGradient(
+                        colors: [
+                          const Color(0xFF301520), // Less black, still dark (top-left)
+                          const Color(0xFF4A2038), // More pink, same darkness (bottom-right)
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      )
+                    : null,
                 color: Theme.of(context).brightness == Brightness.dark 
-                    ? const Color(0xFF3A1A28) // Medium dark with wine-red tint
+                    ? null // Using gradient instead
                     : const Color(0xFFFAF0F5), // Light wine red tinted background
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(
