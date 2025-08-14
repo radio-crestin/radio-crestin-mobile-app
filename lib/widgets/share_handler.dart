@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -54,30 +55,32 @@ class ShareHandler {
     await showDialog(
       context: context,
       barrierDismissible: true,
-      barrierColor: Colors.black54,
+      barrierColor: Colors.black.withOpacity(0.7),
       builder: (BuildContext context) {
-        return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-          ),
-          elevation: 8,
-          backgroundColor: Colors.transparent,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 400),
-            decoration: BoxDecoration(
-              color: Theme.of(context).brightness == Brightness.dark 
-                  ? const Color(0xFF34131E) // Dark background
-                  : const Color(0xFFFAF0F5), // Light wine red tinted background
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+          child: Dialog(
+            shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                color: Theme.of(context).brightness == Brightness.dark 
-                    ? const Color(0xFF220D15) // Darker version of #34131E
-                    : Theme.of(context).primaryColor.withOpacity(0.2),
-                width: 1,
-              ),
             ),
-            child: Stack(
+            elevation: 8,
+            backgroundColor: Colors.transparent,
+            insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 400),
+              decoration: BoxDecoration(
+                color: Theme.of(context).brightness == Brightness.dark 
+                    ? const Color(0xFF3A1A28) // Medium dark with wine-red tint
+                    : const Color(0xFFFAF0F5), // Light wine red tinted background
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: Theme.of(context).brightness == Brightness.dark 
+                      ? const Color(0xFF220D15) // Darker version of #34131E
+                      : Theme.of(context).primaryColor.withOpacity(0.2),
+                  width: 1,
+                ),
+              ),
+              child: Stack(
               children: [
                 Padding(
                   padding: const EdgeInsets.all(24),
@@ -368,6 +371,7 @@ class ShareHandler {
                 ),
               ],
             ),
+          ),
           ),
         );
       },
