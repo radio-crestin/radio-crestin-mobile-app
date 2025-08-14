@@ -25,6 +25,7 @@ import '../main.dart';
 import '../queries/getStations.graphql.dart';
 import '../types/Station.dart';
 import '../utils/PositionRetainedScrollPhysics.dart';
+import '../utils/screen_utils.dart';
 import 'SettingsPage.dart';
 
 class HomePage extends StatefulWidget {
@@ -342,11 +343,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           image: AssetImage('assets/icons/ic_logo_filled.png'),
                           width: 40,
                         ),
-                        if (MediaQuery.of(context).size.width >= 380) ...[
+                        if (MediaQuery.of(context).size.width >= 350) ...[
                           const SizedBox(width: 10),
-                          const Text(
+                          Text(
                             "Radio Creștin",
-                            style: TextStyle(fontSize: 21),
+                            style: TextStyle(
+                              fontSize: ScreenUtils.isSmallDevice(context) ? 16 : 21,
+                            ),
                           ),
                         ],
                       ],
@@ -417,11 +420,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                 image: AssetImage('assets/icons/ic_logo_filled.png'),
                                 width: 40,
                               ),
-                              if (MediaQuery.of(context).size.width >= 380) ...[
+                              if (MediaQuery.of(context).size.width >= 350) ...[
                                 const SizedBox(width: 10),
-                                const Text(
+                                Text(
                                   "Radio Creștin",
-                                  style: TextStyle(fontSize: 21),
+                                  style: TextStyle(
+                                    fontSize: ScreenUtils.isSmallDevice(context) ? 16 : 21,
+                                  ),
                                 ),
                               ],
                             ],

@@ -16,6 +16,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../appAudioHandler.dart';
 import '../types/Station.dart';
+import '../utils/screen_utils.dart';
 
 class FullAudioPlayer extends StatefulWidget {
   final AppAudioHandler audioHandler;
@@ -129,13 +130,13 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
             const SizedBox(height: 17.0),
             Text(
               currentStation?.displayTitle ?? "",
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.bold,
-                fontSize: 20,
+                fontSize: ScreenUtils.isSmallDevice(context) ? 18 : 20,
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 18.0),
+            SizedBox(height: ScreenUtils.isSmallDevice(context) ? 12.0 : 18.0),
             GestureDetector(
               behavior: HitTestBehavior.translucent,
               onHorizontalDragEnd: (details) {
@@ -149,8 +150,8 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                 }
               },
               child: SizedBox(
-                width: 270.0,
-                height: 270.0,
+                width: ScreenUtils.isSmallDevice(context) ? 240.0 : 270.0,
+                height: ScreenUtils.isSmallDevice(context) ? 240.0 : 270.0,
                 child: PageView.builder(
                   // physics: const AlwaysScrollableScrollPhysics(),
                   physics: const NeverScrollableScrollPhysics(),
@@ -161,8 +162,8 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                     final station = filteredStationsIncludingCurrentStation[itemIdx];
 
                     return Container(
-                      width: 260.0,
-                      height: 260.0,
+                      width: ScreenUtils.isSmallDevice(context) ? 230.0 : 260.0,
+                      height: ScreenUtils.isSmallDevice(context) ? 230.0 : 260.0,
                       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
                         color: Theme.of(context).colorScheme.surface,
@@ -185,15 +186,15 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                 ),
               ),
             ),
-            const SizedBox(height: 18.0),
+            SizedBox(height: ScreenUtils.isSmallDevice(context) ? 12.0 : 18.0),
             Padding(padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: Text(
                 currentStation?.songTitle ?? "Metadate indisponibile",
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 21,
+                style: TextStyle(
+                  fontSize: ScreenUtils.isSmallDevice(context) ? 19 : 21,
                 ),
               ),
             ),
@@ -222,7 +223,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 24.0),
+                SizedBox(width: ScreenUtils.isSmallDevice(context) ? 16.0 : 24.0),
                 StreamBuilder<PlaybackState>(
                   stream: widget.audioHandler.playbackState.distinct(),
                   builder: (context, snapshot) {
@@ -268,7 +269,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                     );
                   },
                 ),
-                const SizedBox(width: 24.0),
+                SizedBox(width: ScreenUtils.isSmallDevice(context) ? 16.0 : 24.0),
                 InkWell(
                   onTap: widget.audioHandler.skipToNext,
                   child: Padding(
@@ -282,7 +283,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                 ),
               ],
             ),
-            const SizedBox(height: 90.0),
+            SizedBox(height: ScreenUtils.isSmallDevice(context) ? 50.0 : 90.0),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: <Widget>[
@@ -420,7 +421,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                 ),
               ],
             ),
-            const SizedBox(height: 55.0),
+            SizedBox(height: ScreenUtils.isSmallDevice(context) ? 35.0 : 55.0),
           ],
         ),
       ),
