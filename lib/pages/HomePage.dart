@@ -255,11 +255,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       final shareLinkData = await shareService.getShareLink(deviceId!);
       
       if (shareLinkData != null) {
-        final shareUrl = shareLinkData.generateShareUrl();
+        // Get current station from the audio handler
+        final currentStation = _audioHandler.currentStation.value;
+        
+        final shareUrl = shareLinkData.generateShareUrl(
+          stationSlug: currentStation?.slug,
+        );
         final shareMessage = ShareUtils.formatShareMessage(
           shareLinkData: shareLinkData,
-          stationName: null,
-          stationSlug: null,
+          stationName: currentStation?.title,
+          stationSlug: currentStation?.slug,
         );
         
         // Show dialog with share options
@@ -268,6 +273,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             context: context,
             shareUrl: shareUrl,
             shareMessage: shareMessage,
+            stationName: currentStation?.title,
             shareLinkData: shareLinkData,
             showDialog: true,
           );

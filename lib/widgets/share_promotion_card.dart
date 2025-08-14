@@ -435,6 +435,7 @@ class SharePromotionCardState extends State<SharePromotionCard> {
       context: context,
       shareUrl: shareUrl,
       shareMessage: shareMessage,
+      stationName: widget.currentStationName,
     );
   }
 
