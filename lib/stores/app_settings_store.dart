@@ -122,7 +122,10 @@ abstract class _AppStore with Store {
            errorString.contains('connection refused') ||
            errorString.contains('connection reset') ||
            errorString.contains('connection timed out') ||
-           errorString.contains('unreachable');
+           errorString.contains('unreachable') ||
+           errorString.contains('unknownhostexception') ||
+           errorString.contains('unable to resolve host') ||
+           errorString.contains('source error');
   }
 
   @action
