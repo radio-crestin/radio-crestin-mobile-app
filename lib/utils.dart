@@ -15,7 +15,7 @@ import 'package:radio_crestin/utils/share_utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'constants.dart';
-import 'globals.dart';
+import 'globals.dart' as globals;
 
 class Utils {
 
@@ -115,7 +115,7 @@ class Utils {
   }
 
   static Future<void> show5StarReviewDialog() async {
-    final navigator = navigatorKey.currentState;
+    final navigator = globals.navigatorKey.currentState;
     if (navigator != null && navigator.mounted) {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
       String? reviewStatusJson = prefs.getString('_reviewStatus');
@@ -235,6 +235,11 @@ class Utils {
   }
 
   static Future<void> incrementActionsMade({GraphQLClient? graphQLClient, String? currentStationName, String? currentStationSlug}) async {
+    // Check for internet connection before proceeding
+    if (globals.appStore?.hasInternetConnection != true) {
+      return;
+    }
+    
     try {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
       String? reviewStatusJson = prefs.getString('_reviewStatus');
@@ -278,7 +283,7 @@ class Utils {
                 
                 if (shouldShow) {
                   await prefs.setBool(prefKey, true);
-                  final navigator = navigatorKey.currentState;
+                  final navigator = globals.navigatorKey.currentState;
                   if (navigator != null && navigator.mounted) {
                     Future.delayed(const Duration(seconds: 3), () {
                       Utils.show5StarReviewDialog();
@@ -360,7 +365,7 @@ class Utils {
           
           // Show dialog after a small delay
           Future.delayed(const Duration(milliseconds: 500), () {
-            final context = navigatorKey.currentContext;
+            final context = globals.navigatorKey.currentContext;
             if (context != null) {
               ShareHandler.shareApp(
                 context: context,
