@@ -150,8 +150,9 @@ class AppAudioHandler extends BaseAudioHandler {
       _recentSubject.add([item]);
     });
 
-    // Propagate all events from the audio player to AudioService clients.
-    player.playbackEventStream.listen(_broadcastState, onError: (error) {
+    player.playbackEventStream.listen(_broadcastState);
+
+    player.errorStream.listen((error) {
       _log("Player stream error: $error");
       globals.appStore?.handleError(error);
       stop();

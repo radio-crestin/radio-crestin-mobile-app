@@ -230,7 +230,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                   builder: (context, snapshot) {
                     final playbackState = snapshot.data;
                     final processingState = playbackState?.processingState;
-                    final playing = playbackState?.playing ?? true;
+                    final playing = playbackState?.playing ?? false;
                     final buffering = processingState == AudioProcessingState.loading ||
                         processingState == AudioProcessingState.buffering;
                     if (buffering) {
