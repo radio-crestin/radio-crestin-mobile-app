@@ -233,7 +233,7 @@ class Utils {
     }
   }
 
-  static Future<void> incrementActionsMade({GraphQLClient? graphQLClient, String? currentStationName}) async {
+  static Future<void> incrementActionsMade({GraphQLClient? graphQLClient, String? currentStationName, String? currentStationSlug}) async {
     try {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
       String? reviewStatusJson = prefs.getString('_reviewStatus');
@@ -301,7 +301,7 @@ class Utils {
             
             if (!hasShownAtInterval) {
               await prefs.setBool(prefKey, true);
-              await _showShareDialog(prefs, graphQLClient, currentStationName);
+              await _showShareDialog(prefs, graphQLClient, currentStationName, currentStationSlug);
               break; // Only show one dialog at a time
             }
           }
@@ -316,6 +316,7 @@ class Utils {
     SharedPreferences prefs,
     GraphQLClient? graphQLClient,
     String? currentStationName,
+    String? currentStationSlug,
   ) async {
     try {
       if (graphQLClient == null) {
@@ -349,11 +350,11 @@ class Utils {
         final shareLinkData = await shareService.getShareLink(deviceId);
         
         if (shareLinkData != null) {
-          final shareUrl = shareLinkData.url;
+          final shareUrl = shareLinkData.generateShareUrl(stationSlug: currentStationSlug);
           final shareMessage = ShareUtils.formatShareMessage(
             shareLinkData: shareLinkData,
             stationName: currentStationName,
-            stationSlug: null,
+            stationSlug: currentStationSlug,
           );
           
           // Show dialog after a small delay
