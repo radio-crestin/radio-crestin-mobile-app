@@ -3,6 +3,7 @@ import 'dart:io' show Platform;
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:radio_crestin/types/Station.dart';
+import 'package:radio_crestin/utils/vibration_pattern.dart';
 import 'package:sliding_up_panel/src/panel.dart';
 
 class MiniAudioPlayer extends StatelessWidget {
@@ -134,7 +135,10 @@ class MiniAudioPlayer extends StatelessWidget {
                               ? IconButton(
                             iconSize: 31,
                             tooltip: "Pauza",
-                            onPressed: audioHandler.pause,
+                            onPressed: () {
+                              VibrationPattern.lightImpact();
+                              audioHandler.pause();
+                            },
                             icon: const Icon(
                               Icons.pause_rounded,
                             ),
@@ -146,7 +150,10 @@ class MiniAudioPlayer extends StatelessWidget {
                               : IconButton(
                             iconSize: 31,
                             tooltip: "Start",
-                            onPressed: audioHandler.play,
+                            onPressed: () {
+                              VibrationPattern.lightImpact();
+                              audioHandler.play();
+                            },
                             icon: const Icon(
                               Icons.play_arrow_rounded,
                             ),
