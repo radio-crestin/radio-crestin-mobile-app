@@ -70,12 +70,12 @@ abstract class _AppStore with Store {
     debugPrint('Error: $error');
     debugPrint('StackTrace.current: ${StackTrace.current}');
 
-    if (_isAuthError(error)) {
+    if (_isInternetError(error)) {
+      setNotification(NotificationType.network);
+    } else if (_isAuthError(error)) {
       setNotification(NotificationType.authentication);
     } else if (_isServerError(error)) {
       setNotification(NotificationType.error);
-    } else if (_isInternetError(error)) {
-      setNotification(NotificationType.network);
     } else {
       setNotification(NotificationType.error);
     }
@@ -101,6 +101,14 @@ abstract class _AppStore with Store {
 
   bool _isInternetError(dynamic error) {
     final errorString = error.toString().toLowerCase();
+    
+    // Check for iOS-specific network error codes
+    final iosNetworkErrors = ['-1001', '-1003', '-1004', '-1005', '-1008', '-1009', '-11800'];
+    for (final code in iosNetworkErrors) {
+      if (errorString.contains(code)) return true;
+    }
+    
+    // Check for Android/general network error patterns
     return errorString.contains('network') || 
            errorString.contains('internet') ||
            errorString.contains('connection') ||
@@ -109,7 +117,12 @@ abstract class _AppStore with Store {
            errorString.contains('no address associated with hostname') ||
            errorString.contains('failed host lookup') ||
            errorString.contains('clientexception') ||
-           errorString.contains('socketexception');
+           errorString.contains('socketexception') ||
+           errorString.contains('cannot connect to host') ||
+           errorString.contains('connection refused') ||
+           errorString.contains('connection reset') ||
+           errorString.contains('connection timed out') ||
+           errorString.contains('unreachable');
   }
 
   @action
