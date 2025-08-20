@@ -580,6 +580,7 @@ class AppAudioHandler extends BaseAudioHandler {
     Utils.incrementActionsMade(
       graphQLClient: graphqlClient,
       currentStationName: currentStation.valueOrNull?.title,
+      currentStationSlug: currentStation.valueOrNull?.slug,
     );
   }
 
