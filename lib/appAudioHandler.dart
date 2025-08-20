@@ -16,7 +16,9 @@ import 'package:radio_crestin/types/Station.dart';
 import 'package:radio_crestin/utils.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:extended_image/extended_image.dart';
 
+import 'components/NotificationBanner.dart';
 import 'constants.dart';
 import 'globals.dart' as globals;
 
@@ -148,8 +150,13 @@ class AppAudioHandler extends BaseAudioHandler {
       _recentSubject.add([item]);
     });
 
-    // Propagate all events from the audio player to AudioService clients.
     player.playbackEventStream.listen(_broadcastState);
+
+    player.errorStream.listen((error) {
+      _log("Player stream error: $error");
+      globals.appStore?.handleError(error);
+      stop();
+    });
 
     // In this example, the service stops when reaching the end.
     player.processingStateStream.listen((state) {
@@ -260,11 +267,13 @@ class AppAudioHandler extends BaseAudioHandler {
         } catch (e) {
           _log("playMediaItem: Player Error: $e");
           retry++;
+          if (retry >= maxRetries) {
+            _log("playMediaItem: max retries reached");
+            globals.appStore?.handleError(e);
+            stop();
+            return;
+          }
         }
-      } else {
-        _log("playMediaItem: max retries reached");
-        stop();
-        break;
       }
     }
 
@@ -436,8 +445,15 @@ class AppAudioHandler extends BaseAudioHandler {
   void loadThumbnailsInCache() {
     _log("Loading thumbnails in cache");
     for (var station in stations.value) {
-      if (station.thumbnailUrl != null) {
-        Utils.displayImage(station.thumbnailUrl!, cache: true);
+      // Preload and cache the station thumbnail URL (used as fallback)
+      if (station.thumbnailUrl != null && station.thumbnailUrl!.isNotEmpty) {
+        // Force the image to load and cache by using ExtendedNetworkImageProvider
+        final provider = ExtendedNetworkImageProvider(station.thumbnailUrl!, cache: true);
+        provider.resolve(const ImageConfiguration())
+          .addListener(ImageStreamListener(
+            (_, __) {}, 
+            onError: (error, _) => _log("Failed to cache thumbnail: ${station.thumbnailUrl}")
+          ));
       }
     }
     _log("Done loading thumbnails in cache");

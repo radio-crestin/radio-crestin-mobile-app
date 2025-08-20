@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:like_button/like_button.dart';
 import 'package:radio_crestin/pages/HomePage.dart';
+import 'package:radio_crestin/utils/vibration_pattern.dart';
 import 'package:radio_crestin/widgets/share_handler.dart';
 import 'package:radio_crestin/services/share_service.dart';
 import 'package:radio_crestin/utils/share_utils.dart';
@@ -229,7 +230,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                   builder: (context, snapshot) {
                     final playbackState = snapshot.data;
                     final processingState = playbackState?.processingState;
-                    final playing = playbackState?.playing ?? true;
+                    final playing = playbackState?.playing ?? false;
                     final buffering = processingState == AudioProcessingState.loading ||
                         processingState == AudioProcessingState.buffering;
                     if (buffering) {
@@ -261,8 +262,10 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                                     ? Icon(Icons.pause_rounded, color: Theme.of(context).colorScheme.onPrimary)
                                     : Icon(Icons.play_arrow_rounded, color: Theme.of(context).colorScheme.onPrimary)),
                                 iconSize: 46,
-                                onPressed:
-                                    playing ? widget.audioHandler.pause : widget.audioHandler.play,
+                                onPressed: () {
+                                  VibrationPattern.selectionClick();
+                                  playing ? widget.audioHandler.pause() : widget.audioHandler.play();
+                                },
                               )),
                         ),
                       ],

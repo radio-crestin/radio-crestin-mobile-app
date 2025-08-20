@@ -15,7 +15,7 @@ import 'package:radio_crestin/utils/share_utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'constants.dart';
-import 'globals.dart';
+import 'globals.dart' as globals;
 
 class Utils {
 
@@ -58,7 +58,15 @@ class Utils {
 
   static Widget displayImage(String url, {String? fallbackImageUrl, bool cache = false}) {
     if (url.isEmpty) {
-      return Icon(Icons.photo, color: Colors.red.shade100,); // Show an error icon if the URL is empty
+      // If primary URL is empty but we have a fallback, use it
+      if (fallbackImageUrl?.isNotEmpty == true) {
+        return ExtendedImage.network(
+          fallbackImageUrl!,
+          fit: BoxFit.cover,
+          cache: true,
+        );
+      }
+      return Icon(Icons.photo, color: Colors.red.shade100,); // Show an error icon if no URLs available
     }
 
     return ExtendedImage.network(
@@ -70,13 +78,6 @@ class Utils {
       loadStateChanged: (ExtendedImageState state){
         switch (state.extendedImageLoadState) {
           case LoadState.loading:
-            if (fallbackImageUrl?.isNotEmpty == true && fallbackImageUrl != url) {
-              return ExtendedImage.network(
-                fallbackImageUrl!,
-                fit: BoxFit.cover,
-                cache: true,
-              ); // Use cached fallback image in case of an error
-            }
             return Container(color: Colors.grey[300]);
           case LoadState.completed:
             var widget=ExtendedRawImage(
@@ -114,7 +115,7 @@ class Utils {
   }
 
   static Future<void> show5StarReviewDialog() async {
-    final navigator = navigatorKey.currentState;
+    final navigator = globals.navigatorKey.currentState;
     if (navigator != null && navigator.mounted) {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
       String? reviewStatusJson = prefs.getString('_reviewStatus');
@@ -234,6 +235,11 @@ class Utils {
   }
 
   static Future<void> incrementActionsMade({GraphQLClient? graphQLClient, String? currentStationName, String? currentStationSlug}) async {
+    // Check for internet connection before proceeding
+    if (globals.appStore?.hasInternetConnection != true) {
+      return;
+    }
+    
     try {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
       String? reviewStatusJson = prefs.getString('_reviewStatus');
@@ -277,7 +283,7 @@ class Utils {
                 
                 if (shouldShow) {
                   await prefs.setBool(prefKey, true);
-                  final navigator = navigatorKey.currentState;
+                  final navigator = globals.navigatorKey.currentState;
                   if (navigator != null && navigator.mounted) {
                     Future.delayed(const Duration(seconds: 3), () {
                       Utils.show5StarReviewDialog();
@@ -359,7 +365,7 @@ class Utils {
           
           // Show dialog after a small delay
           Future.delayed(const Duration(milliseconds: 500), () {
-            final context = navigatorKey.currentContext;
+            final context = globals.navigatorKey.currentContext;
             if (context != null) {
               ShareHandler.shareApp(
                 context: context,
