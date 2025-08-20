@@ -136,7 +136,7 @@ class MiniAudioPlayer extends StatelessWidget {
                             iconSize: 31,
                             tooltip: "Pauza",
                             onPressed: () {
-                              VibrationPattern.lightImpact();
+                              VibrationPattern.selectionClick();
                               audioHandler.pause();
                             },
                             icon: const Icon(
@@ -151,7 +151,7 @@ class MiniAudioPlayer extends StatelessWidget {
                             iconSize: 31,
                             tooltip: "Start",
                             onPressed: () {
-                              VibrationPattern.lightImpact();
+                              VibrationPattern.selectionClick();
                               audioHandler.play();
                             },
                             icon: const Icon(

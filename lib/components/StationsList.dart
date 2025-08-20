@@ -33,7 +33,7 @@ class StationsList extends StatelessWidget {
 
           return GestureDetector(
               onTap: () async {
-                VibrationPattern.lightImpact();
+                VibrationPattern.selectionClick();
                 await audioHandler.playStation(station);
               },
               child: Container(

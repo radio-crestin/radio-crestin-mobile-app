@@ -263,7 +263,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                                     : Icon(Icons.play_arrow_rounded, color: Theme.of(context).colorScheme.onPrimary)),
                                 iconSize: 46,
                                 onPressed: () {
-                                  VibrationPattern.lightImpact();
+                                  VibrationPattern.selectionClick();
                                   playing ? widget.audioHandler.pause() : widget.audioHandler.play();
                                 },
                               )),
