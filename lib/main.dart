@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:developer' as developer;
 import 'dart:io' show Platform;
 
+import 'package:audio_service/audio_service.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
@@ -163,7 +164,27 @@ void main() async {
   await appStore.initConnectivity();
   globals.appStore = appStore;
 
-  getIt.registerSingleton<AppAudioHandler>(await initAudioService(graphqlClient: graphqlClient));
+  final audioHandler = await initAudioService(graphqlClient: graphqlClient);
+  getIt.registerSingleton<AppAudioHandler>(audioHandler);
+  
+  // Set up callback to start playback when internet connection is restored
+  appStore.onConnectivityRestored = () async {
+    // Check if we have a current station
+    if (audioHandler.currentStation.valueOrNull != null) {
+      // Get current playback state
+      final playbackState = audioHandler.playbackState.valueOrNull;
+      final isBuffering = playbackState?.processingState == AudioProcessingState.buffering;
+      
+      // Check if app is in foreground
+      final appLifecycleState = WidgetsBinding.instance.lifecycleState;
+      final isAppVisible = appLifecycleState == AppLifecycleState.resumed;
+      
+      // Resume playback if either buffering or app is visible
+      if (isBuffering || isAppVisible) {
+        await audioHandler.play();
+      }
+    }
+  };
 
   PackageInfo.fromPlatform().then((value) {
     globals.appVersion = value.version;
