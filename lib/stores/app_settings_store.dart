@@ -70,20 +70,43 @@ abstract class _AppStore with Store {
     debugPrint('Error: $error');
     debugPrint('StackTrace.current: ${StackTrace.current}');
 
+    // Check if this is an error that should be completely ignored (no banner at all)
+    if (_shouldIgnoreError(error)) {
+      debugPrint('Banner Error: Ignored - ${error.toString()}');
+      return;
+    }
+
     if (_isInternetError(error)) {
+      debugPrint('Banner Error: Network - ${error.toString()}');
       setNotification(NotificationType.network);
     } else if (_isAuthError(error)) {
+      debugPrint('Banner Error: Auth - ${error.toString()}');
       setNotification(NotificationType.authentication);
     } else if (_isServerError(error)) {
+      debugPrint('Banner Error: Server - ${error.toString()}');
       setNotification(NotificationType.error);
     } else {
+      debugPrint('Banner Error: Generic - ${error.toString()}');
       setNotification(NotificationType.error);
     }
   }
 
+  bool _shouldIgnoreError(dynamic error) {
+    final errorString = error.toString().toLowerCase();
+
+    // Errors that should be completely ignored (no banner shown)
+    // These are normal user interactions or expected behavior
+    return errorString.contains('loading interrupted') ||
+           errorString.contains('operation interrupted') ||
+           errorString.contains('operation was interrupted') ||
+           errorString.contains('cleartext') ||
+           errorString.contains('cleartextnotpermittedexception') ||
+           errorString.contains('connection aborted');
+  }
+
   bool _isAuthError(dynamic error) {
     final errorString = error.toString().toLowerCase();
-    return errorString.contains('auth') || 
+    return errorString.contains('auth') ||
            errorString.contains('unauthorized') ||
            errorString.contains('forbidden') ||
            errorString.contains('401') ||
@@ -92,7 +115,7 @@ abstract class _AppStore with Store {
 
   bool _isServerError(dynamic error) {
     final errorString = error.toString().toLowerCase();
-    return errorString.contains('500') || 
+    return errorString.contains('500') ||
            errorString.contains('502') ||
            errorString.contains('503') ||
            errorString.contains('504') ||
@@ -101,15 +124,15 @@ abstract class _AppStore with Store {
 
   bool _isInternetError(dynamic error) {
     final errorString = error.toString().toLowerCase();
-    
+
     // Check for iOS-specific network error codes
     final iosNetworkErrors = ['-1001', '-1003', '-1004', '-1005', '-1008', '-1009', '-11800'];
     for (final code in iosNetworkErrors) {
       if (errorString.contains(code)) return true;
     }
-    
+
     // Check for Android/general network error patterns
-    return errorString.contains('network') || 
+    return errorString.contains('network') ||
            errorString.contains('internet') ||
            errorString.contains('connection') ||
            errorString.contains('socket') ||
