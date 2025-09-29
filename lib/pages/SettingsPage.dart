@@ -5,7 +5,9 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:get_it/get_it.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
+import 'package:radio_crestin/appAudioHandler.dart';
 import 'package:radio_crestin/services/share_service.dart';
 import 'package:radio_crestin/widgets/share_handler.dart';
 import 'package:radio_crestin/utils/share_utils.dart';
@@ -270,7 +272,19 @@ class _SettingsPageState extends State<SettingsPage> {
                     onPressed: () async {
                       FirebaseCrashlytics.instance.log("WHATSAPP_CONTACT");
 
-                      final message = "Buna ziua [Radio Crestin ${Platform.isAndroid? "Android": Platform.isIOS? "iOS": ""}]\n";
+                      final audioHandler = GetIt.instance<AppAudioHandler>();
+                      final currentStation = audioHandler.currentStation.valueOrNull;
+                      final stationInfo = currentStation != null
+                          ? "Statie radio: ${currentStation.title}\n"
+                          : "";
+
+                      final platform = Platform.isAndroid ? "Android" : Platform.isIOS ? "iOS" : "Unknown";
+                      final deviceIdPrefix = _deviceId.length >= 4 ? _deviceId.substring(0, 4) : _deviceId;
+                      final message = "Buna ziua [Radio Crestin $platform]-$deviceIdPrefix\n\n"
+                          "Versiune App: $_version ($_buildNumber)\n"
+                          "${stationInfo}\n"
+                          "Mesaj: ";
+
                       launchUrl(
                           Uri.parse(
                               "https://wa.me/40766338046?text=${Uri.encodeFull(message)}"
