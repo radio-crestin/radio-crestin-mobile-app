@@ -101,7 +101,8 @@ abstract class _AppStore with Store {
            errorString.contains('operation was interrupted') ||
            errorString.contains('cleartext') ||
            errorString.contains('cleartextnotpermittedexception') ||
-           errorString.contains('connection aborted');
+           errorString.contains('connection aborted') ||
+           errorString.contains('source error');
   }
 
   bool _isAuthError(dynamic error) {
@@ -147,8 +148,7 @@ abstract class _AppStore with Store {
            errorString.contains('connection timed out') ||
            errorString.contains('unreachable') ||
            errorString.contains('unknownhostexception') ||
-           errorString.contains('unable to resolve host') ||
-           errorString.contains('source error');
+           errorString.contains('unable to resolve host');
   }
 
   @action
