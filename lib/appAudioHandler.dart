@@ -311,6 +311,25 @@ class AppAudioHandler extends BaseAudioHandler {
     return super.stop();
   }
 
+  Future<void> softReconnect() async {
+    try {
+      final item = mediaItem.valueOrNull;
+      if (item != null && currentStation.value != null) {
+        final streamUrl = item.extras?["station_streams"]?[0] ?? item.id;
+        final trackedUrl = addTrackingParametersToUrl(streamUrl);
+
+        await player.setAudioSource(
+          AudioSource.uri(Uri.parse(trackedUrl)),
+          preload: true,
+        );
+        await player.play();
+      }
+    } catch (e) {
+      _log("Soft reconnect failed: $e");
+      globals.appStore?.handleError(e);
+    }
+  }
+
   @override
   Future<void> playFromSearch(String query, [Map<String, dynamic>? extras]) {
     _log('playFromSearch($query, $extras)');

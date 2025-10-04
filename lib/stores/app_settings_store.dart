@@ -168,10 +168,16 @@ abstract class _AppStore with Store {
   void monitorConnection() {
     _subscription?.cancel();
     _subscription = _connectivity.onConnectivityChanged.listen((results) {
+      final previouslyHadConnection = hasInternetConnection;
       final hasConnection =
           results.isNotEmpty &&
           !results.every((result) => result == ConnectivityResult.none);
+
       setInternetConnection(hasConnection);
+
+      if (previouslyHadConnection && hasConnection) {
+        onConnectivityRestored?.call();
+      }
     });
   }
 

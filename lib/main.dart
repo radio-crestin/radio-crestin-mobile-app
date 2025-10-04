@@ -167,22 +167,10 @@ void main() async {
   final audioHandler = await initAudioService(graphqlClient: graphqlClient);
   getIt.registerSingleton<AppAudioHandler>(audioHandler);
   
-  // Set up callback to start playback when internet connection is restored
   appStore.onConnectivityRestored = () async {
-    // Check if we have a current station
-    if (audioHandler.currentStation.valueOrNull != null) {
-      // Get current playback state
-      final playbackState = audioHandler.playbackState.valueOrNull;
-      final isBuffering = playbackState?.processingState == AudioProcessingState.buffering;
-      
-      // Check if app is in foreground
-      final appLifecycleState = WidgetsBinding.instance.lifecycleState;
-      final isAppVisible = appLifecycleState == AppLifecycleState.resumed;
-      
-      // Resume playback if either buffering or app is visible
-      if (isBuffering || isAppVisible) {
-        await audioHandler.play();
-      }
+    if (audioHandler.currentStation.valueOrNull != null &&
+        (audioHandler.playbackState.valueOrNull?.playing ?? false)) {
+      await audioHandler.softReconnect();
     }
   };
 
