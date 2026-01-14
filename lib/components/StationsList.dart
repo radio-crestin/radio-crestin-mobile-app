@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:like_button/like_button.dart';
 import 'package:radio_crestin/appAudioHandler.dart';
 import 'package:radio_crestin/theme.dart';
+import 'package:radio_crestin/utils/vibration_pattern.dart';
 import 'package:sliding_up_panel/src/panel.dart';
 
 import '../types/Station.dart';
@@ -32,6 +33,7 @@ class StationsList extends StatelessWidget {
 
           return GestureDetector(
               onTap: () async {
+                VibrationPattern.selectionClick();
                 await audioHandler.playStation(station);
               },
               child: Container(

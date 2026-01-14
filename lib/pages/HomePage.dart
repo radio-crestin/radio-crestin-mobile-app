@@ -25,6 +25,7 @@ import '../main.dart';
 import '../queries/getStations.graphql.dart';
 import '../types/Station.dart';
 import '../utils/PositionRetainedScrollPhysics.dart';
+import '../utils/screen_utils.dart';
 import 'SettingsPage.dart';
 
 class HomePage extends StatefulWidget {
@@ -254,11 +255,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       final shareLinkData = await shareService.getShareLink(deviceId!);
       
       if (shareLinkData != null) {
-        final shareUrl = shareLinkData.generateShareUrl();
+        // Get current station from the audio handler
+        final currentStation = _audioHandler.currentStation.value;
+        
+        final shareUrl = shareLinkData.generateShareUrl(
+          stationSlug: currentStation?.slug,
+        );
         final shareMessage = ShareUtils.formatShareMessage(
           shareLinkData: shareLinkData,
-          stationName: null,
-          stationSlug: null,
+          stationName: currentStation?.title,
+          stationSlug: currentStation?.slug,
         );
         
         // Show dialog with share options
@@ -267,6 +273,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             context: context,
             shareUrl: shareUrl,
             shareMessage: shareMessage,
+            stationName: currentStation?.title,
             shareLinkData: shareLinkData,
             showDialog: true,
           );
@@ -336,17 +343,21 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   automaticallyImplyLeading: false,
                   title: Container(
                     margin: const EdgeInsets.only(top: 6),
-                    child: const Row(
+                    child: Row(
                       children: [
-                        Image(
+                        const Image(
                           image: AssetImage('assets/icons/ic_logo_filled.png'),
                           width: 40,
                         ),
-                        SizedBox(width: 10),
-                        Text(
-                          "Radio Creștin",
-                          style: TextStyle(fontSize: 21),
-                        ),
+                        if (MediaQuery.of(context).size.width >= 350) ...[
+                          const SizedBox(width: 10),
+                          Text(
+                            "Radio Creștin",
+                            style: TextStyle(
+                              fontSize: ScreenUtils.isSmallDevice(context) ? 16 : 21,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -409,17 +420,21 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       automaticallyImplyLeading: false,
                       title: Container(
                           margin: const EdgeInsets.only(top: 6),
-                          child: const Row(
+                          child: Row(
                             children: [
-                              Image(
+                              const Image(
                                 image: AssetImage('assets/icons/ic_logo_filled.png'),
                                 width: 40,
                               ),
-                              SizedBox(width: 10),
-                              Text(
-                                "Radio Creștin",
-                                style: TextStyle(fontSize: 21),
-                              ),
+                              if (MediaQuery.of(context).size.width >= 350) ...[
+                                const SizedBox(width: 10),
+                                Text(
+                                  "Radio Creștin",
+                                  style: TextStyle(
+                                    fontSize: ScreenUtils.isSmallDevice(context) ? 16 : 21,
+                                  ),
+                                ),
+                              ],
                             ],
                           )),
                       actions: [

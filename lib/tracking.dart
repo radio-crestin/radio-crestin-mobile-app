@@ -12,6 +12,7 @@ class AppTracking {
     Utils.incrementActionsMade(
       graphQLClient: graphQLClient,
       currentStationName: station.title,
+      currentStationSlug: station.slug,
     );
     developer.log("trackPlayStation");
     await FirebaseAnalytics.instance.logEvent(name: "listen_radio_start", parameters: {

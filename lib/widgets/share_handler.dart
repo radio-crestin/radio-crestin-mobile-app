@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,6 +8,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:radio_crestin/services/share_service.dart';
 import 'package:radio_crestin/utils/share_utils.dart';
+import 'package:radio_crestin/utils/screen_utils.dart';
 
 class ShareHandler {
   static Future<void> shareApp({
@@ -54,30 +56,42 @@ class ShareHandler {
     await showDialog(
       context: context,
       barrierDismissible: true,
-      barrierColor: Colors.black54,
+      barrierColor: Colors.black.withOpacity(0.7),
       builder: (BuildContext context) {
-        return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-          ),
-          elevation: 8,
-          backgroundColor: Colors.transparent,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 400),
-            decoration: BoxDecoration(
-              color: Theme.of(context).brightness == Brightness.dark 
-                  ? const Color(0xFF34131E) // Dark background
-                  : const Color(0xFFFAF0F5), // Light wine red tinted background
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+          child: Dialog(
+            shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                color: Theme.of(context).brightness == Brightness.dark 
-                    ? const Color(0xFF220D15) // Darker version of #34131E
-                    : Theme.of(context).primaryColor.withOpacity(0.2),
-                width: 1,
-              ),
             ),
-            child: Stack(
+            elevation: 8,
+            backgroundColor: Colors.transparent,
+            insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 400),
+              decoration: BoxDecoration(
+                gradient: Theme.of(context).brightness == Brightness.dark 
+                    ? LinearGradient(
+                        colors: [
+                          const Color(0xFF301520), // Less black, still dark (top-left)
+                          const Color(0xFF4A2038), // More pink, same darkness (bottom-right)
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      )
+                    : null,
+                color: Theme.of(context).brightness == Brightness.dark 
+                    ? null // Using gradient instead
+                    : const Color(0xFFFAF0F5), // Light wine red tinted background
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: Theme.of(context).brightness == Brightness.dark 
+                      ? const Color(0xFF220D15) // Darker version of #34131E
+                      : Theme.of(context).primaryColor.withOpacity(0.2),
+                  width: 1,
+                ),
+              ),
+              child: Stack(
               children: [
                 Padding(
                   padding: const EdgeInsets.all(24),
@@ -139,50 +153,60 @@ class ShareHandler {
                       
                       // Visitor count
                       const SizedBox(height: 20),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: (Theme.of(context).brightness == Brightness.light
-                              ? const Color(0xFFFF6B35) // Orange for light theme
-                              : const Color(0xFFffc700)).withOpacity(0.12), // Yellow for dark theme
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(
-                            color: (Theme.of(context).brightness == Brightness.light
-                                ? const Color(0xFFFF6B35)
-                                : const Color(0xFFffc700)).withOpacity(0.3),
-                            width: 1,
+                      Center(
+                        child: Container(
+                          constraints: BoxConstraints(
+                            maxWidth: ScreenUtils.isSmallDevice(context) 
+                                ? MediaQuery.of(context).size.width * 0.85
+                                : double.infinity,
                           ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.max,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Icon(
-                              Icons.people_outline_rounded,
-                              size: 16,
-                              color: Theme.of(context).brightness == Brightness.light
-                                  ? const Color(0xFFFF6B35) // Orange for light theme
-                                  : const Color(0xFFffc700), // Yellow for dark theme
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: (Theme.of(context).brightness == Brightness.light
+                                ? const Color(0xFFFF6B35) // Orange for light theme
+                                : const Color(0xFFffc700)).withOpacity(0.12), // Yellow for dark theme
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(
+                              color: (Theme.of(context).brightness == Brightness.light
+                                  ? const Color(0xFFFF6B35)
+                                  : const Color(0xFFffc700)).withOpacity(0.3),
+                              width: 1,
                             ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                shareLinkData.visitCount == 0
-                                    ? 'Niciun prieten nu a accesat link-ul tău'
-                                    : shareLinkData.visitCount == 1
-                                        ? '1 prieten a accesat invitația ta'
-                                        : '${shareLinkData.visitCount} prieteni au accesat invitația ta',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: Theme.of(context).brightness == Brightness.light
-                                      ? const Color(0xFFFF6B35) // Orange for light theme
-                                      : const Color(0xFFffc700), // Yellow for dark theme
-                                ),
-                                textAlign: TextAlign.left,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.people_outline_rounded,
+                                size: 16,
+                                color: Theme.of(context).brightness == Brightness.light
+                                    ? const Color(0xFFFF6B35) // Orange for light theme
+                                    : const Color(0xFFffc700), // Yellow for dark theme
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text(
+                                  shareLinkData.visitCount == 0
+                                      ? 'Niciun prieten nu a accesat link-ul tău'
+                                      : shareLinkData.visitCount == 1
+                                          ? '1 prieten a accesat invitația ta'
+                                          : '${shareLinkData.visitCount} prieteni au accesat invitația ta',
+                                  style: TextStyle(
+                                    fontSize: ScreenUtils.isSmallDevice(context) ? 11 : 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Theme.of(context).brightness == Brightness.light
+                                        ? const Color(0xFFFF6B35) // Orange for light theme
+                                        : const Color(0xFFffc700), // Yellow for dark theme
+                                  ),
+                                  textAlign: TextAlign.center,
+                                  softWrap: true,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                       
@@ -368,6 +392,7 @@ class ShareHandler {
                 ),
               ],
             ),
+          ),
           ),
         );
       },
