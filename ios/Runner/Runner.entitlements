@@ -6,8 +6,6 @@
 	<array>
 		<string>TAG</string>
 	</array>
-</dict>
-<dict>
 	<key>com.apple.developer.associated-domains</key>
 	<array>
 		<string>applinks:yourDomain.com</string>
@@ -15,5 +13,7 @@
 		<string>applinks:share.radiocrestin.ro</string>
 		<string>applinks:asculta.radiocrestin.ro</string>
 	</array>
+	<key>com.apple.developer.carplay-audio</key>
+	<true/>
 </dict>
 </plist>
