@@ -91,54 +91,6 @@ class AppAudioHandler extends BaseAudioHandler {
     _setupRefreshStations();
   }
 
-  // Android Auto
-  @override
-  Future<List<MediaItem>> getChildren(String parentMediaId, [Map<String, dynamic>? options]) async {
-    _log("getChildren: $parentMediaId");
-    switch (parentMediaId) {
-      case AudioService.recentRootId:
-        // When the user resumes a media session, tell the system what the most
-        // recently played item was.
-        return _recentSubject.value;
-      default:
-        return {
-          AudioService.browsableRootId: const [
-            MediaItem(
-              id: "radioStationsRootId",
-              title: "Statii Radio",
-              playable: false,
-            ),
-          ],
-          "radioStationsRootId": stationsMediaItems.value,
-        }[parentMediaId]!;
-    }
-  }
-
-  @override
-  ValueStream<Map<String, dynamic>> subscribeToChildren(String parentMediaId) {
-    _log("subscribeToChildren: $parentMediaId");
-    switch (parentMediaId) {
-      case AudioService.recentRootId:
-        final stream = _recentSubject.map((_) => <String, dynamic>{});
-        return _recentSubject.hasValue
-            ? stream.shareValueSeeded(<String, dynamic>{})
-            : stream.shareValue();
-      default:
-        return Stream.value({
-          AudioService.browsableRootId: const [
-            MediaItem(
-              id: "radioStationsRootId",
-              title: "Radiouri Crestine",
-              playable: false,
-            ),
-          ],
-          "radioStationsRootId": stationsMediaItems.value,
-        }[parentMediaId]!)
-            .map((_) => <String, dynamic>{})
-            .shareValue();
-    }
-  }
-
   // Audio Player
   Future<void> _initPlayer() async {
     _log("initPlayer");
