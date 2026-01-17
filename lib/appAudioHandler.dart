@@ -70,6 +70,9 @@ class AppAudioHandler extends BaseAudioHandler {
       BehaviorSubject.seeded(null);
   final BehaviorSubject<List<MediaItem>> stationsMediaItems = BehaviorSubject.seeded(<MediaItem>[]);
 
+  // CarPlay: playlist to cycle through when using skip next/prev (set by CarPlayService)
+  List<Station> carPlayPlaylist = [];
+
   _log(String message) {
     developer.log("AppAudioHandler: $message");
   }
@@ -135,33 +138,27 @@ class AppAudioHandler extends BaseAudioHandler {
   @override
   Future<void> skipToNext() {
     _log('skipToNext()');
-    if (currentStation.value != null) {
-      final currentStationIndex = filteredStations.value.indexWhere((s) {
-        return s.rawStationData.id == currentStation.value!.id;
-      });
-      if (currentStationIndex < filteredStations.value.length - 1) {
-        return playStation(filteredStations.value[currentStationIndex + 1]);
-      } else {
-        return playStation(filteredStations.value[0]);
-      }
-    }
-    return super.skipToNext();
+    if (currentStation.value == null) return super.skipToNext();
+
+    final playlist = carPlayPlaylist.isNotEmpty ? carPlayPlaylist : filteredStations.value;
+    if (playlist.isEmpty) return super.skipToNext();
+
+    final currentIndex = playlist.indexWhere((s) => s.slug == currentStation.value!.slug);
+    final nextIndex = (currentIndex + 1) % playlist.length;
+    return playStation(playlist[nextIndex < 0 ? 0 : nextIndex]);
   }
 
   @override
   Future<void> skipToPrevious() {
     _log('skipToPrevious()');
-    if (mediaItem.value != null) {
-      final currentStationIndex = filteredStations.value.indexWhere((s) {
-        return s.rawStationData.id == currentStation.value!.id;
-      });
-      if (currentStationIndex > 0) {
-        return playStation(filteredStations.value[currentStationIndex - 1]);
-      } else {
-        return playStation(filteredStations.value[filteredStations.value.length - 1]);
-      }
-    }
-    return super.skipToPrevious();
+    if (currentStation.value == null) return super.skipToPrevious();
+
+    final playlist = carPlayPlaylist.isNotEmpty ? carPlayPlaylist : filteredStations.value;
+    if (playlist.isEmpty) return super.skipToPrevious();
+
+    final currentIndex = playlist.indexWhere((s) => s.slug == currentStation.value!.slug);
+    final prevIndex = currentIndex <= 0 ? playlist.length - 1 : currentIndex - 1;
+    return playStation(playlist[prevIndex]);
   }
 
   @override

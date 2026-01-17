@@ -64,13 +64,14 @@ dependencies:
   upgrader: ^11.1.0
   fluttertoast: ^8.2.10
   easy_search_bar: ^2.5.0
-  flutter_sticky_header: ^0.7.0
+  flutter_sticky_header: ^0.8.0
   in_app_review: ^2.0.8
   like_button: ^2.0.5
   extended_image: ^8.2.0
   app_links: ^6.1.1
   firebase_messaging: ^15.0.4
   flutter_native_splash: ^2.4.1
+  flutter_carplay: ^1.2.3
 
 dev_dependencies:
   dependency_validator: ^4.0.0
