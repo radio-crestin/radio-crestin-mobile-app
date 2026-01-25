@@ -119,6 +119,8 @@ PODS:
     - PromisesSwift (~> 2.1)
   - FirebaseSharedSwift (11.15.0)
   - Flutter (1.0.0)
+  - flutter_carplay (1.1.0):
+    - Flutter
   - flutter_native_splash (0.0.1):
     - Flutter
   - flutter_nfc_kit (2.0.0):
@@ -216,6 +218,7 @@ DEPENDENCIES:
   - firebase_messaging (from `.symlinks/plugins/firebase_messaging/ios`)
   - firebase_remote_config (from `.symlinks/plugins/firebase_remote_config/ios`)
   - Flutter (from `Flutter`)
+  - flutter_carplay (from `.symlinks/plugins/flutter_carplay/ios`)
   - flutter_native_splash (from `.symlinks/plugins/flutter_native_splash/ios`)
   - flutter_nfc_kit (from `.symlinks/plugins/flutter_nfc_kit/ios`)
   - fluttertoast (from `.symlinks/plugins/fluttertoast/ios`)
@@ -275,6 +278,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/firebase_remote_config/ios"
   Flutter:
     :path: Flutter
+  flutter_carplay:
+    :path: ".symlinks/plugins/flutter_carplay/ios"
   flutter_native_splash:
     :path: ".symlinks/plugins/flutter_native_splash/ios"
   flutter_nfc_kit:
@@ -323,7 +328,8 @@ SPEC CHECKSUMS:
   FirebaseRemoteConfigInterop: 1c6135e8a094cc6368949f5faeeca7ee8948b8aa
   FirebaseSessions: 655ff17f3cc1a635cbdc2d69b953878001f9e25b
   FirebaseSharedSwift: e17c654ef1f1a616b0b33054e663ad1035c8fd40
-  Flutter: e0871f40cf51350855a761d2e70bf5af5b9b5de7
+  Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
+  flutter_carplay: 7326e72d693f7540711bf2d80be7e5aee4fe22b5
   flutter_native_splash: edf599c81f74d093a4daf8e17bd7a018854bc778
   flutter_nfc_kit: 965c98c3fa68f5609f1cc89abb968fe1b8ffdbaa
   fluttertoast: 21eecd6935e7064cc1fcb733a4c5a428f3f24f0f
@@ -342,6 +348,6 @@ SPEC CHECKSUMS:
   sqflite: 673a0e54cc04b7d6dba8d24fb8095b31c3a99eec
   url_launcher_ios: 5334b05cef931de560670eeae103fd3e431ac3fe
 
-PODFILE CHECKSUM: b70fd1bcc566ab0d7374006c67e5b0296d34db65
+PODFILE CHECKSUM: c97c7b52eeefe07e07a87b7c35d294f73deebba0
 
 COCOAPODS: 1.16.2

@@ -26,6 +26,7 @@ import 'appAudioHandler.dart';
 import 'constants.dart';
 import 'firebase_options.dart';
 import 'globals.dart' as globals;
+import 'services/car_play_service.dart';
 
 final getIt = GetIt.instance;
 
@@ -154,6 +155,11 @@ void main() async {
   );
 
   getIt.registerSingleton<AppAudioHandler>(await initAudioService(graphqlClient: graphqlClient));
+
+  // Initialize CarPlay/Android Auto service
+  final carPlayService = CarPlayService();
+  await carPlayService.initialize();
+  getIt.registerSingleton<CarPlayService>(carPlayService);
 
   PackageInfo.fromPlatform().then((value) {
     globals.appVersion = value.version;
