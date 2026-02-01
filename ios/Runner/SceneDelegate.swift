@@ -11,6 +11,14 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         window = UIWindow(windowScene: windowScene)
 
         let controller = FlutterViewController(engine: flutterEngine, nibName: nil, bundle: nil)
+
+        // Show the launch screen as a splash until Flutter renders its first frame.
+        // FlutterViewController automatically removes the splashScreenView once
+        // the first Flutter frame is presented.
+        if let launchScreen = UIStoryboard(name: "LaunchScreen", bundle: nil).instantiateInitialViewController()?.view {
+            controller.splashScreenView = launchScreen
+        }
+
         window?.rootViewController = controller
         window?.makeKeyAndVisible()
     }

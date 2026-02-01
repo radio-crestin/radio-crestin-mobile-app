@@ -8,11 +8,9 @@ import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fuzzywuzzy/fuzzywuzzy.dart';
-import 'package:get_it/get_it.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:radio_crestin/queries/getStations.graphql.dart';
-import 'package:radio_crestin/services/car_play_service.dart';
 import 'package:radio_crestin/tracking.dart';
 import 'package:radio_crestin/types/Station.dart';
 import 'package:radio_crestin/utils.dart';
@@ -79,6 +77,23 @@ class AppAudioHandler extends BaseAudioHandler {
     developer.log("AppAudioHandler: $message");
   }
 
+  bool _hasStationsChanged(List<Station> oldStations, List<Station> newStations) {
+    if (oldStations.length != newStations.length) return true;
+    for (int i = 0; i < oldStations.length; i++) {
+      final o = oldStations[i];
+      final n = newStations[i];
+      if (o.id != n.id ||
+          o.title != n.title ||
+          o.songId != n.songId ||
+          o.songTitle != n.songTitle ||
+          o.totalListeners != n.totalListeners ||
+          o.isUp != n.isUp) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   final AudioPlayer player;
 
   // ignore: close_sinks
@@ -119,7 +134,7 @@ class AppAudioHandler extends BaseAudioHandler {
 
   Future<void> selectStation(Station station) async {
     _log('playStation($station)');
-    final item = await station.mediaItem;
+    final item = station.mediaItem;
 
     mediaItem.add(item);
     currentStation.add(station);
@@ -137,14 +152,17 @@ class AppAudioHandler extends BaseAudioHandler {
     return play();
   }
 
+  List<Station> _getCarPlayPlaylist() {
+    if (carPlayPlaylist.isNotEmpty) return carPlayPlaylist;
+    return filteredStations.value;
+  }
+
   @override
   Future<void> skipToNext() {
     _log('skipToNext()');
     if (currentStation.value == null) return super.skipToNext();
 
-    final carPlayService = GetIt.instance<CarPlayService>();
-    final useCarPlayPlaylist = carPlayService.isConnected && carPlayPlaylist.isNotEmpty;
-    final playlist = useCarPlayPlaylist ? carPlayPlaylist : filteredStations.value;
+    final playlist = _getCarPlayPlaylist();
     if (playlist.isEmpty) return super.skipToNext();
 
     final currentIndex = playlist.indexWhere((s) => s.slug == currentStation.value!.slug);
@@ -157,9 +175,7 @@ class AppAudioHandler extends BaseAudioHandler {
     _log('skipToPrevious()');
     if (currentStation.value == null) return super.skipToPrevious();
 
-    final carPlayService = GetIt.instance<CarPlayService>();
-    final useCarPlayPlaylist = carPlayService.isConnected && carPlayPlaylist.isNotEmpty;
-    final playlist = useCarPlayPlaylist ? carPlayPlaylist : filteredStations.value;
+    final playlist = _getCarPlayPlaylist();
     if (playlist.isEmpty) return super.skipToPrevious();
 
     final currentIndex = playlist.indexWhere((s) => s.slug == currentStation.value!.slug);
@@ -296,7 +312,7 @@ class AppAudioHandler extends BaseAudioHandler {
 
   // Metadata refresh
   void _broadcastState(PlaybackEvent event) {
-    _log("_broadcastState: $event, player.processingState: ${player.processingState}");
+    // Avoid logging on every playback event for performance
     final playing = player.playing;
     playbackState.add(playbackState.value.copyWith(
       controls: [
@@ -337,9 +353,7 @@ class AppAudioHandler extends BaseAudioHandler {
       final parsedData = result.parsedData;
       if (parsedData != null) {
         stations.add((parsedData.stations)
-            .map((rawStationData) => Station(
-                rawStationData: rawStationData,
-                isFavorite: favoriteStationSlugs.value.contains(rawStationData.slug)))
+            .map((rawStationData) => Station(rawStationData: rawStationData))
             .toList());
         stationGroups.add(parsedData.station_groups);
         loadThumbnailsInCache();
@@ -354,8 +368,7 @@ class AppAudioHandler extends BaseAudioHandler {
     final parsedData = (await graphqlClient.query(Options$Query$GetStations())).parsedData;
     stations.add((parsedData?.stations ?? [])
         .map((rawStationData) => Station(
-            rawStationData: rawStationData,
-            isFavorite: favoriteStationSlugs.value.contains(rawStationData.slug)))
+            rawStationData: rawStationData))
         .toList());
     stationGroups.add(parsedData?.station_groups ?? []);
 
@@ -377,12 +390,17 @@ class AppAudioHandler extends BaseAudioHandler {
         _log("No data");
         return;
       }
-      stations.add((parsedData.stations)
-          .map((rawStationData) => Station(
-              rawStationData: rawStationData,
-              isFavorite: favoriteStationSlugs.value.contains(rawStationData.slug)))
-          .toList());
-      stationGroups.add(parsedData.station_groups);
+      final newStations = (parsedData.stations)
+          .map((rawStationData) => Station(rawStationData: rawStationData))
+          .toList();
+
+      // Only emit if station data actually changed (avoid redundant rebuilds)
+      if (_hasStationsChanged(stations.value, newStations)) {
+        stations.add(newStations);
+        stationGroups.add(parsedData.station_groups);
+      } else {
+        _log("Stations unchanged, skipping update");
+      }
 
       loadThumbnailsInCache();
     });
@@ -502,7 +520,7 @@ class AppAudioHandler extends BaseAudioHandler {
       newFavoriteStationSlugs = List<String>.from(json.decode(favoriteJson));
     }
     favoriteStationSlugs.add(newFavoriteStationSlugs);
-    updateStationsFavoriteStatus();
+
   }
 
   Future<void> setStationIsFavorite(Station station, bool isFavorite) async {
@@ -513,7 +531,7 @@ class AppAudioHandler extends BaseAudioHandler {
       favoriteStationSlugs
           .add(favoriteStationSlugs.value.where((slug) => slug != station.slug).toList());
     }
-    updateStationsFavoriteStatus();
+
 
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.setString(_favoriteStationsKey, json.encode(favoriteStationSlugs.value));
@@ -523,17 +541,6 @@ class AppAudioHandler extends BaseAudioHandler {
     );
   }
 
-  updateStationsFavoriteStatus() {
-    stations.add(stations.value.map((station) {
-      station.isFavorite = favoriteStationSlugs.value.contains(station.slug);
-      return station;
-    }).toList());
-
-    if (currentStation.value != null) {
-      currentStation
-          .add(stations.value.firstWhere((station) => station.slug == currentStation.value!.slug));
-    }
-  }
 
   void _initFilteredStationsStream() {
     final combinedStream =
@@ -560,7 +567,7 @@ class AppAudioHandler extends BaseAudioHandler {
   }
 
   void _initUpdateCurrentStationMetadata() {
-    stations.stream.listen((stations) async {
+    stations.stream.listen((stations) {
       _log("updateCurrentStationMetadata");
       final sortedStations = stations..sort((a, b) => a.order.compareTo(b.order));
 
@@ -569,15 +576,14 @@ class AppAudioHandler extends BaseAudioHandler {
       }
 
       final newStationsMediaItems =
-          (await Future.wait(sortedStations.map((station) => station.mediaItem)));
+          sortedStations.map((station) => station.mediaItem).toList();
 
       stationsMediaItems.add(newStationsMediaItems);
 
       // Update current metadata of played media item
       if (mediaItem.value != null) {
-        var newMediaItems = stationsMediaItems.value;
         var newMediaItem =
-            newMediaItems.where((item) => item.id == mediaItem.value?.id).firstOrNull;
+            newStationsMediaItems.where((item) => item.id == mediaItem.value?.id).firstOrNull;
         if (newMediaItem != null) {
           mediaItem.add(newMediaItem);
         }

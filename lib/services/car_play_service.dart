@@ -21,10 +21,13 @@ class CarPlayService {
   bool _isConnected = false;
   bool get isConnected => _isConnected;
 
+  // Track last known state to avoid redundant native calls
+  String? _lastPlayingSlug;
+
   // Method channel for Now Playing buttons (iOS CarPlay)
   static const _nowPlayingChannel = MethodChannel('com.radiocrestin.nowplaying_buttons');
 
-  // Subscriptions for current station and favorites changes
+  // Subscriptions
   StreamSubscription? _currentStationSubscription;
   StreamSubscription? _favoritesSubscription;
 
@@ -57,8 +60,14 @@ class CarPlayService {
     _log("CarPlay/Android Auto service initialized");
   }
 
+  /// Returns whether a station slug is currently favorited.
+  /// This is the SINGLE source of truth for favorite state.
+  bool _isFavorite(String slug) {
+    return _audioHandler.favoriteStationSlugs.value.contains(slug);
+  }
+
   void _setupNowPlayingButtonsHandler() {
-    // Listen for favorite button presses from native iOS
+    // Listen for favorite button presses from native iOS CarPlay
     _nowPlayingChannel.setMethodCallHandler((call) async {
       if (call.method == 'onFavoriteButtonPressed') {
         final args = call.arguments as Map<dynamic, dynamic>;
@@ -70,21 +79,24 @@ class CarPlayService {
       }
     });
 
-    // Sync favorite button state and list playing indicator when station changes
+    // Update CarPlay list playing indicator when station changes
     _currentStationSubscription = _audioHandler.currentStation.stream.listen((station) {
-      if (station != null) {
-        _updateNowPlayingFavoriteState(station.isFavorite);
+      if (station != null && _lastPlayingSlug != station.slug) {
+        _lastPlayingSlug = station.slug;
         _updateCarPlayListPlayingState(station.slug);
+        // Also sync Now Playing favorite button for the new station
+        _updateNowPlayingFavoriteState(_isFavorite(station.slug));
       }
     });
 
+    // Update favorite UI (Now Playing button + CarPlay lists) when favorites change
     _favoritesSubscription = _audioHandler.favoriteStationSlugs.stream.listen((_) {
+      // Update Now Playing favorite button
       final currentStation = _audioHandler.currentStation.value;
       if (currentStation != null) {
-        final isFavorite = _audioHandler.favoriteStationSlugs.value.contains(currentStation.slug);
-        _updateNowPlayingFavoriteState(isFavorite);
+        _updateNowPlayingFavoriteState(_isFavorite(currentStation.slug));
       }
-      // Update CarPlay favorites list (reuses existing CPListItem objects)
+      // Update CarPlay favorites list and star prefixes
       _updateCarPlayFavorites();
     });
   }
@@ -98,7 +110,6 @@ class CarPlayService {
   }
 
   void _updateCarPlayListPlayingState(String currentSlug) {
-    // Update playing state in both tabs
     for (final entry in _favoriteListItems.entries) {
       entry.value.setIsPlaying(entry.key == currentSlug);
     }
@@ -123,15 +134,15 @@ class CarPlayService {
     // Get favorite items (reusing pre-created CPListItem objects)
     final favoriteItems = _sortedStations
         .where((station) => favoriteSlugs.contains(station.slug))
-        .map((station) => _favoriteListItems[station.slug]!)
+        .map((station) => _favoriteListItems[station.slug])
+        .whereType<CPListItem>()
         .toList();
-
-    _log("Updating CarPlay favorites: ${favoriteItems.length} stations");
 
     _flutterCarplay!.updateListTemplateSections(
       elementId: _favoriteTemplate!.uniqueId,
       sections: [CPListSection(items: favoriteItems)],
     );
+    _flutterCarplay!.forceUpdateRootTemplate();
   }
 
   void _initializeCarPlay() {
@@ -188,18 +199,16 @@ class CarPlayService {
       rootTemplate: listTemplate,
       animated: false,
     );
+    _flutterCarplay?.forceUpdateRootTemplate();
   }
 
   void _waitForStations() {
-    // Use a simple polling approach instead of stream subscription
-    // to avoid the immediate-fire issue with BehaviorSubject
     Timer.periodic(const Duration(milliseconds: 500), (timer) {
       if (_carPlayInitialized) {
         timer.cancel();
         return;
       }
 
-      // Use filteredStations which is properly sorted by order (same as app)
       final stations = _audioHandler.filteredStations.value;
       if (stations.isNotEmpty) {
         timer.cancel();
@@ -214,6 +223,7 @@ class CarPlayService {
       return;
     }
 
+    try {
     _log("Setting up CarPlay with ${stations.length} stations");
 
     final favoriteSlugs = _audioHandler.favoriteStationSlugs.value;
@@ -229,22 +239,21 @@ class CarPlayService {
 
     // Pre-create CPListItem objects for ALL stations (for favorites tab)
     for (final station in _sortedStations) {
-      final subtitle = station.displaySubtitle.isNotEmpty ? station.displaySubtitle : 'Radio';
       final item = CPListItem(
         text: station.title,
-        detailText: subtitle,
         image: station.thumbnailUrl,
         isPlaying: station.slug == currentSlug,
-        onPress: (complete, item) {
+        onPress: (complete, item) async {
           _log("CarPlay: Favorite station selected: ${station.title}");
           // Get current favorites for playlist
           final currentFavorites = _sortedStations
-              .where((s) => _audioHandler.favoriteStationSlugs.value.contains(s.slug))
+              .where((s) => _isFavorite(s.slug))
               .toList();
           _audioHandler.carPlayPlaylist = List.from(currentFavorites);
-          _audioHandler.playStation(station);
+          await _audioHandler.selectStation(station);
           complete();
           FlutterCarplay.showSharedNowPlaying(animated: true);
+          _audioHandler.play();
         },
       );
       _favoriteListItems[station.slug] = item;
@@ -269,18 +278,17 @@ class CarPlayService {
     // Create "Toate statiile" tab with separate CPListItem objects
     final allStationsItems = _sortedStations.map((station) {
       final isFavorite = favoriteSlugs.contains(station.slug);
-      final subtitle = station.displaySubtitle.isNotEmpty ? station.displaySubtitle : 'Radio';
       final item = CPListItem(
         text: isFavorite ? "★ ${station.title}" : station.title,
-        detailText: subtitle,
         image: station.thumbnailUrl,
         isPlaying: station.slug == currentSlug,
-        onPress: (complete, item) {
+        onPress: (complete, item) async {
           _log("CarPlay: Station selected: ${station.title}");
           _audioHandler.carPlayPlaylist = List.from(_sortedStations);
-          _audioHandler.playStation(station);
+          await _audioHandler.selectStation(station);
           complete();
           FlutterCarplay.showSharedNowPlaying(animated: true);
+          _audioHandler.play();
         },
       );
       _allStationsListItems[station.slug] = item;
@@ -295,19 +303,31 @@ class CarPlayService {
       systemIcon: "music.note.list",
     );
 
-    // Create tab bar with both tabs (All Stations first, then Favorites)
+    // If no favorites, show "All Stations" tab first so user sees stations immediately
     final tabBarTemplate = CPTabBarTemplate(
-      templates: [allStationsTemplate, _favoriteTemplate!],
+      templates: favoriteItems.isEmpty
+          ? [allStationsTemplate, _favoriteTemplate!]
+          : [_favoriteTemplate!, allStationsTemplate],
     );
 
     FlutterCarplay.setRootTemplate(
       rootTemplate: tabBarTemplate,
       animated: true,
     );
+    _flutterCarplay?.forceUpdateRootTemplate();
+
+    // Set initial playlist to favorites so next/prev works immediately on cold start
+    final favStations = _sortedStations
+        .where((s) => favoriteSlugs.contains(s.slug))
+        .toList();
+    _audioHandler.carPlayPlaylist = favStations.isNotEmpty ? favStations : List.from(_sortedStations);
 
     // Mark as initialized - this template will NEVER be replaced
     _carPlayInitialized = true;
     _log("CarPlay setup complete - template locked");
+    } catch (e) {
+      _log("Error setting up CarPlay: $e");
+    }
   }
 
   void _initializeAndroidAuto() {
@@ -371,7 +391,6 @@ class CarPlayService {
         return;
       }
 
-      // Use filteredStations which is properly sorted by order (same as app)
       final stations = _audioHandler.filteredStations.value;
       if (stations.isNotEmpty) {
         timer.cancel();
@@ -386,6 +405,7 @@ class CarPlayService {
       return;
     }
 
+    try {
     _log("Setting up Android Auto with ${stations.length} stations");
 
     final favoriteSlugs = _audioHandler.favoriteStationSlugs.value;
@@ -398,7 +418,6 @@ class CarPlayService {
       final isFavorite = favoriteSlugs.contains(station.slug);
       return AAListItem(
         title: isFavorite ? "★ ${station.title}" : station.title,
-        subtitle: station.displaySubtitle,
         imageUrl: station.thumbnailUrl,
         onPress: (complete, item) {
           _log("Android Auto: Station selected: ${station.title}");
@@ -424,6 +443,9 @@ class CarPlayService {
 
     _androidAutoInitialized = true;
     _log("Android Auto setup complete - template locked");
+    } catch (e) {
+      _log("Error setting up Android Auto: $e");
+    }
   }
 
   void dispose() {

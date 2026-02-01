@@ -51,6 +51,7 @@ class HomePageState {
   final Query$GetStations$station_groups? selectedStationGroup;
   final MediaItem? mediaItem;
   final bool isDraggable;
+  final List<String> favoriteSlugs;
 
   const HomePageState(
     this.currentStation,
@@ -60,6 +61,7 @@ class HomePageState {
     this.selectedStationGroup,
     this.mediaItem,
     this.isDraggable,
+    this.favoriteSlugs,
   );
 }
 
@@ -292,7 +294,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: StreamBuilder<HomePageState>(
-          stream: Rx.combineLatest7<
+          stream: Rx.combineLatest8<
               Station?,
               List<Station>,
               List<Station>,
@@ -300,6 +302,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               Query$GetStations$station_groups?,
               MediaItem?,
               bool,
+              List<String>,
               HomePageState>(
             _audioHandler.currentStation.stream,
             _audioHandler.stations.stream,
@@ -308,10 +311,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             _audioHandler.selectedStationGroup.stream,
             _audioHandler.mediaItem,
             slidingUpPanelController.isDraggableSubject,
+            _audioHandler.favoriteStationSlugs.stream,
             (currentStation, stations, filteredStations, stationGroups, selectedStationGroup,
-                    mediaItem, isDraggable) =>
+                    mediaItem, isDraggable, favoriteSlugs) =>
                 HomePageState(currentStation, stations, filteredStations, stationGroups,
-                    selectedStationGroup, mediaItem, isDraggable),
+                    selectedStationGroup, mediaItem, isDraggable, favoriteSlugs),
           ),
           builder: (context, snapshot) {
             final currentStation = snapshot.data?.currentStation;
@@ -320,8 +324,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             final isDraggable = snapshot.data?.isDraggable ?? true;
             final selectedStationGroup = snapshot.data?.selectedStationGroup;
             final filteredStations = snapshot.data?.filteredStations ?? [];
+            final favoriteSlugs = snapshot.data?.favoriteSlugs ?? [];
 
-            final favoriteStations = stations.where((station) => station.isFavorite).toList();
+            final favoriteStations = stations.where((station) => favoriteSlugs.contains(station.slug)).toList();
             final isLoading = stations.isEmpty;
 
             // Show centered loading indicator when stations are loading
@@ -565,6 +570,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                               currentStation: currentStation,
                               audioHandler: _audioHandler,
                               panelController: null,
+                              favoriteSlugs: favoriteSlugs,
                             )),
                       ),
                     if (stations.isNotEmpty)
@@ -637,6 +643,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                               currentStation: currentStation,
                               audioHandler: _audioHandler,
                               panelController: null,
+                              favoriteSlugs: favoriteSlugs,
                             )),
                       ),
                   ],

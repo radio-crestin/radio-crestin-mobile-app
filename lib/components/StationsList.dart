@@ -13,13 +13,16 @@ class StationsList extends StatelessWidget {
     super.key,
     required this.stations,
     required this.audioHandler,
-    required this.panelController, this.currentStation,
+    required this.panelController,
+    required this.favoriteSlugs,
+    this.currentStation,
   });
 
   final Station? currentStation;
   final List<Station> stations;
   final AppAudioHandler audioHandler;
   final PanelController? panelController;
+  final List<String> favoriteSlugs;
 
   @override
   Widget build(BuildContext context) {
@@ -129,7 +132,7 @@ class StationsList extends StatelessWidget {
                       child: LikeButton(
                         size: 39,
                         bubblesSize: 39,
-                        isLiked: station.isFavorite,
+                        isLiked: favoriteSlugs.contains(station.slug),
                         likeBuilder: (bool isLiked) {
                           return Padding(
                             padding: const EdgeInsets.all(8),

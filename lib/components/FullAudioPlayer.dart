@@ -37,6 +37,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   Station? currentStation;
   final PageController pageController = PageController();
   final List _subscriptions = [];
+  List<String> _favoriteSlugs = [];
 
   List<Station> filteredStationsIncludingCurrentStation = [];
 
@@ -57,6 +58,12 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
       if (pageController.page != null) {
         pageController.jumpToPage(newPageIndex);
       }
+    }));
+
+    _subscriptions.add(widget.audioHandler.favoriteStationSlugs.stream.listen((slugs) {
+      setState(() {
+        _favoriteSlugs = slugs;
+      });
     }));
 
     _subscriptions.add(widget.audioHandler.currentStation.stream.listen((Station? value) {
@@ -322,7 +329,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                       children: [
                         LikeButton(
                           size: 25,
-                          isLiked: currentStation?.isFavorite ?? false,
+                          isLiked: currentStation != null && _favoriteSlugs.contains(currentStation!.slug),
                           likeBuilder: (bool isLiked) {
                             return Icon(
                               isLiked ? Icons.favorite_sharp : Icons.favorite_border_sharp,
