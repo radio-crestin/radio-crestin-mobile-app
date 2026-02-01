@@ -58,9 +58,7 @@ dependencies:
   fuzzywuzzy: ^1.1.6
   flutter_nfc_kit: 3.5.2
   firebase_instance_id: ^1.1.0
-  sliding_up_panel:
-    git:
-      url: https://github.com/Deskhunters/sliding_up_panel.git
+  sliding_up_panel2: ^3.3.0+1
   upgrader: ^11.1.0
   fluttertoast: ^8.2.10
   easy_search_bar: ^2.5.0

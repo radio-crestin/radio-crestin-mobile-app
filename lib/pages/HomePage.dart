@@ -16,7 +16,7 @@ import 'package:radio_crestin/utils/share_utils.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sliding_up_panel/sliding_up_panel.dart';
+import 'package:sliding_up_panel2/sliding_up_panel2.dart';
 
 import '../components/MiniAudioPlayer.dart';
 import '../components/SelectDialog.dart';
@@ -386,7 +386,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 topLeft: Radius.circular(16.0),
                 topRight: Radius.circular(16.0),
               ),
-              gestureSlidingEnabled: (slidingUpPanelController.isAttached &&
+              isDraggable: (slidingUpPanelController.isAttached &&
                       (slidingUpPanelController.isPanelClosed ||
                           slidingUpPanelController.isPanelClosed)) ||
                   isDraggable,
@@ -654,7 +654,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       ),
                     )
                   : null,
-              panel: Container(
+              panelBuilder: () => Container(
                 decoration: const BoxDecoration(
                   color: Colors.transparent,
                   borderRadius: BorderRadius.only(

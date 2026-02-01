@@ -1237,15 +1237,14 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
-  sliding_up_panel:
+  sliding_up_panel2:
     dependency: "direct main"
     description:
-      path: "."
-      ref: HEAD
-      resolved-ref: "8829ac20c216b059d8f7919be12ab0bbed282e14"
-      url: "https://github.com/Deskhunters/sliding_up_panel.git"
-    source: git
-    version: "2.0.0+1"
+      name: sliding_up_panel2
+      sha256: "7c2aac81c03e74fcd070799c5e2011f1c5de7026bd22a76164e81e23a49f2bdb"
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.3.0+1"
   source_span:
     dependency: transitive
     description:

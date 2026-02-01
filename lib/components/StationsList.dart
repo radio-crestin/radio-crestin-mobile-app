@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:like_button/like_button.dart';
 import 'package:radio_crestin/appAudioHandler.dart';
 import 'package:radio_crestin/theme.dart';
-import 'package:sliding_up_panel/src/panel.dart';
+import 'package:sliding_up_panel2/sliding_up_panel2.dart';
 
 import '../types/Station.dart';
 
