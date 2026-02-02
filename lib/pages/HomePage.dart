@@ -525,6 +525,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 child: RefreshIndicator(
                   onRefresh: _handleRefresh,
                   color: Theme.of(context).primaryColor,
+                  child: Scrollbar(
                   child: CustomScrollView(
                     physics: const PositionRetainedScrollPhysics().applyTo(const AlwaysScrollableScrollPhysics()),
                     cacheExtent: 300.0,
@@ -773,6 +774,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             )),
                       ),
                   ],
+                  ),
                   ),
                 ),
               ),

@@ -85,14 +85,16 @@ class StationsList extends StatelessWidget {
                                           "Stație offline",
                                           style: TextStyle(color: Theme.of(context).primaryColor),
                                         ),
-                                      if (station.displaySubtitle != "")
+                                      if (station.songTitle != "")
                                         Text(
-                                          station.displaySubtitle,
+                                          station.songArtist != ""
+                                            ? "${station.songTitle} - ${station.songArtist}"
+                                            : station.songTitle,
                                           textAlign: TextAlign.left,
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                           style: TextStyle(
-                                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                            color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
                                             fontSize: 13,
                                           ),
                                         )
@@ -115,7 +117,7 @@ class StationsList extends StatelessWidget {
                                     Text(
                                       '${station.totalListeners} ascultator${station.totalListeners == 1 ? "" : "i"}',
                                       style: TextStyle(
-                                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                        color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
                                         fontSize: 12,
                                       ),
                                     ),
@@ -140,7 +142,7 @@ class StationsList extends StatelessWidget {
                               isLiked? Icons.favorite_sharp: Icons.favorite_border_sharp,
                               color: isLiked 
                                 ? Theme.of(context).primaryColor 
-                                : Theme.of(context).colorScheme.onSurfaceVariant,
+                                : Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
                               size: 23,
                             ),);
                         },
