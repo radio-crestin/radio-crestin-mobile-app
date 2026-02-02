@@ -363,12 +363,12 @@ class _SettingsPageState extends State<SettingsPage> {
                   children: [
                     Text(
                       'Versiune $_version ($_buildNumber)',
-                      style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                      style: TextStyle(color: Colors.grey.shade500.withValues(alpha: 0.6), fontSize: 12),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       'Device ID: $_deviceId',
-                      style: TextStyle(color: Colors.grey.shade500, fontSize: 10),
+                      style: TextStyle(color: Colors.grey.shade500.withValues(alpha: 0.5), fontSize: 10),
                     ),
                   ],
                 ),

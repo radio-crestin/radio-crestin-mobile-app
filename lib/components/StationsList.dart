@@ -42,10 +42,16 @@ class StationsList extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 0, horizontal: 10),
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: isSelected 
+                  color: isSelected
                     ? Theme.of(context).cardColorSelected
                     : Theme.of(context).cardColor,
                   borderRadius: const BorderRadius.all(Radius.circular(16.0)),
+                  border: Border.all(
+                    color: isSelected
+                      ? const Color(0xFF555555).withValues(alpha: 0.35)
+                      : Colors.transparent,
+                    width: 1.5,
+                  ),
                 ),
                 child: Stack(
                   children: [
@@ -79,6 +85,7 @@ class StationsList extends StatelessWidget {
                               Container(
                                   margin: const EdgeInsets.only(top: 0, bottom: 4),
                                   child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       if (station.isUp == false)
                                         Text(
