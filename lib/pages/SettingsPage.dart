@@ -295,7 +295,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   onTap: () async {
                     FirebaseCrashlytics.instance.log("WHATSAPP_CONTACT");
 
-                    final message = "Buna ziua [Radio Crestin ${Platform.isAndroid? "Android": Platform.isIOS? "iOS": ""}]\n";
+                    final platform = Platform.isAndroid ? "Android" : Platform.isIOS ? "iOS" : "";
+                    final message = "[RadioCrestin/$platform/v${globals.appVersion}/${globals.deviceId}]\n\nBuna ziua,\n";
                     launchUrl(
                         Uri.parse(
                             "https://wa.me/40766338046?text=${Uri.encodeFull(message)}"
