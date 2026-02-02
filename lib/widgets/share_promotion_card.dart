@@ -57,11 +57,38 @@ class SharePromotionCardState extends State<SharePromotionCard> {
     await _loadShareLink();
   }
 
+  static const String _cacheKey = 'share_link_cache';
+
   Future<void> _loadShareLink() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+
+      // Load cached data first to avoid layout shift
+      final cachedJson = prefs.getString(_cacheKey);
+      if (cachedJson != null) {
+        try {
+          final cached = json.decode(cachedJson) as Map<String, dynamic>;
+          _shareLinkData = ShareLinkData(
+            shareId: cached['shareId'] ?? '',
+            url: cached['url'] ?? '',
+            shareMessage: cached['shareMessage'] ?? '',
+            shareStationMessage: cached['shareStationMessage'] ?? '',
+            visitCount: cached['visitCount'] ?? 0,
+            createdAt: cached['createdAt'] ?? '',
+            isActive: cached['isActive'] ?? true,
+            shareSectionMessage: cached['shareSectionMessage'] ?? '',
+            shareSectionTitle: cached['shareSectionTitle'] ?? '',
+          );
+          if (mounted) {
+            setState(() {
+              _isLoading = false;
+            });
+          }
+        } catch (_) {}
+      }
+
       _anonymousId = prefs.getString('device_id');
-      
+
       if (_anonymousId == null) {
         // Get device-specific ID
         final DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
@@ -75,7 +102,7 @@ class SharePromotionCardState extends State<SharePromotionCard> {
           // Fallback for other platforms
           _anonymousId = DateTime.now().millisecondsSinceEpoch.toString();
         }
-        
+
         // Save the device ID for future use
         if (_anonymousId != null) {
           await prefs.setString('device_id', _anonymousId!);
@@ -84,10 +111,25 @@ class SharePromotionCardState extends State<SharePromotionCard> {
 
       final shareService = ShareService(widget.client);
       final data = await shareService.getShareLink(_anonymousId!);
-      
+
+      if (data != null) {
+        // Cache the fresh data
+        await prefs.setString(_cacheKey, json.encode({
+          'shareId': data.shareId,
+          'url': data.url,
+          'shareMessage': data.shareMessage,
+          'shareStationMessage': data.shareStationMessage,
+          'visitCount': data.visitCount,
+          'createdAt': data.createdAt,
+          'isActive': data.isActive,
+          'shareSectionMessage': data.shareSectionMessage,
+          'shareSectionTitle': data.shareSectionTitle,
+        }));
+      }
+
       if (mounted) {
         setState(() {
-          _shareLinkData = data;
+          _shareLinkData = data ?? _shareLinkData;
           _isLoading = false;
         });
       }
