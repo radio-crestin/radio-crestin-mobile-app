@@ -249,17 +249,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Future<void> _checkSharePromotionVisibility() async {
     final prefs = await SharedPreferences.getInstance();
     bool shouldShow = prefs.getBool('show_share_promotion') ?? false;
-    
+
     // Check if we've already auto-enabled before (to not override user's choice)
     bool hasAutoEnabled = prefs.getBool('share_promotion_auto_enabled') ?? false;
-    
+
     // Auto-enable after 40 actions (2X the review threshold) - but only once
     if (!shouldShow && !hasAutoEnabled) {
       String? reviewStatusJson = prefs.getString('_reviewStatus');
       if (reviewStatusJson != null) {
         Map<String, dynamic> reviewStatus = json.decode(reviewStatusJson);
         int actionsMade = reviewStatus['actions_made'] ?? 0;
-        
+
         // Auto-enable at 40 actions (2X the first review threshold of 20)
         if (actionsMade >= 40) {
           await prefs.setBool('show_share_promotion', true);
@@ -268,7 +268,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         }
       }
     }
-    
+
     if (mounted && shouldShow != _showSharePromotion) {
       setState(() {
         _showSharePromotion = shouldShow;

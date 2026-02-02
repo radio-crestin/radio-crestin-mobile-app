@@ -290,22 +290,7 @@ class Utils {
           }
         }
         
-        // Share dialog intervals: 40, 150, 250, 600, 800, 1000
-        List<int> shareIntervals = [40, 150, 250, 600, 800, 1000];
-        
-        // Check share dialog display conditions
-        for (int interval in shareIntervals) {
-          if (actionsMade >= interval) {
-            String prefKey = 'share_dialog_shown_at_$interval';
-            bool hasShownAtInterval = prefs.getBool(prefKey) ?? false;
-            
-            if (!hasShownAtInterval) {
-              await prefs.setBool(prefKey, true);
-              await _showShareDialog(prefs, graphQLClient, currentStationName);
-              break; // Only show one dialog at a time
-            }
-          }
-        }
+        // Share dialog disabled
       }
     } catch (e) {
       developer.log('Error incrementing actions_made: $e');
