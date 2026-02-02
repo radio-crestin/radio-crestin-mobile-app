@@ -1,4 +1,10 @@
--  Highlight statia selectata in lista de optiuni - DONE
+-  fallback-ul nu functioneaza cand cade HLS-ul
+
+
+
+
+----
+- Highlight statia selectata in lista de optiuni - DONE
 - Creaza o iconita pentru notificare - DONE
 - adauga prioritate la notificarea audio - DONE (kind of)
 -  Fixeaza butoanele de start si stop din notificare - DONE (kind of)
