@@ -63,6 +63,7 @@ class AppAudioHandler extends BaseAudioHandler {
   final BehaviorSubject<List<Station>> stations = BehaviorSubject.seeded(<Station>[]);
   final BehaviorSubject<List<Station>> filteredStations = BehaviorSubject.seeded(<Station>[]);
   final BehaviorSubject<List<String>> favoriteStationSlugs = BehaviorSubject.seeded([]);
+  bool playingFromFavorites = false;
   final BehaviorSubject<Station?> currentStation = BehaviorSubject.seeded(null);
   final BehaviorSubject<List<Query$GetStations$station_groups>> stationGroups =
       BehaviorSubject.seeded(<Query$GetStations$station_groups>[]);
@@ -87,7 +88,11 @@ class AppAudioHandler extends BaseAudioHandler {
     _initPlayer();
     _initFilteredStationsStream();
     _initUpdateCurrentStationMetadata();
-    _initFavoriteStationSlugs();
+    _initFavoriteStationSlugsThenStations();
+  }
+
+  Future<void> _initFavoriteStationSlugsThenStations() async {
+    await _initFavoriteStationSlugs();
     _setupRefreshStations();
   }
 
@@ -170,8 +175,17 @@ class AppAudioHandler extends BaseAudioHandler {
     await setLastPlayedStation(station);
   }
 
-  Future<void> playStation(Station station) async {
-    _log('playStation($station)');
+  List<Station> get _activePlaybackList {
+    if (playingFromFavorites) {
+      final favorites = stations.value.where((s) => s.isFavorite).toList();
+      if (favorites.isNotEmpty) return favorites;
+    }
+    return filteredStations.value;
+  }
+
+  Future<void> playStation(Station station, {bool fromFavorites = false}) async {
+    _log('playStation($station, fromFavorites: $fromFavorites)');
+    playingFromFavorites = fromFavorites;
     await selectStation(station);
     if (Platform.isAndroid) {
       await Future.delayed(const Duration(milliseconds: 100));
@@ -182,15 +196,16 @@ class AppAudioHandler extends BaseAudioHandler {
 
   @override
   Future<void> skipToNext() {
-    _log('skipToNext()');
+    _log('skipToNext() playingFromFavorites=$playingFromFavorites');
     if (currentStation.value != null) {
-      final currentStationIndex = filteredStations.value.indexWhere((s) {
+      final list = _activePlaybackList;
+      final currentStationIndex = list.indexWhere((s) {
         return s.rawStationData.id == currentStation.value!.id;
       });
-      if (currentStationIndex < filteredStations.value.length - 1) {
-        return playStation(filteredStations.value[currentStationIndex + 1]);
+      if (currentStationIndex < list.length - 1) {
+        return playStation(list[currentStationIndex + 1], fromFavorites: playingFromFavorites);
       } else {
-        return playStation(filteredStations.value[0]);
+        return playStation(list[0], fromFavorites: playingFromFavorites);
       }
     }
     return super.skipToNext();
@@ -198,15 +213,16 @@ class AppAudioHandler extends BaseAudioHandler {
 
   @override
   Future<void> skipToPrevious() {
-    _log('skipToPrevious()');
+    _log('skipToPrevious() playingFromFavorites=$playingFromFavorites');
     if (mediaItem.value != null) {
-      final currentStationIndex = filteredStations.value.indexWhere((s) {
+      final list = _activePlaybackList;
+      final currentStationIndex = list.indexWhere((s) {
         return s.rawStationData.id == currentStation.value!.id;
       });
       if (currentStationIndex > 0) {
-        return playStation(filteredStations.value[currentStationIndex - 1]);
+        return playStation(list[currentStationIndex - 1], fromFavorites: playingFromFavorites);
       } else {
-        return playStation(filteredStations.value[filteredStations.value.length - 1]);
+        return playStation(list[list.length - 1], fromFavorites: playingFromFavorites);
       }
     }
     return super.skipToPrevious();
@@ -539,7 +555,7 @@ class AppAudioHandler extends BaseAudioHandler {
   }
 
   // Favorite Stations
-  _initFavoriteStationSlugs() async {
+  Future<void> _initFavoriteStationSlugs() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     final String? favoriteJson = prefs.getString(_favoriteStationsKey);
     List<String> newFavoriteStationSlugs = [];

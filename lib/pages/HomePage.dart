@@ -565,6 +565,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                               currentStation: currentStation,
                               audioHandler: _audioHandler,
                               panelController: null,
+                              isFavoritesList: true,
                             )),
                       ),
                     if (stations.isNotEmpty)
