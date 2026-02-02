@@ -639,6 +639,57 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                   onItemSelected: (Station station) {
                                     _audioHandler.playStation(station);
                                   },
+                                  itemBuilder: (context, station) {
+                                    return Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                      child: Row(
+                                        children: [
+                                          SizedBox(
+                                            width: 48,
+                                            height: 48,
+                                            child: ClipRRect(
+                                              borderRadius: BorderRadius.circular(10),
+                                              child: station.thumbnail,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Text(
+                                                  station.displayTitle,
+                                                  style: TextStyle(
+                                                    color: Theme.of(context).colorScheme.onSurface,
+                                                    fontWeight: FontWeight.w500,
+                                                    fontSize: 15,
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                                if (station.songTitle != "")
+                                                  Padding(
+                                                    padding: const EdgeInsets.only(top: 2),
+                                                    child: Text(
+                                                      station.songArtist != ""
+                                                          ? "${station.songTitle} - ${station.songArtist}"
+                                                          : station.songTitle,
+                                                      style: TextStyle(
+                                                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                                                        fontSize: 13,
+                                                      ),
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
                                 );
                               },
                             );
