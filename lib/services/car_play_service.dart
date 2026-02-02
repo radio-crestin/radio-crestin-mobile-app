@@ -303,11 +303,8 @@ class CarPlayService {
       systemIcon: "music.note.list",
     );
 
-    // If no favorites, show "All Stations" tab first so user sees stations immediately
     final tabBarTemplate = CPTabBarTemplate(
-      templates: favoriteItems.isEmpty
-          ? [allStationsTemplate, _favoriteTemplate!]
-          : [_favoriteTemplate!, allStationsTemplate],
+      templates: [_favoriteTemplate!, allStationsTemplate],
     );
 
     FlutterCarplay.setRootTemplate(
