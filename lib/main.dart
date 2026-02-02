@@ -161,10 +161,9 @@ void main() async {
   await carPlayService.initialize();
   getIt.registerSingleton<CarPlayService>(carPlayService);
 
-  PackageInfo.fromPlatform().then((value) {
-    globals.appVersion = value.version;
-    globals.buildNumber = value.buildNumber;
-  });
+  final packageInfo = await PackageInfo.fromPlatform();
+  globals.appVersion = packageInfo.version;
+  globals.buildNumber = packageInfo.buildNumber;
 
   FirebaseInstanceId.appInstanceId.then((value) {
     globals.deviceId = value ?? "";

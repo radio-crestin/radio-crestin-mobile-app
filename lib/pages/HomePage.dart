@@ -25,6 +25,7 @@ import '../main.dart';
 import '../queries/getStations.graphql.dart';
 import '../types/Station.dart';
 import '../utils/PositionRetainedScrollPhysics.dart';
+import '../globals.dart' as globals;
 import 'SettingsPage.dart';
 
 class HomePage extends StatefulWidget {
@@ -98,6 +99,131 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _checkSharePromotionVisibility();
     _loadShareLinkData();
+    _showCarPlayAnnouncementIfNeeded();
+  }
+
+  Future<void> _showCarPlayAnnouncementIfNeeded() async {
+    final prefs = await SharedPreferences.getInstance();
+    final hasSeenCarPlay = prefs.getBool('has_seen_carplay_announcement1') ?? false;
+
+    if (!hasSeenCarPlay && globals.appVersion == '1.3.2') {
+      // Wait for the widget to be built before showing dialog
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _showCarPlayDialog();
+      });
+    }
+  }
+
+  void _showCarPlayDialog() async {
+    final prefs = await SharedPreferences.getInstance();
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final accentColor = isDark ? const Color(0xFFEBB800) : const Color(0xFFFF6B35);
+        final bottomPadding = MediaQuery.of(context).padding.bottom;
+
+        return Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(24),
+              topRight: Radius.circular(24),
+            ),
+          ),
+          padding: EdgeInsets.fromLTRB(24, 12, 24, 24 + bottomPadding),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Drag handle
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: accentColor.withOpacity(0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.directions_car_filled_rounded,
+                  size: 44,
+                  color: accentColor,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'Noutate: Apple CarPlay',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Acum poți asculta Radio Creștin direct din mașină! '
+                'Conectează-ți telefonul la Apple CarPlay '
+                'și bucură-te de stațiile tale preferate în siguranță, la volan.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.apple, size: 20, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
+                  const SizedBox(width: 4),
+                  Text(
+                    'CarPlay',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: accentColor,
+                    foregroundColor: Colors.black,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    elevation: 0,
+                  ),
+                  child: const Text(
+                    'Am înțeles',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    await prefs.setBool('has_seen_carplay_announcement1', true);
   }
 
   Future<void> _handleRefresh() async {
