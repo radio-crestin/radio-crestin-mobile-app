@@ -526,7 +526,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   onRefresh: _handleRefresh,
                   color: Theme.of(context).primaryColor,
                   child: CustomScrollView(
-                    physics: const AlwaysScrollableScrollPhysics(),
+                    physics: const PositionRetainedScrollPhysics().applyTo(const AlwaysScrollableScrollPhysics()),
                     cacheExtent: 300.0,
                     slivers: <Widget>[
                     SliverAppBar(
