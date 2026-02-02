@@ -15,11 +15,11 @@ import 'package:device_info_plus/device_info_plus.dart';
 
 import '../globals.dart' as globals;
 import '../theme_manager.dart';
-import 'WriteNfcTag.dart';
+
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({Key? key}) : super(key: key);
-  
+
   @override
   _SettingsPageState createState() => _SettingsPageState();
 }
@@ -31,7 +31,7 @@ class _SettingsPageState extends State<SettingsPage> {
   final String _version = globals.appVersion;
   final String _buildNumber = globals.buildNumber;
   final String _deviceId = globals.deviceId;
-  
+
 
   @override
   void initState() {
@@ -61,7 +61,7 @@ class _SettingsPageState extends State<SettingsPage> {
       // Get device ID
       final prefs = await SharedPreferences.getInstance();
       String? deviceId = prefs.getString('device_id');
-      
+
       if (deviceId == null) {
         final DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
         if (Platform.isAndroid) {
@@ -73,7 +73,7 @@ class _SettingsPageState extends State<SettingsPage> {
         } else {
           deviceId = DateTime.now().millisecondsSinceEpoch.toString();
         }
-        
+
         if (deviceId != null) {
           await prefs.setString('device_id', deviceId);
         }
@@ -83,7 +83,7 @@ class _SettingsPageState extends State<SettingsPage> {
       final client = GraphQLProvider.of(context).value;
       final shareService = ShareService(client);
       final shareLinkData = await shareService.getShareLink(deviceId!);
-      
+
       if (shareLinkData != null) {
         final shareUrl = shareLinkData.generateShareUrl();
         final shareMessage = ShareUtils.formatShareMessage(
@@ -91,7 +91,7 @@ class _SettingsPageState extends State<SettingsPage> {
           stationName: null,
           stationSlug: null,
         );
-        
+
         // Show dialog with share options
         ShareHandler.shareApp(
           context: context,
@@ -112,24 +112,103 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 16, right: 16, top: 24, bottom: 8),
+      child: Text(
+        title.toUpperCase(),
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: Theme.of(context).colorScheme.primary,
+          letterSpacing: 0.8,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSettingsCard({required List<Widget> children}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xff1e1e1e) : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isDark ? const Color(0xff2a2a2a) : const Color(0xffe0e0e0),
+            width: 0.5,
+          ),
+        ),
+        child: Column(
+          children: _insertDividers(children),
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _insertDividers(List<Widget> children) {
+    final result = <Widget>[];
+    for (int i = 0; i < children.length; i++) {
+      result.add(children[i]);
+      if (i < children.length - 1) {
+        result.add(Padding(
+          padding: const EdgeInsets.only(left: 56),
+          child: Divider(height: 1, thickness: 0.5, color: Theme.of(context).dividerColor.withOpacity(0.3)),
+        ));
+      }
+    }
+    return result;
+  }
+
+  Widget _buildSettingsTile({
+    required IconData icon,
+    required String title,
+    String? subtitle,
+    Widget? trailing,
+    VoidCallback? onTap,
+  }) {
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+      leading: Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(icon, size: 18, color: Theme.of(context).colorScheme.primary),
+      ),
+      title: Text(title, style: const TextStyle(fontSize: 15)),
+      subtitle: subtitle != null
+          ? Text(subtitle, style: TextStyle(fontSize: 12, color: Theme.of(context).textTheme.bodySmall?.color))
+          : null,
+      trailing: trailing,
+      onTap: onTap,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
         appBar: AppBar(
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-          title: Text('Setări'),
+          title: const Text('Setări'),
         ),
-        body: Container(
-          margin: const EdgeInsets.only(top: 10),
-          child: Visibility(
-            visible: _notificationsEnabled != null,
-            child: Column(
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.brightness_6),
-                  title: const Text('Interfata temei'),
+        body: Visibility(
+          visible: _notificationsEnabled != null,
+          child: ListView(
+            children: [
+              // General section
+              _buildSectionHeader('General'),
+              _buildSettingsCard(children: [
+                _buildSettingsTile(
+                  icon: Icons.brightness_6,
+                  title: 'Interfața temei',
                   trailing: DropdownButton<ThemeMode>(
                     value: _themeMode,
+                    underline: const SizedBox(),
+                    borderRadius: BorderRadius.circular(12),
                     onChanged: (ThemeMode? newValue) async {
                       if (newValue != null) {
                         setState(() {
@@ -142,22 +221,23 @@ class _SettingsPageState extends State<SettingsPage> {
                     items: const [
                       DropdownMenuItem(
                         value: ThemeMode.system,
-                        child: Text('Sistem'),
+                        child: Text('Sistem', style: TextStyle(fontSize: 14)),
                       ),
                       DropdownMenuItem(
                         value: ThemeMode.light,
-                        child: Text('Luminos'),
+                        child: Text('Luminos', style: TextStyle(fontSize: 14)),
                       ),
                       DropdownMenuItem(
                         value: ThemeMode.dark,
-                        child: Text('Întunecat'),
+                        child: Text('Întunecat', style: TextStyle(fontSize: 14)),
                       ),
                     ],
                   ),
                 ),
-                ListTile(
-                  leading: const Icon(Icons.radio),
-                  title: const Text('Pornește automat ultima stație la deschiderea aplicației'),
+                _buildSettingsTile(
+                  icon: Icons.radio,
+                  title: 'Pornește automat ultima stație',
+                  subtitle: 'La deschiderea aplicației',
                   trailing: Switch(
                     activeColor: Theme.of(context).primaryColor,
                     activeTrackColor: Theme.of(context).primaryColorLight,
@@ -173,11 +253,10 @@ class _SettingsPageState extends State<SettingsPage> {
                     value: _autoStartStation ?? true,
                   ),
                 ),
-                ListTile(
-                  leading: const Icon(Icons.notification_important_rounded),
-                  title: const Text('Notificări personalizate'),
-                  subtitle:
-                      const Text('Primiți notificări când începe o melodie/emisiune preferată.'),
+                _buildSettingsTile(
+                  icon: Icons.notification_important_rounded,
+                  title: 'Notificări personalizate',
+                  subtitle: 'Primiți notificări când începe o melodie/emisiune preferată.',
                   trailing: Switch(
                     activeColor: Theme.of(context).primaryColor,
                     activeTrackColor: Theme.of(context).primaryColorLight,
@@ -195,30 +274,39 @@ class _SettingsPageState extends State<SettingsPage> {
                     value: _notificationsEnabled ?? true,
                   ),
                 ),
-                ListTile(
-                  leading: const Icon(Icons.nfc),
-                  title: const Text('Inscripționează un tag NFC'),
-                  onTap: () => {
-                    Navigator.push(context, MaterialPageRoute<void>(
-                      builder: (BuildContext context) {
-                        return WriteNfcTagPage();
-                      },
-                    ))
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.share_rounded),
-                  title: const Text('Distribuie aplicația'),
+                _buildSettingsTile(
+                  icon: Icons.share_rounded,
+                  title: 'Distribuie aplicația',
+                  trailing: const Icon(Icons.chevron_right, size: 20, color: Colors.grey),
                   onTap: () async {
                     await _shareApp(context);
                   },
                 ),
-                if (kDebugMode) ...[
-                  const Divider(),
-                  ListTile(
-                    leading: const Icon(Icons.delete_sweep, color: Colors.red),
-                    title: const Text('Șterge datele aplicației'),
-                    subtitle: const Text('Șterge preferințele și cache-ul (doar în modul debug)'),
+                _buildSettingsTile(
+                  icon: Icons.chat,
+                  title: 'Contactează-ne pe WhatsApp',
+                  trailing: const Icon(Icons.chevron_right, size: 20, color: Colors.grey),
+                  onTap: () async {
+                    FirebaseCrashlytics.instance.log("WHATSAPP_CONTACT");
+
+                    final message = "Buna ziua [Radio Crestin ${Platform.isAndroid? "Android": Platform.isIOS? "iOS": ""}]\n";
+                    launchUrl(
+                        Uri.parse(
+                            "https://wa.me/40766338046?text=${Uri.encodeFull(message)}"
+                        ),
+                        mode: LaunchMode.externalApplication);
+                  },
+                ),
+              ]),
+
+              if (kDebugMode) ...[
+                _buildSectionHeader('Debug'),
+                _buildSettingsCard(children: [
+                  _buildSettingsTile(
+                    icon: Icons.delete_sweep,
+                    title: 'Șterge datele aplicației',
+                    subtitle: 'Șterge preferințele și cache-ul',
+                    trailing: const Icon(Icons.chevron_right, size: 20, color: Colors.red),
                     onTap: () async {
                       showDialog(
                         context: context,
@@ -234,23 +322,19 @@ class _SettingsPageState extends State<SettingsPage> {
                               TextButton(
                                 onPressed: () async {
                                   Navigator.pop(context);
-                                  // Clear shared preferences
                                   final prefs = await SharedPreferences.getInstance();
                                   await prefs.clear();
-                                  
-                                  // Clear GraphQL cache
+
                                   final client = GraphQLProvider.of(context).value;
                                   client.cache.store.reset();
-                                  
-                                  // Show confirmation
+
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
                                       content: Text('Datele aplicației au fost șterse!'),
                                       duration: Duration(seconds: 2),
                                     ),
                                   );
-                                  
-                                  // Refresh the settings page
+
                                   setState(() {
                                     _notificationsEnabled = null;
                                     _autoStartStation = null;
@@ -269,62 +353,28 @@ class _SettingsPageState extends State<SettingsPage> {
                       );
                     },
                   ),
-                ],
-                const Spacer(),
-                ListTile(
-                  title: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).primaryColor,
-                      shape: const RoundedRectangleBorder(
-                        borderRadius: BorderRadius.all(Radius.circular(8.0)),
-                      ),
-                    ),
-                    onPressed: () async {
-                      FirebaseCrashlytics.instance.log("WHATSAPP_CONTACT");
-
-                      final message = "Buna ziua [Radio Crestin ${Platform.isAndroid? "Android": Platform.isIOS? "iOS": ""}]\n";
-                      launchUrl(
-                          Uri.parse(
-                              "https://wa.me/40766338046?text=${Uri.encodeFull(message)}"
-                          ),
-                          mode: LaunchMode.externalApplication);
-                    },
-                    child: const Text(
-                      'Contactează-ne pe WhatsApp',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Versiune aplicatie $_version ($_buildNumber)',
-                        style: const TextStyle(color: Colors.grey, fontSize: 10.0),
-                      ),
-                    ],
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Device ID: $_deviceId',
-                          style: const TextStyle(color: Colors.grey, fontSize: 8.0),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24.0),
+                ]),
               ],
-            ),
+              const SizedBox(height: 24),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Versiune $_version ($_buildNumber)',
+                      style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Device ID: $_deviceId',
+                      style: TextStyle(color: Colors.grey.shade500, fontSize: 10),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 32),
+            ],
           ),
         ));
   }
