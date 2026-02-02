@@ -13,7 +13,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 
+import '../appAudioHandler.dart';
 import '../globals.dart' as globals;
+import '../main.dart' show getIt;
 import '../theme_manager.dart';
 
 
@@ -85,11 +87,14 @@ class _SettingsPageState extends State<SettingsPage> {
       final shareLinkData = await shareService.getShareLink(deviceId!);
 
       if (shareLinkData != null) {
-        final shareUrl = shareLinkData.generateShareUrl();
+        final currentStation = getIt<AppAudioHandler>().currentStation.valueOrNull;
+        final shareUrl = shareLinkData.generateShareUrl(
+          stationSlug: currentStation?.slug,
+        );
         final shareMessage = ShareUtils.formatShareMessage(
           shareLinkData: shareLinkData,
-          stationName: null,
-          stationSlug: null,
+          stationName: currentStation?.title,
+          stationSlug: currentStation?.slug,
         );
 
         // Show dialog with share options
@@ -97,6 +102,7 @@ class _SettingsPageState extends State<SettingsPage> {
           context: context,
           shareUrl: shareUrl,
           shareMessage: shareMessage,
+          stationName: currentStation?.title,
           shareLinkData: shareLinkData,
           showDialog: true,
         );

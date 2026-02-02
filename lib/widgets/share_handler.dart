@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -60,9 +61,11 @@ class ShareHandler {
     await showDialog(
       context: context,
       barrierDismissible: true,
-      barrierColor: Colors.black54,
+      barrierColor: Colors.black.withOpacity(0.65),
       builder: (BuildContext context) {
-        return Dialog(
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+          child: Dialog(
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
           ),
@@ -236,7 +239,7 @@ class ShareHandler {
                             color: const Color(0xFF25D366),
                             onTap: () async {
                               Navigator.pop(context);
-                              await _shareToWhatsApp(shareMessage, shareUrl);
+                              await _shareToWhatsApp(shareMessage, shareUrl, stationName);
                             },
                           ),
                           const SizedBox(width: 10),
@@ -375,6 +378,7 @@ class ShareHandler {
               ],
             ),
           ),
+        ),
         );
       },
     );
@@ -432,9 +436,9 @@ class ShareHandler {
     );
   }
 
-  static Future<void> _shareToWhatsApp(String message, String shareUrl) async {
-    // Message already contains the URL from ShareUtils.formatShareMessage
-    final encodedMessage = Uri.encodeComponent(message);
+  static Future<void> _shareToWhatsApp(String message, String shareUrl, String? stationName) async {
+    final formattedMessage = ShareUtils.formatMessageWithStation(message, shareUrl, stationName);
+    final encodedMessage = Uri.encodeComponent(formattedMessage);
     final whatsappAppUrl = 'whatsapp://send?text=$encodedMessage';
     final whatsappWebUrl = 'https://wa.me/?text=$encodedMessage';
     
