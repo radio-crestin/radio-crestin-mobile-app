@@ -119,15 +119,15 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Widget _buildSectionHeader(String title) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
-      padding: const EdgeInsets.only(left: 16, right: 16, top: 24, bottom: 8),
+      padding: const EdgeInsets.only(left: 20, right: 20, top: 28, bottom: 10),
       child: Text(
-        title.toUpperCase(),
+        title,
         style: TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: Theme.of(context).colorScheme.primary,
-          letterSpacing: 0.8,
+          fontSize: 14,
+          fontWeight: FontWeight.w400,
+          color: isDark ? const Color(0xff8a8a8a) : const Color(0xff6b6b6b),
         ),
       ),
     );
@@ -138,13 +138,10 @@ class _SettingsPageState extends State<SettingsPage> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
+        clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xff1e1e1e) : Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isDark ? const Color(0xff2a2a2a) : const Color(0xffe0e0e0),
-            width: 0.5,
-          ),
+          color: isDark ? const Color(0xff1c1c1e) : const Color(0xfff2f2f7),
+          borderRadius: BorderRadius.circular(16),
         ),
         child: Column(
           children: _insertDividers(children),
@@ -154,13 +151,18 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   List<Widget> _insertDividers(List<Widget> children) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final result = <Widget>[];
     for (int i = 0; i < children.length; i++) {
       result.add(children[i]);
       if (i < children.length - 1) {
         result.add(Padding(
           padding: const EdgeInsets.only(left: 56),
-          child: Divider(height: 1, thickness: 0.5, color: Theme.of(context).dividerColor.withOpacity(0.3)),
+          child: Divider(
+            height: 0.5,
+            thickness: 0.5,
+            color: isDark ? const Color(0xff3a3a3c) : const Color(0xffd1d1d6),
+          ),
         ));
       }
     }
@@ -174,39 +176,63 @@ class _SettingsPageState extends State<SettingsPage> {
     Widget? trailing,
     VoidCallback? onTap,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-      leading: Container(
-        width: 32,
-        height: 32,
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Icon(icon, size: 18, color: Theme.of(context).colorScheme.primary),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      leading: Icon(
+        icon,
+        size: 22,
+        color: isDark ? const Color(0xffb0b0b0) : const Color(0xff5a5a5a),
       ),
-      title: Text(title, style: const TextStyle(fontSize: 15)),
+      title: Text(
+        title,
+        style: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w400,
+          color: isDark ? const Color(0xffe8e8e8) : const Color(0xff1c1c1e),
+        ),
+      ),
       subtitle: subtitle != null
-          ? Text(subtitle, style: TextStyle(fontSize: 12, color: Theme.of(context).textTheme.bodySmall?.color))
+          ? Text(subtitle, style: TextStyle(fontSize: 12, color: isDark ? const Color(0xff8a8a8a) : const Color(0xff6b6b6b)))
           : null,
-      trailing: trailing,
+      trailing: trailing ?? Icon(Icons.chevron_right, size: 20, color: isDark ? const Color(0xff5a5a5c) : const Color(0xffc7c7cc)),
       onTap: onTap,
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
         appBar: AppBar(
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-          title: const Text('Setări'),
+          centerTitle: true,
+          title: Text(
+            'Setări',
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w600,
+              color: isDark ? Colors.white : Colors.black,
+            ),
+          ),
+          leading: Padding(
+            padding: const EdgeInsets.only(left: 8),
+            child: IconButton(
+              onPressed: () => Navigator.pop(context),
+              icon: Icon(
+                Icons.arrow_back_ios_new,
+                size: 20,
+                color: isDark ? const Color(0xffb0b0b0) : const Color(0xff3a3a3c),
+              ),
+            ),
+          ),
         ),
         body: Visibility(
           visible: _notificationsEnabled != null,
           child: ListView(
             children: [
               // General section
-              _buildSectionHeader('General'),
+              _buildSectionHeader('Preferințe'),
               _buildSettingsCard(children: [
                 _buildSettingsTile(
                   icon: Icons.brightness_6,
@@ -244,11 +270,11 @@ class _SettingsPageState extends State<SettingsPage> {
                   icon: Icons.radio,
                   title: 'Pornește automat ultima stație',
                   subtitle: 'La deschiderea aplicației',
-                  trailing: Switch(
-                    activeColor: Theme.of(context).primaryColor,
-                    activeTrackColor: Theme.of(context).primaryColorLight,
-                    inactiveThumbColor: Theme.of(context).primaryColorDark,
-                    inactiveTrackColor: const Color(0xffdcdcdc),
+                  trailing: Switch.adaptive(
+                    activeColor: Colors.white,
+                    activeTrackColor: isDark ? const Color(0xff48a868) : const Color(0xff34c759),
+                    inactiveThumbColor: Colors.white,
+                    inactiveTrackColor: isDark ? const Color(0xff39393d) : const Color(0xffe9e9ea),
                     onChanged: (bool? value) async {
                       final prefs = await SharedPreferences.getInstance();
                       await prefs.setBool('_autoStartStation', value!);
@@ -263,11 +289,11 @@ class _SettingsPageState extends State<SettingsPage> {
                   icon: Icons.notification_important_rounded,
                   title: 'Notificări personalizate',
                   subtitle: 'Primiți notificări când începe o melodie/emisiune preferată.',
-                  trailing: Switch(
-                    activeColor: Theme.of(context).primaryColor,
-                    activeTrackColor: Theme.of(context).primaryColorLight,
-                    inactiveThumbColor: Theme.of(context).primaryColorDark,
-                    inactiveTrackColor: const Color(0xffdcdcdc),
+                  trailing: Switch.adaptive(
+                    activeColor: Colors.white,
+                    activeTrackColor: isDark ? const Color(0xff48a868) : const Color(0xff34c759),
+                    inactiveThumbColor: Colors.white,
+                    inactiveTrackColor: isDark ? const Color(0xff39393d) : const Color(0xffe9e9ea),
                     onChanged: (bool? value) async {
                       final prefs = await SharedPreferences.getInstance();
                       await prefs.setBool('_notificationsEnabled', value!);
@@ -280,18 +306,30 @@ class _SettingsPageState extends State<SettingsPage> {
                     value: _notificationsEnabled ?? true,
                   ),
                 ),
+              ]),
+
+              _buildSectionHeader('General'),
+              _buildSettingsCard(children: [
                 _buildSettingsTile(
                   icon: Icons.share_rounded,
                   title: 'Distribuie aplicația',
-                  trailing: const Icon(Icons.chevron_right, size: 20, color: Colors.grey),
                   onTap: () async {
                     await _shareApp(context);
                   },
                 ),
                 _buildSettingsTile(
+                  icon: Icons.star_rounded,
+                  title: 'Lasă-ne o recenzie',
+                  onTap: () async {
+                    final url = Platform.isIOS
+                        ? 'https://apps.apple.com/app/6451270471?action=write-review'
+                        : 'https://play.google.com/store/apps/details?id=com.radiocrestin.radio_crestin';
+                    launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+                  },
+                ),
+                _buildSettingsTile(
                   icon: Icons.chat,
                   title: 'Contactează-ne pe WhatsApp',
-                  trailing: const Icon(Icons.chevron_right, size: 20, color: Colors.grey),
                   onTap: () async {
                     FirebaseCrashlytics.instance.log("WHATSAPP_CONTACT");
 
@@ -313,7 +351,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     icon: Icons.delete_sweep,
                     title: 'Șterge datele aplicației',
                     subtitle: 'Șterge preferințele și cache-ul',
-                    trailing: const Icon(Icons.chevron_right, size: 20, color: Colors.red),
+                    trailing: const Icon(Icons.chevron_right, size: 20, color: Colors.redAccent),
                     onTap: () async {
                       showDialog(
                         context: context,
@@ -362,25 +400,25 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                 ]),
               ],
-              const SizedBox(height: 24),
+              const SizedBox(height: 32),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
                       'Versiune $_version ($_buildNumber)',
-                      style: TextStyle(color: Colors.grey.shade500.withValues(alpha: 0.6), fontSize: 12),
+                      style: TextStyle(color: isDark ? const Color(0xff5a5a5c) : const Color(0xff8e8e93), fontSize: 12),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       'Device ID: $_deviceId',
-                      style: TextStyle(color: Colors.grey.shade500.withValues(alpha: 0.5), fontSize: 10),
+                      style: TextStyle(color: isDark ? const Color(0xff48484a) : const Color(0xffaeaeb2), fontSize: 10),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 40),
             ],
           ),
         ));
