@@ -3,7 +3,7 @@ import 'dart:io' show Platform;
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:radio_crestin/types/Station.dart';
-import 'package:sliding_up_panel/src/panel.dart';
+import 'package:sliding_up_panel2/sliding_up_panel2.dart';
 
 class MiniAudioPlayer extends StatelessWidget {
   final Station? currentStation;

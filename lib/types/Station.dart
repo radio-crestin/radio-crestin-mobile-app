@@ -7,8 +7,7 @@ import '../utils.dart';
 
 class Station {
   Query$GetStations$stations rawStationData;
-  Station({required this.rawStationData, required this.isFavorite});
-  bool isFavorite = false;
+  Station({required this.rawStationData});
 
   get id => rawStationData.id;
   get slug => rawStationData.slug;
@@ -32,7 +31,7 @@ class Station {
   );
 
 
-  Future<MediaItem> get mediaItem async {
+  MediaItem get mediaItem {
     return MediaItem(
       id: Utils.getStationStreamUrls(rawStationData).firstOrNull ?? "",
       title: rawStationData.title,

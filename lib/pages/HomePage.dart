@@ -16,7 +16,7 @@ import 'package:radio_crestin/utils/share_utils.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sliding_up_panel/sliding_up_panel.dart';
+import 'package:sliding_up_panel2/sliding_up_panel2.dart';
 
 import '../components/MiniAudioPlayer.dart';
 import '../components/SelectDialog.dart';
@@ -25,6 +25,7 @@ import '../main.dart';
 import '../queries/getStations.graphql.dart';
 import '../types/Station.dart';
 import '../utils/PositionRetainedScrollPhysics.dart';
+import '../globals.dart' as globals;
 import 'SettingsPage.dart';
 
 class HomePage extends StatefulWidget {
@@ -51,6 +52,7 @@ class HomePageState {
   final Query$GetStations$station_groups? selectedStationGroup;
   final MediaItem? mediaItem;
   final bool isDraggable;
+  final List<String> favoriteSlugs;
 
   const HomePageState(
     this.currentStation,
@@ -60,6 +62,7 @@ class HomePageState {
     this.selectedStationGroup,
     this.mediaItem,
     this.isDraggable,
+    this.favoriteSlugs,
   );
 }
 
@@ -96,6 +99,131 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _checkSharePromotionVisibility();
     _loadShareLinkData();
+    _showCarPlayAnnouncementIfNeeded();
+  }
+
+  Future<void> _showCarPlayAnnouncementIfNeeded() async {
+    final prefs = await SharedPreferences.getInstance();
+    final hasSeenCarPlay = prefs.getBool('has_seen_carplay_announcement1') ?? false;
+
+    if (!hasSeenCarPlay && globals.appVersion == '1.3.2') {
+      // Wait for the widget to be built before showing dialog
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _showCarPlayDialog();
+      });
+    }
+  }
+
+  void _showCarPlayDialog() async {
+    final prefs = await SharedPreferences.getInstance();
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final accentColor = isDark ? const Color(0xFFEBB800) : const Color(0xFFFF6B35);
+        final bottomPadding = MediaQuery.of(context).padding.bottom;
+
+        return Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(24),
+              topRight: Radius.circular(24),
+            ),
+          ),
+          padding: EdgeInsets.fromLTRB(24, 12, 24, 24 + bottomPadding),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Drag handle
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: accentColor.withOpacity(0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.directions_car_filled_rounded,
+                  size: 44,
+                  color: accentColor,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'Noutate: Apple CarPlay',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Acum poți asculta Radio Creștin direct din mașină! '
+                'Conectează-ți telefonul la Apple CarPlay '
+                'și bucură-te de stațiile tale preferate în siguranță, la volan.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.apple, size: 20, color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
+                  const SizedBox(width: 4),
+                  Text(
+                    'CarPlay',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: accentColor,
+                    foregroundColor: Colors.black,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    elevation: 0,
+                  ),
+                  child: const Text(
+                    'Am înțeles',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    await prefs.setBool('has_seen_carplay_announcement1', true);
   }
 
   Future<void> _handleRefresh() async {
@@ -292,7 +420,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: StreamBuilder<HomePageState>(
-          stream: Rx.combineLatest7<
+          stream: Rx.combineLatest8<
               Station?,
               List<Station>,
               List<Station>,
@@ -300,6 +428,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               Query$GetStations$station_groups?,
               MediaItem?,
               bool,
+              List<String>,
               HomePageState>(
             _audioHandler.currentStation.stream,
             _audioHandler.stations.stream,
@@ -308,10 +437,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             _audioHandler.selectedStationGroup.stream,
             _audioHandler.mediaItem,
             slidingUpPanelController.isDraggableSubject,
+            _audioHandler.favoriteStationSlugs.stream,
             (currentStation, stations, filteredStations, stationGroups, selectedStationGroup,
-                    mediaItem, isDraggable) =>
+                    mediaItem, isDraggable, favoriteSlugs) =>
                 HomePageState(currentStation, stations, filteredStations, stationGroups,
-                    selectedStationGroup, mediaItem, isDraggable),
+                    selectedStationGroup, mediaItem, isDraggable, favoriteSlugs),
           ),
           builder: (context, snapshot) {
             final currentStation = snapshot.data?.currentStation;
@@ -320,8 +450,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             final isDraggable = snapshot.data?.isDraggable ?? true;
             final selectedStationGroup = snapshot.data?.selectedStationGroup;
             final filteredStations = snapshot.data?.filteredStations ?? [];
+            final favoriteSlugs = snapshot.data?.favoriteSlugs ?? [];
 
-            final favoriteStations = stations.where((station) => station.isFavorite).toList();
+            final favoriteStations = stations.where((station) => favoriteSlugs.contains(station.slug)).toList();
             final isLoading = stations.isEmpty;
 
             // Show centered loading indicator when stations are loading
@@ -386,7 +517,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 topLeft: Radius.circular(16.0),
                 topRight: Radius.circular(16.0),
               ),
-              gestureSlidingEnabled: (slidingUpPanelController.isAttached &&
+              isDraggable: (slidingUpPanelController.isAttached &&
                       (slidingUpPanelController.isPanelClosed ||
                           slidingUpPanelController.isPanelClosed)) ||
                   isDraggable,
@@ -565,6 +696,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                               currentStation: currentStation,
                               audioHandler: _audioHandler,
                               panelController: null,
+                              favoriteSlugs: favoriteSlugs,
                             )),
                       ),
                     if (stations.isNotEmpty)
@@ -637,6 +769,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                               currentStation: currentStation,
                               audioHandler: _audioHandler,
                               panelController: null,
+                              favoriteSlugs: favoriteSlugs,
                             )),
                       ),
                   ],
@@ -654,7 +787,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       ),
                     )
                   : null,
-              panel: Container(
+              panelBuilder: () => Container(
                 decoration: const BoxDecoration(
                   color: Colors.transparent,
                   borderRadius: BorderRadius.only(

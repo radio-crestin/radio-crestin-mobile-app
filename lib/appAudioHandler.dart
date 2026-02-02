@@ -70,8 +70,28 @@ class AppAudioHandler extends BaseAudioHandler {
       BehaviorSubject.seeded(null);
   final BehaviorSubject<List<MediaItem>> stationsMediaItems = BehaviorSubject.seeded(<MediaItem>[]);
 
+  // CarPlay: playlist to cycle through when using skip next/prev (set by CarPlayService)
+  List<Station> carPlayPlaylist = [];
+
   _log(String message) {
     developer.log("AppAudioHandler: $message");
+  }
+
+  bool _hasStationsChanged(List<Station> oldStations, List<Station> newStations) {
+    if (oldStations.length != newStations.length) return true;
+    for (int i = 0; i < oldStations.length; i++) {
+      final o = oldStations[i];
+      final n = newStations[i];
+      if (o.id != n.id ||
+          o.title != n.title ||
+          o.songId != n.songId ||
+          o.songTitle != n.songTitle ||
+          o.totalListeners != n.totalListeners ||
+          o.isUp != n.isUp) {
+        return true;
+      }
+    }
+    return false;
   }
 
   final AudioPlayer player;
@@ -89,54 +109,6 @@ class AppAudioHandler extends BaseAudioHandler {
     _initUpdateCurrentStationMetadata();
     _initFavoriteStationSlugs();
     _setupRefreshStations();
-  }
-
-  // Android Auto
-  @override
-  Future<List<MediaItem>> getChildren(String parentMediaId, [Map<String, dynamic>? options]) async {
-    _log("getChildren: $parentMediaId");
-    switch (parentMediaId) {
-      case AudioService.recentRootId:
-        // When the user resumes a media session, tell the system what the most
-        // recently played item was.
-        return _recentSubject.value;
-      default:
-        return {
-          AudioService.browsableRootId: const [
-            MediaItem(
-              id: "radioStationsRootId",
-              title: "Statii Radio",
-              playable: false,
-            ),
-          ],
-          "radioStationsRootId": stationsMediaItems.value,
-        }[parentMediaId]!;
-    }
-  }
-
-  @override
-  ValueStream<Map<String, dynamic>> subscribeToChildren(String parentMediaId) {
-    _log("subscribeToChildren: $parentMediaId");
-    switch (parentMediaId) {
-      case AudioService.recentRootId:
-        final stream = _recentSubject.map((_) => <String, dynamic>{});
-        return _recentSubject.hasValue
-            ? stream.shareValueSeeded(<String, dynamic>{})
-            : stream.shareValue();
-      default:
-        return Stream.value({
-          AudioService.browsableRootId: const [
-            MediaItem(
-              id: "radioStationsRootId",
-              title: "Radiouri Crestine",
-              playable: false,
-            ),
-          ],
-          "radioStationsRootId": stationsMediaItems.value,
-        }[parentMediaId]!)
-            .map((_) => <String, dynamic>{})
-            .shareValue();
-    }
   }
 
   // Audio Player
@@ -162,7 +134,7 @@ class AppAudioHandler extends BaseAudioHandler {
 
   Future<void> selectStation(Station station) async {
     _log('playStation($station)');
-    final item = await station.mediaItem;
+    final item = station.mediaItem;
 
     mediaItem.add(item);
     currentStation.add(station);
@@ -180,36 +152,35 @@ class AppAudioHandler extends BaseAudioHandler {
     return play();
   }
 
+  List<Station> _getCarPlayPlaylist() {
+    if (carPlayPlaylist.isNotEmpty) return carPlayPlaylist;
+    return filteredStations.value;
+  }
+
   @override
   Future<void> skipToNext() {
     _log('skipToNext()');
-    if (currentStation.value != null) {
-      final currentStationIndex = filteredStations.value.indexWhere((s) {
-        return s.rawStationData.id == currentStation.value!.id;
-      });
-      if (currentStationIndex < filteredStations.value.length - 1) {
-        return playStation(filteredStations.value[currentStationIndex + 1]);
-      } else {
-        return playStation(filteredStations.value[0]);
-      }
-    }
-    return super.skipToNext();
+    if (currentStation.value == null) return super.skipToNext();
+
+    final playlist = _getCarPlayPlaylist();
+    if (playlist.isEmpty) return super.skipToNext();
+
+    final currentIndex = playlist.indexWhere((s) => s.slug == currentStation.value!.slug);
+    final nextIndex = (currentIndex + 1) % playlist.length;
+    return playStation(playlist[nextIndex < 0 ? 0 : nextIndex]);
   }
 
   @override
   Future<void> skipToPrevious() {
     _log('skipToPrevious()');
-    if (mediaItem.value != null) {
-      final currentStationIndex = filteredStations.value.indexWhere((s) {
-        return s.rawStationData.id == currentStation.value!.id;
-      });
-      if (currentStationIndex > 0) {
-        return playStation(filteredStations.value[currentStationIndex - 1]);
-      } else {
-        return playStation(filteredStations.value[filteredStations.value.length - 1]);
-      }
-    }
-    return super.skipToPrevious();
+    if (currentStation.value == null) return super.skipToPrevious();
+
+    final playlist = _getCarPlayPlaylist();
+    if (playlist.isEmpty) return super.skipToPrevious();
+
+    final currentIndex = playlist.indexWhere((s) => s.slug == currentStation.value!.slug);
+    final prevIndex = currentIndex <= 0 ? playlist.length - 1 : currentIndex - 1;
+    return playStation(playlist[prevIndex]);
   }
 
   @override
@@ -341,7 +312,7 @@ class AppAudioHandler extends BaseAudioHandler {
 
   // Metadata refresh
   void _broadcastState(PlaybackEvent event) {
-    _log("_broadcastState: $event, player.processingState: ${player.processingState}");
+    // Avoid logging on every playback event for performance
     final playing = player.playing;
     playbackState.add(playbackState.value.copyWith(
       controls: [
@@ -382,9 +353,7 @@ class AppAudioHandler extends BaseAudioHandler {
       final parsedData = result.parsedData;
       if (parsedData != null) {
         stations.add((parsedData.stations)
-            .map((rawStationData) => Station(
-                rawStationData: rawStationData,
-                isFavorite: favoriteStationSlugs.value.contains(rawStationData.slug)))
+            .map((rawStationData) => Station(rawStationData: rawStationData))
             .toList());
         stationGroups.add(parsedData.station_groups);
         loadThumbnailsInCache();
@@ -399,8 +368,7 @@ class AppAudioHandler extends BaseAudioHandler {
     final parsedData = (await graphqlClient.query(Options$Query$GetStations())).parsedData;
     stations.add((parsedData?.stations ?? [])
         .map((rawStationData) => Station(
-            rawStationData: rawStationData,
-            isFavorite: favoriteStationSlugs.value.contains(rawStationData.slug)))
+            rawStationData: rawStationData))
         .toList());
     stationGroups.add(parsedData?.station_groups ?? []);
 
@@ -422,12 +390,17 @@ class AppAudioHandler extends BaseAudioHandler {
         _log("No data");
         return;
       }
-      stations.add((parsedData.stations)
-          .map((rawStationData) => Station(
-              rawStationData: rawStationData,
-              isFavorite: favoriteStationSlugs.value.contains(rawStationData.slug)))
-          .toList());
-      stationGroups.add(parsedData.station_groups);
+      final newStations = (parsedData.stations)
+          .map((rawStationData) => Station(rawStationData: rawStationData))
+          .toList();
+
+      // Only emit if station data actually changed (avoid redundant rebuilds)
+      if (_hasStationsChanged(stations.value, newStations)) {
+        stations.add(newStations);
+        stationGroups.add(parsedData.station_groups);
+      } else {
+        _log("Stations unchanged, skipping update");
+      }
 
       loadThumbnailsInCache();
     });
@@ -547,7 +520,7 @@ class AppAudioHandler extends BaseAudioHandler {
       newFavoriteStationSlugs = List<String>.from(json.decode(favoriteJson));
     }
     favoriteStationSlugs.add(newFavoriteStationSlugs);
-    updateStationsFavoriteStatus();
+
   }
 
   Future<void> setStationIsFavorite(Station station, bool isFavorite) async {
@@ -558,7 +531,7 @@ class AppAudioHandler extends BaseAudioHandler {
       favoriteStationSlugs
           .add(favoriteStationSlugs.value.where((slug) => slug != station.slug).toList());
     }
-    updateStationsFavoriteStatus();
+
 
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.setString(_favoriteStationsKey, json.encode(favoriteStationSlugs.value));
@@ -568,17 +541,6 @@ class AppAudioHandler extends BaseAudioHandler {
     );
   }
 
-  updateStationsFavoriteStatus() {
-    stations.add(stations.value.map((station) {
-      station.isFavorite = favoriteStationSlugs.value.contains(station.slug);
-      return station;
-    }).toList());
-
-    if (currentStation.value != null) {
-      currentStation
-          .add(stations.value.firstWhere((station) => station.slug == currentStation.value!.slug));
-    }
-  }
 
   void _initFilteredStationsStream() {
     final combinedStream =
@@ -605,7 +567,7 @@ class AppAudioHandler extends BaseAudioHandler {
   }
 
   void _initUpdateCurrentStationMetadata() {
-    stations.stream.listen((stations) async {
+    stations.stream.listen((stations) {
       _log("updateCurrentStationMetadata");
       final sortedStations = stations..sort((a, b) => a.order.compareTo(b.order));
 
@@ -614,15 +576,14 @@ class AppAudioHandler extends BaseAudioHandler {
       }
 
       final newStationsMediaItems =
-          (await Future.wait(sortedStations.map((station) => station.mediaItem)));
+          sortedStations.map((station) => station.mediaItem).toList();
 
       stationsMediaItems.add(newStationsMediaItems);
 
       // Update current metadata of played media item
       if (mediaItem.value != null) {
-        var newMediaItems = stationsMediaItems.value;
         var newMediaItem =
-            newMediaItems.where((item) => item.id == mediaItem.value?.id).firstOrNull;
+            newStationsMediaItems.where((item) => item.id == mediaItem.value?.id).firstOrNull;
         if (newMediaItem != null) {
           mediaItem.add(newMediaItem);
         }
