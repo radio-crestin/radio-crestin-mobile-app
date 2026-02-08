@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:like_button/like_button.dart';
 import 'package:radio_crestin/appAudioHandler.dart';
 import 'package:radio_crestin/theme.dart';
-import 'package:sliding_up_panel/src/panel.dart';
+import 'package:sliding_up_panel2/sliding_up_panel2.dart';
 
 import '../types/Station.dart';
 
@@ -14,15 +14,15 @@ class StationsList extends StatelessWidget {
     required this.stations,
     required this.audioHandler,
     required this.panelController,
+    required this.favoriteSlugs,
     this.currentStation,
-    this.isFavoritesList = false,
   });
 
   final Station? currentStation;
   final List<Station> stations;
   final AppAudioHandler audioHandler;
   final PanelController? panelController;
-  final bool isFavoritesList;
+  final List<String> favoriteSlugs;
 
   @override
   Widget build(BuildContext context) {
@@ -42,10 +42,16 @@ class StationsList extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 0, horizontal: 10),
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: isSelected 
+                  color: isSelected
                     ? Theme.of(context).cardColorSelected
                     : Theme.of(context).cardColor,
                   borderRadius: const BorderRadius.all(Radius.circular(16.0)),
+                  border: Border.all(
+                    color: isSelected
+                      ? const Color(0xFF555555).withValues(alpha: 0.35)
+                      : Colors.transparent,
+                    width: 1.5,
+                  ),
                 ),
                 child: Stack(
                   children: [
@@ -79,20 +85,23 @@ class StationsList extends StatelessWidget {
                               Container(
                                   margin: const EdgeInsets.only(top: 0, bottom: 4),
                                   child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       if (station.isUp == false)
                                         Text(
                                           "Stație offline",
                                           style: TextStyle(color: Theme.of(context).primaryColor),
                                         ),
-                                      if (station.displaySubtitle != "")
+                                      if (station.songTitle != "")
                                         Text(
-                                          station.displaySubtitle,
+                                          station.songArtist != ""
+                                            ? "${station.songTitle} - ${station.songArtist}"
+                                            : station.songTitle,
                                           textAlign: TextAlign.left,
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                           style: TextStyle(
-                                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                            color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
                                             fontSize: 13,
                                           ),
                                         )
@@ -115,7 +124,7 @@ class StationsList extends StatelessWidget {
                                     Text(
                                       '${station.totalListeners} ascultator${station.totalListeners == 1 ? "" : "i"}',
                                       style: TextStyle(
-                                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                        color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
                                         fontSize: 12,
                                       ),
                                     ),
@@ -132,7 +141,7 @@ class StationsList extends StatelessWidget {
                       child: LikeButton(
                         size: 39,
                         bubblesSize: 39,
-                        isLiked: station.isFavorite,
+                        isLiked: favoriteSlugs.contains(station.slug),
                         likeBuilder: (bool isLiked) {
                           return Padding(
                             padding: const EdgeInsets.all(8),
@@ -140,7 +149,7 @@ class StationsList extends StatelessWidget {
                               isLiked? Icons.favorite_sharp: Icons.favorite_border_sharp,
                               color: isLiked 
                                 ? Theme.of(context).primaryColor 
-                                : Theme.of(context).colorScheme.onSurfaceVariant,
+                                : Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
                               size: 23,
                             ),);
                         },

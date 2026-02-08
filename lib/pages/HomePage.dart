@@ -16,7 +16,7 @@ import 'package:radio_crestin/utils/share_utils.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sliding_up_panel/sliding_up_panel.dart';
+import 'package:sliding_up_panel2/sliding_up_panel2.dart';
 
 import '../components/MiniAudioPlayer.dart';
 import '../components/SelectDialog.dart';
@@ -51,6 +51,7 @@ class HomePageState {
   final Query$GetStations$station_groups? selectedStationGroup;
   final MediaItem? mediaItem;
   final bool isDraggable;
+  final List<String> favoriteSlugs;
 
   const HomePageState(
     this.currentStation,
@@ -60,6 +61,7 @@ class HomePageState {
     this.selectedStationGroup,
     this.mediaItem,
     this.isDraggable,
+    this.favoriteSlugs,
   );
 }
 
@@ -121,17 +123,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Future<void> _checkSharePromotionVisibility() async {
     final prefs = await SharedPreferences.getInstance();
     bool shouldShow = prefs.getBool('show_share_promotion') ?? false;
-    
+
     // Check if we've already auto-enabled before (to not override user's choice)
     bool hasAutoEnabled = prefs.getBool('share_promotion_auto_enabled') ?? false;
-    
+
     // Auto-enable after 40 actions (2X the review threshold) - but only once
     if (!shouldShow && !hasAutoEnabled) {
       String? reviewStatusJson = prefs.getString('_reviewStatus');
       if (reviewStatusJson != null) {
         Map<String, dynamic> reviewStatus = json.decode(reviewStatusJson);
         int actionsMade = reviewStatus['actions_made'] ?? 0;
-        
+
         // Auto-enable at 40 actions (2X the first review threshold of 20)
         if (actionsMade >= 40) {
           await prefs.setBool('show_share_promotion', true);
@@ -140,7 +142,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         }
       }
     }
-    
+
     if (mounted && shouldShow != _showSharePromotion) {
       setState(() {
         _showSharePromotion = shouldShow;
@@ -254,19 +256,23 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       final shareLinkData = await shareService.getShareLink(deviceId!);
       
       if (shareLinkData != null) {
-        final shareUrl = shareLinkData.generateShareUrl();
+        final currentStation = _audioHandler.currentStation.valueOrNull;
+        final shareUrl = shareLinkData.generateShareUrl(
+          stationSlug: currentStation?.slug,
+        );
         final shareMessage = ShareUtils.formatShareMessage(
           shareLinkData: shareLinkData,
-          stationName: null,
-          stationSlug: null,
+          stationName: currentStation?.title,
+          stationSlug: currentStation?.slug,
         );
-        
+
         // Show dialog with share options
         if (mounted) {
           ShareHandler.shareApp(
             context: context,
             shareUrl: shareUrl,
             shareMessage: shareMessage,
+            stationName: currentStation?.title,
             shareLinkData: shareLinkData,
             showDialog: true,
           );
@@ -292,7 +298,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: StreamBuilder<HomePageState>(
-          stream: Rx.combineLatest7<
+          stream: Rx.combineLatest8<
               Station?,
               List<Station>,
               List<Station>,
@@ -300,6 +306,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               Query$GetStations$station_groups?,
               MediaItem?,
               bool,
+              List<String>,
               HomePageState>(
             _audioHandler.currentStation.stream,
             _audioHandler.stations.stream,
@@ -308,10 +315,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             _audioHandler.selectedStationGroup.stream,
             _audioHandler.mediaItem,
             slidingUpPanelController.isDraggableSubject,
+            _audioHandler.favoriteStationSlugs.stream,
             (currentStation, stations, filteredStations, stationGroups, selectedStationGroup,
-                    mediaItem, isDraggable) =>
+                    mediaItem, isDraggable, favoriteSlugs) =>
                 HomePageState(currentStation, stations, filteredStations, stationGroups,
-                    selectedStationGroup, mediaItem, isDraggable),
+                    selectedStationGroup, mediaItem, isDraggable, favoriteSlugs),
           ),
           builder: (context, snapshot) {
             final currentStation = snapshot.data?.currentStation;
@@ -320,8 +328,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             final isDraggable = snapshot.data?.isDraggable ?? true;
             final selectedStationGroup = snapshot.data?.selectedStationGroup;
             final filteredStations = snapshot.data?.filteredStations ?? [];
+            final favoriteSlugs = snapshot.data?.favoriteSlugs ?? [];
 
-            final favoriteStations = stations.where((station) => station.isFavorite).toList();
+            final favoriteStations = stations.where((station) => favoriteSlugs.contains(station.slug)).toList();
             final isLoading = stations.isEmpty;
 
             // Show centered loading indicator when stations are loading
@@ -386,7 +395,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 topLeft: Radius.circular(16.0),
                 topRight: Radius.circular(16.0),
               ),
-              gestureSlidingEnabled: (slidingUpPanelController.isAttached &&
+              isDraggable: (slidingUpPanelController.isAttached &&
                       (slidingUpPanelController.isPanelClosed ||
                           slidingUpPanelController.isPanelClosed)) ||
                   isDraggable,
@@ -394,8 +403,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 child: RefreshIndicator(
                   onRefresh: _handleRefresh,
                   color: Theme.of(context).primaryColor,
+                  child: Scrollbar(
                   child: CustomScrollView(
-                    physics: const AlwaysScrollableScrollPhysics(),
+                    physics: const PositionRetainedScrollPhysics().applyTo(const AlwaysScrollableScrollPhysics()),
                     cacheExtent: 300.0,
                     slivers: <Widget>[
                     SliverAppBar(
@@ -503,6 +513,57 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                   onItemSelected: (Station station) {
                                     _audioHandler.playStation(station);
                                   },
+                                  itemBuilder: (context, station) {
+                                    return Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                      child: Row(
+                                        children: [
+                                          SizedBox(
+                                            width: 48,
+                                            height: 48,
+                                            child: ClipRRect(
+                                              borderRadius: BorderRadius.circular(10),
+                                              child: station.thumbnail,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Text(
+                                                  station.displayTitle,
+                                                  style: TextStyle(
+                                                    color: Theme.of(context).colorScheme.onSurface,
+                                                    fontWeight: FontWeight.w500,
+                                                    fontSize: 15,
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                                if (station.songTitle != "")
+                                                  Padding(
+                                                    padding: const EdgeInsets.only(top: 2),
+                                                    child: Text(
+                                                      station.songArtist != ""
+                                                          ? "${station.songTitle} - ${station.songArtist}"
+                                                          : station.songTitle,
+                                                      style: TextStyle(
+                                                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                                                        fontSize: 13,
+                                                      ),
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
                                 );
                               },
                             );
@@ -565,7 +626,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                               currentStation: currentStation,
                               audioHandler: _audioHandler,
                               panelController: null,
-                              isFavoritesList: true,
+                              favoriteSlugs: favoriteSlugs,
                             )),
                       ),
                     if (stations.isNotEmpty)
@@ -638,9 +699,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                               currentStation: currentStation,
                               audioHandler: _audioHandler,
                               panelController: null,
+                              favoriteSlugs: favoriteSlugs,
                             )),
                       ),
                   ],
+                  ),
                   ),
                 ),
               ),
@@ -655,7 +718,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       ),
                     )
                   : null,
-              panel: Container(
+              panelBuilder: () => Container(
                 decoration: const BoxDecoration(
                   color: Colors.transparent,
                   borderRadius: BorderRadius.only(

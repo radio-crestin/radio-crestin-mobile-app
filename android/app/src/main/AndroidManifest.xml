@@ -5,17 +5,11 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"/>
     <uses-permission android:name="android.permission.NFC"/>
+    <uses-permission android:name="androidx.car.app.MEDIA_TEMPLATES"/>
 
-<!--    <uses-feature-->
-<!--        android:name="android.hardware.type.automotive"-->
-<!--        android:required="true" />-->
-
-<!--    <uses-feature-->
-<!--        android:name="android.software.car.templates_host"-->
-<!--        android:required="true" />-->
-<!--    <uses-feature-->
-<!--        android:name="android.hardware.wifi"-->
-<!--        android:required="true" />-->
+    <uses-feature
+        android:name="android.software.car.app.library"
+        android:required="false" />
 
     <application
         android:label="Radio Crestin"
@@ -131,6 +125,24 @@
             </intent-filter>
         </receiver>
 
+        <!-- Android Auto service for flutter_carplay -->
+        <service
+            android:name="com.oguzhnatly.flutter_carplay.AndroidAutoService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="androidx.car.app.CarAppService" />
+                <category android:name="androidx.car.app.category.MEDIA"/>
+            </intent-filter>
+        </service>
+
+        <!-- Android Auto meta-data -->
+        <meta-data
+            android:name="com.google.android.gms.car.application"
+            android:resource="@xml/automotive_app_desc" />
+        <meta-data
+            android:name="androidx.car.app.minCarApiLevel"
+            android:value="1" />
+
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
@@ -145,10 +157,6 @@
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_color"
             android:resource="@color/ic_launcher_background" />
-
-        <meta-data
-            android:name="com.google.android.gms.car.application"
-            android:resource="@xml/automotive_app_desc"/>
 
     </application>
 </manifest>

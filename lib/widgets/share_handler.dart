@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -35,12 +36,18 @@ class ShareHandler {
     try {
       final message = ShareUtils.formatMessageWithStation(shareMessage, shareUrl, stationName);
 
+      final box = context.findRenderObject() as RenderBox?;
+      final sharePositionOrigin = box != null
+          ? box.localToGlobal(Offset.zero) & box.size
+          : null;
+
       await Share.share(
         message,
         subject: 'Radio Creștin - Stații radio creștine',
+        sharePositionOrigin: sharePositionOrigin,
       );
     } catch (e) {
-      _showCopyFallback(context, shareUrl, shareMessage);
+      print('Error sharing: $e');
     }
   }
 
@@ -54,9 +61,11 @@ class ShareHandler {
     await showDialog(
       context: context,
       barrierDismissible: true,
-      barrierColor: Colors.black54,
+      barrierColor: Colors.black.withOpacity(0.65),
       builder: (BuildContext context) {
-        return Dialog(
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+          child: Dialog(
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
           ),
@@ -230,7 +239,7 @@ class ShareHandler {
                             color: const Color(0xFF25D366),
                             onTap: () async {
                               Navigator.pop(context);
-                              await _shareToWhatsApp(shareMessage, shareUrl);
+                              await _shareToWhatsApp(shareMessage, shareUrl, stationName);
                             },
                           ),
                           const SizedBox(width: 10),
@@ -369,6 +378,7 @@ class ShareHandler {
               ],
             ),
           ),
+        ),
         );
       },
     );
@@ -426,9 +436,9 @@ class ShareHandler {
     );
   }
 
-  static Future<void> _shareToWhatsApp(String message, String shareUrl) async {
-    // Message already contains the URL from ShareUtils.formatShareMessage
-    final encodedMessage = Uri.encodeComponent(message);
+  static Future<void> _shareToWhatsApp(String message, String shareUrl, String? stationName) async {
+    final formattedMessage = ShareUtils.formatMessageWithStation(message, shareUrl, stationName);
+    final encodedMessage = Uri.encodeComponent(formattedMessage);
     final whatsappAppUrl = 'whatsapp://send?text=$encodedMessage';
     final whatsappWebUrl = 'https://wa.me/?text=$encodedMessage';
     
@@ -460,138 +470,5 @@ class ShareHandler {
     } catch (e) {
       // Silently fail
     }
-  }
-
-  static void _showCopyFallback(
-    BuildContext context, 
-    String shareUrl, 
-    String shareMessage,
-  ) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (BuildContext context) {
-        return Container(
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(20),
-              topRight: Radius.circular(20),
-            ),
-          ),
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 20),
-                decoration: BoxDecoration(
-                  color: Colors.grey[400],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-                alignment: Alignment.center,
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[400],
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              Text(
-                'Distribuie aplicația',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 20),
-              Container(
-                padding: const EdgeInsets.all(15),
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.grey[300]!),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      shareMessage,
-                      style: TextStyle(
-                        color: Colors.grey[700],
-                        fontSize: 14,
-                      ),
-                    ),
-                    if (!shareMessage.contains(shareUrl)) ...[
-                      const SizedBox(height: 10),
-                      Text(
-                        shareUrl,
-                        style: TextStyle(
-                          color: Theme.of(context).primaryColor,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        final textToCopy = ShareUtils.combineMessageWithUrl(shareMessage, shareUrl);
-                        Clipboard.setData(ClipboardData(text: textToCopy));
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Link copiat în clipboard!'),
-                            duration: Duration(seconds: 2),
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.copy),
-                      label: const Text('Copiază link'),
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        final textToShare = ShareUtils.combineMessageWithUrl(shareMessage, shareUrl);
-                        Share.share(textToShare);
-                      },
-                      icon: const Icon(Icons.share),
-                      label: const Text('Distribuie'),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-            ],
-          ),
-        );
-      },
-    );
   }
 }

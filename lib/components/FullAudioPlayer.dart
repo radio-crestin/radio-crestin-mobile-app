@@ -37,6 +37,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   Station? currentStation;
   final PageController pageController = PageController();
   final List _subscriptions = [];
+  List<String> _favoriteSlugs = [];
 
   List<Station> filteredStationsIncludingCurrentStation = [];
 
@@ -57,6 +58,12 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
       if (pageController.page != null) {
         pageController.jumpToPage(newPageIndex);
       }
+    }));
+
+    _subscriptions.add(widget.audioHandler.favoriteStationSlugs.stream.listen((slugs) {
+      setState(() {
+        _favoriteSlugs = slugs;
+      });
     }));
 
     _subscriptions.add(widget.audioHandler.currentStation.stream.listen((Station? value) {
@@ -316,26 +323,24 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                 ),
                 InkWell(
                   customBorder: const CircleBorder(),
+                  onTap: () {
+                    if (currentStation != null) {
+                      final isLiked = _favoriteSlugs.contains(currentStation!.slug);
+                      widget.audioHandler.setStationIsFavorite(currentStation!, !isLiked);
+                    }
+                  },
                   child: Container(
                     padding: const EdgeInsets.all(10.0),
                     child: Column(
                       children: [
-                        LikeButton(
-                          size: 25,
-                          isLiked: currentStation?.isFavorite ?? false,
-                          likeBuilder: (bool isLiked) {
-                            return Icon(
-                              isLiked ? Icons.favorite_sharp : Icons.favorite_border_sharp,
-                              color: isLiked ? Theme.of(context).primaryColor : Theme.of(context).colorScheme.onSurface,
-                              size: 23,
-                            );
-                          },
-                          onTap: (bool isLiked) async {
-                            if (currentStation != null) {
-                              widget.audioHandler.setStationIsFavorite(currentStation!, !isLiked);
-                            }
-                            return !isLiked;
-                          },
+                        Icon(
+                          currentStation != null && _favoriteSlugs.contains(currentStation!.slug)
+                              ? Icons.favorite_sharp
+                              : Icons.favorite_border_sharp,
+                          color: currentStation != null && _favoriteSlugs.contains(currentStation!.slug)
+                              ? Theme.of(context).primaryColor
+                              : Theme.of(context).colorScheme.onSurface,
+                          size: 23,
                         ),
                         Padding(
                           padding: EdgeInsets.only(top: 8.0),
