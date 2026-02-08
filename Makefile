@@ -19,9 +19,6 @@ build-android-release:
 build-android-apk-release:
 	flutter build apk --release --no-tree-shake-icons
 
-# Android Auto testing - requires DHU installed via Android Studio SDK Manager
-# First: Enable Android Auto developer mode on phone, then "Start head unit server"
-ANDROID_SDK_PATH ?= $(HOME)/Library/Android/sdk
-android-auto-test:
-	$(ANDROID_SDK_PATH)/platform-tools/adb forward tcp:5277 tcp:5277
-	$(ANDROID_SDK_PATH)/extras/google/auto/desktop-head-unit
+start-android-auto:
+	# Connect your phone via USB
+	~/Library/Android/sdk/extras/google/auto/desktop-head-unit --usb -c ./dhu/landscape.ini

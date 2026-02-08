@@ -43,6 +43,12 @@ class CarPlayService {
   // Store reference to favorite template for updating
   CPListTemplate? _favoriteTemplate;
 
+  // Android Auto state
+  List<Station> _sortedAndroidAutoStations = [];
+  StreamSubscription? _androidAutoFavoritesSubscription;
+  StreamSubscription? _androidAutoStationSubscription;
+  StreamSubscription? _androidAutoStationsListSubscription;
+
   static void _log(String message) {
     developer.log("CarPlayService: $message");
   }
@@ -403,46 +409,115 @@ class CarPlayService {
     }
 
     try {
-    _log("Setting up Android Auto with ${stations.length} stations");
+      _log("Setting up Android Auto with ${stations.length} stations");
 
-    final favoriteSlugs = _audioHandler.favoriteStationSlugs.value;
+      _updateSortedAndroidAutoStations(stations);
+      _rebuildAndroidAutoTemplate();
 
-    // Sort stations alphabetically by title
-    final sortedStations = List<Station>.from(stations);
-    sortedStations.sort((a, b) => a.title.toString().compareTo(b.title.toString()));
+      // Listen for favorites changes to rebuild the template
+      _androidAutoFavoritesSubscription = _audioHandler.favoriteStationSlugs.stream.listen((_) {
+        _rebuildAndroidAutoTemplate();
+      });
 
-    final items = sortedStations.map((station) {
-      final isFavorite = favoriteSlugs.contains(station.slug);
-      return AAListItem(
-        title: isFavorite ? "★ ${station.title}" : station.title,
-        imageUrl: station.thumbnailUrl,
-        onPress: (complete, item) {
-          _log("Android Auto: Station selected: ${station.title}");
-          _audioHandler.playStation(station);
-          complete();
-        },
-      );
-    }).toList();
+      // Listen for current station changes (playing indicator)
+      _androidAutoStationSubscription = _audioHandler.currentStation.stream.listen((_) {
+        _rebuildAndroidAutoTemplate();
+      });
 
-    final listTemplate = AAListTemplate(
-      title: "Radio Crestin",
-      sections: [
-        AAListSection(
-          title: "Statii Radio",
-          items: items,
-        ),
-      ],
-    );
+      // Listen for station list/metadata changes (song title, artist, new stations, etc.)
+      _androidAutoStationsListSubscription = _audioHandler.stations.stream.listen((updatedStations) {
+        _log("Android Auto: stations stream updated (${updatedStations.length} stations)");
+        _updateSortedAndroidAutoStations(updatedStations);
+        _rebuildAndroidAutoTemplate();
+      });
 
-    FlutterAndroidAuto.setRootTemplate(
-      template: listTemplate,
-    );
-
-    _androidAutoInitialized = true;
-    _log("Android Auto setup complete - template locked");
+      _androidAutoInitialized = true;
+      _log("Android Auto setup complete");
     } catch (e) {
       _log("Error setting up Android Auto: $e");
     }
+  }
+
+  void _updateSortedAndroidAutoStations(List<Station> stations) {
+    _sortedAndroidAutoStations = List<Station>.from(stations);
+    _sortedAndroidAutoStations.sort(
+      (a, b) => a.title.toString().compareTo(b.title.toString()),
+    );
+  }
+
+  void _rebuildAndroidAutoTemplate() {
+    final favoriteSlugs = _audioHandler.favoriteStationSlugs.value;
+    final currentSlug = _audioHandler.currentStation.value?.slug;
+
+    // Split stations into favorites and non-favorites
+    final favoriteStations = _sortedAndroidAutoStations
+        .where((s) => favoriteSlugs.contains(s.slug))
+        .toList();
+    final otherStations = _sortedAndroidAutoStations
+        .where((s) => !favoriteSlugs.contains(s.slug))
+        .toList();
+
+    AAListItem buildItem(Station station, {required List<Station> playlist}) {
+      final isFavorite = favoriteSlugs.contains(station.slug);
+      final isPlaying = station.slug == currentSlug;
+
+      // Build subtitle with song metadata
+      String? subtitle;
+      if (isPlaying && station.songTitle.isNotEmpty) {
+        subtitle = station.songArtist.isNotEmpty
+            ? "${station.songArtist} - ${station.songTitle}"
+            : station.songTitle;
+      }
+
+      return AAListItem(
+        title: isPlaying ? "▶ ${station.title}" : station.title,
+        subtitle: subtitle,
+        imageUrl: station.thumbnailUrl,
+        onPress: (complete, item) {
+          _log("Android Auto: Station selected: ${station.title}");
+          _audioHandler.carPlayPlaylist = List.from(playlist);
+          _audioHandler.selectStation(station);
+          complete();
+          _audioHandler.play();
+        },
+        actions: [
+          AAListItemAction(
+            title: isFavorite ? "Unfavorite" : "Favorite",
+            iconName: isFavorite ? "ic_favorite" : "ic_favorite_border",
+            onPress: () {
+              _audioHandler.setStationIsFavorite(station, !isFavorite);
+            },
+          ),
+        ],
+      );
+    }
+
+    final List<AAListSection> sections = [];
+
+    // Add favorites section first (For You)
+    if (favoriteStations.isNotEmpty) {
+      sections.add(AAListSection(
+        title: "Favorite",
+        items: favoriteStations
+            .map((s) => buildItem(s, playlist: favoriteStations))
+            .toList(),
+      ));
+    }
+
+    // Add remaining (non-favorite) stations — no duplication
+    sections.add(AAListSection(
+      title: "Toate statiile",
+      items: otherStations
+          .map((s) => buildItem(s, playlist: _sortedAndroidAutoStations))
+          .toList(),
+    ));
+
+    final listTemplate = AAListTemplate(
+      title: "Radio Crestin",
+      sections: sections,
+    );
+
+    FlutterAndroidAuto.setRootTemplate(template: listTemplate);
   }
 
   void dispose() {
@@ -450,6 +525,9 @@ class CarPlayService {
 
     _currentStationSubscription?.cancel();
     _favoritesSubscription?.cancel();
+    _androidAutoFavoritesSubscription?.cancel();
+    _androidAutoStationSubscription?.cancel();
+    _androidAutoStationsListSubscription?.cancel();
 
     if (Platform.isIOS) {
       _flutterCarplay?.removeListenerOnConnectionChange();
