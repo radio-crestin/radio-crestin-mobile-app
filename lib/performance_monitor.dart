@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:developer' as developer;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
@@ -13,7 +12,7 @@ import 'package:flutter/scheduler.dart';
 class PerformanceMonitor {
   PerformanceMonitor._();
 
-  static final Map<String, DateTime> _operationStarts = {};
+  static final Map<String, List<DateTime>> _operationStarts = {};
   static final Map<String, List<int>> _operationHistory = {};
   static DateTime? _appStartTime;
   static bool _frameCallbackRegistered = false;
@@ -41,20 +40,23 @@ class PerformanceMonitor {
   // ───────────────────── Operation timing ────────────────────────
 
   /// Begin timing an operation identified by [name].
+  /// Supports concurrent operations with the same name (e.g. polling REST calls).
   static void startOperation(String name) {
     if (kReleaseMode) return;
-    _operationStarts[name] = DateTime.now();
+    _operationStarts.putIfAbsent(name, () => []).add(DateTime.now());
   }
 
   /// End timing for [name] and log the duration.
   /// Returns the elapsed milliseconds (or -1 in release mode / if not started).
   static int endOperation(String name) {
     if (kReleaseMode) return -1;
-    final start = _operationStarts.remove(name);
-    if (start == null) {
+    final starts = _operationStarts[name];
+    if (starts == null || starts.isEmpty) {
       _log('[PERF] endOperation("$name") called without matching startOperation');
       return -1;
     }
+    final start = starts.removeAt(0);
+    if (starts.isEmpty) _operationStarts.remove(name);
     final elapsed = DateTime.now().difference(start).inMilliseconds;
     _log('[PERF] $name completed in ${elapsed}ms');
     _recordOperation(name, elapsed);
@@ -182,6 +184,8 @@ class PerformanceMonitor {
   }
 
   static void _log(String message) {
-    developer.log(message, name: 'PerfMon');
+    // Use debugPrint so output appears in logcat/console in profile mode
+    // (developer.log only shows in DevTools Observatory)
+    debugPrint('PerfMon: $message');
   }
 }

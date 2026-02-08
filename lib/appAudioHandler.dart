@@ -14,6 +14,7 @@ import 'package:radio_crestin/performance_monitor.dart';
 import 'package:radio_crestin/queries/getStations.graphql.dart';
 import 'package:radio_crestin/tracking.dart';
 import 'package:radio_crestin/types/Station.dart';
+import 'package:radio_crestin/services/image_cache_service.dart';
 import 'package:radio_crestin/utils.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -43,6 +44,11 @@ Future<AppAudioHandler> initAudioService({required graphqlClient}) async {
       preloadArtwork: true,
       // androidShowNotificationBadge: true,
       androidStopForegroundOnPause: true,
+      androidBrowsableRootExtras: {
+        'android.media.browse.CONTENT_STYLE_SUPPORTED': true,
+        'android.media.browse.CONTENT_STYLE_BROWSABLE_HINT': 2, // grid
+        'android.media.browse.CONTENT_STYLE_PLAYABLE_HINT': 2, // grid
+      },
     ),
   );
 }
@@ -61,6 +67,15 @@ class AppAudioHandler extends BaseAudioHandler {
   bool started = false;
   int? playerIndex;
 
+  // Track loaded stream to avoid unnecessary reconnection on pause/resume
+  String? _loadedStreamUrl;
+  Timer? _disconnectTimer;
+  static const _disconnectDelay = Duration(seconds: 60);
+
+  // Track last emitted mediaItem fields to avoid redundant Android notification updates
+  int? _lastEmittedSongId;
+  String? _lastEmittedArtUriString;
+
   final BehaviorSubject<List<Station>> stations = BehaviorSubject.seeded(<Station>[]);
   final BehaviorSubject<List<Station>> filteredStations = BehaviorSubject.seeded(<Station>[]);
   final BehaviorSubject<List<String>> favoriteStationSlugs = BehaviorSubject.seeded([]);
@@ -76,6 +91,60 @@ class AppAudioHandler extends BaseAudioHandler {
 
   _log(String message) {
     developer.log("AppAudioHandler: $message");
+  }
+
+  // Android Auto media browsing support
+  @override
+  Future<List<MediaItem>> getChildren(String parentMediaId, [Map<String, dynamic>? options]) async {
+    _log("getChildren: $parentMediaId");
+    switch (parentMediaId) {
+      case AudioService.recentRootId:
+        return _recentSubject.value;
+      case "favoriteStationsRootId":
+        final favSlugs = favoriteStationSlugs.value;
+        return stationsMediaItems.value
+            .where((item) => favSlugs.contains(item.extras?["station_slug"]))
+            .toList();
+      case "allStationsRootId":
+        return stationsMediaItems.value;
+      default:
+        return {
+          AudioService.browsableRootId: const [
+            MediaItem(
+              id: "favoriteStationsRootId",
+              title: "Statii Favorite",
+              playable: false,
+            ),
+            MediaItem(
+              id: "allStationsRootId",
+              title: "Toate Statiile",
+              playable: false,
+            ),
+          ],
+        }[parentMediaId] ?? [];
+    }
+  }
+
+  @override
+  ValueStream<Map<String, dynamic>> subscribeToChildren(String parentMediaId) {
+    _log("subscribeToChildren: $parentMediaId");
+    switch (parentMediaId) {
+      case AudioService.recentRootId:
+        final stream = _recentSubject.map((_) => <String, dynamic>{});
+        return _recentSubject.hasValue
+            ? stream.shareValueSeeded(<String, dynamic>{})
+            : stream.shareValue();
+      case "favoriteStationsRootId":
+        final stream = favoriteStationSlugs.map((_) => <String, dynamic>{});
+        return favoriteStationSlugs.hasValue
+            ? stream.shareValueSeeded(<String, dynamic>{})
+            : stream.shareValue();
+      default:
+        final stream = stationsMediaItems.map((_) => <String, dynamic>{});
+        return stationsMediaItems.hasValue
+            ? stream.shareValueSeeded(<String, dynamic>{})
+            : stream.shareValue();
+    }
   }
 
   bool _hasStationsChanged(List<Station> oldStations, List<Station> newStations) {
@@ -141,14 +210,45 @@ class AppAudioHandler extends BaseAudioHandler {
     _log('playStation($station)');
     final item = station.mediaItem;
 
+    _lastEmittedSongId = station.songId;
+    _lastEmittedArtUriString = item.artUri?.toString();
     mediaItem.add(item);
     currentStation.add(station);
 
     await setLastPlayedStation(station);
+
+    // Cache the song thumbnail on-demand so notification/lock screen gets a local file
+    _cacheSongThumbnail(station);
+  }
+
+  void _cacheSongThumbnail(Station station) {
+    final songThumbnailUrl = station.rawStationData.now_playing?.song?.thumbnail_url;
+    if (songThumbnailUrl != null && songThumbnailUrl.isNotEmpty) {
+      ImageCacheService.instance.getOrDownload(songThumbnailUrl).then((file) {
+        if (file != null && currentStation.valueOrNull?.id == station.id) {
+          // Update mediaItem with local file URI so notification uses cached image
+          final currentItem = mediaItem.valueOrNull;
+          if (currentItem != null) {
+            final localUri = Uri.file(file.path);
+            _lastEmittedArtUriString = localUri.toString();
+            mediaItem.add(currentItem.copyWith(artUri: localUri));
+          }
+        }
+      });
+    }
   }
 
   Future<void> playStation(Station station) async {
     _log('playStation($station)');
+
+    // Stop and clean up the previous station before starting the new one
+    _disconnectTimer?.cancel();
+    if (player.playing || player.processingState != ProcessingState.idle) {
+      stopListeningTracker();
+      await player.stop();
+    }
+    _loadedStreamUrl = null;
+
     await selectStation(station);
     if (Platform.isAndroid) {
       await Future.delayed(const Duration(milliseconds: 100));
@@ -211,39 +311,55 @@ class AppAudioHandler extends BaseAudioHandler {
   @override
   Future<void> play() async {
     _log("play");
-    PerformanceMonitor.startOperation('audio_play');
+    _disconnectTimer?.cancel();
+
     if (currentStation.value != null) {
       AppTracking.trackPlayStation(currentStation.value!, graphQLClient: graphqlClient);
       AppTracking.trackListenStation(currentStation.value!, currentStreamUrl);
     }
     startListeningTracker();
 
-    var retry = 0;
     var item = mediaItem.valueOrNull;
+    final desiredStreamUrl = (item?.extras?["station_streams"] as List<dynamic>?)?.firstOrNull?.toString() ?? item?.id;
+
+    // Fast resume: if the same stream is already loaded, just resume playback
+    if (desiredStreamUrl != null &&
+        _loadedStreamUrl == desiredStreamUrl &&
+        player.processingState != ProcessingState.idle) {
+      _log("play: fast resume (stream already loaded)");
+      return player.play();
+    }
+
+    // Need to load a new stream source
+    PerformanceMonitor.startOperation('audio_play');
+    var retry = 0;
     var initialStation = currentStation.valueOrNull;
+
     while (item != null && initialStation == currentStation.valueOrNull) {
       if (retry < maxRetries) {
-        final streamUrl = item.extras?["station_streams"]
-        [retry % item.extras?["station_streams"].length] ??
-            item.id;
-        _log("playMediaItem: $streamUrl");
+        final streams = item.extras?["station_streams"] as List<dynamic>?;
+        final streamUrl = streams?[retry % (streams?.length ?? 1)]?.toString() ?? item.id;
+        _log("play: attempt $retry - $streamUrl");
         try {
-          PerformanceMonitor.startOperation('audio_source_load');
           final trackedUrl = addTrackingParametersToUrl(streamUrl);
           await player.setAudioSource(
             AudioSource.uri(Uri.parse(trackedUrl)),
             preload: true,
-          );
-          PerformanceMonitor.endOperation('audio_source_load');
+          ).timeout(const Duration(seconds: 10));
+          _loadedStreamUrl = desiredStreamUrl;
+          _log("play: source loaded successfully");
           break;
         } catch (e) {
-          _log("playMediaItem: Player Error: $e");
+          _log("play: attempt $retry failed - $e");
+          _loadedStreamUrl = null;
           retry++;
         }
       } else {
-        _log("playMediaItem: max retries reached");
+        _log("play: max retries reached");
+        _loadedStreamUrl = null;
+        PerformanceMonitor.endOperation('audio_play');
         stop();
-        break;
+        return;
       }
     }
 
@@ -258,22 +374,28 @@ class AppAudioHandler extends BaseAudioHandler {
       AppTracking.trackStopStation(currentStation.value!);
     }
 
-    /**
-     * We switch the audio source to a static mp3 file to stop downloading the HLS stream while is on pause.
-     * This is to save bandwidth and battery.
-     *
-     * And we switch back to HLS when pressing play.
-     */
-
     await player.pause();
-    await player.setAudioSource(AudioSource.uri(Uri.parse(CONSTANTS.STATIC_MP3_URL)),
-        preload: false);
+
+    // Disconnect after 60s of being paused to save bandwidth.
+    // If the user resumes within 60s, play() will fast-resume without reconnecting.
+    _disconnectTimer?.cancel();
+    _disconnectTimer = Timer(_disconnectDelay, () {
+      _log("pause: disconnecting idle stream after ${_disconnectDelay.inSeconds}s");
+      _loadedStreamUrl = null;
+      player.setAudioSource(
+        AudioSource.uri(Uri.parse(CONSTANTS.STATIC_MP3_URL)),
+        preload: false,
+      );
+    });
+
     return super.pause();
   }
 
   @override
   Future<void> stop() async {
     _log("stop");
+    _disconnectTimer?.cancel();
+    _loadedStreamUrl = null;
     if (currentStation.value != null) {
       AppTracking.trackStopStation(currentStation.value!);
     }
@@ -365,7 +487,7 @@ class AppAudioHandler extends BaseAudioHandler {
             .map((rawStationData) => Station(rawStationData: rawStationData))
             .toList());
         stationGroups.add(parsedData.station_groups);
-        loadThumbnailsInCache();
+        _preCacheStationThumbnails();
       }
     } catch (e) {
       _log("Error refreshing stations: $e");
@@ -382,6 +504,9 @@ class AppAudioHandler extends BaseAudioHandler {
         .toList());
     stationGroups.add(parsedData?.station_groups ?? []);
     PerformanceMonitor.endOperation('initial_stations_fetch');
+
+    // Pre-cache station thumbnails (stable URLs, ~50-150 stations)
+    _preCacheStationThumbnails();
 
     watchStations = graphqlClient
         .watchQuery$GetStations(
@@ -409,22 +534,21 @@ class AppAudioHandler extends BaseAudioHandler {
       if (_hasStationsChanged(stations.value, newStations)) {
         stations.add(newStations);
         stationGroups.add(parsedData.station_groups);
+        _preCacheStationThumbnails();
       } else {
         _log("Stations unchanged, skipping update");
       }
-
-      loadThumbnailsInCache();
     });
   }
 
-  void loadThumbnailsInCache() {
-    _log("Loading thumbnails in cache");
-    for (var station in stations.value) {
-      if (station.thumbnailUrl != null) {
-        Utils.displayImage(station.thumbnailUrl!, cache: true);
-      }
-    }
-    _log("Done loading thumbnails in cache");
+  void _preCacheStationThumbnails() {
+    final urls = stations.value
+        .where((s) => s.thumbnailUrl != null && s.thumbnailUrl!.isNotEmpty)
+        .map((s) => s.thumbnailUrl!)
+        .toList();
+    if (urls.isEmpty) return;
+    // Fire-and-forget: pre-cache in background
+    ImageCacheService.instance.preCacheUrls(urls);
   }
 
   @override
@@ -446,6 +570,8 @@ class AppAudioHandler extends BaseAudioHandler {
   @override
   Future<void> onTaskRemoved() {
     _log('onTaskRemoved()');
+    _disconnectTimer?.cancel();
+    _loadedStreamUrl = null;
     stopListeningTracker();
     player.stop();
     // player.dispose();
@@ -456,6 +582,8 @@ class AppAudioHandler extends BaseAudioHandler {
   // Method to completely stop and cleanup the audio service
   Future<void> dispose() async {
     _log('dispose()');
+    _disconnectTimer?.cancel();
+    _loadedStreamUrl = null;
     stopListeningTracker();
     await player.stop();
     await player.dispose();
@@ -582,8 +710,10 @@ class AppAudioHandler extends BaseAudioHandler {
       _log("updateCurrentStationMetadata");
       final sortedStations = stations..sort((a, b) => a.order.compareTo(b.order));
 
+      Station? updatedCurrentStation;
       if(currentStation.valueOrNull != null) {
-        currentStation.add(stations.firstWhere((element) => element.id == currentStation.value!.id));
+        updatedCurrentStation = stations.firstWhere((element) => element.id == currentStation.value!.id);
+        currentStation.add(updatedCurrentStation);
       }
 
       final newStationsMediaItems =
@@ -591,12 +721,27 @@ class AppAudioHandler extends BaseAudioHandler {
 
       stationsMediaItems.add(newStationsMediaItems);
 
-      // Update current metadata of played media item
-      if (mediaItem.value != null) {
-        var newMediaItem =
-            newStationsMediaItems.where((item) => item.id == mediaItem.value?.id).firstOrNull;
-        if (newMediaItem != null) {
-          mediaItem.add(newMediaItem);
+      // Update current metadata only if it actually changed
+      if (mediaItem.value != null && updatedCurrentStation != null) {
+        final newSongId = updatedCurrentStation.songId;
+        final newArtUri = updatedCurrentStation.artUri.toString();
+
+        final songChanged = newSongId != _lastEmittedSongId;
+        final artChanged = newArtUri != _lastEmittedArtUriString;
+
+        if (songChanged || artChanged) {
+          final newMediaItem =
+              newStationsMediaItems.where((item) => item.id == mediaItem.value?.id).firstOrNull;
+          if (newMediaItem != null) {
+            _lastEmittedSongId = newSongId;
+            _lastEmittedArtUriString = newMediaItem.artUri?.toString();
+            mediaItem.add(newMediaItem);
+          }
+
+          // Cache the new song thumbnail so Android notification gets a local file
+          if (songChanged) {
+            _cacheSongThumbnail(updatedCurrentStation);
+          }
         }
       }
     });

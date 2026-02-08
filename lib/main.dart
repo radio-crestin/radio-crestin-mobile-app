@@ -29,6 +29,7 @@ import 'constants.dart';
 import 'firebase_options.dart';
 import 'globals.dart' as globals;
 import 'services/car_play_service.dart';
+import 'services/image_cache_service.dart';
 
 final getIt = GetIt.instance;
 
@@ -71,56 +72,39 @@ void main() async {
   WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
 
-  await PerformanceMonitor.trackAsync('firebase_init', () async {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
+  // Run Firebase init, Hive init, and SharedPreferences in parallel.
+  // Firebase must complete before messaging, but Hive and prefs are independent.
+  final firebaseInitFuture = PerformanceMonitor.trackAsync('firebase_init', () =>
+    Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform),
+  );
+
+  final hiveStoreFuture = PerformanceMonitor.trackAsync<Store>('hive_store_init', () async {
+    try {
+      await initHiveForFlutter();
+      return await ResilientHiveStore.create();
+    } catch (e) {
+      developer.log('HiveStore init failed, using InMemoryStore: $e');
+      return InMemoryStore() as Store;
+    }
   });
 
-  await PerformanceMonitor.trackAsync('firebase_messaging_init', () async {
-    await initializeFirebaseMessaging();
-  });
+  final prefsFuture = SharedPreferences.getInstance();
 
-  FlutterError.onError = (errorDetails) {
-    FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);
-  };
-  // Pass all uncaught asynchronous errors that aren't handled by the Flutter framework to Crashlytics
-  PlatformDispatcher.instance.onError = (error, stack) {
-    developer.log('PlatformDispatcher.instance.onError', error: error, stackTrace: stack);
-    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
-    return true;
-  };
-
-  final prefs = await SharedPreferences.getInstance();
-
-  if (prefs.getBool('_notificationsEnabled') ?? true) {
-    FirebaseAnalytics.instance.setUserProperty(name: 'personalized_n', value: 'true');
-  }
+  // Wait for Hive + prefs only — Firebase continues in background.
+  // GraphQL and audio don't need Firebase, so we start them sooner.
+  final hivePrefsResults = await Future.wait([hiveStoreFuture, prefsFuture]);
+  final Store graphQlStore = hivePrefsResults[0] as Store;
+  final SharedPreferences prefs = hivePrefsResults[1] as SharedPreferences;
 
   if (prefs.getString('_reviewStatus') == null) {
     var defaultReviewStatus = {
       'review_completed': false, // is completed when the user clicks on "5 stele" to add a review.
       'actions_made': 0,
     };
-
     prefs.setString('_reviewStatus', json.encode(defaultReviewStatus));
   }
 
-  // We're using HiveStore for persistence,
-  // so we need to initialize Hive.
-  final Store graphQlStore = await PerformanceMonitor.trackAsync('hive_store_init', () async {
-    try {
-      await initHiveForFlutter();
-      return ResilientHiveStore(HiveStore()) as Store;
-    } catch (e) {
-      // HiveStore can fail when a second FlutterEngine (e.g. Android Auto)
-      // tries to open the same .hive file that is already locked by the main engine.
-      // Fall back to in-memory store so the app still works without disk caching.
-      developer.log('HiveStore init failed, using InMemoryStore: $e');
-      return InMemoryStore() as Store;
-    }
-  });
-
+  // GraphQL client setup (only needs hiveStore, not Firebase)
   final HttpLink httpLink = HttpLink(
     CONSTANTS.GRAPHQL_ENDPOINT,
   );
@@ -129,7 +113,6 @@ void main() async {
     getToken: () async => CONSTANTS.GRAPHQL_AUTH,
   );
 
-  // Configure query-to-REST mappings
   final queryToRestMap = createGraphQLToRestMappings();
 
   final graphqlToRestInterceptor = GraphQLToRestInterceptorLink(
@@ -137,8 +120,6 @@ void main() async {
   );
 
   final Link graphqlLink = graphqlToRestInterceptor.concat(authLink.concat(httpLink));
-
-  // The default store is the InMemoryStore, which does NOT persist to disk
   final graphQlCache = GraphQLCache(store: graphQlStore);
 
   GraphQLClient graphqlClient = GraphQLClient(
@@ -173,22 +154,45 @@ void main() async {
     ),
   );
 
-  final audioHandler = await PerformanceMonitor.trackAsync('audio_service_init', () async {
-    return await initAudioService(graphqlClient: graphqlClient);
-  });
-  getIt.registerSingleton<AppAudioHandler>(audioHandler);
+  // Initialize image cache before audio service (audio handler uses it for pre-caching)
+  final imageCacheService = ImageCacheService();
+  await PerformanceMonitor.trackAsync('image_cache_init', () => imageCacheService.initialize());
+  getIt.registerSingleton<ImageCacheService>(imageCacheService);
 
-  // Initialize CarPlay/Android Auto service
-  await PerformanceMonitor.trackAsync('carplay_service_init', () async {
-    final carPlayService = CarPlayService();
-    await carPlayService.initialize();
-    getIt.registerSingleton<CarPlayService>(carPlayService);
-  });
+  // Start audio + packageInfo immediately (overlaps with remaining Firebase init)
+  final audioHandlerFuture = PerformanceMonitor.trackAsync('audio_service_init', () =>
+    initAudioService(graphqlClient: graphqlClient),
+  );
+  final packageInfoFuture = PackageInfo.fromPlatform();
 
-  final packageInfo = await PackageInfo.fromPlatform();
+  // Now await Firebase (likely already done since audio init takes longer)
+  await firebaseInitFuture;
+
+  // Firebase-dependent: error handlers, analytics, messaging
+  FlutterError.onError = (errorDetails) {
+    FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);
+  };
+  PlatformDispatcher.instance.onError = (error, stack) {
+    developer.log('PlatformDispatcher.instance.onError', error: error, stackTrace: stack);
+    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+    return true;
+  };
+
+  if (prefs.getBool('_notificationsEnabled') ?? true) {
+    FirebaseAnalytics.instance.setUserProperty(name: 'personalized_n', value: 'true');
+  }
+
+  PerformanceMonitor.trackAsync('firebase_messaging_init', () => initializeFirebaseMessaging());
+
+  // Wait for audio + packageInfo
+  final serviceResults = await Future.wait([audioHandlerFuture, packageInfoFuture]);
+  getIt.registerSingleton<AppAudioHandler>(serviceResults[0] as AppAudioHandler);
+
+  final packageInfo = serviceResults[1] as PackageInfo;
   globals.appVersion = packageInfo.version;
   globals.buildNumber = packageInfo.buildNumber;
 
+  // Non-blocking: get device ID for Crashlytics
   FirebaseInstallations.instance.getId().then((value) {
     globals.deviceId = value;
     FirebaseCrashlytics.instance.setUserIdentifier(globals.deviceId);
@@ -209,6 +213,16 @@ void main() async {
   }
 
   runApp(const RadioCrestinApp());
+
+  // Defer CarPlay/Android Auto init to after first frame (not needed for initial render)
+  WidgetsBinding.instance.addPostFrameCallback((_) async {
+    final carPlayService = await PerformanceMonitor.trackAsync('carplay_service_init', () async {
+      final service = CarPlayService();
+      await service.initialize();
+      return service;
+    });
+    getIt.registerSingleton<CarPlayService>(carPlayService);
+  });
 }
 
 class RadioCrestinApp extends StatelessWidget {

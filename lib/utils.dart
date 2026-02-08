@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'dart:developer' as developer;
-import 'dart:io' show Platform;
+import 'dart:io';
 
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:extended_image/extended_image.dart';
@@ -56,9 +56,37 @@ class Utils {
     return streams.map((e) => e.stream_url.toString()).toList();
   }
 
-  static Widget displayImage(String url, {String? fallbackImageUrl, bool cache = false}) {
+  static Widget displayImage(String url, {String? fallbackImageUrl, bool cache = false, String? cachedFilePath}) {
+    if (url.isEmpty && cachedFilePath == null) {
+      return Icon(Icons.photo, color: Colors.red.shade100,);
+    }
+
+    // Prefer local cached file (instant, no network)
+    if (cachedFilePath != null) {
+      return ExtendedImage.file(
+        File(cachedFilePath),
+        fit: BoxFit.cover,
+        cacheWidth: 210,
+        loadStateChanged: (ExtendedImageState state) {
+          switch (state.extendedImageLoadState) {
+            case LoadState.loading:
+              return Container(color: Colors.grey[300]);
+            case LoadState.completed:
+              return null;
+            case LoadState.failed:
+              // Fall back to network if local file fails
+              return _networkImage(url, fallbackImageUrl: fallbackImageUrl, cache: cache);
+          }
+        },
+      );
+    }
+
+    return _networkImage(url, fallbackImageUrl: fallbackImageUrl, cache: cache);
+  }
+
+  static Widget _networkImage(String url, {String? fallbackImageUrl, bool cache = false}) {
     if (url.isEmpty) {
-      return Icon(Icons.photo, color: Colors.red.shade100,); // Show an error icon if the URL is empty
+      return Icon(Icons.photo, color: Colors.red.shade100,);
     }
 
     return ExtendedImage.network(
@@ -67,31 +95,21 @@ class Utils {
       cache: cache,
       retries: 3,
       timeLimit: const Duration(seconds: 3),
-      loadStateChanged: (ExtendedImageState state){
+      cacheWidth: 210,
+      loadStateChanged: (ExtendedImageState state) {
         switch (state.extendedImageLoadState) {
           case LoadState.loading:
+            return Container(color: Colors.grey[300]);
+          case LoadState.completed:
+            return null;
+          case LoadState.failed:
             if (fallbackImageUrl?.isNotEmpty == true && fallbackImageUrl != url) {
               return ExtendedImage.network(
                 fallbackImageUrl!,
                 fit: BoxFit.cover,
                 cache: true,
-              ); // Use cached fallback image in case of an error
-            }
-            return Container(color: Colors.grey[300]);
-          case LoadState.completed:
-            var widget=ExtendedRawImage(
-              image: state.extendedImageInfo?.image,
-              fit: BoxFit.cover,
-            );
-            return widget;
-          case LoadState.failed:
-            developer.log("Error loading image, falling back");
-            if (fallbackImageUrl?.isNotEmpty == true && fallbackImageUrl != url) {
-              return ExtendedImage.network(
-                  fallbackImageUrl!,
-                  fit: BoxFit.cover,
-                  cache: true,
-              ); // Use cached fallback image in case of an error
+                cacheWidth: 210,
+              );
             }
             return Icon(Icons.photo, color: Colors.red.shade100,);
         }
