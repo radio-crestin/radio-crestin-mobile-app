@@ -1,8 +1,10 @@
 
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:get_it/get_it.dart';
 
 import '../queries/getStations.graphql.dart';
+import '../services/image_cache_service.dart';
 import '../utils.dart';
 
 class Station {
@@ -19,15 +21,46 @@ class Station {
   String get displayTitle => rawStationData.title;
   String get displaySubtitle => Utils.getCurrentPlayedSongTitle(rawStationData);
   String get artist => Utils.getCurrentPlayedSongTitle(rawStationData);
-  Uri get artUri => Uri.parse(Utils.getStationThumbnailUrl(rawStationData));
   bool get isUp => rawStationData.uptime?.is_up ?? false;
   int get songId => rawStationData.now_playing?.song?.id ?? -1;
   String get songTitle => rawStationData.now_playing?.song?.name ?? "";
   String get songArtist => rawStationData.now_playing?.song?.artist?.name ?? "";
+
+  ImageCacheService? get _imageCacheService {
+    try {
+      return GetIt.instance<ImageCacheService>();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Cached path for the station's base thumbnail (stable URL).
+  String? get cachedThumbnailPath {
+    final url = rawStationData.thumbnail_url;
+    if (url == null || url.isEmpty) return null;
+    return _imageCacheService?.getCachedPath(url);
+  }
+
+  /// Cached path for the display thumbnail (song thumbnail if playing, else station thumbnail).
+  String? get cachedArtPath {
+    final displayUrl = Utils.getStationThumbnailUrl(rawStationData);
+    if (displayUrl.isEmpty) return null;
+    return _imageCacheService?.getCachedPath(displayUrl);
+  }
+
+  Uri get artUri {
+    final cachedPath = cachedArtPath;
+    if (cachedPath != null) {
+      return Uri.file(cachedPath);
+    }
+    return Uri.parse(Utils.getStationThumbnailUrl(rawStationData));
+  }
+
   Widget get thumbnail => Utils.displayImage(
     Utils.getStationThumbnailUrl(rawStationData),
     fallbackImageUrl: rawStationData.thumbnail_url,
     cache: Utils.getStationThumbnailUrl(rawStationData) == rawStationData.thumbnail_url,
+    cachedFilePath: cachedArtPath,
   );
 
 

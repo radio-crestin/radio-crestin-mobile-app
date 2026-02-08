@@ -22,7 +22,7 @@
         <meta-data android:name="asset_statements" android:resource="@string/asset_statements" />
 
         <activity
-            android:name="com.ryanheise.audioservice.AudioServiceActivity"
+            android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
             android:theme="@style/LaunchTheme"

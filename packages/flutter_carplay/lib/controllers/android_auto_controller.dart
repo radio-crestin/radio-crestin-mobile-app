@@ -1,8 +1,10 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_carplay/constants/private_constants.dart';
 
+import '../aa_models/grid/grid_template.dart';
 import '../aa_models/list/list_item.dart';
 import '../aa_models/list/list_template.dart';
+import '../aa_models/tab/tab_template.dart';
 import '../aa_models/template.dart';
 import '../helpers/auto_android_helper.dart';
 import '../helpers/enum_utils.dart';
@@ -111,6 +113,30 @@ class FlutterAndroidAutoController {
             if (item.uniqueId == elementId && actionIndex < item.actions.length) {
               item.actions[actionIndex].onPress?.call();
               return;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  void processFAAGridButtonPressed(String elementId) {
+    for (final template in templateHistory) {
+      if (template is AAGridTemplate) {
+        for (final button in template.buttons) {
+          if (button.uniqueId == elementId) {
+            button.onPress?.call();
+            return;
+          }
+        }
+      } else if (template is AATabTemplate) {
+        for (final tab in template.tabs) {
+          if (tab.content is AAGridTemplate) {
+            for (final button in (tab.content as AAGridTemplate).buttons) {
+              if (button.uniqueId == elementId) {
+                button.onPress?.call();
+                return;
+              }
             }
           }
         }

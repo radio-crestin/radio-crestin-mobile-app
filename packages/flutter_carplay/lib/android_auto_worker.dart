@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_carplay/constants/private_constants.dart';
 import 'package:flutter_carplay/flutter_carplay.dart';
 
+import 'aa_models/grid/grid_template.dart';
+import 'aa_models/tab/tab_template.dart';
 import 'aa_models/template.dart';
 import 'controllers/android_auto_controller.dart';
 
@@ -34,6 +36,43 @@ class FlutterAndroidAuto {
   /// and will be transmitted to the main code, allowing the user to access
   /// the current connection status.
   Function(ConnectionStatusTypes status)? _onAndroidAutoConnectionChange;
+
+  /// Callback when the FAB (floating action button) is pressed on Android Auto.
+  static Function()? onFabPressed;
+
+  /// Callback when a tab is selected on Android Auto.
+  Function(String contentId)? _onTabSelected;
+
+  /// Player screen callbacks.
+  Function()? _onPlayerPlayPause;
+  Function()? _onPlayerPrevious;
+  Function()? _onPlayerNext;
+  Function()? _onPlayerFavoriteToggle;
+  Function()? _onPlayerClosed;
+
+  void addListenerOnTabSelected(Function(String contentId) onTabSelected) {
+    _onTabSelected = onTabSelected;
+  }
+
+  void addListenerOnPlayerPlayPause(Function() callback) {
+    _onPlayerPlayPause = callback;
+  }
+
+  void addListenerOnPlayerPrevious(Function() callback) {
+    _onPlayerPrevious = callback;
+  }
+
+  void addListenerOnPlayerNext(Function() callback) {
+    _onPlayerNext = callback;
+  }
+
+  void addListenerOnPlayerFavoriteToggle(Function() callback) {
+    _onPlayerFavoriteToggle = callback;
+  }
+
+  void addListenerOnPlayerClosed(Function() callback) {
+    _onPlayerClosed = callback;
+  }
 
   /// Creates an [FlutterAndroidAuto] and starts the connection.
   FlutterAndroidAuto() {
@@ -74,6 +113,32 @@ class FlutterAndroidAuto {
             event['data']['elementId'],
             event['data']['actionIndex'],
           );
+          break;
+        case FAAChannelTypes.onGridButtonPressed:
+          _androidAutoController.processFAAGridButtonPressed(
+            event['data']['elementId'],
+          );
+          break;
+        case FAAChannelTypes.onTabSelected:
+          _onTabSelected?.call(event['data']['contentId'] as String);
+          break;
+        case FAAChannelTypes.onFabPressed:
+          onFabPressed?.call();
+          break;
+        case FAAChannelTypes.onPlayerPlayPause:
+          _onPlayerPlayPause?.call();
+          break;
+        case FAAChannelTypes.onPlayerPrevious:
+          _onPlayerPrevious?.call();
+          break;
+        case FAAChannelTypes.onPlayerNext:
+          _onPlayerNext?.call();
+          break;
+        case FAAChannelTypes.onPlayerFavoriteToggle:
+          _onPlayerFavoriteToggle?.call();
+          break;
+        case FAAChannelTypes.onPlayerClosed:
+          _onPlayerClosed?.call();
           break;
         default:
           break;
@@ -258,10 +323,58 @@ class FlutterAndroidAuto {
   /// be shown on the bottom right of the Android Auto screen.
   static Future<bool> showSharedNowPlaying() async => false;
 
+  /// Push a player screen on Android Auto.
+  static Future<bool> pushPlayer({
+    required String stationTitle,
+    String songTitle = '',
+    String songArtist = '',
+    String? imageUrl,
+    required bool isPlaying,
+    required bool isFavorite,
+  }) async {
+    final bool? isCompleted = await _androidAutoController.flutterToNativeModule(
+      FAAChannelTypes.pushPlayerTemplate,
+      <String, dynamic>{
+        'stationTitle': stationTitle,
+        'songTitle': songTitle,
+        'songArtist': songArtist,
+        'imageUrl': imageUrl,
+        'isPlaying': isPlaying,
+        'isFavorite': isFavorite,
+      },
+    );
+    return isCompleted ?? false;
+  }
+
+  /// Update the currently visible player screen on Android Auto.
+  static Future<bool> updatePlayer({
+    required String stationTitle,
+    String songTitle = '',
+    String songArtist = '',
+    String? imageUrl,
+    required bool isPlaying,
+    required bool isFavorite,
+  }) async {
+    final bool? isCompleted = await _androidAutoController.flutterToNativeModule(
+      FAAChannelTypes.updatePlayerTemplate,
+      <String, dynamic>{
+        'stationTitle': stationTitle,
+        'songTitle': songTitle,
+        'songArtist': songArtist,
+        'imageUrl': imageUrl,
+        'isPlaying': isPlaying,
+        'isFavorite': isFavorite,
+      },
+    );
+    return isCompleted ?? false;
+  }
+
   /// Returns the runtime type string for native communication.
   /// Uses explicit type checks to ensure compatibility with Dart obfuscation.
   static String _getAARuntimeTypeString(AATemplate template) {
     if (template is AAListTemplate) return 'FAAListTemplate';
+    if (template is AAGridTemplate) return 'FAAGridTemplate';
+    if (template is AATabTemplate) return 'FAATabTemplate';
     return 'FAA${template.runtimeType}';
   }
 }

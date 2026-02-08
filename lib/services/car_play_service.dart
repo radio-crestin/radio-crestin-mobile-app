@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_carplay/flutter_carplay.dart';
 import 'package:get_it/get_it.dart';
 import 'package:radio_crestin/appAudioHandler.dart';
+import 'package:radio_crestin/services/image_cache_service.dart';
 import 'package:radio_crestin/types/Station.dart';
 
 class CarPlayService {
@@ -48,6 +49,25 @@ class CarPlayService {
   StreamSubscription? _androidAutoFavoritesSubscription;
   StreamSubscription? _androidAutoStationSubscription;
   StreamSubscription? _androidAutoStationsListSubscription;
+  StreamSubscription? _androidAutoPlaybackSubscription;
+  String _activeAndroidAutoTabId = 'favorites';
+  bool _isAndroidAutoPlayerShowing = false;
+
+  ImageCacheService? get _imageCacheService {
+    try {
+      return GetIt.instance<ImageCacheService>();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Returns file:// URI if cached, otherwise the original network URL.
+  String? _cachedOrNetworkUrl(String? url) {
+    if (url == null || url.isEmpty) return url;
+    final cachedPath = _imageCacheService?.getCachedPath(url);
+    if (cachedPath != null) return 'file://$cachedPath';
+    return url;
+  }
 
   static void _log(String message) {
     developer.log("CarPlayService: $message");
@@ -247,7 +267,7 @@ class CarPlayService {
     for (final station in _sortedStations) {
       final item = CPListItem(
         text: station.title,
-        image: station.thumbnailUrl,
+        image: _cachedOrNetworkUrl(station.thumbnailUrl),
         isPlaying: station.slug == currentSlug,
         onPress: (complete, item) async {
           _log("CarPlay: Favorite station selected: ${station.title}");
@@ -286,7 +306,7 @@ class CarPlayService {
       final isFavorite = favoriteSlugs.contains(station.slug);
       final item = CPListItem(
         text: isFavorite ? "★ ${station.title}" : station.title,
-        image: station.thumbnailUrl,
+        image: _cachedOrNetworkUrl(station.thumbnailUrl),
         isPlaying: station.slug == currentSlug,
         onPress: (complete, item) async {
           _log("CarPlay: Station selected: ${station.title}");
@@ -345,6 +365,17 @@ class CarPlayService {
       }
     });
 
+    // FAB (play button) handler: play last station or resume
+    FlutterAndroidAuto.onFabPressed = () async {
+      _log("Android Auto: FAB pressed");
+      if (_audioHandler.currentStation.value != null) {
+        _audioHandler.play();
+      } else {
+        final lastStation = await _audioHandler.getLastPlayedStation();
+        _audioHandler.playStation(lastStation);
+      }
+    };
+
     _trySetupAndroidAutoStations();
   }
 
@@ -382,9 +413,13 @@ class CarPlayService {
       ],
     );
 
-    FlutterAndroidAuto.setRootTemplate(
-      template: listTemplate,
-    );
+    try {
+      FlutterAndroidAuto.setRootTemplate(
+        template: listTemplate,
+      );
+    } on PlatformException catch (e) {
+      _log("Android Auto loading template failed: ${e.message}");
+    }
   }
 
   void _waitForAndroidAutoStations() {
@@ -414,14 +449,57 @@ class CarPlayService {
       _updateSortedAndroidAutoStations(stations);
       _rebuildAndroidAutoTemplate();
 
-      // Listen for favorites changes to rebuild the template
-      _androidAutoFavoritesSubscription = _audioHandler.favoriteStationSlugs.stream.listen((_) {
-        _rebuildAndroidAutoTemplate();
+      // Listen for tab selection events from Android Auto
+      _flutterAndroidAuto!.addListenerOnTabSelected((contentId) {
+        _log("Android Auto: Tab selected: $contentId");
+        _activeAndroidAutoTabId = contentId;
+        _updateAndroidAutoPlaylist();
       });
 
-      // Listen for current station changes (playing indicator)
+      // Player screen event listeners
+      _flutterAndroidAuto!.addListenerOnPlayerPlayPause(() {
+        _log("Android Auto: Player play/pause");
+        if (_audioHandler.playbackState.value.playing) {
+          _audioHandler.pause();
+        } else {
+          _audioHandler.play();
+        }
+      });
+
+      _flutterAndroidAuto!.addListenerOnPlayerPrevious(() {
+        _log("Android Auto: Player previous");
+        _audioHandler.skipToPrevious();
+      });
+
+      _flutterAndroidAuto!.addListenerOnPlayerNext(() {
+        _log("Android Auto: Player next");
+        _audioHandler.skipToNext();
+      });
+
+      _flutterAndroidAuto!.addListenerOnPlayerFavoriteToggle(() async {
+        _log("Android Auto: Player favorite toggle");
+        final currentStation = _audioHandler.currentStation.value;
+        if (currentStation != null) {
+          final isFav = _isFavorite(currentStation.slug);
+          await _audioHandler.setStationIsFavorite(currentStation, !isFav);
+        }
+      });
+
+      _flutterAndroidAuto!.addListenerOnPlayerClosed(() {
+        _log("Android Auto: Player closed");
+        _isAndroidAutoPlayerShowing = false;
+      });
+
+      // Listen for favorites changes to rebuild the template + update player
+      _androidAutoFavoritesSubscription = _audioHandler.favoriteStationSlugs.stream.listen((_) {
+        _rebuildAndroidAutoTemplate();
+        _updateAndroidAutoPlayerScreen();
+      });
+
+      // Listen for current station changes (playing indicator + player update)
       _androidAutoStationSubscription = _audioHandler.currentStation.stream.listen((_) {
         _rebuildAndroidAutoTemplate();
+        _updateAndroidAutoPlayerScreen();
       });
 
       // Listen for station list/metadata changes (song title, artist, new stations, etc.)
@@ -429,6 +507,12 @@ class CarPlayService {
         _log("Android Auto: stations stream updated (${updatedStations.length} stations)");
         _updateSortedAndroidAutoStations(updatedStations);
         _rebuildAndroidAutoTemplate();
+        _updateAndroidAutoPlayerScreen();
+      });
+
+      // Listen for playback state changes (play/pause) to update player screen
+      _androidAutoPlaybackSubscription = _audioHandler.playbackState.stream.listen((_) {
+        _updateAndroidAutoPlayerScreen();
       });
 
       _androidAutoInitialized = true;
@@ -445,79 +529,163 @@ class CarPlayService {
     );
   }
 
-  void _rebuildAndroidAutoTemplate() {
+  // Android Auto hard limit: max 100 items per GridTemplate/ListTemplate
+  static const _maxAndroidAutoItems = 100;
+
+  // Debounce timer for Android Auto rebuilds
+  Timer? _androidAutoRebuildTimer;
+
+  // Serialize setRootTemplate calls to prevent out-of-order native completions
+  bool _isAndroidAutoRebuilding = false;
+  bool _needsAndroidAutoRebuild = false;
+
+  void _updateAndroidAutoPlayerScreen() {
+    if (!_isAndroidAutoPlayerShowing) return;
+    final station = _audioHandler.currentStation.value;
+    if (station == null) return;
+
+    FlutterAndroidAuto.updatePlayer(
+      stationTitle: station.title,
+      songTitle: station.songTitle,
+      songArtist: station.songArtist,
+      imageUrl: _cachedOrNetworkUrl(station.thumbnailUrl),
+      isPlaying: _audioHandler.playbackState.value.playing,
+      isFavorite: _isFavorite(station.slug),
+    );
+  }
+
+  void _updateAndroidAutoPlaylist() {
     final favoriteSlugs = _audioHandler.favoriteStationSlugs.value;
+    if (_activeAndroidAutoTabId == 'favorites') {
+      final favs = _sortedAndroidAutoStations
+          .where((s) => favoriteSlugs.contains(s.slug))
+          .toList();
+      _audioHandler.carPlayPlaylist = favs.isNotEmpty ? favs : List.from(_sortedAndroidAutoStations);
+    } else {
+      _audioHandler.carPlayPlaylist = List.from(_sortedAndroidAutoStations);
+    }
+  }
+
+  void _rebuildAndroidAutoTemplate() {
+    // Debounce rapid rebuilds (BehaviorSubject replays cause 3-4 immediate calls)
+    _androidAutoRebuildTimer?.cancel();
+    _androidAutoRebuildTimer = Timer(const Duration(milliseconds: 100), () {
+      _doRebuildAndroidAutoTemplate();
+    });
+  }
+
+  /// Builds a ListTemplate with full-width rows for Android Auto tabs.
+  /// Each row shows the station thumbnail, title, and current song metadata.
+  AAListTemplate _buildStationListTemplate({
+    required String title,
+    required List<Station> stations,
+    required List<Station> playlist,
+  }) {
+    final stationsToShow = stations.length > _maxAndroidAutoItems
+        ? stations.sublist(0, _maxAndroidAutoItems)
+        : stations;
     final currentSlug = _audioHandler.currentStation.value?.slug;
 
-    // Split stations into favorites and non-favorites
+    return AAListTemplate(
+      title: title,
+      sections: [
+        AAListSection(
+          items: stationsToShow.map((station) {
+            final isPlaying = station.slug == currentSlug;
+            final subtitle = station.displaySubtitle.isNotEmpty
+                ? station.displaySubtitle
+                : null;
+            return AAListItem(
+              title: isPlaying ? "▶ ${station.title}" : station.title,
+              subtitle: subtitle,
+              imageUrl: _cachedOrNetworkUrl(station.thumbnailUrl),
+              onPress: (complete, item) async {
+                _log("Android Auto: Station selected: ${station.title}");
+                _audioHandler.carPlayPlaylist = List.from(playlist);
+                await _audioHandler.selectStation(station);
+                complete();
+                _audioHandler.play();
+                // Push player screen
+                _isAndroidAutoPlayerShowing = true;
+                await FlutterAndroidAuto.pushPlayer(
+                  stationTitle: station.title,
+                  songTitle: station.songTitle,
+                  songArtist: station.songArtist,
+                  imageUrl: _cachedOrNetworkUrl(station.thumbnailUrl),
+                  isPlaying: true,
+                  isFavorite: _isFavorite(station.slug),
+                );
+              },
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _doRebuildAndroidAutoTemplate() async {
+    // Serialize: if a rebuild is in flight, queue one more and return
+    if (_isAndroidAutoRebuilding) {
+      _needsAndroidAutoRebuild = true;
+      return;
+    }
+    _isAndroidAutoRebuilding = true;
+    final favoriteSlugs = _audioHandler.favoriteStationSlugs.value;
+
+    // Split stations into favorites and all
     final favoriteStations = _sortedAndroidAutoStations
         .where((s) => favoriteSlugs.contains(s.slug))
         .toList();
-    final otherStations = _sortedAndroidAutoStations
-        .where((s) => !favoriteSlugs.contains(s.slug))
-        .toList();
 
-    AAListItem buildItem(Station station, {required List<Station> playlist}) {
-      final isFavorite = favoriteSlugs.contains(station.slug);
-      final isPlaying = station.slug == currentSlug;
-
-      // Build subtitle with song metadata
-      String? subtitle;
-      if (isPlaying && station.songTitle.isNotEmpty) {
-        subtitle = station.songArtist.isNotEmpty
-            ? "${station.songArtist} - ${station.songTitle}"
-            : station.songTitle;
-      }
-
-      return AAListItem(
-        title: isPlaying ? "▶ ${station.title}" : station.title,
-        subtitle: subtitle,
-        imageUrl: station.thumbnailUrl,
-        onPress: (complete, item) {
-          _log("Android Auto: Station selected: ${station.title}");
-          _audioHandler.carPlayPlaylist = List.from(playlist);
-          _audioHandler.selectStation(station);
-          complete();
-          _audioHandler.play();
-        },
-        actions: [
-          AAListItemAction(
-            title: isFavorite ? "Unfavorite" : "Favorite",
-            iconName: isFavorite ? "ic_favorite" : "ic_favorite_border",
-            onPress: () {
-              _audioHandler.setStationIsFavorite(station, !isFavorite);
-            },
-          ),
-        ],
-      );
+    if (_sortedAndroidAutoStations.isEmpty) {
+      _log("Android Auto: No stations to display");
+      _isAndroidAutoRebuilding = false;
+      return;
     }
 
-    final List<AAListSection> sections = [];
-
-    // Add favorites section first (For You)
-    if (favoriteStations.isNotEmpty) {
-      sections.add(AAListSection(
-        title: "Favorite",
-        items: favoriteStations
-            .map((s) => buildItem(s, playlist: favoriteStations))
-            .toList(),
-      ));
-    }
-
-    // Add remaining (non-favorite) stations — no duplication
-    sections.add(AAListSection(
-      title: "Toate statiile",
-      items: otherStations
-          .map((s) => buildItem(s, playlist: _sortedAndroidAutoStations))
-          .toList(),
-    ));
-
-    final listTemplate = AAListTemplate(
-      title: "Radio Crestin",
-      sections: sections,
+    // Build list content for each tab
+    final favoritesList = _buildStationListTemplate(
+      title: "Statii Favorite",
+      stations: favoriteStations,
+      playlist: favoriteStations,
     );
 
-    FlutterAndroidAuto.setRootTemplate(template: listTemplate);
+    final allStationsList = _buildStationListTemplate(
+      title: "Toate Statiile",
+      stations: _sortedAndroidAutoStations,
+      playlist: _sortedAndroidAutoStations,
+    );
+
+    // Build a TabTemplate with two tabs
+    final tabTemplate = AATabTemplate(
+      activeTabContentId: _activeAndroidAutoTabId,
+      tabs: [
+        AATab(
+          contentId: 'favorites',
+          title: "Favorite (${favoriteStations.length})",
+          content: favoritesList,
+        ),
+        AATab(
+          contentId: 'all_stations',
+          title: "Toate (${_sortedAndroidAutoStations.length})",
+          content: allStationsList,
+        ),
+      ],
+    );
+
+    try {
+      await FlutterAndroidAuto.setRootTemplate(template: tabTemplate);
+    } on PlatformException catch (e) {
+      _log("Android Auto setRootTemplate failed: ${e.message}");
+    } finally {
+      _isAndroidAutoRebuilding = false;
+    }
+
+    // If another rebuild was requested while we were busy, run it now
+    if (_needsAndroidAutoRebuild) {
+      _needsAndroidAutoRebuild = false;
+      _doRebuildAndroidAutoTemplate();
+    }
   }
 
   void dispose() {
@@ -528,6 +696,8 @@ class CarPlayService {
     _androidAutoFavoritesSubscription?.cancel();
     _androidAutoStationSubscription?.cancel();
     _androidAutoStationsListSubscription?.cancel();
+    _androidAutoPlaybackSubscription?.cancel();
+    _androidAutoRebuildTimer?.cancel();
 
     if (Platform.isIOS) {
       _flutterCarplay?.removeListenerOnConnectionChange();

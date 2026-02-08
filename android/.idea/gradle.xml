@@ -4,36 +4,50 @@
   <component name="GradleSettings">
     <option name="linkedExternalProjectsSettings">
       <GradleProjectSettings>
+        <compositeConfiguration>
+          <compositeBuild compositeDefinitionSource="SCRIPT">
+            <builds>
+              <build path="/opt/homebrew/Caskroom/flutter/3.19.5/flutter/packages/flutter_tools/gradle" name="gradle">
+                <projects>
+                  <project path="/opt/homebrew/Caskroom/flutter/3.19.5/flutter/packages/flutter_tools/gradle" />
+                </projects>
+              </build>
+            </builds>
+          </compositeBuild>
+        </compositeConfiguration>
+        <option name="testRunner" value="CHOOSE_PER_TEST" />
         <option name="externalProjectPath" value="$PROJECT_DIR$" />
         <option name="gradleJvm" value="#GRADLE_LOCAL_JAVA_HOME" />
         <option name="modules">
           <set>
-            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/app_links-6.3.2/android" />
-            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/audio_service-0.18.15/android" />
-            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/audio_session-0.1.21/android" />
-            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/connectivity_plus-6.0.5/android" />
-            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/device_info_plus-10.1.2/android" />
-            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/firebase_analytics-11.3.2/android" />
-            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/firebase_core-3.5.0/android" />
-            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/firebase_crashlytics-4.1.2/android" />
-            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/firebase_instance_id-1.1.0/android" />
-            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/firebase_messaging-15.1.2/android" />
-            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/firebase_remote_config-5.1.2/android" />
-            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/fluttertoast-8.2.8/android" />
-            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/in_app_review-2.0.9/android" />
-            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/just_audio-0.9.40/android" />
-            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/package_info-2.0.2/android" />
-            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/package_info_plus-8.0.2/android" />
-            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/path_provider_android-2.2.10/android" />
-            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/share_plus-10.0.2/android" />
-            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/shared_preferences_android-2.3.2/android" />
-            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/sqflite-2.3.3+1/android" />
-            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/url_launcher_android-6.3.10/android" />
+            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/app_links-6.4.1/android" />
+            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/audio_service-0.18.18/android" />
+            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/audio_session-0.2.2/android" />
+            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/connectivity_plus-6.1.5/android" />
+            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/device_info_plus-12.3.0/android" />
+            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/firebase_analytics-12.1.1/android" />
+            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/firebase_app_installations-0.4.0+6/android" />
+            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/firebase_core-4.4.0/android" />
+            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/firebase_crashlytics-5.0.7/android" />
+            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/firebase_messaging-16.1.1/android" />
+            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/firebase_remote_config-6.1.4/android" />
+            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/flutter_native_splash-2.4.7/android" />
+            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/flutter_nfc_kit-3.6.2/android" />
+            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/fluttertoast-9.0.0/android" />
+            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/in_app_review-2.0.11/android" />
+            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/just_audio-0.10.5/android" />
+            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/package_info_plus-9.0.0/android" />
+            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/path_provider_android-2.2.19/android" />
+            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/share_plus-12.0.1/android" />
+            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/shared_preferences_android-2.4.13/android" />
+            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/sqflite_android-2.4.1/android" />
+            <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/url_launcher_android-6.3.20/android" />
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/app" />
+            <option value="$PROJECT_DIR$/../packages/flutter_carplay/android" />
+            <option value="/opt/homebrew/Caskroom/flutter/3.19.5/flutter/packages/flutter_tools/gradle" />
           </set>
         </option>
-        <option name="resolveExternalAnnotations" value="false" />
       </GradleProjectSettings>
     </option>
   </component>

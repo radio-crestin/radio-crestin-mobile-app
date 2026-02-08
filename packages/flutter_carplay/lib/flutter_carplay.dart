@@ -1,4 +1,11 @@
+export 'package:flutter_carplay/aa_models/grid/grid_button.dart'
+    show AAGridButton;
+export 'package:flutter_carplay/aa_models/grid/grid_template.dart'
+    show AAGridTemplate;
 export 'package:flutter_carplay/aa_models/list/list_item.dart' show AAListItem, AAListItemAction;
+export 'package:flutter_carplay/aa_models/tab/tab.dart' show AATab;
+export 'package:flutter_carplay/aa_models/tab/tab_template.dart'
+    show AATabTemplate;
 export 'package:flutter_carplay/aa_models/list/list_section.dart'
     show AAListSection;
 export 'package:flutter_carplay/aa_models/list/list_template.dart'

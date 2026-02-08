@@ -19,16 +19,34 @@ object FAAHelpers {
 suspend fun loadCarImageAsync(imageUrl: String): CarIcon? {
     return withContext(Dispatchers.IO) {
         try {
-            val url = URL(imageUrl)
-            val connection = url.openConnection() as HttpURLConnection
-            connection.doInput = true
-            connection.connect()
-            val inputStream = connection.inputStream
-            val bitmap = BitmapFactory.decodeStream(inputStream)
-            val iconCompat = IconCompat.createWithBitmap(bitmap)
-            CarIcon.Builder(iconCompat).build()
+            val bitmap = if (imageUrl.startsWith("file://") || imageUrl.startsWith("/")) {
+                // Load from local file
+                val filePath = if (imageUrl.startsWith("file://")) {
+                    imageUrl.removePrefix("file://")
+                } else {
+                    imageUrl
+                }
+                BitmapFactory.decodeFile(filePath)
+            } else {
+                // Load from network
+                val url = URL(imageUrl)
+                val connection = url.openConnection() as HttpURLConnection
+                connection.connectTimeout = 5000
+                connection.readTimeout = 5000
+                connection.doInput = true
+                connection.connect()
+                val inputStream = connection.inputStream
+                val result = BitmapFactory.decodeStream(inputStream)
+                connection.disconnect()
+                result
+            }
+            if (bitmap != null) {
+                val iconCompat = IconCompat.createWithBitmap(bitmap)
+                CarIcon.Builder(iconCompat).build()
+            } else {
+                null
+            }
         } catch (e: Exception) {
-            e.printStackTrace()
             null
         }
     }
