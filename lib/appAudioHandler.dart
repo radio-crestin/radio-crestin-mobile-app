@@ -10,6 +10,7 @@ import 'package:flutter/services.dart';
 import 'package:fuzzywuzzy/fuzzywuzzy.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:radio_crestin/performance_monitor.dart';
 import 'package:radio_crestin/queries/getStations.graphql.dart';
 import 'package:radio_crestin/tracking.dart';
 import 'package:radio_crestin/types/Station.dart';
@@ -210,6 +211,7 @@ class AppAudioHandler extends BaseAudioHandler {
   @override
   Future<void> play() async {
     _log("play");
+    PerformanceMonitor.startOperation('audio_play');
     if (currentStation.value != null) {
       AppTracking.trackPlayStation(currentStation.value!, graphQLClient: graphqlClient);
       AppTracking.trackListenStation(currentStation.value!, currentStreamUrl);
@@ -226,11 +228,13 @@ class AppAudioHandler extends BaseAudioHandler {
             item.id;
         _log("playMediaItem: $streamUrl");
         try {
+          PerformanceMonitor.startOperation('audio_source_load');
           final trackedUrl = addTrackingParametersToUrl(streamUrl);
           await player.setAudioSource(
             AudioSource.uri(Uri.parse(trackedUrl)),
             preload: true,
           );
+          PerformanceMonitor.endOperation('audio_source_load');
           break;
         } catch (e) {
           _log("playMediaItem: Player Error: $e");
@@ -243,6 +247,7 @@ class AppAudioHandler extends BaseAudioHandler {
       }
     }
 
+    PerformanceMonitor.endOperation('audio_play');
     return player.play();
   }
 
@@ -369,12 +374,14 @@ class AppAudioHandler extends BaseAudioHandler {
 
   void _setupRefreshStations() async {
     _log("Starting to fetch stations");
+    PerformanceMonitor.startOperation('initial_stations_fetch');
     final parsedData = (await graphqlClient.query(Options$Query$GetStations())).parsedData;
     stations.add((parsedData?.stations ?? [])
         .map((rawStationData) => Station(
             rawStationData: rawStationData))
         .toList());
     stationGroups.add(parsedData?.station_groups ?? []);
+    PerformanceMonitor.endOperation('initial_stations_fetch');
 
     watchStations = graphqlClient
         .watchQuery$GetStations(

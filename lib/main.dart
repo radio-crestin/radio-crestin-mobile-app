@@ -5,7 +5,7 @@ import 'dart:io' show Platform;
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
-import 'package:firebase_instance_id/firebase_instance_id.dart';
+import 'package:firebase_app_installations/firebase_app_installations.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter/foundation.dart';
@@ -15,6 +15,8 @@ import 'package:get_it/get_it.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:radio_crestin/graphql_rest_mappings.dart';
+import 'package:radio_crestin/performance_monitor.dart';
+import 'package:radio_crestin/resilient_hive_store.dart';
 import 'package:radio_crestin/graphql_to_rest_interceptor.dart';
 import 'package:radio_crestin/pages/HomePage.dart';
 import 'package:radio_crestin/theme.dart';
@@ -64,14 +66,20 @@ Future<void> initializeFirebaseMessaging() async {
 }
 
 void main() async {
+  PerformanceMonitor.markAppStart();
+
   WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
 
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await PerformanceMonitor.trackAsync('firebase_init', () async {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  });
 
-  await initializeFirebaseMessaging();
+  await PerformanceMonitor.trackAsync('firebase_messaging_init', () async {
+    await initializeFirebaseMessaging();
+  });
 
   FlutterError.onError = (errorDetails) {
     FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);
@@ -100,17 +108,18 @@ void main() async {
 
   // We're using HiveStore for persistence,
   // so we need to initialize Hive.
-  Store graphQlStore;
-  try {
-    await initHiveForFlutter();
-    graphQlStore = HiveStore();
-  } catch (e) {
-    // HiveStore can fail when a second FlutterEngine (e.g. Android Auto)
-    // tries to open the same .hive file that is already locked by the main engine.
-    // Fall back to in-memory store so the app still works without disk caching.
-    developer.log('HiveStore init failed, using InMemoryStore: $e');
-    graphQlStore = InMemoryStore();
-  }
+  final Store graphQlStore = await PerformanceMonitor.trackAsync('hive_store_init', () async {
+    try {
+      await initHiveForFlutter();
+      return ResilientHiveStore(HiveStore()) as Store;
+    } catch (e) {
+      // HiveStore can fail when a second FlutterEngine (e.g. Android Auto)
+      // tries to open the same .hive file that is already locked by the main engine.
+      // Fall back to in-memory store so the app still works without disk caching.
+      developer.log('HiveStore init failed, using InMemoryStore: $e');
+      return InMemoryStore() as Store;
+    }
+  });
 
   final HttpLink httpLink = HttpLink(
     CONSTANTS.GRAPHQL_ENDPOINT,
@@ -164,26 +173,41 @@ void main() async {
     ),
   );
 
-  getIt.registerSingleton<AppAudioHandler>(await initAudioService(graphqlClient: graphqlClient));
+  final audioHandler = await PerformanceMonitor.trackAsync('audio_service_init', () async {
+    return await initAudioService(graphqlClient: graphqlClient);
+  });
+  getIt.registerSingleton<AppAudioHandler>(audioHandler);
 
   // Initialize CarPlay/Android Auto service
-  final carPlayService = CarPlayService();
-  await carPlayService.initialize();
-  getIt.registerSingleton<CarPlayService>(carPlayService);
+  await PerformanceMonitor.trackAsync('carplay_service_init', () async {
+    final carPlayService = CarPlayService();
+    await carPlayService.initialize();
+    getIt.registerSingleton<CarPlayService>(carPlayService);
+  });
 
   final packageInfo = await PackageInfo.fromPlatform();
   globals.appVersion = packageInfo.version;
   globals.buildNumber = packageInfo.buildNumber;
 
-  FirebaseInstanceId.appInstanceId.then((value) {
-    globals.deviceId = value ?? "";
+  FirebaseInstallations.instance.getId().then((value) {
+    globals.deviceId = value;
     FirebaseCrashlytics.instance.setUserIdentifier(globals.deviceId);
   });
 
   FlutterNativeSplash.remove();
 
-  await ThemeManager.initialize();
-  
+  await PerformanceMonitor.trackAsync('theme_init', () => ThemeManager.initialize());
+
+  PerformanceMonitor.markAppReady();
+  PerformanceMonitor.startFrameMonitoring();
+
+  // Print performance report after 15 seconds to capture startup + first interactions
+  if (!kReleaseMode) {
+    Future.delayed(const Duration(seconds: 15), () {
+      PerformanceMonitor.printReport();
+    });
+  }
+
   runApp(const RadioCrestinApp());
 }
 

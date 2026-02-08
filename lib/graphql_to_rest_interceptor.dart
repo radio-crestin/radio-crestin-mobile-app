@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:gql/ast.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:http/http.dart' as http;
+import 'package:radio_crestin/performance_monitor.dart';
 
 typedef RestApiTransformer = Map<String, dynamic> Function(dynamic jsonData);
 
@@ -26,10 +27,13 @@ class GraphQLToRestInterceptorLink extends Link {
   Stream<Response> _handleRestApiRequest(Request request, RestApiConfig config) async* {
     try {
       final variables = request.variables;
-      final url = config.urlBuilder != null 
-        ? config.urlBuilder!(variables) 
+      final url = config.urlBuilder != null
+        ? config.urlBuilder!(variables)
         : _addTimestampToUrl(config.restApiUrl);
+      final opName = request.operation.operationName ?? 'unknown';
+      PerformanceMonitor.startOperation('rest_api_$opName');
       final response = await _fetchFromRestApi(url);
+      PerformanceMonitor.endOperation('rest_api_$opName');
       
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body);

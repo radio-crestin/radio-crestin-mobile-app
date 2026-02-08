@@ -204,94 +204,79 @@ class SharePromotionCardState extends State<SharePromotionCard> {
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 14),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).primaryColor.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  Icons.people_outline_rounded,
-                  color: Theme.of(context).primaryColor,
-                  size: 24,
-                ),
-              ),
-            const SizedBox(width: 15),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _shareLinkData?.shareSectionTitle ?? 'Distribuie aplicația',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.onSurface,
+                    Icon(
+                      Icons.people_outline_rounded,
+                      color: Theme.of(context).primaryColor,
+                      size: 20,
                     ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    _shareLinkData!.shareSectionMessage.isNotEmpty 
-                      ? _shareLinkData!.shareSectionMessage
-                      : 'Ajută la răspândirea Evangheliei prin intermediul radioului creștin. Apasă aici pentru a trimite această aplicație prietenilor tăi.',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.85),
-                      height: 1.4,
-                    ),
-                  ),
-                  if (_shareLinkData != null) ...[
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: _accentColor(context).withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: _accentColor(context).withOpacity(0.3),
-                          width: 1,
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _shareLinkData?.shareSectionTitle ?? 'Distribuie aplicația',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.onSurface,
                         ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.max,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Icon(
-                            Icons.people_outline_rounded,
-                            size: 16,
-                            color: _accentColor(context),
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              _shareLinkData!.visitCount == 0
-                                  ? 'Niciun prieten nu a accesat link-ul tău'
-                                  : _shareLinkData!.visitCount == 1
-                                      ? '1 prieten a accesat invitația ta'
-                                      : '${_shareLinkData!.visitCount} prieteni au accesat invitația ta',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: _accentColor(context),
-                              ),
-                              textAlign: TextAlign.left,
-                            ),
-                          ),
-                        ],
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  _shareLinkData!.shareSectionMessage.isNotEmpty
+                    ? _shareLinkData!.shareSectionMessage
+                    : 'Ajută la răspândirea Evangheliei prin intermediul radioului creștin. Apasă aici pentru a trimite această aplicație prietenilor tăi.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.85),
+                    height: 1.4,
+                  ),
+                ),
+                if (_shareLinkData != null) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: _accentColor(context).withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.people_outline_rounded,
+                          size: 16,
+                          color: _accentColor(context),
+                        ),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            _shareLinkData!.visitCount == 0
+                                ? 'Niciun prieten nu a accesat link-ul tău'
+                                : _shareLinkData!.visitCount == 1
+                                    ? '1 prieten a accesat invitația ta'
+                                    : '${_shareLinkData!.visitCount} prieteni au accesat invitația ta',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: _accentColor(context),
+                            ),
+                            textAlign: TextAlign.left,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
-              ),
-            ),
-            ],
-          ),
           const SizedBox(height: 12),
           Row(
-            mainAxisAlignment: MainAxisAlignment.end,
+            mainAxisAlignment: MainAxisAlignment.start,
             children: [
               _buildShareButton(
                 context: context,
@@ -321,15 +306,15 @@ class SharePromotionCardState extends State<SharePromotionCard> {
           ),
           // Close X button
           Positioned(
-            top: 8,
-            right: 8,
+            top: 12,
+            right: 12,
             child: Material(
               color: Colors.transparent,
               child: InkWell(
                 onTap: _handleClose,
                 borderRadius: BorderRadius.circular(20),
                 child: Container(
-                  padding: const EdgeInsets.all(6),
+                  padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: Colors.black.withOpacity(0.05),
                     shape: BoxShape.circle,
