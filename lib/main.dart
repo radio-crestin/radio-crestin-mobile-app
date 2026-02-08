@@ -100,7 +100,17 @@ void main() async {
 
   // We're using HiveStore for persistence,
   // so we need to initialize Hive.
-  await initHiveForFlutter();
+  Store graphQlStore;
+  try {
+    await initHiveForFlutter();
+    graphQlStore = HiveStore();
+  } catch (e) {
+    // HiveStore can fail when a second FlutterEngine (e.g. Android Auto)
+    // tries to open the same .hive file that is already locked by the main engine.
+    // Fall back to in-memory store so the app still works without disk caching.
+    developer.log('HiveStore init failed, using InMemoryStore: $e');
+    graphQlStore = InMemoryStore();
+  }
 
   final HttpLink httpLink = HttpLink(
     CONSTANTS.GRAPHQL_ENDPOINT,
@@ -116,11 +126,11 @@ void main() async {
   final graphqlToRestInterceptor = GraphQLToRestInterceptorLink(
     queryToRestMap: queryToRestMap,
   );
-  
+
   final Link graphqlLink = graphqlToRestInterceptor.concat(authLink.concat(httpLink));
 
   // The default store is the InMemoryStore, which does NOT persist to disk
-  final graphQlCache = GraphQLCache(store: HiveStore());
+  final graphQlCache = GraphQLCache(store: graphQlStore);
 
   GraphQLClient graphqlClient = GraphQLClient(
     link: graphqlLink,

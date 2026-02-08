@@ -68,7 +68,7 @@ final ThemeData lightTheme = ThemeData(
         fontSize: 19,
         fontWeight: FontWeight.bold,
       )),
-  bottomAppBarTheme: const BottomAppBarThemeData(
+  bottomAppBarTheme: const BottomAppBarTheme(
     color: Color(0xffe91e63),
   ),
   buttonTheme: const ButtonThemeData(
@@ -345,7 +345,7 @@ final ThemeData darkTheme = ThemeData(
       fontWeight: FontWeight.bold,
     ),
   ),
-  bottomAppBarTheme: const BottomAppBarThemeData(
+  bottomAppBarTheme: const BottomAppBarTheme(
     color: Color(0xff75002c),
   ),
   buttonTheme: const ButtonThemeData(

@@ -127,7 +127,7 @@
 
         <!-- Android Auto service for flutter_carplay -->
         <service
-            android:name="com.oguzhnatly.flutter_carplay.AndroidAutoService"
+            android:name="com.oguzhnatly.flutter_android_auto.AndroidAutoService"
             android:exported="true">
             <intent-filter>
                 <action android:name="androidx.car.app.CarAppService" />
