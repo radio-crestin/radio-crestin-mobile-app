@@ -35,7 +35,7 @@ class StationsList extends StatelessWidget {
 
           return GestureDetector(
               onTap: () async {
-                await audioHandler.playStation(station, fromFavorites: isFavoritesList);
+                await audioHandler.playStation(station);
               },
               child: Container(
                 margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
