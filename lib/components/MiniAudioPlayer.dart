@@ -3,6 +3,7 @@ import 'dart:io' show Platform;
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:radio_crestin/types/Station.dart';
+import 'package:radio_crestin/widgets/animated_play_button.dart';
 import 'package:sliding_up_panel2/sliding_up_panel2.dart';
 
 class MiniAudioPlayer extends StatelessWidget {
@@ -60,41 +61,52 @@ class MiniAudioPlayer extends StatelessWidget {
             SizedBox(height: Platform.isIOS ? 7 : 10),
             Row(
               children: <Widget>[
-                SizedBox(
-                  width: 52.0,
-                  height: 52.0,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12.0),
-                    child: currentStation?.thumbnail,
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 250),
+                  child: SizedBox(
+                    key: ValueKey('mini-thumb-${currentStation?.id}'),
+                    width: 52.0,
+                    height: 52.0,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12.0),
+                      child: currentStation?.thumbnail,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 16.0),
-                // Song title and artist name
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: <Widget>[
-                      Text(
-                        displayTitle,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      if (displaySubtitle.isNotEmpty)
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 250),
+                    layoutBuilder: (currentChild, previousChildren) => Stack(
+                      alignment: Alignment.centerLeft,
+                      children: [...previousChildren, if (currentChild != null) currentChild],
+                    ),
+                    child: Column(
+                      key: ValueKey('mini-text-${currentStation?.id}-$displaySubtitle'),
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: <Widget>[
                         Text(
-                          displaySubtitle,
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.7),
-                            fontSize: 12.0, // Adjust font size as needed
+                          displayTitle,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                    ],
+                        if (displaySubtitle.isNotEmpty)
+                          Text(
+                            displaySubtitle,
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.7),
+                              fontSize: 12.0,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(width: 3.0),
@@ -105,62 +117,14 @@ class MiniAudioPlayer extends StatelessWidget {
                 //   tooltip: "Statia anterioare",
                 //   onPressed: audioHandler.skipToPrevious,
                 // ),
-                StreamBuilder<PlaybackState>(
-                  stream: audioHandler.playbackState.distinct(),
-                  builder: (context, snapshot) {
-                    final playbackState = snapshot.data;
-                    final processingState = playbackState?.processingState;
-                    final playing = playbackState?.playing ?? true;
-                    return Stack(
-                      children: [
-                        if (processingState == AudioProcessingState.loading ||
-                            processingState == AudioProcessingState.buffering)
-                          Center(
-                            child: SizedBox(
-                              height: 48.0,
-                              width: 48.0,
-                              child: CircularProgressIndicator(
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  Theme
-                                      .of(context)
-                                      .iconTheme
-                                      .color!,
-                                ),
-                              ),
-                            ),
-                          ),
-                        Center(
-                          child: playing
-                              ? IconButton(
-                            iconSize: 31,
-                            tooltip: "Pauza",
-                            onPressed: audioHandler.pause,
-                            icon: const Icon(
-                              Icons.pause_rounded,
-                            ),
-                            color: Theme
-                                .of(context)
-                                .iconTheme
-                                .color!,
-                          )
-                              : IconButton(
-                            iconSize: 31,
-                            tooltip: "Start",
-                            onPressed: audioHandler.play,
-                            icon: const Icon(
-                              Icons.play_arrow_rounded,
-                            ),
-                            color: Theme
-                                .of(context)
-                                .iconTheme
-                                .color!,
-                          ),
-                        )
-                      ],
-                    );
-                  },
+                AnimatedPlayButton(
+                  playbackStateStream: audioHandler.playbackState,
+                  iconSize: 36,
+                  iconColor: Theme.of(context).iconTheme.color!,
+                  onPlay: audioHandler.play,
+                  onPause: audioHandler.pause,
                 ),
-                const SizedBox(width: 9.0),
+                const SizedBox(width: 4.0),
               ],
             )
           ],

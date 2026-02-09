@@ -10,37 +10,16 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="58041931-ad11-42ad-8927-493b20dc1bf9" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/AndroidProjectSystem.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/caches/deviceStreaming.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/deploymentTargetSelector.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/runConfigurations.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/compiler.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/compiler.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/gradle.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/gradle.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/kotlinc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/kotlinc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/AndroidManifest.xml" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/AndroidManifest.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/kotlin/com/radiocrestin/radio_crestin/MainActivity.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/kotlin/com/radiocrestin/radio_crestin/MainActivity.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/src/main/res/xml/automotive_app_desc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/res/xml/automotive_app_desc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../ios/Podfile" beforeDir="false" afterPath="$PROJECT_DIR$/../ios/Podfile" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/gradle/wrapper/gradle-wrapper.properties" beforeDir="false" afterPath="$PROJECT_DIR$/gradle/wrapper/gradle-wrapper.properties" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/settings.gradle" beforeDir="false" afterPath="$PROJECT_DIR$/settings.gradle" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../ios/Podfile.lock" beforeDir="false" afterPath="$PROJECT_DIR$/../ios/Podfile.lock" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../ios/Runner.xcodeproj/project.pbxproj" beforeDir="false" afterPath="$PROJECT_DIR$/../ios/Runner.xcodeproj/project.pbxproj" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../lib/appAudioHandler.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/appAudioHandler.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../lib/main.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/main.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../lib/performance_monitor.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/performance_monitor.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../lib/resilient_hive_store.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/resilient_hive_store.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../lib/services/car_play_service.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/services/car_play_service.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../lib/theme.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/theme.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../lib/types/Station.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/types/Station.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../lib/utils.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../lib/utils.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../packages/flutter_carplay/android/src/main/kotlin/com/oguzhnatly/flutter_android_auto/FAAEnums.kt" beforeDir="false" afterPath="$PROJECT_DIR$/../packages/flutter_carplay/android/src/main/kotlin/com/oguzhnatly/flutter_android_auto/FAAEnums.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../packages/flutter_carplay/android/src/main/kotlin/com/oguzhnatly/flutter_android_auto/FAAHelpers.kt" beforeDir="false" afterPath="$PROJECT_DIR$/../packages/flutter_carplay/android/src/main/kotlin/com/oguzhnatly/flutter_android_auto/FAAHelpers.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../packages/flutter_carplay/android/src/main/kotlin/com/oguzhnatly/flutter_android_auto/FlutterAndroidAutoPlugin.kt" beforeDir="false" afterPath="$PROJECT_DIR$/../packages/flutter_carplay/android/src/main/kotlin/com/oguzhnatly/flutter_android_auto/FlutterAndroidAutoPlugin.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../packages/flutter_carplay/android/src/main/kotlin/com/oguzhnatly/flutter_android_auto/Screen.kt" beforeDir="false" afterPath="$PROJECT_DIR$/../packages/flutter_carplay/android/src/main/kotlin/com/oguzhnatly/flutter_android_auto/Screen.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../packages/flutter_carplay/lib/android_auto_worker.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../packages/flutter_carplay/lib/android_auto_worker.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../packages/flutter_carplay/lib/constants/private_constants.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../packages/flutter_carplay/lib/constants/private_constants.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../packages/flutter_carplay/lib/controllers/android_auto_controller.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../packages/flutter_carplay/lib/controllers/android_auto_controller.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../packages/flutter_carplay/lib/flutter_carplay.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../packages/flutter_carplay/lib/flutter_carplay.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../packages/flutter_carplay/lib/helpers/auto_android_helper.dart" beforeDir="false" afterPath="$PROJECT_DIR$/../packages/flutter_carplay/lib/helpers/auto_android_helper.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../macos/Flutter/GeneratedPluginRegistrant.swift" beforeDir="false" afterPath="$PROJECT_DIR$/../macos/Flutter/GeneratedPluginRegistrant.swift" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../packages/flutter_carplay/android/build.gradle" beforeDir="false" afterPath="$PROJECT_DIR$/../packages/flutter_carplay/android/build.gradle" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../pubspec.lock" beforeDir="false" afterPath="$PROJECT_DIR$/../pubspec.lock" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../pubspec.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/../pubspec.yaml" afterDir="false" />
     </list>

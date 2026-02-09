@@ -86,8 +86,8 @@ class AppAudioHandler extends BaseAudioHandler {
       BehaviorSubject.seeded(null);
   final BehaviorSubject<List<MediaItem>> stationsMediaItems = BehaviorSubject.seeded(<MediaItem>[]);
 
-  // CarPlay: playlist to cycle through when using skip next/prev (set by CarPlayService)
-  List<Station> carPlayPlaylist = [];
+  // Active playlist for skip next/prev - set by whoever selects a station (app UI, CarPlay, Android Auto)
+  List<Station> activePlaylist = [];
 
   _log(String message) {
     developer.log("AppAudioHandler: $message");
@@ -206,13 +206,26 @@ class AppAudioHandler extends BaseAudioHandler {
     await player.setLoopMode(LoopMode.off);
   }
 
-  Future<void> selectStation(Station station) async {
-    _log('playStation($station)');
+  @override
+  Future<void> setRating(Rating rating, [Map<String, dynamic>? extras]) async {
+    _log('setRating($rating)');
+    final station = currentStation.value;
+    if (station == null) return;
+    await setStationIsFavorite(station, rating.hasHeart());
+  }
+
+  Future<void> selectStation(Station station, {List<Station>? playlist}) async {
+    _log('selectStation($station)');
+    if (playlist != null) {
+      activePlaylist = List.from(playlist);
+    }
+
     final item = station.mediaItem;
+    final isFav = favoriteStationSlugs.value.contains(station.slug);
 
     _lastEmittedSongId = station.songId;
     _lastEmittedArtUriString = item.artUri?.toString();
-    mediaItem.add(item);
+    mediaItem.add(item.copyWith(rating: Rating.newHeartRating(isFav)));
     currentStation.add(station);
 
     await setLastPlayedStation(station);
@@ -231,14 +244,18 @@ class AppAudioHandler extends BaseAudioHandler {
           if (currentItem != null) {
             final localUri = Uri.file(file.path);
             _lastEmittedArtUriString = localUri.toString();
-            mediaItem.add(currentItem.copyWith(artUri: localUri));
+            final isFav = favoriteStationSlugs.value.contains(station.slug);
+            mediaItem.add(currentItem.copyWith(
+              artUri: localUri,
+              rating: Rating.newHeartRating(isFav),
+            ));
           }
         }
       });
     }
   }
 
-  Future<void> playStation(Station station) async {
+  Future<void> playStation(Station station, {List<Station>? playlist}) async {
     _log('playStation($station)');
 
     // Stop and clean up the previous station before starting the new one
@@ -249,7 +266,7 @@ class AppAudioHandler extends BaseAudioHandler {
     }
     _loadedStreamUrl = null;
 
-    await selectStation(station);
+    await selectStation(station, playlist: playlist);
     if (Platform.isAndroid) {
       await Future.delayed(const Duration(milliseconds: 100));
     }
@@ -257,8 +274,8 @@ class AppAudioHandler extends BaseAudioHandler {
     return play();
   }
 
-  List<Station> _getCarPlayPlaylist() {
-    if (carPlayPlaylist.isNotEmpty) return carPlayPlaylist;
+  List<Station> _getActivePlaylist() {
+    if (activePlaylist.isNotEmpty) return activePlaylist;
     return filteredStations.value;
   }
 
@@ -267,7 +284,7 @@ class AppAudioHandler extends BaseAudioHandler {
     _log('skipToNext()');
     if (currentStation.value == null) return super.skipToNext();
 
-    final playlist = _getCarPlayPlaylist();
+    final playlist = _getActivePlaylist();
     if (playlist.isEmpty) return super.skipToNext();
 
     final currentIndex = playlist.indexWhere((s) => s.slug == currentStation.value!.slug);
@@ -280,7 +297,7 @@ class AppAudioHandler extends BaseAudioHandler {
     _log('skipToPrevious()');
     if (currentStation.value == null) return super.skipToPrevious();
 
-    final playlist = _getCarPlayPlaylist();
+    final playlist = _getActivePlaylist();
     if (playlist.isEmpty) return super.skipToPrevious();
 
     final currentIndex = playlist.indexWhere((s) => s.slug == currentStation.value!.slug);
@@ -443,7 +460,6 @@ class AppAudioHandler extends BaseAudioHandler {
 
   // Metadata refresh
   void _broadcastState(PlaybackEvent event) {
-    // Avoid logging on every playback event for performance
     final playing = player.playing;
     playbackState.add(playbackState.value.copyWith(
       controls: [
@@ -452,9 +468,9 @@ class AppAudioHandler extends BaseAudioHandler {
         MediaControl.skipToNext,
       ],
       systemActions: const {
-        // MediaAction.seek,
         MediaAction.seekForward,
         MediaAction.seekBackward,
+        MediaAction.setRating,
       },
       androidCompactActionIndices: const [0, 1, 2],
       processingState: const {
@@ -671,6 +687,11 @@ class AppAudioHandler extends BaseAudioHandler {
           .add(favoriteStationSlugs.value.where((slug) => slug != station.slug).toList());
     }
 
+    // Update MediaItem rating so MediaSession reflects the new favorite state
+    final currentItem = mediaItem.valueOrNull;
+    if (currentItem != null && currentStation.value?.slug == station.slug) {
+      mediaItem.add(currentItem.copyWith(rating: Rating.newHeartRating(isFavorite)));
+    }
 
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.setString(_favoriteStationsKey, json.encode(favoriteStationSlugs.value));
@@ -735,7 +756,8 @@ class AppAudioHandler extends BaseAudioHandler {
           if (newMediaItem != null) {
             _lastEmittedSongId = newSongId;
             _lastEmittedArtUriString = newMediaItem.artUri?.toString();
-            mediaItem.add(newMediaItem);
+            final isFav = favoriteStationSlugs.value.contains(updatedCurrentStation.slug);
+            mediaItem.add(newMediaItem.copyWith(rating: Rating.newHeartRating(isFav)));
           }
 
           // Cache the new song thumbnail so Android notification gets a local file

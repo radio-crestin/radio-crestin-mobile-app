@@ -1,5 +1,5 @@
 buildscript {
-    ext.kotlin_version = '2.1.10'
+    ext.kotlin_version = '2.3.10'
 }
 
 allprojects {
@@ -7,12 +7,24 @@ allprojects {
         google()
         mavenCentral()
     }
-    // Force kotlin-stdlib to match the compiler version to avoid metadata incompatibilities
-    configurations.configureEach {
-        resolutionStrategy {
-            force "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
-            force "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
-            force "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
+}
+
+// Fix: Flutter's embedded KGP 1.8.0 pins kotlin-stdlib to 1.8.22 on the compiler classpath.
+// Kotlin 2.3.x compiler needs kotlin-stdlib 2.3.x (contains SpillingKt class).
+// We must force the correct version specifically on kotlinCompilerClasspath after KGP configures it.
+subprojects {
+    afterEvaluate {
+        configurations.matching { it.name == 'kotlinCompilerClasspath' }.configureEach {
+            resolutionStrategy.force(
+                "org.jetbrains.kotlin:kotlin-stdlib:${rootProject.ext.kotlin_version}",
+                "org.jetbrains.kotlin:kotlin-stdlib-common:${rootProject.ext.kotlin_version}"
+            )
+        }
+        configurations.matching { it.name.startsWith('kotlinCompilerPluginClasspath') }.configureEach {
+            resolutionStrategy.force(
+                "org.jetbrains.kotlin:kotlin-stdlib:${rootProject.ext.kotlin_version}",
+                "org.jetbrains.kotlin:kotlin-stdlib-common:${rootProject.ext.kotlin_version}"
+            )
         }
     }
 }

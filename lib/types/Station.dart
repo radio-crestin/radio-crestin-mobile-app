@@ -73,6 +73,7 @@ class Station {
       artist: artist,
       duration: null,
       artUri: artUri,
+      isLive: true,
       extras: {
         "station_id": rawStationData.id,
         "station_slug": rawStationData.slug,

@@ -199,17 +199,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) async {
-    if (state == AppLifecycleState.resumed) {
-      try {
-        final isPlaying = (await _audioHandler.playbackState.first).playing;
-        if (!isPlaying) {
-          autoPlayProcessed = false;
-          playerAutoplay();
-        }
-      } catch (e) {
-        developer.log('Error autoplaying on resume: $e');
-      }
-    } else if (state == AppLifecycleState.detached) {
+    if (state == AppLifecycleState.detached) {
       // Stop the audio service when app is being terminated
       try {
         await _audioHandler.stop();
@@ -511,7 +501,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                   displayFunction: (Station station) => station.displayTitle,
                                   searchFunction: (Station station) => station.displayTitle,
                                   onItemSelected: (Station station) {
-                                    _audioHandler.playStation(station);
+                                    _audioHandler.playStation(station, playlist: stations);
                                   },
                                   itemBuilder: (context, station) {
                                     return Container(

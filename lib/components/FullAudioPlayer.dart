@@ -16,6 +16,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../appAudioHandler.dart';
 import '../types/Station.dart';
+import '../widgets/animated_play_button.dart';
 
 class FullAudioPlayer extends StatefulWidget {
   final AppAudioHandler audioHandler;
@@ -35,30 +36,13 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   Timer? sleepTimer;
   bool isTimerActive = false;
   Station? currentStation;
-  final PageController pageController = PageController();
   final List _subscriptions = [];
   List<String> _favoriteSlugs = [];
-
-  List<Station> filteredStationsIncludingCurrentStation = [];
+  final _playButtonKey = GlobalKey<AnimatedPlayButtonState>();
 
   @override
   void initState() {
     super.initState();
-    _subscriptions
-        .add(widget.audioHandler.filteredStations.stream.listen((List<Station> filteredStations) {
-      setState(() {
-        filteredStationsIncludingCurrentStation = [
-          if (currentStation != null && !filteredStations.contains(currentStation)) currentStation!,
-          ...filteredStations,
-        ];
-      });
-
-      final newPageIndex = filteredStationsIncludingCurrentStation
-          .indexWhere((item) => item.id == currentStation?.id);
-      if (pageController.page != null) {
-        pageController.jumpToPage(newPageIndex);
-      }
-    }));
 
     _subscriptions.add(widget.audioHandler.favoriteStationSlugs.stream.listen((slugs) {
       setState(() {
@@ -70,19 +54,6 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
       setState(() {
         currentStation = value;
       });
-
-      final newPageIndex = filteredStationsIncludingCurrentStation
-          .indexWhere((item) => item.id == currentStation?.id);
-      if (pageController.page != null) {
-        pageController
-            .animateToPage(
-          newPageIndex,
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.ease,
-        )
-            .then((_) {
-        });
-      }
     }));
   }
 
@@ -134,84 +105,72 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
               ],
             ),
             const SizedBox(height: 17.0),
-            Text(
-              currentStation?.displayTitle ?? "",
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 20,
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 250),
+              child: Text(
+                currentStation?.displayTitle ?? "",
+                key: ValueKey('title-${currentStation?.id}'),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 20,
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 18.0),
-            GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onHorizontalDragEnd: (details) {
-                // Detect swipe direction
-                if (details.primaryVelocity! > 0) {
-                  // Swipe right
-                  widget.audioHandler.skipToPrevious();
-                } else if (details.primaryVelocity! < 0) {
-                  // Swipe left
-                  widget.audioHandler.skipToNext();
-                }
-              },
-              child: SizedBox(
-                width: 270.0,
-                height: 270.0,
-                child: PageView.builder(
-                  // physics: const AlwaysScrollableScrollPhysics(),
-                  physics: const NeverScrollableScrollPhysics(),
-                  controller: pageController,
-                  scrollDirection: Axis.horizontal,
-                  itemCount: filteredStationsIncludingCurrentStation.length,
-                  itemBuilder: (BuildContext context, int itemIdx) {
-                    final station = filteredStationsIncludingCurrentStation[itemIdx];
-
-                    return Container(
-                      width: 260.0,
-                      height: 260.0,
-                      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surface,
-                        borderRadius: const BorderRadius.all(Radius.circular(8)),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.grey.withOpacity(0.35),
-                            spreadRadius: 0,
-                            blurRadius: 4,
-                            offset: const Offset(2, 3),
-                          ),
-                        ],
-                      ),
-                      child: ClipRRect(
-                        borderRadius: const BorderRadius.all(Radius.circular(8)),
-                        child: station.thumbnail,
-                      ),
-                    );
-                  },
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              child: Container(
+                key: ValueKey('thumb-${currentStation?.id}'),
+                width: 260.0,
+                height: 260.0,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  borderRadius: const BorderRadius.all(Radius.circular(8)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.35),
+                      spreadRadius: 0,
+                      blurRadius: 4,
+                      offset: const Offset(2, 3),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: const BorderRadius.all(Radius.circular(8)),
+                  child: currentStation?.thumbnail,
                 ),
               ),
             ),
             const SizedBox(height: 18.0),
-            Padding(padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 250),
+              child: Padding(
+                key: ValueKey('song-${currentStation?.songTitle}-${currentStation?.id}'),
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: Text(
+                  currentStation?.songTitle ?? "Metadate indisponibile",
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 21,
+                  ),
+                ),
+              ),
+            ),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 250),
               child: Text(
-                currentStation?.songTitle ?? "Metadate indisponibile",
-                maxLines: 2,
+                currentStation?.songArtist ?? "",
+                key: ValueKey('artist-${currentStation?.songArtist}-${currentStation?.id}'),
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 21,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
-              ),
-            ),
-            Text(
-              currentStation?.songArtist ?? "",
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
             const Spacer(),
@@ -219,77 +178,47 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
                 InkWell(
-                  onTap: widget.audioHandler.skipToPrevious,
+                  onTap: () {
+                    _playButtonKey.currentState?.notifyWillPlay();
+                    widget.audioHandler.skipToPrevious();
+                  },
                   child: Padding(
-                    padding: EdgeInsets.all(8.0),
+                    padding: EdgeInsets.all(10.0),
                     child: Icon(
                       Icons.skip_previous,
-                      size: 34,
+                      size: 42,
                       color: Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
                 ),
-                const SizedBox(width: 24.0),
-                StreamBuilder<PlaybackState>(
-                  stream: widget.audioHandler.playbackState.distinct(),
-                  builder: (context, snapshot) {
-                    final playbackState = snapshot.data;
-                    final processingState = playbackState?.processingState;
-                    final playing = playbackState?.playing ?? true;
-                    final buffering = processingState == AudioProcessingState.loading ||
-                        processingState == AudioProcessingState.buffering;
-                    if (buffering) {
-                      return Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          ClipOval(
-                            child: Material(
-                              color: Theme.of(context).bottomAppBarTheme.color,
-                              child: const SizedBox(width: 62, height: 62,),
-                            ),
-                          ),
-                          CircularProgressIndicator(
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              Theme.of(context).colorScheme.onPrimary,
-                            ),
-                          )
-                        ],
-                      );
-                    }
-
-                    return Stack(
-                      children: [
-                        ClipOval(
-                          child: Material(
-                              color: Theme.of(context).bottomAppBarTheme.color,
-                              child: IconButton(
-                                icon: (playing
-                                    ? Icon(Icons.pause_rounded, color: Theme.of(context).colorScheme.onPrimary)
-                                    : Icon(Icons.play_arrow_rounded, color: Theme.of(context).colorScheme.onPrimary)),
-                                iconSize: 46,
-                                onPressed:
-                                    playing ? widget.audioHandler.pause : widget.audioHandler.play,
-                              )),
-                        ),
-                      ],
-                    );
-                  },
+                const SizedBox(width: 28.0),
+                AnimatedPlayButton(
+                  key: _playButtonKey,
+                  playbackStateStream: widget.audioHandler.playbackState,
+                  iconSize: 54,
+                  iconColor: Theme.of(context).colorScheme.onPrimary,
+                  backgroundColor: Theme.of(context).bottomAppBarTheme.color,
+                  onPlay: widget.audioHandler.play,
+                  onPause: widget.audioHandler.pause,
                 ),
-                const SizedBox(width: 24.0),
+                const SizedBox(width: 28.0),
                 InkWell(
-                  onTap: widget.audioHandler.skipToNext,
+                  onTap: () {
+                    _playButtonKey.currentState?.notifyWillPlay();
+                    widget.audioHandler.skipToNext();
+                  },
                   child: Padding(
-                    padding: const EdgeInsets.all(8.0),
+                    padding: const EdgeInsets.all(10.0),
                     child: Icon(
                       Icons.skip_next_rounded,
-                      size: 34,
+                      size: 42,
                       color: Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 90.0),
+            const Spacer(),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: <Widget>[
@@ -321,33 +250,35 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                     ),
                   ),
                 ),
-                InkWell(
-                  customBorder: const CircleBorder(),
-                  onTap: () {
-                    if (currentStation != null) {
-                      final isLiked = _favoriteSlugs.contains(currentStation!.slug);
-                      widget.audioHandler.setStationIsFavorite(currentStation!, !isLiked);
-                    }
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(10.0),
-                    child: Column(
-                      children: [
-                        Icon(
-                          currentStation != null && _favoriteSlugs.contains(currentStation!.slug)
-                              ? Icons.favorite_sharp
-                              : Icons.favorite_border_sharp,
-                          color: currentStation != null && _favoriteSlugs.contains(currentStation!.slug)
-                              ? Theme.of(context).primaryColor
-                              : Theme.of(context).colorScheme.onSurface,
-                          size: 23,
-                        ),
-                        Padding(
-                          padding: EdgeInsets.only(top: 8.0),
-                          child: Text('favorit', style: TextStyle(fontSize: 12)),
-                        ),
-                      ],
-                    ),
+                Container(
+                  padding: const EdgeInsets.all(10.0),
+                  child: Column(
+                    children: [
+                      LikeButton(
+                        size: 30,
+                        bubblesSize: 30,
+                        isLiked: currentStation != null && _favoriteSlugs.contains(currentStation!.slug),
+                        likeBuilder: (bool isLiked) {
+                          return Icon(
+                            isLiked ? Icons.favorite_sharp : Icons.favorite_border_sharp,
+                            color: isLiked
+                                ? Theme.of(context).primaryColor
+                                : Theme.of(context).colorScheme.onSurface,
+                            size: 23,
+                          );
+                        },
+                        onTap: (bool isLiked) async {
+                          if (currentStation != null) {
+                            widget.audioHandler.setStationIsFavorite(currentStation!, !isLiked);
+                          }
+                          return !isLiked;
+                        },
+                      ),
+                      Padding(
+                        padding: EdgeInsets.only(top: 8.0),
+                        child: Text('favorit', style: TextStyle(fontSize: 12)),
+                      ),
+                    ],
                   ),
                 ),
                   InkWell(
@@ -363,7 +294,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
 
                         final searchUrl = 'https://www.youtube.com/results?q=$encodedQuery';
 
-                        if (!await launchUrl(Uri.parse(searchUrl))) {
+                        if (!await launchUrl(Uri.parse(searchUrl), mode: LaunchMode.externalApplication)) {
                           Fluttertoast.showToast(
                               msg: "A apărut o eroare neașteptată în lansarea YouTube.",
                               toastLength: Toast.LENGTH_SHORT,

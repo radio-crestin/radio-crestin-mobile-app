@@ -35,7 +35,7 @@ class StationsList extends StatelessWidget {
 
           return GestureDetector(
               onTap: () async {
-                await audioHandler.playStation(station);
+                await audioHandler.playStation(station, playlist: stations);
               },
               child: Container(
                 margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
@@ -82,7 +82,14 @@ class StationsList extends StatelessWidget {
                                 overflow: TextOverflow.ellipsis,
                                 maxLines: 2,
                               ),
-                              Container(
+                              AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 250),
+                                layoutBuilder: (currentChild, previousChildren) => Stack(
+                                  alignment: Alignment.centerLeft,
+                                  children: [...previousChildren, if (currentChild != null) currentChild],
+                                ),
+                                child: Container(
+                                  key: ValueKey('meta-${station.id}-${station.songTitle}-${station.songArtist}'),
                                   margin: const EdgeInsets.only(top: 0, bottom: 4),
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -106,30 +113,41 @@ class StationsList extends StatelessWidget {
                                           ),
                                         )
                                     ],
-                                  )),
-                              if (station.totalListeners != null && station.totalListeners! > 0)
-                                Row(
-                                  children: [
-                                    Container(
-                                      width: 8,
-                                      height: 8,
-                                      margin: const EdgeInsets.only(right: 4),
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        color: station.isUp
-                                            ? AppColors.success
-                                            : AppColors.offline,
-                                      ),
-                                    ),
-                                    Text(
-                                      '${station.totalListeners} ascultator${station.totalListeners == 1 ? "" : "i"}',
-                                      style: TextStyle(
-                                        color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ],
-                                )
+                                  ),
+                                ),
+                              ),
+                              AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 250),
+                                layoutBuilder: (currentChild, previousChildren) => Stack(
+                                  alignment: Alignment.centerLeft,
+                                  children: [...previousChildren, if (currentChild != null) currentChild],
+                                ),
+                                child: station.totalListeners != null && station.totalListeners! > 0
+                                  ? Row(
+                                      key: ValueKey('listeners-${station.id}-${station.totalListeners}'),
+                                      children: [
+                                        Container(
+                                          width: 8,
+                                          height: 8,
+                                          margin: const EdgeInsets.only(right: 4),
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color: station.isUp
+                                                ? AppColors.success
+                                                : AppColors.offline,
+                                          ),
+                                        ),
+                                        Text(
+                                          '${station.totalListeners} ascultator${station.totalListeners == 1 ? "" : "i"}',
+                                          style: TextStyle(
+                                            color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                  : SizedBox.shrink(key: ValueKey('no-listeners-${station.id}')),
+                              )
                             ],
                           ),
                         )
