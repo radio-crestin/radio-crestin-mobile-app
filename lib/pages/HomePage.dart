@@ -104,18 +104,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   Future<void> _handleRefresh() async {
     try {
-      // Refresh stations
-      await _stationDataService.refreshStations();
-      
-      // Refresh share promotion visibility
-      await _checkSharePromotionVisibility();
-      
-      // Refresh share link data
-      await _loadShareLinkData();
-      
+      await Future.wait([
+        _stationDataService.refreshStations(),
+        _checkSharePromotionVisibility(),
+        _loadShareLinkData(),
+      ]).timeout(const Duration(seconds: 3));
+
       // Refresh share promotion card if it's visible
       if (_showSharePromotion && _sharePromotionKey.currentState != null) {
-        await _sharePromotionKey.currentState!.refreshShareLink();
+        _sharePromotionKey.currentState!.refreshShareLink();
       }
     } catch (e) {
       developer.log('Error refreshing: $e');
