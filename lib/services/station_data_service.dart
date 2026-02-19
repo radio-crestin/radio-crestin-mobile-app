@@ -131,7 +131,6 @@ class StationDataService {
   void _applyStationsData(Query$GetStations data) {
     stations.add(data.stations.map((r) => Station(rawStationData: r)).toList());
     stationGroups.add(data.station_groups);
-    _preCacheStationThumbnails();
   }
 
   void _setupRefreshStations() async {
@@ -152,6 +151,9 @@ class StationDataService {
       _log("Error fetching stations from API: $e");
     }
     PerformanceMonitor.endOperation('initial_stations_fetch');
+
+    // Pre-cache once after initial data is ready
+    _preCacheStationThumbnails();
 
     // Poll for live updates every 5 seconds
     _watchStations = graphqlClient

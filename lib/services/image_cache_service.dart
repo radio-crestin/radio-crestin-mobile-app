@@ -11,6 +11,7 @@ class ImageCacheService {
   static ImageCacheService get instance => _instance!;
 
   final Map<String, String> _cache = {};
+  final Map<String, Future<File?>> _inFlight = {};
   late final Directory _cacheDir;
   bool _initialized = false;
 
@@ -106,8 +107,14 @@ class ImageCacheService {
       return file;
     }
 
+    // Deduplicate in-flight downloads
+    if (_inFlight.containsKey(url)) return _inFlight[url]!;
+
     // Download
-    return _download(url, filePath);
+    final future = _download(url, filePath);
+    _inFlight[url] = future;
+    future.whenComplete(() => _inFlight.remove(url));
+    return future;
   }
 
   Future<File?> _download(String url, String filePath) async {
