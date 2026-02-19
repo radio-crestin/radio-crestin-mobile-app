@@ -16,7 +16,7 @@ class ShareService {
           },
           fetchPolicy: FetchPolicy.noCache,
         ),
-      );
+      ).timeout(const Duration(seconds: 5));
 
       // Check for actual errors, not cache write errors
       if (result.hasException && result.data == null) {

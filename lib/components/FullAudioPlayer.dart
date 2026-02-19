@@ -8,10 +8,6 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:like_button/like_button.dart';
 import 'package:radio_crestin/pages/HomePage.dart';
 import 'package:radio_crestin/widgets/share_handler.dart';
-import 'package:radio_crestin/services/share_service.dart';
-import 'package:radio_crestin/utils/share_utils.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:device_info_plus/device_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:get_it/get_it.dart';
@@ -366,70 +362,17 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     );
   }
 
-  void _showShareDialog(BuildContext context) async {
-    try {
-      // Load device ID
-      final prefs = await SharedPreferences.getInstance();
-      String? anonymousId = prefs.getString('device_id');
-      
-      if (anonymousId == null) {
-        // Get device-specific ID
-        final DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
-        if (Platform.isAndroid) {
-          final androidInfo = await deviceInfo.androidInfo;
-          anonymousId = androidInfo.id; // Use Android ID
-        } else if (Platform.isIOS) {
-          final iosInfo = await deviceInfo.iosInfo;
-          anonymousId = iosInfo.identifierForVendor; // Use Vendor ID for iOS
-        } else {
-          // Fallback for other platforms
-          anonymousId = DateTime.now().millisecondsSinceEpoch.toString();
-        }
-        
-        // Save the device ID for future use
-        if (anonymousId != null) {
-          await prefs.setString('device_id', anonymousId);
-        }
-      }
-
-      // Load share link data
-      final shareService = ShareService(widget.audioHandler.graphqlClient);
-      final shareLinkData = await shareService.getShareLink(anonymousId!);
-      
-      if (!context.mounted || shareLinkData == null) return;
-      
-      // Generate share URL and message
-      final shareUrl = shareLinkData.generateShareUrl(
-        stationSlug: currentStation?.title != null ? currentStation?.slug : null,
-      );
-      
-      final shareMessage = ShareUtils.formatShareMessage(
-        shareLinkData: shareLinkData,
-        stationName: currentStation?.title,
-        stationSlug: currentStation?.slug,
-      );
-      
-      // Show the share dialog
-      ShareHandler.shareApp(
-        context: context,
-        shareUrl: shareUrl,
-        shareMessage: shareMessage,
-        stationName: currentStation?.title,
-        shareLinkData: shareLinkData,
-        showDialog: true,
-      );
-    } catch (e) {
-      print('Error loading share dialog: $e');
-      // Fallback to direct share without dialog
-      if (context.mounted) {
-        ShareHandler.shareApp(
-          context: context,
-          shareUrl: 'https://www.radio-crestin.com',
-          shareMessage: 'Ascultă Radio Creștin - stații radio creștine online',
-          stationName: currentStation?.title,
-        );
-      }
-    }
+  void _showShareDialog(BuildContext context) {
+    final slug = currentStation?.slug;
+    final shareUrl = slug != null && slug.isNotEmpty
+        ? 'https://www.radiocrestin.ro/$slug'
+        : 'https://www.radiocrestin.ro/descarca-aplicatia-radio-crestin';
+    ShareHandler.shareApp(
+      context: context,
+      shareUrl: shareUrl,
+      shareMessage: 'Aplicația Radio Creștin:\n$shareUrl',
+      stationName: currentStation?.title,
+    );
   }
 
   Future<void> showSleepTimerDialog(BuildContext context) async {

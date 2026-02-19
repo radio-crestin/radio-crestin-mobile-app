@@ -111,9 +111,9 @@ class _SettingsPageState extends State<SettingsPage> {
       // Fallback to old method if something fails
       ShareHandler.shareApp(
         context: context,
-        shareUrl: 'https://asculta.radiocrestin.ro',
-        shareMessage: 'Aplicația Radio Creștin:\nhttps://asculta.radiocrestin.ro',
-        showDialog: false, // Direct share for fallback
+        shareUrl: 'https://www.radiocrestin.ro/descarca-aplicatia-radio-crestin',
+        shareMessage: 'Aplicația Radio Creștin:\nhttps://www.radiocrestin.ro/descarca-aplicatia-radio-crestin',
+        showDialog: false,
       );
     }
   }

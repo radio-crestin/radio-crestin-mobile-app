@@ -273,11 +273,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     } catch (e) {
       // Fallback to old method if something fails
       if (mounted) {
+        final slug = _audioHandler.currentStation.valueOrNull?.slug;
+        final fallbackUrl = slug != null && slug.isNotEmpty
+            ? 'https://www.radiocrestin.ro/$slug'
+            : 'https://www.radiocrestin.ro/descarca-aplicatia-radio-crestin';
         ShareHandler.shareApp(
           context: context,
-          shareUrl: 'https://asculta.radiocrestin.ro',
-          shareMessage: 'Aplicația Radio Creștin:\nhttps://asculta.radiocrestin.ro',
-          showDialog: false, // Direct share for fallback
+          shareUrl: fallbackUrl,
+          shareMessage: 'Aplicația Radio Creștin:\n$fallbackUrl',
+          showDialog: false,
         );
       }
     }
@@ -323,58 +327,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             final favoriteSlugs = snapshot.data?.favoriteSlugs ?? [];
 
             final favoriteStations = stations.where((station) => favoriteSlugs.contains(station.slug)).toList();
-            final isLoading = stations.isEmpty;
-
-            // Show centered loading indicator when stations are loading
-            if (isLoading) {
-              return Scaffold(
-                backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-                appBar: AppBar(
-                  backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-                  elevation: 0,
-                  centerTitle: true,
-                  toolbarHeight: 75,
-                  automaticallyImplyLeading: false,
-                  title: Container(
-                    margin: const EdgeInsets.only(top: 6),
-                    child: const Row(
-                      children: [
-                        Image(
-                          image: AssetImage('assets/icons/ic_logo_filled.png'),
-                          width: 40,
-                        ),
-                        SizedBox(width: 10),
-                        Text(
-                          "Radio Creștin",
-                          style: TextStyle(fontSize: 21),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                body: Container(
-                  padding: const EdgeInsets.only(top: 180),
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.start,
-                      children: [
-                        CircularProgressIndicator(
-                          color: Theme.of(context).primaryColor,
-                        ),
-                        const SizedBox(height: 20),
-                        Text(
-                          "Stațiile se încarcă...",
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            }
 
             return SlidingUpPanel(
               maxHeight: panelMaxHeight,
