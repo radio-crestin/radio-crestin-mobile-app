@@ -1,0 +1,3633 @@
+{
+  "data": {
+    "stations": [
+      {
+        "id": 0,
+        "slug": "aripi-spre-cer",
+        "order": 0,
+        "title": "Aripi Spre Cer",
+        "website": "https://aripisprecer.ro",
+        "email": "contact@aripisprecer.ro",
+        "stream_url": "https://mobile.stream.aripisprecer.ro/radio.mp3;",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/https://mobile.stream.aripisprecer.ro/radio.mp3;",
+        "hls_stream_url": null,
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/aripisprecer_61Mv959.jpg",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Radio Crestin Aripi Spre Cer este un post de radio crestin online care a luat ființă în anul 2008 sub numele de Radio Wings2Heaven și a funcționat sub acest nume pana în 2010, când am luat decizia să continuăm sub un alt nume, astfel a luat ființă proiectul Radio Creștin Aripi Spre Cer.\r\n\r\nTransmitem muzica crestină contemporană, clasică, worship, gen popular, predici, marturii, interviuri, poezii crestine cât și interviuri, concursuri sau emisiuni în care ascultătorii pot intra în direct, dezbatem subiecte diverse, întrebări referitoare la diferite subiect biblice.\r\n\r\nO funcționalitate deosebită este aceea prin care ascultătorii au posibilitatea să aleagă melodii din playlist-ul nostru și să le solicite pentru a fi redate pe canalul de radio sau le pot dedica celor dragi ca și un dar.",
+        "description_action_title": "Instalează aplicația Aripi Spre Cer pe telefonul mobil.",
+        "description_link": "https://distribuie.aripisprecer.ro/?ref=radio-crestin.com",
+        "feature_latest_post": false,
+        "facebook_page_id": "aripisprecer.ro",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "direct_stream",
+            "stream_url": "https://mobile.stream.aripisprecer.ro/radio.mp3;"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 48079966,
+          "timestamp": "",
+          "song": {
+            "id": 13195,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 248,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 1,
+          "average_rating": 5
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 5,
+        "slug": "aripi-spre-cer-instrumental",
+        "order": 0,
+        "title": "Aripi Spre Cer Instrumental",
+        "website": "https://www.aripisprecer.ro/instrumental/",
+        "email": "contact@aripisprecer.ro",
+        "stream_url": "https://instrumental.stream.aripisprecer.ro/radio.mp3;",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/https://instrumental.stream.aripisprecer.ro/radio.mp3;",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/aripi-spre-cer-instrumental/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/aripisprecer_61Mv959.jpg",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Radio Crestin Aripi Spre Cer instrumental se adresează în special iubitorilor de muzica clasica sau instrumentala. Este locul potrivit pentru cei insetati, care cauta o oaza de pace si liniste si speranta pentru trup, suflet si minte. Încercam sa punem la dispoziție un număr cât mai mare de cântece clasice si instrumentale și totodată va oferim posibilitatea de a le alege cântece direct din playlist-ul nostru.",
+        "description_action_title": "Instalează aplicația Aripi Spre Cer pe telefonul mobil.",
+        "description_link": "https://distribuie.aripisprecer.ro/instrumental/?ref=radio-crestin.com",
+        "feature_latest_post": false,
+        "facebook_page_id": "aripisprecer.ro",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "direct_stream",
+            "stream_url": "https://instrumental.stream.aripisprecer.ro/radio.mp3;"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 48079949,
+          "timestamp": "",
+          "song": {
+            "id": 16778,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 367,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 1,
+          "average_rating": 5
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 2,
+        "slug": "aripi-spre-cer-popular",
+        "order": 0,
+        "title": "Aripi Spre Cer Popular",
+        "website": "https://www.aripisprecer.ro/popular/",
+        "email": "contact@aripisprecer.ro",
+        "stream_url": "https://popular.stream.aripisprecer.ro/radio.mp3;",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/https://popular.stream.aripisprecer.ro/radio.mp3;",
+        "hls_stream_url": null,
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/aripisprecer_61Mv959.jpg",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Acest canal se adresează în special celor care îndrăgesc muzica creștina mai veche și a tuturor iubitorilor genului popular. Încercam sa punem la dispoziție un număr cât mai mare de cântări creștine populare, doine, cântări transmise prin viu grai de la înaintașii noștri, imnuri și totodată vă oferim posibilitatea de a alege direct din playlist-ul nostru.",
+        "description_action_title": "Instalează aplicația Aripi Spre Cer pe telefonul mobil.",
+        "description_link": "https://distribuie.aripisprecer.ro/popular/?ref=radio-crestin.com",
+        "feature_latest_post": false,
+        "facebook_page_id": "aripisprecer.ro",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "direct_stream",
+            "stream_url": "https://popular.stream.aripisprecer.ro/radio.mp3;"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 48079967,
+          "timestamp": "",
+          "song": {
+            "id": 29875,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 134,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 1,
+          "average_rating": 5
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 1,
+        "slug": "aripi-spre-cer-predici",
+        "order": 0,
+        "title": "Aripi Spre Cer Predici",
+        "website": "https://www.aripisprecer.ro/predici/",
+        "email": "contact@aripisprecer.ro",
+        "stream_url": "https://predici.stream.aripisprecer.ro/radio.mp3;",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/https://predici.stream.aripisprecer.ro/radio.mp3;",
+        "hls_stream_url": null,
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/aripisprecer_61Mv959.jpg",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Radio Creștin Aripi Spre Cer Predici este un canal de radio care vă oferă posibilitatea de a asculta zilnic Cuvântul Domnului, vestit de diferiți predicatori din mediul evanghelic. Biblia este citită și predicată în fiecare zi pe acest canal de predici.",
+        "description_action_title": "Instalează aplicația Aripi Spre Cer pe telefonul mobil.",
+        "description_link": "https://distribuie.aripisprecer.ro/predici/?ref=radio-crestin.com",
+        "feature_latest_post": false,
+        "facebook_page_id": "aripisprecer.ro",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "direct_stream",
+            "stream_url": "https://predici.stream.aripisprecer.ro/radio.mp3;"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 48079968,
+          "timestamp": "",
+          "song": {
+            "id": 98804,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 1671,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 1,
+          "average_rating": 5
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 46,
+        "slug": "aripi-spre-cer-special",
+        "order": 0,
+        "title": "Aripi Spre Cer Special",
+        "website": "https://www.aripisprecer.ro/",
+        "email": "contact@aripisprecer.ro",
+        "stream_url": "https://special.stream.aripisprecer.ro/radio.mp3;",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/https://special.stream.aripisprecer.ro/radio.mp3;",
+        "hls_stream_url": null,
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/aripisprecer_61Mv959.jpg",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Radio Crestin Aripi Spre Cer este un post de radio crestin online care a luat ființă în anul 2008 sub numele de Radio Wings2Heaven și a funcționat sub acest nume pana în 2010.\r\n\r\nTransmitem muzica crestină contemporană, clasică, worship, gen popular, predici, marturii, interviuri, poezii crestine cât și interviuri, concursuri sau emisiuni în care ascultătorii pot intra în direct, dezbatem subiecte diverse, întrebări referitoare la diferite subiect biblice.\r\n\r\nO funcționalitate deosebită este aceea prin care ascultătorii au posibilitatea să aleagă melodii din playlist-ul nostru și să le solicite pentru a fi redate pe canalul de radio sau le pot dedica celor dragi ca și un dar.",
+        "description_action_title": "Instalează aplicația Aripi Spre Cer pe telefonul mobil.",
+        "description_link": "https://distribuie.aripisprecer.ro/?ref=radio-crestin.com",
+        "feature_latest_post": false,
+        "facebook_page_id": "aripisprecer.ro",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "direct_stream",
+            "stream_url": "https://special.stream.aripisprecer.ro/radio.mp3;"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 53981689,
+          "timestamp": "",
+          "song": {
+            "id": 72490,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 12594,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 0,
+          "average_rating": 0
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 61,
+        "slug": "radio-calea-spre-cer-biblia",
+        "order": 0,
+        "title": "Calea Spre Cer Biblia",
+        "website": "https://radiocaleasprecer.com/",
+        "email": "contact@radiocaleasprecer.com",
+        "stream_url": "https://panel.radiocaleasprecer.com/radio/8010/radio.mp3",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/https://panel.radiocaleasprecer.com/radio/8010/radio.mp3",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/radio-calea-spre-cer-biblia/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-calea-spre-cer-biblia.png",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Radio Calea Spre Cer - Un altfel de Radio, un radio pentru sufletul tau.",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": true,
+        "facebook_page_id": "RadioCaleaSpreCer",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-calea-spre-cer-biblia/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://panel.radiocaleasprecer.com/radio/8010/radio.mp3"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 55042892,
+          "timestamp": "",
+          "song": {
+            "id": 84474,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": null
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 1,
+          "average_rating": 5
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 60,
+        "slug": "radio-calea-spre-cer-copii",
+        "order": 0,
+        "title": "Calea Spre Cer Copii",
+        "website": "https://radiocaleasprecer.com/",
+        "email": "contact@radiocaleasprecer.com",
+        "stream_url": "https://panel.radiocaleasprecer.com/radio/8040/radio.mp3",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/https://panel.radiocaleasprecer.com/radio/8040/radio.mp3",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/radio-calea-spre-cer-copii/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-calea-spre-cer-copii.png",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Radio Calea Spre Cer - Un altfel de Radio, un radio pentru sufletul tau.",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": true,
+        "facebook_page_id": "RadioCaleaSpreCer",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-calea-spre-cer-copii/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://panel.radiocaleasprecer.com/radio/8040/radio.mp3"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 55042651,
+          "timestamp": "",
+          "song": {
+            "id": 84391,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 16683,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 3,
+          "average_rating": 4.67
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 62,
+        "slug": "radio-calea-spre-cer-popular",
+        "order": 0,
+        "title": "Calea Spre Cer Popular",
+        "website": "https://radiocaleasprecer.com/",
+        "email": "contact@radiocaleasprecer.com",
+        "stream_url": "https://panel.radiocaleasprecer.com/radio/8020/radio.mp3",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/https://panel.radiocaleasprecer.com/radio/8020/radio.mp3",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/radio-calea-spre-cer-popular/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-calea-spre-cer-popular.png",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Radio Calea Spre Cer - Un altfel de Radio, un radio pentru sufletul tau.",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": true,
+        "facebook_page_id": "RadioCaleaSpreCer",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-calea-spre-cer-popular/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://panel.radiocaleasprecer.com/radio/8020/radio.mp3"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 55043599,
+          "timestamp": "",
+          "song": {
+            "id": 85763,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 9253,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 4,
+          "average_rating": 4.75
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 39,
+        "slug": "cross-one",
+        "order": 0,
+        "title": "Cross One",
+        "website": "https://www.crossone.ro/",
+        "email": "danpirvu@crossone.ro",
+        "stream_url": "https://lb01.bpstream.com:8630/;",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/https://lb01.bpstream.com:8630/;",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/cross-one/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/cross-one.jpg",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Suntem o echipă de oameni care doresc să transmită credința în Dumnezeu mai departe prin muzică, meditații și podcasturi creștine. Daca vrei să descoperi mai multe despre Dumnezeu, ești în locul potrivit, iar noi ne-am bucura să te cunoaștem!",
+        "description_action_title": "Viziteaza site-ul nostru.",
+        "description_link": "https://www.crossone.ro/",
+        "feature_latest_post": true,
+        "facebook_page_id": "crossoneradio",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/cross-one/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://lb01.bpstream.com:8630/;"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 48079964,
+          "timestamp": "",
+          "song": {
+            "id": 51083,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 8754,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 0,
+          "average_rating": 0
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 81,
+        "slug": "rve-brasov",
+        "order": 0,
+        "title": "RVE Brasov",
+        "website": "https://rve-brasov.ro/",
+        "email": "contact@rve-brasov.ro",
+        "stream_url": "https://stream.rve-brasov.ro/rvebv.mp3",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/https://stream.rve-brasov.ro/rvebv.mp3",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/rve-brasov/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/rve-brasov.png",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Un radio pentru inima  ta.\r\nFrecventa FM: 94,6 Mhz",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": true,
+        "facebook_page_id": "",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/rve-brasov/index.m3u8"
+          },
+          {
+            "order": 1,
+            "type": "direct_stream",
+            "stream_url": "https://stream.rve-brasov.ro/rvebv.mp3"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 143706319,
+          "timestamp": "",
+          "song": {
+            "id": 16872,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 24,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 1,
+          "average_rating": 5
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 26,
+        "slug": "rve-bucuresti",
+        "order": 0,
+        "title": "RVE Bucuresti",
+        "website": "https://rvebucuresti.ro/",
+        "email": "contact@rvebucuresti.ro",
+        "stream_url": "https://lb01.bpstream.com:8618/stream",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/https://lb01.bpstream.com:8618/stream",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/rve-bucuresti/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/rve-bucuresti.jpg",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Radio Vocea Evangheliei București este un post de radio creștin care emite pe frecvența de 94.2 FM din 17 aprilie 1994, la început doar două ore în fiecare zi, iar din 16 iunie 1997 şi până în prezent, RVE Bucureşti emite şase ore pe zi, de la 13:00 la 19:00 și non-stop pe internet.\r\n\r\nRVE București face parte dintr-o rețea care cuprinde zece stații locale care emit in FM: București (94.2 Mhz), Brașov (94.6Mhz.), Cluj (88.3Mhz), Constanța (104.4), Hunedoara (98.00 Mhz), Oradea (92.1Mhz), Sibiu (89.4 Mhz), Suceava (102.7Mhz), Timișoara (92,2Mhz), Moldova Nouă (106.6Mhz).",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": true,
+        "facebook_page_id": "rvebucuresti.ro",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/rve-bucuresti/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://lb01.bpstream.com:8618/stream"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 48079941,
+          "timestamp": "",
+          "song": {
+            "id": 3030,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 206,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 0,
+          "average_rating": 0
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 27,
+        "slug": "rve-cluj",
+        "order": 0,
+        "title": "RVE Cluj",
+        "website": "https://rvecj.ro/",
+        "email": "contact@rvecluj.ro",
+        "stream_url": "https://cj.rve.ro/rvecj.mp3",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/https://cj.rve.ro/rvecj.mp3",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/rve-cluj/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/RVECluj.png",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Radio Vocea Evangheliei Cluj este un post de radio creștin care dorește să aducă vestea bună a împăcării omului cu Dumnezeu prin credinţa în jertfa salvatoare a lui Isus Hristos, Fiul lui Dumnezeu. Această credinţă are ca rezultat naşterea din nou, sfinţirea, trăirea prin călăuzirea Duhului Sfânt şi nădejdea vieţii veşnice. Radio Vocea Evangheliei şi-a propus să contribuie la transformarea spirituală, morală şi culturală a societăţii prin promovarea valorilor eterne ale Bibliei, care este Cuvântul lui Dumnezeu.",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": true,
+        "facebook_page_id": "radiovoceaevangheliei",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/rve-cluj/index.m3u8"
+          },
+          {
+            "order": 0,
+            "type": "direct_stream",
+            "stream_url": "https://cj.rve.ro/rvecj.mp3"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 48079950,
+          "timestamp": "",
+          "song": {
+            "id": 15992,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 174,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 1,
+          "average_rating": 5
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 82,
+        "slug": "rve-constanta",
+        "order": 0,
+        "title": "RVE Constanta",
+        "website": "https://rvect.ro/",
+        "email": "contact@rvect.ro",
+        "stream_url": "https://stream.rvect.ro/rvect.mp3",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/https://stream.rvect.ro/rvect.mp3",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/rve-constanta/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/rve-constanta.png",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Radio Vocea Evangheliei Constanța este un post de radio creștin contemporan, relevant care își propune să aducă Evanghelia cât mai multor oameni.",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": true,
+        "facebook_page_id": "RadioVoceaEvanghelieiConstanta",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/rve-constanta/index.m3u8"
+          },
+          {
+            "order": 1,
+            "type": "direct_stream",
+            "stream_url": "https://stream.rvect.ro/rvect.mp3"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 143707039,
+          "timestamp": "",
+          "song": null
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 0,
+          "average_rating": 0
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 83,
+        "slug": "rve-hunedoara",
+        "order": 0,
+        "title": "RVE Hunedoara",
+        "website": "https://rvehunedoara.ro/",
+        "email": "redactie@rvehunedoara.ro",
+        "stream_url": "https://stream.rvehunedoara.ro/rvehd.mp3",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/https://stream.rvehunedoara.ro/rvehd.mp3",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/rve-hunedoara/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/rve-hunedoara.png",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Radio Vocea Evangheliei Hunedoara este un post de radio creștin contemporan, relevant care îsi propune să aducă Evanghelia cât mai multor oameni. \r\nFrecventa FM: 104.4 MHz",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": true,
+        "facebook_page_id": "Radio-Vocea-Evangheliei-Hunedoara",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/rve-hunedoara/index.m3u8"
+          },
+          {
+            "order": 1,
+            "type": "direct_stream",
+            "stream_url": "https://stream.rvehunedoara.ro/rvehd.mp3"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 143707386,
+          "timestamp": "",
+          "song": {
+            "id": 40220,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 177,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 1,
+          "average_rating": 4
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 47,
+        "slug": "rve-oradea",
+        "order": 0,
+        "title": "RVE Oradea",
+        "website": "https://www.rve-oradea.ro/",
+        "email": "comenzi@rve-oradea.ro",
+        "stream_url": "http://162.244.80.32:6700/;stream",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/http://162.244.80.32:6700/;stream",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/rve-oradea/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/rve-oradea.png",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Suntem un RADIO pentru INIMA TA!\r\n\r\nRadio Vocea Evangheliei Oradea (RVE Oradea) este un post de radio creștin, contemporan, echilibrat, relevant și practic care aduce Evanghelia românilor ori unde s-ar afla. Ascultând emisiunile noastre, cu ajutorul lui Dumnezeu, poți dobândi comori de mare preț pentru sufletul tău: înțelepciune, bucurie, pace, speranță și dragoste.",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": false,
+        "facebook_page_id": "RVEOradea",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/rve-oradea/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "http://162.244.80.32:6700/;stream"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 54506814,
+          "timestamp": "",
+          "song": {
+            "id": 84386,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": null
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 0,
+          "average_rating": 0
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 57,
+        "slug": "rve-oradea-international",
+        "order": 0,
+        "title": "RVE Oradea International",
+        "website": "https://www.rve-oradea.ro/",
+        "email": "comenzi@rve-oradea.ro",
+        "stream_url": "http://162.244.80.34:9648/;",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/http://162.244.80.34:9648/;",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/rve-oradea-international/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/rve-oradea-international.png",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Suntem un RADIO pentru INIMA TA!\r\n\r\nRadio Vocea Evangheliei Oradea (RVE Oradea) este un post de radio creștin, contemporan, echilibrat, relevant și practic care aduce Evanghelia românilor ori unde s-ar afla. Ascultând emisiunile noastre, cu ajutorul lui Dumnezeu, poți dobândi comori de mare preț pentru sufletul tău: înțelepciune, bucurie, pace, speranță și dragoste.",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": true,
+        "facebook_page_id": "RVEOradea",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/rve-oradea-international/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "http://162.244.80.34:9648/;"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 55040596,
+          "timestamp": "",
+          "song": {
+            "id": 84393,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": null
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 0,
+          "average_rating": 0
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 49,
+        "slug": "rve-oradea-muzica",
+        "order": 0,
+        "title": "RVE Oradea Muzica",
+        "website": "https://rve-oradea.ro/",
+        "email": "comenzi@rve-oradea.ro",
+        "stream_url": "http://162.244.80.32:9470/;stream.mp3",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/http://162.244.80.32:9470/;stream.mp3",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/rve-oradea-muzica/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/rve-oradea-muzica.png",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Obiectivul nostru este să fim Vocea Evangheliei, să prezentăm Vestea Bună în așa fel încât cel care o ascultă să fie transformat prin puterea Duhului Sfânt într-un om după inima lui Dumnezeu.\r\nÎn vederea atingerii acestui deziderat, avem câteva obiective intermediare:\r\n- A învăța despre Dumnezeu din Scriptură, istorie şi natură;\r\n- Să informeze despre evenimentele religioase științifice, politice, economice, sociale și culturale care se desfășoară pe plan local, național și internațional;\r\n- Să atenționeze în legătură cu anumite pericole sau să atragă atenția asupra unor nereguli care se produc în societate sau în viața oamenilor;\r\n- Să motiveze ascultătorii la dragoste și fapte bune, la o viață curată trăită în conformitate cu, Cuvântul Sfânt;\r\n- Să aducem bucurie în fiecare casă unde se ascultă Radio Vocea Evangheliei",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": false,
+        "facebook_page_id": "RVEOradea",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/rve-oradea-muzica/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "http://162.244.80.32:9470/;stream.mp3"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 54507552,
+          "timestamp": "",
+          "song": {
+            "id": 18205,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 4407,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 0,
+          "average_rating": 0
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 48,
+        "slug": "rve-predici",
+        "order": 0,
+        "title": "RVE Predici",
+        "website": "https://www.rve-oradea.ro/",
+        "email": "comenzi@rve-oradea.ro",
+        "stream_url": "http://162.244.80.32:9468/;stream.mp3",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/http://162.244.80.32:9468/;stream.mp3",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/rve-predici/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/rve-predici.png",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Misiunea RVE Oradea este să comunice prin radio vestea bună a lui Isus Hristos către societate românească, într-o manieră modernă și relevantă, folosind mijloace profesionale și tehnice adecvate. Prin promovarea valorilor eterne ale Bibliei, RVE Oradea vrea să contribuie la dezvoltarea spirituală, morală și culturală a poporului român.",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": false,
+        "facebook_page_id": "RVEOradea",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/rve-predici/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "http://162.244.80.32:9468/;stream.mp3"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 54507191,
+          "timestamp": "",
+          "song": {
+            "id": 84387,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 16681,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 0,
+          "average_rating": 0
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 50,
+        "slug": "rve-satu-mare",
+        "order": 0,
+        "title": "RVE Satu Mare",
+        "website": "https://rve-oradea.ro",
+        "email": "comenzi@rve-oradea.ro",
+        "stream_url": "http://162.244.80.37:7560/;stream.mp3",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/http://162.244.80.37:7560/;stream.mp3",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/rve-satu-mare/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/rve-satu-mare.png",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Radio Vocea Evangheliei Oradea face parte dintr-o rețea aparținând SC Vocea Evangheliei SRL, care cuprinde zece stații locale care emit în FM și pe internet: Bucuresti ( 94.2 Mhz), Brasov (94.6Mhz.), Cluj ( 88.3Mhz), Constanta ( 104.4), Hunedoara (98.00 Mhz), Oradea ( 92.1Mhz), Sibiu ( 89.4 Mhz), Suceava ( 102.7Mhz), Timisoara (92,2Mhz), Moldova Nouă (106.6Mhz). SC Vocea Evangheliei SRL are trei proprietari cu acțiuni egale.",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": false,
+        "facebook_page_id": "RVEOradea",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/rve-satu-mare/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "http://162.244.80.37:7560/;stream.mp3"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 54508226,
+          "timestamp": "",
+          "song": {
+            "id": 84388,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": null
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 0,
+          "average_rating": 0
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 42,
+        "slug": "rve-sibiu",
+        "order": 0,
+        "title": "RVE Sibiu",
+        "website": "https://rvesibiu.ro/",
+        "email": "contact@rvesibiu.ro",
+        "stream_url": "https://stream.rvesibiu.ro/rvesibiu.mp3",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/https://stream.rvesibiu.ro/rvesibiu.mp3",
+        "hls_stream_url": null,
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/rve-sibiu.png",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "În 15 august 1994, se auzea la Sibiu pentru prima oară: „Aici Radio Vocea Evangheliei, transmitem pe frecvența de 89,4 Mhz”. Pentru ca și românii din Diaspora să intre în echipa cu realitățile sibiene, din 1999, RVE Sibiu emite și pe Internet.\r\n\r\nAflă mai multe despre misiunea, valorile și credința noastră și fă cunoștință cu echipa RVE Sibiu.",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": true,
+        "facebook_page_id": "rvesb",
+        "station_streams": [
+          {
+            "order": 1,
+            "type": "direct_stream",
+            "stream_url": "https://stream.rvesibiu.ro/rvesibiu.mp3"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 48079963,
+          "timestamp": "",
+          "song": {
+            "id": 98635,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 14683,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 3,
+          "average_rating": 5
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 91,
+        "slug": "rve-soveja",
+        "order": 0,
+        "title": "RVE Soveja",
+        "website": "https://rve.ro/",
+        "email": "contact@rve.ro",
+        "stream_url": "https://so.rve.ro/rveso.mp3",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/https://so.rve.ro/rveso.mp3",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/rve-soveja/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/rve_soveja.png",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "RVE Soveja – Radio Vocea Evangheliei\r\nUn reper de lumină și speranță în zona Soveja, RVE transmite mesaje biblice, muzică creștină și programe care aduc încurajare și adevăr. O prezență caldă și constantă, aproape de inimile celor care caută pace și direcție.",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": true,
+        "facebook_page_id": "",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/rve-soveja/index.m3u8"
+          },
+          {
+            "order": 1,
+            "type": "direct_stream",
+            "stream_url": "https://so.rve.ro/rveso.mp3"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 143708258,
+          "timestamp": "",
+          "song": {
+            "id": 4192,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 1682,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 0,
+          "average_rating": 0
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 43,
+        "slug": "rve-suceava",
+        "order": 0,
+        "title": "RVE Suceava",
+        "website": "https://www.rvesv.ro/",
+        "email": "redactie@rvesv.ro",
+        "stream_url": "https://stream.rvesv.ro/rvesv.mp3",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/https://stream.rvesv.ro/rvesv.mp3",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/rve-suceava/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/rve-suceava.png",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Pentru românii care au trăit în perioada comunistă, gândul de a avea un post de radio creștin pe teritoriul țării reprezenta ceva irealizabil. Totuși, imediat după Revoluția din 1989, câțiva credincioși vizionari din cadrul Alianței Evanghelice din România au făcut demersurile necesare obținerii câtorva licențe pentru stații creștine de radio. Acestea au constituit rețeaua Radio ”Vocea Evangheliei”.\r\n\r\nFrecventa FM: 94.2 MHz",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": true,
+        "facebook_page_id": "rvesv",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/rve-suceava/index.m3u8"
+          },
+          {
+            "order": 1,
+            "type": "direct_stream",
+            "stream_url": "https://stream.rvesv.ro/rvesv.mp3"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 48079954,
+          "timestamp": "",
+          "song": {
+            "id": 38639,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 1067,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 5,
+          "average_rating": 4.8
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 90,
+        "slug": "rve-targoviste",
+        "order": 0,
+        "title": "RVE Targoviste",
+        "website": "https://rve.ro/",
+        "email": "contact@rve.ro",
+        "stream_url": "https://tg.rve.ro/rvetg.mp3",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/https://tg.rve.ro/rvetg.mp3",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/rve-targoviste/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/rve_targoviste.png",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "RVE Târgoviște – Radio Vocea Evangheliei\r\nPost de radio creștin care aduce în casele oamenilor mesaje biblice, muzică inspirată și programe pentru întreaga familie. RVE Târgoviște transmite speranță, încurajare și adevăr, conectând comunitatea la Evanghelia lui Hristos. În fiecare zi, vocea credinței aproape de tine.",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": true,
+        "facebook_page_id": "",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "direct_stream",
+            "stream_url": "https://tg.rve.ro/rvetg.mp3"
+          },
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/rve-targoviste/index.m3u8"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 143708256,
+          "timestamp": "",
+          "song": {
+            "id": 4192,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 1682,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 1,
+          "average_rating": 5
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 45,
+        "slug": "rve-timisoara",
+        "order": 0,
+        "title": "RVE Timisoara",
+        "website": "https://www.rve-timisoara.ro/",
+        "email": "contact@rve-timisoara.ro",
+        "stream_url": "https://tm.rve.ro/rvetm.mp3",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/https://tm.rve.ro/rvetm.mp3",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/rve-timisoara/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/rve-timisoara.png",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Radio Vocea Evangheliei Timișoara este un post de radio creștin contemporan, relevant care își propune să aducă Evanghelia cât mai multor oameni.\r\n\r\nMisiunea postului de Radio Vocea Evangheliei Timișoara este să comunice prin media, într-un mod relevant, valorile Bibliei astfel încât ele să fie cunoscute și trăite de cât mai mulți oameni.\r\n\r\nFrecventa FM: 92.2 MHz",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": true,
+        "facebook_page_id": "rve.timisoara",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/rve-timisoara/index.m3u8"
+          },
+          {
+            "order": 1,
+            "type": "direct_stream",
+            "stream_url": "https://tm.rve.ro/rvetm.mp3"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 50833700,
+          "timestamp": "",
+          "song": {
+            "id": 98805,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 19377,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 1,
+          "average_rating": 5
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 54,
+        "slug": "rve-viena",
+        "order": 0,
+        "title": "RVE Viena",
+        "website": "https://www.rveviena.at/",
+        "email": "office@rveviena.at",
+        "stream_url": "https://s3.free-shoutcast.com/stream/18202/;stream.mp3",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/https://s3.free-shoutcast.com/stream/18202/;stream.mp3",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/rve-viena/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/rve-viena.png",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Istoria RVE Viena a început cu un moment în care Redactorul – Șef Ignat Dumitru întâlneste o persoană cu dezabilitați fizice, dar mădular din trupul lui Hristos, parte din Biserica Penticostală Elim Viena. În acel moment primește îndemnul din partea Duhului Sfânt de a-i lansa invitația de a se implica în lucrarea radio. Încrezător în promisiunea lui Dumnezeu și determinat să construiască un început, investește în oameni cu dezabilități fizice, dar cu un mare potențial de a se implica în lucrarea mass media creștină. Aceasta initiativă devine astfel prima piesă a ceea ce mai târziu va reprezenta un grup media creștin sub denumirea „Echipa Răscumpărați prin Har”\r\n\r\nApar primele emisiuni realizate de echipa RpH\r\nObtine 6 ore de transmisie, de la ora 12 – 18, la un post de radio laic din Dej, Radio Fir\r\nEmisiunile sunt preluate și de portalul www.resursecreștine.ro pentru a fi puse la dispoziția doritorilor\r\nPeriodic sunt postate și pe pagina Web a Radio Vocea Evangheliei Viena",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": true,
+        "facebook_page_id": "rascumparatiprin.har.9",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/rve-viena/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://s3.free-shoutcast.com/stream/18202/;stream.mp3"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 55039908,
+          "timestamp": "",
+          "song": {
+            "id": 98803,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 15560,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 0,
+          "average_rating": 0
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 56,
+        "slug": "rve-viena-muzica",
+        "order": 0,
+        "title": "RVE Viena Muzica",
+        "website": "https://www.rveviena.at/",
+        "email": "office@rveviena.at",
+        "stream_url": "https://s2.free-shoutcast.com/stream/18028/;stream.mp3",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/https://s2.free-shoutcast.com/stream/18028/;stream.mp3",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/rve-viena-muzica/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/rve-viena-muzica.png",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Istoria RVE Viena a început cu un moment în care Redactorul – Șef Ignat Dumitru întâlneste o persoană cu dezabilitați fizice, dar mădular din trupul lui Hristos, parte din Biserica Penticostală Elim Viena. În acel moment primește îndemnul din partea Duhului Sfânt de a-i lansa invitația de a se implica în lucrarea radio. Încrezător în promisiunea lui Dumnezeu și determinat să construiască un început, investește în oameni cu dezabilități fizice, dar cu un mare potențial de a se implica în lucrarea mass media creștină. Aceasta initiativă devine astfel prima piesă a ceea ce mai târziu va reprezenta un grup media creștin sub denumirea „Echipa Răscumpărați prin Har”\r\n\r\nApar primele emisiuni realizate de echipa RpH\r\nObtine 6 ore de transmisie, de la ora 12 – 18, la un post de radio laic din Dej, Radio Fir\r\nEmisiunile sunt preluate și de portalul www.resursecreștine.ro pentru a fi puse la dispoziția doritorilor\r\nPeriodic sunt postate și pe pagina Web a Radio Vocea Evangheliei Viena",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": true,
+        "facebook_page_id": "rascumparatiprin.har.9",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/rve-viena-muzica/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://s2.free-shoutcast.com/stream/18028/;stream.mp3"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 55040191,
+          "timestamp": "",
+          "song": {
+            "id": 98810,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 107,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 1,
+          "average_rating": 5
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 55,
+        "slug": "rve-viena-tineri",
+        "order": 0,
+        "title": "RVE Viena Tineri [DE]",
+        "website": "https://www.rveviena.at/",
+        "email": "office@rveviena.at",
+        "stream_url": "https://s3.free-shoutcast.com/stream/18202/;stream.mp3",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/https://s3.free-shoutcast.com/stream/18202/;stream.mp3",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/rve-viena-tineri/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/rve-viena-tineri.png",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Istoria RVE Viena a început cu un moment în care Redactorul – Șef Ignat Dumitru întâlneste o persoană cu dezabilitați fizice, dar mădular din trupul lui Hristos, parte din Biserica Penticostală Elim Viena. În acel moment primește îndemnul din partea Duhului Sfânt de a-i lansa invitația de a se implica în lucrarea radio. Încrezător în promisiunea lui Dumnezeu și determinat să construiască un început, investește în oameni cu dezabilități fizice, dar cu un mare potențial de a se implica în lucrarea mass media creștină. Aceasta initiativă devine astfel prima piesă a ceea ce mai târziu va reprezenta un grup media creștin sub denumirea „Echipa Răscumpărați prin Har”\r\n\r\nApar primele emisiuni realizate de echipa RpH\r\nObtine 6 ore de transmisie, de la ora 12 – 18, la un post de radio laic din Dej, Radio Fir\r\nEmisiunile sunt preluate și de portalul www.resursecreștine.ro pentru a fi puse la dispoziția doritorilor\r\nPeriodic sunt postate și pe pagina Web a Radio Vocea Evangheliei Viena",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": true,
+        "facebook_page_id": "rascumparatiprin.har.9",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/rve-viena-tineri/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://s3.free-shoutcast.com/stream/18202/;stream.mp3"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 55040083,
+          "timestamp": "",
+          "song": {
+            "id": 98803,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 15560,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 0,
+          "average_rating": 0
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 84,
+        "slug": "rve-zalau",
+        "order": 0,
+        "title": "RVE Zalau",
+        "website": "https://rve-zalau.ro/",
+        "email": "contact@rve-zalau.ro",
+        "stream_url": "https://stream.rve-zalau.ro/rvezalau.mp3",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/https://stream.rve-zalau.ro/rvezalau.mp3",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/rve-zalau/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/rve-zalau.png",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Radio Vocea Evangheliei Zalău este un post de radio creștin contemporan, relevant care își propune să aducă Evanghelia cât mai multor oameni.\r\n\r\nFrecventa FM: 94.0 MHz",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": true,
+        "facebook_page_id": "61560872999608",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/rve-zalau/index.m3u8"
+          },
+          {
+            "order": 1,
+            "type": "direct_stream",
+            "stream_url": "https://stream.rve-zalau.ro/rvezalau.mp3"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 143708255,
+          "timestamp": "",
+          "song": {
+            "id": 26437,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 5750,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 1,
+          "average_rating": 5
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 67,
+        "slug": "radio-9-fm",
+        "order": 0,
+        "title": "Radio 9 FM - Moldova Noua",
+        "website": "https://www.radio9fm.ro/",
+        "email": "contact@rve-timisoara.ro",
+        "stream_url": "https://mn.rve.ro/rvemn.mp3",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/https://mn.rve.ro/rvemn.mp3",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/radio-9-fm/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-9-fm.png",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Radio 9FM este un post de radio care emite în zona Clisura Dunării din 18 aprilie 2014.\r\n\r\nFrecventa FM: 106.6 MHz\r\n\r\n\r\nRadioul promovează valorile creștine prin emisiuni, muzică, interviuri.\r\n\r\nPublicul țintă îl reprezintă persoanele care vor să cunoască mai multe despre Dumnezeu și să aibă o relație personală cu El, precum și creștinilor care au nevoie de restaurare, creștere spirituală bazată pe valorile Scripturii.\r\n\r\nRadioul este coordonat de Radio Vocea Evangheliei Timișoara și face parte din rețeaua Radio Vocea Evangheliei România.\r\n\r\nRețeaua Radio Vocea Evangheliei este proprietatea celor trei culte evanghelice din Romania : Cultul Baptist, Cultul Crestin dupa Evanghelie si Cultul Penticostal (Alianța Evanghelică Romania).\r\n\r\n\r\nRadio 9 FM este proprietatea celor trei culte evanghelice din Romania : Cultul Baptist, Cultul Crestini după Evanghelie si Cultul Penticostal (Alianta Evanghelica Romania ). Coordonarea administrativă a rețelei Radio Vocea Evangheliei se face de la Sediul Central din Bucuresti. Acesta asigura interfața retelei cu autoritatile si coordoneaza activitatile editoriale si financiare ale retelei. Activitatea Sediului Central este coordonata de directorul general al RVE (dl. Lucian Despa). Acesta se subordoneaza Adunarii Generale a Asociatilor ( AGA) a Radio Vocea Evangheliei. AGA reprezintă proprietarii radioului și instanta suprema decizională in RVE. AGA este alcatuită din câte trei reprezentanti ai fiecăruia din cele trei culte evanghelice asociate.",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": true,
+        "facebook_page_id": "",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-9-fm/index.m3u8"
+          },
+          {
+            "order": 1,
+            "type": "direct_stream",
+            "stream_url": "https://mn.rve.ro/rvemn.mp3"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 55045988,
+          "timestamp": "",
+          "song": {
+            "id": 37256,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 7044,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 1,
+          "average_rating": 5
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 6,
+        "slug": "alt-fm",
+        "order": 0,
+        "title": "Radio ALT FM Arad",
+        "website": "https://www.altfm.ro",
+        "email": "office@altfm.ro",
+        "stream_url": "https://altfm.faur.cc/alt_fm_128",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/https://altfm.faur.cc/alt_fm_128",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/alt-fm/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/alt-fm.jpg",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Misiunea noastra este să spunem oamenilor despre dragostea lui Dumnezeu arătată prin Domnul Isus Hristos și să-i invităm să experimenteze o trăire personală cu Tatăl Ceresc.\r\n\r\nSuntem prinși cu toții în activitățile lumii în care trăim. Familie, copii, casă, profesie, prieteni, vecini, cumpărături, biserică... Le întelegem pe toate. De aceea, ne străduim să găsim împreună cu ascultătorii noștri, echilibrul în toate, să stabilim priorități și să ne asigurăm că Dumnezeu va ocupa întotdeauna locul întâi.\r\n\r\nPentru că, nu-i așa, ”ce ar folosi unui om să câștige toată lumea, dacă și-ar pierde sufletul?”...\r\nAșteptăm cu nerăbdare evenimentul glorios când Domnul Isus va reveni pe norii cerului pentru a-Și lua la El pe cei care L-au iubit și au urmat calea trasată de El.\r\nVino Doamne Isuse! Amin!",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": true,
+        "facebook_page_id": "altfmofficial",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/alt-fm/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://altfm.faur.cc/alt_fm_128"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 48079946,
+          "timestamp": "",
+          "song": null
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 2,
+          "average_rating": 5
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 71,
+        "slug": "radio-allelon",
+        "order": 0,
+        "title": "Radio Allelon",
+        "website": "https://www.allelon.ro/",
+        "email": "",
+        "stream_url": "https://lb01.bpstream.com:8636/;",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/https://lb01.bpstream.com:8636/;",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/radio-allelon/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-allelon.png",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Das Ziel von Radio Allelon ist es die biblischen Werte in einer für die heutige Zeit relevanten For",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": true,
+        "facebook_page_id": "RadioAllelon",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-allelon/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://lb01.bpstream.com:8636/;"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 55049408,
+          "timestamp": "",
+          "song": {
+            "id": 88023,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 1,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 1,
+          "average_rating": 5
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 53,
+        "slug": "radio-antiohia",
+        "order": 0,
+        "title": "Radio Antiohia",
+        "website": "https://www.radiofiladelfia.ro/",
+        "email": "redactie@radiofiladelfia.ro",
+        "stream_url": "https://asculta.radiofiladelfia.ro:7000/antiohia_128.aac",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/https://asculta.radiofiladelfia.ro:7000/antiohia_128.aac",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/radio-antiohia/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-antiohia.png",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Radio Filadelfia s-a născut pe 1 decembrie 2008. Este unda celor ce au urechi să asculte! Muzica şi mesajul care te duc la Cruce!\r\n„Ți-am pus înainte o ușă deschisă, pe care nimeni n-o poate închide!” (Apocalipsa 3:8)",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": true,
+        "facebook_page_id": "RadioFiladelfiaRomania",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-antiohia/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://asculta.radiofiladelfia.ro:7000/antiohia_128.aac"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 55018418,
+          "timestamp": "",
+          "song": {
+            "id": 463,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 342,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 0,
+          "average_rating": 0
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 7,
+        "slug": "radio-armonia",
+        "order": 0,
+        "title": "Radio Armonia",
+        "website": "https://www.radioarmonia.ro/",
+        "email": "office@radioarmonia.ro",
+        "stream_url": "http://video.bluespot.ro:8001/listen.mp3",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/http://video.bluespot.ro:8001/listen.mp3",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/radio-armonia/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-armonia.jpg",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Misiunea Studioului “Radio Armonia” din Iasi, Romania, este ca prin intermediul undelor radio si, mai nou, al internetului sa vesteasca Evanghelia tuturor celor ce nu L-au cunoscut si nu au intrat intr-o relatie personala cu Acela care este Domnul si Mantuitorul intregii omeniri, si anume, Domnul Isus Cristos.\r\n\r\nAparut in anul 1992 ca un raspuns la rugaciunile multor crestini, dornici de a asculta si a se hrani cu Cuvintul Sfint prin intermediul undelor radio, Studioul “Radio Armonia”, a incercat, in cei 20 ani de activitate prin intermediul undelor scurte, sa promovoze valorile crestine, prezentate in Sfanta Scriptura, in comunitatile romanesti din estul si vestul Europei si in mod deosebit pe teritoriul Romaniei, incercind sa atinga toate categoriile sociale si de virsta, o importanta deosebita acordindu-se generatiei tinere, macinata de framintari si incertitudini.\r\n\r\nIn incercarea noastra de a implini aceasta misiune cu maxima eficacitate, incercam sa ne adresam si sa avem un dialog deschis cu toate bisericile si confesiunile, existente in tara si in comunitatile romanesti din strainatate.",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": true,
+        "facebook_page_id": "RadioArmonia",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-armonia/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "http://video.bluespot.ro:8001/listen.mp3"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 48079962,
+          "timestamp": "",
+          "song": {
+            "id": 15859,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 837,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 0,
+          "average_rating": 0
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 58,
+        "slug": "radio-betel-alcala",
+        "order": 0,
+        "title": "Radio Betel Alcala",
+        "website": "https://betelalcala.com/",
+        "email": "beteladeh@gmail.com",
+        "stream_url": "https://betelalcala.radioca.st/stream",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/https://betelalcala.radioca.st/stream",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/radio-betel-alcala/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-betel-alcala.png",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Noi credem într-un singur Dumnezeu, manifestat în trei Persoane: Tatăl, Fiul şi Duhul Sfânt.\r\n\r\nNoi credem că Biblia este Cuvântul infailibil al lui Dumnezeu şi că este singura normă de credinţă a credinciosului şi a Bisericii.\r\n\r\nNoi credem că Dumnezeu este Creatorul întregului univers, al omului şi al îngerilor.\r\n\r\nNoi credem că păcatul a intrat în lume prin neascultarea primului om, Adam, şi că fiecare om se naşte în păcat, având nevoie de mântuire.\r\n\r\nNoi credem că doar harul lui Dumnezeu face posibilă mântuirea omului, prin jertfa Domnului Iisus Hristos, şi că beneficiile acestei jertfe sunt însuşite prin credinţă şi pocăinţă.\r\n\r\nNoi credem că naşterea din nou a omului este opera Duhului Sfânt şi că Duhul Sfânt continuă să lucreze în viaţa credinciosului dându-i acestuia puterea de a face fapte bune (de a aduce roadă) şi de a trăi o viaţă sfântă.\r\n\r\nNoi credem că botezul în apă se acordă celor care s-au întors la Dumnezeu şi au fost născuţi din nou, că trebuie efectuat în Numele Tatălui, al Fiului şi al Duhului Sfânt şi că este actul prin care credinciosul este integrat în Biserică.\r\n\r\nNoi credem în botezul cu Duhul Sfânt, ca experienţă distinctă de naşterea din nou şi de botezul în apă, experienţă prin care credinciosul primeşte putere pentru slujire şi care trebuie să fie urmată de umpleri repetate.\r\n\r\nNoi credem că actul Euharistiei a fost instituit de Domnul Iisus şi că el este un aşezământ esenţial al Bisericii prin care credincioşii îşi exprimă părtăşia cu ipostaza dumnezeiască a Domnului nostru Iisus Hristos.\r\n\r\nNoi credem în continuitatea manifestărilor supranaturale ale Duhului Sfânt, prin darurile pe care le împarte El credincioşilor, spre zidirea Bisericii. Noi credem în preoţia tuturor credincioşilor dar şi în chemarea specială a unor credincioşi de a sluji ca lucrători învestiţi în lucrare prin hirotonisire.\r\n\r\nNoi credem în sanctitatea familiei, ca instituţie rânduită de Dumnezeu prin actul căsătoriei.\r\n\r\nNoi credem că mandatul suprem al Bisericii este acela de a duce Evanghelia până la marginile pământului şi că acest mandat trebuie dus la îndeplinire prin efortul conjugat al tuturor membrilor ei.\r\n\r\nNoi credem în a doua venire a Domnului Iisus Hristos pentru a-şi răpi Biserica, în învierea morţilor, în judecata de apoi şi în răsplătirile divine, în destinul veşnic al omului în Paradisul lui Dumnezeu sau în iad, despărţit pentru totdeauna de Dumnezeu.",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": true,
+        "facebook_page_id": "BetelAlcala",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-betel-alcala/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://betelalcala.radioca.st/stream"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 55041398,
+          "timestamp": "",
+          "song": {
+            "id": 6324,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 19,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 0,
+          "average_rating": 0
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 72,
+        "slug": "radio-biserica-penticostala-nadlac",
+        "order": 0,
+        "title": "Radio Biserica Penticostala Nadlac",
+        "website": "https://pentinadlac.ro/index.php/resurse/resurse-audio-1/radio-pentinadlac",
+        "email": "info@pentinadlac.ro",
+        "stream_url": "https://radio.ascultatare.ro/8012/stream",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/https://radio.ascultatare.ro/8012/stream",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/radio-biserica-penticostala-nadlac/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-biserica-penticostala-nadlac.png",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": true,
+        "facebook_page_id": "",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-biserica-penticostala-nadlac/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://radio.ascultatare.ro/8012/stream"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 55056425,
+          "timestamp": "",
+          "song": {
+            "id": 84788,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": null
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 4,
+          "average_rating": 5
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 44,
+        "slug": "radio-calea-spre-cer",
+        "order": 0,
+        "title": "Radio Calea Spre Cer",
+        "website": "https://radiocaleasprecer.com/",
+        "email": "contact@radiocaleasprecer.com",
+        "stream_url": "https://panel.radiocaleasprecer.com/radio/8000/radio.mp3",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/https://panel.radiocaleasprecer.com/radio/8000/radio.mp3",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/radio-calea-spre-cer/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-calea-spre-cer.png",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Radio Calea Spre Cer - Un altfel de Radio, un radio pentru sufletul tau.",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": true,
+        "facebook_page_id": "RadioCaleaSpreCer",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-calea-spre-cer/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://panel.radiocaleasprecer.com/radio/8000/radio.mp3"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 48132571,
+          "timestamp": "",
+          "song": {
+            "id": 84519,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": null
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 6,
+          "average_rating": 5
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 70,
+        "slug": "radio-crestin-autentic",
+        "order": 0,
+        "title": "Radio Crestin Autentic",
+        "website": "http://crestin-autentic.ro/",
+        "email": "radio.crestin.autentic@gmail.com",
+        "stream_url": "http://78.47.64.186:8082/radio/8000/radio.mp3",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/http://78.47.64.186:8082/radio/8000/radio.mp3",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/radio-crestin-autentic/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-crestin-autentic.png",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Radioul Crestin Autentic a fost infiintat la data de 15 ianuarie 2012.\r\n\r\nLucrarea noastra are ca scop principal promovarea adevarului biblic cu privire la mintuirea sufletului prin jertfa DOMNULUI ISUS HRISTOS. Radioul nostru poate fi ascultat prin internet, pe intreaga planeta, 24 de ore din 24, 7 zile din 7.\r\n\r\nVa stam la dispozitie cu exact 27419 de resurse crestine: 21628 cantari, 2254 poezii, 150 psalmi, 2655 predici, 471 colaje muzicale si 261 resurse diverse. Difuzam muzica crestina veche(predomina) si contemporana, din aproape toate genurile muzicale, in special populara si usoara. Radioul se adreseaza romanilor de pretutindeni, atit crestinilor , cit si celor ce nu-L cunosc pe DUMNEZEU.\r\n\r\nIntentionam, cu ajutorul DOMNULUI, in viitorul apropiat sa adaugam in programul radioului nostru sectiunea PUBLICITATE CRESTINA PRIN RADIO.Putem primi anunturi referitoare la:\r\nConditiile de admitere in invatamintul superior teologic\r\nConditiile de admitere in scoli cu profil teologic\r\nComunicate din parte conducerii cultelor evanghelice\r\nInvitatii din partea pastorilor pentru a participa la servicii divine\r\nDesfasurarea unor evenimente crestine: evanghelizari, conventii,vizite la spitale, la penitenciare, organizarea de tabere pentru tineret, calatorii cu scop misionar in zone neevanghelizate, s.a.\r\nLansari de albume de muzica crestina\r\nLansari de albume de poezii\r\nLansare de carte\r\ns.a.",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": true,
+        "facebook_page_id": "radiocrestinautentic",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-crestin-autentic/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "http://78.47.64.186:8082/radio/8000/radio.mp3"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 55048443,
+          "timestamp": "",
+          "song": {
+            "id": 45049,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 5491,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 0,
+          "average_rating": 0
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 12,
+        "slug": "radio-ekklesia",
+        "order": 0,
+        "title": "Radio Ekklesia",
+        "website": "https://radioekklesia.com/",
+        "email": "",
+        "stream_url": "https://radio.sonicpanel.ro/8056/stream",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/https://radio.sonicpanel.ro/8056/stream",
+        "hls_stream_url": null,
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-ekklesia.jpg",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Radio Ekklesia , un radio pentru Sufletul tau! www.RadioEkklesia.com ... un nou program de ascultare, va asteptam!",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": true,
+        "facebook_page_id": "RadioEkklesiaRO",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "direct_stream",
+            "stream_url": "https://radio.sonicpanel.ro/8056/stream"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 48079956,
+          "timestamp": "",
+          "song": {
+            "id": 3048,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 499,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 0,
+          "average_rating": 0
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 92,
+        "slug": "radio-eldad",
+        "order": 0,
+        "title": "Radio Eldad",
+        "website": "https://radio.eldad.ro",
+        "email": "radioeldad@gmail.com",
+        "stream_url": "https://c40.radioboss.fm/stream/170",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/https://c40.radioboss.fm/stream/170",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/radio-eldad/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio_eldad.png",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Radio Eldad - Muzică creștină și mesaje inspiraționale",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": true,
+        "facebook_page_id": "misiuneaeldad",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-eldad/index.m3u8"
+          },
+          {
+            "order": 1,
+            "type": "direct_stream",
+            "stream_url": "https://c40.radioboss.fm/stream/170"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 143708259,
+          "timestamp": "",
+          "song": {
+            "id": 87291,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 16737,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 11,
+          "average_rating": 5
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 13,
+        "slug": "radio-elim",
+        "order": 0,
+        "title": "Radio Elim Air",
+        "website": "https://www.radioelim.ro/",
+        "email": "contact@radioelim.ro",
+        "stream_url": "http://91.213.11.102:8011/stream",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/http://91.213.11.102:8011/stream",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/radio-elim/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-elim-air.png",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Radio Elim Air - Pentru atunci cand tinzi dupa un moment de relaxare",
+        "description_action_title": "",
+        "description_link": "",
+        "feature_latest_post": true,
+        "facebook_page_id": "radioelim",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "direct_stream",
+            "stream_url": "http://91.213.11.102:8011/stream"
+          },
+          {
+            "order": 2,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-elim/index.m3u8"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 48079945,
+          "timestamp": "",
+          "song": {
+            "id": 1779,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 53,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 0,
+          "average_rating": 0
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 15,
+        "slug": "radio-elim-kids",
+        "order": 0,
+        "title": "Radio Elim Kids",
+        "website": "https://www.radioelim.ro/",
+        "email": "contact@radioelim.ro",
+        "stream_url": "http://91.213.11.102:8007/stream",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/http://91.213.11.102:8007/stream",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/radio-elim-kids/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-elim-kids.jpg",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Radio Elim Kids - Te incantam cu o selectie pe gustul celor mici",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": true,
+        "facebook_page_id": "radioelim",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-elim-kids/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "http://91.213.11.102:8007/stream"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 48079959,
+          "timestamp": "",
+          "song": {
+            "id": 560,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 109,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 0,
+          "average_rating": 0
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 16,
+        "slug": "radio-elim-plus",
+        "order": 0,
+        "title": "Radio Elim Plus",
+        "website": "https://www.radioelim.ro/",
+        "email": "contact@radioelim.ro",
+        "stream_url": "http://91.213.11.102:8003/stream",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/http://91.213.11.102:8003/stream",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/radio-elim-plus/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-elim-plus.jpg",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Radio Elim Plus - Rezonezi pe versuri predominant in limba engleza",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": false,
+        "facebook_page_id": "radioelim",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-elim-plus/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "http://91.213.11.102:8003/stream"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 48079961,
+          "timestamp": "",
+          "song": {
+            "id": 22169,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 1211,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 0,
+          "average_rating": 0
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 80,
+        "slug": "radio-emanuel",
+        "order": 0,
+        "title": "Radio Emanuel",
+        "website": "https://radioemanuelcrestin.ro/",
+        "email": "radioemanuelcrestin@yahoo.com",
+        "stream_url": "http://65.108.198.245:9013/stream",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/http://65.108.198.245:9013/stream",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/radio-emanuel/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-emanuel.png",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Domnul îmi ascultă cererile şi Domnul îmi primeşte rugăciunea! Psalmii 6:9Căci Tu binecuvântezi pe cel neprihănit, Doamne, şi-l înconjori cu bunăvoinţa Ta cum l-ai înconjura cu un scut. Psalmii 5:12",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": true,
+        "facebook_page_id": "Radio.Emanuel.Crestin",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-emanuel/index.m3u8"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 78168666,
+          "timestamp": "",
+          "song": {
+            "id": 32327,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 2011,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 0,
+          "average_rating": 0
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 17,
+        "slug": "radio-filadelfia",
+        "order": 0,
+        "title": "Radio Filadelfia",
+        "website": "https://www.radiofiladelfia.ro/",
+        "email": "redactie@radiofiladelfia.ro",
+        "stream_url": "https://b3.radiofiladelfia.ro:7000/filadelfia_128.aac",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/https://b3.radiofiladelfia.ro:7000/filadelfia_128.aac",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/radio-filadelfia/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-filadelfia.png",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Radio Filadelfia s-a născut pe 1 decembrie 2008. Este unda celor ce au urechi să asculte! Muzica şi mesajul care te duc la Cruce!\r\n„Ți-am pus înainte o ușă deschisă, pe care nimeni n-o poate închide!” (Apocalipsa 3:8)",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": true,
+        "facebook_page_id": "RadioFiladelfiaRomania",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-filadelfia/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://b3.radiofiladelfia.ro:7000/filadelfia_128.aac"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 48079951,
+          "timestamp": "",
+          "song": {
+            "id": 98812,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 1,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 1,
+          "average_rating": 5
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 51,
+        "slug": "radio-filadelfia-christmas",
+        "order": 0,
+        "title": "Radio Filadelfia Christmas",
+        "website": "https://www.radiofiladelfia.ro/",
+        "email": "redactie@radiofiladelfia.ro",
+        "stream_url": "https://asculta.radiofiladelfia.ro:7000/christmas_128.aac",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/https://asculta.radiofiladelfia.ro:7000/christmas_128.aac",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/radio-filadelfia-christmas/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-filadelfia-christmas.png",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Radio Filadelfia s-a născut pe 1 decembrie 2008. Este unda celor ce au urechi să asculte! Muzica şi mesajul care te duc la Cruce!\r\n„Ți-am pus înainte o ușă deschisă, pe care nimeni n-o poate închide!” (Apocalipsa 3:8)",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": true,
+        "facebook_page_id": "RadioFiladelfiaRomania",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-filadelfia-christmas/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://asculta.radiofiladelfia.ro:7000/christmas_128.aac"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 55017118,
+          "timestamp": "",
+          "song": {
+            "id": 62516,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 9802,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 0,
+          "average_rating": 0
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 52,
+        "slug": "radio-filadelfia-special",
+        "order": 0,
+        "title": "Radio Filadelfia Special",
+        "website": "https://www.radiofiladelfia.ro/",
+        "email": "redactie@radiofiladelfia.ro",
+        "stream_url": "https://asculta.radiofiladelfia.ro:7000/special_128.aac",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/https://asculta.radiofiladelfia.ro:7000/special_128.aac",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/radio-filadelfia-special/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-filadelfia-special.png",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Radio Filadelfia s-a născut pe 1 decembrie 2008. Este unda celor ce au urechi să asculte! Muzica şi mesajul care te duc la Cruce!\r\n„Ți-am pus înainte o ușă deschisă, pe care nimeni n-o poate închide!” (Apocalipsa 3:8)",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": true,
+        "facebook_page_id": "RadioFiladelfiaRomania",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-filadelfia-special/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://asculta.radiofiladelfia.ro:7000/special_128.aac"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 55017950,
+          "timestamp": "",
+          "song": {
+            "id": 4650,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 145,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 0,
+          "average_rating": 0
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 89,
+        "slug": "radio-flacara-rusaliilor",
+        "order": 0,
+        "title": "Radio Flacăra Rusaliilor",
+        "website": "https://radio-flacararusaliilor.ro/",
+        "email": "droncateodor@yahoo.com",
+        "stream_url": "https://stream.radio-flacararusaliilor.ro/stream",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/https://stream.radio-flacararusaliilor.ro/stream",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/radio-flacara-rusaliilor/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio_flacara_rusalilor.png",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Scopul acestui post de radio este să ajute la răspândirea Evangheliei Domnului nostru Isus Hristos începând din Sebiș și mergând până la marginile pământului. Apoi, se dorește ca prin emisiunile difuzate orice ascultător să se edifice spiritual și să aducă glorie Dumnezeului veșnic.",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": true,
+        "facebook_page_id": "",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "direct_stream",
+            "stream_url": "https://stream.radio-flacararusaliilor.ro/stream"
+          },
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-flacara-rusaliilor/index.m3u8"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 143708257,
+          "timestamp": "",
+          "song": {
+            "id": 81055,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 15764,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 0,
+          "average_rating": 0
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 18,
+        "slug": "radio-gosen",
+        "order": 0,
+        "title": "Radio Gosen",
+        "website": "https://www.radiogosen.com/",
+        "email": "radiogosen@yahoo.com",
+        "stream_url": "https://sp.totalstreaming.net/8125/stream",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/https://sp.totalstreaming.net/8125/stream",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/radio-gosen/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-gosen.jpg",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Radio Gosen este un radio crestin care emite online non-stop muzica crestina.",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": true,
+        "facebook_page_id": "radiogosen",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-gosen/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://sp.totalstreaming.net/8125/stream"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 48079960,
+          "timestamp": "",
+          "song": {
+            "id": 542,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": null
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 6,
+          "average_rating": 5
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 19,
+        "slug": "radio-iubire-fara-margini",
+        "order": 0,
+        "title": "Radio Iubire Fara Margini",
+        "website": "https://radioiubire.ucoz.net/",
+        "email": "",
+        "stream_url": "http://ssl.omegahost.ro:7043/stream",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/http://ssl.omegahost.ro:7043/stream",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/radio-iubire-fara-margini/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-iubire-fara-margini.jpg",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "\"Radio Iubire Fara Margini\" alaturi de voi 24 de ore din 24.\r\nVa dorim auditie placuta!",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": true,
+        "facebook_page_id": "RadioIubireFaraMarginiMovileni",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-iubire-fara-margini/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "http://ssl.omegahost.ro:7043/stream"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 48079948,
+          "timestamp": "",
+          "song": null
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 0,
+          "average_rating": 0
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 73,
+        "slug": "radio-joy",
+        "order": 0,
+        "title": "Radio Joy",
+        "website": "https://www.radiojoy.us/",
+        "email": "oy@studiojoy.org",
+        "stream_url": "https://c13.radioboss.fm:18349/stream",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/https://c13.radioboss.fm:18349/stream",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/radio-joy/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-joy.png",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Radio Joy e un proiect de suflet. AM pornit această stație din dorința de a închega o comunitate de oameni în diaspora americană și de a conecta această comunitate cu „cei de acasă”. Ne dorim mult să fim o sursă de informare corectă și echilibrată dar și un loc din care vin spre voi emisiuni utile, predici motivatoare și muzică înălțătoare.\r\n\r\nȘi nu doar atât.\r\n\r\nNe dorim și ne planificăm să ne implicăm prin slujire dar și material în poiecte sociale și să provocăm pe cei pe care Dumnezeu i-a binecuvântat mai mult material să susțină pe cei mai încercați dintre semeni.",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": true,
+        "facebook_page_id": "",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-joy/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://c13.radioboss.fm:18349/stream"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 55057208,
+          "timestamp": "",
+          "song": {
+            "id": 26226,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 5712,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 0,
+          "average_rating": 0
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 20,
+        "slug": "radio-levi",
+        "order": 0,
+        "title": "Radio Levi",
+        "website": "https://radiolevi.ro/",
+        "email": "radiolevionline@gmail.com",
+        "stream_url": "https://audio-radioleviro.bisericilive.com/radioleviro.mp3",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/https://audio-radioleviro.bisericilive.com/radioleviro.mp3",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/radio-levi/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-levi.jpg",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "In data de  4 decembrie 2013, la 2 ani de la inaugurarea Bisericii Izvorul Vietii din Resita, cu ajutorul lui Dumnezeu RADIO LEVI este online. Este cadoul pe care ni l-am facut ca si comunitate in acel moment aniversar… de ce nu, cadoul nostru pt voi.",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": true,
+        "facebook_page_id": "radiolevi",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-levi/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://audio-radioleviro.bisericilive.com/radioleviro.mp3"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 48079943,
+          "timestamp": "",
+          "song": {
+            "id": 17939,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 72,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 1,
+          "average_rating": 5
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 21,
+        "slug": "radio-micul-samaritean",
+        "order": 0,
+        "title": "Radio Micul Samaritean",
+        "website": "https://www.miculsamaritean.com/",
+        "email": "miculsamariteanmd@yahoo.com",
+        "stream_url": "https://s5.radio.co/sfff7b7e97/listen",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/https://s5.radio.co/sfff7b7e97/listen",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/radio-micul-samaritean/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-micul-samaritean.jpg",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "La 11 iunie 1994, Misiunea Micul Samaritean a deschis primul post de radio din Chișinău, Republica Moldova, difuzat 24 de ore pe zi, 7 zile pe săptămână. Mai multe stații au fost adăugate în Moldova și conectate la satelit, creând o rețea de 11 statii care acoperă întreaga țară din Moldova și chiar părți din Ucraina și din România de Est. Radio Micul Samaritean difuzează și pe internet pentru ascultători din întreaga lume.\r\n\r\nPrin programele radio aducem speranța cu Vestea Bună al lui Isus Hristos în case, automobile și instituții. În anii trecuți am instalat sistem de recepție și amplificare în închisori, spitale, orfelinate și chiar școli.",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": true,
+        "facebook_page_id": "RadioMiculSamaritean",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-micul-samaritean/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://s5.radio.co/sfff7b7e97/listen"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 48079965,
+          "timestamp": "",
+          "song": null
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 1,
+          "average_rating": 5
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 22,
+        "slug": "radio-moody-chicago",
+        "order": 0,
+        "title": "Radio Moody Chicago",
+        "website": "https://www.moodyradio.org/stations/chicago/",
+        "email": "wmbi@moody.edu",
+        "stream_url": "https://14123.live.streamtheworld.com/MB2.mp3?tdsdk=js-2.9&swm=false&pname=TDSdk&pversion=2.9&banners=none&burst-time=15&sbmid=6797dcac-8e11-4b2d-f0ab-e7fac250eb7f",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/https://14123.live.streamtheworld.com/MB2.mp3?tdsdk=js-2.9&swm=false&pname=TDSdk&pversion=2.9&banners=none&burst-time=15&sbmid=6797dcac-8e11-4b2d-f0ab-e7fac250eb7f",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/radio-moody-chicago/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-moody-chicago.jpg",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Moody Radio is you—and more than a million other listeners each day. Moody Radio helps you take the next step in your journey with Jesus Christ by creating and delivering practical and life-changing content. We proclaim the Word to all cultures and generations by addressing today's issues from a biblical worldview.\r\n\r\nMoody Radio gives you programming in multiple ways—broadcasts, digital apps, streaming Internet stations. Wherever life takes you, Moody Radio is your trusted voice and friend as we journey together.",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": true,
+        "facebook_page_id": "MoodyRadioChicago",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-moody-chicago/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://14123.live.streamtheworld.com/MB2.mp3?tdsdk=js-2.9&swm=false&pname=TDSdk&pversion=2.9&banners=none&burst-time=15&sbmid=6797dcac-8e11-4b2d-f0ab-e7fac250eb7f"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 48079953,
+          "timestamp": "",
+          "song": null
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 0,
+          "average_rating": 0
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 24,
+        "slug": "radio-o-noua-sansa",
+        "order": 0,
+        "title": "Radio O Noua Sansa",
+        "website": "https://radioonouasansa.ro/radio/",
+        "email": "",
+        "stream_url": "http://radioonouasansa.sytes.net:8700/;",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/http://radioonouasansa.sytes.net:8700/;",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/radio-o-noua-sansa/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-o-noua-sansa.jpg",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": true,
+        "facebook_page_id": "",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-o-noua-sansa/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "http://radioonouasansa.sytes.net:8700/;"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 48079944,
+          "timestamp": "",
+          "song": {
+            "id": 23337,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 610,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 0,
+          "average_rating": 0
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 23,
+        "slug": "radio-old-christian-radio",
+        "order": 0,
+        "title": "Radio Old Christian Radio",
+        "website": "https://www.oldchristianradio.com/",
+        "email": "mcfaddenm99@yahoo.com",
+        "stream_url": "https://stream.radio.co/sf2c714555/listen",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/https://stream.radio.co/sf2c714555/listen",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/radio-old-christian-radio/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-old-christian-radio.jpg",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Old Christian Radio is a station that plays great conservative Christian music with NO \"Christian Rock\".\r\nThe main mission for this station's existence is to be a blessing to the Christian community by playing Godly Christian music that doesn't sound like the devil's music.",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": true,
+        "facebook_page_id": "oldchristianradio",
+        "station_streams": [
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://stream.radio.co/sf2c714555/listen"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 48079957,
+          "timestamp": "",
+          "song": {
+            "id": 20049,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 620,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 0,
+          "average_rating": 0
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 64,
+        "slug": "radio-philadelphia-clasic",
+        "order": 0,
+        "title": "Radio Philadelphia Clasic",
+        "website": "https://radiophiladelphia.it/",
+        "email": "marian.nasaudeanu@yahoo.it",
+        "stream_url": "http://94.130.106.91:8020/clasic.mp3",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/http://94.130.106.91:8020/clasic.mp3",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/radio-philadelphia-clasic/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-philadelphia-clasic.png",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Mărturisirea de Credinţă \r\n\r\n1. Biblia\r\nCredem în Cuvântul inspirat al lui Dumnezeu cuprins în Vechiul şi Noul Testament, infailibil în scrierile originale şi credem că acesta reprezintă autoritatea supremă şi finală pentru credinţă şi viaţă.\r\n\r\n2. Sfânta Treime\r\nCredem într-un singur Dumnezeu, manifestat în trei Persoane: Dumnezeu Tatăl, Dumnezeu Fiul şi Dumnezeu Duhul Sfânt.\r\n\r\n3. Dumnezeu Tatăl\r\nÎl recunoaștem că Dumnezeul viu și adevărat creator, susţinător, început şi sfârşit al tuturor lucrurilor, El este vrednic de toata cinstea, lauda și închinarea.\r\n\r\n4. Dumnezeu Fiul\r\nÎl recunoaștem pe Isus Hristos ca pe Mesia, Cuvântul care sa facut trup și a locuit printre noi plin de har și adevăr, a fost zămislit de Duhul Sfânt şi întrupat prin fecioara Maria. El a murit pe cruce, jertfindu-Se pentru păcatele oamenilor. După ce Dumnezeu L-a înviat din morţi, El S-a ridicat la cer şi acum stă la dreapta Tatălui, fiind Preotul și Mijlocitorul nostru.\r\n\r\n5. Dumnezeu Duhul Sfînt\r\nMisiunea Duhului Sfânt este să-L proslăvească pe Isus Hristos pe pământ şi să-i convingă pe oameni de păcatele lor, să-i nască din nou pe cei care se pocăiesc, să fie prezent în cei credincioşi pentru a-i îndruma, învăţa, proteja și călăuzi în tot adevărul, și să le dea putere pentru a fi martori a lui Isus Hristos.\r\n\r\n6. Familia\r\nCredem că familia este instituția înfințată de însuși Dumnezeu, este legământul încheiat pe viaţă din dragoste prin căsătorie între un bărbat și o femeie.\r\n\r\n7. Natura omenirii\r\nCredem că omenirea a fost creată neprihănită după chipul şi asemănarea lui Dumnezeu, dar prin păcat a căzut din această poziţie. Prin urmare, toţi oamenii sunt morţi din punct de vedere spiritual şi au nevoie de mântuirea lui Dumnezeu prin pocăinţă.\r\n\r\n8. Pocăinţa, Naşterea din nou și Sfinţirea\r\nPocăinţa este actul întoarcerii la Dumnezeu şi părăsirii păcatului. Naşterea din nou este schimbarea supranaturală făcută de Dumnezeu ca rezultat al pocăinţei omului. Sfinţirea este starea de a fi liber de păcat, viaţa trăită după principiile Bibliei, sub călăuzirea Duhului Sfânt.\r\n\r\n9. Mântuirea\r\nCredem că moartea lui Hristos pe cruce a adus mântuire tuturor oamenilor care se căiesc de păcatele lor şi care îşi întorc faţa către Dumnezeu prin credinţa în Isus Hristos, Mântuitorul şi Domnul lor.\r\n\r\n10. Biserica\r\nAdevărata Biserică este formată din cei care prin credinţa în sângele mântuitor al lui Isus Hristos au fost născuţi din nou prin Cuvântul şi Duhul lui Dumnezeu şi sunt uniţi în trupul lui Isus Hristos, al cărui Cap este El. \r\n\r\n11. Calitatea de membru al Bisericii\r\nPoate fi membru al bisericii orice credincios care dovedeşte că este născut din nou, care se subordonează suveranităţii Bibliei, care ascultă şi respectă conducerea bisericii, trăind viaţa spirituală în ascultare şi sfintire.\r\n\r\n12. Viaţa spirituală\r\nCredem în prezenţa spirituală a lui Hristos care locuieşte în cei credincioşi prin Duhul Sfânt şi care le dă putere să urmeze poruncile lui Dumnezeu, trăind în unitate şi respect, fiind o pildă de dragoste şi neprihănire.\r\n\r\n13. Botezul in apă\r\nCredem că botezul în apă este mărturia unui cuget curat, este actul scufundării în apă oficiat în Numele Tatălui, al Fiului şi al Sfântului Duh, conform poruncii lui Hristos. Cu toate că acest act nu are putere să spele păcatul, el reprezintă moartea, îngroparea şi învierea lui Hristos. Se acordă celor care s-au întors la Dumnezeu şi au fost născuţi din nou prin pocăință.\r\n\r\n14. Botezul cu Duhul Sfânt\r\nCredem în botezul cu Duhul Sfânt, ca experienţă distinctă de naşterea din nou şi de botezul în apă, experienţă prin care credinciosul primeşte putere pentru slujire, sfințire și pentru a fi martor a lui Isus Hristos Domnul.\r\n\r\n15. Roada Duhului\r\nViaţa plină de Duhul se va manifesta prin dragoste, bucurie, pace, îndelungă răbdare, bunătate, facere de bine, credincioşie, blândeţe, înfrânarea poftelor. \r\n\r\n16. Darurile spirituale\r\nCredem că au fost și încă sunt acordate Bisericii prin Duhul Sfânt pentru a fi folosite pentru zidirea Trupului lui Isus Hristos. \r\n\r\n17. Cina Domnului\r\nA fost instituită de Domnul Isus Hristos pentru amintirea morţii Sale. Numai creştinii născuţi din nou, curăţiţi de păcat şi botezaţi în apă se pot împărtăşi cu Cina Domnului. \r\n\r\n18.Lucrarea de slujire\r\nCredem în preoţia tuturor credincioşilor dar şi în chemarea specială a unor credincioşi de a sluji ca lucrători învestiţi în slujba lui Dumnezeu.\r\n\r\n19. Marea trimitere\r\nCredem că mandatul suprem al Bisericii este acela de a duce Evanghelia până la marginile pământului, de-a face ucenici din toate neamurile și de-ai învăța să păzească toate poruncile Domnului Isus Hristos.\r\n\r\n20. Viitorul Bisericii\r\nCredem în a doua venire a Domnului Isus Hristos pentru a-şi răpi Biserica, în învierea morţilor, în judecata de apoi şi în răsplătirile divine; în destinul veşnic al omului care va fi: în împărăția veșnică a lui Dumnezeu pentru cei credincioși Lui, și în iadul veșnic pentru cei ce nu L-au primit și recunoscut pe Isus Hristos ca Domn și Mîntuitor personal. Amin\r\n\r\n21.Rugăciune\r\nDoamne Dumnezeule, Tu care locuieşti în lumină şi care eşti Tatăl nostru Cel ceresc, Creatorul cerului şi al pământului şi care deţii toată puterea, slava şi cinstea: Te rugăm ajută-ne și dăne putere să onorăm, să cinstim și să ne luptăm pentru această Credință pe care Tu ne-ai dăruito, te mai rugăm dăne tăria și înțelepciunea să o putem transmitem copiilor noștri și generației de după noi, te rugăm în numele scumpului Tău Fiu și al nostru Mântuitor, Domn şi Mijolcitor ISUS HRISTOS, a Ta să fie toată gloria, mărirea şi închinarea în vecii vecilor căci doar Tu eşt vrednic să le primeşti fiindcă doar Tu eşti singurul Dumnezeu viu şi adevăra din univers! Amin.",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": true,
+        "facebook_page_id": "radiophiladelphia",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-philadelphia-clasic/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "http://94.130.106.91:8020/clasic.mp3"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 55044579,
+          "timestamp": "",
+          "song": {
+            "id": 1159,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 273,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 0,
+          "average_rating": 0
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 63,
+        "slug": "radio-philadelphia-copii",
+        "order": 0,
+        "title": "Radio Philadelphia Copii",
+        "website": "https://radiophiladelphia.it/",
+        "email": "marian.nasaudeanu@yahoo.it",
+        "stream_url": "http://94.130.106.91:8030/radio.mp3",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/http://94.130.106.91:8030/radio.mp3",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/radio-philadelphia-copii/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-philadelphia-copii.png",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Mărturisirea de Credinţă \r\n\r\n1. Biblia\r\nCredem în Cuvântul inspirat al lui Dumnezeu cuprins în Vechiul şi Noul Testament, infailibil în scrierile originale şi credem că acesta reprezintă autoritatea supremă şi finală pentru credinţă şi viaţă.\r\n\r\n2. Sfânta Treime\r\nCredem într-un singur Dumnezeu, manifestat în trei Persoane: Dumnezeu Tatăl, Dumnezeu Fiul şi Dumnezeu Duhul Sfânt.\r\n\r\n3. Dumnezeu Tatăl\r\nÎl recunoaștem că Dumnezeul viu și adevărat creator, susţinător, început şi sfârşit al tuturor lucrurilor, El este vrednic de toata cinstea, lauda și închinarea.\r\n\r\n4. Dumnezeu Fiul\r\nÎl recunoaștem pe Isus Hristos ca pe Mesia, Cuvântul care sa facut trup și a locuit printre noi plin de har și adevăr, a fost zămislit de Duhul Sfânt şi întrupat prin fecioara Maria. El a murit pe cruce, jertfindu-Se pentru păcatele oamenilor. După ce Dumnezeu L-a înviat din morţi, El S-a ridicat la cer şi acum stă la dreapta Tatălui, fiind Preotul și Mijlocitorul nostru.\r\n\r\n5. Dumnezeu Duhul Sfînt\r\nMisiunea Duhului Sfânt este să-L proslăvească pe Isus Hristos pe pământ şi să-i convingă pe oameni de păcatele lor, să-i nască din nou pe cei care se pocăiesc, să fie prezent în cei credincioşi pentru a-i îndruma, învăţa, proteja și călăuzi în tot adevărul, și să le dea putere pentru a fi martori a lui Isus Hristos.\r\n\r\n6. Familia\r\nCredem că familia este instituția înfințată de însuși Dumnezeu, este legământul încheiat pe viaţă din dragoste prin căsătorie între un bărbat și o femeie.\r\n\r\n7. Natura omenirii\r\nCredem că omenirea a fost creată neprihănită după chipul şi asemănarea lui Dumnezeu, dar prin păcat a căzut din această poziţie. Prin urmare, toţi oamenii sunt morţi din punct de vedere spiritual şi au nevoie de mântuirea lui Dumnezeu prin pocăinţă.\r\n\r\n8. Pocăinţa, Naşterea din nou și Sfinţirea\r\nPocăinţa este actul întoarcerii la Dumnezeu şi părăsirii păcatului. Naşterea din nou este schimbarea supranaturală făcută de Dumnezeu ca rezultat al pocăinţei omului. Sfinţirea este starea de a fi liber de păcat, viaţa trăită după principiile Bibliei, sub călăuzirea Duhului Sfânt.\r\n\r\n9. Mântuirea\r\nCredem că moartea lui Hristos pe cruce a adus mântuire tuturor oamenilor care se căiesc de păcatele lor şi care îşi întorc faţa către Dumnezeu prin credinţa în Isus Hristos, Mântuitorul şi Domnul lor.\r\n\r\n10. Biserica\r\nAdevărata Biserică este formată din cei care prin credinţa în sângele mântuitor al lui Isus Hristos au fost născuţi din nou prin Cuvântul şi Duhul lui Dumnezeu şi sunt uniţi în trupul lui Isus Hristos, al cărui Cap este El. \r\n\r\n11. Calitatea de membru al Bisericii\r\nPoate fi membru al bisericii orice credincios care dovedeşte că este născut din nou, care se subordonează suveranităţii Bibliei, care ascultă şi respectă conducerea bisericii, trăind viaţa spirituală în ascultare şi sfintire.\r\n\r\n12. Viaţa spirituală\r\nCredem în prezenţa spirituală a lui Hristos care locuieşte în cei credincioşi prin Duhul Sfânt şi care le dă putere să urmeze poruncile lui Dumnezeu, trăind în unitate şi respect, fiind o pildă de dragoste şi neprihănire.\r\n\r\n13. Botezul in apă\r\nCredem că botezul în apă este mărturia unui cuget curat, este actul scufundării în apă oficiat în Numele Tatălui, al Fiului şi al Sfântului Duh, conform poruncii lui Hristos. Cu toate că acest act nu are putere să spele păcatul, el reprezintă moartea, îngroparea şi învierea lui Hristos. Se acordă celor care s-au întors la Dumnezeu şi au fost născuţi din nou prin pocăință.\r\n\r\n14. Botezul cu Duhul Sfânt\r\nCredem în botezul cu Duhul Sfânt, ca experienţă distinctă de naşterea din nou şi de botezul în apă, experienţă prin care credinciosul primeşte putere pentru slujire, sfințire și pentru a fi martor a lui Isus Hristos Domnul.\r\n\r\n15. Roada Duhului\r\nViaţa plină de Duhul se va manifesta prin dragoste, bucurie, pace, îndelungă răbdare, bunătate, facere de bine, credincioşie, blândeţe, înfrânarea poftelor. \r\n\r\n16. Darurile spirituale\r\nCredem că au fost și încă sunt acordate Bisericii prin Duhul Sfânt pentru a fi folosite pentru zidirea Trupului lui Isus Hristos. \r\n\r\n17. Cina Domnului\r\nA fost instituită de Domnul Isus Hristos pentru amintirea morţii Sale. Numai creştinii născuţi din nou, curăţiţi de păcat şi botezaţi în apă se pot împărtăşi cu Cina Domnului. \r\n\r\n18.Lucrarea de slujire\r\nCredem în preoţia tuturor credincioşilor dar şi în chemarea specială a unor credincioşi de a sluji ca lucrători învestiţi în slujba lui Dumnezeu.\r\n\r\n19. Marea trimitere\r\nCredem că mandatul suprem al Bisericii este acela de a duce Evanghelia până la marginile pământului, de-a face ucenici din toate neamurile și de-ai învăța să păzească toate poruncile Domnului Isus Hristos.\r\n\r\n20. Viitorul Bisericii\r\nCredem în a doua venire a Domnului Isus Hristos pentru a-şi răpi Biserica, în învierea morţilor, în judecata de apoi şi în răsplătirile divine; în destinul veşnic al omului care va fi: în împărăția veșnică a lui Dumnezeu pentru cei credincioși Lui, și în iadul veșnic pentru cei ce nu L-au primit și recunoscut pe Isus Hristos ca Domn și Mîntuitor personal. Amin\r\n\r\n21.Rugăciune\r\nDoamne Dumnezeule, Tu care locuieşti în lumină şi care eşti Tatăl nostru Cel ceresc, Creatorul cerului şi al pământului şi care deţii toată puterea, slava şi cinstea: Te rugăm ajută-ne și dăne putere să onorăm, să cinstim și să ne luptăm pentru această Credință pe care Tu ne-ai dăruito, te mai rugăm dăne tăria și înțelepciunea să o putem transmitem copiilor noștri și generației de după noi, te rugăm în numele scumpului Tău Fiu și al nostru Mântuitor, Domn şi Mijolcitor ISUS HRISTOS, a Ta să fie toată gloria, mărirea şi închinarea în vecii vecilor căci doar Tu eşt vrednic să le primeşti fiindcă doar Tu eşti singurul Dumnezeu viu şi adevăra din univers! Amin.",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": false,
+        "facebook_page_id": "radiophiladelphia",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-philadelphia-copii/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "http://94.130.106.91:8030/radio.mp3"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 55044276,
+          "timestamp": "",
+          "song": {
+            "id": 98811,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 17004,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 9,
+          "average_rating": 5
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 25,
+        "slug": "radio-philadelphia",
+        "order": 0,
+        "title": "Radio Philadelphia Mansuè",
+        "website": "http://www.philadelphiamansue.it/radio-philadelphia/",
+        "email": "",
+        "stream_url": "http://94.130.106.91/radio/8000/radio.mp3",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/http://94.130.106.91/radio/8000/radio.mp3",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/radio-philadelphia/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio_philadelphia_mansue_ga3zRjs.jpg",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "La început era Cuvântul, şi Cuvântul era cu Dumnezeu, şi Cuvântul era Dumnezeu. Ioan 1:1\r\nŞi să-L cunosc pe El şi puterea învierii Lui şi părtăşia suferinţelor Lui, şi să mă fac asemenea cu moartea Lui; ca să ajung cu orice chip, dacă voi putea, la învierea din morţi. Filipeni 3:10-11",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": true,
+        "facebook_page_id": "bisericaphiladelphia.mansue",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-philadelphia/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "http://94.130.106.91/radio/8000/radio.mp3"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 48079947,
+          "timestamp": "",
+          "song": {
+            "id": 3150,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 446,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 0,
+          "average_rating": 0
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 76,
+        "slug": "radio-philadelphia-melbourne",
+        "order": 0,
+        "title": "Radio Philadelphia Melbourne",
+        "website": "https://www.philadelphiachurch.com.au/radio-philadelphia",
+        "email": "pastor@philadelphia.org.au",
+        "stream_url": "https://s4.radio.co/sa99b786e4/listen",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/https://s4.radio.co/sa99b786e4/listen",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/radio-philadelphia-melbourne/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-philadelphia-melbourne.png",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Biserica Crestina Penticostala Romana Philadelphia a fost infiintata in anul 1990 de catre un grup de romani. Scopul bisericii Philadelphia a fost si este de a sluji nevoilor existente in comunitatea Romana din statul Victoria precum si de a proclama Evanghelia Imparatiei lui Dumnezeu astfel incat un numar cat mai mare de romani si alte etnii, sa-l cunoasca si sa-l primesca pe Domnul Isus Cristos ca Domn si Mantuitor.",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": true,
+        "facebook_page_id": "philadelphiachurchmelbourne",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-philadelphia-melbourne/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://s4.radio.co/sa99b786e4/listen"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 58616606,
+          "timestamp": "",
+          "song": null
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 2,
+          "average_rating": 5
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 68,
+        "slug": "radio-predic",
+        "order": 0,
+        "title": "Radio Predic",
+        "website": "https://www.predic.ro/livepredicradio.php",
+        "email": "",
+        "stream_url": "https://s16.myradiostream.com/:15576/listen.mp3",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/https://s16.myradiostream.com/:15576/listen.mp3",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/radio-predic/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-predic.png",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Prin mesajele puse la dispozitia vizitatorilor acestui site, dorim sa venim in sprijinul nevoilor spirituale ale crestinilor, a celor care-L cauta pe Dumnezeu si sa ajutam la raspandirea adevarului biblic si a dragostei lui Hristos. Totodata dorim sa fim glasul care striga in pustiul acestei lumi, glas al pacii, si al impacarii cu Hristos prin credinta in jertfa Lui ...\r\n\r\n“Veniţi la Mine voi cei trudiţi şi împovăraţi\r\nsi Eu vă voi da odihna ...”\r\nMatei:11.28",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": true,
+        "facebook_page_id": "predicro",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-predic/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://s16.myradiostream.com/:15576/listen.mp3"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 55047040,
+          "timestamp": "",
+          "song": {
+            "id": 98806,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 1112,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 0,
+          "average_rating": 0
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 41,
+        "slug": "sos-ploiesti",
+        "order": 0,
+        "title": "Radio SOS",
+        "website": "https://radiosos.info",
+        "email": "radiososploiesti@gmail.com",
+        "stream_url": "http://5.2.180.231:8000/stream",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/http://5.2.180.231:8000/stream",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/sos-ploiesti/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/sos-ploiesti.png",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "După 42 de ani de socialism si aspiratii spre comunism, România primește șansa unor noi începuturi ca o consecință a evenimentelor din decembrie 1989.\r\nApăreau noi forme de manifestare a libertății, figuri politice de o altă factură, partide, moduri de proprietate, oportunități diverse.\r\nBisericile căutau noi lideri, unii dintre cei vechi fiind murdăriți sau virusați de sistemele orânduirii ostile slujirii Domnului.\r\nFără nicio discuție era nevoie de noi modalități de relaționare între biserică și societate, de mesaje care să hrănească foamea de Dumnezeu reprimată de opresorii ideologiei comuniste.\r\nFundația Help Ministries România a apărut ca un instrument util în Evanghelizarea Celor Pierduți (Help Evangelize Lost People) utilizând mijloace media, organizând evanghelizări, cursuri de ucenicizare, training în conducere, cursuri mass-media și ajutând acolo unde era nevoie inclusiv material.\r\nRichard Ellison din S.U.A. și Mihail Măndoiu din România au înfințat Fundația Help Ministries România, după ce în anul 1991 s-au întâlnit la București. Organizația non-profit a fost înregistrată legal în anul 1992 conform sentinței civile a Judecătoriei Ploiești nr.9/26 din Februarie 1992. A fost punctul de plecare pentru acțiuni concrete.\r\nÎn anul 1993, se înființează societatea H&H Media s.r.l. care în același an primește licența pentru Radio S.O.S. din Ploiești.\r\nLa 1 octombrie 1995, Radio S.O.S. începe oficial emisia pe 101,7 FM. Beneficiază de studiouri proiectate special de Arh. Dumitru Bunescu, de echipament profesional adus de partenerii noștri din S.U.A., de emițător Crown donat tot de peste ocean. Turnul de emisie este unic pentru un post de radio în urbea noastră si reprezintă o carte de vizită a seriozității cu care privim acest proiect.\r\nAu fost ajutate victimele războiului din Kosovo, cei afectați de inundații din România și Republica Moldova, copiii din orfelinate, cei cu nevoi speciale, spitale, persoane fizice, misionari.",
+        "description_action_title": "Citeste mai mult",
+        "description_link": "https://radiosos.info/despre-noi/index.html",
+        "feature_latest_post": false,
+        "facebook_page_id": "RadioSosPloiesti",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/sos-ploiesti/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "http://5.2.180.231:8000/stream"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 48079952,
+          "timestamp": "",
+          "song": null
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 0,
+          "average_rating": 0
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 59,
+        "slug": "radio-vestea-buna",
+        "order": 0,
+        "title": "Radio Vestea Buna",
+        "website": "https://radiovesteabuna.ro/",
+        "email": "radiovesteabuna@gmail.com",
+        "stream_url": "https://c34.radioboss.fm:18175/stream",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/https://c34.radioboss.fm:18175/stream",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/radio-vestea-buna/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-vestea-buna.png",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Radio Vestea Bună este primul post de radio creștin online pentru copii și părinți.\r\n\r\nNoi promovăm Vestea Bună, adică pe Isus .\r\n\r\nEa vă pune la dispoziție streamingul radioului 24h/24h.\r\n\r\nÎn timp real veți putea vedea melodia care rulează pe Radio Vestea Bună și o listă cu ultimele 9 melodii și ora la care ele fost pe post. Puteți marca fără efort titlul melodiilor preferate, și revizualiza oricând lista lor.\r\n\r\nÎn aplicație veți găsi informații despre emisiunile noastre și programul lor.\r\n\r\nTot în aplicație găsiți informatii despre ultimele noutăți, curiozități, articole care se desfășoară în cadrul radioului.\r\n\r\nCel mai atractiv lucru este sitemul de notificări prin care vă vom informa despre emisiunile LIVE, concursuri și tot ce se întâmplă în universul nostru.\r\n\r\nAscultă zilnic, și fi înconjurat de vești bune.",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": true,
+        "facebook_page_id": "radiovesteabuna",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-vestea-buna/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://c34.radioboss.fm:18175/stream"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 55041864,
+          "timestamp": "",
+          "song": {
+            "id": 31799,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 1490,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 1,
+          "average_rating": 5
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 66,
+        "slug": "radio-vocea-credintei",
+        "order": 0,
+        "title": "Radio Vocea Credintei",
+        "website": "https://voceacredintei.ro/",
+        "email": "contact@voceacredintei.ro",
+        "stream_url": "https://c26.radioboss.fm:18191/stream",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/https://c26.radioboss.fm:18191/stream",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/radio-vocea-credintei/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-vocea-credintei.png",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Un radio despre suflet, inima si minte. Resurse utile pentru cei ce vor sa traiasca frumos si linist",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": true,
+        "facebook_page_id": "VoceaCredintei",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-vocea-credintei/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://c26.radioboss.fm:18191/stream"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 55045510,
+          "timestamp": "",
+          "song": {
+            "id": 1989,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 783,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 0,
+          "average_rating": 0
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 77,
+        "slug": "radio-vocea-crestinilor",
+        "order": 0,
+        "title": "Radio Vocea Creștinilor",
+        "website": "https://radio.voceacrestinilor.com/",
+        "email": "radio@voceacrestinilor.com",
+        "stream_url": "https://listen.radioking.com/radio/494884/stream/551902",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/https://listen.radioking.com/radio/494884/stream/551902",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/radio-vocea-crestinilor/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-vocea-crestinilor.png",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Vocea Creștinilor este o Asociație Creștină care are ca scop producerea, editarea, promovarea și distribuirea de materiale scrise, (literatură) audio și video de promovare a valorilor și principiilor creștine.",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": false,
+        "facebook_page_id": "VoceaCrestinilor",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-vocea-crestinilor/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://listen.radioking.com/radio/494884/stream/551902"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 64811057,
+          "timestamp": "",
+          "song": {
+            "id": 98482,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 18196,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 1,
+          "average_rating": 5
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 69,
+        "slug": "radio-vocea-sperantei",
+        "order": 0,
+        "title": "Radio Vocea Sperantei",
+        "website": "https://rvs.ro/",
+        "email": "rvs@rvs.ro",
+        "stream_url": "https://live.rvs.ro/play",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/https://live.rvs.ro/play",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/radio-vocea-sperantei/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-vocea-sperantei.png",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Radio Vocea Sperantei este radio-ul oficial al Bisericii Adventiste de Ziua a Saptea din Romania.\r\n\r\nRadio Vocea Sperantei face parte din reteaua mondiala Adventist World Radio, infiintata in anul 1971, care transmite programe in intreaga lume, in peste 100 de limbi, insumand mii de ore de emisie zilnic.\r\n\r\nÎn Romania, Radio Vocea Speranței emite începând cu anul 1993. În prezent, există o retea de 46 de stații locale, dintre care 41 cu emisie de 24 de ore pe zi și 5 stații locale cu program de două până la 18 ore pe zi. Radio Vocea Speranței poate fi recepționat și prin satelit și  internet.\r\n \r\n\r\nProgramele transmise din studiourile Radio Vocea Sperantei transmit mesajul Bibliei tuturor celor care doresc sa il cunoasca si au o tematica sociala, medicala, educativa, culturala si religioasa.\r\n\r\nIntr-o lume indiferenta, confuza si cu valori rasturnate, Vocea Sperantei este un altfel de radio, avand un altfel de mesaj. Prin subiectele de actualitate, prin tonul cald si optimist al realizatorilor si prin interesul pentru problemele ascultatorilor, radio Vocea Sperantei este alaturi de toti cei care au nevoie de un prieten, de putere si de speranta.",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": true,
+        "facebook_page_id": "voceasperantei",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-vocea-sperantei/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://live.rvs.ro/play"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 55047595,
+          "timestamp": "",
+          "song": {
+            "id": 74695,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 14348,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 0,
+          "average_rating": 0
+        },
+        "is_favorite": false
+      },
+      {
+        "id": 11,
+        "slug": "radio-de-cuvant",
+        "order": 0,
+        "title": "Radio de Cuvant",
+        "website": "https://radiodecuvant.ro/",
+        "email": "radiodecuvant@gmail.com",
+        "stream_url": "https://streamer.radio.co/sb94ce6fe2/listen",
+        "proxy_stream_url": "https://proxy.radio-crestin.com/https://streamer.radio.co/sb94ce6fe2/listen",
+        "hls_stream_url": "https://hls-staging.radio-crestin.com/radio-de-cuvant/index.m3u8",
+        "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-de-cuvant.jpg",
+        "total_listeners": 0,
+        "radio_crestin_listeners": 0,
+        "description": "Radio de Cuvânt emite online din februarie 2008. Cuvântul este al Scripturii. Iar radioul e al dumneavoastră.",
+        "description_action_title": "",
+        "description_link": null,
+        "feature_latest_post": true,
+        "facebook_page_id": "RadiodeCuvant-155560736576",
+        "station_streams": [
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-de-cuvant/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://streamer.radio.co/sb94ce6fe2/listen"
+          }
+        ],
+        "posts": [],
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
+        "now_playing": {
+          "id": 48079955,
+          "timestamp": "",
+          "song": {
+            "id": 93151,
+            "name": "",
+            "thumbnail_url": null,
+            "artist": {
+              "id": 4870,
+              "name": "",
+              "thumbnail_url": null
+            }
+          }
+        },
+        "reviews": [],
+        "reviews_stats": {
+          "number_of_reviews": 1,
+          "average_rating": 5
+        },
+        "is_favorite": false
+      }
+    ],
+    "station_groups": []
+  }
+}

@@ -30,6 +30,7 @@ import 'firebase_options.dart';
 import 'globals.dart' as globals;
 import 'services/car_play_service.dart';
 import 'services/image_cache_service.dart';
+import 'services/station_data_service.dart';
 
 final getIt = GetIt.instance;
 
@@ -158,6 +159,11 @@ void main() async {
   final imageCacheService = ImageCacheService();
   await PerformanceMonitor.trackAsync('image_cache_init', () => imageCacheService.initialize());
   getIt.registerSingleton<ImageCacheService>(imageCacheService);
+
+  // Initialize station data service before audio handler (stations start loading immediately)
+  final stationDataService = StationDataService(graphqlClient: graphqlClient);
+  getIt.registerSingleton<StationDataService>(stationDataService);
+  await PerformanceMonitor.trackAsync('station_data_init', () => stationDataService.initialize());
 
   // Start audio + packageInfo immediately (overlaps with remaining Firebase init)
   final audioHandlerFuture = PerformanceMonitor.trackAsync('audio_service_init', () =>

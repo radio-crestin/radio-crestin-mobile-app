@@ -14,6 +14,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:get_it/get_it.dart';
+import 'package:radio_crestin/services/station_data_service.dart';
 import '../appAudioHandler.dart';
 import '../types/Station.dart';
 import '../widgets/animated_play_button.dart';
@@ -39,12 +41,13 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   final List _subscriptions = [];
   List<String> _favoriteSlugs = [];
   final _playButtonKey = GlobalKey<AnimatedPlayButtonState>();
+  final StationDataService _stationDataService = GetIt.instance<StationDataService>();
 
   @override
   void initState() {
     super.initState();
 
-    _subscriptions.add(widget.audioHandler.favoriteStationSlugs.stream.listen((slugs) {
+    _subscriptions.add(_stationDataService.favoriteStationSlugs.stream.listen((slugs) {
       setState(() {
         _favoriteSlugs = slugs;
       });

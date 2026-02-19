@@ -114,6 +114,7 @@ flutter:
   assets:
     - assets/icons/ic_foreground.png
     - assets/icons/ic_logo_filled.png
+    - assets/fallback-stations.json
 
 flutter_launcher_icons:
   #  image_path: "assets/images/icon-128x128.png"

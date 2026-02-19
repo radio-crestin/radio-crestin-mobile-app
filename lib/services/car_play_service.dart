@@ -7,12 +7,14 @@ import 'package:flutter_carplay/flutter_carplay.dart';
 import 'package:get_it/get_it.dart';
 import 'package:radio_crestin/appAudioHandler.dart';
 import 'package:radio_crestin/services/image_cache_service.dart';
+import 'package:radio_crestin/services/station_data_service.dart';
 import 'package:radio_crestin/types/Station.dart';
 
 class CarPlayService {
   FlutterCarplay? _flutterCarplay;
   FlutterAndroidAuto? _flutterAndroidAuto;
   final AppAudioHandler _audioHandler = GetIt.instance<AppAudioHandler>();
+  final StationDataService _stationDataService = GetIt.instance<StationDataService>();
 
   // Track initialization state - once true, NEVER rebuild
   bool _carPlayInitialized = false;
@@ -87,7 +89,7 @@ class CarPlayService {
   /// Returns whether a station slug is currently favorited.
   /// This is the SINGLE source of truth for favorite state.
   bool _isFavorite(String slug) {
-    return _audioHandler.favoriteStationSlugs.value.contains(slug);
+    return _stationDataService.favoriteStationSlugs.value.contains(slug);
   }
 
   void _setupNowPlayingButtonsHandler() {
@@ -114,7 +116,7 @@ class CarPlayService {
     });
 
     // Update favorite UI (Now Playing button + CarPlay lists) when favorites change
-    _favoritesSubscription = _audioHandler.favoriteStationSlugs.stream.listen((_) {
+    _favoritesSubscription = _stationDataService.favoriteStationSlugs.stream.listen((_) {
       // Update Now Playing favorite button
       final currentStation = _audioHandler.currentStation.value;
       if (currentStation != null) {
@@ -145,7 +147,7 @@ class CarPlayService {
   void _updateCarPlayFavorites() {
     if (_favoriteTemplate == null || _sortedStations.isEmpty || _flutterCarplay == null) return;
 
-    final favoriteSlugs = _audioHandler.favoriteStationSlugs.value;
+    final favoriteSlugs = _stationDataService.favoriteStationSlugs.value;
 
     // Update star prefix in "Toate statiile" items
     for (final station in _sortedStations) {
@@ -191,7 +193,7 @@ class CarPlayService {
     }
 
     // Use filteredStations which is properly sorted by order (same as app)
-    final stations = _audioHandler.filteredStations.value;
+    final stations = _stationDataService.filteredStations.value;
     if (stations.isEmpty) {
       _log("Stations not loaded yet, setting up listener");
       _setLoadingTemplate();
@@ -233,7 +235,7 @@ class CarPlayService {
         return;
       }
 
-      final stations = _audioHandler.filteredStations.value;
+      final stations = _stationDataService.filteredStations.value;
       if (stations.isNotEmpty) {
         timer.cancel();
         _setupCarPlayWithStations(stations);
@@ -250,7 +252,7 @@ class CarPlayService {
     try {
     _log("Setting up CarPlay with ${stations.length} stations");
 
-    final favoriteSlugs = _audioHandler.favoriteStationSlugs.value;
+    final favoriteSlugs = _stationDataService.favoriteStationSlugs.value;
 
     // Sort stations alphabetically by title
     _sortedStations = List<Station>.from(stations);
@@ -375,7 +377,7 @@ class CarPlayService {
     }
 
     // Use filteredStations which is properly sorted by order (same as app)
-    final stations = _audioHandler.filteredStations.value;
+    final stations = _stationDataService.filteredStations.value;
     if (stations.isEmpty) {
       _log("Stations not loaded yet for Android Auto");
       _setAndroidAutoLoadingTemplate();
@@ -418,7 +420,7 @@ class CarPlayService {
         return;
       }
 
-      final stations = _audioHandler.filteredStations.value;
+      final stations = _stationDataService.filteredStations.value;
       if (stations.isNotEmpty) {
         timer.cancel();
         _setupAndroidAutoWithStations(stations);
@@ -445,7 +447,7 @@ class CarPlayService {
       });
 
       // Listen for favorites changes to rebuild the template
-      _androidAutoFavoritesSubscription = _audioHandler.favoriteStationSlugs.stream.listen((_) {
+      _androidAutoFavoritesSubscription = _stationDataService.favoriteStationSlugs.stream.listen((_) {
         _rebuildAndroidAutoTemplate();
       });
 
@@ -455,7 +457,7 @@ class CarPlayService {
       });
 
       // Listen for station list/metadata changes (song title, artist, new stations, etc.)
-      _androidAutoStationsListSubscription = _audioHandler.stations.stream.listen((updatedStations) {
+      _androidAutoStationsListSubscription = _stationDataService.stations.stream.listen((updatedStations) {
         _log("Android Auto: stations stream updated (${updatedStations.length} stations)");
         _updateSortedAndroidAutoStations(updatedStations);
         _rebuildAndroidAutoTemplate();
@@ -538,7 +540,7 @@ class CarPlayService {
       return;
     }
     _isAndroidAutoRebuilding = true;
-    final favoriteSlugs = _audioHandler.favoriteStationSlugs.value;
+    final favoriteSlugs = _stationDataService.favoriteStationSlugs.value;
 
     // Split stations into favorites and all
     final favoriteStations = _sortedAndroidAutoStations

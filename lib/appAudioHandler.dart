@@ -1,20 +1,19 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:developer' as developer;
 import 'dart:io';
 import 'dart:ui';
 
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:fuzzywuzzy/fuzzywuzzy.dart';
+import 'package:get_it/get_it.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:radio_crestin/performance_monitor.dart';
-import 'package:radio_crestin/queries/getStations.graphql.dart';
 import 'package:radio_crestin/tracking.dart';
 import 'package:radio_crestin/types/Station.dart';
 import 'package:radio_crestin/services/image_cache_service.dart';
+import 'package:radio_crestin/services/station_data_service.dart';
 import 'package:radio_crestin/utils.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -57,18 +56,20 @@ Future<AppAudioHandler> initAudioService({required graphqlClient}) async {
 // https://github.com/ryanheise/audio_service/blob/81bb480ac2aeaec08cd61c62765529613db60837/audio_service/example/lib/example_playlist.dart
 class AppAudioHandler extends BaseAudioHandler {
   final GraphQLClient graphqlClient;
+  final StationDataService stationDataService = GetIt.instance<StationDataService>();
   Timer? timer;
-  late StreamSubscription<QueryResult<Query$GetStations>> watchStations;
 
   Object? error;
   int errorRetryCount = 0;
   final int maxErrorRetryCount = 10;
-  int stationStreamSourceIdx = 0;
   bool started = false;
   int? playerIndex;
 
   // Track loaded stream to avoid unnecessary reconnection on pause/resume
   String? _loadedStreamUrl;
+  // True while play() is loading a new source — keeps broadcast in loading state
+  // to prevent spinner flash between setAudioSource() and player.play().
+  bool _isConnecting = false;
   Timer? _disconnectTimer;
   static const _disconnectDelay = Duration(seconds: 60);
 
@@ -76,14 +77,7 @@ class AppAudioHandler extends BaseAudioHandler {
   int? _lastEmittedSongId;
   String? _lastEmittedArtUriString;
 
-  final BehaviorSubject<List<Station>> stations = BehaviorSubject.seeded(<Station>[]);
-  final BehaviorSubject<List<Station>> filteredStations = BehaviorSubject.seeded(<Station>[]);
-  final BehaviorSubject<List<String>> favoriteStationSlugs = BehaviorSubject.seeded([]);
   final BehaviorSubject<Station?> currentStation = BehaviorSubject.seeded(null);
-  final BehaviorSubject<List<Query$GetStations$station_groups>> stationGroups =
-      BehaviorSubject.seeded(<Query$GetStations$station_groups>[]);
-  final BehaviorSubject<Query$GetStations$station_groups?> selectedStationGroup =
-      BehaviorSubject.seeded(null);
   final BehaviorSubject<List<MediaItem>> stationsMediaItems = BehaviorSubject.seeded(<MediaItem>[]);
 
   // Active playlist for skip next/prev - set by whoever selects a station (app UI, CarPlay, Android Auto)
@@ -101,7 +95,7 @@ class AppAudioHandler extends BaseAudioHandler {
       case AudioService.recentRootId:
         return _recentSubject.value;
       case "favoriteStationsRootId":
-        final favSlugs = favoriteStationSlugs.value;
+        final favSlugs = stationDataService.favoriteStationSlugs.value;
         return stationsMediaItems.value
             .where((item) => favSlugs.contains(item.extras?["station_slug"]))
             .toList();
@@ -135,8 +129,8 @@ class AppAudioHandler extends BaseAudioHandler {
             ? stream.shareValueSeeded(<String, dynamic>{})
             : stream.shareValue();
       case "favoriteStationsRootId":
-        final stream = favoriteStationSlugs.map((_) => <String, dynamic>{});
-        return favoriteStationSlugs.hasValue
+        final stream = stationDataService.favoriteStationSlugs.map((_) => <String, dynamic>{});
+        return stationDataService.favoriteStationSlugs.hasValue
             ? stream.shareValueSeeded(<String, dynamic>{})
             : stream.shareValue();
       default:
@@ -147,23 +141,6 @@ class AppAudioHandler extends BaseAudioHandler {
     }
   }
 
-  bool _hasStationsChanged(List<Station> oldStations, List<Station> newStations) {
-    if (oldStations.length != newStations.length) return true;
-    for (int i = 0; i < oldStations.length; i++) {
-      final o = oldStations[i];
-      final n = newStations[i];
-      if (o.id != n.id ||
-          o.title != n.title ||
-          o.songId != n.songId ||
-          o.songTitle != n.songTitle ||
-          o.totalListeners != n.totalListeners ||
-          o.isUp != n.isUp) {
-        return true;
-      }
-    }
-    return false;
-  }
-
   final AudioPlayer player;
 
   // ignore: close_sinks
@@ -171,18 +148,10 @@ class AppAudioHandler extends BaseAudioHandler {
   static const LAST_PLAYED_MEDIA_ITEM = "last_played_media_item";
 
   final int maxRetries = 5;
-  static const _favoriteStationsKey = 'favoriteStationSlugs';
 
   AppAudioHandler({required this.graphqlClient, required this.player}) {
     _initPlayer();
-    _initFilteredStationsStream();
     _initUpdateCurrentStationMetadata();
-    _initFavoriteStationSlugsThenStations();
-  }
-
-  Future<void> _initFavoriteStationSlugsThenStations() async {
-    await _initFavoriteStationSlugs();
-    _setupRefreshStations();
   }
 
   // Audio Player
@@ -221,7 +190,7 @@ class AppAudioHandler extends BaseAudioHandler {
     }
 
     final item = station.mediaItem;
-    final isFav = favoriteStationSlugs.value.contains(station.slug);
+    final isFav = stationDataService.favoriteStationSlugs.value.contains(station.slug);
 
     _lastEmittedSongId = station.songId;
     _lastEmittedArtUriString = item.artUri?.toString();
@@ -244,7 +213,7 @@ class AppAudioHandler extends BaseAudioHandler {
           if (currentItem != null) {
             final localUri = Uri.file(file.path);
             _lastEmittedArtUriString = localUri.toString();
-            final isFav = favoriteStationSlugs.value.contains(station.slug);
+            final isFav = stationDataService.favoriteStationSlugs.value.contains(station.slug);
             mediaItem.add(currentItem.copyWith(
               artUri: localUri,
               rating: Rating.newHeartRating(isFav),
@@ -276,7 +245,7 @@ class AppAudioHandler extends BaseAudioHandler {
 
   List<Station> _getActivePlaylist() {
     if (activePlaylist.isNotEmpty) return activePlaylist;
-    return filteredStations.value;
+    return stationDataService.filteredStations.value;
   }
 
   @override
@@ -308,7 +277,7 @@ class AppAudioHandler extends BaseAudioHandler {
   @override
   Future<void> skipToQueueItem(int index) {
     _log("skipToQueueItem: $index");
-    playStation(stations.value[index]);
+    playStation(stationDataService.stations.value[index]);
     return super.skipToQueueItem(index);
   }
 
@@ -337,11 +306,11 @@ class AppAudioHandler extends BaseAudioHandler {
     startListeningTracker();
 
     var item = mediaItem.valueOrNull;
-    final desiredStreamUrl = (item?.extras?["station_streams"] as List<dynamic>?)?.firstOrNull?.toString() ?? item?.id;
 
-    // Fast resume: if the same stream is already loaded, just resume playback
-    if (desiredStreamUrl != null &&
-        _loadedStreamUrl == desiredStreamUrl &&
+    // Fast resume: if a stream is already loaded for this station, just resume playback.
+    // _loadedStreamUrl is nulled on station change, pause-disconnect, and stop,
+    // so non-null means the current station's stream is still loaded.
+    if (_loadedStreamUrl != null &&
         player.processingState != ProcessingState.idle) {
       _log("play: fast resume (stream already loaded)");
       return player.play();
@@ -349,6 +318,8 @@ class AppAudioHandler extends BaseAudioHandler {
 
     // Need to load a new stream source
     PerformanceMonitor.startOperation('audio_play');
+    _isConnecting = true;
+    _broadcastState(player.playbackEvent);
     var retry = 0;
     var initialStation = currentStation.valueOrNull;
 
@@ -358,13 +329,19 @@ class AppAudioHandler extends BaseAudioHandler {
         final streamUrl = streams?[retry % (streams?.length ?? 1)]?.toString() ?? item.id;
         _log("play: attempt $retry - $streamUrl");
         try {
+          // Stop player before retrying to cancel any lingering setAudioSource operation
+          if (retry > 0) {
+            await player.stop();
+          }
           final trackedUrl = addTrackingParametersToUrl(streamUrl);
+          final isHls = streamUrl.contains('.m3u8');
+          final timeout = isHls ? const Duration(seconds: 1) : const Duration(seconds: 10);
           await player.setAudioSource(
             AudioSource.uri(Uri.parse(trackedUrl)),
             preload: true,
-          ).timeout(const Duration(seconds: 10));
-          _loadedStreamUrl = desiredStreamUrl;
-          _log("play: source loaded successfully");
+          ).timeout(timeout);
+          _loadedStreamUrl = streamUrl;
+          _log("play: source loaded successfully ($streamUrl)");
           break;
         } catch (e) {
           _log("play: attempt $retry failed - $e");
@@ -373,6 +350,7 @@ class AppAudioHandler extends BaseAudioHandler {
         }
       } else {
         _log("play: max retries reached");
+        _isConnecting = false;
         _loadedStreamUrl = null;
         PerformanceMonitor.endOperation('audio_play');
         stop();
@@ -381,6 +359,7 @@ class AppAudioHandler extends BaseAudioHandler {
     }
 
     PerformanceMonitor.endOperation('audio_play');
+    _isConnecting = false;
     return player.play();
   }
 
@@ -427,7 +406,7 @@ class AppAudioHandler extends BaseAudioHandler {
 
     var maxR = 0;
     late Station selectedStation;
-    for (var v in stations.value) {
+    for (var v in stationDataService.stations.value) {
       var r = partialRatio(v.title, query);
       if (r > maxR) {
         maxR = r;
@@ -437,13 +416,13 @@ class AppAudioHandler extends BaseAudioHandler {
     if (maxR > 0) {
       return playStation(selectedStation);
     } else {
-      return playStation(stations.value[0]);
+      return playStation(stationDataService.stations.value[0]);
     }
   }
 
   @override
   Future<void> playFromUri(Uri uri, [Map<String, dynamic>? extras]) {
-    for (var v in stations.value) {
+    for (var v in stationDataService.stations.value) {
       if (v.stationStreams.toString().contains(uri.toString())) {
         return playStation(v);
       }
@@ -455,7 +434,7 @@ class AppAudioHandler extends BaseAudioHandler {
   Future<void> playMediaItem(MediaItem mediaItem) async {
     _log('playMediaItem($mediaItem)');
     playStation(
-        stations.value.firstWhere((element) => element.id == mediaItem.extras?["station_id"]));
+        stationDataService.stations.value.firstWhere((element) => element.id == mediaItem.extras?["station_id"]));
   }
 
   // Metadata refresh
@@ -473,98 +452,22 @@ class AppAudioHandler extends BaseAudioHandler {
         MediaAction.setRating,
       },
       androidCompactActionIndices: const [0, 1, 2],
-      processingState: const {
-        // We're using ready here to not interupt Android Auto playback when going to next/previous station
-        ProcessingState.idle: AudioProcessingState.ready,
-        ProcessingState.loading: AudioProcessingState.loading,
-        ProcessingState.buffering: AudioProcessingState.buffering,
-        ProcessingState.ready: AudioProcessingState.ready,
-        ProcessingState.completed: AudioProcessingState.completed,
-      }[player.processingState]!,
+      processingState: _isConnecting
+        ? AudioProcessingState.loading
+        : const {
+            // We're using ready here to not interupt Android Auto playback when going to next/previous station
+            ProcessingState.idle: AudioProcessingState.ready,
+            ProcessingState.loading: AudioProcessingState.loading,
+            ProcessingState.buffering: AudioProcessingState.buffering,
+            ProcessingState.ready: AudioProcessingState.ready,
+            ProcessingState.completed: AudioProcessingState.completed,
+          }[player.processingState]!,
       playing: playing,
       updatePosition: player.position,
       bufferedPosition: player.bufferedPosition,
       speed: player.speed,
       queueIndex: playerIndex,
     ));
-  }
-
-  Future<void> refreshStations() async {
-    _log("Manually refreshing stations");
-    try {
-      final result = await graphqlClient.query(
-        Options$Query$GetStations(
-          fetchPolicy: FetchPolicy.networkOnly,
-        ),
-      );
-      final parsedData = result.parsedData;
-      if (parsedData != null) {
-        stations.add((parsedData.stations)
-            .map((rawStationData) => Station(rawStationData: rawStationData))
-            .toList());
-        stationGroups.add(parsedData.station_groups);
-        _preCacheStationThumbnails();
-      }
-    } catch (e) {
-      _log("Error refreshing stations: $e");
-    }
-  }
-
-  void _setupRefreshStations() async {
-    _log("Starting to fetch stations");
-    PerformanceMonitor.startOperation('initial_stations_fetch');
-    final parsedData = (await graphqlClient.query(Options$Query$GetStations())).parsedData;
-    stations.add((parsedData?.stations ?? [])
-        .map((rawStationData) => Station(
-            rawStationData: rawStationData))
-        .toList());
-    stationGroups.add(parsedData?.station_groups ?? []);
-    PerformanceMonitor.endOperation('initial_stations_fetch');
-
-    // Pre-cache station thumbnails (stable URLs, ~50-150 stations)
-    _preCacheStationThumbnails();
-
-    watchStations = graphqlClient
-        .watchQuery$GetStations(
-          WatchOptions$Query$GetStations(
-            fetchPolicy: FetchPolicy.cacheAndNetwork,
-            errorPolicy: ErrorPolicy.all,
-            cacheRereadPolicy: CacheRereadPolicy.ignoreAll,
-            pollInterval: const Duration(seconds: 5),
-            fetchResults: true,
-          ),
-        )
-        .stream
-        .listen((event) async {
-      _log("Done fetching stations");
-      final parsedData = event.parsedData;
-      if (parsedData == null) {
-        _log("No data");
-        return;
-      }
-      final newStations = (parsedData.stations)
-          .map((rawStationData) => Station(rawStationData: rawStationData))
-          .toList();
-
-      // Only emit if station data actually changed (avoid redundant rebuilds)
-      if (_hasStationsChanged(stations.value, newStations)) {
-        stations.add(newStations);
-        stationGroups.add(parsedData.station_groups);
-        _preCacheStationThumbnails();
-      } else {
-        _log("Stations unchanged, skipping update");
-      }
-    });
-  }
-
-  void _preCacheStationThumbnails() {
-    final urls = stations.value
-        .where((s) => s.thumbnailUrl != null && s.thumbnailUrl!.isNotEmpty)
-        .map((s) => s.thumbnailUrl!)
-        .toList();
-    if (urls.isEmpty) return;
-    // Fire-and-forget: pre-cache in background
-    ImageCacheService.instance.preCacheUrls(urls);
   }
 
   @override
@@ -591,7 +494,7 @@ class AppAudioHandler extends BaseAudioHandler {
     stopListeningTracker();
     player.stop();
     // player.dispose();
-    watchStations.cancel();
+    stationDataService.cancelWatchStations();
     return super.onTaskRemoved();
   }
 
@@ -603,7 +506,7 @@ class AppAudioHandler extends BaseAudioHandler {
     stopListeningTracker();
     await player.stop();
     await player.dispose();
-    watchStations.cancel();
+    stationDataService.cancelWatchStations();
     await super.stop();
   }
 
@@ -660,74 +563,27 @@ class AppAudioHandler extends BaseAudioHandler {
   Future<Station> getLastPlayedStation() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     var stationSlug = prefs.getString(LAST_PLAYED_MEDIA_ITEM);
-    return stations.value.firstWhere(
+    return stationDataService.stations.value.firstWhere(
       (station) => station.slug == stationSlug,
-      orElse: () => stations.value.first,
+      orElse: () => stationDataService.stations.value.first,
     );
   }
 
-  // Favorite Stations
-  Future<void> _initFavoriteStationSlugs() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final String? favoriteJson = prefs.getString(_favoriteStationsKey);
-    List<String> newFavoriteStationSlugs = [];
-    if (favoriteJson != null) {
-      newFavoriteStationSlugs = List<String>.from(json.decode(favoriteJson));
-    }
-    favoriteStationSlugs.add(newFavoriteStationSlugs);
-
-  }
-
   Future<void> setStationIsFavorite(Station station, bool isFavorite) async {
-    developer.log("setStationIsFavorite: ${station.slug} $isFavorite");
-    if (isFavorite) {
-      favoriteStationSlugs.add([...favoriteStationSlugs.value, station.slug]);
-    } else {
-      favoriteStationSlugs
-          .add(favoriteStationSlugs.value.where((slug) => slug != station.slug).toList());
-    }
-
+    await stationDataService.setStationIsFavorite(station, isFavorite);
     // Update MediaItem rating so MediaSession reflects the new favorite state
     final currentItem = mediaItem.valueOrNull;
     if (currentItem != null && currentStation.value?.slug == station.slug) {
       mediaItem.add(currentItem.copyWith(rating: Rating.newHeartRating(isFavorite)));
     }
-
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_favoriteStationsKey, json.encode(favoriteStationSlugs.value));
     Utils.incrementActionsMade(
       graphQLClient: graphqlClient,
       currentStationName: currentStation.valueOrNull?.title,
     );
   }
 
-
-  void _initFilteredStationsStream() {
-    final combinedStream =
-        Rx.combineLatest2<Query$GetStations$station_groups?, List<Station>, List<Station>>(
-      selectedStationGroup.stream, // Use the stream property
-      stations.stream, // Use the stream property
-      (selectedGroup, allStations) {
-        allStations.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-        if (selectedGroup == null) {
-          return allStations;
-        }
-        selectedGroup.station_to_station_groups.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-        final selectedStationsIds =
-            selectedGroup.station_to_station_groups.map((e) => e.station_id);
-        return allStations.where((station) {
-          return selectedStationsIds.contains(station.id);
-        }).toList();
-      },
-    );
-    // Subscribe to the combined stream and update the filteredStationsSubject BehaviorSubject.
-    combinedStream.listen((filteredStationsList) {
-      filteredStations.add(filteredStationsList);
-    });
-  }
-
   void _initUpdateCurrentStationMetadata() {
-    stations.stream.listen((stations) {
+    stationDataService.stations.stream.listen((stations) {
       _log("updateCurrentStationMetadata");
       final sortedStations = stations..sort((a, b) => a.order.compareTo(b.order));
 
@@ -756,7 +612,7 @@ class AppAudioHandler extends BaseAudioHandler {
           if (newMediaItem != null) {
             _lastEmittedSongId = newSongId;
             _lastEmittedArtUriString = newMediaItem.artUri?.toString();
-            final isFav = favoriteStationSlugs.value.contains(updatedCurrentStation.slug);
+            final isFav = stationDataService.favoriteStationSlugs.value.contains(updatedCurrentStation.slug);
             mediaItem.add(newMediaItem.copyWith(rating: Rating.newHeartRating(isFav)));
           }
 

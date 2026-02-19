@@ -23,6 +23,7 @@ import '../components/SelectDialog.dart';
 import '../components/StationsList.dart';
 import '../main.dart';
 import '../queries/getStations.graphql.dart';
+import '../services/station_data_service.dart';
 import '../types/Station.dart';
 import '../utils/PositionRetainedScrollPhysics.dart';
 import 'SettingsPage.dart';
@@ -70,6 +71,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   CustomPanelController slidingUpPanelController = CustomPanelController();
 
   final AppAudioHandler _audioHandler = getIt<AppAudioHandler>();
+  final StationDataService _stationDataService = getIt<StationDataService>();
   final AppLinks _appLinks = AppLinks();
 
   var autoPlayProcessed = false;
@@ -103,7 +105,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Future<void> _handleRefresh() async {
     try {
       // Refresh stations
-      await _audioHandler.refreshStations();
+      await _stationDataService.refreshStations();
       
       // Refresh share promotion visibility
       await _checkSharePromotionVisibility();
@@ -299,13 +301,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               List<String>,
               HomePageState>(
             _audioHandler.currentStation.stream,
-            _audioHandler.stations.stream,
-            _audioHandler.filteredStations.stream,
-            _audioHandler.stationGroups,
-            _audioHandler.selectedStationGroup.stream,
+            _stationDataService.stations.stream,
+            _stationDataService.filteredStations.stream,
+            _stationDataService.stationGroups,
+            _stationDataService.selectedStationGroup.stream,
             _audioHandler.mediaItem,
             slidingUpPanelController.isDraggableSubject,
-            _audioHandler.favoriteStationSlugs.stream,
+            _stationDataService.favoriteStationSlugs.stream,
             (currentStation, stations, filteredStations, stationGroups, selectedStationGroup,
                     mediaItem, isDraggable, favoriteSlugs) =>
                 HomePageState(currentStation, stations, filteredStations, stationGroups,
@@ -661,9 +663,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                               (Query$GetStations$station_groups stationGroup) {
                                             setState(() {
                                               if (stationGroup.slug == 'all-stations') {
-                                                _audioHandler.selectedStationGroup.add(null);
+                                                _stationDataService.selectedStationGroup.add(null);
                                               } else {
-                                                _audioHandler.selectedStationGroup
+                                                _stationDataService.selectedStationGroup
                                                     .add(stationGroup);
                                               }
                                             });
@@ -743,7 +745,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   waitForStationsUpdate() async {
     while (true) {
-      if (_audioHandler.stations.value.isNotEmpty) {
+      if (_stationDataService.stations.value.isNotEmpty) {
         break;
       }
       await Future.delayed(const Duration(milliseconds: 100));
