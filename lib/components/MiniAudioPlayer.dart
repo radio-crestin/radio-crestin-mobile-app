@@ -118,6 +118,7 @@ class MiniAudioPlayer extends StatelessWidget {
                 //   onPressed: audioHandler.skipToPrevious,
                 // ),
                 AnimatedPlayButton(
+                  key: ValueKey('mini-play-${currentStation?.id}'),
                   playbackStateStream: audioHandler.playbackState,
                   iconSize: 36,
                   iconColor: Theme.of(context).iconTheme.color!,

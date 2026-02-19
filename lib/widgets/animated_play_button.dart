@@ -103,10 +103,10 @@ class AnimatedPlayButtonState extends State<AnimatedPlayButton> {
 
     if (_inGracePeriod) {
       showPlaying = _intentIsPlaying;
-      showSpinner = false;
+      showSpinner = _streamLoading;
     } else {
       showPlaying = _streamPlaying;
-      showSpinner = _streamLoading && _streamPlaying;
+      showSpinner = _streamLoading;
     }
 
     Widget content;

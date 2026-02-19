@@ -81,6 +81,11 @@
 			<string>UIInterfaceOrientationLandscapeLeft</string>
 			<string>UIInterfaceOrientationLandscapeRight</string>
 		</array>
+		<key>NSAppTransportSecurity</key>
+		<dict>
+			<key>NSAllowsArbitraryLoads</key>
+			<true/>
+		</dict>
 		<key>UIViewControllerBasedStatusBarAppearance</key>
 		<false/>
 		<key>com.apple.developer.nfc.readersession.iso7816.select-identifiers</key>
