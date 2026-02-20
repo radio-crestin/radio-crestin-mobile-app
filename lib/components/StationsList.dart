@@ -1,7 +1,7 @@
 import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
-import 'package:like_button/like_button.dart';
+import 'package:flutter/services.dart';
 import 'package:radio_crestin/appAudioHandler.dart';
 import 'package:radio_crestin/theme.dart';
 import 'package:sliding_up_panel2/sliding_up_panel2.dart';
@@ -156,25 +156,33 @@ class StationsList extends StatelessWidget {
                     Positioned(
                       right: -7,
                       bottom: 0,
-                      child: LikeButton(
-                        size: 39,
-                        bubblesSize: 39,
-                        isLiked: favoriteSlugs.contains(station.slug),
-                        likeBuilder: (bool isLiked) {
-                          return Padding(
-                            padding: const EdgeInsets.all(8),
-                            child: Icon(
-                              isLiked? Icons.favorite_sharp: Icons.favorite_border_sharp,
-                              color: isLiked 
-                                ? Theme.of(context).primaryColor 
-                                : Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
-                              size: 23,
-                            ),);
-                        },
-                        onTap: (bool isLiked) async {
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () {
+                          final isLiked = favoriteSlugs.contains(station.slug);
+                          HapticFeedback.lightImpact();
                           audioHandler.setStationIsFavorite(station, !isLiked);
-                          return !isLiked;
                         },
+                        child: Padding(
+                          padding: const EdgeInsets.all(8),
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 250),
+                            transitionBuilder: (child, animation) => ScaleTransition(
+                              scale: animation,
+                              child: child,
+                            ),
+                            child: Icon(
+                              favoriteSlugs.contains(station.slug)
+                                  ? Icons.favorite_sharp
+                                  : Icons.favorite_border_sharp,
+                              key: ValueKey('fav-${station.slug}-${favoriteSlugs.contains(station.slug)}'),
+                              color: favoriteSlugs.contains(station.slug)
+                                  ? Theme.of(context).primaryColor
+                                  : Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                              size: 23,
+                            ),
+                          ),
+                        ),
                       ),
                     )
                   ],

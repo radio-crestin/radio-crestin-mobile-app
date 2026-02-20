@@ -82,6 +82,8 @@ class AppAudioHandler extends BaseAudioHandler {
 
   // Active playlist for skip next/prev - set by whoever selects a station (app UI, CarPlay, Android Auto)
   List<Station> activePlaylist = [];
+  // When true, _getActivePlaylist() filters activePlaylist to only current favorites
+  bool _activePlaylistIsFavorites = false;
 
   _log(String message) {
     developer.log("AppAudioHandler: $message");
@@ -183,10 +185,11 @@ class AppAudioHandler extends BaseAudioHandler {
     await setStationIsFavorite(station, rating.hasHeart());
   }
 
-  Future<void> selectStation(Station station, {List<Station>? playlist}) async {
+  Future<void> selectStation(Station station, {List<Station>? playlist, bool isFavoritesPlaylist = false}) async {
     _log('selectStation($station)');
     if (playlist != null) {
       activePlaylist = List.from(playlist);
+      _activePlaylistIsFavorites = isFavoritesPlaylist;
     }
 
     final item = station.mediaItem;
@@ -224,7 +227,7 @@ class AppAudioHandler extends BaseAudioHandler {
     }
   }
 
-  Future<void> playStation(Station station, {List<Station>? playlist}) async {
+  Future<void> playStation(Station station, {List<Station>? playlist, bool isFavoritesPlaylist = false}) async {
     _log('playStation($station)');
 
     // Stop and clean up the previous station before starting the new one
@@ -235,7 +238,7 @@ class AppAudioHandler extends BaseAudioHandler {
     }
     _loadedStreamUrl = null;
 
-    await selectStation(station, playlist: playlist);
+    await selectStation(station, playlist: playlist, isFavoritesPlaylist: isFavoritesPlaylist);
     if (Platform.isAndroid) {
       await Future.delayed(const Duration(milliseconds: 100));
     }
@@ -244,6 +247,13 @@ class AppAudioHandler extends BaseAudioHandler {
   }
 
   List<Station> _getActivePlaylist() {
+    if (_activePlaylistIsFavorites) {
+      final favSlugs = stationDataService.favoriteStationSlugs.value;
+      final currentFavorites = stationDataService.filteredStations.value
+          .where((s) => favSlugs.contains(s.slug))
+          .toList();
+      if (currentFavorites.isNotEmpty) return currentFavorites;
+    }
     if (activePlaylist.isNotEmpty) return activePlaylist;
     return stationDataService.filteredStations.value;
   }
@@ -321,9 +331,9 @@ class AppAudioHandler extends BaseAudioHandler {
     _isConnecting = true;
     _broadcastState(player.playbackEvent);
     var retry = 0;
-    var initialStation = currentStation.valueOrNull;
+    var initialStationId = currentStation.valueOrNull?.id;
 
-    while (item != null && initialStation == currentStation.valueOrNull) {
+    while (item != null && initialStationId == currentStation.valueOrNull?.id) {
       if (retry < maxRetries) {
         final streams = item.extras?["station_streams"] as List<dynamic>?;
         final streamUrl = streams?[retry % (streams?.length ?? 1)]?.toString() ?? item.id;

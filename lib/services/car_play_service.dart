@@ -274,10 +274,9 @@ class CarPlayService {
           final currentFavorites = _sortedStations
               .where((s) => _isFavorite(s.slug))
               .toList();
-          await _audioHandler.selectStation(station, playlist: currentFavorites);
           complete();
           FlutterCarplay.showSharedNowPlaying(animated: true);
-          _audioHandler.play();
+          await _audioHandler.playStation(station, playlist: currentFavorites, isFavoritesPlaylist: true);
         },
       );
       _favoriteListItems[station.slug] = item;
@@ -308,10 +307,9 @@ class CarPlayService {
         isPlaying: station.slug == currentSlug,
         onPress: (complete, item) async {
           _log("CarPlay: Station selected: ${station.title}");
-          await _audioHandler.selectStation(station, playlist: _sortedStations);
           complete();
           FlutterCarplay.showSharedNowPlaying(animated: true);
-          _audioHandler.play();
+          await _audioHandler.playStation(station, playlist: _sortedStations);
         },
       );
       _allStationsListItems[station.slug] = item;
@@ -501,6 +499,7 @@ class CarPlayService {
     required String title,
     required List<Station> stations,
     required List<Station> playlist,
+    bool isFavoritesPlaylist = false,
   }) {
     final stationsToShow = stations.length > _maxAndroidAutoItems
         ? stations.sublist(0, _maxAndroidAutoItems)
@@ -522,9 +521,8 @@ class CarPlayService {
               imageUrl: _cachedOrNetworkUrl(station.thumbnailUrl),
               onPress: (complete, item) async {
                 _log("Android Auto: Station selected: ${station.title}");
-                await _audioHandler.selectStation(station, playlist: playlist);
                 complete();
-                _audioHandler.play();
+                await _audioHandler.playStation(station, playlist: playlist, isFavoritesPlaylist: isFavoritesPlaylist);
               },
             );
           }).toList(),
@@ -558,6 +556,7 @@ class CarPlayService {
       title: "Statii Favorite",
       stations: favoriteStations,
       playlist: favoriteStations,
+      isFavoritesPlaylist: true,
     );
 
     final allStationsList = _buildStationListTemplate(
