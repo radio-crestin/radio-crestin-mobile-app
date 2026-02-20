@@ -21,5 +21,28 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
         window?.rootViewController = controller
         window?.makeKeyAndVisible()
+
+        // Cold-start via quick action: forward the shortcut to AppDelegate
+        // so the quick_actions plugin can deliver it once the Dart channel is ready
+        if let shortcutItem = connectionOptions.shortcutItem {
+            let appDelegate = UIApplication.shared.delegate as? AppDelegate
+            appDelegate?.application(
+                UIApplication.shared,
+                performActionFor: shortcutItem,
+                completionHandler: { _ in }
+            )
+        }
+    }
+
+    // Warm-start: app was in background, user tapped a quick action shortcut
+    func windowScene(_ windowScene: UIWindowScene,
+                     performActionFor shortcutItem: UIApplicationShortcutItem,
+                     completionHandler: @escaping (Bool) -> Void) {
+        let appDelegate = UIApplication.shared.delegate as? AppDelegate
+        appDelegate?.application(
+            UIApplication.shared,
+            performActionFor: shortcutItem,
+            completionHandler: completionHandler
+        )
     }
 }

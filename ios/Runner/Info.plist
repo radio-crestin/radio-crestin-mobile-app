@@ -123,5 +123,32 @@
 		</array>
 		<key>UIStatusBarHidden</key>
 		<false/>
+		<key>LSApplicationQueriesSchemes</key>
+		<array>
+			<string>whatsapp</string>
+		</array>
+		<key>UIApplicationShortcutItems</key>
+		<array>
+			<dict>
+				<key>UIApplicationShortcutItemType</key>
+				<string>action_feedback_delete</string>
+				<key>UIApplicationShortcutItemTitle</key>
+				<string>Înainte să pleci... 🥺</string>
+				<key>UIApplicationShortcutItemSubtitle</key>
+				<string>Ajută-ne să facem aplicația mai bună...</string>
+				<key>UIApplicationShortcutItemIconType</key>
+				<string>UIApplicationShortcutIconTypeLove</string>
+			</dict>
+			<dict>
+				<key>UIApplicationShortcutItemType</key>
+				<string>action_report_problem</string>
+				<key>UIApplicationShortcutItemTitle</key>
+				<string>Raportează o problemă</string>
+				<key>UIApplicationShortcutItemSubtitle</key>
+				<string>Spune-ne ce nu a mers.</string>
+				<key>UIApplicationShortcutItemIconType</key>
+				<string>UIApplicationShortcutIconTypeCompose</string>
+			</dict>
+		</array>
 	</dict>
 </plist>

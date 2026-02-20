@@ -30,6 +30,7 @@ import 'firebase_options.dart';
 import 'globals.dart' as globals;
 import 'services/car_play_service.dart';
 import 'services/image_cache_service.dart';
+import 'services/quick_actions_service.dart';
 import 'services/station_data_service.dart';
 
 final getIt = GetIt.instance;
@@ -217,6 +218,8 @@ void main() async {
       PerformanceMonitor.printReport();
     });
   }
+
+  QuickActionsService.initialize();
 
   runApp(const RadioCrestinApp());
 

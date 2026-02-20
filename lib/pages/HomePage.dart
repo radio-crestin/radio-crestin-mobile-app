@@ -16,11 +16,13 @@ import 'package:radio_crestin/utils/share_utils.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import 'package:sliding_up_panel2/sliding_up_panel2.dart';
 
 import '../components/MiniAudioPlayer.dart';
 import '../components/SelectDialog.dart';
 import '../components/StationsList.dart';
+import '../globals.dart' as globals;
 import '../main.dart';
 import '../queries/getStations.graphql.dart';
 import '../services/station_data_service.dart';
