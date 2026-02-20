@@ -29,7 +29,8 @@ class FlutterCarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelega
     let rootTemplate = SwiftFlutterCarplayPlugin.rootTemplate
     let animated = SwiftFlutterCarplayPlugin.animated
 
-    self.interfaceController?.setRootTemplate(rootTemplate!, animated: animated)
+    guard let rootTemplate = rootTemplate else { return }
+    self.interfaceController?.setRootTemplate(rootTemplate, animated: animated)
   }
 
   // https://developer.apple.com/documentation/carplay/cplisttemplate/updatesections(_:)
@@ -129,8 +130,8 @@ class FlutterCarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelega
     SwiftFlutterCarplayPlugin.onCarplayConnectionChange(status: FCPConnectionTypes.connected)
     let rootTemplate = SwiftFlutterCarplayPlugin.rootTemplate
 
-    if rootTemplate != nil {
-      FlutterCarPlaySceneDelegate.interfaceController?.setRootTemplate(rootTemplate!, animated: SwiftFlutterCarplayPlugin.animated, completion: nil)
+    if let rootTemplate = rootTemplate {
+      FlutterCarPlaySceneDelegate.interfaceController?.setRootTemplate(rootTemplate, animated: SwiftFlutterCarplayPlugin.animated, completion: nil)
     }
   }
   

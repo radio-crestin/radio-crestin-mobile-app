@@ -478,8 +478,8 @@ class AppAudioHandler extends BaseAudioHandler {
   @override
   Future<void> playMediaItem(MediaItem mediaItem) async {
     _log('playMediaItem($mediaItem)');
-    playStation(
-        stationDataService.stations.value.firstWhere((element) => element.id == mediaItem.extras?["station_id"]));
+    final station = stationDataService.stations.value.cast<Station?>().firstWhere((element) => element!.id == mediaItem.extras?["station_id"], orElse: () => null);
+    if (station != null) playStation(station);
   }
 
   // Metadata refresh
@@ -506,7 +506,7 @@ class AppAudioHandler extends BaseAudioHandler {
             ProcessingState.buffering: AudioProcessingState.buffering,
             ProcessingState.ready: AudioProcessingState.ready,
             ProcessingState.completed: AudioProcessingState.completed,
-          }[player.processingState]!,
+          }[player.processingState] ?? AudioProcessingState.idle,
       playing: playing,
       updatePosition: player.position,
       bufferedPosition: player.bufferedPosition,
@@ -583,8 +583,9 @@ class AppAudioHandler extends BaseAudioHandler {
   @override
   Future<void> playFromMediaId(String mediaId, [Map<String, dynamic>? extras]) {
     _log('playFromMediaId($mediaId, $extras)');
-    final selectedMediaItem = stationsMediaItems.value.firstWhere((item) => item.id == mediaId);
-    return playMediaItem(selectedMediaItem);
+    final selectedMediaItem = stationsMediaItems.value.cast<MediaItem?>().firstWhere((item) => item!.id == mediaId, orElse: () => null);
+    if (selectedMediaItem != null) return playMediaItem(selectedMediaItem);
+    return Future.value();
   }
 
   // Events Tracking
@@ -653,8 +654,8 @@ class AppAudioHandler extends BaseAudioHandler {
 
       Station? updatedCurrentStation;
       if(currentStation.valueOrNull != null) {
-        updatedCurrentStation = stations.firstWhere((element) => element.id == currentStation.value!.id);
-        currentStation.add(updatedCurrentStation);
+        updatedCurrentStation = stations.cast<Station?>().firstWhere((element) => element!.id == currentStation.value!.id, orElse: () => null);
+        if (updatedCurrentStation != null) currentStation.add(updatedCurrentStation);
       }
 
       final newStationsMediaItems =
