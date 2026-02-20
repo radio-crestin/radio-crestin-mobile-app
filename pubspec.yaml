@@ -73,6 +73,9 @@ dependencies:
   flutter_carplay:
     path: packages/flutter_carplay
   firebase_app_installations: ^0.4.0+6
+  # Pin to 9.1.0 to fix missing dSYM for objective_c.framework on App Store Connect.
+  # Remove once Flutter stable includes the fix from flutter/flutter#181533.
+  objective_c: 9.1.0
 
 dev_dependencies:
   dependency_validator: ^5.0.3
