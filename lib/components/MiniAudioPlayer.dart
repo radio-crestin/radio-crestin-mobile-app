@@ -59,74 +59,70 @@ class MiniAudioPlayer extends StatelessWidget {
               ],
             ),
             SizedBox(height: Platform.isIOS ? 7 : 10),
-            Row(
-              children: <Widget>[
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 250),
-                  child: SizedBox(
-                    key: ValueKey('mini-thumb-${currentStation?.id}'),
-                    width: 52.0,
-                    height: 52.0,
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12.0),
-                      child: currentStation?.thumbnail,
+            SizedBox(
+              height: 52,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: <Widget>[
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 250),
+                    child: SizedBox(
+                      key: ValueKey('mini-thumb-${currentStation?.id}'),
+                      width: 52.0,
+                      height: 52.0,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12.0),
+                        child: currentStation?.thumbnail,
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 16.0),
-                Expanded(
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 250),
-                    layoutBuilder: (currentChild, previousChildren) => Stack(
-                      alignment: Alignment.centerLeft,
-                      children: [...previousChildren, if (currentChild != null) currentChild],
-                    ),
-                    child: Column(
-                      key: ValueKey('mini-text-${currentStation?.id}-$displaySubtitle'),
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: <Widget>[
-                        Text(
-                          displayTitle,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        if (displaySubtitle.isNotEmpty)
+                  const SizedBox(width: 16.0),
+                  Expanded(
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 250),
+                      layoutBuilder: (currentChild, previousChildren) => Stack(
+                        alignment: Alignment.centerLeft,
+                        children: [...previousChildren, if (currentChild != null) currentChild],
+                      ),
+                      child: Column(
+                        key: ValueKey('mini-text-${currentStation?.id}-$displaySubtitle'),
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: <Widget>[
                           Text(
-                            displaySubtitle,
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.7),
-                              fontSize: 12.0,
+                            displayTitle,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                      ],
+                          if (displaySubtitle.isNotEmpty)
+                            Text(
+                              displaySubtitle,
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.7),
+                                fontSize: 12.0,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 3.0),
-                // IconButton(
-                //   icon: const Icon(Icons.skip_previous),
-                //   color: Colors.white,
-                //   iconSize: 32,
-                //   tooltip: "Statia anterioare",
-                //   onPressed: audioHandler.skipToPrevious,
-                // ),
-                AnimatedPlayButton(
-                  key: ValueKey('mini-play-${currentStation?.id}'),
-                  playbackStateStream: audioHandler.playbackState,
-                  iconSize: 36,
-                  iconColor: Theme.of(context).iconTheme.color!,
-                  onPlay: audioHandler.play,
-                  onPause: audioHandler.pause,
-                ),
-                const SizedBox(width: 4.0),
-              ],
+                  const SizedBox(width: 8.0),
+                  AnimatedPlayButton(
+                    key: ValueKey('mini-play-${currentStation?.id}'),
+                    playbackStateStream: audioHandler.playbackState,
+                    iconSize: 36,
+                    iconColor: Theme.of(context).iconTheme.color!,
+                    onPlay: audioHandler.play,
+                    onPause: audioHandler.pause,
+                  ),
+                ],
+              ),
             )
           ],
         ),

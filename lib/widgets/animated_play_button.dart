@@ -129,9 +129,13 @@ class AnimatedPlayButtonState extends State<AnimatedPlayButton> {
       );
     }
 
-    final switcher = AnimatedSwitcher(
-      duration: const Duration(milliseconds: 150),
-      child: content,
+    final switcher = SizedBox(
+      width: widget.iconSize,
+      height: widget.iconSize,
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 150),
+        child: Center(child: content),
+      ),
     );
 
     final onTap = showPlaying
@@ -161,8 +165,8 @@ class AnimatedPlayButtonState extends State<AnimatedPlayButton> {
         onTap: onTap,
         customBorder: const CircleBorder(),
         child: SizedBox(
-          width: widget.iconSize + 24,
-          height: widget.iconSize + 24,
+          width: widget.iconSize + 16,
+          height: widget.iconSize + 16,
           child: Center(child: switcher),
         ),
       ),
