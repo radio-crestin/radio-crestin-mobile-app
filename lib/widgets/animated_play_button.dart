@@ -57,13 +57,16 @@ class AnimatedPlayButtonState extends State<AnimatedPlayButton> {
         state.processingState == AudioProcessingState.loading ||
         state.processingState == AudioProcessingState.buffering;
 
-    final ready = state.processingState == AudioProcessingState.ready;
+    // When stream reaches a settled state, always sync intent to reality.
+    // This prevents desync from programmatic play/pause (autoplay, reconnect,
+    // station switch) where nobody calls notifyWillPlay/_setIntent.
+    final settled = state.processingState == AudioProcessingState.ready ||
+        state.processingState == AudioProcessingState.completed ||
+        state.processingState == AudioProcessingState.idle;
 
-    // Stream confirmed intent — cancel grace timer, sync up
-    if (ready && state.playing && _intentIsPlaying) {
-      _graceTimer?.cancel();
-    }
-    if (!state.playing && !_streamLoading && !_intentIsPlaying) {
+    if (settled) {
+      _intentIsPlaying = state.playing;
+      _intentSetAt = null;
       _graceTimer?.cancel();
     }
 
