@@ -37,6 +37,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   final List _subscriptions = [];
   List<String> _favoriteSlugs = [];
   final _playButtonKey = GlobalKey<AnimatedPlayButtonState>();
+  final _likeButtonKey = GlobalKey<LikeButtonState>();
   final StationDataService _stationDataService = GetIt.instance<StationDataService>();
 
   @override
@@ -249,35 +250,44 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                     ),
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.all(10.0),
-                  child: Column(
-                    children: [
-                      LikeButton(
-                        size: 30,
-                        bubblesSize: 30,
-                        isLiked: currentStation != null && _favoriteSlugs.contains(currentStation!.slug),
-                        likeBuilder: (bool isLiked) {
-                          return Icon(
-                            isLiked ? Icons.favorite_sharp : Icons.favorite_border_sharp,
-                            color: isLiked
-                                ? Theme.of(context).primaryColor
-                                : Theme.of(context).colorScheme.onSurface,
-                            size: 23,
-                          );
-                        },
-                        onTap: (bool isLiked) async {
-                          if (currentStation != null) {
-                            widget.audioHandler.setStationIsFavorite(currentStation!, !isLiked);
-                          }
-                          return !isLiked;
-                        },
-                      ),
-                      Padding(
-                        padding: EdgeInsets.only(top: 8.0),
-                        child: Text('favorit', style: TextStyle(fontSize: 12)),
-                      ),
-                    ],
+                InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: () {
+                    _likeButtonKey.currentState?.onTap();
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(10.0),
+                    child: Column(
+                      children: [
+                        IgnorePointer(
+                          child: LikeButton(
+                            key: _likeButtonKey,
+                            size: 30,
+                            bubblesSize: 30,
+                            isLiked: currentStation != null && _favoriteSlugs.contains(currentStation!.slug),
+                            likeBuilder: (bool isLiked) {
+                              return Icon(
+                                isLiked ? Icons.favorite_sharp : Icons.favorite_border_sharp,
+                                color: isLiked
+                                    ? Theme.of(context).primaryColor
+                                    : Theme.of(context).colorScheme.onSurface,
+                                size: 23,
+                              );
+                            },
+                            onTap: (bool isLiked) async {
+                              if (currentStation != null) {
+                                widget.audioHandler.setStationIsFavorite(currentStation!, !isLiked);
+                              }
+                              return !isLiked;
+                            },
+                          ),
+                        ),
+                        Padding(
+                          padding: EdgeInsets.only(top: 8.0),
+                          child: Text('favorit', style: TextStyle(fontSize: 12)),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                   InkWell(
