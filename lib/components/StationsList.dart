@@ -16,6 +16,7 @@ class StationsList extends StatelessWidget {
     required this.panelController,
     required this.favoriteSlugs,
     this.currentStation,
+    this.isFavoritesPlaylist = false,
   });
 
   final Station? currentStation;
@@ -23,6 +24,7 @@ class StationsList extends StatelessWidget {
   final AppAudioHandler audioHandler;
   final PanelController? panelController;
   final List<String> favoriteSlugs;
+  final bool isFavoritesPlaylist;
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +37,7 @@ class StationsList extends StatelessWidget {
 
           return GestureDetector(
               onTap: () async {
-                await audioHandler.playStation(station, playlist: stations);
+                await audioHandler.playStation(station, playlist: stations, isFavoritesPlaylist: isFavoritesPlaylist);
               },
               child: Container(
                 margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),

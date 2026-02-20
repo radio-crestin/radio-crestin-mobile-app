@@ -590,6 +590,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                               audioHandler: _audioHandler,
                               panelController: null,
                               favoriteSlugs: favoriteSlugs,
+                              isFavoritesPlaylist: true,
                             )),
                       ),
                     if (stations.isNotEmpty)
