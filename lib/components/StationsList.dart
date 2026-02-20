@@ -35,7 +35,9 @@ class StationsList extends StatelessWidget {
           final station = stations[itemIdx];
           final isSelected = station.slug == currentStation?.slug;
 
-          return GestureDetector(
+          return KeyedSubtree(
+            key: ValueKey('station-${station.slug}'),
+            child: GestureDetector(
               onTap: () async {
                 await audioHandler.playStation(station, playlist: stations, isFavoritesPlaylist: isFavoritesPlaylist);
               },
@@ -189,7 +191,8 @@ class StationsList extends StatelessWidget {
                     )
                   ],
                 ),
-              ));
+              )),
+          );
         },
         childCount: stations.length, // Number of items in the list
       ),
