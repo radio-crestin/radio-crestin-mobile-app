@@ -178,7 +178,7 @@ class CarPlayService {
     _flutterCarplay!.addListenerOnConnectionChange((status) {
       _log("CarPlay connection status changed: $status");
       _isConnected = status == ConnectionStatusTypes.connected;
-      if (!_isConnected) {
+      if (status == ConnectionStatusTypes.disconnected) {
         _audioHandler.activePlaylist = [];
       }
     });
@@ -349,7 +349,7 @@ class CarPlayService {
     _flutterAndroidAuto!.addListenerOnConnectionChange((status) {
       _log("Android Auto connection status changed: $status");
       _isConnected = status == ConnectionStatusTypes.connected;
-      if (!_isConnected) {
+      if (status == ConnectionStatusTypes.disconnected) {
         _audioHandler.activePlaylist = [];
       }
     });

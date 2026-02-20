@@ -13,6 +13,7 @@ import 'package:radio_crestin/performance_monitor.dart';
 import 'package:radio_crestin/tracking.dart';
 import 'package:radio_crestin/types/Station.dart';
 import 'package:radio_crestin/services/image_cache_service.dart';
+import 'package:radio_crestin/services/car_play_service.dart';
 import 'package:radio_crestin/services/station_data_service.dart';
 import 'package:radio_crestin/utils.dart';
 import 'package:rxdart/rxdart.dart';
@@ -29,6 +30,18 @@ Future<AppAudioHandler> initAudioService({required graphqlClient}) async {
     // Currently it's disabled because it creates an insecure proxy on localhost to add this header
     // and it's needs more configuration
     // userAgent: 'radiocrestinapp/1.0 (Linux;Android 11) https://www.radio-crestin.com',
+    audioLoadConfiguration: const AudioLoadConfiguration(
+      androidLoadControl: AndroidLoadControl(
+        minBufferDuration: Duration(minutes: 2),
+        maxBufferDuration: Duration(minutes: 2),
+        bufferForPlaybackDuration: Duration(milliseconds: 2500),
+        bufferForPlaybackAfterRebufferDuration: Duration(seconds: 5),
+      ),
+      darwinLoadControl: DarwinLoadControl(
+        preferredForwardBufferDuration: Duration(minutes: 2),
+        canUseNetworkResourcesForLiveStreamingWhilePaused: true,
+      ),
+    ),
   );
   return await AudioService.init(
     builder: () {
@@ -168,13 +181,31 @@ class AppAudioHandler extends BaseAudioHandler {
     // Propagate all events from the audio player to AudioService clients.
     player.playbackEventStream.listen(_broadcastState);
 
-    // In this example, the service stops when reaching the end.
+    // Handle stream lifecycle events:
+    // - completed: HLS reconnect, MP3 stop
+    // - idle while playing: stream dropped (e.g., network lost in background)
     player.processingStateStream.listen((state) {
       _log("processingStateStream: $state");
-      if (state == ProcessingState.completed) stop();
+      if (state == ProcessingState.completed) {
+        final isHls = _loadedStreamUrl?.contains('.m3u8') ?? false;
+        if (isHls) {
+          _log("processingStateStream: HLS stream completed unexpectedly, reconnecting");
+          _loadedStreamUrl = null;
+          play();
+        } else {
+          stop();
+        }
+      } else if (state == ProcessingState.idle && player.playing) {
+        _log("processingStateStream: stream lost (idle while playing), reconnecting");
+        _loadedStreamUrl = null;
+        play();
+      }
     });
 
     await player.setLoopMode(LoopMode.off);
+    // Note: just_audio handles audio session interruptions automatically via
+    // handleInterruptions: true (default). It pauses on interruption begin and
+    // resumes on interruption end when shouldResume=true.
   }
 
   @override
@@ -292,15 +323,19 @@ class AppAudioHandler extends BaseAudioHandler {
   }
 
   String addTrackingParametersToUrl(String url) {
+    // HLS servers reject unknown query parameters with redirect loops.
+    // iOS AVFoundation hard-limits redirects to 16, causing -1007 errors.
+    if (url.contains('.m3u8')) return url;
+
     final platform = Platform.isIOS ? "ios" : (Platform.isAndroid ? "android" : "unknown");
     final deviceId = globals.deviceId;
-    
+
     final uri = Uri.parse(url);
     final queryParams = Map<String, String>.from(uri.queryParameters);
-    
+
     queryParams['ref'] = 'radio-crestin-mobile-app-$platform';
     queryParams['s'] = deviceId;
-    
+
     return uri.replace(queryParameters: queryParams).toString();
   }
 
@@ -499,11 +534,18 @@ class AppAudioHandler extends BaseAudioHandler {
   @override
   Future<void> onTaskRemoved() {
     _log('onTaskRemoved()');
+    // Don't stop audio if CarPlay/Android Auto is connected — user may still be listening
+    try {
+      final carPlayService = GetIt.instance<CarPlayService>();
+      if (carPlayService.isConnected) {
+        _log('onTaskRemoved: CarPlay/Android Auto connected, keeping audio alive');
+        return super.onTaskRemoved();
+      }
+    } catch (_) {}
     _disconnectTimer?.cancel();
     _loadedStreamUrl = null;
     stopListeningTracker();
     player.stop();
-    // player.dispose();
     stationDataService.cancelWatchStations();
     return super.onTaskRemoved();
   }
@@ -562,6 +604,18 @@ class AppAudioHandler extends BaseAudioHandler {
 
   String get currentStreamUrl {
     return mediaItem.value?.id ?? "-";
+  }
+
+  /// Called on foreground resume. Reconnects if the stream was silently lost
+  /// in background (covers the case where player.playing is already false,
+  /// which the processingStateStream listener doesn't catch).
+  void reconnectIfNeeded() {
+    if (currentStation.valueOrNull == null) return;
+    if (player.processingState == ProcessingState.idle) {
+      _log("reconnectIfNeeded: player idle, reconnecting");
+      _loadedStreamUrl = null;
+      play();
+    }
   }
 
   // Last played station

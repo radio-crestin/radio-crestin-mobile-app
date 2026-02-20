@@ -198,7 +198,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) async {
-    if (state == AppLifecycleState.detached) {
+    if (state == AppLifecycleState.resumed) {
+      // App returned to foreground — check if audio stream was lost in background
+      _audioHandler.reconnectIfNeeded();
+    } else if (state == AppLifecycleState.detached) {
       // Stop the audio service when app is being terminated
       try {
         await _audioHandler.stop();
