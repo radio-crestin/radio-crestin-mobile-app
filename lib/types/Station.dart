@@ -56,11 +56,14 @@ class Station {
     return Uri.parse(Utils.getStationThumbnailUrl(rawStationData));
   }
 
-  Widget get thumbnail => Utils.displayImage(
+  Widget get thumbnail => displayThumbnail();
+
+  Widget displayThumbnail({int? cacheWidth}) => Utils.displayImage(
     Utils.getStationThumbnailUrl(rawStationData),
     fallbackImageUrl: rawStationData.thumbnail_url,
     cache: Utils.getStationThumbnailUrl(rawStationData) == rawStationData.thumbnail_url,
     cachedFilePath: cachedArtPath,
+    cacheWidth: cacheWidth,
   );
 
 

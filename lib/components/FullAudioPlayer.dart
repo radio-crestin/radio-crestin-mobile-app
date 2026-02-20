@@ -138,7 +138,9 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                 ),
                 child: ClipRRect(
                   borderRadius: const BorderRadius.all(Radius.circular(8)),
-                  child: currentStation?.thumbnail,
+                  child: currentStation?.displayThumbnail(
+                    cacheWidth: (260 * MediaQuery.devicePixelRatioOf(context)).ceil(),
+                  ),
                 ),
               ),
             ),

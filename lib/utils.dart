@@ -56,7 +56,8 @@ class Utils {
     return streams.map((e) => e.stream_url.toString()).toList();
   }
 
-  static Widget displayImage(String url, {String? fallbackImageUrl, bool cache = false, String? cachedFilePath}) {
+  static Widget displayImage(String url, {String? fallbackImageUrl, bool cache = false, String? cachedFilePath, int? cacheWidth}) {
+    cacheWidth ??= 210;
     if (url.isEmpty && cachedFilePath == null) {
       return Icon(Icons.photo, color: Colors.red.shade100,);
     }
@@ -66,7 +67,7 @@ class Utils {
       return ExtendedImage.file(
         File(cachedFilePath),
         fit: BoxFit.cover,
-        cacheWidth: 210,
+        cacheWidth: cacheWidth,
         loadStateChanged: (ExtendedImageState state) {
           switch (state.extendedImageLoadState) {
             case LoadState.loading:
@@ -75,16 +76,17 @@ class Utils {
               return null;
             case LoadState.failed:
               // Fall back to network if local file fails
-              return _networkImage(url, fallbackImageUrl: fallbackImageUrl, cache: cache);
+              return _networkImage(url, fallbackImageUrl: fallbackImageUrl, cache: cache, cacheWidth: cacheWidth);
           }
         },
       );
     }
 
-    return _networkImage(url, fallbackImageUrl: fallbackImageUrl, cache: cache);
+    return _networkImage(url, fallbackImageUrl: fallbackImageUrl, cache: cache, cacheWidth: cacheWidth);
   }
 
-  static Widget _networkImage(String url, {String? fallbackImageUrl, bool cache = false}) {
+  static Widget _networkImage(String url, {String? fallbackImageUrl, bool cache = false, int? cacheWidth}) {
+    cacheWidth ??= 210;
     if (url.isEmpty) {
       return Icon(Icons.photo, color: Colors.red.shade100,);
     }
@@ -95,7 +97,7 @@ class Utils {
       cache: cache,
       retries: 3,
       timeLimit: const Duration(seconds: 3),
-      cacheWidth: 210,
+      cacheWidth: cacheWidth,
       loadStateChanged: (ExtendedImageState state) {
         switch (state.extendedImageLoadState) {
           case LoadState.loading:
@@ -108,7 +110,7 @@ class Utils {
                 fallbackImageUrl!,
                 fit: BoxFit.cover,
                 cache: true,
-                cacheWidth: 210,
+                cacheWidth: cacheWidth,
               );
             }
             return Icon(Icons.photo, color: Colors.red.shade100,);
