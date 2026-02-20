@@ -335,7 +335,7 @@ class AppAudioHandler extends BaseAudioHandler {
           }
           final trackedUrl = addTrackingParametersToUrl(streamUrl);
           final isHls = streamUrl.contains('.m3u8');
-          final timeout = isHls ? const Duration(seconds: 1) : const Duration(seconds: 10);
+          final timeout = isHls ? const Duration(seconds: 3) : const Duration(seconds: 10);
           await player.setAudioSource(
             AudioSource.uri(Uri.parse(trackedUrl)),
             preload: true,
