@@ -343,6 +343,7 @@ class AppAudioHandler extends BaseAudioHandler {
   Future<void> play() async {
     _log("play");
     _disconnectTimer?.cancel();
+    stationDataService.resumePolling();
 
     if (currentStation.value != null) {
       AppTracking.trackPlayStation(currentStation.value!, graphQLClient: graphqlClient);
@@ -427,6 +428,7 @@ class AppAudioHandler extends BaseAudioHandler {
         AudioSource.uri(Uri.parse(CONSTANTS.STATIC_MP3_URL)),
         preload: false,
       );
+      stationDataService.pausePolling();
     });
 
     return super.pause();

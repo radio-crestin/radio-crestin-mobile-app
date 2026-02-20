@@ -201,6 +201,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       // App returned to foreground — check if audio stream was lost in background
       _audioHandler.reconnectIfNeeded();
+      // Resume station polling (may have been paused in background)
+      _stationDataService.resumePolling();
+    } else if (state == AppLifecycleState.paused) {
+      // App went to background — stop polling if not playing to save bandwidth
+      if (!_audioHandler.player.playing) {
+        _stationDataService.pausePolling();
+      }
     } else if (state == AppLifecycleState.detached) {
       // Stop the audio service when app is being terminated
       try {

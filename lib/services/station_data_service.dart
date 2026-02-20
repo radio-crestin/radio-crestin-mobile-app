@@ -13,7 +13,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class StationDataService {
   final GraphQLClient graphqlClient;
+  ObservableQuery<Query$GetStations>? _watchQuery;
   late StreamSubscription<QueryResult<Query$GetStations>> _watchStations;
+  static const _pollInterval = Duration(seconds: 5);
 
   final BehaviorSubject<List<Station>> stations = BehaviorSubject.seeded(<Station>[]);
   final BehaviorSubject<List<Station>> filteredStations = BehaviorSubject.seeded(<Station>[]);
@@ -156,17 +158,17 @@ class StationDataService {
     _preCacheStationThumbnails();
 
     // Poll for live updates every 5 seconds
-    _watchStations = graphqlClient
+    _watchQuery = graphqlClient
         .watchQuery$GetStations(
           WatchOptions$Query$GetStations(
             fetchPolicy: FetchPolicy.cacheAndNetwork,
             errorPolicy: ErrorPolicy.all,
             cacheRereadPolicy: CacheRereadPolicy.ignoreAll,
-            pollInterval: const Duration(seconds: 5),
+            pollInterval: _pollInterval,
             fetchResults: true,
           ),
-        )
-        .stream
+        );
+    _watchStations = _watchQuery!.stream
         .listen((event) async {
       _log("Done fetching stations");
       final parsedData = event.parsedData;
@@ -231,7 +233,20 @@ class StationDataService {
     await prefs.setString(_favoriteStationsKey, json.encode(favoriteStationSlugs.value));
   }
 
+  void pausePolling() {
+    _log("Pausing station polling");
+    _watchQuery?.stopPolling();
+  }
+
+  void resumePolling() {
+    if (_watchQuery != null && !(_watchQuery!.isCurrentlyPolling)) {
+      _log("Resuming station polling");
+      _watchQuery!.startPolling(_pollInterval);
+    }
+  }
+
   void cancelWatchStations() {
+    _watchQuery?.close();
     _watchStations.cancel();
   }
 }
