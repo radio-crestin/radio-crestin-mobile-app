@@ -205,10 +205,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       _audioHandler.reconnectIfNeeded();
       // Resume station polling (may have been paused in background)
       _stationDataService.resumePolling();
-      // Auto-play if the "always play" toggle is enabled and not already playing
+      // Auto-play if the "always play" toggle is enabled and not already playing.
+      // Use isPlayingOrConnecting to avoid interrupting playback that is still
+      // buffering (e.g. during cold start where resumed fires before audio is ready).
       try {
-        final isPlaying = (await _audioHandler.playbackState.first).playing;
-        if (!isPlaying) {
+        if (!_audioHandler.isPlayingOrConnecting) {
           autoPlayProcessed = false;
           playerAutoplay();
         }

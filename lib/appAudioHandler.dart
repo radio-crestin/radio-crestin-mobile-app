@@ -83,6 +83,7 @@ class AppAudioHandler extends BaseAudioHandler {
   // True while play() is loading a new source — keeps broadcast in loading state
   // to prevent spinner flash between setAudioSource() and player.play().
   bool _isConnecting = false;
+  bool get isPlayingOrConnecting => player.playing || _isConnecting;
   Timer? _disconnectTimer;
   static const _disconnectDelay = Duration(seconds: 60);
 
@@ -260,6 +261,16 @@ class AppAudioHandler extends BaseAudioHandler {
 
   Future<void> playStation(Station station, {List<Station>? playlist, bool isFavoritesPlaylist = false}) async {
     _log('playStation($station)');
+
+    // Avoid stop-restart if already playing/loading this exact station
+    if (currentStation.valueOrNull?.id == station.id && isPlayingOrConnecting) {
+      _log('playStation: already playing/loading station ${station.slug}, skipping');
+      if (playlist != null) {
+        activePlaylist = List.from(playlist);
+        _activePlaylistIsFavorites = isFavoritesPlaylist;
+      }
+      return;
+    }
 
     // Stop and clean up the previous station before starting the new one
     _disconnectTimer?.cancel();
