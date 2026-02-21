@@ -67,7 +67,7 @@ class MiniAudioPlayer extends StatelessWidget {
                   AnimatedSwitcher(
                     duration: const Duration(milliseconds: 250),
                     child: SizedBox(
-                      key: ValueKey('mini-thumb-${currentStation?.id}'),
+                      key: ValueKey('mini-thumb-${currentStation?.id}-${currentStation?.songId}'),
                       width: 52.0,
                       height: 52.0,
                       child: ClipRRect(

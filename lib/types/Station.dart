@@ -58,13 +58,18 @@ class Station {
 
   Widget get thumbnail => displayThumbnail();
 
-  Widget displayThumbnail({int? cacheWidth}) => Utils.displayImage(
-    Utils.getStationThumbnailUrl(rawStationData),
-    fallbackImageUrl: rawStationData.thumbnail_url,
-    cache: Utils.getStationThumbnailUrl(rawStationData) == rawStationData.thumbnail_url,
-    cachedFilePath: cachedArtPath,
-    cacheWidth: cacheWidth,
-  );
+  Widget displayThumbnail({int? cacheWidth}) {
+    final hasSongThumbnail = rawStationData.now_playing?.song?.thumbnail_url != null;
+    return Utils.displayImage(
+      Utils.getStationThumbnailUrl(rawStationData),
+      fallbackImageUrl: rawStationData.thumbnail_url,
+      cache: true,
+      cachedFilePath: cachedArtPath,
+      cacheWidth: cacheWidth,
+      // Song thumbnails expire after 10 minutes; station logos cached permanently
+      cacheMaxAge: hasSongThumbnail ? const Duration(minutes: 10) : null,
+    );
+  }
 
 
   MediaItem get mediaItem {

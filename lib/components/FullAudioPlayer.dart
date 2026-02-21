@@ -121,7 +121,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 300),
               child: Container(
-                key: ValueKey('thumb-${currentStation?.id}'),
+                key: ValueKey('thumb-${currentStation?.id}-${currentStation?.songId}'),
                 width: 260.0,
                 height: 260.0,
                 decoration: BoxDecoration(

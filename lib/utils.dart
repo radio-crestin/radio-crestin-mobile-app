@@ -56,13 +56,20 @@ class Utils {
     return streams.map((e) => e.stream_url.toString()).toList();
   }
 
-  static Widget displayImage(String url, {String? fallbackImageUrl, bool cache = false, String? cachedFilePath, int? cacheWidth}) {
+  static Widget displayImage(String url, {String? fallbackImageUrl, bool cache = false, String? cachedFilePath, int? cacheWidth, Duration? cacheMaxAge}) {
     cacheWidth ??= 210;
     if (url.isEmpty && cachedFilePath == null) {
       return Icon(Icons.photo, color: Colors.red.shade100,);
     }
 
-    // Prefer local cached file (instant, no network)
+    // When URL is available, always use network with caching to avoid
+    // widget-type switches (network → file) that cause grey flash flicker.
+    // ExtendedImage.network with cache:true uses its own memory + disk cache.
+    if (url.isNotEmpty) {
+      return _networkImage(url, fallbackImageUrl: fallbackImageUrl, cache: cache, cacheWidth: cacheWidth, cacheMaxAge: cacheMaxAge);
+    }
+
+    // Fallback to local cached file only when URL is unavailable (offline)
     if (cachedFilePath != null) {
       return ExtendedImage.file(
         File(cachedFilePath),
@@ -75,17 +82,16 @@ class Utils {
             case LoadState.completed:
               return null;
             case LoadState.failed:
-              // Fall back to network if local file fails
-              return _networkImage(url, fallbackImageUrl: fallbackImageUrl, cache: cache, cacheWidth: cacheWidth);
+              return Icon(Icons.photo, color: Colors.red.shade100,);
           }
         },
       );
     }
 
-    return _networkImage(url, fallbackImageUrl: fallbackImageUrl, cache: cache, cacheWidth: cacheWidth);
+    return Icon(Icons.photo, color: Colors.red.shade100,);
   }
 
-  static Widget _networkImage(String url, {String? fallbackImageUrl, bool cache = false, int? cacheWidth}) {
+  static Widget _networkImage(String url, {String? fallbackImageUrl, bool cache = false, int? cacheWidth, Duration? cacheMaxAge}) {
     cacheWidth ??= 210;
     if (url.isEmpty) {
       return Icon(Icons.photo, color: Colors.red.shade100,);
@@ -98,6 +104,7 @@ class Utils {
       retries: 3,
       timeLimit: const Duration(seconds: 3),
       cacheWidth: cacheWidth,
+      cacheMaxAge: cacheMaxAge,
       loadStateChanged: (ExtendedImageState state) {
         switch (state.extendedImageLoadState) {
           case LoadState.loading:
