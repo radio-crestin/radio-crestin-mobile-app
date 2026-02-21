@@ -32,10 +32,14 @@ Future<AppAudioHandler> initAudioService({required graphqlClient}) async {
     // userAgent: 'radiocrestinapp/1.0 (Linux;Android 11) https://www.radio-crestin.com',
     audioLoadConfiguration: const AudioLoadConfiguration(
       androidLoadControl: AndroidLoadControl(
-        minBufferDuration: Duration(minutes: 2),
+        minBufferDuration: Duration(seconds: 30),
         maxBufferDuration: Duration(minutes: 2),
         bufferForPlaybackDuration: Duration(milliseconds: 2500),
         bufferForPlaybackAfterRebufferDuration: Duration(seconds: 5),
+      ),
+      androidLivePlaybackSpeedControl: AndroidLivePlaybackSpeedControl(
+        fallbackMinPlaybackSpeed: 1.0,
+        fallbackMaxPlaybackSpeed: 1.0,
       ),
       darwinLoadControl: DarwinLoadControl(
         preferredForwardBufferDuration: Duration(minutes: 2),
@@ -87,6 +91,7 @@ class AppAudioHandler extends BaseAudioHandler {
   bool get isPlayingOrConnecting => player.playing || _isConnecting;
   Timer? _disconnectTimer;
   static const _disconnectDelay = Duration(seconds: 60);
+  static const _liveEdgeOffset = Duration(minutes: 2);
 
   // Track last emitted mediaItem fields to avoid redundant Android notification updates
   int? _lastEmittedSongId;
@@ -426,6 +431,11 @@ class AppAudioHandler extends BaseAudioHandler {
 
     PerformanceMonitor.endOperation('audio_play');
     _isConnecting = false;
+
+    if (_loadedStreamType == 'HLS') {
+      await _seekBehindLiveEdge();
+    }
+
     return player.play();
   }
 
@@ -453,6 +463,23 @@ class AppAudioHandler extends BaseAudioHandler {
     });
 
     return super.pause();
+  }
+
+  /// For HLS streams with retained segments, seeks 2 minutes behind the live
+  /// edge so the buffer fills instantly at network speed.
+  Future<void> _seekBehindLiveEdge() async {
+    final duration = player.duration;
+    if (duration == null || duration < _liveEdgeOffset + const Duration(seconds: 10)) {
+      _log('_seekBehindLiveEdge: window $duration too short, skipping');
+      return;
+    }
+    final seekTarget = duration - _liveEdgeOffset;
+    _log('_seekBehindLiveEdge: duration=$duration, seeking to $seekTarget');
+    try {
+      await player.seek(seekTarget);
+    } catch (e) {
+      _log('_seekBehindLiveEdge: seek failed ($e), continuing from live edge');
+    }
   }
 
   @override
