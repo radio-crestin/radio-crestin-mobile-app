@@ -56,6 +56,14 @@ class Utils {
     return streams.map((e) => e.stream_url.toString()).toList();
   }
 
+  static List<Map<String, String>> getStationStreamObjects(Query$GetStations$stations? station) {
+    if (station == null) {
+      return [];
+    }
+    var streams = station.station_streams..sort((a, b) => a.order.compareTo(b.order));
+    return streams.map((e) => {"url": e.stream_url, "type": e.type}).toList();
+  }
+
   static Widget displayImage(String url, {String? fallbackImageUrl, bool cache = false, String? cachedFilePath, int? cacheWidth, Duration? cacheMaxAge}) {
     cacheWidth ??= 210;
     if (url.isEmpty && cachedFilePath == null) {

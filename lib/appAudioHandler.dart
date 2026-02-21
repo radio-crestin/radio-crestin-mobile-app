@@ -80,6 +80,7 @@ class AppAudioHandler extends BaseAudioHandler {
 
   // Track loaded stream to avoid unnecessary reconnection on pause/resume
   String? _loadedStreamUrl;
+  String? _loadedStreamType;
   // True while play() is loading a new source — keeps broadcast in loading state
   // to prevent spinner flash between setAudioSource() and player.play().
   bool _isConnecting = false;
@@ -188,10 +189,11 @@ class AppAudioHandler extends BaseAudioHandler {
     player.processingStateStream.listen((state) {
       _log("processingStateStream: $state");
       if (state == ProcessingState.completed) {
-        final isHls = _loadedStreamUrl?.contains('.m3u8') ?? false;
+        final isHls = _loadedStreamType == 'HLS';
         if (isHls) {
           _log("processingStateStream: HLS stream completed unexpectedly, reconnecting");
           _loadedStreamUrl = null;
+          _loadedStreamType = null;
           play();
         } else {
           stop();
@@ -199,6 +201,7 @@ class AppAudioHandler extends BaseAudioHandler {
       } else if (state == ProcessingState.idle && player.playing) {
         _log("processingStateStream: stream lost (idle while playing), reconnecting");
         _loadedStreamUrl = null;
+        _loadedStreamType = null;
         play();
       }
     });
@@ -279,6 +282,7 @@ class AppAudioHandler extends BaseAudioHandler {
       await player.stop();
     }
     _loadedStreamUrl = null;
+    _loadedStreamType = null;
 
     await selectStation(station, playlist: playlist, isFavoritesPlaylist: isFavoritesPlaylist);
     if (Platform.isAndroid) {
@@ -333,10 +337,10 @@ class AppAudioHandler extends BaseAudioHandler {
     return super.skipToQueueItem(index);
   }
 
-  String addTrackingParametersToUrl(String url) {
+  String addTrackingParametersToUrl(String url, {bool isHls = false}) {
     // HLS servers reject unknown query parameters with redirect loops.
     // iOS AVFoundation hard-limits redirects to 16, causing -1007 errors.
-    if (url.contains('.m3u8')) return url;
+    if (isHls) return url;
 
     final platform = Platform.isIOS ? "ios" : (Platform.isAndroid ? "android" : "unknown");
     final deviceId = globals.deviceId;
@@ -383,32 +387,37 @@ class AppAudioHandler extends BaseAudioHandler {
     while (item != null && initialStationId == currentStation.valueOrNull?.id) {
       if (retry < maxRetries) {
         final streams = item.extras?["station_streams"] as List<dynamic>?;
-        final streamUrl = streams?[retry % (streams?.length ?? 1)]?.toString() ?? item.id;
-        _log("play: attempt $retry - $streamUrl");
+        final streamEntry = streams?[retry % (streams?.length ?? 1)];
+        final streamUrl = (streamEntry is Map ? streamEntry["url"] : streamEntry)?.toString() ?? item.id;
+        final streamType = streamEntry is Map ? streamEntry["type"]?.toString() : null;
+        final isHls = streamType == 'HLS';
+        _log("play: attempt $retry - $streamUrl (type: $streamType)");
         try {
           // Stop player before retrying to cancel any lingering setAudioSource operation
           if (retry > 0) {
             await player.stop();
           }
-          final trackedUrl = addTrackingParametersToUrl(streamUrl);
-          final isHls = streamUrl.contains('.m3u8');
+          final trackedUrl = addTrackingParametersToUrl(streamUrl, isHls: isHls);
           final timeout = isHls ? const Duration(seconds: 3) : const Duration(seconds: 10);
           await player.setAudioSource(
             AudioSource.uri(Uri.parse(trackedUrl)),
             preload: true,
           ).timeout(timeout);
           _loadedStreamUrl = streamUrl;
+          _loadedStreamType = streamType;
           _log("play: source loaded successfully ($streamUrl)");
           break;
         } catch (e) {
           _log("play: attempt $retry failed - $e");
           _loadedStreamUrl = null;
+          _loadedStreamType = null;
           retry++;
         }
       } else {
         _log("play: max retries reached");
         _isConnecting = false;
         _loadedStreamUrl = null;
+        _loadedStreamType = null;
         PerformanceMonitor.endOperation('audio_play');
         stop();
         return;
@@ -435,6 +444,7 @@ class AppAudioHandler extends BaseAudioHandler {
     _disconnectTimer = Timer(_disconnectDelay, () {
       _log("pause: disconnecting idle stream after ${_disconnectDelay.inSeconds}s");
       _loadedStreamUrl = null;
+      _loadedStreamType = null;
       player.setAudioSource(
         AudioSource.uri(Uri.parse(CONSTANTS.STATIC_MP3_URL)),
         preload: false,
@@ -450,6 +460,7 @@ class AppAudioHandler extends BaseAudioHandler {
     _log("stop");
     _disconnectTimer?.cancel();
     _loadedStreamUrl = null;
+    _loadedStreamType = null;
     if (currentStation.value != null) {
       AppTracking.trackStopStation(currentStation.value!);
     }
@@ -557,6 +568,7 @@ class AppAudioHandler extends BaseAudioHandler {
     } catch (_) {}
     _disconnectTimer?.cancel();
     _loadedStreamUrl = null;
+    _loadedStreamType = null;
     stopListeningTracker();
     player.stop();
     stationDataService.cancelWatchStations();
@@ -568,6 +580,7 @@ class AppAudioHandler extends BaseAudioHandler {
     _log('dispose()');
     _disconnectTimer?.cancel();
     _loadedStreamUrl = null;
+    _loadedStreamType = null;
     stopListeningTracker();
     await player.stop();
     await player.dispose();
@@ -628,6 +641,7 @@ class AppAudioHandler extends BaseAudioHandler {
     if (player.processingState == ProcessingState.idle) {
       _log("reconnectIfNeeded: player idle, reconnecting");
       _loadedStreamUrl = null;
+      _loadedStreamType = null;
       play();
     }
   }

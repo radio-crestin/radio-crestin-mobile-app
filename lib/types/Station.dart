@@ -92,7 +92,7 @@ class Station {
         "total_listeners": rawStationData.total_listeners,
         "station_is_up": isUp,
         "station_thumbnail_url": rawStationData.thumbnail_url,
-        "station_streams": Utils.getStationStreamUrls(rawStationData),
+        "station_streams": Utils.getStationStreamObjects(rawStationData),
       },
     );
   }
