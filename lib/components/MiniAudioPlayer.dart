@@ -64,52 +64,40 @@ class MiniAudioPlayer extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: <Widget>[
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 250),
-                    child: SizedBox(
-                      key: ValueKey('mini-thumb-${currentStation?.id}-${currentStation?.songId}'),
-                      width: 52.0,
-                      height: 52.0,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(12.0),
-                        child: currentStation?.thumbnail,
-                      ),
+                  SizedBox(
+                    width: 52.0,
+                    height: 52.0,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12.0),
+                      child: currentStation?.thumbnail,
                     ),
                   ),
                   const SizedBox(width: 16.0),
                   Expanded(
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 250),
-                      layoutBuilder: (currentChild, previousChildren) => Stack(
-                        alignment: Alignment.centerLeft,
-                        children: [...previousChildren, if (currentChild != null) currentChild],
-                      ),
-                      child: Column(
-                        key: ValueKey('mini-text-${currentStation?.id}-$displaySubtitle'),
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: <Widget>[
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: <Widget>[
+                        Text(
+                          displayTitle,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (displaySubtitle.isNotEmpty)
                           Text(
-                            displayTitle,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
+                            displaySubtitle,
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.7),
+                              fontSize: 12.0,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          if (displaySubtitle.isNotEmpty)
-                            Text(
-                              displaySubtitle,
-                              style: TextStyle(
-                                color: Colors.white.withOpacity(0.7),
-                                fontSize: 12.0,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                        ],
-                      ),
+                      ],
                     ),
                   ),
                   const SizedBox(width: 8.0),
