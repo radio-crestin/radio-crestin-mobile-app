@@ -5,6 +5,7 @@ import 'dart:developer' as developer;
 import 'package:flutter/services.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:radio_crestin/performance_monitor.dart';
+import 'package:radio_crestin/services/network_service.dart';
 import 'package:radio_crestin/queries/getStations.graphql.dart';
 import 'package:radio_crestin/services/image_cache_service.dart';
 import 'package:radio_crestin/types/Station.dart';
@@ -191,6 +192,7 @@ class StationDataService {
   }
 
   void _preCacheStationThumbnails() {
+    if (NetworkService.instance.isOnMobileData.value) return;
     final urls = stations.value
         .where((s) => s.thumbnailUrl != null && s.thumbnailUrl!.isNotEmpty)
         .map((s) => s.thumbnailUrl!)

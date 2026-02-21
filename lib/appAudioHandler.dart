@@ -14,6 +14,7 @@ import 'package:radio_crestin/tracking.dart';
 import 'package:radio_crestin/types/Station.dart';
 import 'package:radio_crestin/services/image_cache_service.dart';
 import 'package:radio_crestin/services/car_play_service.dart';
+import 'package:radio_crestin/services/network_service.dart';
 import 'package:radio_crestin/services/station_data_service.dart';
 import 'package:radio_crestin/utils.dart';
 import 'package:rxdart/rxdart.dart';
@@ -232,24 +233,70 @@ class AppAudioHandler extends BaseAudioHandler {
       _activePlaylistIsFavorites = isFavoritesPlaylist;
     }
 
-    final item = station.mediaItem;
     final isFav = stationDataService.favoriteStationSlugs.value.contains(station.slug);
 
-    _lastEmittedSongId = station.songId;
-    _lastEmittedArtUriString = item.artUri?.toString();
-    mediaItem.add(item.copyWith(rating: Rating.newHeartRating(isFav)));
+    if (NetworkService.instance.isOnMobileData.value) {
+      final stripped = _buildStationOnlyMediaItem(station);
+      _lastEmittedSongId = -1;
+      _lastEmittedArtUriString = stripped.artUri?.toString();
+      mediaItem.add(stripped.copyWith(rating: Rating.newHeartRating(isFav)));
+    } else {
+      final item = station.mediaItem;
+      _lastEmittedSongId = station.songId;
+      _lastEmittedArtUriString = item.artUri?.toString();
+      mediaItem.add(item.copyWith(rating: Rating.newHeartRating(isFav)));
+      _cacheSongThumbnail(station);
+    }
     currentStation.add(station);
 
     await setLastPlayedStation(station);
+  }
 
-    // Cache the song thumbnail on-demand so notification/lock screen gets a local file
-    _cacheSongThumbnail(station);
+  /// Builds a MediaItem with only station info (no song metadata/thumbnail).
+  /// Used in data-saving mode (mobile data + background).
+  MediaItem _buildStationOnlyMediaItem(Station station) {
+    final Uri stationArtUri;
+    final cachedPath = station.cachedThumbnailPath;
+    if (cachedPath != null) {
+      stationArtUri = Uri.file(cachedPath);
+    } else {
+      final thumbnailUrl = station.rawStationData.thumbnail_url;
+      stationArtUri = (thumbnailUrl != null && thumbnailUrl.isNotEmpty)
+          ? Uri.parse(thumbnailUrl)
+          : Uri.parse(CONSTANTS.DEFAULT_STATION_THUMBNAIL_URL);
+    }
+    final isFav = stationDataService.favoriteStationSlugs.value.contains(station.slug);
+    return MediaItem(
+      id: Utils.getStationStreamUrls(station.rawStationData).firstOrNull ?? "",
+      title: station.rawStationData.title,
+      displayTitle: station.rawStationData.title,
+      displaySubtitle: "",
+      artist: "",
+      duration: null,
+      artUri: stationArtUri,
+      isLive: true,
+      rating: Rating.newHeartRating(isFav),
+      extras: {
+        "station_id": station.rawStationData.id,
+        "station_slug": station.rawStationData.slug,
+        "station_title": station.rawStationData.title,
+        "song_id": -1,
+        "song_title": "",
+        "song_artist": "",
+        "total_listeners": station.rawStationData.total_listeners,
+        "station_is_up": station.isUp,
+        "station_thumbnail_url": station.rawStationData.thumbnail_url,
+        "station_streams": Utils.getStationStreamObjects(station.rawStationData),
+      },
+    );
   }
 
   void _cacheSongThumbnail(Station station) {
+    if (NetworkService.instance.isOnMobileData.value) return;
     final songThumbnailUrl = station.rawStationData.now_playing?.song?.thumbnail_url;
     if (songThumbnailUrl != null && songThumbnailUrl.isNotEmpty) {
       ImageCacheService.instance.getOrDownload(songThumbnailUrl).then((file) {
+        if (NetworkService.instance.isOnMobileData.value) return;
         if (file != null && currentStation.valueOrNull?.id == station.id) {
           // Update mediaItem with local file URI so notification uses cached image
           final currentItem = mediaItem.valueOrNull;
@@ -465,9 +512,14 @@ class AppAudioHandler extends BaseAudioHandler {
     return super.pause();
   }
 
-  /// For HLS streams with retained segments, seeks 2 minutes behind the live
-  /// edge so the buffer fills instantly at network speed.
+  /// For HLS streams with retained segments on mobile data, seeks 2 minutes
+  /// behind the live edge so the buffer fills instantly at network speed.
+  /// On WiFi this is unnecessary — WiFi is stable enough for live edge playback.
   Future<void> _seekBehindLiveEdge() async {
+    if (!NetworkService.instance.isOnMobileData.value) {
+      _log('_seekBehindLiveEdge: on WiFi, skipping');
+      return;
+    }
     final duration = player.duration;
     if (duration == null || duration < _liveEdgeOffset + const Duration(seconds: 10)) {
       _log('_seekBehindLiveEdge: window $duration too short, skipping');
@@ -702,6 +754,28 @@ class AppAudioHandler extends BaseAudioHandler {
   }
 
   void _initUpdateCurrentStationMetadata() {
+    // When mobile data toggles: immediately strip or restore notification metadata.
+    NetworkService.instance.isOnMobileData.stream.listen((onMobile) {
+      _log("isOnMobileData changed: $onMobile");
+      final station = currentStation.valueOrNull;
+      if (station == null || mediaItem.valueOrNull == null) return;
+
+      if (onMobile) {
+        final stripped = _buildStationOnlyMediaItem(station);
+        _lastEmittedSongId = -1;
+        _lastEmittedArtUriString = stripped.artUri?.toString();
+        mediaItem.add(stripped);
+      } else {
+        final fullItem = station.mediaItem;
+        final isFav = stationDataService.favoriteStationSlugs.value.contains(station.slug);
+        _lastEmittedSongId = station.songId;
+        _lastEmittedArtUriString = fullItem.artUri.toString();
+        mediaItem.add(fullItem.copyWith(rating: Rating.newHeartRating(isFav)));
+        _cacheSongThumbnail(station);
+      }
+    });
+
+    // Station data poll: update metadata when stations change.
     stationDataService.stations.stream.listen((stations) {
       _log("updateCurrentStationMetadata");
       final sortedStations = stations..sort((a, b) => a.order.compareTo(b.order));
@@ -717,27 +791,29 @@ class AppAudioHandler extends BaseAudioHandler {
 
       stationsMediaItems.add(newStationsMediaItems);
 
-      // Update current metadata only if it actually changed
       if (mediaItem.value != null && updatedCurrentStation != null) {
-        final newSongId = updatedCurrentStation.songId;
-        final newArtUri = updatedCurrentStation.artUri.toString();
+        if (NetworkService.instance.isOnMobileData.value) {
+          _log("updateCurrentStationMetadata: on mobile data, skipping song update");
+        } else {
+          final newSongId = updatedCurrentStation.songId;
+          final newArtUri = updatedCurrentStation.artUri.toString();
 
-        final songChanged = newSongId != _lastEmittedSongId;
-        final artChanged = newArtUri != _lastEmittedArtUriString;
+          final songChanged = newSongId != _lastEmittedSongId;
+          final artChanged = newArtUri != _lastEmittedArtUriString;
 
-        if (songChanged || artChanged) {
-          final newMediaItem =
-              newStationsMediaItems.where((item) => item.id == mediaItem.value?.id).firstOrNull;
-          if (newMediaItem != null) {
-            _lastEmittedSongId = newSongId;
-            _lastEmittedArtUriString = newMediaItem.artUri?.toString();
-            final isFav = stationDataService.favoriteStationSlugs.value.contains(updatedCurrentStation.slug);
-            mediaItem.add(newMediaItem.copyWith(rating: Rating.newHeartRating(isFav)));
-          }
+          if (songChanged || artChanged) {
+            final newMediaItem =
+                newStationsMediaItems.where((item) => item.id == mediaItem.value?.id).firstOrNull;
+            if (newMediaItem != null) {
+              _lastEmittedSongId = newSongId;
+              _lastEmittedArtUriString = newMediaItem.artUri?.toString();
+              final isFav = stationDataService.favoriteStationSlugs.value.contains(updatedCurrentStation.slug);
+              mediaItem.add(newMediaItem.copyWith(rating: Rating.newHeartRating(isFav)));
+            }
 
-          // Cache the new song thumbnail so Android notification gets a local file
-          if (songChanged) {
-            _cacheSongThumbnail(updatedCurrentStation);
+            if (songChanged) {
+              _cacheSongThumbnail(updatedCurrentStation);
+            }
           }
         }
       }

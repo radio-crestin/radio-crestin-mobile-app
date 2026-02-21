@@ -31,6 +31,7 @@ import 'globals.dart' as globals;
 import 'services/car_play_service.dart';
 import 'services/image_cache_service.dart';
 import 'services/quick_actions_service.dart';
+import 'services/network_service.dart';
 import 'services/station_data_service.dart';
 
 final getIt = GetIt.instance;
@@ -155,6 +156,11 @@ void main() async {
       ),
     ),
   );
+
+  // Initialize network service first (other services check connectivity)
+  final networkService = NetworkService();
+  await networkService.initialize();
+  getIt.registerSingleton<NetworkService>(networkService);
 
   // Initialize image cache before audio service (audio handler uses it for pre-caching)
   final imageCacheService = ImageCacheService();

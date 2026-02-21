@@ -25,6 +25,7 @@ import '../components/StationsList.dart';
 import '../globals.dart' as globals;
 import '../main.dart';
 import '../queries/getStations.graphql.dart';
+import '../services/network_service.dart';
 import '../services/station_data_service.dart';
 import '../types/Station.dart';
 import '../utils/PositionRetainedScrollPhysics.dart';
@@ -74,6 +75,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   final AppAudioHandler _audioHandler = getIt<AppAudioHandler>();
   final StationDataService _stationDataService = getIt<StationDataService>();
+  final NetworkService _networkService = getIt<NetworkService>();
   final AppLinks _appLinks = AppLinks();
 
   var autoPlayProcessed = false;
@@ -217,8 +219,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         developer.log('Error autoplaying on resume: $e');
       }
     } else if (state == AppLifecycleState.paused) {
-      // App went to background — stop polling if not playing to save bandwidth
-      if (!_audioHandler.player.playing) {
+      // App went to background — on mobile data, always pause polling to save data.
+      // On WiFi, only pause if not playing.
+      if (_networkService.isOnMobileData.value || !_audioHandler.player.playing) {
         _stationDataService.pausePolling();
       }
     } else if (state == AppLifecycleState.detached) {

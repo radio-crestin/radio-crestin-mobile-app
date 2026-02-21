@@ -77,6 +77,7 @@ dependencies:
   # Remove once Flutter stable includes the fix from flutter/flutter#181533.
   objective_c: 9.1.0
   quick_actions: ^1.1.0
+  connectivity_plus: ^6.1.5
 
 dev_dependencies:
   dependency_validator: ^5.0.3
