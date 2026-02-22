@@ -126,7 +126,10 @@ class FlutterAndroidAutoPlugin : FlutterPlugin, EventChannel.StreamHandler {
         call: MethodCall, result: MethodChannel.Result
     ) {
         val carContext = AndroidAutoService.session?.carContext
-        if (carContext == null) return;
+        if (carContext == null) {
+            result.success(false)
+            return
+        }
 
         currentScreen?.let {
             it.invalidate()
@@ -142,7 +145,10 @@ class FlutterAndroidAutoPlugin : FlutterPlugin, EventChannel.StreamHandler {
         call: MethodCall, result: MethodChannel.Result
     ) {
         val carContext = AndroidAutoService.session?.carContext
-        if (carContext == null) return;
+        if (carContext == null) {
+            result.success(false)
+            return
+        }
 
         val screenManager = carContext.getCarService(ScreenManager::class.java)
         if (screenManager.stackSize > 1) {
@@ -157,7 +163,10 @@ class FlutterAndroidAutoPlugin : FlutterPlugin, EventChannel.StreamHandler {
         call: MethodCall, result: MethodChannel.Result
     ) {
         val carContext = AndroidAutoService.session?.carContext
-        if (carContext == null) return;
+        if (carContext == null) {
+            result.success(false)
+            return
+        }
 
         val screenManager = carContext.getCarService(ScreenManager::class.java)
         if (screenManager.stackSize > 1) {
@@ -179,7 +188,10 @@ class FlutterAndroidAutoPlugin : FlutterPlugin, EventChannel.StreamHandler {
         call: MethodCall, result: MethodChannel.Result
     ) {
         val carContext = AndroidAutoService.session?.carContext
-        if (carContext == null) return;
+        if (carContext == null) {
+            result.success(false)
+            return
+        }
 
         val runtimeType = call.argument<String>("runtimeType") ?: ""
         val data = call.argument<Map<String, Any?>>("template")!!
