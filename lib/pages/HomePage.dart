@@ -4,7 +4,6 @@ import 'dart:developer' as developer;
 import 'dart:io' show Platform;
 
 import 'package:app_links/app_links.dart';
-import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_sticky_header/flutter_sticky_header.dart';
 import 'package:radio_crestin/appAudioHandler.dart';
@@ -54,7 +53,6 @@ class HomePageState {
   final List<Station> filteredStations;
   final List<Query$GetStations$station_groups> stationGroups;
   final Query$GetStations$station_groups? selectedStationGroup;
-  final MediaItem? mediaItem;
   final bool isDraggable;
   final List<String> favoriteSlugs;
 
@@ -64,7 +62,6 @@ class HomePageState {
     this.filteredStations,
     this.stationGroups,
     this.selectedStationGroup,
-    this.mediaItem,
     this.isDraggable,
     this.favoriteSlugs,
   );
@@ -343,13 +340,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: StreamBuilder<HomePageState>(
-          stream: Rx.combineLatest8<
+          stream: Rx.combineLatest7<
               Station?,
               List<Station>,
               List<Station>,
               List<Query$GetStations$station_groups>,
               Query$GetStations$station_groups?,
-              MediaItem?,
               bool,
               List<String>,
               HomePageState>(
@@ -358,13 +354,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             _stationDataService.filteredStations.stream,
             _stationDataService.stationGroups,
             _stationDataService.selectedStationGroup.stream,
-            _audioHandler.mediaItem,
             slidingUpPanelController.isDraggableSubject,
             _stationDataService.favoriteStationSlugs.stream,
             (currentStation, stations, filteredStations, stationGroups, selectedStationGroup,
-                    mediaItem, isDraggable, favoriteSlugs) =>
+                    isDraggable, favoriteSlugs) =>
                 HomePageState(currentStation, stations, filteredStations, stationGroups,
-                    selectedStationGroup, mediaItem, isDraggable, favoriteSlugs),
+                    selectedStationGroup, isDraggable, favoriteSlugs),
           ),
           builder: (context, snapshot) {
             final currentStation = snapshot.data?.currentStation;

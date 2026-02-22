@@ -8,17 +8,20 @@ import 'package:radio_crestin/utils.dart';
 FirebaseAnalytics analytics = FirebaseAnalytics.instance;
 
 class AppTracking {
-  static trackPlayStation(Station station, {GraphQLClient? graphQLClient}) async {
+  // All tracking methods are fire-and-forget: no awaiting Firebase calls
+  // to avoid competing with UI frame rendering on the main thread.
+
+  static void trackPlayStation(Station station, {GraphQLClient? graphQLClient}) {
     Utils.incrementActionsMade(
       graphQLClient: graphQLClient,
       currentStationName: station.title,
     );
     developer.log("trackPlayStation");
-    await FirebaseAnalytics.instance.logEvent(name: "listen_radio_start", parameters: {
+    FirebaseAnalytics.instance.logEvent(name: "listen_radio_start", parameters: {
       "station_id": station.id,
       "station_name": station.title,
     });
-    await FirebaseAnalytics.instance.logPurchase(
+    FirebaseAnalytics.instance.logPurchase(
       currency: "RON",
       value: 1.0,
       items: [
@@ -30,7 +33,7 @@ class AppTracking {
         ),
       ],
     );
-    await FirebaseAnalytics.instance.logEvent(
+    FirebaseAnalytics.instance.logEvent(
       name: 'screen_view',
       parameters: {
         'station_id': station.id,
@@ -41,13 +44,13 @@ class AppTracking {
     );
   }
 
-  static trackListenStation(Station station, String currentStreamUrl) async {
+  static void trackListenStation(Station station, String currentStreamUrl) {
     developer.log("trackListenStation $currentStreamUrl");
-    await FirebaseAnalytics.instance.logEvent(name: "listen_radio_listening", parameters: {
+    FirebaseAnalytics.instance.logEvent(name: "listen_radio_listening", parameters: {
       "station_id": station.id,
       "station_name": station.title,
     });
-    await FirebaseAnalytics.instance.logPurchase(
+    FirebaseAnalytics.instance.logPurchase(
       currency: "RON",
       value: 0.5,
       items: [
@@ -61,13 +64,13 @@ class AppTracking {
     );
   }
 
-  static trackStopStation(Station station) async {
+  static void trackStopStation(Station station) {
     developer.log("trackStopStation");
-    await FirebaseAnalytics.instance.logEvent(name: "listen_radio_stop", parameters: {
+    FirebaseAnalytics.instance.logEvent(name: "listen_radio_stop", parameters: {
       "station_id": station.id,
       "station_name": station.title,
     });
-    await FirebaseAnalytics.instance.logEvent(
+    FirebaseAnalytics.instance.logEvent(
       name: 'screen_view',
       parameters: {
         'station_id': station.id,

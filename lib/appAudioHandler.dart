@@ -187,6 +187,13 @@ class AppAudioHandler extends BaseAudioHandler {
   final BehaviorSubject<List<MediaItem>> _recentSubject = BehaviorSubject.seeded(<MediaItem>[]);
   static const LAST_PLAYED_MEDIA_ITEM = "last_played_media_item";
 
+  // Cached SharedPreferences to avoid repeated getInstance() platform channel calls
+  SharedPreferences? _cachedPrefs;
+  Future<SharedPreferences> get _prefs async {
+    _cachedPrefs ??= await SharedPreferences.getInstance();
+    return _cachedPrefs!;
+  }
+
   final int maxRetries = 5;
 
   AppAudioHandler({required this.graphqlClient, required this.player}) {
@@ -269,7 +276,8 @@ class AppAudioHandler extends BaseAudioHandler {
     }
     currentStation.add(station);
 
-    await setLastPlayedStation(station);
+    // Fire-and-forget: don't block the tap path with disk I/O
+    setLastPlayedStation(station);
   }
 
   /// Builds a MediaItem with only station info (no song metadata/thumbnail).
@@ -773,12 +781,12 @@ class AppAudioHandler extends BaseAudioHandler {
 
   // Last played station
   setLastPlayedStation(Station station) async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final prefs = await _prefs;
     await prefs.setString(LAST_PLAYED_MEDIA_ITEM, station.slug);
   }
 
   Future<Station> getLastPlayedStation() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final prefs = await _prefs;
     var stationSlug = prefs.getString(LAST_PLAYED_MEDIA_ITEM);
     return stationDataService.stations.value.firstWhere(
       (station) => station.slug == stationSlug,

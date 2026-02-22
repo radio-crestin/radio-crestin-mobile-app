@@ -37,6 +37,7 @@ class StationsList extends StatelessWidget {
 
           return KeyedSubtree(
             key: ValueKey('station-${station.slug}'),
+            child: RepaintBoundary(
             child: GestureDetector(
               onTap: () async {
                 await audioHandler.playStation(station, playlist: stations, isFavoritesPlaylist: isFavoritesPlaylist);
@@ -192,6 +193,7 @@ class StationsList extends StatelessWidget {
                   ],
                 ),
               )),
+            ),
           );
         },
         childCount: stations.length, // Number of items in the list
