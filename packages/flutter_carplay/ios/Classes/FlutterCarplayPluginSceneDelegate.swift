@@ -114,7 +114,7 @@ class FlutterCarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelega
   static public func presentTemplate(template: CPTemplate, animated: Bool,
                                      onPresent: @escaping (_ completed: Bool) -> Void) {
     self.interfaceController?.presentTemplate(template, animated: animated, completion: { completed, error in
-      guard error != nil else {
+      guard error == nil else {
         onPresent(false)
         return
       }

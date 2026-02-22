@@ -34,6 +34,9 @@ class CarPlayService {
   StreamSubscription? _currentStationSubscription;
   StreamSubscription? _favoritesSubscription;
 
+  // Timers for waiting for stations
+  Timer? _carPlayWaitTimer;
+
   // CarPlay list items by slug - for favorites tab (reused when updating)
   final Map<String, CPListItem> _favoriteListItems = {};
 
@@ -43,8 +46,9 @@ class CarPlayService {
   // Store sorted stations for CarPlay playlist and title lookups
   List<Station> _sortedStations = [];
 
-  // Store reference to favorite template for updating
+  // Store reference to favorite template and section ID for updating
   CPListTemplate? _favoriteTemplate;
+  String? _favoriteSectionId;
 
   // Android Auto state
   List<Station> _sortedAndroidAutoStations = [];
@@ -166,7 +170,7 @@ class CarPlayService {
 
     _flutterCarplay!.updateListTemplateSections(
       elementId: _favoriteTemplate!.uniqueId,
-      sections: [CPListSection(items: favoriteItems)],
+      sections: [CPListSection(items: favoriteItems, elementId: _favoriteSectionId)],
     );
     _flutterCarplay!.forceUpdateRootTemplate();
   }
@@ -229,7 +233,7 @@ class CarPlayService {
   }
 
   void _waitForStations() {
-    Timer.periodic(const Duration(milliseconds: 500), (timer) {
+    _carPlayWaitTimer = Timer.periodic(const Duration(milliseconds: 500), (timer) {
       if (_carPlayInitialized) {
         timer.cancel();
         return;
@@ -288,11 +292,12 @@ class CarPlayService {
         .map((station) => _favoriteListItems[station.slug]!)
         .toList();
 
+    final favoriteSection = CPListSection(items: favoriteItems);
+    _favoriteSectionId = favoriteSection.uniqueId;
+
     _favoriteTemplate = CPListTemplate(
       title: "Favorite",
-      sections: [
-        CPListSection(items: favoriteItems),
-      ],
+      sections: [favoriteSection],
       emptyViewTitleVariants: ["Nicio statie favorita"],
       emptyViewSubtitleVariants: ["Adauga statii la favorite din aplicatie"],
       systemIcon: "heart.fill",
@@ -361,7 +366,7 @@ class CarPlayService {
         _audioHandler.play();
       } else {
         final lastStation = await _audioHandler.getLastPlayedStation();
-        _audioHandler.playStation(lastStation);
+        if (lastStation != null) _audioHandler.playStation(lastStation);
       }
     };
 
@@ -600,6 +605,7 @@ class CarPlayService {
   void dispose() {
     _log("Disposing CarPlay/Android Auto service");
 
+    _carPlayWaitTimer?.cancel();
     _currentStationSubscription?.cancel();
     _favoritesSubscription?.cancel();
     _androidAutoFavoritesSubscription?.cancel();

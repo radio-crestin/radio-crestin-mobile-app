@@ -4,7 +4,7 @@ import 'package:uuid/uuid.dart';
 /// A section object of list items that appear in a list template.
 class CPListSection {
   /// Unique id of the object.
-  final String _elementId = const Uuid().v4();
+  final String _elementId;
 
   /// Header text of the section.
   final String? header;
@@ -14,7 +14,9 @@ class CPListSection {
 
   /// Creates [CPListSection] that contains zero or more list items. You can configure
   /// a section to display a header, which CarPlay displays on the trailing edge of the screen.
-  CPListSection({this.header, required this.items});
+  /// Pass [elementId] to reuse an existing section identity for efficient native updates.
+  CPListSection({this.header, required this.items, String? elementId})
+      : _elementId = elementId ?? const Uuid().v4();
 
   Map<String, dynamic> toJson() => {
         '_elementId': _elementId,

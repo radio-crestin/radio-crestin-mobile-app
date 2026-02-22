@@ -22,14 +22,11 @@ class FCPGridButton {
   
   var get: CPGridButton {
     var gridButton: CPGridButton!
-    let image: UIImage
     let imageSource = self.image.toImageSource()
 
-    if #available(iOS 26.0, *) {
-      image = makeSafeUIPlaceholder()
-    } else {
-      image = makeUIImage(from: imageSource)
-    }
+    // Load image synchronously for grid buttons since CPGridButton
+    // has no public API for updating images after creation
+    let image = makeUIImage(from: imageSource)
 
     gridButton = CPGridButton(
       titleVariants: self.titleVariants,
@@ -43,14 +40,6 @@ class FCPGridButton {
         }
       }
     )
-
-    if #available(iOS 26.0, *) {
-      loadUIImageAsync(from: imageSource) { uiImage in
-        if let uiImage = uiImage {
-          gridButton.perform(Selector("updateImage:"), with: uiImage)
-        }
-      }
-    }
 
     gridButton.isEnabled = true
     self._super = gridButton

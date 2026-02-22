@@ -413,7 +413,10 @@ class AppAudioHandler extends BaseAudioHandler {
   @override
   Future<void> skipToQueueItem(int index) {
     _log("skipToQueueItem: $index");
-    playStation(stationDataService.stations.value[index]);
+    final stations = stationDataService.stations.value;
+    if (index >= 0 && index < stations.length) {
+      playStation(stations[index]);
+    }
     return super.skipToQueueItem(index);
   }
 
@@ -600,9 +603,12 @@ class AppAudioHandler extends BaseAudioHandler {
   Future<void> playFromSearch(String query, [Map<String, dynamic>? extras]) {
     _log('playFromSearch($query, $extras)');
 
+    final stations = stationDataService.stations.value;
+    if (stations.isEmpty) return super.playFromSearch(query, extras);
+
     var maxR = 0;
     late Station selectedStation;
-    for (var v in stationDataService.stations.value) {
+    for (var v in stations) {
       var r = partialRatio(v.title, query);
       if (r > maxR) {
         maxR = r;
@@ -612,7 +618,7 @@ class AppAudioHandler extends BaseAudioHandler {
     if (maxR > 0) {
       return playStation(selectedStation);
     } else {
-      return playStation(stationDataService.stations.value[0]);
+      return playStation(stations[0]);
     }
   }
 
@@ -783,11 +789,13 @@ class AppAudioHandler extends BaseAudioHandler {
     await _prefs.setString(LAST_PLAYED_MEDIA_ITEM, station.slug);
   }
 
-  Future<Station> getLastPlayedStation() async {
+  Future<Station?> getLastPlayedStation() async {
+    final stations = stationDataService.stations.value;
+    if (stations.isEmpty) return null;
     var stationSlug = _prefs.getString(LAST_PLAYED_MEDIA_ITEM);
-    return stationDataService.stations.value.firstWhere(
+    return stations.firstWhere(
       (station) => station.slug == stationSlug,
-      orElse: () => stationDataService.stations.value.first,
+      orElse: () => stations.first,
     );
   }
 
