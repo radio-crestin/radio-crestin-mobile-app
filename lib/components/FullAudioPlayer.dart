@@ -107,6 +107,12 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
             const SizedBox(height: 17.0),
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 250),
+              // Keyless transitionBuilder lets AnimatedSwitcher's internal
+              // _childNumber counter ensure unique keys, preventing duplicate
+              // key errors during rapid A -> B -> A station switches.
+              transitionBuilder: (Widget child, Animation<double> animation) {
+                return FadeTransition(opacity: animation, child: child);
+              },
               child: Text(
                 currentStation?.displayTitle ?? "",
                 key: ValueKey('title-${currentStation?.id}'),
@@ -120,6 +126,9 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
             const SizedBox(height: 18.0),
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 300),
+              transitionBuilder: (Widget child, Animation<double> animation) {
+                return FadeTransition(opacity: animation, child: child);
+              },
               child: Container(
                 key: ValueKey('thumb-${currentStation?.id}-${currentStation?.songId}'),
                 width: 260.0,
@@ -147,6 +156,9 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
             const SizedBox(height: 18.0),
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 250),
+              transitionBuilder: (Widget child, Animation<double> animation) {
+                return FadeTransition(opacity: animation, child: child);
+              },
               child: Padding(
                 key: ValueKey('song-${currentStation?.songTitle}-${currentStation?.id}'),
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -163,6 +175,9 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
             ),
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 250),
+              transitionBuilder: (Widget child, Animation<double> animation) {
+                return FadeTransition(opacity: animation, child: child);
+              },
               child: Text(
                 currentStation?.songArtist ?? "",
                 key: ValueKey('artist-${currentStation?.songArtist}-${currentStation?.id}'),

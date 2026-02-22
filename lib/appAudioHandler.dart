@@ -91,6 +91,13 @@ class AppAudioHandler extends BaseAudioHandler {
   bool _isConnecting = false;
   bool get isPlayingOrConnecting => player.playing || _isConnecting;
   Timer? _disconnectTimer;
+  // Monotonically increasing ID to cancel stale play() operations.
+  // Each playStation() increments this; play() checks it after every await
+  // to bail out if a newer operation has superseded it.
+  int _playOperationId = 0;
+  // Completer used to immediately break out of a stale setAudioSource() await
+  // instead of waiting for the full 3-10s timeout to expire.
+  Completer<void>? _sourceLoadCanceller;
   static const _disconnectDelay = Duration(seconds: 60);
   static const _liveEdgeOffset = Duration(minutes: 2);
 
@@ -108,6 +115,16 @@ class AppAudioHandler extends BaseAudioHandler {
 
   _log(String message) {
     developer.log("AppAudioHandler: $message");
+  }
+
+  /// Cancels any in-flight play() operation by bumping the operation ID
+  /// and completing the source load canceller.
+  void _cancelInFlightPlay() {
+    ++_playOperationId;
+    _isConnecting = false;
+    if (_sourceLoadCanceller != null && !_sourceLoadCanceller!.isCompleted) {
+      _sourceLoadCanceller!.completeError('cancelled');
+    }
   }
 
   // Android Auto media browsing support
@@ -192,9 +209,11 @@ class AppAudioHandler extends BaseAudioHandler {
     // Handle stream lifecycle events:
     // - completed: HLS reconnect, MP3 stop
     // - idle while playing: stream dropped (e.g., network lost in background)
+    // Guard: skip reconnection while loading a new source (_isConnecting),
+    // as the idle/completed event is from the previous source being stopped.
     player.processingStateStream.listen((state) {
-      _log("processingStateStream: $state");
       if (state == ProcessingState.completed) {
+        if (_isConnecting) return;
         final isHls = _loadedStreamType == 'HLS';
         if (isHls) {
           _log("processingStateStream: HLS stream completed unexpectedly, reconnecting");
@@ -205,6 +224,7 @@ class AppAudioHandler extends BaseAudioHandler {
           stop();
         }
       } else if (state == ProcessingState.idle && player.playing) {
+        if (_isConnecting) return;
         _log("processingStateStream: stream lost (idle while playing), reconnecting");
         _loadedStreamUrl = null;
         _loadedStreamType = null;
@@ -327,6 +347,9 @@ class AppAudioHandler extends BaseAudioHandler {
       return;
     }
 
+    // Cancel any in-flight play() from a previous playStation() call
+    _cancelInFlightPlay();
+
     // Stop and clean up the previous station before starting the new one
     _disconnectTimer?.cancel();
     if (player.playing || player.processingState != ProcessingState.idle) {
@@ -409,6 +432,7 @@ class AppAudioHandler extends BaseAudioHandler {
   @override
   Future<void> play() async {
     _log("play");
+    final myOpId = _playOperationId;
     _disconnectTimer?.cancel();
     stationDataService.resumePolling();
 
@@ -434,9 +458,10 @@ class AppAudioHandler extends BaseAudioHandler {
     _isConnecting = true;
     _broadcastState(player.playbackEvent);
     var retry = 0;
-    var initialStationId = currentStation.valueOrNull?.id;
+    final canceller = Completer<void>();
+    _sourceLoadCanceller = canceller;
 
-    while (item != null && initialStationId == currentStation.valueOrNull?.id) {
+    while (item != null && myOpId == _playOperationId) {
       if (retry < maxRetries) {
         final streams = item.extras?["station_streams"] as List<dynamic>?;
         final streamEntry = streams?[retry % (streams?.length ?? 1)];
@@ -445,24 +470,33 @@ class AppAudioHandler extends BaseAudioHandler {
         final isHls = streamType == 'HLS';
         _log("play: attempt $retry - $streamUrl (type: $streamType)");
         try {
-          // Stop player before retrying to cancel any lingering setAudioSource operation
           if (retry > 0) {
             await player.stop();
           }
           final trackedUrl = addTrackingParametersToUrl(streamUrl, isHls: isHls);
           final timeout = isHls ? const Duration(seconds: 3) : const Duration(seconds: 10);
-          await player.setAudioSource(
+          // Race setAudioSource against the canceller so playStation() can
+          // break this await immediately instead of waiting for the timeout.
+          final loadFuture = player.setAudioSource(
             AudioSource.uri(Uri.parse(trackedUrl)),
             preload: true,
-          ).timeout(timeout);
+          );
+          // Prevent unhandled error if abandoned by Future.any
+          loadFuture.ignore();
+          await Future.any([loadFuture, canceller.future]).timeout(timeout);
           _loadedStreamUrl = streamUrl;
           _loadedStreamType = streamType;
           _log("play: source loaded successfully ($streamUrl)");
           break;
         } catch (e) {
-          _log("play: attempt $retry failed - $e");
           _loadedStreamUrl = null;
           _loadedStreamType = null;
+          // If superseded by a newer playStation(), exit immediately
+          if (myOpId != _playOperationId) {
+            _log("play: cancelled (op $myOpId < $_playOperationId)");
+            break;
+          }
+          _log("play: attempt $retry failed - $e");
           retry++;
         }
       } else {
@@ -476,8 +510,15 @@ class AppAudioHandler extends BaseAudioHandler {
       }
     }
 
+    _sourceLoadCanceller = null;
     PerformanceMonitor.endOperation('audio_play');
     _isConnecting = false;
+
+    // Bail out if a newer playStation() call has superseded this one
+    if (myOpId != _playOperationId) {
+      _log("play: superseded (op $myOpId < $_playOperationId), aborting");
+      return;
+    }
 
     if (_loadedStreamType == 'HLS') {
       await _seekBehindLiveEdge();
@@ -537,6 +578,7 @@ class AppAudioHandler extends BaseAudioHandler {
   @override
   Future<void> stop() async {
     _log("stop");
+    _cancelInFlightPlay();
     _disconnectTimer?.cancel();
     _loadedStreamUrl = null;
     _loadedStreamType = null;
@@ -645,6 +687,7 @@ class AppAudioHandler extends BaseAudioHandler {
         return super.onTaskRemoved();
       }
     } catch (_) {}
+    _cancelInFlightPlay();
     _disconnectTimer?.cancel();
     _loadedStreamUrl = null;
     _loadedStreamType = null;
@@ -657,6 +700,7 @@ class AppAudioHandler extends BaseAudioHandler {
   // Method to completely stop and cleanup the audio service
   Future<void> dispose() async {
     _log('dispose()');
+    _cancelInFlightPlay();
     _disconnectTimer?.cancel();
     _loadedStreamUrl = null;
     _loadedStreamType = null;
