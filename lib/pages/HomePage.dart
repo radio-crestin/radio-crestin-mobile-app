@@ -15,7 +15,6 @@ import 'package:radio_crestin/utils/share_utils.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
 import 'package:sliding_up_panel2/sliding_up_panel2.dart';
 
 import '../components/MiniAudioPlayer.dart';
@@ -87,26 +86,21 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   StreamSubscription? _offlineSub;
   final ValueNotifier<double> _panelSlide = ValueNotifier(0.0);
 
-  _HomePageState() {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+
+    // AppLinks initialization (moved from constructor to avoid async work in constructor)
     _appLinks.getInitialLink().then((uri) {
       processIntentUri(uri);
     });
-
     _sub = _appLinks.uriLinkStream.listen((Uri? uri) {
       processIntentUri(uri);
     }, onError: (err) {
       developer.log("initialLink err:" + err.toString());
     });
 
-
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    _checkSharePromotionVisibility();
-    _loadShareLinkData();
     _isOffline = _networkService.isOffline.value;
     _offlineSub = _networkService.isOffline.stream.listen((offline) {
       if (!mounted) return;
@@ -123,6 +117,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       } else {
         setState(() => _isOffline = offline);
       }
+    });
+
+    // Defer non-critical work to after first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkSharePromotionVisibility();
+      _loadShareLinkData();
     });
   }
 
@@ -144,7 +144,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   Future<void> _checkSharePromotionVisibility() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = getIt<SharedPreferences>();
     bool shouldShow = prefs.getBool('show_share_promotion') ?? false;
 
     // Check if we've already auto-enabled before (to not override user's choice)
@@ -175,7 +175,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   Future<void> _loadShareLinkData() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = getIt<SharedPreferences>();
       String? deviceId = prefs.getString('device_id');
       
       if (deviceId == null) {
@@ -269,7 +269,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Future<void> _shareApp(BuildContext context) async {
     try {
       // Get device ID
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = getIt<SharedPreferences>();
       String? deviceId = prefs.getString('device_id');
       
       if (deviceId == null) {
@@ -594,7 +594,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                               _showSharePromotion = false;
                             });
                             // Save to preferences
-                            final prefs = await SharedPreferences.getInstance();
+                            final prefs = getIt<SharedPreferences>();
                             await prefs.setBool('show_share_promotion', false);
                           },
                         ),
@@ -767,13 +767,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-  waitForStationsUpdate() async {
-    while (true) {
-      if (_stationDataService.stations.value.isNotEmpty) {
-        break;
-      }
-      await Future.delayed(const Duration(milliseconds: 100));
-    }
+  Future<void> waitForStationsUpdate() {
+    if (_stationDataService.stations.value.isNotEmpty) return Future.value();
+    return _stationDataService.stations.stream
+        .firstWhere((stations) => stations.isNotEmpty);
   }
 
   String extractSlugWithRegex(String url) {
@@ -810,7 +807,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if(!autoPlayProcessed) {
       autoPlayProcessed = true;
       await waitForStationsUpdate();
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = getIt<SharedPreferences>();
       final autoStart = prefs.getBool('_autoStartStation') ?? true;
       var station = await _audioHandler.getLastPlayedStation();
       if (autoStart) {

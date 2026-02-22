@@ -38,24 +38,8 @@ class ImageCacheService {
       await _cacheDir.create(recursive: true);
     }
 
-    // Build in-memory map from existing files on disk
-    await _loadExistingCache();
     _initialized = true;
-    _log("Initialized with ${_cache.length} cached images");
-  }
-
-  Future<void> _loadExistingCache() async {
-    try {
-      await for (final entity in _cacheDir.list()) {
-        if (entity is File) {
-          // File name format: <md5hash>.<ext>
-          // We can't reverse hash → URL, but we populate _cache in getOrDownload
-          // For now, just verify files exist. The URL→path mapping is built lazily.
-        }
-      }
-    } catch (e) {
-      _log("Error loading existing cache: $e");
-    }
+    _log("Initialized");
   }
 
   String _hashUrl(String url) {
@@ -88,7 +72,7 @@ class ImageCacheService {
 
   /// Returns cached file or downloads and caches it. Returns null on failure.
   Future<File?> getOrDownload(String url) async {
-    if (url.isEmpty) return null;
+    if (url.isEmpty || !_initialized) return null;
 
     // Already cached in memory
     final existing = _cache[url];

@@ -38,4 +38,24 @@ class ThemeManager {
     final savedMode = await loadThemeMode();
     _themeModeNotifier.value = savedMode;
   }
+
+  /// Synchronous initialization using an already-loaded SharedPreferences instance.
+  /// Avoids redundant async SharedPreferences.getInstance() call during startup.
+  static void initializeFromPrefs(SharedPreferences prefs) {
+    final themeModeString = prefs.getString(_themeModeKey);
+    if (themeModeString == null) {
+      _themeModeNotifier.value = ThemeMode.dark;
+      return;
+    }
+    switch (themeModeString) {
+      case 'ThemeMode.light':
+        _themeModeNotifier.value = ThemeMode.light;
+        break;
+      case 'ThemeMode.dark':
+        _themeModeNotifier.value = ThemeMode.dark;
+        break;
+      default:
+        _themeModeNotifier.value = ThemeMode.system;
+    }
+  }
 }

@@ -187,12 +187,7 @@ class AppAudioHandler extends BaseAudioHandler {
   final BehaviorSubject<List<MediaItem>> _recentSubject = BehaviorSubject.seeded(<MediaItem>[]);
   static const LAST_PLAYED_MEDIA_ITEM = "last_played_media_item";
 
-  // Cached SharedPreferences to avoid repeated getInstance() platform channel calls
-  SharedPreferences? _cachedPrefs;
-  Future<SharedPreferences> get _prefs async {
-    _cachedPrefs ??= await SharedPreferences.getInstance();
-    return _cachedPrefs!;
-  }
+  SharedPreferences get _prefs => GetIt.instance<SharedPreferences>();
 
   final int maxRetries = 5;
 
@@ -781,13 +776,11 @@ class AppAudioHandler extends BaseAudioHandler {
 
   // Last played station
   setLastPlayedStation(Station station) async {
-    final prefs = await _prefs;
-    await prefs.setString(LAST_PLAYED_MEDIA_ITEM, station.slug);
+    await _prefs.setString(LAST_PLAYED_MEDIA_ITEM, station.slug);
   }
 
   Future<Station> getLastPlayedStation() async {
-    final prefs = await _prefs;
-    var stationSlug = prefs.getString(LAST_PLAYED_MEDIA_ITEM);
+    var stationSlug = _prefs.getString(LAST_PLAYED_MEDIA_ITEM);
     return stationDataService.stations.value.firstWhere(
       (station) => station.slug == stationSlug,
       orElse: () => stationDataService.stations.value.first,

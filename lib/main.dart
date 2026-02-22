@@ -157,26 +157,38 @@ void main() async {
     ),
   );
 
-  // Initialize network service first (other services check connectivity)
+  // Register SharedPreferences globally to avoid redundant getInstance() calls
+  getIt.registerSingleton<SharedPreferences>(prefs);
+
+  // Construct and register all services (sync, instant).
+  // Registration must happen BEFORE AudioService.init() because the builder
+  // callback creates AppAudioHandler which accesses GetIt<StationDataService>.
   final networkService = NetworkService();
-  await networkService.initialize();
   getIt.registerSingleton<NetworkService>(networkService);
 
-  // Initialize image cache before audio service (audio handler uses it for pre-caching)
   final imageCacheService = ImageCacheService();
-  await PerformanceMonitor.trackAsync('image_cache_init', () => imageCacheService.initialize());
   getIt.registerSingleton<ImageCacheService>(imageCacheService);
 
-  // Initialize station data service before audio handler (stations start loading immediately)
   final stationDataService = StationDataService(graphqlClient: graphqlClient);
   getIt.registerSingleton<StationDataService>(stationDataService);
-  await PerformanceMonitor.trackAsync('station_data_init', () => stationDataService.initialize());
 
-  // Start audio + packageInfo immediately (overlaps with remaining Firebase init)
+  // NetworkService must be initialized before AudioService.init() because
+  // AppAudioHandler's constructor subscribes to NetworkService.isOnMobileData
+  // and needs the correct initial connectivity state.
+  await networkService.initialize();
+
+  // Start AudioService.init() early — it's the biggest blocker (500-1500ms).
+  // It now runs in parallel with ImageCacheService + StationDataService init.
   final audioHandlerFuture = PerformanceMonitor.trackAsync('audio_service_init', () =>
     initAudioService(graphqlClient: graphqlClient),
   );
   final packageInfoFuture = PackageInfo.fromPlatform();
+
+  // ImageCacheService initializes in parallel with AudioService.init()
+  await PerformanceMonitor.trackAsync('image_cache_init', () => imageCacheService.initialize());
+
+  // StationDataService after ImageCacheService (thumbnail pre-caching depends on it)
+  await PerformanceMonitor.trackAsync('station_data_init', () => stationDataService.initialize());
 
   // Now await Firebase (likely already done since audio init takes longer)
   await firebaseInitFuture;
@@ -211,9 +223,8 @@ void main() async {
     FirebaseCrashlytics.instance.setUserIdentifier(globals.deviceId);
   });
 
-  FlutterNativeSplash.remove();
-
-  await PerformanceMonitor.trackAsync('theme_init', () => ThemeManager.initialize());
+  // Initialize theme synchronously using already-loaded prefs (no async overhead)
+  ThemeManager.initializeFromPrefs(prefs);
 
   PerformanceMonitor.markAppReady();
   PerformanceMonitor.startFrameMonitoring();
@@ -226,6 +237,9 @@ void main() async {
   }
 
   QuickActionsService.initialize();
+
+  // Remove splash AFTER theme is ready to avoid blank screen flash
+  FlutterNativeSplash.remove();
 
   runApp(const RadioCrestinApp());
 

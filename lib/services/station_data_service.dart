@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:developer' as developer;
 
 import 'package:flutter/services.dart';
+import 'package:get_it/get_it.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:radio_crestin/performance_monitor.dart';
 import 'package:radio_crestin/services/network_service.dart';
@@ -54,7 +55,7 @@ class StationDataService {
   }
 
   Future<void> _initFavoriteStationSlugs() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final SharedPreferences prefs = GetIt.instance<SharedPreferences>();
     final String? favoriteJson = prefs.getString(_favoriteStationsKey);
     List<String> newFavoriteStationSlugs = [];
     if (favoriteJson != null) {
@@ -231,7 +232,7 @@ class StationDataService {
           .add(favoriteStationSlugs.value.where((slug) => slug != station.slug).toList());
     }
 
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final SharedPreferences prefs = GetIt.instance<SharedPreferences>();
     await prefs.setString(_favoriteStationsKey, json.encode(favoriteStationSlugs.value));
   }
 
