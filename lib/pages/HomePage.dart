@@ -27,6 +27,7 @@ import '../main.dart';
 import '../queries/getStations.graphql.dart';
 import '../services/network_service.dart';
 import '../services/station_data_service.dart';
+import '../widgets/connectivity_banner.dart';
 import '../types/Station.dart';
 import '../utils/PositionRetainedScrollPhysics.dart';
 import 'SettingsPage.dart';
@@ -83,6 +84,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   final GlobalKey<SharePromotionCardState> _sharePromotionKey = GlobalKey();
   ShareLinkData? _shareLinkData;
   bool _isLoadingShareData = true;
+  bool _isOffline = false;
+  bool _showBackOnline = false;
+  Timer? _backOnlineTimer;
+  StreamSubscription? _offlineSub;
+  final ValueNotifier<double> _panelSlide = ValueNotifier(0.0);
 
   _HomePageState() {
     _appLinks.getInitialLink().then((uri) {
@@ -104,6 +110,23 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _checkSharePromotionVisibility();
     _loadShareLinkData();
+    _isOffline = _networkService.isOffline.value;
+    _offlineSub = _networkService.isOffline.stream.listen((offline) {
+      if (!mounted) return;
+      if (!offline && _isOffline) {
+        // Was offline, now back online — show "back online" banner
+        _backOnlineTimer?.cancel();
+        setState(() {
+          _isOffline = false;
+          _showBackOnline = true;
+        });
+        _backOnlineTimer = Timer(const Duration(seconds: 3), () {
+          if (mounted) setState(() => _showBackOnline = false);
+        });
+      } else {
+        setState(() => _isOffline = offline);
+      }
+    });
   }
 
   Future<void> _handleRefresh() async {
@@ -197,6 +220,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _sub.cancel();
+    _offlineSub?.cancel();
+    _backOnlineTimer?.cancel();
+    _panelSlide.dispose();
     super.dispose();
   }
 
@@ -351,13 +377,18 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
             final favoriteStations = stations.where((station) => favoriteSlugs.contains(station.slug)).toList();
 
-            return SlidingUpPanel(
+            return Stack(
+              children: [
+              SlidingUpPanel(
               maxHeight: panelMaxHeight,
               // minHeight: 115,
               backdropEnabled: true,
               backdropTapClosesPanel: true,
               boxShadow: const [],
               controller: slidingUpPanelController,
+              onPanelSlide: (position) {
+                _panelSlide.value = position;
+              },
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(16.0),
                 topRight: Radius.circular(16.0),
@@ -701,6 +732,28 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       )
                     : null,
               ),
+            ),
+              if (_isOffline || _showBackOnline)
+                Positioned(
+                  bottom: Platform.isIOS ? 88 : 82,
+                  left: 8,
+                  right: 8,
+                  child: ValueListenableBuilder<double>(
+                    valueListenable: _panelSlide,
+                    child: ConnectivityBanner(
+                      isOffline: _isOffline,
+                      showBackOnline: _showBackOnline,
+                    ),
+                    builder: (context, position, child) {
+                      final slideOffset = position * (panelMaxHeight - 100.0);
+                      return Transform.translate(
+                        offset: Offset(0, -slideOffset),
+                        child: child,
+                      );
+                    },
+                  ),
+                ),
+            ],
             );
           }),
     );

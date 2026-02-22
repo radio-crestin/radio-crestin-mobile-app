@@ -712,13 +712,15 @@ class AppAudioHandler extends BaseAudioHandler {
     return mediaItem.value?.id ?? "-";
   }
 
-  /// Called on foreground resume. Reconnects if the stream was silently lost
-  /// in background (covers the case where player.playing is already false,
-  /// which the processingStateStream listener doesn't catch).
+  /// Called on foreground resume or connectivity restore. Reconnects if the
+  /// stream was silently lost (idle) or stalled waiting for data (buffering).
   void reconnectIfNeeded() {
     if (currentStation.valueOrNull == null) return;
-    if (player.processingState == ProcessingState.idle) {
-      _log("reconnectIfNeeded: player idle, reconnecting");
+    if (_isConnecting) return;
+    final state = player.processingState;
+    if (state == ProcessingState.idle ||
+        (state == ProcessingState.buffering && player.playing)) {
+      _log("reconnectIfNeeded: player stalled (state=$state), reconnecting");
       _loadedStreamUrl = null;
       _loadedStreamType = null;
       play();
@@ -773,6 +775,23 @@ class AppAudioHandler extends BaseAudioHandler {
         mediaItem.add(fullItem.copyWith(rating: Rating.newHeartRating(isFav)));
         _cacheSongThumbnail(station);
       }
+    });
+
+    // When connectivity is restored while app is in foreground: reconnect stalled audio.
+    // If app is backgrounded, reconnection happens via didChangeAppLifecycleState.resumed.
+    // Delay 2s so the network is actually usable and any in-progress play() retries finish.
+    NetworkService.instance.isOffline.stream.listen((offline) {
+      if (offline) return;
+      final lifecycle = WidgetsBinding.instance.lifecycleState;
+      if (lifecycle != AppLifecycleState.resumed) {
+        _log("isOffline -> false: app not in foreground ($lifecycle), skipping reconnect");
+        return;
+      }
+      _log("isOffline -> false: will reconnect in 2s");
+      Future.delayed(const Duration(seconds: 2), () {
+        _log("isOffline -> false: checking if player needs reconnect");
+        reconnectIfNeeded();
+      });
     });
 
     // Station data poll: update metadata when stations change.

@@ -34,6 +34,7 @@ class AppColors {
   static const Color error = Color(0xffd32f2f);
   static const Color success = Colors.green;
   static const Color offline = Colors.red;
+  static const Color offlineBanner = Color(0xFF2C2C2C);
 }
 
 final ThemeData lightTheme = ThemeData(

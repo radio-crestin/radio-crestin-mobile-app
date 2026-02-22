@@ -12,6 +12,7 @@ class NetworkService {
   StreamSubscription<List<ConnectivityResult>>? _subscription;
 
   final BehaviorSubject<bool> isOnMobileData = BehaviorSubject.seeded(false);
+  final BehaviorSubject<bool> isOffline = BehaviorSubject.seeded(false);
 
   NetworkService() {
     _instance = this;
@@ -34,6 +35,14 @@ class NetworkService {
     final mobile = results.contains(ConnectivityResult.mobile);
     final wifi = results.contains(ConnectivityResult.wifi);
     final ethernet = results.contains(ConnectivityResult.ethernet);
+    final none = results.contains(ConnectivityResult.none);
+
+    // Offline if only ConnectivityResult.none or empty results (iOS transition)
+    final offline = results.isEmpty || (none && !mobile && !wifi && !ethernet);
+    if (offline != isOffline.value) {
+      developer.log('NetworkService: isOffline = $offline');
+      isOffline.add(offline);
+    }
 
     // On mobile data only if mobile is present AND wifi/ethernet is not
     final onMobile = mobile && !wifi && !ethernet;
@@ -46,5 +55,6 @@ class NetworkService {
   void dispose() {
     _subscription?.cancel();
     isOnMobileData.close();
+    isOffline.close();
   }
 }
