@@ -90,6 +90,7 @@ class AppAudioHandler extends BaseAudioHandler {
   // to prevent spinner flash between setAudioSource() and player.play().
   bool _isConnecting = false;
   bool get isPlayingOrConnecting => player.playing || _isConnecting;
+  bool _hasBeenPlayed = false;
   Timer? _disconnectTimer;
   // Monotonically increasing ID to cancel stale play() operations.
   // Each playStation() increments this; play() checks it after every await
@@ -339,6 +340,7 @@ class AppAudioHandler extends BaseAudioHandler {
 
   Future<void> playStation(Station station, {List<Station>? playlist, bool isFavoritesPlaylist = false}) async {
     _log('playStation($station)');
+    _hasBeenPlayed = true;
 
     // Avoid stop-restart if already playing/loading this exact station
     if (currentStation.valueOrNull?.id == station.id && isPlayingOrConnecting) {
@@ -533,6 +535,7 @@ class AppAudioHandler extends BaseAudioHandler {
   @override
   Future<void> pause() async {
     _log("pause");
+    _hasBeenPlayed = false;
     if (currentStation.value != null) {
       AppTracking.trackStopStation(currentStation.value!);
     }
@@ -764,6 +767,7 @@ class AppAudioHandler extends BaseAudioHandler {
   void reconnectIfNeeded() {
     if (currentStation.valueOrNull == null) return;
     if (_isConnecting) return;
+    if (!_hasBeenPlayed) return;
     final state = player.processingState;
     if (state == ProcessingState.idle ||
         (state == ProcessingState.buffering && player.playing)) {
