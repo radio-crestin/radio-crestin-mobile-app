@@ -18,7 +18,10 @@ enum ImageSource {
 extension String {
     func toImageSource() -> ImageSource {
         if self.starts(with: "http") {
-            return .url(URL(string: self)!)
+            guard let url = URL(string: self) else {
+                return .flutterAsset(self)
+            }
+            return .url(url)
         } else if self.starts(with: "file://") {
             return .file(self.replacingOccurrences(of: "file://", with: ""))
         } else {

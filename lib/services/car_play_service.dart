@@ -34,6 +34,9 @@ class CarPlayService {
   StreamSubscription? _currentStationSubscription;
   StreamSubscription? _favoritesSubscription;
 
+  // Timers for waiting for stations
+  Timer? _carPlayWaitTimer;
+
   // CarPlay list items by slug - for favorites tab (reused when updating)
   final Map<String, CPListItem> _favoriteListItems = {};
 
@@ -229,7 +232,7 @@ class CarPlayService {
   }
 
   void _waitForStations() {
-    Timer.periodic(const Duration(milliseconds: 500), (timer) {
+    _carPlayWaitTimer = Timer.periodic(const Duration(milliseconds: 500), (timer) {
       if (_carPlayInitialized) {
         timer.cancel();
         return;
@@ -290,9 +293,7 @@ class CarPlayService {
 
     _favoriteTemplate = CPListTemplate(
       title: "Favorite",
-      sections: [
-        CPListSection(items: favoriteItems),
-      ],
+      sections: [CPListSection(items: favoriteItems)],
       emptyViewTitleVariants: ["Nicio statie favorita"],
       emptyViewSubtitleVariants: ["Adauga statii la favorite din aplicatie"],
       systemIcon: "heart.fill",
@@ -361,7 +362,7 @@ class CarPlayService {
         _audioHandler.play();
       } else {
         final lastStation = await _audioHandler.getLastPlayedStation();
-        _audioHandler.playStation(lastStation);
+        if (lastStation != null) _audioHandler.playStation(lastStation);
       }
     };
 
@@ -600,6 +601,7 @@ class CarPlayService {
   void dispose() {
     _log("Disposing CarPlay/Android Auto service");
 
+    _carPlayWaitTimer?.cancel();
     _currentStationSubscription?.cancel();
     _favoritesSubscription?.cancel();
     _androidAutoFavoritesSubscription?.cancel();

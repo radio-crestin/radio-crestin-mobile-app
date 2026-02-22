@@ -810,6 +810,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       final prefs = getIt<SharedPreferences>();
       final autoStart = prefs.getBool('_autoStartStation') ?? true;
       var station = await _audioHandler.getLastPlayedStation();
+      if (station == null) return;
       if (autoStart) {
         _audioHandler.playStation(station);
       } else {
