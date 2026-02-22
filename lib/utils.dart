@@ -134,18 +134,20 @@ class Utils {
     );
   }
 
-  static Future<void> requestReviewAndUpdateStatus(NavigatorState navigator) async {
+  static Future<void> requestReviewAndUpdateStatus(BuildContext dialogContext) async {
     final InAppReview inAppReview = InAppReview.instance;
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     String? reviewStatusJson = prefs.getString('_reviewStatus');
     Map<String, dynamic> reviewStatus = json.decode(reviewStatusJson!);
 
     if (await inAppReview.isAvailable()) {
-      inAppReview.requestReview();
+      await inAppReview.requestReview();
       reviewStatus['review_completed'] = true;
       await prefs.setString('_reviewStatus', json.encode(reviewStatus));
     }
-    navigator.pop();
+    if (dialogContext.mounted) {
+      Navigator.of(dialogContext).pop();
+    }
   }
 
   static Future<void> show5StarReviewDialog() async {
@@ -177,7 +179,7 @@ class Utils {
                       reviewStatus['last_rating_dialog_canceled_at'] = DateTime.now().toIso8601String();
                       await prefs.setString('_reviewStatus', json.encode(reviewStatus));
                     }
-                    navigator.pop();
+                    if (context.mounted) Navigator.of(context).pop();
                   },
                 ),
                 CupertinoDialogAction(
@@ -186,7 +188,7 @@ class Utils {
                     style: TextStyle(color: Colors.blue),
                   ),
                   onPressed: () async {
-                    await requestReviewAndUpdateStatus(navigator);
+                    await requestReviewAndUpdateStatus(context);
                   },
                 ),
               ],
@@ -236,7 +238,7 @@ class Utils {
                       reviewStatus['last_rating_dialog_canceled_at'] = DateTime.now().toIso8601String();
                       await prefs.setString('_reviewStatus', json.encode(reviewStatus));
                     }
-                    navigator.pop();
+                    if (context.mounted) Navigator.of(context).pop();
                   },
                 ),
                 TextButton(
@@ -257,7 +259,7 @@ class Utils {
                     ),
                   ),
                   onPressed: () async {
-                    await requestReviewAndUpdateStatus(navigator);
+                    await requestReviewAndUpdateStatus(context);
                   },
                 ),
               ],
