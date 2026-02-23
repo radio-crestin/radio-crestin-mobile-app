@@ -45,20 +45,25 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     super.initState();
 
     _subscriptions.add(_stationDataService.favoriteStationSlugs.stream.listen((slugs) {
-      setState(() {
-        _favoriteSlugs = slugs;
-      });
+      if (mounted) {
+        setState(() {
+          _favoriteSlugs = slugs;
+        });
+      }
     }));
 
     _subscriptions.add(widget.audioHandler.currentStation.stream.listen((Station? value) {
-      setState(() {
-        currentStation = value;
-      });
+      if (mounted) {
+        setState(() {
+          currentStation = value;
+        });
+      }
     }));
   }
 
   @override
   void dispose() {
+    sleepTimer?.cancel();
     for (final subscription in _subscriptions) {
       subscription.cancel();
     }
@@ -217,6 +222,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                   backgroundColor: Theme.of(context).bottomAppBarTheme.color,
                   onPlay: widget.audioHandler.play,
                   onPause: widget.audioHandler.pause,
+                  onStop: widget.audioHandler.stop,
                 ),
                 const SizedBox(width: 28.0),
                 InkWell(
@@ -493,9 +499,12 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
 
     sleepTimer = Timer(duration, () {
       widget.audioHandler.stop();
-      setState(() {
-        isTimerActive = false;
-      });
+      sleepTimer = null;
+      if (mounted) {
+        setState(() {
+          isTimerActive = false;
+        });
+      }
     });
   }
 

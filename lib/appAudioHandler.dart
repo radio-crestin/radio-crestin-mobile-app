@@ -538,6 +538,7 @@ class AppAudioHandler extends BaseAudioHandler {
   @override
   Future<void> pause() async {
     _log("pause");
+    _cancelInFlightPlay();
     _hasBeenPlayed = false;
     if (currentStation.value != null) {
       AppTracking.trackStopStation(currentStation.value!);
@@ -608,6 +609,7 @@ class AppAudioHandler extends BaseAudioHandler {
   Future<void> stop() async {
     _log("stop");
     _cancelInFlightPlay();
+    _hasBeenPlayed = false;
     _disconnectTimer?.cancel();
     _loadedStreamUrl = null;
     _loadedStreamType = null;

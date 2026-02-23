@@ -10,6 +10,7 @@ class AnimatedPlayButton extends StatefulWidget {
   final Color? backgroundColor;
   final VoidCallback onPlay;
   final VoidCallback onPause;
+  final VoidCallback onStop;
 
   const AnimatedPlayButton({
     super.key,
@@ -18,6 +19,7 @@ class AnimatedPlayButton extends StatefulWidget {
     required this.iconColor,
     required this.onPlay,
     required this.onPause,
+    required this.onStop,
     this.backgroundColor,
   });
 
@@ -141,9 +143,14 @@ class AnimatedPlayButtonState extends State<AnimatedPlayButton> {
       ),
     );
 
-    final onTap = showPlaying
-        ? () { _setIntent(false); widget.onPause(); }
-        : () { _setIntent(true); widget.onPlay(); };
+    final VoidCallback onTap;
+    if (showSpinner) {
+      onTap = () { _setIntent(false); widget.onStop(); };
+    } else if (showPlaying) {
+      onTap = () { _setIntent(false); widget.onPause(); };
+    } else {
+      onTap = () { _setIntent(true); widget.onPlay(); };
+    }
 
     if (widget.backgroundColor != null) {
       return ClipOval(

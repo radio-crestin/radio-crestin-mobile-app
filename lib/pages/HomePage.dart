@@ -390,7 +390,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               ),
               isDraggable: (slidingUpPanelController.isAttached &&
                       (slidingUpPanelController.isPanelClosed ||
-                          slidingUpPanelController.isPanelClosed)) ||
+                          slidingUpPanelController.isPanelOpen)) ||
                   isDraggable,
               body: SafeArea(
                 child: RefreshIndicator(
