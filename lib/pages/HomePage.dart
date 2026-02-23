@@ -26,6 +26,7 @@ import '../queries/getStations.graphql.dart';
 import '../services/network_service.dart';
 import '../services/station_data_service.dart';
 import '../widgets/connectivity_banner.dart';
+import '../widgets/bottom_toast.dart';
 import '../types/Station.dart';
 import '../utils/PositionRetainedScrollPhysics.dart';
 import 'SettingsPage.dart';
@@ -84,6 +85,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   bool _showBackOnline = false;
   Timer? _backOnlineTimer;
   StreamSubscription? _offlineSub;
+  StreamSubscription? _connectionErrorSub;
   final ValueNotifier<double> _panelSlide = ValueNotifier(0.0);
 
   @override
@@ -117,6 +119,20 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       } else {
         setState(() => _isOffline = offline);
       }
+    });
+
+    _connectionErrorSub = _audioHandler.connectionError.listen((stationName) {
+      if (!mounted) return;
+      final message = stationName.isNotEmpty
+          ? 'Nu s-a putut conecta la stația "$stationName".'
+          : 'Nu s-a putut conecta la stația radio.';
+      showBottomToast(
+        context,
+        title: 'Eroare conexiune',
+        message: message,
+        icon: Icons.radio_rounded,
+        isError: true,
+      );
     });
 
     // Defer non-critical work to after first frame
@@ -218,6 +234,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _sub.cancel();
     _offlineSub?.cancel();
+    _connectionErrorSub?.cancel();
     _backOnlineTimer?.cancel();
     _panelSlide.dispose();
     super.dispose();

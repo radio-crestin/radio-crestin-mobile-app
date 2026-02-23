@@ -107,6 +107,9 @@ class AppAudioHandler extends BaseAudioHandler {
   String? _lastEmittedArtUriString;
 
   final BehaviorSubject<Station?> currentStation = BehaviorSubject.seeded(null);
+
+  /// Emits the station name when play() exhausts all retries and cannot connect.
+  final PublishSubject<String> connectionError = PublishSubject<String>();
   final BehaviorSubject<List<MediaItem>> stationsMediaItems = BehaviorSubject.seeded(<MediaItem>[]);
 
   // Active playlist for skip next/prev - set by whoever selects a station (app UI, CarPlay, Android Auto)
@@ -513,6 +516,8 @@ class AppAudioHandler extends BaseAudioHandler {
         _loadedStreamUrl = null;
         _loadedStreamType = null;
         PerformanceMonitor.endOperation('audio_play');
+        final stationName = currentStation.valueOrNull?.title ?? '';
+        connectionError.add(stationName);
         stop();
         return;
       }

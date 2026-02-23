@@ -18,7 +18,7 @@ import '../globals.dart' as globals;
 import '../main.dart' show getIt;
 import '../seek_mode_manager.dart';
 import '../theme_manager.dart';
-import '../widgets/top_toast.dart';
+import '../widgets/bottom_toast.dart';
 
 
 class SettingsPage extends StatefulWidget {
@@ -291,8 +291,8 @@ class _SettingsPageState extends State<SettingsPage> {
                           final message = newValue == SeekMode.instant
                               ? 'Acum asculți live cu un mic decalaj de câteva secunde.'
                               : 'Radioul va avea un decalaj de ${newValue == SeekMode.twoMinutes ? '2' : '5'} minute față de live.';
-                          removeTopToast(_activeToast);
-                          _activeToast = showTopToast(
+                          removeBottomToast(_activeToast);
+                          _activeToast = showBottomToast(
                             context,
                             title: 'Gata!',
                             message: message,
