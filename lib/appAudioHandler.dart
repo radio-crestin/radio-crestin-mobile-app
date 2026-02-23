@@ -87,6 +87,7 @@ class AppAudioHandler extends BaseAudioHandler {
   // Track loaded stream to avoid unnecessary reconnection on pause/resume
   String? _loadedStreamUrl;
   String? _loadedStreamType;
+  String? get loadedStreamType => _loadedStreamType;
   // True while play() is loading a new source — keeps broadcast in loading state
   // to prevent spinner flash between setAudioSource() and player.play().
   bool _isConnecting = false;
@@ -196,6 +197,10 @@ class AppAudioHandler extends BaseAudioHandler {
   final int maxRetries = 5;
 
   AppAudioHandler({required this.graphqlClient, required this.player}) {
+    stationDataService.getPlayingStreamType = (stationId) {
+      if (currentStation.value?.id == stationId) return _loadedStreamType;
+      return null;
+    };
     _initPlayer();
     _initUpdateCurrentStationMetadata();
   }
@@ -732,7 +737,7 @@ class AppAudioHandler extends BaseAudioHandler {
     _loadedStreamType = null;
     stopListeningTracker();
     player.stop();
-    stationDataService.cancelWatchStations();
+    stationDataService.dispose();
     return super.onTaskRemoved();
   }
 
@@ -746,7 +751,7 @@ class AppAudioHandler extends BaseAudioHandler {
     stopListeningTracker();
     await player.stop();
     await player.dispose();
-    stationDataService.cancelWatchStations();
+    stationDataService.dispose();
     await super.stop();
   }
 

@@ -3,6 +3,7 @@ import 'package:gql/ast.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:radio_crestin/performance_monitor.dart';
+import 'package:radio_crestin/utils/api_utils.dart';
 
 typedef RestApiTransformer = Map<String, dynamic> Function(dynamic jsonData);
 
@@ -29,7 +30,7 @@ class GraphQLToRestInterceptorLink extends Link {
       final variables = request.variables;
       final url = config.urlBuilder != null
         ? config.urlBuilder!(variables)
-        : _addTimestampToUrl(config.restApiUrl);
+        : addTimestampToUrl(config.restApiUrl);
       final opName = request.operation.operationName ?? 'unknown';
       PerformanceMonitor.startOperation('rest_api_$opName');
       final response = await _fetchFromRestApi(url);
@@ -52,22 +53,6 @@ class GraphQLToRestInterceptorLink extends Link {
         request.context,
       );
     }
-  }
-  
-  String _addTimestampToUrl(String url) {
-    final timestamp = _getRoundedTimestamp();
-    final uri = Uri.parse(url);
-    final queryParams = Map<String, String>.from(uri.queryParameters);
-    queryParams['_t'] = timestamp.toString();
-    
-    return uri.replace(queryParameters: queryParams).toString();
-  }
-  
-  int _getRoundedTimestamp() {
-    final now = DateTime.now();
-    final epochSeconds = now.millisecondsSinceEpoch ~/ 1000;
-    // Round to nearest 10 seconds
-    return (epochSeconds ~/ 10) * 10;
   }
   
   Future<http.Response> _fetchFromRestApi(String url) async {

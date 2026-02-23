@@ -9,17 +9,25 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/aripisprecer_61Mv959.jpg",
-        "total_listeners": 53,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "direct_stream", "stream_url": "https://mobile.stream.aripisprecer.ro/radio.mp3;" }
+          {
+            "order": 0,
+            "type": "direct_stream",
+            "stream_url": "https://mobile.stream.aripisprecer.ro/radio.mp3;"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -31,17 +39,25 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/aripisprecer_61Mv959.jpg",
-        "total_listeners": 10,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "direct_stream", "stream_url": "https://instrumental.stream.aripisprecer.ro/radio.mp3;" }
+          {
+            "order": 0,
+            "type": "direct_stream",
+            "stream_url": "https://instrumental.stream.aripisprecer.ro/radio.mp3;"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -53,17 +69,25 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/aripisprecer_61Mv959.jpg",
-        "total_listeners": 60,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "direct_stream", "stream_url": "https://popular.stream.aripisprecer.ro/radio.mp3;" }
+          {
+            "order": 0,
+            "type": "direct_stream",
+            "stream_url": "https://popular.stream.aripisprecer.ro/radio.mp3;"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -75,17 +99,25 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/aripisprecer_61Mv959.jpg",
-        "total_listeners": 24,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "direct_stream", "stream_url": "https://predici.stream.aripisprecer.ro/radio.mp3;" }
+          {
+            "order": 0,
+            "type": "direct_stream",
+            "stream_url": "https://predici.stream.aripisprecer.ro/radio.mp3;"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -97,17 +129,25 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/aripisprecer_61Mv959.jpg",
-        "total_listeners": 3,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "direct_stream", "stream_url": "https://special.stream.aripisprecer.ro/radio.mp3;" }
+          {
+            "order": 0,
+            "type": "direct_stream",
+            "stream_url": "https://special.stream.aripisprecer.ro/radio.mp3;"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -119,18 +159,30 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-calea-spre-cer-biblia.png",
-        "total_listeners": 3,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/radio-calea-spre-cer-biblia/index.m3u8" },
-          { "order": 2, "type": "direct_stream", "stream_url": "https://panel.radiocaleasprecer.com/radio/8010/radio.mp3" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-calea-spre-cer-biblia/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://panel.radiocaleasprecer.com/radio/8010/radio.mp3"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -142,18 +194,30 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-calea-spre-cer-copii.png",
-        "total_listeners": 1,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/radio-calea-spre-cer-copii/index.m3u8" },
-          { "order": 2, "type": "direct_stream", "stream_url": "https://panel.radiocaleasprecer.com/radio/8040/radio.mp3" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-calea-spre-cer-copii/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://panel.radiocaleasprecer.com/radio/8040/radio.mp3"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -165,18 +229,30 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-calea-spre-cer-popular.png",
-        "total_listeners": 12,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/radio-calea-spre-cer-popular/index.m3u8" },
-          { "order": 2, "type": "direct_stream", "stream_url": "https://panel.radiocaleasprecer.com/radio/8020/radio.mp3" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-calea-spre-cer-popular/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://panel.radiocaleasprecer.com/radio/8020/radio.mp3"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -188,18 +264,30 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/cross-one.jpg",
-        "total_listeners": 13,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/cross-one/index.m3u8" },
-          { "order": 2, "type": "direct_stream", "stream_url": "https://lb01.bpstream.com:8630/;" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/cross-one/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://lb01.bpstream.com:8630/;"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -211,18 +299,30 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/rve-brasov.png",
-        "total_listeners": 8,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/rve-brasov/index.m3u8" },
-          { "order": 1, "type": "direct_stream", "stream_url": "https://stream.rve-brasov.ro/rvebv.mp3" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/rve-brasov/index.m3u8"
+          },
+          {
+            "order": 1,
+            "type": "direct_stream",
+            "stream_url": "https://stream.rve-brasov.ro/rvebv.mp3"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -234,18 +334,30 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/rve-bucuresti.jpg",
-        "total_listeners": 62,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/rve-bucuresti/index.m3u8" },
-          { "order": 2, "type": "direct_stream", "stream_url": "https://lb01.bpstream.com:8618/stream" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/rve-bucuresti/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://lb01.bpstream.com:8618/stream"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -257,18 +369,30 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/RVECluj.png",
-        "total_listeners": 41,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/rve-cluj/index.m3u8" },
-          { "order": 0, "type": "direct_stream", "stream_url": "https://cj.rve.ro/rvecj.mp3" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/rve-cluj/index.m3u8"
+          },
+          {
+            "order": 0,
+            "type": "direct_stream",
+            "stream_url": "https://cj.rve.ro/rvecj.mp3"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -280,18 +404,30 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/rve-constanta.png",
-        "total_listeners": 1,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/rve-constanta/index.m3u8" },
-          { "order": 1, "type": "direct_stream", "stream_url": "https://stream.rvect.ro/rvect.mp3" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/rve-constanta/index.m3u8"
+          },
+          {
+            "order": 1,
+            "type": "direct_stream",
+            "stream_url": "https://stream.rvect.ro/rvect.mp3"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -303,18 +439,30 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/rve-hunedoara.png",
-        "total_listeners": 8,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/rve-hunedoara/index.m3u8" },
-          { "order": 1, "type": "direct_stream", "stream_url": "https://stream.rvehunedoara.ro/rvehd.mp3" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/rve-hunedoara/index.m3u8"
+          },
+          {
+            "order": 1,
+            "type": "direct_stream",
+            "stream_url": "https://stream.rvehunedoara.ro/rvehd.mp3"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -326,18 +474,30 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/rve-oradea.png",
-        "total_listeners": 94,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/rve-oradea/index.m3u8" },
-          { "order": 2, "type": "direct_stream", "stream_url": "http://162.244.80.32:6700/;stream" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/rve-oradea/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "http://162.244.80.32:6700/;stream"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -349,18 +509,30 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/rve-oradea-international.png",
-        "total_listeners": 17,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/rve-oradea-international/index.m3u8" },
-          { "order": 2, "type": "direct_stream", "stream_url": "http://162.244.80.34:9648/;" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/rve-oradea-international/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "http://162.244.80.34:9648/;"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -372,18 +544,30 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/rve-oradea-muzica.png",
-        "total_listeners": 11,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/rve-oradea-muzica/index.m3u8" },
-          { "order": 2, "type": "direct_stream", "stream_url": "http://162.244.80.32:9470/;stream.mp3" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/rve-oradea-muzica/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "http://162.244.80.32:9470/;stream.mp3"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -395,18 +579,30 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/rve-predici.png",
-        "total_listeners": 18,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/rve-predici/index.m3u8" },
-          { "order": 2, "type": "direct_stream", "stream_url": "http://162.244.80.32:9468/;stream.mp3" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/rve-predici/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "http://162.244.80.32:9468/;stream.mp3"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -418,18 +614,30 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/rve-satu-mare.png",
-        "total_listeners": 11,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/rve-satu-mare/index.m3u8" },
-          { "order": 2, "type": "direct_stream", "stream_url": "http://162.244.80.37:7560/;stream.mp3" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/rve-satu-mare/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "http://162.244.80.37:7560/;stream.mp3"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -441,17 +649,25 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/rve-sibiu.png",
-        "total_listeners": 71,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 1, "type": "direct_stream", "stream_url": "https://stream.rvesibiu.ro/rvesibiu.mp3" }
+          {
+            "order": 1,
+            "type": "direct_stream",
+            "stream_url": "https://stream.rvesibiu.ro/rvesibiu.mp3"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -463,18 +679,30 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/rve_soveja.png",
-        "total_listeners": 3,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/rve-soveja/index.m3u8" },
-          { "order": 1, "type": "direct_stream", "stream_url": "https://so.rve.ro/rveso.mp3" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/rve-soveja/index.m3u8"
+          },
+          {
+            "order": 1,
+            "type": "direct_stream",
+            "stream_url": "https://so.rve.ro/rveso.mp3"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -486,18 +714,30 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/rve-suceava.png",
-        "total_listeners": 201,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/rve-suceava/index.m3u8" },
-          { "order": 1, "type": "direct_stream", "stream_url": "https://stream.rvesv.ro/rvesv.mp3" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/rve-suceava/index.m3u8"
+          },
+          {
+            "order": 1,
+            "type": "direct_stream",
+            "stream_url": "https://stream.rvesv.ro/rvesv.mp3"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -509,18 +749,30 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/rve_targoviste.png",
-        "total_listeners": 4,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "direct_stream", "stream_url": "https://tg.rve.ro/rvetg.mp3" },
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/rve-targoviste/index.m3u8" }
+          {
+            "order": 0,
+            "type": "direct_stream",
+            "stream_url": "https://tg.rve.ro/rvetg.mp3"
+          },
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/rve-targoviste/index.m3u8"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -532,18 +784,30 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/rve-timisoara.png",
-        "total_listeners": 52,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/rve-timisoara/index.m3u8" },
-          { "order": 1, "type": "direct_stream", "stream_url": "https://tm.rve.ro/rvetm.mp3" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/rve-timisoara/index.m3u8"
+          },
+          {
+            "order": 1,
+            "type": "direct_stream",
+            "stream_url": "https://tm.rve.ro/rvetm.mp3"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -555,18 +819,30 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/rve-viena.png",
-        "total_listeners": 1,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/rve-viena/index.m3u8" },
-          { "order": 2, "type": "direct_stream", "stream_url": "https://s3.free-shoutcast.com/stream/18202/;stream.mp3" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/rve-viena/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://s3.free-shoutcast.com/stream/18202/;stream.mp3"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -578,18 +854,30 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/rve-viena-muzica.png",
-        "total_listeners": 1,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/rve-viena-muzica/index.m3u8" },
-          { "order": 2, "type": "direct_stream", "stream_url": "https://s2.free-shoutcast.com/stream/18028/;stream.mp3" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/rve-viena-muzica/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://s2.free-shoutcast.com/stream/18028/;stream.mp3"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -601,18 +889,30 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/rve-viena-tineri.png",
-        "total_listeners": 2,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/rve-viena-tineri/index.m3u8" },
-          { "order": 2, "type": "direct_stream", "stream_url": "https://s3.free-shoutcast.com/stream/18202/;stream.mp3" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/rve-viena-tineri/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://s3.free-shoutcast.com/stream/18202/;stream.mp3"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -624,18 +924,30 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/rve-zalau.png",
-        "total_listeners": 34,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/rve-zalau/index.m3u8" },
-          { "order": 1, "type": "direct_stream", "stream_url": "https://stream.rve-zalau.ro/rvezalau.mp3" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/rve-zalau/index.m3u8"
+          },
+          {
+            "order": 1,
+            "type": "direct_stream",
+            "stream_url": "https://stream.rve-zalau.ro/rvezalau.mp3"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -647,18 +959,30 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-9-fm.png",
-        "total_listeners": 2,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/radio-9-fm/index.m3u8" },
-          { "order": 1, "type": "direct_stream", "stream_url": "https://mn.rve.ro/rvemn.mp3" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-9-fm/index.m3u8"
+          },
+          {
+            "order": 1,
+            "type": "direct_stream",
+            "stream_url": "https://mn.rve.ro/rvemn.mp3"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -670,18 +994,30 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/alt-fm.jpg",
-        "total_listeners": 1,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/alt-fm/index.m3u8" },
-          { "order": 2, "type": "direct_stream", "stream_url": "https://altfm.faur.cc/alt_fm_128" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/alt-fm/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://altfm.faur.cc/alt_fm_128"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -693,18 +1029,30 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-allelon.png",
-        "total_listeners": 4,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/radio-allelon/index.m3u8" },
-          { "order": 2, "type": "direct_stream", "stream_url": "https://lb01.bpstream.com:8636/;" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-allelon/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://lb01.bpstream.com:8636/;"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -723,11 +1071,23 @@
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/radio-antiohia/index.m3u8" },
-          { "order": 2, "type": "direct_stream", "stream_url": "https://asculta.radiofiladelfia.ro:7000/antiohia_128.aac" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-antiohia/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://asculta.radiofiladelfia.ro:7000/antiohia_128.aac"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -739,18 +1099,30 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-armonia.jpg",
-        "total_listeners": 16,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/radio-armonia/index.m3u8" },
-          { "order": 2, "type": "direct_stream", "stream_url": "http://video.bluespot.ro:8001/listen.mp3" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-armonia/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "http://video.bluespot.ro:8001/listen.mp3"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -762,18 +1134,30 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-betel-alcala.png",
-        "total_listeners": 3,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/radio-betel-alcala/index.m3u8" },
-          { "order": 2, "type": "direct_stream", "stream_url": "https://betelalcala.radioca.st/stream" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-betel-alcala/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://betelalcala.radioca.st/stream"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -785,18 +1169,30 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-biserica-penticostala-nadlac.png",
-        "total_listeners": 1,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/radio-biserica-penticostala-nadlac/index.m3u8" },
-          { "order": 2, "type": "direct_stream", "stream_url": "https://radio.ascultatare.ro/8012/stream" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-biserica-penticostala-nadlac/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://radio.ascultatare.ro/8012/stream"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -808,18 +1204,30 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-calea-spre-cer.png",
-        "total_listeners": 3,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/radio-calea-spre-cer/index.m3u8" },
-          { "order": 2, "type": "direct_stream", "stream_url": "https://panel.radiocaleasprecer.com/radio/8000/radio.mp3" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-calea-spre-cer/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://panel.radiocaleasprecer.com/radio/8000/radio.mp3"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -831,18 +1239,30 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-crestin-autentic.png",
-        "total_listeners": 3,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/radio-crestin-autentic/index.m3u8" },
-          { "order": 2, "type": "direct_stream", "stream_url": "http://78.47.64.186:8082/radio/8000/radio.mp3" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-crestin-autentic/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "http://78.47.64.186:8082/radio/8000/radio.mp3"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -854,17 +1274,25 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-ekklesia.jpg",
-        "total_listeners": 17,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "direct_stream", "stream_url": "https://radio.sonicpanel.ro/8056/stream" }
+          {
+            "order": 0,
+            "type": "direct_stream",
+            "stream_url": "https://radio.sonicpanel.ro/8056/stream"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -876,18 +1304,30 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio_eldad.png",
-        "total_listeners": 6,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/radio-eldad/index.m3u8" },
-          { "order": 1, "type": "direct_stream", "stream_url": "https://c40.radioboss.fm/stream/170" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-eldad/index.m3u8"
+          },
+          {
+            "order": 1,
+            "type": "direct_stream",
+            "stream_url": "https://c40.radioboss.fm/stream/170"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -899,18 +1339,30 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-elim-air.png",
-        "total_listeners": 2,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "direct_stream", "stream_url": "http://91.213.11.102:8011/stream" },
-          { "order": 2, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/radio-elim/index.m3u8" }
+          {
+            "order": 0,
+            "type": "direct_stream",
+            "stream_url": "http://91.213.11.102:8011/stream"
+          },
+          {
+            "order": 2,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-elim/index.m3u8"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -922,18 +1374,30 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-elim-kids.jpg",
-        "total_listeners": 1,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/radio-elim-kids/index.m3u8" },
-          { "order": 2, "type": "direct_stream", "stream_url": "http://91.213.11.102:8007/stream" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-elim-kids/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "http://91.213.11.102:8007/stream"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -945,18 +1409,30 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-elim-plus.jpg",
-        "total_listeners": 2,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/radio-elim-plus/index.m3u8" },
-          { "order": 2, "type": "direct_stream", "stream_url": "http://91.213.11.102:8003/stream" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-elim-plus/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "http://91.213.11.102:8003/stream"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -968,17 +1444,25 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-emanuel.png",
-        "total_listeners": 10,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/radio-emanuel/index.m3u8" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-emanuel/index.m3u8"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -990,18 +1474,30 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-filadelfia.png",
-        "total_listeners": 2,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/radio-filadelfia/index.m3u8" },
-          { "order": 2, "type": "direct_stream", "stream_url": "https://b3.radiofiladelfia.ro:7000/filadelfia_128.aac" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-filadelfia/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://b3.radiofiladelfia.ro:7000/filadelfia_128.aac"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -1020,11 +1516,23 @@
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/radio-filadelfia-christmas/index.m3u8" },
-          { "order": 2, "type": "direct_stream", "stream_url": "https://asculta.radiofiladelfia.ro:7000/christmas_128.aac" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-filadelfia-christmas/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://asculta.radiofiladelfia.ro:7000/christmas_128.aac"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -1036,18 +1544,30 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-filadelfia-special.png",
-        "total_listeners": 2,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/radio-filadelfia-special/index.m3u8" },
-          { "order": 2, "type": "direct_stream", "stream_url": "https://asculta.radiofiladelfia.ro:7000/special_128.aac" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-filadelfia-special/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://asculta.radiofiladelfia.ro:7000/special_128.aac"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -1059,18 +1579,30 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio_flacara_rusalilor.png",
-        "total_listeners": 8,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "direct_stream", "stream_url": "https://stream.radio-flacararusaliilor.ro/stream" },
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/radio-flacara-rusaliilor/index.m3u8" }
+          {
+            "order": 0,
+            "type": "direct_stream",
+            "stream_url": "https://stream.radio-flacararusaliilor.ro/stream"
+          },
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-flacara-rusaliilor/index.m3u8"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -1082,18 +1614,30 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-gosen.jpg",
-        "total_listeners": 371,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/radio-gosen/index.m3u8" },
-          { "order": 2, "type": "direct_stream", "stream_url": "https://sp.totalstreaming.net/8125/stream" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-gosen/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://sp.totalstreaming.net/8125/stream"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -1105,18 +1649,30 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-iubire-fara-margini.jpg",
-        "total_listeners": 5,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/radio-iubire-fara-margini/index.m3u8" },
-          { "order": 2, "type": "direct_stream", "stream_url": "http://ssl.omegahost.ro:7043/stream" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-iubire-fara-margini/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "http://ssl.omegahost.ro:7043/stream"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -1128,18 +1684,30 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-joy.png",
-        "total_listeners": 3,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/radio-joy/index.m3u8" },
-          { "order": 2, "type": "direct_stream", "stream_url": "https://c13.radioboss.fm:18349/stream" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-joy/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://c13.radioboss.fm:18349/stream"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -1151,18 +1719,30 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-levi.jpg",
-        "total_listeners": 3,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/radio-levi/index.m3u8" },
-          { "order": 2, "type": "direct_stream", "stream_url": "https://audio-radioleviro.bisericilive.com/radioleviro.mp3" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-levi/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://audio-radioleviro.bisericilive.com/radioleviro.mp3"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -1174,18 +1754,30 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-micul-samaritean.jpg",
-        "total_listeners": 6,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/radio-micul-samaritean/index.m3u8" },
-          { "order": 2, "type": "direct_stream", "stream_url": "https://s5.radio.co/sfff7b7e97/listen" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-micul-samaritean/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://s5.radio.co/sfff7b7e97/listen"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -1204,11 +1796,23 @@
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/radio-moody-chicago/index.m3u8" },
-          { "order": 2, "type": "direct_stream", "stream_url": "https://14123.live.streamtheworld.com/MB2.mp3?tdsdk=js-2.9&swm=false&pname=TDSdk&pversion=2.9&banners=none&burst-time=15&sbmid=6797dcac-8e11-4b2d-f0ab-e7fac250eb7f" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-moody-chicago/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://14123.live.streamtheworld.com/MB2.mp3?tdsdk=js-2.9&swm=false&pname=TDSdk&pversion=2.9&banners=none&burst-time=15&sbmid=6797dcac-8e11-4b2d-f0ab-e7fac250eb7f"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -1220,18 +1824,30 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-o-noua-sansa.jpg",
-        "total_listeners": 5,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/radio-o-noua-sansa/index.m3u8" },
-          { "order": 2, "type": "direct_stream", "stream_url": "http://radioonouasansa.sytes.net:8700/;" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-o-noua-sansa/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "http://radioonouasansa.sytes.net:8700/;"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -1250,10 +1866,18 @@
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 2, "type": "direct_stream", "stream_url": "https://stream.radio.co/sf2c714555/listen" }
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://stream.radio.co/sf2c714555/listen"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -1265,18 +1889,30 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-philadelphia-clasic.png",
-        "total_listeners": 3,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/radio-philadelphia-clasic/index.m3u8" },
-          { "order": 2, "type": "direct_stream", "stream_url": "http://94.130.106.91:8020/clasic.mp3" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-philadelphia-clasic/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "http://94.130.106.91:8020/clasic.mp3"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -1288,18 +1924,30 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-philadelphia-copii.png",
-        "total_listeners": 16,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/radio-philadelphia-copii/index.m3u8" },
-          { "order": 2, "type": "direct_stream", "stream_url": "http://94.130.106.91:8030/radio.mp3" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-philadelphia-copii/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "http://94.130.106.91:8030/radio.mp3"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -1318,11 +1966,23 @@
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/radio-philadelphia/index.m3u8" },
-          { "order": 2, "type": "direct_stream", "stream_url": "http://94.130.106.91/radio/8000/radio.mp3" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-philadelphia/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "http://94.130.106.91/radio/8000/radio.mp3"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -1341,11 +2001,23 @@
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/radio-philadelphia-melbourne/index.m3u8" },
-          { "order": 2, "type": "direct_stream", "stream_url": "https://s4.radio.co/sa99b786e4/listen" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-philadelphia-melbourne/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://s4.radio.co/sa99b786e4/listen"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -1357,18 +2029,30 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-predic.png",
-        "total_listeners": 9,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/radio-predic/index.m3u8" },
-          { "order": 2, "type": "direct_stream", "stream_url": "https://s16.myradiostream.com/:15576/listen.mp3" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-predic/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://s16.myradiostream.com/:15576/listen.mp3"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -1380,18 +2064,30 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/sos-ploiesti.png",
-        "total_listeners": 1,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/sos-ploiesti/index.m3u8" },
-          { "order": 2, "type": "direct_stream", "stream_url": "https://radiosos.eu:8001/stream?type=.aac" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/sos-ploiesti/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://radiosos.eu:8001/stream?type=.aac"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -1403,18 +2099,30 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-vestea-buna.png",
-        "total_listeners": 9,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/radio-vestea-buna/index.m3u8" },
-          { "order": 2, "type": "direct_stream", "stream_url": "https://c34.radioboss.fm:18175/stream" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-vestea-buna/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://c34.radioboss.fm:18175/stream"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -1426,18 +2134,30 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-vocea-credintei.png",
-        "total_listeners": 6,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/radio-vocea-credintei/index.m3u8" },
-          { "order": 2, "type": "direct_stream", "stream_url": "https://c26.radioboss.fm:18191/stream" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-vocea-credintei/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://c26.radioboss.fm:18191/stream"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -1449,18 +2169,30 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-vocea-crestinilor.png",
-        "total_listeners": 1,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/radio-vocea-crestinilor/index.m3u8" },
-          { "order": 2, "type": "direct_stream", "stream_url": "https://listen.radioking.com/radio/494884/stream/551902" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-vocea-crestinilor/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://listen.radioking.com/radio/494884/stream/551902"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -1479,11 +2211,23 @@
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/radio-vocea-sperantei/index.m3u8" },
-          { "order": 2, "type": "direct_stream", "stream_url": "https://live.rvs.ro/play" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-vocea-sperantei/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://live.rvs.ro/play"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       },
@@ -1495,18 +2239,30 @@
         "website": "",
         "email": "",
         "thumbnail_url": "https://fsn1.your-objectstorage.com/prod-rke2-radiocrestin-admin-storage/public/stations/radio-de-cuvant.jpg",
-        "total_listeners": 1,
+        "total_listeners": null,
         "description": null,
         "description_action_title": null,
         "description_link": null,
         "feature_latest_post": false,
         "facebook_page_id": null,
         "station_streams": [
-          { "order": 0, "type": "HLS", "stream_url": "https://hls.radiocrestin.ro/hls/radio-de-cuvant/index.m3u8" },
-          { "order": 2, "type": "direct_stream", "stream_url": "https://streamer.radio.co/sb94ce6fe2/listen" }
+          {
+            "order": 0,
+            "type": "HLS",
+            "stream_url": "https://hls.radiocrestin.ro/hls/radio-de-cuvant/index.m3u8"
+          },
+          {
+            "order": 2,
+            "type": "direct_stream",
+            "stream_url": "https://streamer.radio.co/sb94ce6fe2/listen"
+          }
         ],
         "posts": [],
-        "uptime": { "is_up": true, "latency_ms": 0, "timestamp": "" },
+        "uptime": {
+          "is_up": true,
+          "latency_ms": 0,
+          "timestamp": ""
+        },
         "now_playing": null,
         "reviews": []
       }
@@ -1518,80 +2274,302 @@
         "order": -1,
         "slug": "radio",
         "station_to_station_groups": [
-          { "station_id": 48, "order": 31 },
-          { "station_id": 47, "order": 30 },
-          { "station_id": 40, "order": 0 },
-          { "station_id": 92, "order": 0 },
-          { "station_id": 41, "order": 0 },
-          { "station_id": 84, "order": 0 },
-          { "station_id": 46, "order": 0 },
-          { "station_id": 42, "order": 0 },
-          { "station_id": 83, "order": 0 },
-          { "station_id": 45, "order": 29 },
-          { "station_id": 43, "order": 0 },
-          { "station_id": 6, "order": 0 },
-          { "station_id": 44, "order": 0 },
-          { "station_id": 0, "order": 0 },
-          { "station_id": 82, "order": 0 },
-          { "station_id": 81, "order": 0 },
-          { "station_id": 7, "order": 0 },
-          { "station_id": 80, "order": 99 },
-          { "station_id": 8, "order": 0 },
-          { "station_id": 79, "order": 0 },
-          { "station_id": 9, "order": 0 },
-          { "station_id": 91, "order": 0 },
-          { "station_id": 78, "order": 0 },
-          { "station_id": 77, "order": 0 },
-          { "station_id": 11, "order": 0 },
-          { "station_id": 76, "order": 0 },
-          { "station_id": 12, "order": 0 },
-          { "station_id": 75, "order": 0 },
-          { "station_id": 74, "order": 0 },
-          { "station_id": 13, "order": 0 },
-          { "station_id": 73, "order": 0 },
-          { "station_id": 15, "order": 0 },
-          { "station_id": 72, "order": 0 },
-          { "station_id": 16, "order": 0 },
-          { "station_id": 71, "order": 0 },
-          { "station_id": 70, "order": 0 },
-          { "station_id": 17, "order": 0 },
-          { "station_id": 69, "order": 0 },
-          { "station_id": 68, "order": 0 },
-          { "station_id": 18, "order": 0 },
-          { "station_id": 67, "order": 0 },
-          { "station_id": 66, "order": 0 },
-          { "station_id": 19, "order": 0 },
-          { "station_id": 65, "order": 0 },
-          { "station_id": 64, "order": 0 },
-          { "station_id": 20, "order": 0 },
-          { "station_id": 1, "order": 0 },
-          { "station_id": 63, "order": 0 },
-          { "station_id": 62, "order": 0 },
-          { "station_id": 61, "order": 0 },
-          { "station_id": 21, "order": 0 },
-          { "station_id": 60, "order": 0 },
-          { "station_id": 22, "order": 0 },
-          { "station_id": 59, "order": 0 },
-          { "station_id": 58, "order": 0 },
-          { "station_id": 23, "order": 0 },
-          { "station_id": 57, "order": 0 },
-          { "station_id": 56, "order": 0 },
-          { "station_id": 24, "order": 0 },
-          { "station_id": 90, "order": 0 },
-          { "station_id": 55, "order": 0 },
-          { "station_id": 54, "order": 0 },
-          { "station_id": 25, "order": 0 },
-          { "station_id": 2, "order": 0 },
-          { "station_id": 53, "order": 17 },
-          { "station_id": 52, "order": 17 },
-          { "station_id": 26, "order": 0 },
-          { "station_id": 89, "order": 0 },
-          { "station_id": 51, "order": 17 },
-          { "station_id": 27, "order": 0 },
-          { "station_id": 50, "order": 33 },
-          { "station_id": 49, "order": 32 },
-          { "station_id": 39, "order": 0 },
-          { "station_id": 5, "order": 0 }
+          {
+            "station_id": 48,
+            "order": 31
+          },
+          {
+            "station_id": 47,
+            "order": 30
+          },
+          {
+            "station_id": 40,
+            "order": 0
+          },
+          {
+            "station_id": 92,
+            "order": 0
+          },
+          {
+            "station_id": 41,
+            "order": 0
+          },
+          {
+            "station_id": 84,
+            "order": 0
+          },
+          {
+            "station_id": 46,
+            "order": 0
+          },
+          {
+            "station_id": 42,
+            "order": 0
+          },
+          {
+            "station_id": 83,
+            "order": 0
+          },
+          {
+            "station_id": 45,
+            "order": 29
+          },
+          {
+            "station_id": 43,
+            "order": 0
+          },
+          {
+            "station_id": 6,
+            "order": 0
+          },
+          {
+            "station_id": 44,
+            "order": 0
+          },
+          {
+            "station_id": 0,
+            "order": 0
+          },
+          {
+            "station_id": 82,
+            "order": 0
+          },
+          {
+            "station_id": 81,
+            "order": 0
+          },
+          {
+            "station_id": 7,
+            "order": 0
+          },
+          {
+            "station_id": 80,
+            "order": 99
+          },
+          {
+            "station_id": 8,
+            "order": 0
+          },
+          {
+            "station_id": 79,
+            "order": 0
+          },
+          {
+            "station_id": 9,
+            "order": 0
+          },
+          {
+            "station_id": 91,
+            "order": 0
+          },
+          {
+            "station_id": 78,
+            "order": 0
+          },
+          {
+            "station_id": 77,
+            "order": 0
+          },
+          {
+            "station_id": 11,
+            "order": 0
+          },
+          {
+            "station_id": 76,
+            "order": 0
+          },
+          {
+            "station_id": 12,
+            "order": 0
+          },
+          {
+            "station_id": 75,
+            "order": 0
+          },
+          {
+            "station_id": 74,
+            "order": 0
+          },
+          {
+            "station_id": 13,
+            "order": 0
+          },
+          {
+            "station_id": 73,
+            "order": 0
+          },
+          {
+            "station_id": 15,
+            "order": 0
+          },
+          {
+            "station_id": 72,
+            "order": 0
+          },
+          {
+            "station_id": 16,
+            "order": 0
+          },
+          {
+            "station_id": 71,
+            "order": 0
+          },
+          {
+            "station_id": 70,
+            "order": 0
+          },
+          {
+            "station_id": 17,
+            "order": 0
+          },
+          {
+            "station_id": 69,
+            "order": 0
+          },
+          {
+            "station_id": 68,
+            "order": 0
+          },
+          {
+            "station_id": 18,
+            "order": 0
+          },
+          {
+            "station_id": 67,
+            "order": 0
+          },
+          {
+            "station_id": 66,
+            "order": 0
+          },
+          {
+            "station_id": 19,
+            "order": 0
+          },
+          {
+            "station_id": 65,
+            "order": 0
+          },
+          {
+            "station_id": 64,
+            "order": 0
+          },
+          {
+            "station_id": 20,
+            "order": 0
+          },
+          {
+            "station_id": 1,
+            "order": 0
+          },
+          {
+            "station_id": 63,
+            "order": 0
+          },
+          {
+            "station_id": 62,
+            "order": 0
+          },
+          {
+            "station_id": 61,
+            "order": 0
+          },
+          {
+            "station_id": 21,
+            "order": 0
+          },
+          {
+            "station_id": 60,
+            "order": 0
+          },
+          {
+            "station_id": 22,
+            "order": 0
+          },
+          {
+            "station_id": 59,
+            "order": 0
+          },
+          {
+            "station_id": 58,
+            "order": 0
+          },
+          {
+            "station_id": 23,
+            "order": 0
+          },
+          {
+            "station_id": 57,
+            "order": 0
+          },
+          {
+            "station_id": 56,
+            "order": 0
+          },
+          {
+            "station_id": 24,
+            "order": 0
+          },
+          {
+            "station_id": 90,
+            "order": 0
+          },
+          {
+            "station_id": 55,
+            "order": 0
+          },
+          {
+            "station_id": 54,
+            "order": 0
+          },
+          {
+            "station_id": 25,
+            "order": 0
+          },
+          {
+            "station_id": 2,
+            "order": 0
+          },
+          {
+            "station_id": 53,
+            "order": 17
+          },
+          {
+            "station_id": 52,
+            "order": 17
+          },
+          {
+            "station_id": 26,
+            "order": 0
+          },
+          {
+            "station_id": 89,
+            "order": 0
+          },
+          {
+            "station_id": 51,
+            "order": 17
+          },
+          {
+            "station_id": 27,
+            "order": 0
+          },
+          {
+            "station_id": 50,
+            "order": 33
+          },
+          {
+            "station_id": 49,
+            "order": 32
+          },
+          {
+            "station_id": 39,
+            "order": 0
+          },
+          {
+            "station_id": 5,
+            "order": 0
+          }
         ]
       },
       {
@@ -1600,31 +2578,106 @@
         "order": 1,
         "slug": "general",
         "station_to_station_groups": [
-          { "station_id": 0, "order": 0 },
-          { "station_id": 6, "order": 0 },
-          { "station_id": 7, "order": 0 },
-          { "station_id": 11, "order": 0 },
-          { "station_id": 21, "order": 0 },
-          { "station_id": 25, "order": 0 },
-          { "station_id": 26, "order": 0 },
-          { "station_id": 27, "order": 0 },
-          { "station_id": 40, "order": 0 },
-          { "station_id": 41, "order": 0 },
-          { "station_id": 42, "order": 0 },
-          { "station_id": 43, "order": 0 },
-          { "station_id": 44, "order": 0 },
-          { "station_id": 45, "order": 29 },
-          { "station_id": 47, "order": 30 },
-          { "station_id": 48, "order": 31 },
-          { "station_id": 50, "order": 33 },
-          { "station_id": 76, "order": 0 },
-          { "station_id": 81, "order": 0 },
-          { "station_id": 82, "order": 0 },
-          { "station_id": 83, "order": 0 },
-          { "station_id": 84, "order": 0 },
-          { "station_id": 89, "order": 0 },
-          { "station_id": 90, "order": 0 },
-          { "station_id": 91, "order": 0 }
+          {
+            "station_id": 0,
+            "order": 0
+          },
+          {
+            "station_id": 6,
+            "order": 0
+          },
+          {
+            "station_id": 7,
+            "order": 0
+          },
+          {
+            "station_id": 11,
+            "order": 0
+          },
+          {
+            "station_id": 21,
+            "order": 0
+          },
+          {
+            "station_id": 25,
+            "order": 0
+          },
+          {
+            "station_id": 26,
+            "order": 0
+          },
+          {
+            "station_id": 27,
+            "order": 0
+          },
+          {
+            "station_id": 40,
+            "order": 0
+          },
+          {
+            "station_id": 41,
+            "order": 0
+          },
+          {
+            "station_id": 42,
+            "order": 0
+          },
+          {
+            "station_id": 43,
+            "order": 0
+          },
+          {
+            "station_id": 44,
+            "order": 0
+          },
+          {
+            "station_id": 45,
+            "order": 29
+          },
+          {
+            "station_id": 47,
+            "order": 30
+          },
+          {
+            "station_id": 48,
+            "order": 31
+          },
+          {
+            "station_id": 50,
+            "order": 33
+          },
+          {
+            "station_id": 76,
+            "order": 0
+          },
+          {
+            "station_id": 81,
+            "order": 0
+          },
+          {
+            "station_id": 82,
+            "order": 0
+          },
+          {
+            "station_id": 83,
+            "order": 0
+          },
+          {
+            "station_id": 84,
+            "order": 0
+          },
+          {
+            "station_id": 89,
+            "order": 0
+          },
+          {
+            "station_id": 90,
+            "order": 0
+          },
+          {
+            "station_id": 91,
+            "order": 0
+          }
         ]
       },
       {
@@ -1633,51 +2686,186 @@
         "order": 2,
         "slug": "muzica",
         "station_to_station_groups": [
-          { "station_id": 49, "order": 32 },
-          { "station_id": 52, "order": 17 },
-          { "station_id": 26, "order": 0 },
-          { "station_id": 55, "order": 0 },
-          { "station_id": 25, "order": 0 },
-          { "station_id": 56, "order": 0 },
-          { "station_id": 24, "order": 0 },
-          { "station_id": 59, "order": 0 },
-          { "station_id": 62, "order": 0 },
-          { "station_id": 21, "order": 0 },
-          { "station_id": 64, "order": 0 },
-          { "station_id": 65, "order": 0 },
-          { "station_id": 20, "order": 0 },
-          { "station_id": 66, "order": 0 },
-          { "station_id": 19, "order": 0 },
-          { "station_id": 18, "order": 0 },
-          { "station_id": 17, "order": 0 },
-          { "station_id": 74, "order": 0 },
-          { "station_id": 13, "order": 0 },
-          { "station_id": 92, "order": 0 },
-          { "station_id": 76, "order": 0 },
-          { "station_id": 12, "order": 0 },
-          { "station_id": 77, "order": 0 },
-          { "station_id": 78, "order": 0 },
-          { "station_id": 11, "order": 0 },
-          { "station_id": 79, "order": 0 },
-          { "station_id": 9, "order": 0 },
-          { "station_id": 80, "order": 99 },
-          { "station_id": 90, "order": 0 },
-          { "station_id": 81, "order": 0 },
-          { "station_id": 82, "order": 0 },
-          { "station_id": 7, "order": 0 },
-          { "station_id": 0, "order": 0 },
-          { "station_id": 83, "order": 0 },
-          { "station_id": 91, "order": 0 },
-          { "station_id": 84, "order": 0 },
-          { "station_id": 44, "order": 0 },
-          { "station_id": 6, "order": 0 },
-          { "station_id": 45, "order": 29 },
-          { "station_id": 43, "order": 0 },
-          { "station_id": 46, "order": 0 },
-          { "station_id": 42, "order": 0 },
-          { "station_id": 89, "order": 0 },
-          { "station_id": 51, "order": 17 },
-          { "station_id": 27, "order": 0 }
+          {
+            "station_id": 49,
+            "order": 32
+          },
+          {
+            "station_id": 52,
+            "order": 17
+          },
+          {
+            "station_id": 26,
+            "order": 0
+          },
+          {
+            "station_id": 55,
+            "order": 0
+          },
+          {
+            "station_id": 25,
+            "order": 0
+          },
+          {
+            "station_id": 56,
+            "order": 0
+          },
+          {
+            "station_id": 24,
+            "order": 0
+          },
+          {
+            "station_id": 59,
+            "order": 0
+          },
+          {
+            "station_id": 62,
+            "order": 0
+          },
+          {
+            "station_id": 21,
+            "order": 0
+          },
+          {
+            "station_id": 64,
+            "order": 0
+          },
+          {
+            "station_id": 65,
+            "order": 0
+          },
+          {
+            "station_id": 20,
+            "order": 0
+          },
+          {
+            "station_id": 66,
+            "order": 0
+          },
+          {
+            "station_id": 19,
+            "order": 0
+          },
+          {
+            "station_id": 18,
+            "order": 0
+          },
+          {
+            "station_id": 17,
+            "order": 0
+          },
+          {
+            "station_id": 74,
+            "order": 0
+          },
+          {
+            "station_id": 13,
+            "order": 0
+          },
+          {
+            "station_id": 92,
+            "order": 0
+          },
+          {
+            "station_id": 76,
+            "order": 0
+          },
+          {
+            "station_id": 12,
+            "order": 0
+          },
+          {
+            "station_id": 77,
+            "order": 0
+          },
+          {
+            "station_id": 78,
+            "order": 0
+          },
+          {
+            "station_id": 11,
+            "order": 0
+          },
+          {
+            "station_id": 79,
+            "order": 0
+          },
+          {
+            "station_id": 9,
+            "order": 0
+          },
+          {
+            "station_id": 80,
+            "order": 99
+          },
+          {
+            "station_id": 90,
+            "order": 0
+          },
+          {
+            "station_id": 81,
+            "order": 0
+          },
+          {
+            "station_id": 82,
+            "order": 0
+          },
+          {
+            "station_id": 7,
+            "order": 0
+          },
+          {
+            "station_id": 0,
+            "order": 0
+          },
+          {
+            "station_id": 83,
+            "order": 0
+          },
+          {
+            "station_id": 91,
+            "order": 0
+          },
+          {
+            "station_id": 84,
+            "order": 0
+          },
+          {
+            "station_id": 44,
+            "order": 0
+          },
+          {
+            "station_id": 6,
+            "order": 0
+          },
+          {
+            "station_id": 45,
+            "order": 29
+          },
+          {
+            "station_id": 43,
+            "order": 0
+          },
+          {
+            "station_id": 46,
+            "order": 0
+          },
+          {
+            "station_id": 42,
+            "order": 0
+          },
+          {
+            "station_id": 89,
+            "order": 0
+          },
+          {
+            "station_id": 51,
+            "order": 17
+          },
+          {
+            "station_id": 27,
+            "order": 0
+          }
         ]
       },
       {
@@ -1686,14 +2874,38 @@
         "order": 3,
         "slug": "emisiuni",
         "station_to_station_groups": [
-          { "station_id": 39, "order": 0 },
-          { "station_id": 21, "order": 0 },
-          { "station_id": 40, "order": 0 },
-          { "station_id": 7, "order": 0 },
-          { "station_id": 26, "order": 0 },
-          { "station_id": 6, "order": 0 },
-          { "station_id": 11, "order": 0 },
-          { "station_id": 78, "order": 0 }
+          {
+            "station_id": 39,
+            "order": 0
+          },
+          {
+            "station_id": 21,
+            "order": 0
+          },
+          {
+            "station_id": 40,
+            "order": 0
+          },
+          {
+            "station_id": 7,
+            "order": 0
+          },
+          {
+            "station_id": 26,
+            "order": 0
+          },
+          {
+            "station_id": 6,
+            "order": 0
+          },
+          {
+            "station_id": 11,
+            "order": 0
+          },
+          {
+            "station_id": 78,
+            "order": 0
+          }
         ]
       },
       {
@@ -1702,15 +2914,42 @@
         "order": 3,
         "slug": "popular",
         "station_to_station_groups": [
-          { "station_id": 62, "order": 0 },
-          { "station_id": 21, "order": 0 },
-          { "station_id": 64, "order": 0 },
-          { "station_id": 40, "order": 0 },
-          { "station_id": 2, "order": 0 },
-          { "station_id": 18, "order": 0 },
-          { "station_id": 75, "order": 0 },
-          { "station_id": 24, "order": 0 },
-          { "station_id": 19, "order": 0 }
+          {
+            "station_id": 62,
+            "order": 0
+          },
+          {
+            "station_id": 21,
+            "order": 0
+          },
+          {
+            "station_id": 64,
+            "order": 0
+          },
+          {
+            "station_id": 40,
+            "order": 0
+          },
+          {
+            "station_id": 2,
+            "order": 0
+          },
+          {
+            "station_id": 18,
+            "order": 0
+          },
+          {
+            "station_id": 75,
+            "order": 0
+          },
+          {
+            "station_id": 24,
+            "order": 0
+          },
+          {
+            "station_id": 19,
+            "order": 0
+          }
         ]
       },
       {
@@ -1719,11 +2958,26 @@
         "order": 4,
         "slug": "predici",
         "station_to_station_groups": [
-          { "station_id": 53, "order": 17 },
-          { "station_id": 1, "order": 0 },
-          { "station_id": 25, "order": 0 },
-          { "station_id": 68, "order": 0 },
-          { "station_id": 77, "order": 0 }
+          {
+            "station_id": 53,
+            "order": 17
+          },
+          {
+            "station_id": 1,
+            "order": 0
+          },
+          {
+            "station_id": 25,
+            "order": 0
+          },
+          {
+            "station_id": 68,
+            "order": 0
+          },
+          {
+            "station_id": 77,
+            "order": 0
+          }
         ]
       },
       {
@@ -1732,12 +2986,30 @@
         "order": 5,
         "slug": "worship",
         "station_to_station_groups": [
-          { "station_id": 20, "order": 0 },
-          { "station_id": 16, "order": 0 },
-          { "station_id": 17, "order": 0 },
-          { "station_id": 39, "order": 0 },
-          { "station_id": 78, "order": 0 },
-          { "station_id": 65, "order": 0 }
+          {
+            "station_id": 20,
+            "order": 0
+          },
+          {
+            "station_id": 16,
+            "order": 0
+          },
+          {
+            "station_id": 17,
+            "order": 0
+          },
+          {
+            "station_id": 39,
+            "order": 0
+          },
+          {
+            "station_id": 78,
+            "order": 0
+          },
+          {
+            "station_id": 65,
+            "order": 0
+          }
         ]
       },
       {
@@ -1746,9 +3018,18 @@
         "order": 6,
         "slug": "international",
         "station_to_station_groups": [
-          { "station_id": 22, "order": 0 },
-          { "station_id": 57, "order": 0 },
-          { "station_id": 23, "order": 0 }
+          {
+            "station_id": 22,
+            "order": 0
+          },
+          {
+            "station_id": 57,
+            "order": 0
+          },
+          {
+            "station_id": 23,
+            "order": 0
+          }
         ]
       },
       {
@@ -1757,7 +3038,10 @@
         "order": 7,
         "slug": "gospel",
         "station_to_station_groups": [
-          { "station_id": 23, "order": 0 }
+          {
+            "station_id": 23,
+            "order": 0
+          }
         ]
       },
       {
@@ -1766,8 +3050,14 @@
         "order": 8,
         "slug": "instrumental",
         "station_to_station_groups": [
-          { "station_id": 13, "order": 0 },
-          { "station_id": 5, "order": 0 }
+          {
+            "station_id": 13,
+            "order": 0
+          },
+          {
+            "station_id": 5,
+            "order": 0
+          }
         ]
       },
       {
@@ -1776,10 +3066,22 @@
         "order": 9,
         "slug": "copii",
         "station_to_station_groups": [
-          { "station_id": 63, "order": 0 },
-          { "station_id": 60, "order": 0 },
-          { "station_id": 59, "order": 0 },
-          { "station_id": 15, "order": 0 }
+          {
+            "station_id": 63,
+            "order": 0
+          },
+          {
+            "station_id": 60,
+            "order": 0
+          },
+          {
+            "station_id": 59,
+            "order": 0
+          },
+          {
+            "station_id": 15,
+            "order": 0
+          }
         ]
       },
       {
@@ -1788,8 +3090,14 @@
         "order": 10,
         "slug": "biblia",
         "station_to_station_groups": [
-          { "station_id": 61, "order": 0 },
-          { "station_id": 8, "order": 0 }
+          {
+            "station_id": 61,
+            "order": 0
+          },
+          {
+            "station_id": 8,
+            "order": 0
+          }
         ]
       },
       {
@@ -1798,8 +3106,14 @@
         "order": 20,
         "slug": "colinde",
         "station_to_station_groups": [
-          { "station_id": 46, "order": 0 },
-          { "station_id": 51, "order": 2 }
+          {
+            "station_id": 46,
+            "order": 0
+          },
+          {
+            "station_id": 51,
+            "order": 2
+          }
         ]
       }
     ]
