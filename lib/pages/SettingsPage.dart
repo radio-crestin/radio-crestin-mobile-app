@@ -16,7 +16,9 @@ import 'package:device_info_plus/device_info_plus.dart';
 import '../appAudioHandler.dart';
 import '../globals.dart' as globals;
 import '../main.dart' show getIt;
+import '../seek_mode_manager.dart';
 import '../theme_manager.dart';
+import '../widgets/top_toast.dart';
 
 
 class SettingsPage extends StatefulWidget {
@@ -30,6 +32,7 @@ class _SettingsPageState extends State<SettingsPage> {
   bool? _notificationsEnabled;
   bool? _autoStartStation;
   ThemeMode _themeMode = ThemeMode.system;
+  SeekMode _seekMode = SeekMode.twoMinutes;
   final String _version = globals.appVersion;
   final String _buildNumber = globals.buildNumber;
   final String _deviceId = globals.deviceId;
@@ -41,6 +44,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _getNotificationsEnabled();
     _getAutoStartStation();
     _loadThemeMode();
+    _loadSeekMode();
   }
 
   Future<void> _getNotificationsEnabled() async {
@@ -179,6 +183,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      titleAlignment: subtitle != null ? ListTileTitleAlignment.top : ListTileTitleAlignment.center,
       leading: Icon(
         icon,
         size: 22,
@@ -262,6 +267,52 @@ class _SettingsPageState extends State<SettingsPage> {
                       DropdownMenuItem(
                         value: ThemeMode.dark,
                         child: Text('Întunecat', style: TextStyle(fontSize: 14)),
+                      ),
+                    ],
+                  ),
+                ),
+                _buildSettingsTile(
+                  icon: Icons.network_check,
+                  title: 'Calitate conexiune',
+                  subtitle: 'Dacă ai internet slab și radioul se tot întrerupe, alege un timp mai mare. Vei auzi emisiunea cu puțin decalaj, dar fără pauze.',
+                  trailing: DropdownButton<SeekMode>(
+                    value: _seekMode,
+                    underline: const SizedBox(),
+                    borderRadius: BorderRadius.circular(12),
+                    onChanged: (SeekMode? newValue) async {
+                      if (newValue != null) {
+                        setState(() {
+                          _seekMode = newValue;
+                        });
+                        await SeekModeManager.saveSeekMode(newValue);
+                        SeekModeManager.changeSeekMode(newValue);
+                        getIt<AppAudioHandler>().reapplySeekOffset();
+                        if (context.mounted) {
+                          final message = newValue == SeekMode.instant
+                              ? 'Acum asculți live cu un mic decalaj de câteva secunde.'
+                              : 'Radioul va avea un decalaj de ${newValue == SeekMode.twoMinutes ? '2' : '5'} minute față de live.';
+                          removeTopToast(_activeToast);
+                          _activeToast = showTopToast(
+                            context,
+                            title: 'Gata!',
+                            message: message,
+                            onDismissed: () { _activeToast = null; },
+                          );
+                        }
+                      }
+                    },
+                    items: const [
+                      DropdownMenuItem(
+                        value: SeekMode.instant,
+                        child: Text('Live', style: TextStyle(fontSize: 14)),
+                      ),
+                      DropdownMenuItem(
+                        value: SeekMode.twoMinutes,
+                        child: Text('2 minute', style: TextStyle(fontSize: 14)),
+                      ),
+                      DropdownMenuItem(
+                        value: SeekMode.fiveMinutes,
+                        child: Text('5 minute', style: TextStyle(fontSize: 14)),
                       ),
                     ],
                   ),
@@ -430,4 +481,13 @@ class _SettingsPageState extends State<SettingsPage> {
       _themeMode = themeMode;
     });
   }
+
+  Future<void> _loadSeekMode() async {
+    final seekMode = await SeekModeManager.loadSeekMode();
+    setState(() {
+      _seekMode = seekMode;
+    });
+  }
+
+  OverlayEntry? _activeToast;
 }

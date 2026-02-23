@@ -21,6 +21,7 @@ import 'package:radio_crestin/graphql_to_rest_interceptor.dart';
 import 'package:radio_crestin/pages/HomePage.dart';
 import 'package:radio_crestin/theme.dart';
 import 'package:radio_crestin/theme_manager.dart';
+import 'package:radio_crestin/seek_mode_manager.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:upgrader/upgrader.dart';
 
@@ -223,8 +224,9 @@ void main() async {
     FirebaseCrashlytics.instance.setUserIdentifier(globals.deviceId);
   });
 
-  // Initialize theme synchronously using already-loaded prefs (no async overhead)
+  // Initialize theme and seek mode synchronously using already-loaded prefs (no async overhead)
   ThemeManager.initializeFromPrefs(prefs);
+  SeekModeManager.initializeFromPrefs(prefs);
 
   PerformanceMonitor.markAppReady();
   PerformanceMonitor.startFrameMonitoring();

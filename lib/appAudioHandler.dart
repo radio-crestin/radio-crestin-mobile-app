@@ -16,6 +16,7 @@ import 'package:radio_crestin/services/image_cache_service.dart';
 import 'package:radio_crestin/services/car_play_service.dart';
 import 'package:radio_crestin/services/network_service.dart';
 import 'package:radio_crestin/services/station_data_service.dart';
+import 'package:radio_crestin/seek_mode_manager.dart';
 import 'package:radio_crestin/utils.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -100,7 +101,6 @@ class AppAudioHandler extends BaseAudioHandler {
   // instead of waiting for the full 3-10s timeout to expire.
   Completer<void>? _sourceLoadCanceller;
   static const _disconnectDelay = Duration(seconds: 60);
-  static const _liveEdgeOffset = Duration(minutes: 2);
 
   // Track last emitted mediaItem fields to avoid redundant Android notification updates
   int? _lastEmittedSongId;
@@ -562,21 +562,41 @@ class AppAudioHandler extends BaseAudioHandler {
     return super.pause();
   }
 
-  /// For HLS streams with retained segments on mobile data, seeks 2 minutes
-  /// behind the live edge so the buffer fills instantly at network speed.
-  /// On WiFi this is unnecessary — WiFi is stable enough for live edge playback.
+  /// Applies a new seek offset: refreshes station metadata (so now_playing
+  /// matches the new offset) and restarts the HLS stream if currently playing.
+  Future<void> reapplySeekOffset() async {
+    // Immediately re-fetch stations with the new timestamp offset
+    stationDataService.refreshStations();
+
+    if (_loadedStreamType != 'HLS' || !player.playing) return;
+    _log('reapplySeekOffset: restarting HLS stream with new offset');
+    _loadedStreamUrl = null;
+    _loadedStreamType = null;
+    await play();
+  }
+
+  /// For HLS streams with retained segments, seeks behind the live edge
+  /// so the buffer fills instantly at network speed. The offset is controlled
+  /// by SeekModeManager (Instant / 2 min / 4 min). Applied on both WiFi
+  /// and mobile data for resilience during network transitions (e.g. leaving
+  /// WiFi range when connecting to CarPlay).
   Future<void> _seekBehindLiveEdge() async {
-    if (!NetworkService.instance.isOnMobileData.value) {
-      _log('_seekBehindLiveEdge: on WiFi, skipping');
+    final offset = SeekModeManager.currentOffset;
+    if (offset == Duration.zero) {
+      _log('_seekBehindLiveEdge: instant mode, skipping');
       return;
     }
     final duration = player.duration;
-    if (duration == null || duration < _liveEdgeOffset + const Duration(seconds: 10)) {
-      _log('_seekBehindLiveEdge: window $duration too short, skipping');
+    if (duration == null || duration.inSeconds < 10) {
+      _log('_seekBehindLiveEdge: no duration or too short ($duration), skipping');
       return;
     }
-    final seekTarget = duration - _liveEdgeOffset;
-    _log('_seekBehindLiveEdge: duration=$duration, seeking to $seekTarget');
+    // Clamp: if offset exceeds the window, seek to the beginning instead of skipping
+    final effectiveOffset = offset > duration - const Duration(seconds: 5)
+        ? duration - const Duration(seconds: 5)
+        : offset;
+    final seekTarget = duration - effectiveOffset;
+    _log('_seekBehindLiveEdge: duration=$duration, offset=$offset, effectiveOffset=$effectiveOffset, seeking to $seekTarget');
     try {
       await player.seek(seekTarget);
     } catch (e) {
