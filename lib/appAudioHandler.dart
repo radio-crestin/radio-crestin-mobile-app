@@ -35,8 +35,8 @@ Future<AppAudioHandler> initAudioService({required graphqlClient}) async {
     audioLoadConfiguration: const AudioLoadConfiguration(
       androidLoadControl: AndroidLoadControl(
         minBufferDuration: Duration(seconds: 30),
-        maxBufferDuration: Duration(minutes: 2),
-        bufferForPlaybackDuration: Duration(milliseconds: 2500),
+        maxBufferDuration: Duration(minutes: 10),
+        bufferForPlaybackDuration: Duration(seconds: 3),
         bufferForPlaybackAfterRebufferDuration: Duration(seconds: 5),
       ),
       androidLivePlaybackSpeedControl: AndroidLivePlaybackSpeedControl(
@@ -44,7 +44,7 @@ Future<AppAudioHandler> initAudioService({required graphqlClient}) async {
         fallbackMaxPlaybackSpeed: 1.0,
       ),
       darwinLoadControl: DarwinLoadControl(
-        preferredForwardBufferDuration: Duration(minutes: 2),
+        preferredForwardBufferDuration: Duration(minutes: 10),
         canUseNetworkResourcesForLiveStreamingWhilePaused: true,
       ),
     ),
