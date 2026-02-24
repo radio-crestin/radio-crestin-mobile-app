@@ -597,7 +597,7 @@ class AppAudioHandler extends BaseAudioHandler {
     }
 
     if (_loadedStreamType == 'HLS') {
-      await _seekBehindLiveEdge();
+      _seekBehindLiveEdge(); // non-blocking: seek starts, play() follows immediately
     }
 
     return player.play();
@@ -649,7 +649,11 @@ class AppAudioHandler extends BaseAudioHandler {
   /// by SeekModeManager (Instant / 2 min / 4 min). Applied on both WiFi
   /// and mobile data for resilience during network transitions (e.g. leaving
   /// WiFi range when connecting to CarPlay).
-  Future<void> _seekBehindLiveEdge() async {
+  ///
+  /// Non-blocking: fires the seek without awaiting so player.play() can
+  /// start immediately. Both AVFoundation and ExoPlayer correctly play
+  /// from the seek target when play() overlaps an in-progress seek.
+  void _seekBehindLiveEdge() {
     final offset = SeekModeManager.currentOffset;
     if (offset == Duration.zero) {
       _log('_seekBehindLiveEdge: instant mode, skipping');
@@ -666,11 +670,9 @@ class AppAudioHandler extends BaseAudioHandler {
         : offset;
     final seekTarget = duration - effectiveOffset;
     _log('_seekBehindLiveEdge: duration=$duration, offset=$offset, effectiveOffset=$effectiveOffset, seeking to $seekTarget');
-    try {
-      await player.seek(seekTarget);
-    } catch (e) {
+    player.seek(seekTarget).catchError((e) {
       _log('_seekBehindLiveEdge: seek failed ($e), continuing from live edge');
-    }
+    });
   }
 
   @override
