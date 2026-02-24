@@ -26,6 +26,26 @@ import 'globals.dart' as globals;
 
 enum PlayerState { started, stopped, playing, buffering, error }
 
+/// Describes why a station connection failed.
+enum ConnectionErrorReason {
+  timeout,    // Stream didn't load within the allowed time
+  network,    // No internet or DNS failure (SocketException)
+  httpError,  // Server returned an error (404, 403, 500, etc.)
+  unknown,    // Other / unclassifiable error
+}
+
+class ConnectionError {
+  final String stationName;
+  final ConnectionErrorReason reason;
+  final String? details; // e.g. "404" or the raw error message
+
+  const ConnectionError({
+    required this.stationName,
+    required this.reason,
+    this.details,
+  });
+}
+
 Future<AppAudioHandler> initAudioService({required graphqlClient}) async {
   final AudioPlayer player = AudioPlayer(
     // TODO: enable userAgent to identify users
@@ -44,7 +64,6 @@ Future<AppAudioHandler> initAudioService({required graphqlClient}) async {
         fallbackMaxPlaybackSpeed: 1.0,
       ),
       darwinLoadControl: DarwinLoadControl(
-        preferredForwardBufferDuration: Duration(minutes: 10),
         canUseNetworkResourcesForLiveStreamingWhilePaused: true,
       ),
     ),
@@ -109,8 +128,8 @@ class AppAudioHandler extends BaseAudioHandler {
 
   final BehaviorSubject<Station?> currentStation = BehaviorSubject.seeded(null);
 
-  /// Emits the station name when play() exhausts all retries and cannot connect.
-  final PublishSubject<String> connectionError = PublishSubject<String>();
+  /// Emits details when play() exhausts all retries and cannot connect.
+  final PublishSubject<ConnectionError> connectionError = PublishSubject<ConnectionError>();
   final BehaviorSubject<List<MediaItem>> stationsMediaItems = BehaviorSubject.seeded(<MediaItem>[]);
 
   // Active playlist for skip next/prev - set by whoever selects a station (app UI, CarPlay, Android Auto)
@@ -120,6 +139,43 @@ class AppAudioHandler extends BaseAudioHandler {
 
   _log(String message) {
     developer.log("AppAudioHandler: $message");
+  }
+
+  /// Classifies the last caught error into a [ConnectionError] with a reason.
+  ConnectionError _classifyError(String stationName, Object? lastError) {
+    ConnectionErrorReason reason;
+    String? details;
+
+    if (lastError is TimeoutException) {
+      reason = ConnectionErrorReason.timeout;
+    } else if (lastError is PlayerException) {
+      final code = lastError.code;
+      final msg = lastError.message ?? '';
+      // iOS: NSURLError codes are negative (e.g. -1009 = no internet, -1004 = cannot connect)
+      // Android: ExoPlayer TYPE_SOURCE = 1
+      if (code == -1009 || code == -1004 || code == 1) {
+        reason = ConnectionErrorReason.network;
+        details = msg;
+      } else if (code >= 400 && code < 600) {
+        reason = ConnectionErrorReason.httpError;
+        details = code.toString();
+      } else {
+        reason = ConnectionErrorReason.unknown;
+        details = msg.isNotEmpty ? msg : null;
+      }
+    } else if (lastError is SocketException) {
+      reason = ConnectionErrorReason.network;
+      details = lastError.message;
+    } else {
+      reason = ConnectionErrorReason.unknown;
+      details = lastError?.toString();
+    }
+
+    return ConnectionError(
+      stationName: stationName,
+      reason: reason,
+      details: details,
+    );
   }
 
   /// Cancels any in-flight play() operation by bumping the operation ID
@@ -194,7 +250,7 @@ class AppAudioHandler extends BaseAudioHandler {
 
   SharedPreferences get _prefs => GetIt.instance<SharedPreferences>();
 
-  final int maxRetries = 5;
+  final int maxRetries = 4;
 
   AppAudioHandler({required this.graphqlClient, required this.player}) {
     stationDataService.getPlayingStreamType = (stationId) {
@@ -474,6 +530,7 @@ class AppAudioHandler extends BaseAudioHandler {
     _isConnecting = true;
     _broadcastState(player.playbackEvent);
     var retry = 0;
+    Object? lastError;
     final canceller = Completer<void>();
     _sourceLoadCanceller = canceller;
 
@@ -505,6 +562,7 @@ class AppAudioHandler extends BaseAudioHandler {
           _log("play: source loaded successfully ($streamUrl)");
           break;
         } catch (e) {
+          lastError = e;
           _loadedStreamUrl = null;
           _loadedStreamType = null;
           // If superseded by a newer playStation(), exit immediately
@@ -522,7 +580,7 @@ class AppAudioHandler extends BaseAudioHandler {
         _loadedStreamType = null;
         PerformanceMonitor.endOperation('audio_play');
         final stationName = currentStation.valueOrNull?.title ?? '';
-        connectionError.add(stationName);
+        connectionError.add(_classifyError(stationName, lastError));
         stop();
         return;
       }

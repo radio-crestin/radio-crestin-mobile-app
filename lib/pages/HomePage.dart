@@ -86,6 +86,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Timer? _backOnlineTimer;
   StreamSubscription? _offlineSub;
   StreamSubscription? _connectionErrorSub;
+  OverlayEntry? _activeConnectionToast;
   final ValueNotifier<double> _panelSlide = ValueNotifier(0.0);
 
   @override
@@ -121,17 +122,39 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       }
     });
 
-    _connectionErrorSub = _audioHandler.connectionError.listen((stationName) {
+    _connectionErrorSub = _audioHandler.connectionError.listen((error) {
       if (!mounted) return;
-      final message = stationName.isNotEmpty
-          ? 'Nu s-a putut conecta la stația "$stationName".'
-          : 'Nu s-a putut conecta la stația radio.';
-      showBottomToast(
+      final stationPart = error.stationName.isNotEmpty
+          ? '"${error.stationName}"'
+          : 'stația radio';
+      final String message;
+      final IconData icon;
+      switch (error.reason) {
+        case ConnectionErrorReason.timeout:
+          message = 'Conexiunea la $stationPart a expirat.';
+          icon = Icons.timer_off_rounded;
+          break;
+        case ConnectionErrorReason.network:
+          message = 'Verifică conexiunea la internet.';
+          icon = Icons.wifi_off_rounded;
+          break;
+        case ConnectionErrorReason.httpError:
+          message = 'Serverul $stationPart a returnat eroarea ${error.details ?? "necunoscută"}.';
+          icon = Icons.cloud_off_rounded;
+          break;
+        case ConnectionErrorReason.unknown:
+          message = 'Nu s-a putut conecta la $stationPart.';
+          icon = Icons.error_outline_rounded;
+          break;
+      }
+      removeBottomToast(_activeConnectionToast);
+      _activeConnectionToast = showBottomToast(
         context,
         title: 'Eroare conexiune',
         message: message,
-        icon: Icons.radio_rounded,
+        icon: icon,
         isError: true,
+        onDismissed: () { _activeConnectionToast = null; },
       );
     });
 
@@ -236,6 +259,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _offlineSub?.cancel();
     _connectionErrorSub?.cancel();
     _backOnlineTimer?.cancel();
+    removeBottomToast(_activeConnectionToast);
     _panelSlide.dispose();
     super.dispose();
   }
