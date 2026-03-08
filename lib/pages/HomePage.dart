@@ -852,10 +852,20 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       final autoStart = prefs.getBool('_autoStartStation') ?? true;
       var station = await _audioHandler.getLastPlayedStation();
       if (station == null) return;
+
+      // Determine playlist context based on whether the station is a favorite
+      final favSlugs = _stationDataService.favoriteStationSlugs.value.toSet();
+      final isFav = favSlugs.contains(station.slug);
+      final playlist = isFav
+          ? _stationDataService.filteredStations.value
+                .where((s) => favSlugs.contains(s.slug))
+                .toList()
+          : _stationDataService.filteredStations.value;
+
       if (autoStart) {
-        _audioHandler.playStation(station);
+        _audioHandler.playStation(station, playlist: playlist, isFavoritesPlaylist: isFav);
       } else {
-        _audioHandler.selectStation(station);
+        _audioHandler.selectStation(station, playlist: playlist, isFavoritesPlaylist: isFav);
       }
     }
   }
