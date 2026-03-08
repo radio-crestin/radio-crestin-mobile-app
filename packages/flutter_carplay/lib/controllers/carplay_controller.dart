@@ -121,17 +121,21 @@ class FlutterCarPlayController {
   }
 
   void processFCPAlertActionPressed(String elementId) {
-    final CPAlertAction selectedAlertAction =
-        (currentPresentTemplate as CPActionsTemplate)
-            .actions
-            .firstWhere((e) => e.uniqueId == elementId);
-    selectedAlertAction.onPress();
+    final template = currentPresentTemplate;
+    if (template != null && template is CPActionsTemplate) {
+      final actions = (template as CPActionsTemplate).actions;
+      final selectedAlertAction =
+          actions.firstWhere((e) => e.uniqueId == elementId);
+      selectedAlertAction.onPress();
+    }
+    currentPresentTemplate = null; // native side already dismissed the modal
   }
 
   void processFCPAlertTemplateCompleted(bool completed) {
     if (currentPresentTemplate is CPAlertTemplate) {
       (currentPresentTemplate as CPAlertTemplate).onPresent?.call(completed);
     }
+    currentPresentTemplate = null; // native side already dismissed the modal
   }
 
   void processFCPGridButtonPressed(String elementId) {

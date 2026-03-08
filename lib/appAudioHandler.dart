@@ -926,17 +926,18 @@ class AppAudioHandler extends BaseAudioHandler {
       }
     });
 
-    // When connectivity is restored while app is in foreground: reconnect stalled audio.
-    // If app is backgrounded, reconnection happens via didChangeAppLifecycleState.resumed.
-    // Delay 2s so the network is actually usable and any in-progress play() retries finish.
+    // When connectivity is restored: reconnect stalled audio if the app is in
+    // foreground OR CarPlay/Android Auto is connected (user may be driving with
+    // the phone screen off). Delay 2s so the network is actually usable.
     NetworkService.instance.isOffline.stream.listen((offline) {
       if (offline) return;
       final lifecycle = WidgetsBinding.instance.lifecycleState;
-      if (lifecycle != AppLifecycleState.resumed) {
-        _log("isOffline -> false: app not in foreground ($lifecycle), skipping reconnect");
+      final carPlayConnected = GetIt.instance<CarPlayService>().isConnected;
+      if (lifecycle != AppLifecycleState.resumed && !carPlayConnected) {
+        _log("isOffline -> false: app not in foreground ($lifecycle) and CarPlay not connected, skipping reconnect");
         return;
       }
-      _log("isOffline -> false: will reconnect in 2s");
+      _log("isOffline -> false: will reconnect in 2s (foreground=${lifecycle == AppLifecycleState.resumed}, carPlay=$carPlayConnected)");
       Future.delayed(const Duration(seconds: 2), () {
         _log("isOffline -> false: checking if player needs reconnect");
         reconnectIfNeeded();

@@ -33,9 +33,11 @@ class CarPlayService {
   // Subscriptions
   StreamSubscription? _currentStationSubscription;
   StreamSubscription? _favoritesSubscription;
+  StreamSubscription? _connectionErrorSubscription;
 
-  // Timers for waiting for stations
+  // Timers
   Timer? _carPlayWaitTimer;
+  Timer? _connectionErrorDebounceTimer;
 
   // CarPlay list items by slug - for favorites tab (reused when updating)
   final Map<String, CPListItem> _favoriteListItems = {};
@@ -82,6 +84,7 @@ class CarPlayService {
     if (Platform.isIOS) {
       _initializeCarPlay();
       _setupNowPlayingButtonsHandler();
+      _listenForConnectionErrors();
     } else if (Platform.isAndroid) {
       _initializeAndroidAuto();
     }
@@ -340,6 +343,67 @@ class CarPlayService {
     _log("CarPlay setup complete - template locked");
     } catch (e) {
       _log("Error setting up CarPlay: $e");
+    }
+  }
+
+  // iOS CarPlay only: listen for connection errors and show an alert.
+  void _listenForConnectionErrors() {
+    _connectionErrorSubscription = _audioHandler.connectionError.listen((error) {
+      if (!_isConnected) return;
+      // Debounce rapid errors (e.g. user taps multiple stations quickly)
+      _connectionErrorDebounceTimer?.cancel();
+      _connectionErrorDebounceTimer = Timer(const Duration(milliseconds: 300), () {
+        if (_isConnected) {
+          _showCarPlayConnectionError(error);
+        }
+      });
+    });
+  }
+
+  Future<void> _showCarPlayConnectionError(ConnectionError error) async {
+    // Dismiss any existing modal before showing a new one
+    // (CarPlay only supports one modal at a time)
+    if (FlutterCarPlayController.currentPresentTemplate != null) {
+      try {
+        await FlutterCarplay.popModal(animated: false);
+      } catch (e) {
+        _log("Failed to dismiss existing CarPlay modal: $e");
+      }
+    }
+
+    final stationPart = error.stationName.isNotEmpty
+        ? '"${error.stationName}"'
+        : 'stația radio';
+    final String message;
+    switch (error.reason) {
+      case ConnectionErrorReason.timeout:
+        message = 'Conexiunea la $stationPart a expirat.';
+        break;
+      case ConnectionErrorReason.network:
+        message = 'Verifică conexiunea la internet.';
+        break;
+      case ConnectionErrorReason.httpError:
+        message = 'Serverul $stationPart a returnat eroarea ${error.details ?? "necunoscută"}.';
+        break;
+      case ConnectionErrorReason.unknown:
+        message = 'Nu s-a putut conecta la $stationPart.';
+        break;
+    }
+
+    final alertTemplate = CPAlertTemplate(
+      titleVariants: [message],
+      actions: [
+        CPAlertAction(
+          title: 'OK',
+          onPress: () {},
+        ),
+      ],
+    );
+
+    try {
+      await FlutterCarplay.showAlert(template: alertTemplate);
+    } catch (e) {
+      _log("Failed to show CarPlay connection error alert: $e");
     }
   }
 
@@ -602,8 +666,10 @@ class CarPlayService {
     _log("Disposing CarPlay/Android Auto service");
 
     _carPlayWaitTimer?.cancel();
+    _connectionErrorDebounceTimer?.cancel();
     _currentStationSubscription?.cancel();
     _favoritesSubscription?.cancel();
+    _connectionErrorSubscription?.cancel();
     _androidAutoFavoritesSubscription?.cancel();
     _androidAutoStationSubscription?.cancel();
     _androidAutoStationsListSubscription?.cancel();

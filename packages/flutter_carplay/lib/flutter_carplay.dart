@@ -13,6 +13,8 @@ export 'package:flutter_carplay/aa_models/list/list_template.dart'
 export 'package:flutter_carplay/android_auto_worker.dart'
     show FlutterAndroidAuto;
 export 'package:flutter_carplay/carplay_worker.dart' show FlutterCarplay;
+export 'package:flutter_carplay/controllers/carplay_controller.dart'
+    show FlutterCarPlayController;
 export 'package:flutter_carplay/constants/constants.dart'
     show ConnectionStatusTypes;
 export 'package:flutter_carplay/helpers/enum_utils.dart';
