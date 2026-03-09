@@ -191,8 +191,6 @@ class CarPlayService {
       _isConnected = status == ConnectionStatusTypes.connected;
       if (status == ConnectionStatusTypes.disconnected) {
         _audioHandler.activePlaylist = [];
-        _audioHandler.stop();
-        _audioHandler.currentStation.add(null);
       }
     });
 
@@ -449,8 +447,6 @@ class CarPlayService {
       _isConnected = status == ConnectionStatusTypes.connected;
       if (status == ConnectionStatusTypes.disconnected) {
         _audioHandler.activePlaylist = [];
-        _audioHandler.stop();
-        _audioHandler.currentStation.add(null);
       }
     });
 
