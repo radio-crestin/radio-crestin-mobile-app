@@ -294,7 +294,13 @@ class AppAudioHandler extends BaseAudioHandler {
           _loadedStreamType = null;
           play();
         } else {
-          stop();
+          _log("processingStateStream: non-HLS stream completed unexpectedly");
+          final stationName = currentStation.valueOrNull?.title ?? '';
+          connectionError.add(ConnectionError(
+            stationName: stationName,
+            reason: ConnectionErrorReason.unknown,
+          ));
+          _stopDueToError();
         }
       } else if (state == ProcessingState.idle && player.playing) {
         _bufferingStallTimer?.cancel();
