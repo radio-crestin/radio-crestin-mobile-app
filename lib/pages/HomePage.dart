@@ -124,6 +124,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     _connectionErrorSub = _audioHandler.connectionError.listen((error) {
       if (!mounted) return;
+      // Don't show stale error toasts when app is backgrounded (e.g. using CarPlay)
+      if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) return;
       final stationPart = error.stationName.isNotEmpty
           ? '"${error.stationName}"'
           : 'stația radio';
