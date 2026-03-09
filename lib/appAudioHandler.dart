@@ -315,7 +315,7 @@ class AppAudioHandler extends BaseAudioHandler {
               stationName: stationName,
               reason: ConnectionErrorReason.network,
             ));
-            stop();
+            _stopDueToError();
           }
         });
       } else if (state == ProcessingState.ready) {
@@ -605,7 +605,7 @@ class AppAudioHandler extends BaseAudioHandler {
         PerformanceMonitor.endOperation('audio_play');
         final stationName = currentStation.valueOrNull?.title ?? '';
         connectionError.add(_classifyError(stationName, lastError));
-        stop();
+        _stopDueToError();
         return;
       }
     }
@@ -697,6 +697,26 @@ class AppAudioHandler extends BaseAudioHandler {
     player.seek(seekTarget).catchError((e) {
       _log('_seekBehindLiveEdge: seek failed ($e), continuing from live edge');
     });
+  }
+
+  /// Stops playback after an error WITHOUT calling super.stop().
+  /// This keeps MPRemoteCommandCenter alive so CarPlay/lock-screen
+  /// next/prev/play buttons still work and the user can recover.
+  Future<void> _stopDueToError() async {
+    _log("_stopDueToError (keeping command center alive)");
+    _cancelInFlightPlay();
+    _hasBeenPlayed = false;
+    _disconnectTimer?.cancel();
+    _bufferingStallTimer?.cancel();
+    _loadedStreamUrl = null;
+    _loadedStreamType = null;
+    if (currentStation.value != null) {
+      AppTracking.trackStopStation(currentStation.value!);
+    }
+    stopListeningTracker();
+    await player.stop();
+    // Broadcast stopped state with controls still available (no super.stop())
+    _broadcastState(player.playbackEvent);
   }
 
   @override

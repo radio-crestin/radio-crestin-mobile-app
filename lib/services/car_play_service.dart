@@ -399,14 +399,6 @@ class CarPlayService {
       }
     }
 
-    // Pop back from NowPlaying to the station list so the user isn't
-    // stuck on a frozen Now Playing screen with dead controls after stop().
-    try {
-      await FlutterCarplay.popToRoot(animated: false);
-    } catch (e) {
-      _log("Failed to pop to root template: $e");
-    }
-
     final stationPart = error.stationName.isNotEmpty
         ? '"${error.stationName}"'
         : 'stația radio';
