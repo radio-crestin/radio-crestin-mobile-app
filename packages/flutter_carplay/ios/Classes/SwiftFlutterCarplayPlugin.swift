@@ -202,8 +202,10 @@ public class SwiftFlutterCarplayPlugin: NSObject, FlutterPlugin {
         result(false)
         return
       }
-      FlutterCarPlaySceneDelegate.closePresent(animated: animated)
-      self.objcPresentTemplate = nil
+      if self.objcPresentTemplate != nil {
+        FlutterCarPlaySceneDelegate.closePresent(animated: animated)
+        self.objcPresentTemplate = nil
+      }
       result(true)
       break
     case FCPChannelTypes.showNowPlaying:

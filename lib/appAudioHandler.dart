@@ -113,6 +113,8 @@ class AppAudioHandler extends BaseAudioHandler {
   bool get isPlayingOrConnecting => player.playing || _isConnecting;
   bool _hasBeenPlayed = false;
   Timer? _disconnectTimer;
+  Timer? _bufferingStallTimer;
+  static const _bufferingStallTimeout = Duration(seconds: 15);
   // Monotonically increasing ID to cancel stale play() operations.
   // Each playStation() increments this; play() checks it after every await
   // to bail out if a newer operation has superseded it.
@@ -283,6 +285,7 @@ class AppAudioHandler extends BaseAudioHandler {
     // as the idle/completed event is from the previous source being stopped.
     player.processingStateStream.listen((state) {
       if (state == ProcessingState.completed) {
+        _bufferingStallTimer?.cancel();
         if (_isConnecting) return;
         final isHls = _loadedStreamType == 'HLS';
         if (isHls) {
@@ -294,11 +297,29 @@ class AppAudioHandler extends BaseAudioHandler {
           stop();
         }
       } else if (state == ProcessingState.idle && player.playing) {
+        _bufferingStallTimer?.cancel();
         if (_isConnecting) return;
         _log("processingStateStream: stream lost (idle while playing), reconnecting");
         _loadedStreamUrl = null;
         _loadedStreamType = null;
         play();
+      } else if (state == ProcessingState.buffering && player.playing && !_isConnecting) {
+        // Start a stall timer: if buffering doesn't resolve within 15s,
+        // the connection is likely lost — stop and show error.
+        _bufferingStallTimer?.cancel();
+        _bufferingStallTimer = Timer(_bufferingStallTimeout, () {
+          if (player.processingState == ProcessingState.buffering && player.playing) {
+            _log("processingStateStream: buffering stalled for ${_bufferingStallTimeout.inSeconds}s, stopping");
+            final stationName = currentStation.valueOrNull?.title ?? '';
+            connectionError.add(ConnectionError(
+              stationName: stationName,
+              reason: ConnectionErrorReason.network,
+            ));
+            stop();
+          }
+        });
+      } else if (state == ProcessingState.ready) {
+        _bufferingStallTimer?.cancel();
       }
     });
 
@@ -684,6 +705,7 @@ class AppAudioHandler extends BaseAudioHandler {
     _cancelInFlightPlay();
     _hasBeenPlayed = false;
     _disconnectTimer?.cancel();
+    _bufferingStallTimer?.cancel();
     _loadedStreamUrl = null;
     _loadedStreamType = null;
     if (currentStation.value != null) {

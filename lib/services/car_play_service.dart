@@ -7,6 +7,7 @@ import 'package:flutter_carplay/flutter_carplay.dart';
 import 'package:get_it/get_it.dart';
 import 'package:radio_crestin/appAudioHandler.dart';
 import 'package:radio_crestin/services/image_cache_service.dart';
+import 'package:radio_crestin/services/network_service.dart';
 import 'package:radio_crestin/services/station_data_service.dart';
 import 'package:radio_crestin/types/Station.dart';
 
@@ -34,10 +35,14 @@ class CarPlayService {
   StreamSubscription? _currentStationSubscription;
   StreamSubscription? _favoritesSubscription;
   StreamSubscription? _connectionErrorSubscription;
+  StreamSubscription? _networkRecoverySubscription;
 
   // Timers
   Timer? _carPlayWaitTimer;
   Timer? _connectionErrorDebounceTimer;
+
+  // Whether an error alert is currently shown on CarPlay
+  bool _isShowingConnectionError = false;
 
   // CarPlay list items by slug - for favorites tab (reused when updating)
   final Map<String, CPListItem> _favoriteListItems = {};
@@ -348,7 +353,7 @@ class CarPlayService {
     }
   }
 
-  // iOS CarPlay only: listen for connection errors and show an alert.
+  // iOS CarPlay only: listen for connection errors and network state.
   void _listenForConnectionErrors() {
     _connectionErrorSubscription = _audioHandler.connectionError.listen((error) {
       if (!_isConnected) return;
@@ -360,12 +365,35 @@ class CarPlayService {
         }
       });
     });
+
+    // Show alert immediately when network drops; dismiss when it recovers
+    _networkRecoverySubscription = NetworkService.instance.isOffline.stream.listen((offline) {
+      if (!_isConnected) return;
+      if (offline) {
+        _showCarPlayConnectionError(const ConnectionError(
+          stationName: '',
+          reason: ConnectionErrorReason.network,
+        ));
+      } else if (_isShowingConnectionError) {
+        _dismissConnectionErrorAlert();
+      }
+    });
+  }
+
+  Future<void> _dismissConnectionErrorAlert() async {
+    if (!_isShowingConnectionError) return;
+    _isShowingConnectionError = false;
+    _connectionErrorDebounceTimer?.cancel();
+    try {
+      await FlutterCarplay.popModal(animated: true);
+    } catch (e) {
+      _log("Failed to dismiss CarPlay error alert: $e");
+    }
   }
 
   Future<void> _showCarPlayConnectionError(ConnectionError error) async {
     // Dismiss any existing modal before showing a new one
-    // (CarPlay only supports one modal at a time)
-    if (FlutterCarPlayController.currentPresentTemplate != null) {
+    if (_isShowingConnectionError || FlutterCarPlayController.currentPresentTemplate != null) {
       try {
         await FlutterCarplay.popModal(animated: false);
       } catch (e) {
@@ -397,13 +425,16 @@ class CarPlayService {
       actions: [
         CPAlertAction(
           title: 'OK',
-          onPress: () {},
+          onPress: () {
+            _isShowingConnectionError = false;
+          },
         ),
       ],
     );
 
     try {
       await FlutterCarplay.showAlert(template: alertTemplate);
+      _isShowingConnectionError = true;
     } catch (e) {
       _log("Failed to show CarPlay connection error alert: $e");
     }
@@ -674,6 +705,7 @@ class CarPlayService {
     _currentStationSubscription?.cancel();
     _favoritesSubscription?.cancel();
     _connectionErrorSubscription?.cancel();
+    _networkRecoverySubscription?.cancel();
     _androidAutoFavoritesSubscription?.cancel();
     _androidAutoStationSubscription?.cancel();
     _androidAutoStationsListSubscription?.cancel();

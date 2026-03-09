@@ -128,14 +128,15 @@ class FlutterCarPlayController {
           actions.firstWhere((e) => e.uniqueId == elementId);
       selectedAlertAction.onPress();
     }
-    currentPresentTemplate = null; // native side already dismissed the modal
+    currentPresentTemplate = null;
+    // Dismiss the native modal and clear objcPresentTemplate
+    flutterToNativeModule(FCPChannelTypes.closePresent, true);
   }
 
   void processFCPAlertTemplateCompleted(bool completed) {
     if (currentPresentTemplate is CPAlertTemplate) {
       (currentPresentTemplate as CPAlertTemplate).onPresent?.call(completed);
     }
-    currentPresentTemplate = null; // native side already dismissed the modal
   }
 
   void processFCPGridButtonPressed(String elementId) {
