@@ -16,6 +16,8 @@ public class SwiftFlutterCarplayPlugin: NSObject, FlutterPlugin {
   static var templateStack: [FCPRootTemplate] = []
   private static var _rootTemplate: CPTemplate?
   public static var animated: Bool = false
+  /// Last known CarPlay connection status, replayed when the Dart event sink opens.
+  static var lastConnectionStatus: String?
   private var objcPresentTemplate: FCPPresentTemplate?
   
   public static var rootTemplate: CPTemplate? {
@@ -280,6 +282,7 @@ public class SwiftFlutterCarplayPlugin: NSObject, FlutterPlugin {
   }
   
   static func onCarplayConnectionChange(status: String) {
+    lastConnectionStatus = status
     FCPStreamHandlerPlugin.sendEvent(type: FCPChannelTypes.onCarplayConnectionChange,
                                      data: ["status": status])
   }

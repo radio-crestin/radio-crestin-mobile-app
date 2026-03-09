@@ -22,6 +22,15 @@ class FCPStreamHandlerPlugin: NSObject, FlutterStreamHandler {
   public func onListen(withArguments arguments: Any?,
                        eventSink: @escaping FlutterEventSink) -> FlutterError? {
     FCPStreamHandlerPlugin.eventSink = eventSink
+    // Replay the last connection status so Dart doesn't miss events
+    // that fired before the event sink was ready (e.g. CarPlay connected
+    // before FlutterCarplay() was created on the Dart side).
+    if let status = SwiftFlutterCarplayPlugin.lastConnectionStatus {
+      FCPStreamHandlerPlugin.sendEvent(
+        type: FCPChannelTypes.onCarplayConnectionChange,
+        data: ["status": status]
+      )
+    }
     return nil
   }
   
