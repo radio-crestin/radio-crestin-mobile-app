@@ -101,8 +101,8 @@ class StationsList extends StatelessWidget {
                                     children: [
                                       if (station.isUp == false)
                                         Text(
-                                          "Stație offline",
-                                          style: TextStyle(color: Theme.of(context).primaryColor),
+                                          "Stație posibil indisponibilă",
+                                          style: const TextStyle(color: Color(0xFFF87171)),
                                         ),
                                       if (station.songTitle != "")
                                         Text(

@@ -127,22 +127,27 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       final stationPart = error.stationName.isNotEmpty
           ? '"${error.stationName}"'
           : 'stația radio';
+      final String title;
       final String message;
       final IconData icon;
       switch (error.reason) {
         case ConnectionErrorReason.timeout:
+          title = 'Eroare conexiune';
           message = 'Conexiunea la $stationPart a expirat.';
           icon = Icons.timer_off_rounded;
           break;
         case ConnectionErrorReason.network:
+          title = 'Eroare conexiune';
           message = 'Verifică conexiunea la internet.';
           icon = Icons.wifi_off_rounded;
           break;
         case ConnectionErrorReason.httpError:
+          title = 'Stație indisponibilă';
           message = 'Serverul $stationPart a returnat eroarea ${error.details ?? "necunoscută"}.';
           icon = Icons.cloud_off_rounded;
           break;
         case ConnectionErrorReason.unknown:
+          title = 'Stație indisponibilă';
           message = 'Nu s-a putut conecta la $stationPart.';
           icon = Icons.error_outline_rounded;
           break;
@@ -150,7 +155,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       removeBottomToast(_activeConnectionToast);
       _activeConnectionToast = showBottomToast(
         context,
-        title: 'Eroare conexiune',
+        title: title,
         message: message,
         icon: icon,
         isError: true,

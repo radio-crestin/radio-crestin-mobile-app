@@ -151,15 +151,18 @@ class AppAudioHandler extends BaseAudioHandler {
     } else if (lastError is PlayerException) {
       final code = lastError.code;
       final msg = lastError.message ?? '';
-      // iOS: NSURLError codes are negative (e.g. -1009 = no internet, -1004 = cannot connect)
-      // Android: ExoPlayer TYPE_SOURCE = 1
-      if (code == -1009 || code == -1004 || code == 1) {
+      // iOS: -1009 = NSURLErrorNotConnectedToInternet (device truly offline)
+      if (code == -1009) {
         reason = ConnectionErrorReason.network;
         details = msg;
-      } else if (code >= 400 && code < 600) {
+      } else if (code == -1100 || (code >= 400 && code < 600)) {
+        // -1100 = NSURLErrorFileDoesNotExist (HTTP 404 from server)
+        // 4xx/5xx = HTTP server errors
         reason = ConnectionErrorReason.httpError;
-        details = code.toString();
+        details = code == -1100 ? '404' : code.toString();
       } else {
+        // -1004 = NSURLErrorCannotConnectToHost (server down, not user's internet)
+        // ExoPlayer code 1 = TYPE_SOURCE (general source load failure)
         reason = ConnectionErrorReason.unknown;
         details = msg.isNotEmpty ? msg : null;
       }
