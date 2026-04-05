@@ -189,10 +189,12 @@ void main() {
           ],
         );
 
-        final streamUrls = station.mediaItem.extras!['station_streams'] as List;
-        expect(streamUrls.length, 2);
-        expect(streamUrls[0], 'https://stream1.example.com/live');
-        expect(streamUrls[1], 'https://stream2.example.com/live');
+        final streamObjects = station.mediaItem.extras!['station_streams'] as List;
+        expect(streamObjects.length, 2);
+        expect(streamObjects[0]['url'], 'https://stream1.example.com/live');
+        expect(streamObjects[0]['type'], 'mp3');
+        expect(streamObjects[1]['url'], 'https://stream2.example.com/live');
+        expect(streamObjects[1]['type'], 'aac');
       });
 
       test('mediaItem id is empty string when no streams', () {
