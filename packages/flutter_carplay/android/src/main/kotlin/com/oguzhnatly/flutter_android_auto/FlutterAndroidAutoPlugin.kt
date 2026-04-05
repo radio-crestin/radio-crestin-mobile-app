@@ -520,7 +520,7 @@ class FlutterAndroidAutoPlugin : FlutterPlugin, EventChannel.StreamHandler {
                 val icon = IconCompat.createWithResource(context, resId)
                 val fabAction = Action.Builder()
                     .setIcon(CarIcon.Builder(icon).build())
-                    .setBackgroundColor(CarColor.RED)
+                    .setBackgroundColor(CarColor.createCustom(0xFFE91E63.toInt(), 0xFFF8BBD0.toInt()))
                     .setOnClickListener {
                         sendEvent(
                             type = FAAChannelTypes.onFabPressed.name,
@@ -679,7 +679,7 @@ class FlutterAndroidAutoPlugin : FlutterPlugin, EventChannel.StreamHandler {
                     val icon = IconCompat.createWithResource(context, resId)
                     val fabAction = Action.Builder()
                         .setIcon(CarIcon.Builder(icon).build())
-                        .setBackgroundColor(CarColor.RED)
+                        .setBackgroundColor(CarColor.createCustom(0xFFE91E63.toInt(), 0xFFF8BBD0.toInt()))
                         .setOnClickListener {
                             sendEvent(
                                 type = FAAChannelTypes.onFabPressed.name,

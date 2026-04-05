@@ -94,36 +94,40 @@ class PlayerScreen(carContext: CarContext) : Screen(carContext) {
     var isPlaying: Boolean = false
     var isFavorite: Boolean = false
 
+    // Brand primary color (#E91E63)
+    private val brandPink = CarColor.createCustom(0xFFE91E63.toInt(), 0xFFF8BBD0.toInt())
+
     override fun onGetTemplate(): Template {
         val paneBuilder = Pane.Builder()
 
-        // Row 1: Song name
-        val displaySongTitle = songTitle.ifEmpty { "..." }
+        // Row 1: Song title
+        val displaySongTitle = songTitle.ifEmpty { "Se încarcă..." }
         paneBuilder.addRow(
             Row.Builder()
                 .setTitle(CarText.create(displaySongTitle))
                 .build()
         )
 
-        // Row 2: Artist
-        if (songArtist.isNotEmpty()) {
+        // Row 2: Artist (only if different from song title)
+        val displayArtist = songArtist.ifEmpty { stationTitle }
+        if (displayArtist.isNotEmpty() && displayArtist != displaySongTitle) {
             paneBuilder.addRow(
                 Row.Builder()
-                    .setTitle(CarText.create(songArtist))
+                    .setTitle(CarText.create(displayArtist))
                     .build()
             )
         }
 
-        // Large centered thumbnail
+        // Station artwork (displayed on the right side by the Template Host)
         stationImage?.let { paneBuilder.setImage(it) }
 
-        // Pane action 1: Play/Pause (prominent, red background)
+        // Play/Pause button with brand pink color
         val playPauseIconName = if (isPlaying) "ic_pause" else "ic_play_arrow"
         loadDrawableIcon(playPauseIconName)?.let { icon ->
             paneBuilder.addAction(
                 Action.Builder()
                     .setIcon(icon)
-                    .setBackgroundColor(CarColor.RED)
+                    .setBackgroundColor(brandPink)
                     .setOnClickListener {
                         FlutterAndroidAutoPlugin.sendEvent(
                             type = FAAChannelTypes.onPlayerPlayPause.name,
@@ -134,7 +138,7 @@ class PlayerScreen(carContext: CarContext) : Screen(carContext) {
             )
         }
 
-        // Pane action 2: Favorite toggle
+        // Favorite toggle button
         val favIconName = if (isFavorite) "ic_favorite" else "ic_favorite_border"
         loadDrawableIcon(favIconName)?.let { icon ->
             paneBuilder.addAction(
@@ -150,7 +154,7 @@ class PlayerScreen(carContext: CarContext) : Screen(carContext) {
             )
         }
 
-        // ActionStrip: Previous + Next
+        // Header ActionStrip: Previous + Next
         val actionStripBuilder = ActionStrip.Builder()
 
         loadDrawableIcon("ic_skip_previous")?.let { icon ->
