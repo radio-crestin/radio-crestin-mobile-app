@@ -61,7 +61,16 @@ class CarPlayService {
   StreamSubscription? _androidAutoFavoritesSubscription;
   StreamSubscription? _androidAutoStationSubscription;
   StreamSubscription? _androidAutoStationsListSubscription;
+  StreamSubscription? _androidAutoPlaybackSubscription;
   String _activeAndroidAutoTabId = 'favorites';
+  bool _isPlayerScreenVisible = false;
+
+  // Track last player state to avoid unnecessary updates (prevents flickering)
+  String? _lastPlayerStationSlug;
+  String? _lastPlayerSongTitle;
+  String? _lastPlayerArtist;
+  bool? _lastPlayerIsPlaying;
+  bool? _lastPlayerIsFavorite;
 
   ImageCacheService? get _imageCacheService {
     try {
@@ -461,7 +470,115 @@ class CarPlayService {
       }
     };
 
+    // Wire up player screen event callbacks
+    _setupAndroidAutoPlayerCallbacks();
+
     _trySetupAndroidAutoStations();
+  }
+
+  void _setupAndroidAutoPlayerCallbacks() {
+    _flutterAndroidAuto!.addListenerOnPlayerPlayPause(() {
+      _log("Android Auto: Player play/pause pressed");
+      if (_audioHandler.playbackState.value.playing) {
+        _audioHandler.pause();
+      } else {
+        _audioHandler.play();
+      }
+    });
+
+    _flutterAndroidAuto!.addListenerOnPlayerNext(() {
+      _log("Android Auto: Player next pressed");
+      _audioHandler.skipToNext();
+    });
+
+    _flutterAndroidAuto!.addListenerOnPlayerPrevious(() {
+      _log("Android Auto: Player previous pressed");
+      _audioHandler.skipToPrevious();
+    });
+
+    _flutterAndroidAuto!.addListenerOnPlayerFavoriteToggle(() {
+      _log("Android Auto: Player favorite toggle pressed");
+      final currentStation = _audioHandler.currentStation.value;
+      if (currentStation != null) {
+        final isFav = _isFavorite(currentStation.slug);
+        _audioHandler.setStationIsFavorite(currentStation, !isFav);
+      }
+    });
+
+    _flutterAndroidAuto!.addListenerOnPlayerClosed(() {
+      _log("Android Auto: Player closed");
+      _isPlayerScreenVisible = false;
+      _lastPlayerStationSlug = null;
+      _lastPlayerSongTitle = null;
+      _lastPlayerArtist = null;
+      _lastPlayerIsPlaying = null;
+      _lastPlayerIsFavorite = null;
+    });
+  }
+
+  Future<void> _pushAndroidAutoPlayer(Station station) async {
+    final isFav = _isFavorite(station.slug);
+    final isPlaying = _audioHandler.playbackState.value.playing;
+
+    try {
+      await FlutterAndroidAuto.pushPlayer(
+        stationTitle: station.title,
+        songTitle: station.songTitle,
+        songArtist: station.artist,
+        imageUrl: _cachedOrNetworkUrl(station.thumbnailUrl),
+        isPlaying: isPlaying,
+        isFavorite: isFav,
+      );
+      _isPlayerScreenVisible = true;
+    } catch (e) {
+      _log("Error pushing Android Auto player: $e");
+    }
+  }
+
+  Future<void> _updateAndroidAutoPlayer() async {
+    if (!_isPlayerScreenVisible) return;
+
+    final station = _audioHandler.currentStation.value;
+    if (station == null) return;
+
+    // Find the latest station data from the sorted list (has up-to-date song metadata)
+    final latestStation = _sortedAndroidAutoStations.firstWhere(
+      (s) => s.slug == station.slug,
+      orElse: () => station,
+    );
+
+    final isFav = _isFavorite(station.slug);
+    final isPlaying = _audioHandler.playbackState.value.playing;
+    final songTitle = latestStation.songTitle;
+    final artist = latestStation.artist;
+
+    // Skip update if nothing changed (prevents flickering on periodic polls)
+    if (_lastPlayerStationSlug == station.slug &&
+        _lastPlayerSongTitle == songTitle &&
+        _lastPlayerArtist == artist &&
+        _lastPlayerIsPlaying == isPlaying &&
+        _lastPlayerIsFavorite == isFav) {
+      return;
+    }
+
+    _lastPlayerStationSlug = station.slug;
+    _lastPlayerSongTitle = songTitle;
+    _lastPlayerArtist = artist;
+    _lastPlayerIsPlaying = isPlaying;
+    _lastPlayerIsFavorite = isFav;
+
+    try {
+      await FlutterAndroidAuto.updatePlayer(
+        stationTitle: latestStation.title,
+        songTitle: songTitle,
+        songArtist: artist,
+        imageUrl: _cachedOrNetworkUrl(latestStation.thumbnailUrl),
+        isPlaying: isPlaying,
+        isFavorite: isFav,
+      );
+    } catch (e) {
+      _log("Error updating Android Auto player: $e");
+    }
   }
 
   void _trySetupAndroidAutoStations() {
@@ -540,14 +657,23 @@ class CarPlayService {
         _activeAndroidAutoTabId = contentId;
       });
 
-      // Listen for favorites changes to rebuild the template
+      // Listen for favorites changes to rebuild the template + update player
       _androidAutoFavoritesSubscription = _stationDataService.favoriteStationSlugs.stream.listen((_) {
         _rebuildAndroidAutoTemplate();
+        _updateAndroidAutoPlayer();
       });
 
-      // Listen for current station changes (playing indicator)
-      _androidAutoStationSubscription = _audioHandler.currentStation.stream.listen((_) {
+      // Listen for current station changes (playing indicator + update player)
+      _androidAutoStationSubscription = _audioHandler.currentStation.stream.listen((station) {
         _rebuildAndroidAutoTemplate();
+        if (station != null && _isPlayerScreenVisible) {
+          _updateAndroidAutoPlayer();
+        }
+      });
+
+      // Listen for playback state changes (play/pause on player screen)
+      _androidAutoPlaybackSubscription = _audioHandler.playbackState.stream.listen((_) {
+        _updateAndroidAutoPlayer();
       });
 
       // Listen for station list/metadata changes (song title, artist, new stations, etc.)
@@ -555,6 +681,7 @@ class CarPlayService {
         _log("Android Auto: stations stream updated (${updatedStations.length} stations)");
         _updateSortedAndroidAutoStations(updatedStations);
         _rebuildAndroidAutoTemplate();
+        _updateAndroidAutoPlayer();
       });
 
       _androidAutoInitialized = true;
@@ -618,6 +745,8 @@ class CarPlayService {
               onPress: (complete, item) async {
                 _log("Android Auto: Station selected: ${station.title}");
                 complete();
+                // Push player screen first (like CarPlay's showSharedNowPlaying)
+                _pushAndroidAutoPlayer(station);
                 await _audioHandler.playStation(station, playlist: playlist, isFavoritesPlaylist: isFavoritesPlaylist);
               },
             );
@@ -705,6 +834,7 @@ class CarPlayService {
     _androidAutoFavoritesSubscription?.cancel();
     _androidAutoStationSubscription?.cancel();
     _androidAutoStationsListSubscription?.cancel();
+    _androidAutoPlaybackSubscription?.cancel();
     _androidAutoRebuildTimer?.cancel();
 
     if (Platform.isIOS) {

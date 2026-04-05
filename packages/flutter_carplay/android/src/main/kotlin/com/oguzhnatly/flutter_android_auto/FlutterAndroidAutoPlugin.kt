@@ -538,8 +538,10 @@ class FlutterAndroidAutoPlugin : FlutterPlugin, EventChannel.StreamHandler {
     private fun pushPlayerTemplate(
         call: MethodCall, result: MethodChannel.Result
     ) {
+        android.util.Log.d("FlutterAndroidAuto", "pushPlayerTemplate called")
         val carContext = AndroidAutoService.session?.carContext
         if (carContext == null) {
+            android.util.Log.e("FlutterAndroidAuto", "pushPlayerTemplate: No car context")
             result.error("No car context", "Android Auto not connected", null)
             return
         }

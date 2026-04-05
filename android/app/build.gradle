@@ -102,4 +102,7 @@ dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
 
     implementation 'com.android.support:multidex:1.0.3'
+
+    // Android Automotive OS support (CarAppActivity for template rendering)
+    implementation "androidx.car.app:app-automotive:1.7.0"
 }
