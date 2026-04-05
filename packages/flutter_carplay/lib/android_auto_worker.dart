@@ -38,7 +38,7 @@ class FlutterAndroidAuto {
   Function(ConnectionStatusTypes status)? _onAndroidAutoConnectionChange;
 
   /// Callback when the FAB (floating action button) is pressed on Android Auto.
-  static Function()? onFabPressed;
+  static Function({String? action})? onFabPressed;
 
   /// Callback when a tab is selected on Android Auto.
   Function(String contentId)? _onTabSelected;
@@ -123,7 +123,8 @@ class FlutterAndroidAuto {
           _onTabSelected?.call(event['data']['contentId'] as String);
           break;
         case FAAChannelTypes.onFabPressed:
-          onFabPressed?.call();
+          final fabAction = event['data']?['action'] as String?;
+          onFabPressed?.call(action: fabAction);
           break;
         case FAAChannelTypes.onPlayerPlayPause:
           _onPlayerPlayPause?.call();

@@ -556,11 +556,6 @@ class FlutterAndroidAutoPlugin : FlutterPlugin, EventChannel.StreamHandler {
                 screen.isPlaying = data["isPlaying"] as? Boolean ?: false
                 screen.isFavorite = data["isFavorite"] as? Boolean ?: false
 
-                // Pre-load station image
-                (data["imageUrl"] as? String)?.let { url ->
-                    screen.stationImage = loadCarImageAsync(url)
-                }
-
                 // Send onPlayerClosed when screen is destroyed (back button)
                 screen.lifecycle.addObserver(object : LifecycleEventObserver {
                     override fun onStateChanged(
@@ -577,8 +572,18 @@ class FlutterAndroidAutoPlugin : FlutterPlugin, EventChannel.StreamHandler {
                 })
 
                 currentPlayerScreen = screen
+                // Push screen immediately for fast UI response
                 carContext.getCarService(ScreenManager::class.java).push(screen)
                 result.success(true)
+
+                // Load station image in background and update screen when ready
+                (data["imageUrl"] as? String)?.let { url ->
+                    val image = loadCarImageAsync(url)
+                    if (image != null && currentPlayerScreen == screen) {
+                        screen.stationImage = image
+                        screen.invalidate()
+                    }
+                }
             } catch (e: Exception) {
                 e.printStackTrace()
                 result.error("Error pushing player", e.message, null)

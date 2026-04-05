@@ -459,14 +459,26 @@ class CarPlayService {
       }
     });
 
-    // FAB (play button) handler: play last station or resume
-    FlutterAndroidAuto.onFabPressed = () async {
-      _log("Android Auto: FAB pressed");
-      if (_audioHandler.currentStation.value != null) {
-        _audioHandler.play();
+    // FAB handler: opens Now Playing screen if playing, otherwise starts playback
+    FlutterAndroidAuto.onFabPressed = ({String? action}) async {
+      _log("Android Auto: FAB pressed, action=$action");
+      final station = _audioHandler.currentStation.value;
+      if (station != null) {
+        // Station is loaded - open the player screen
+        if (!_isPlayerScreenVisible) {
+          await _pushAndroidAutoPlayer(station);
+        }
+        // Also resume if paused
+        if (!_audioHandler.playbackState.value.playing) {
+          _audioHandler.play();
+        }
       } else {
+        // No station - try to resume last played
         final lastStation = await _audioHandler.getLastPlayedStation();
-        if (lastStation != null) _audioHandler.playStation(lastStation);
+        if (lastStation != null) {
+          _pushAndroidAutoPlayer(lastStation);
+          _audioHandler.playStation(lastStation);
+        }
       }
     };
 
