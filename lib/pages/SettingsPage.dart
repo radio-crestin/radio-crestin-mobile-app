@@ -37,6 +37,8 @@ class _SettingsPageState extends State<SettingsPage> {
   final String _version = globals.appVersion;
   final String _buildNumber = globals.buildNumber;
   final String _deviceId = globals.deviceId;
+  int? _visitCount;
+  bool _isLoadingShareData = true;
 
 
   @override
@@ -47,6 +49,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _loadThemeMode();
     _loadSeekMode();
     _loadUnstableConnection();
+    _loadShareData();
   }
 
   Future<void> _getNotificationsEnabled() async {
@@ -93,22 +96,16 @@ class _SettingsPageState extends State<SettingsPage> {
       final shareLinkData = await shareService.getShareLink(deviceId!);
 
       if (shareLinkData != null) {
-        final currentStation = getIt<AppAudioHandler>().currentStation.valueOrNull;
-        final shareUrl = shareLinkData.generateShareUrl(
-          stationSlug: currentStation?.slug,
-        );
+        final shareUrl = shareLinkData.generateShareUrl();
         final shareMessage = ShareUtils.formatShareMessage(
           shareLinkData: shareLinkData,
-          stationName: currentStation?.title,
-          stationSlug: currentStation?.slug,
         );
 
-        // Show dialog with share options
+        // Show dialog with share options (without station context)
         ShareHandler.shareApp(
           context: context,
           shareUrl: shareUrl,
           shareMessage: shareMessage,
-          stationName: currentStation?.title,
           shareLinkData: shareLinkData,
           showDialog: true,
         );
@@ -412,6 +409,46 @@ class _SettingsPageState extends State<SettingsPage> {
                 _buildSettingsTile(
                   icon: Icons.share_rounded,
                   title: 'Distribuie aplicația',
+                  subtitle: _visitCount != null && _visitCount! > 0
+                      ? '${_formatVisitCount(_visitCount!)} persoane au deschis aplicația prin linkul tău'
+                      : null,
+                  trailing: _visitCount != null && _visitCount! > 0
+                      ? Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? const Color(0xFFffc700).withValues(alpha: 0.12)
+                                    : const Color(0xFFFF6B35).withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.people_outline_rounded,
+                                    size: 16,
+                                    color: isDark ? const Color(0xFFffc700) : const Color(0xFFFF6B35),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    _formatVisitCount(_visitCount!),
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: isDark ? const Color(0xFFffc700) : const Color(0xFFFF6B35),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Icon(Icons.chevron_right, size: 20, color: isDark ? const Color(0xff5a5a5c) : const Color(0xffc7c7cc)),
+                          ],
+                        )
+                      : null,
                   onTap: () async {
                     await _shareApp(context);
                   },
@@ -535,6 +572,53 @@ class _SettingsPageState extends State<SettingsPage> {
     setState(() {
       _seekMode = seekMode;
     });
+  }
+
+  Future<void> _loadShareData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      String? deviceId = prefs.getString('device_id');
+
+      if (deviceId == null) {
+        final DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
+        if (Platform.isAndroid) {
+          final androidInfo = await deviceInfo.androidInfo;
+          deviceId = androidInfo.id;
+        } else if (Platform.isIOS) {
+          final iosInfo = await deviceInfo.iosInfo;
+          deviceId = iosInfo.identifierForVendor;
+        } else {
+          deviceId = DateTime.now().millisecondsSinceEpoch.toString();
+        }
+        if (deviceId != null) {
+          await prefs.setString('device_id', deviceId);
+        }
+      }
+
+      final client = GraphQLProvider.of(context).value;
+      final shareService = ShareService(client);
+      final data = await shareService.getShareLink(deviceId!);
+
+      if (mounted && data != null) {
+        setState(() {
+          _visitCount = data.visitCount;
+          _isLoadingShareData = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingShareData = false);
+      }
+    }
+  }
+
+  String _formatVisitCount(int count) {
+    if (count >= 1000000) {
+      return '${(count / 1000000).toStringAsFixed(count % 1000000 == 0 ? 0 : 1)}M';
+    } else if (count >= 1000) {
+      return '${(count / 1000).toStringAsFixed(count % 1000 == 0 ? 0 : 1)}k';
+    }
+    return count.toString();
   }
 
   Future<void> _loadUnstableConnection() async {

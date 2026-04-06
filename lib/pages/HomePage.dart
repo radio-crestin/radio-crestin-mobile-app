@@ -277,6 +277,45 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   @override
+  Widget _buildRoundedIconButton({
+    required BuildContext context,
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onPressed,
+    bool isActive = false,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: Material(
+        color: isActive
+            ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.12)
+            : isDark
+                ? Colors.white.withValues(alpha: 0.06)
+                : Colors.black.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(12),
+          child: Tooltip(
+            message: tooltip,
+            child: SizedBox(
+              width: 38,
+              height: 38,
+              child: Icon(
+                icon,
+                size: 20,
+                color: isActive
+                    ? Theme.of(context).colorScheme.primary
+                    : Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   void _showSortOptions(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     showModalBottomSheet(
@@ -556,74 +595,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             ],
                           )),
                       actions: [
-                        AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 600),
-                          transitionBuilder: (Widget child, Animation<double> animation) {
-                            return ScaleTransition(
-                              scale: Tween<double>(
-                                begin: 0.3,
-                                end: 1.0,
-                              ).animate(CurvedAnimation(
-                                parent: animation,
-                                curve: Curves.easeOutBack,
-                              )),
-                              child: child,
-                            );
-                          },
-                          child: _shareLinkData != null && _shareLinkData!.visitCount != null
-                            ? Container(
-                              key: ValueKey('share-badge'),
-                              margin: const EdgeInsets.only(right: 4),
-                              child: InkWell(
-                                onTap: () {
-                                  _shareApp(context);
-                                },
-                                borderRadius: BorderRadius.circular(20),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                  decoration: BoxDecoration(
-                                    color: (Theme.of(context).brightness == Brightness.light
-                                        ? const Color(0xFFFF6B35) // Orange for light theme
-                                        : const Color(0xFFffc700)).withOpacity(0.12), // Yellow for dark theme
-                                    borderRadius: BorderRadius.circular(20),
-                                    border: Border.all(
-                                      color: (Theme.of(context).brightness == Brightness.light
-                                          ? const Color(0xFFFF6B35)
-                                          : const Color(0xFFffc700)).withOpacity(0.3),
-                                      width: 1,
-                                    ),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        _formatVisitCount(_shareLinkData!.visitCount),
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                          color: Theme.of(context).brightness == Brightness.light
-                                              ? const Color(0xFFFF6B35) // Orange for light theme
-                                              : const Color(0xFFffc700), // Yellow for dark theme
-                                        ),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Icon(
-                                        Icons.people_outline_rounded,
-                                        size: 18,
-                                        color: Theme.of(context).brightness == Brightness.light
-                                            ? const Color(0xFFFF6B35) // Orange for light theme
-                                            : const Color(0xFFffc700), // Yellow for dark theme
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            )
-                            : SizedBox.shrink(key: ValueKey('empty')),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.search),
-                          color: Theme.of(context).colorScheme.onSurface,
+                        _buildRoundedIconButton(
+                          context: context,
+                          icon: Icons.search_rounded,
                           tooltip: 'Caută o stație radio',
                           onPressed: () {
                             showDialog(
@@ -692,9 +666,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             );
                           },
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.settings),
-                          color: Theme.of(context).colorScheme.onSurface,
+                        _buildRoundedIconButton(
+                          context: context,
+                          icon: Icons.settings_rounded,
                           tooltip: 'Setări aplicație',
                           onPressed: () async {
                             await Navigator.push(context, MaterialPageRoute<void>(
@@ -800,17 +774,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                 ),
                               ),
                               // Filter icon button
-                              IconButton(
-                                icon: Icon(
-                                  selectedStationGroup != null
-                                      ? Icons.filter_alt
-                                      : Icons.filter_alt_outlined,
-                                  size: 22,
-                                  color: selectedStationGroup != null
-                                      ? Theme.of(context).colorScheme.primary
-                                      : Theme.of(context).colorScheme.onSurfaceVariant,
-                                ),
+                              _buildRoundedIconButton(
+                                context: context,
+                                icon: selectedStationGroup != null
+                                    ? Icons.filter_alt_rounded
+                                    : Icons.filter_alt_outlined,
                                 tooltip: selectedStationGroup?.name ?? 'Filtrează',
+                                isActive: selectedStationGroup != null,
                                 onPressed: () {
                                   showDialog(
                                     context: context,
