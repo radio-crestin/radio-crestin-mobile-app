@@ -352,27 +352,22 @@ class AppAudioHandler extends BaseAudioHandler {
 
     final isFav = stationDataService.favoriteStationSlugs.value.contains(station.slug);
 
-    if (NetworkService.instance.isOnMobileData.value) {
-      final stripped = _buildStationOnlyMediaItem(station);
-      _lastEmittedSongId = -1;
-      _lastEmittedArtUriString = stripped.artUri?.toString();
-      mediaItem.add(stripped.copyWith(rating: Rating.newHeartRating(isFav)));
-    } else {
-      final item = station.mediaItem;
-      _lastEmittedSongId = station.songId;
-      _lastEmittedArtUriString = item.artUri?.toString();
-      mediaItem.add(item.copyWith(rating: Rating.newHeartRating(isFav)));
-      _cacheSongThumbnail(station);
-    }
+    // Always use station thumbnail (cached) to save bandwidth.
+    // Song metadata (title/artist) is still shown from the station data.
+    final stationItem = _buildStationMediaItem(station);
+    _lastEmittedSongId = station.songId;
+    _lastEmittedArtUriString = stationItem.artUri?.toString();
+    mediaItem.add(stationItem.copyWith(rating: Rating.newHeartRating(isFav)));
+    _ensureStationArtCached(station);
     currentStation.add(station);
 
     // Fire-and-forget: don't block the tap path with disk I/O
     setLastPlayedStation(station);
   }
 
-  /// Builds a MediaItem with only station info (no song metadata/thumbnail).
-  /// Used in data-saving mode (mobile data + background).
-  MediaItem _buildStationOnlyMediaItem(Station station) {
+  /// Builds a MediaItem using the cached station thumbnail (no song thumbnail download).
+  /// Includes song metadata text (title/artist) but always uses station artwork to save bandwidth.
+  MediaItem _buildStationMediaItem(Station station) {
     final Uri stationArtUri;
     final cachedPath = station.cachedThumbnailPath;
     if (cachedPath != null) {
@@ -387,9 +382,9 @@ class AppAudioHandler extends BaseAudioHandler {
     return MediaItem(
       id: Utils.getStationStreamUrls(station.rawStationData).firstOrNull ?? "",
       title: station.rawStationData.title,
-      displayTitle: station.rawStationData.title,
-      displaySubtitle: "",
-      artist: "",
+      displayTitle: station.displayTitle,
+      displaySubtitle: station.displaySubtitle,
+      artist: station.artist,
       duration: null,
       artUri: stationArtUri,
       isLive: true,
@@ -398,9 +393,9 @@ class AppAudioHandler extends BaseAudioHandler {
         "station_id": station.rawStationData.id,
         "station_slug": station.rawStationData.slug,
         "station_title": station.rawStationData.title,
-        "song_id": -1,
-        "song_title": "",
-        "song_artist": "",
+        "song_id": station.songId,
+        "song_title": station.songTitle,
+        "song_artist": station.artist,
         "total_listeners": station.rawStationData.total_listeners,
         "station_is_up": station.isUp,
         "station_thumbnail_url": station.rawStationData.thumbnail_url,
@@ -409,34 +404,29 @@ class AppAudioHandler extends BaseAudioHandler {
     );
   }
 
-  void _cacheSongThumbnail(Station station) {
-    if (NetworkService.instance.isOnMobileData.value) return;
+  /// Ensures the station thumbnail is available as a local file for the media session.
+  /// Always uses cached station thumbnails (never downloads song thumbnails) to save bandwidth.
+  /// Android Auto/CarPlay home screen requires a bitmap in METADATA_KEY_ALBUM_ART.
+  void _ensureStationArtCached(Station station) {
+    final stationThumbnailUrl = station.rawStationData.thumbnail_url;
+    if (stationThumbnailUrl == null || stationThumbnailUrl.isEmpty) return;
 
-    // Cache the song thumbnail if available
-    final songThumbnailUrl = station.rawStationData.now_playing?.song?.thumbnail_url;
-    if (songThumbnailUrl != null && songThumbnailUrl.isNotEmpty) {
-      ImageCacheService.instance.getOrDownload(songThumbnailUrl).then((file) {
-        if (NetworkService.instance.isOnMobileData.value) return;
-        if (file != null && currentStation.valueOrNull?.id == station.id) {
-          _reEmitMediaItemWithLocalArt(Uri.file(file.path), station);
-        }
-      });
+    final cachedPath = ImageCacheService.instance.getCachedPath(stationThumbnailUrl);
+    if (cachedPath != null) {
+      // Already cached - re-emit with file:// if current artUri is still https://
+      final currentArt = mediaItem.valueOrNull?.artUri?.toString();
+      if (currentArt != null && currentArt.startsWith('http')) {
+        _reEmitMediaItemWithLocalArt(Uri.file(cachedPath), station);
+      }
       return;
     }
 
-    // No song thumbnail - ensure station thumbnail is cached for Android Auto home screen
-    // (Android Auto requires a bitmap in METADATA_KEY_ALBUM_ART, not just a URI)
-    final stationThumbnailUrl = station.rawStationData.thumbnail_url;
-    if (stationThumbnailUrl != null && stationThumbnailUrl.isNotEmpty) {
-      final cachedPath = ImageCacheService.instance.getCachedPath(stationThumbnailUrl);
-      if (cachedPath != null) return; // Already cached, artUri is file://
-      ImageCacheService.instance.getOrDownload(stationThumbnailUrl).then((file) {
-        if (NetworkService.instance.isOnMobileData.value) return;
-        if (file != null && currentStation.valueOrNull?.id == station.id) {
-          _reEmitMediaItemWithLocalArt(Uri.file(file.path), station);
-        }
-      });
-    }
+    // Not cached yet - download and re-emit
+    ImageCacheService.instance.getOrDownload(stationThumbnailUrl).then((file) {
+      if (file != null && currentStation.valueOrNull?.id == station.id) {
+        _reEmitMediaItemWithLocalArt(Uri.file(file.path), station);
+      }
+    });
   }
 
   void _reEmitMediaItemWithLocalArt(Uri localUri, Station station) {
@@ -981,18 +971,21 @@ class AppAudioHandler extends BaseAudioHandler {
       final station = currentStation.valueOrNull;
       if (station == null || mediaItem.valueOrNull == null) return;
 
+      // Always use station thumbnail (cached). On mobile: strip song metadata text too.
+      final item = _buildStationMediaItem(station);
+      _lastEmittedSongId = onMobile ? -1 : station.songId;
+      _lastEmittedArtUriString = item.artUri?.toString();
+      final isFav = stationDataService.favoriteStationSlugs.value.contains(station.slug);
       if (onMobile) {
-        final stripped = _buildStationOnlyMediaItem(station);
-        _lastEmittedSongId = -1;
-        _lastEmittedArtUriString = stripped.artUri?.toString();
-        mediaItem.add(stripped);
+        // Strip song text on mobile data
+        mediaItem.add(item.copyWith(
+          displaySubtitle: '',
+          artist: '',
+          rating: Rating.newHeartRating(isFav),
+        ));
       } else {
-        final fullItem = station.mediaItem;
-        final isFav = stationDataService.favoriteStationSlugs.value.contains(station.slug);
-        _lastEmittedSongId = station.songId;
-        _lastEmittedArtUriString = fullItem.artUri.toString();
-        mediaItem.add(fullItem.copyWith(rating: Rating.newHeartRating(isFav)));
-        _cacheSongThumbnail(station);
+        mediaItem.add(item.copyWith(rating: Rating.newHeartRating(isFav)));
+        _ensureStationArtCached(station);
       }
     });
 
@@ -1035,24 +1028,15 @@ class AppAudioHandler extends BaseAudioHandler {
           _log("updateCurrentStationMetadata: on mobile data, skipping song update");
         } else {
           final newSongId = updatedCurrentStation.songId;
-          final newArtUri = updatedCurrentStation.artUri.toString();
-
           final songChanged = newSongId != _lastEmittedSongId;
-          final artChanged = newArtUri != _lastEmittedArtUriString;
 
-          if (songChanged || artChanged) {
-            final newMediaItem =
-                newStationsMediaItems.where((item) => item.id == mediaItem.value?.id).firstOrNull;
-            if (newMediaItem != null) {
-              _lastEmittedSongId = newSongId;
-              _lastEmittedArtUriString = newMediaItem.artUri?.toString();
-              final isFav = stationDataService.favoriteStationSlugs.value.contains(updatedCurrentStation.slug);
-              mediaItem.add(newMediaItem.copyWith(rating: Rating.newHeartRating(isFav)));
-            }
-
-            if (songChanged) {
-              _cacheSongThumbnail(updatedCurrentStation);
-            }
+          if (songChanged) {
+            // Update song metadata text but keep station thumbnail (no song art download)
+            final newItem = _buildStationMediaItem(updatedCurrentStation);
+            _lastEmittedSongId = newSongId;
+            _lastEmittedArtUriString = newItem.artUri?.toString();
+            final isFav = stationDataService.favoriteStationSlugs.value.contains(updatedCurrentStation.slug);
+            mediaItem.add(newItem.copyWith(rating: Rating.newHeartRating(isFav)));
           }
         }
       }
