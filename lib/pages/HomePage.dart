@@ -391,89 +391,120 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+        return DraggableScrollableSheet(
+          initialChildSize: 0.7,
+          minChildSize: 0.4,
+          maxChildSize: 0.9,
+          expand: false,
+          builder: (context, scrollController) {
+            return Column(
               children: [
-                Container(
-                  width: 36,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 8),
-                  decoration: BoxDecoration(
-                    color: isDark ? Colors.white24 : Colors.black12,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                // "All stations" option
-                ListTile(
-                  leading: Icon(
-                    Icons.radio_rounded,
-                    size: 20,
-                    color: selectedGroup == null
-                        ? Theme.of(context).colorScheme.primary
-                        : Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                  title: Text(
-                    'Toate stațiile radio',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: selectedGroup == null ? FontWeight.w600 : FontWeight.w400,
-                      color: selectedGroup == null
-                          ? Theme.of(context).colorScheme.primary
-                          : Theme.of(context).colorScheme.onSurface,
+                // Drag handle
+                Padding(
+                  padding: const EdgeInsets.only(top: 10, bottom: 6),
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white24 : Colors.black12,
+                      borderRadius: BorderRadius.circular(2),
                     ),
                   ),
-                  trailing: selectedGroup == null
-                      ? Icon(Icons.check_rounded, size: 20, color: Theme.of(context).colorScheme.primary)
-                      : null,
-                  onTap: () {
-                    setState(() {
-                      _stationDataService.selectedStationGroup.add(null);
-                    });
-                    Navigator.pop(context);
-                  },
                 ),
-                ...sortedGroups.map((group) {
-                  final isSelected = selectedGroup?.id == group.id;
-                  return ListTile(
-                    leading: Icon(
-                      Icons.folder_rounded,
-                      size: 20,
-                      color: isSelected
-                          ? Theme.of(context).colorScheme.primary
-                          : Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                    title: Text(
-                      group.name,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                        color: isSelected
-                            ? Theme.of(context).colorScheme.primary
-                            : Theme.of(context).colorScheme.onSurface,
+                // Title
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Filtrează stații',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 20,
                       ),
                     ),
-                    trailing: isSelected
-                        ? Icon(Icons.check_rounded, size: 20, color: Theme.of(context).colorScheme.primary)
-                        : null,
-                    onTap: () {
-                      setState(() {
-                        _stationDataService.selectedStationGroup.add(group);
-                      });
-                      Navigator.pop(context);
-                    },
-                  );
-                }),
+                  ),
+                ),
+                Divider(height: 1, thickness: 0.5, color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.06)),
+                // Scrollable list
+                Expanded(
+                  child: ListView(
+                    controller: scrollController,
+                    padding: const EdgeInsets.only(top: 4, bottom: 24),
+                    children: [
+                      // "All stations" option
+                      ListTile(
+                        leading: Icon(
+                          Icons.radio_rounded,
+                          size: 20,
+                          color: selectedGroup == null
+                              ? Theme.of(context).colorScheme.primary
+                              : Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                        title: Text(
+                          'Toate stațiile radio',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: selectedGroup == null ? FontWeight.w600 : FontWeight.w400,
+                            color: selectedGroup == null
+                                ? Theme.of(context).colorScheme.primary
+                                : Theme.of(context).colorScheme.onSurface,
+                          ),
+                        ),
+                        trailing: selectedGroup == null
+                            ? Icon(Icons.check_rounded, size: 20, color: Theme.of(context).colorScheme.primary)
+                            : null,
+                        onTap: () {
+                          setState(() {
+                            _stationDataService.selectedStationGroup.add(null);
+                          });
+                          Navigator.pop(context);
+                        },
+                      ),
+                      ...sortedGroups.map((group) {
+                        final isSelected = selectedGroup?.id == group.id;
+                        return ListTile(
+                          leading: Icon(
+                            Icons.folder_rounded,
+                            size: 20,
+                            color: isSelected
+                                ? Theme.of(context).colorScheme.primary
+                                : Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                          title: Text(
+                            group.name,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                              color: isSelected
+                                  ? Theme.of(context).colorScheme.primary
+                                  : Theme.of(context).colorScheme.onSurface,
+                            ),
+                          ),
+                          trailing: isSelected
+                              ? Icon(Icons.check_rounded, size: 20, color: Theme.of(context).colorScheme.primary)
+                              : null,
+                          onTap: () {
+                            setState(() {
+                              _stationDataService.selectedStationGroup.add(group);
+                            });
+                            Navigator.pop(context);
+                          },
+                        );
+                      }),
+                    ],
+                  ),
+                ),
               ],
-            ),
-          ),
+            );
+          },
         );
       },
     );
