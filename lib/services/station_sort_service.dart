@@ -10,10 +10,10 @@ enum StationSortOption { recommended, mostPlayed, listeners, rating, alphabetica
 class StationSortLabels {
   static const Map<StationSortOption, String> labels = {
     StationSortOption.recommended: 'Pentru tine',
-    StationSortOption.mostPlayed: 'Cele mai ascultate',
-    StationSortOption.listeners: 'Ascultători',
-    StationSortOption.rating: 'Rating',
-    StationSortOption.alphabetical: 'Alfabetic',
+    StationSortOption.mostPlayed: 'Cele mai ascultate de tine',
+    StationSortOption.listeners: 'După numărul de ascultători',
+    StationSortOption.rating: 'După rating',
+    StationSortOption.alphabetical: 'Sortate alfabetic',
   };
 
   static const Map<StationSortOption, IconData> icons = {

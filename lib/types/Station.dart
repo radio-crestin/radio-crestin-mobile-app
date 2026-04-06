@@ -72,6 +72,17 @@ class Station {
   }
 
 
+  /// Average star rating from reviews (0.0 if no reviews).
+  double get averageRating {
+    final reviews = rawStationData.reviews;
+    if (reviews.isEmpty) return 0;
+    final sum = reviews.fold<int>(0, (s, r) => s + r.stars);
+    return sum / reviews.length;
+  }
+
+  /// Number of reviews.
+  int get reviewCount => rawStationData.reviews.length;
+
   MediaItem get mediaItem {
     return MediaItem(
       id: Utils.getStationStreamUrls(rawStationData).firstOrNull ?? "",

@@ -77,15 +77,38 @@ class StationsList extends StatelessWidget {
                             mainAxisAlignment: MainAxisAlignment.center,
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                station.displayTitle,
-                                style: TextStyle(
-                                  color: Theme.of(context).colorScheme.onSurface,
-                                  fontWeight: FontWeight.normal,
-                                  fontSize: 16,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 2,
+                              Row(
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      station.displayTitle,
+                                      style: TextStyle(
+                                        color: Theme.of(context).colorScheme.onSurface,
+                                        fontWeight: FontWeight.normal,
+                                        fontSize: 16,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
+                                    ),
+                                  ),
+                                  if (station.averageRating > 0) ...[
+                                    const SizedBox(width: 6),
+                                    Icon(
+                                      Icons.star_rounded,
+                                      size: 14,
+                                      color: const Color(0xFFED8A19),
+                                    ),
+                                    const SizedBox(width: 1),
+                                    Text(
+                                      station.averageRating.toStringAsFixed(1),
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: const Color(0xFFED8A19),
+                                      ),
+                                    ),
+                                  ],
+                                ],
                               ),
                               AnimatedSwitcher(
                                 duration: const Duration(milliseconds: 250),

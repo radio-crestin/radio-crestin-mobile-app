@@ -8,6 +8,7 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:like_button/like_button.dart';
 import 'package:radio_crestin/pages/HomePage.dart';
 import 'package:radio_crestin/widgets/share_handler.dart';
+import 'package:radio_crestin/widgets/review_modal.dart';
 import 'package:radio_crestin/widgets/song_history_modal.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -243,11 +244,14 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
               ],
             ),
             const Spacer(),
+            // Row 1: recent, somn, favorit
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: <Widget>[
-                InkWell(
-                  customBorder: const CircleBorder(),
+                _buildActionButton(
+                  context,
+                  icon: Icons.history,
+                  label: 'recent',
                   onTap: () {
                     if (currentStation != null) {
                       SongHistoryModal.show(
@@ -258,56 +262,17 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                       );
                     }
                   },
-                  child: Container(
-                    padding: const EdgeInsets.all(10.0),
-                    child: Column(
-                      children: [
-                        Icon(
-                          Icons.history,
-                          color: Theme.of(context).colorScheme.onSurface,
-                          size: 24,
-                        ),
-                        const Padding(
-                          padding: EdgeInsets.only(top: 8.0),
-                          child: Text('recent', style: TextStyle(fontSize: 12)),
-                        ),
-                      ],
-                    ),
-                  ),
                 ),
-                InkWell(
-                  customBorder: CircleBorder(),
-                  onTap: () {
-                    showSleepTimerDialog(context);
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(10.0),
-                    child: Column(
-                      children: [
-                        Icon(
-                          Icons.nights_stay_sharp,
-                          color: isTimerActive ? Theme.of(context).primaryColor : Theme.of(context).colorScheme.onSurface,
-                          size: 24,
-                        ),
-                        Padding(
-                          padding: EdgeInsets.only(top: 8.0),
-                          child: Text(
-                            'somn',
-                            style: TextStyle(
-                                fontSize: 12,
-                                color:
-                                    isTimerActive ? Theme.of(context).primaryColor : Theme.of(context).colorScheme.onSurface),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                _buildActionButton(
+                  context,
+                  icon: Icons.nights_stay_sharp,
+                  label: 'somn',
+                  isActive: isTimerActive,
+                  onTap: () => showSleepTimerDialog(context),
                 ),
                 InkWell(
                   customBorder: const CircleBorder(),
-                  onTap: () {
-                    _likeButtonKey.currentState?.onTap();
-                  },
+                  onTap: () => _likeButtonKey.currentState?.onTap(),
                   child: Container(
                     padding: const EdgeInsets.all(10.0),
                     child: Column(
@@ -335,7 +300,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                             },
                           ),
                         ),
-                        Padding(
+                        const Padding(
                           padding: EdgeInsets.only(top: 8.0),
                           child: Text('favorit', style: TextStyle(fontSize: 12)),
                         ),
@@ -343,82 +308,81 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                     ),
                   ),
                 ),
-                  InkWell(
-                    customBorder: const CircleBorder(),
-                    onTap: () async {
-                      if (!hasYoutubeLink) {
-                        return;
-                      }
-                      if (currentStation != null) {
-                        final query =
-                            "${currentStation?.songArtist} - ${currentStation?.songTitle}";
-                        final encodedQuery = Uri.encodeQueryComponent(query);
-
-                        final searchUrl = 'https://www.youtube.com/results?q=$encodedQuery';
-
-                        if (!await launchUrl(Uri.parse(searchUrl), mode: LaunchMode.externalApplication)) {
-                          Fluttertoast.showToast(
-                              msg: "A apărut o eroare neașteptată în lansarea YouTube.",
-                              toastLength: Toast.LENGTH_SHORT,
-                              gravity: ToastGravity.BOTTOM,
-                              timeInSecForIosWeb: 1,
-                              backgroundColor: Theme.of(context).colorScheme.onSurface,
-                              textColor: Theme.of(context).colorScheme.surface,
-                              fontSize: 16.0);
-                        }
-                      } else {
-                        Fluttertoast.showToast(
-                            msg: "Vă rugam să alegeți o statie de radio.",
-                            toastLength: Toast.LENGTH_SHORT,
-                            gravity: ToastGravity.BOTTOM,
-                            timeInSecForIosWeb: 1,
-                            backgroundColor: Theme.of(context).colorScheme.onSurface,
-                            textColor: Theme.of(context).colorScheme.surface,
-                            fontSize: 16.0);
-                      }
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(10.0),
-                      child: Column(
-                        children: [
-                          Icon(
-                            Icons.video_collection,
-                            color: hasYoutubeLink ? Theme.of(context).colorScheme.onSurface : Theme.of(context).colorScheme.onSurfaceVariant,
-                            size: 24,
-                          ),
-                          Padding(
-                            padding: EdgeInsets.only(top: 8.0),
-                            child: Text('youtube', style: TextStyle(fontSize: 12, color: hasYoutubeLink ? Theme.of(context).colorScheme.onSurface : Theme.of(context).colorScheme.onSurfaceVariant)),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                InkWell(
-                  customBorder: const CircleBorder(),
+              ],
+            ),
+            const SizedBox(height: 4),
+            // Row 2: recenzie, youtube, share
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: <Widget>[
+                _buildActionButton(
+                  context,
+                  icon: Icons.star_outline_rounded,
+                  label: 'recenzie',
                   onTap: () {
-                    _showShareDialog(context);
+                    if (currentStation != null) {
+                      ReviewModal.show(
+                        context,
+                        stationId: currentStation!.id,
+                        stationTitle: currentStation!.title,
+                      );
+                    }
                   },
-                  child: Container(
-                    padding: const EdgeInsets.all(10.0),
-                    child: Column(
-                      children: [
-                        Icon(
-                          Icons.share_outlined,
-                          color: Theme.of(context).colorScheme.onSurface,
-                          size: 24,
-                        ),
-                        const Padding(
-                          padding: EdgeInsets.only(top: 8.0),
-                          child: Text('share', style: TextStyle(fontSize: 12)),
-                        ),
-                      ],
-                    ),
-                  ),
+                ),
+                _buildActionButton(
+                  context,
+                  icon: Icons.video_collection,
+                  label: 'youtube',
+                  isEnabled: hasYoutubeLink,
+                  onTap: () async {
+                    if (!hasYoutubeLink || currentStation == null) return;
+                    final query = "${currentStation?.songArtist} - ${currentStation?.songTitle}";
+                    final encodedQuery = Uri.encodeQueryComponent(query);
+                    final searchUrl = 'https://www.youtube.com/results?q=$encodedQuery';
+                    await launchUrl(Uri.parse(searchUrl), mode: LaunchMode.externalApplication);
+                  },
+                ),
+                _buildActionButton(
+                  context,
+                  icon: Icons.share_outlined,
+                  label: 'share',
+                  onTap: () => _showShareDialog(context),
                 ),
               ],
             ),
-            const SizedBox(height: 55.0),
+            const SizedBox(height: 40.0),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionButton(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    bool isActive = false,
+    bool isEnabled = true,
+  }) {
+    final color = !isEnabled
+        ? Theme.of(context).colorScheme.onSurfaceVariant
+        : isActive
+            ? Theme.of(context).primaryColor
+            : Theme.of(context).colorScheme.onSurface;
+
+    return InkWell(
+      customBorder: const CircleBorder(),
+      onTap: isEnabled ? onTap : null,
+      child: Container(
+        padding: const EdgeInsets.all(10.0),
+        child: Column(
+          children: [
+            Icon(icon, color: color, size: 24),
+            Padding(
+              padding: const EdgeInsets.only(top: 8.0),
+              child: Text(label, style: TextStyle(fontSize: 12, color: color)),
+            ),
           ],
         ),
       ),
