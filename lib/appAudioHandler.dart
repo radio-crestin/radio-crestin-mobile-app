@@ -14,6 +14,7 @@ import 'package:radio_crestin/tracking.dart';
 import 'package:radio_crestin/types/Station.dart';
 import 'package:radio_crestin/services/image_cache_service.dart';
 import 'package:radio_crestin/services/car_play_service.dart';
+import 'package:radio_crestin/services/play_count_service.dart';
 import 'package:radio_crestin/services/network_service.dart';
 import 'package:radio_crestin/services/station_data_service.dart';
 import 'package:radio_crestin/seek_mode_manager.dart';
@@ -455,6 +456,9 @@ class AppAudioHandler extends BaseAudioHandler {
   Future<void> playStation(Station station, {List<Station>? playlist, bool isFavoritesPlaylist = false}) async {
     _log('playStation($station)');
     _hasBeenPlayed = true;
+
+    // Track play count for recommendation algorithm
+    GetIt.instance<PlayCountService>().incrementPlayCount(station.slug);
 
     // Avoid stop-restart if already playing/loading this exact station
     if (currentStation.valueOrNull?.id == station.id && isPlayingOrConnecting) {

@@ -24,7 +24,9 @@ import '../globals.dart' as globals;
 import '../main.dart';
 import '../queries/getStations.graphql.dart';
 import '../services/network_service.dart';
+import '../services/play_count_service.dart';
 import '../services/station_data_service.dart';
+import '../services/station_sort_service.dart';
 import '../widgets/connectivity_banner.dart';
 import '../widgets/bottom_toast.dart';
 import '../types/Station.dart';
@@ -88,11 +90,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   StreamSubscription? _connectionErrorSub;
   OverlayEntry? _activeConnectionToast;
   final ValueNotifier<double> _panelSlide = ValueNotifier(0.0);
+  StationSortOption _sortOption = StationSortOption.recommended;
+  final PlayCountService _playCountService = getIt<PlayCountService>();
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _sortOption = StationSortService.loadSavedSort();
 
     // AppLinks initialization (moved from constructor to avoid async work in constructor)
     _appLinks.getInitialLink().then((uri) {
@@ -272,6 +277,74 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   @override
+  void _showSortOptions(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Drag handle
+                Container(
+                  width: 36,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 8),
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white24 : Colors.black12,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                ...StationSortOption.values.map((option) {
+                  final isSelected = option == _sortOption;
+                  return ListTile(
+                    leading: Icon(
+                      StationSortLabels.icons[option],
+                      size: 20,
+                      color: option == StationSortOption.recommended
+                          ? const Color(0xFFF59E0B)
+                          : isSelected
+                              ? Theme.of(context).colorScheme.primary
+                              : Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                    title: Text(
+                      StationSortLabels.labels[option] ?? '',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                        color: isSelected
+                            ? Theme.of(context).colorScheme.primary
+                            : Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                    trailing: isSelected
+                        ? Icon(Icons.check_rounded, size: 20, color: Theme.of(context).colorScheme.primary)
+                        : null,
+                    onTap: () {
+                      setState(() {
+                        _sortOption = option;
+                      });
+                      StationSortService.saveSortOption(option);
+                      Navigator.pop(context);
+                    },
+                  );
+                }),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  @override
   void didChangeAppLifecycleState(AppLifecycleState state) async {
     if (state == AppLifecycleState.resumed) {
       // App returned to foreground — check if audio stream was lost in background
@@ -415,8 +488,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             final stationGroups = snapshot.data?.stationGroups ?? [];
             final isDraggable = snapshot.data?.isDraggable ?? true;
             final selectedStationGroup = snapshot.data?.selectedStationGroup;
-            final filteredStations = snapshot.data?.filteredStations ?? [];
+            final rawFilteredStations = snapshot.data?.filteredStations ?? [];
             final favoriteSlugs = snapshot.data?.favoriteSlugs ?? [];
+
+            // Apply sorting to filtered stations
+            final sortResult = StationSortService.sort(
+              stations: rawFilteredStations,
+              sortBy: _sortOption,
+              playCounts: _playCountService.playCounts,
+              favoriteSlugs: favoriteSlugs,
+            );
+            final filteredStations = sortResult.sorted;
 
             final favoriteStations = stations.where((station) => favoriteSlugs.contains(station.slug)).toList();
 
@@ -676,61 +758,95 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         header: Container(
                           height: 60.0,
                           color: Theme.of(context).scaffoldBackgroundColor,
-                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                          padding: const EdgeInsets.only(left: 16.0, right: 4.0),
                           alignment: Alignment.centerLeft,
                           child: Row(
                             children: [
-                              Text(
-                                selectedStationGroup?.name ?? "Toate stațiile radio",
-                                style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w600,
-                                    color: Theme.of(context).colorScheme.onSurface),
-                              ),
-                              const Spacer(),
-                              TextButton(
-                                  onPressed: () {
-                                    showDialog(
-                                      context: context,
-                                      builder: (BuildContext context) {
-                                        final stationGroupOptions = [
-                                          Query$GetStations$station_groups(
-                                            id: -1,
-                                            name: 'Toate stațiile radio',
-                                            order: -1,
-                                            slug: 'all-stations',
-                                            station_to_station_groups: [],
+                              // Sort dropdown
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () => _showSortOptions(context),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        StationSortLabels.icons[_sortOption],
+                                        size: 18,
+                                        color: _sortOption == StationSortOption.recommended
+                                            ? const Color(0xFFF59E0B)
+                                            : Theme.of(context).colorScheme.onSurface,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Flexible(
+                                        child: Text(
+                                          StationSortLabels.labels[_sortOption] ?? '',
+                                          style: TextStyle(
+                                            fontSize: 17,
+                                            fontWeight: FontWeight.w600,
+                                            color: Theme.of(context).colorScheme.onSurface,
                                           ),
-                                          ...stationGroups
-                                            ..sort((a, b) => a.order.compareTo(b.order))
-                                        ];
-                                        return SelectDialog<Query$GetStations$station_groups>(
-                                          items: stationGroupOptions,
-                                          displayFunction:
-                                              (Query$GetStations$station_groups stationGroup) =>
-                                                  stationGroup.name,
-                                          onItemSelected:
-                                              (Query$GetStations$station_groups stationGroup) {
-                                            setState(() {
-                                              if (stationGroup.slug == 'all-stations') {
-                                                _stationDataService.selectedStationGroup.add(null);
-                                              } else {
-                                                _stationDataService.selectedStationGroup
-                                                    .add(stationGroup);
-                                              }
-                                            });
-                                          },
-                                        );
-                                      },
-                                    );
-                                  },
-                                  child: Text(
-                                    "Filtrează",
-                                    style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w500,
-                                        color: Theme.of(context).colorScheme.primary),
-                                  ))
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Icon(
+                                        Icons.keyboard_arrow_down_rounded,
+                                        size: 20,
+                                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              // Filter icon button
+                              IconButton(
+                                icon: Icon(
+                                  selectedStationGroup != null
+                                      ? Icons.filter_alt
+                                      : Icons.filter_alt_outlined,
+                                  size: 22,
+                                  color: selectedStationGroup != null
+                                      ? Theme.of(context).colorScheme.primary
+                                      : Theme.of(context).colorScheme.onSurfaceVariant,
+                                ),
+                                tooltip: selectedStationGroup?.name ?? 'Filtrează',
+                                onPressed: () {
+                                  showDialog(
+                                    context: context,
+                                    builder: (BuildContext context) {
+                                      final stationGroupOptions = [
+                                        Query$GetStations$station_groups(
+                                          id: -1,
+                                          name: 'Toate stațiile radio',
+                                          order: -1,
+                                          slug: 'all-stations',
+                                          station_to_station_groups: [],
+                                        ),
+                                        ...stationGroups
+                                          ..sort((a, b) => a.order.compareTo(b.order))
+                                      ];
+                                      return SelectDialog<Query$GetStations$station_groups>(
+                                        items: stationGroupOptions,
+                                        displayFunction:
+                                            (Query$GetStations$station_groups stationGroup) =>
+                                                stationGroup.name,
+                                        onItemSelected:
+                                            (Query$GetStations$station_groups stationGroup) {
+                                          setState(() {
+                                            if (stationGroup.slug == 'all-stations') {
+                                              _stationDataService.selectedStationGroup.add(null);
+                                            } else {
+                                              _stationDataService.selectedStationGroup
+                                                  .add(stationGroup);
+                                            }
+                                          });
+                                        },
+                                      );
+                                    },
+                                  );
+                                },
+                              ),
                             ],
                           ),
                         ),

@@ -33,6 +33,7 @@ import 'services/car_play_service.dart';
 import 'services/image_cache_service.dart';
 import 'services/quick_actions_service.dart';
 import 'services/network_service.dart';
+import 'services/play_count_service.dart';
 import 'services/station_data_service.dart';
 
 final getIt = GetIt.instance;
@@ -172,6 +173,9 @@ void main() async {
 
   final stationDataService = StationDataService(graphqlClient: graphqlClient);
   getIt.registerSingleton<StationDataService>(stationDataService);
+
+  final playCountService = PlayCountService();
+  getIt.registerSingleton<PlayCountService>(playCountService);
 
   // NetworkService must be initialized before AudioService.init() because
   // AppAudioHandler's constructor subscribes to NetworkService.isOnMobileData
