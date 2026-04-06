@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:radio_crestin/seek_mode_manager.dart';
 import 'package:radio_crestin/services/song_history_service.dart';
 import 'package:radio_crestin/theme.dart';
@@ -72,7 +73,7 @@ class _SongHistoryModalState extends State<SongHistoryModal> {
 
   void _onScroll() {
     if (_scrollController.position.pixels >=
-        _scrollController.position.maxScrollExtent - 200) {
+        _scrollController.position.maxScrollExtent - 300) {
       _loadMore();
     }
   }
@@ -241,125 +242,6 @@ class _SongHistoryModalState extends State<SongHistoryModal> {
     await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.scaffoldBackgroundColor,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      child: Column(
-        children: [
-          _buildHeader(theme),
-          Expanded(child: _buildBody(theme)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeader(ThemeData theme) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 8, 8, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Drag handle
-          Center(
-            child: Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              width: 32,
-              height: 4,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.onSurfaceVariant,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          // Title row
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Melodii redate recent',
-                  style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.close),
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          // Station name + buffer delay indicator + filter toolbar
-          Row(
-            children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        widget.stationTitle,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    if (SeekModeManager.currentOffset != Duration.zero)
-                      Padding(
-                        padding: const EdgeInsets.only(left: 6),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            '-${SeekModeManager.currentOffset.inMinutes} min',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: AppColors.primary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              if (_filterDate != null)
-                Padding(
-                  padding: const EdgeInsets.only(right: 4),
-                  child: ActionChip(
-                    label: Text(
-                      _formatFilterLabel(),
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                    onPressed: _clearFilter,
-                    avatar: const Icon(Icons.close, size: 14),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                ),
-              TextButton.icon(
-                onPressed: _showDateFilterDialog,
-                icon: const Icon(Icons.calendar_month, size: 16),
-                label: const Text('Filtrează', style: TextStyle(fontSize: 13)),
-                style: TextButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                ),
-              ),
-            ],
-          ),
-          const Divider(height: 1),
-        ],
-      ),
-    );
-  }
-
   String _formatFilterLabel() {
     if (_filterDate == null) return '';
     final d = _filterDate!;
@@ -370,21 +252,123 @@ class _SongHistoryModalState extends State<SongHistoryModal> {
     return dateStr;
   }
 
-  Widget _buildBody(ThemeData theme) {
+  // ---------------------------------------------------------------------------
+  // Build
+  // ---------------------------------------------------------------------------
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.scaffoldBackgroundColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        children: [
+          _buildHeader(theme, isDark),
+          Expanded(child: _buildBody(theme, isDark)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeader(ThemeData theme, bool isDark) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Drag handle
+        Padding(
+          padding: const EdgeInsets.only(top: 10, bottom: 6),
+          child: Container(
+            width: 36,
+            height: 4,
+            decoration: BoxDecoration(
+              color: isDark ? Colors.white24 : Colors.black12,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+        ),
+        // Title row
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 4, 8, 0),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Melodii redate recent',
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 20,
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: Icon(Icons.close, size: 22, color: theme.colorScheme.onSurfaceVariant),
+                onPressed: () => Navigator.of(context).pop(),
+                style: IconButton.styleFrom(
+                  padding: const EdgeInsets.all(8),
+                  minimumSize: const Size(36, 36),
+                ),
+              ),
+            ],
+          ),
+        ),
+        // Filter toolbar
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 2, 12, 0),
+          child: Row(
+            children: [
+              if (_filterDate != null) ...[
+                _FilterChip(
+                  label: _formatFilterLabel(),
+                  onRemove: _clearFilter,
+                ),
+                const SizedBox(width: 8),
+              ],
+              const Spacer(),
+              _FilterButton(
+                onPressed: _showDateFilterDialog,
+                isDark: isDark,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        Divider(height: 1, thickness: 0.5, color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.06)),
+      ],
+    );
+  }
+
+  Widget _buildBody(ThemeData theme, bool isDark) {
     if (_isLoading) {
-      return _buildSkeletonList(theme);
+      return _buildSkeletonList(theme, isDark);
     }
 
     if (_history.isEmpty) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Text(
-            'Niciun istoric disponibil pentru această stație.',
-            style: theme.textTheme.bodyLarge?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-            textAlign: TextAlign.center,
+          padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 48),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.music_off_rounded,
+                size: 48,
+                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Niciun istoric disponibil\npentru această stație.',
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  height: 1.4,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
           ),
         ),
       );
@@ -394,153 +378,150 @@ class _SongHistoryModalState extends State<SongHistoryModal> {
 
     return ListView.builder(
       controller: _scrollController,
-      padding: const EdgeInsets.only(bottom: 32),
+      padding: const EdgeInsets.only(bottom: 40),
       itemCount: grouped.length + 1, // +1 for loading indicator
       itemBuilder: (context, index) {
         if (index == grouped.length) {
           return _buildFooter(theme);
         }
-        return _buildDateGroup(theme, grouped[index]);
+        return _buildDateGroup(theme, isDark, grouped[index]);
       },
     );
   }
 
-  Widget _buildDateGroup(ThemeData theme, HistoryDateGroup dateGroup) {
+  Widget _buildDateGroup(ThemeData theme, bool isDark, HistoryDateGroup dateGroup) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Date header
+        // Sticky date header
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.5),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          decoration: BoxDecoration(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.04)
+                : Colors.black.withValues(alpha: 0.03),
+          ),
           child: Text(
             dateGroup.dateLabel,
             style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+              letterSpacing: 0.3,
               color: theme.colorScheme.onSurface,
             ),
           ),
         ),
-        ...dateGroup.hours.map((hourGroup) => _buildHourGroup(theme, hourGroup)),
+        ...dateGroup.hours.map((hourGroup) => _buildHourGroup(theme, isDark, hourGroup)),
       ],
     );
   }
 
-  Widget _buildHourGroup(ThemeData theme, HistoryHourGroup hourGroup) {
+  Widget _buildHourGroup(ThemeData theme, bool isDark, HistoryHourGroup hourGroup) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 6),
           child: Text(
             hourGroup.hourLabel,
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-              fontWeight: FontWeight.w500,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: isDark ? Colors.white38 : Colors.black38,
+              letterSpacing: 0.2,
             ),
           ),
         ),
-        ...hourGroup.songs.map((item) => _buildSongItem(theme, item)),
+        ...hourGroup.songs.map((item) => _buildSongItem(theme, isDark, item)),
+        const SizedBox(height: 4),
       ],
     );
   }
 
-  Widget _buildSongItem(ThemeData theme, SongHistoryItem item) {
+  Widget _buildSongItem(ThemeData theme, bool isDark, SongHistoryItem item) {
     final time = item.dateTime.toLocal();
     final timeStr = '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
 
-    return InkWell(
-      onTap: item.hasSong ? () => _openYouTubeSearch(item) : null,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        child: Row(
-          children: [
-            // Thumbnail
-            ClipRRect(
-              borderRadius: BorderRadius.circular(6),
-              child: SizedBox(
-                width: 48,
-                height: 48,
-                child: _buildThumbnail(item),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: item.hasSong ? () => _openYouTubeSearch(item) : null,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          child: Row(
+            children: [
+              // Thumbnail
+              _SongThumbnail(
+                songThumbnailUrl: item.songThumbnailUrl,
+                fallbackUrl: widget.stationThumbnailUrl,
+                isDark: isDark,
               ),
-            ),
-            const SizedBox(width: 12),
-            // Song info
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.songName ?? 'Necunoscut',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  if (item.artistName != null && item.artistName!.isNotEmpty)
+              const SizedBox(width: 14),
+              // Song info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Text(
-                      item.artistName!,
+                      item.songName ?? 'Necunoscut',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                        height: 1.3,
                       ),
                     ),
-                  Text(
-                    timeStr,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant.withOpacity(0.7),
+                    const SizedBox(height: 2),
+                    if (item.artistName != null && item.artistName!.isNotEmpty)
+                      Text(
+                        item.artistName!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: isDark ? Colors.white54 : Colors.black54,
+                          height: 1.3,
+                        ),
+                      ),
+                    const SizedBox(height: 2),
+                    Text(
+                      timeStr,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isDark ? Colors.white30 : Colors.black26,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
+                  ],
+                ),
+              ),
+              // YouTube icon
+              if (item.hasSong)
+                Padding(
+                  padding: const EdgeInsets.only(left: 12),
+                  child: FaIcon(
+                    FontAwesomeIcons.youtube,
+                    size: 18,
+                    color: isDark ? Colors.white30 : Colors.black26,
                   ),
-                ],
-              ),
-            ),
-            // YouTube icon
-            if (item.hasSong)
-              Icon(
-                Icons.play_circle_outline,
-                size: 20,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-          ],
+                ),
+            ],
+          ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildThumbnail(SongHistoryItem item) {
-    final url = item.songThumbnailUrl ?? widget.stationThumbnailUrl;
-    if (url != null && url.isNotEmpty) {
-      return Image.network(
-        url,
-        fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => _defaultThumbnail(),
-      );
-    }
-    return _defaultThumbnail();
-  }
-
-  Widget _defaultThumbnail() {
-    return Container(
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      child: Icon(
-        Icons.music_note,
-        color: Theme.of(context).colorScheme.onSurfaceVariant,
-        size: 24,
       ),
     );
   }
 
   Widget _buildFooter(ThemeData theme) {
     if (_isLoadingMore) {
-      return Padding(
-        padding: const EdgeInsets.all(16),
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 24),
         child: Center(
           child: SizedBox(
-            width: 24,
-            height: 24,
+            width: 22,
+            height: 22,
             child: CircularProgressIndicator(
               strokeWidth: 2.5,
               color: AppColors.primary,
@@ -551,12 +532,13 @@ class _SongHistoryModalState extends State<SongHistoryModal> {
     }
     if (!_hasMore && _history.isNotEmpty) {
       return Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(vertical: 24),
         child: Center(
           child: Text(
             'Nu mai sunt melodii de afișat.',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+            style: TextStyle(
+              fontSize: 13,
+              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
             ),
           ),
         ),
@@ -565,60 +547,221 @@ class _SongHistoryModalState extends State<SongHistoryModal> {
     return const SizedBox.shrink();
   }
 
-  Widget _buildSkeletonList(ThemeData theme) {
+  Widget _buildSkeletonList(ThemeData theme, bool isDark) {
+    final shimmerBase = isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.05);
+    final shimmerHighlight = isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.08);
+
     return ListView(
-      padding: const EdgeInsets.all(16),
-      children: List.generate(12, (index) {
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      physics: const NeverScrollableScrollPhysics(),
+      children: [
+        // Fake date header
+        Container(
+          height: 14,
+          width: 60,
+          margin: const EdgeInsets.only(bottom: 16, top: 4),
+          decoration: BoxDecoration(
+            color: shimmerBase,
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
+        // Fake hour label
+        Container(
+          height: 12,
+          width: 100,
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(
+            color: shimmerBase,
+            borderRadius: BorderRadius.circular(3),
+          ),
+        ),
+        ...List.generate(10, (index) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Row(
+              children: [
+                // Thumbnail skeleton
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: index.isEven ? shimmerBase : shimmerHighlight,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        height: 14,
+                        width: 100.0 + (index % 3) * 50,
+                        decoration: BoxDecoration(
+                          color: index.isEven ? shimmerHighlight : shimmerBase,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Container(
+                        height: 12,
+                        width: 70.0 + (index % 4) * 25,
+                        decoration: BoxDecoration(
+                          color: shimmerBase,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Container(
+                        height: 10,
+                        width: 34,
+                        decoration: BoxDecoration(
+                          color: shimmerBase,
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // YouTube icon skeleton
+                Container(
+                  width: 18,
+                  height: 18,
+                  margin: const EdgeInsets.only(left: 12),
+                  decoration: BoxDecoration(
+                    color: shimmerBase,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Extracted widgets
+// ---------------------------------------------------------------------------
+
+class _SongThumbnail extends StatelessWidget {
+  final String? songThumbnailUrl;
+  final String? fallbackUrl;
+  final bool isDark;
+
+  const _SongThumbnail({
+    this.songThumbnailUrl,
+    this.fallbackUrl,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final url = songThumbnailUrl ?? fallbackUrl;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: SizedBox(
+        width: 52,
+        height: 52,
+        child: url != null && url.isNotEmpty
+            ? Image.network(
+                url,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => _placeholder(),
+              )
+            : _placeholder(),
+      ),
+    );
+  }
+
+  Widget _placeholder() {
+    return Container(
+      color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.05),
+      child: Icon(
+        Icons.music_note_rounded,
+        color: isDark ? Colors.white24 : Colors.black26,
+        size: 22,
+      ),
+    );
+  }
+}
+
+class _FilterChip extends StatelessWidget {
+  final String label;
+  final VoidCallback onRemove;
+
+  const _FilterChip({required this.label, required this.onRemove});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.primary.withValues(alpha: 0.1),
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: onRemove,
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 6, 8, 6),
           child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(6),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primary,
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      height: 14,
-                      width: 120.0 + (index % 3) * 40,
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Container(
-                      height: 12,
-                      width: 80.0 + (index % 4) * 20,
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Container(
-                      height: 10,
-                      width: 36,
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ),
-                  ],
+              const SizedBox(width: 4),
+              const Icon(Icons.close_rounded, size: 14, color: AppColors.primary),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FilterButton extends StatelessWidget {
+  final VoidCallback onPressed;
+  final bool isDark;
+
+  const _FilterButton({required this.onPressed, required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.05),
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.calendar_month_rounded,
+                size: 15,
+                color: isDark ? Colors.white60 : Colors.black54,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'Filtrează',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: isDark ? Colors.white60 : Colors.black54,
                 ),
               ),
             ],
           ),
-        );
-      }),
+        ),
+      ),
     );
   }
 }
