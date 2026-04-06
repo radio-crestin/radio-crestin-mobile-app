@@ -1004,6 +1004,39 @@ class AppAudioHandler extends BaseAudioHandler {
       }
     });
 
+    // When car connects/disconnects: toggle data saving for notifications.
+    // While car is connected, strip metadata text from notifications to save bandwidth.
+    // The app UI shows full metadata regardless (it reads from stations stream directly).
+    // Thumbnails are kept because they're cached on disk.
+    if (GetIt.instance.isRegistered<CarPlayService>()) {
+      GetIt.instance<CarPlayService>().isCarConnected.stream.listen((connected) {
+        _log("Car connection changed: $connected");
+        final station = currentStation.valueOrNull;
+        if (station == null || mediaItem.valueOrNull == null) return;
+
+        if (connected) {
+          // Car connected: strip song text from notification, keep thumbnail
+          _log("Car connected: enabling data saving for notifications");
+          final item = _buildStationMediaItem(station);
+          _lastEmittedSongId = -1; // Reset so next song change triggers update
+          final isFav = stationDataService.favoriteStationSlugs.value.contains(station.slug);
+          mediaItem.add(item.copyWith(
+            displaySubtitle: '',
+            artist: '',
+            rating: Rating.newHeartRating(isFav),
+          ));
+        } else {
+          // Car disconnected: restore full metadata
+          _log("Car disconnected: restoring full metadata");
+          final item = _buildStationMediaItem(station);
+          _lastEmittedSongId = station.songId;
+          _lastEmittedArtUriString = item.artUri?.toString();
+          final isFav = stationDataService.favoriteStationSlugs.value.contains(station.slug);
+          mediaItem.add(item.copyWith(rating: Rating.newHeartRating(isFav)));
+        }
+      });
+    }
+
     // When connectivity is restored: reconnect stalled audio if the app is in
     // foreground OR CarPlay/Android Auto is connected (user may be driving with
     // the phone screen off). Delay 2s so the network is actually usable.
@@ -1047,12 +1080,25 @@ class AppAudioHandler extends BaseAudioHandler {
 
           if (songChanged) {
             final isFav = stationDataService.favoriteStationSlugs.value.contains(updatedCurrentStation.slug);
+            final carConnected = GetIt.instance.isRegistered<CarPlayService>() &&
+                GetIt.instance<CarPlayService>().isConnected;
 
             if (SeekModeManager.isUnstableConnection) {
               // Unstable mode: only update thumbnail (persisted permanently), strip song text
               _log("updateCurrentStationMetadata: unstable mode, thumbnail only");
               _lastEmittedSongId = newSongId;
               _ensureSongThumbnailCachedPermanently(updatedCurrentStation);
+              final baseItem = _buildStationMediaItem(updatedCurrentStation);
+              _lastEmittedArtUriString = baseItem.artUri?.toString();
+              mediaItem.add(baseItem.copyWith(
+                displaySubtitle: '',
+                artist: '',
+                rating: Rating.newHeartRating(isFav),
+              ));
+            } else if (carConnected) {
+              // Car connected data saving: strip notification text, keep thumbnail
+              _log("updateCurrentStationMetadata: car connected, data saving mode");
+              _lastEmittedSongId = newSongId;
               final baseItem = _buildStationMediaItem(updatedCurrentStation);
               _lastEmittedArtUriString = baseItem.artUri?.toString();
               mediaItem.add(baseItem.copyWith(

@@ -8,8 +8,11 @@ import 'package:get_it/get_it.dart';
 import 'package:radio_crestin/appAudioHandler.dart';
 import 'package:radio_crestin/services/image_cache_service.dart';
 import 'package:radio_crestin/services/network_service.dart';
+import 'package:radio_crestin/services/play_count_service.dart';
 import 'package:radio_crestin/services/station_data_service.dart';
+import 'package:radio_crestin/services/station_sort_service.dart';
 import 'package:radio_crestin/types/Station.dart';
+import 'package:rxdart/rxdart.dart';
 
 class CarPlayService {
   FlutterCarplay? _flutterCarplay;
@@ -24,6 +27,10 @@ class CarPlayService {
   // Track CarPlay/Android Auto connection state
   bool _isConnected = false;
   bool get isConnected => _isConnected;
+
+  /// Reactive stream for car connection state.
+  /// Used by AppAudioHandler to enable/disable data saving mode while driving.
+  final BehaviorSubject<bool> isCarConnected = BehaviorSubject.seeded(false);
 
   // Track last known state to avoid redundant native calls
   String? _lastPlayingSlug;
@@ -71,6 +78,23 @@ class CarPlayService {
   String? _lastPlayerArtist;
   bool? _lastPlayerIsPlaying;
   bool? _lastPlayerIsFavorite;
+
+  /// Sorts stations using the app's saved sort preference (same as mobile UI).
+  List<Station> _sortStationsForCar(List<Station> stations) {
+    final sortOption = StationSortService.loadSavedSort();
+    final playCounts = GetIt.instance<PlayCountService>().playCounts;
+    final favoriteSlugs = _stationDataService.favoriteStationSlugs.value;
+    final result = StationSortService.sort(
+      stations: stations,
+      sortBy: sortOption,
+      playCounts: playCounts,
+      favoriteSlugs: favoriteSlugs,
+    );
+    return result.sorted;
+  }
+
+  // Track last Android Auto station list hash to skip no-op rebuilds
+  int _lastAndroidAutoListHash = 0;
 
   ImageCacheService? get _imageCacheService {
     try {
@@ -198,6 +222,7 @@ class CarPlayService {
     _flutterCarplay!.addListenerOnConnectionChange((status) {
       _log("CarPlay connection status changed: $status");
       _isConnected = status == ConnectionStatusTypes.connected;
+      isCarConnected.add(_isConnected);
       if (status == ConnectionStatusTypes.disconnected) {
         _audioHandler.activePlaylist = [];
       }
@@ -274,9 +299,8 @@ class CarPlayService {
 
     final favoriteSlugs = _stationDataService.favoriteStationSlugs.value;
 
-    // Sort stations alphabetically by title
-    _sortedStations = List<Station>.from(stations);
-    _sortedStations.sort((a, b) => a.title.toString().compareTo(b.title.toString()));
+    // Sort stations using the app's saved sort preference
+    _sortedStations = _sortStationsForCar(stations);
 
     final currentSlug = _audioHandler.currentStation.value?.slug;
 
@@ -454,6 +478,7 @@ class CarPlayService {
     _flutterAndroidAuto!.addListenerOnConnectionChange((status) {
       _log("Android Auto connection status changed: $status");
       _isConnected = status == ConnectionStatusTypes.connected;
+      isCarConnected.add(_isConnected);
       if (status == ConnectionStatusTypes.disconnected) {
         _audioHandler.activePlaylist = [];
       }
@@ -689,10 +714,16 @@ class CarPlayService {
       });
 
       // Listen for station list/metadata changes (song title, artist, new stations, etc.)
+      // Only rebuild if the visible data actually changed to prevent unnecessary native calls.
       _androidAutoStationsListSubscription = _stationDataService.stations.stream.listen((updatedStations) {
-        _log("Android Auto: stations stream updated (${updatedStations.length} stations)");
         _updateSortedAndroidAutoStations(updatedStations);
-        _rebuildAndroidAutoTemplate();
+        // Compute a lightweight hash of visible data to skip no-op rebuilds
+        final hash = _computeStationListHash(_sortedAndroidAutoStations);
+        if (hash != _lastAndroidAutoListHash) {
+          _lastAndroidAutoListHash = hash;
+          _log("Android Auto: station list changed, rebuilding");
+          _rebuildAndroidAutoTemplate();
+        }
         _updateAndroidAutoPlayer();
       });
 
@@ -704,10 +735,7 @@ class CarPlayService {
   }
 
   void _updateSortedAndroidAutoStations(List<Station> stations) {
-    _sortedAndroidAutoStations = List<Station>.from(stations);
-    _sortedAndroidAutoStations.sort(
-      (a, b) => a.title.toString().compareTo(b.title.toString()),
-    );
+    _sortedAndroidAutoStations = _sortStationsForCar(stations);
   }
 
   // Android Auto hard limit: max 100 items per GridTemplate/ListTemplate
@@ -832,6 +860,16 @@ class CarPlayService {
       _needsAndroidAutoRebuild = false;
       _doRebuildAndroidAutoTemplate();
     }
+  }
+
+  /// Computes a lightweight hash of the station list's visible data.
+  /// Used to skip Android Auto rebuilds when nothing the user can see has changed.
+  int _computeStationListHash(List<Station> stations) {
+    var hash = 0;
+    for (final s in stations) {
+      hash = hash ^ s.id.hashCode ^ s.songId.hashCode ^ s.songTitle.hashCode ^ (s.totalListeners ?? 0).hashCode;
+    }
+    return hash;
   }
 
   void dispose() {
