@@ -285,30 +285,27 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     bool isActive = false,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 2),
-      child: Material(
-        color: isActive
-            ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.12)
-            : isDark
-                ? Colors.white.withValues(alpha: 0.06)
-                : Colors.black.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(12),
-        child: InkWell(
-          onTap: onPressed,
-          borderRadius: BorderRadius.circular(12),
-          child: Tooltip(
-            message: tooltip,
-            child: SizedBox(
-              width: 38,
-              height: 38,
-              child: Icon(
-                icon,
-                size: 20,
-                color: isActive
-                    ? Theme.of(context).colorScheme.primary
-                    : Theme.of(context).colorScheme.onSurface,
-              ),
+    return Material(
+      color: isActive
+          ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.12)
+          : isDark
+              ? Colors.white.withValues(alpha: 0.07)
+              : Colors.black.withValues(alpha: 0.06),
+      shape: const CircleBorder(),
+      child: InkWell(
+        onTap: onPressed,
+        customBorder: const CircleBorder(),
+        child: Tooltip(
+          message: tooltip,
+          child: SizedBox(
+            width: 38,
+            height: 38,
+            child: Icon(
+              icon,
+              size: 20,
+              color: isActive
+                  ? Theme.of(context).colorScheme.primary
+                  : Theme.of(context).colorScheme.onSurface,
             ),
           ),
         ),
@@ -371,6 +368,105 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         _sortOption = option;
                       });
                       StationSortService.saveSortOption(option);
+                      Navigator.pop(context);
+                    },
+                  );
+                }),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showFilterOptions(
+    BuildContext context,
+    List<Query$GetStations$station_groups> stationGroups,
+    Query$GetStations$station_groups? selectedGroup,
+  ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final sortedGroups = List<Query$GetStations$station_groups>.from(stationGroups)
+      ..sort((a, b) => a.order.compareTo(b.order));
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 36,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 8),
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white24 : Colors.black12,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                // "All stations" option
+                ListTile(
+                  leading: Icon(
+                    Icons.radio_rounded,
+                    size: 20,
+                    color: selectedGroup == null
+                        ? Theme.of(context).colorScheme.primary
+                        : Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  title: Text(
+                    'Toate stațiile radio',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: selectedGroup == null ? FontWeight.w600 : FontWeight.w400,
+                      color: selectedGroup == null
+                          ? Theme.of(context).colorScheme.primary
+                          : Theme.of(context).colorScheme.onSurface,
+                    ),
+                  ),
+                  trailing: selectedGroup == null
+                      ? Icon(Icons.check_rounded, size: 20, color: Theme.of(context).colorScheme.primary)
+                      : null,
+                  onTap: () {
+                    setState(() {
+                      _stationDataService.selectedStationGroup.add(null);
+                    });
+                    Navigator.pop(context);
+                  },
+                ),
+                ...sortedGroups.map((group) {
+                  final isSelected = selectedGroup?.id == group.id;
+                  return ListTile(
+                    leading: Icon(
+                      Icons.folder_rounded,
+                      size: 20,
+                      color: isSelected
+                          ? Theme.of(context).colorScheme.primary
+                          : Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                    title: Text(
+                      group.name,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                        color: isSelected
+                            ? Theme.of(context).colorScheme.primary
+                            : Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                    trailing: isSelected
+                        ? Icon(Icons.check_rounded, size: 20, color: Theme.of(context).colorScheme.primary)
+                        : null,
+                    onTap: () {
+                      setState(() {
+                        _stationDataService.selectedStationGroup.add(group);
+                      });
                       Navigator.pop(context);
                     },
                   );
@@ -595,6 +691,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             ],
                           )),
                       actions: [
+                        const SizedBox(width: 4),
                         _buildRoundedIconButton(
                           context: context,
                           icon: Icons.search_rounded,
@@ -666,6 +763,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             );
                           },
                         ),
+                        const SizedBox(width: 8),
                         _buildRoundedIconButton(
                           context: context,
                           icon: Icons.settings_rounded,
@@ -683,6 +781,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             }
                           },
                         ),
+                        const SizedBox(width: 8),
                       ],
                     ),
                     if (_showSharePromotion)
@@ -781,41 +880,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                     : Icons.filter_alt_outlined,
                                 tooltip: selectedStationGroup?.name ?? 'Filtrează',
                                 isActive: selectedStationGroup != null,
-                                onPressed: () {
-                                  showDialog(
-                                    context: context,
-                                    builder: (BuildContext context) {
-                                      final stationGroupOptions = [
-                                        Query$GetStations$station_groups(
-                                          id: -1,
-                                          name: 'Toate stațiile radio',
-                                          order: -1,
-                                          slug: 'all-stations',
-                                          station_to_station_groups: [],
-                                        ),
-                                        ...stationGroups
-                                          ..sort((a, b) => a.order.compareTo(b.order))
-                                      ];
-                                      return SelectDialog<Query$GetStations$station_groups>(
-                                        items: stationGroupOptions,
-                                        displayFunction:
-                                            (Query$GetStations$station_groups stationGroup) =>
-                                                stationGroup.name,
-                                        onItemSelected:
-                                            (Query$GetStations$station_groups stationGroup) {
-                                          setState(() {
-                                            if (stationGroup.slug == 'all-stations') {
-                                              _stationDataService.selectedStationGroup.add(null);
-                                            } else {
-                                              _stationDataService.selectedStationGroup
-                                                  .add(stationGroup);
-                                            }
-                                          });
-                                        },
-                                      );
-                                    },
-                                  );
-                                },
+                                onPressed: () => _showFilterOptions(context, stationGroups, selectedStationGroup),
                               ),
                             ],
                           ),
