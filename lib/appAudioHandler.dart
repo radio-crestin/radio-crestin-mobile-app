@@ -980,60 +980,40 @@ class AppAudioHandler extends BaseAudioHandler {
   }
 
   void _initUpdateCurrentStationMetadata() {
-    // When mobile data toggles: immediately strip or restore notification metadata.
+    // When mobile data toggles: re-emit metadata with station thumbnail.
+    // Metadata text (song name/artist) is always shown since differential
+    // fetching is lightweight. Only difference: skip song thumbnail download.
     NetworkService.instance.isOnMobileData.stream.listen((onMobile) {
       _log("isOnMobileData changed: $onMobile");
       final station = currentStation.valueOrNull;
       if (station == null || mediaItem.valueOrNull == null) return;
 
-      // Always use station thumbnail (cached). On mobile: strip song metadata text too.
+      // Re-emit with station thumbnail (cached on disk, no download needed)
       final item = _buildStationMediaItem(station);
       _lastEmittedSongId = onMobile ? -1 : station.songId;
       _lastEmittedArtUriString = item.artUri?.toString();
       final isFav = stationDataService.favoriteStationSlugs.value.contains(station.slug);
-      if (onMobile) {
-        // Strip song text on mobile data
-        mediaItem.add(item.copyWith(
-          displaySubtitle: '',
-          artist: '',
-          rating: Rating.newHeartRating(isFav),
-        ));
-      } else {
-        mediaItem.add(item.copyWith(rating: Rating.newHeartRating(isFav)));
+      mediaItem.add(item.copyWith(rating: Rating.newHeartRating(isFav)));
+      if (!onMobile) {
         _ensureStationArtCached(station);
       }
     });
 
-    // When car connects/disconnects: toggle data saving for notifications.
-    // While car is connected, strip metadata text from notifications to save bandwidth.
-    // The app UI shows full metadata regardless (it reads from stations stream directly).
-    // Thumbnails are kept because they're cached on disk.
+    // When car connects/disconnects: re-emit metadata with station thumbnail.
+    // Metadata text is always shown (differential fetching is lightweight).
+    // Car mode only skips song thumbnail downloads — uses cached station thumbnails.
     if (GetIt.instance.isRegistered<CarPlayService>()) {
       GetIt.instance<CarPlayService>().isCarConnected.stream.listen((connected) {
         _log("Car connection changed: $connected");
         final station = currentStation.valueOrNull;
         if (station == null || mediaItem.valueOrNull == null) return;
 
-        if (connected) {
-          // Car connected: strip song text from notification, keep thumbnail
-          _log("Car connected: enabling data saving for notifications");
-          final item = _buildStationMediaItem(station);
-          _lastEmittedSongId = -1; // Reset so next song change triggers update
-          final isFav = stationDataService.favoriteStationSlugs.value.contains(station.slug);
-          mediaItem.add(item.copyWith(
-            displaySubtitle: '',
-            artist: '',
-            rating: Rating.newHeartRating(isFav),
-          ));
-        } else {
-          // Car disconnected: restore full metadata
-          _log("Car disconnected: restoring full metadata");
-          final item = _buildStationMediaItem(station);
-          _lastEmittedSongId = station.songId;
-          _lastEmittedArtUriString = item.artUri?.toString();
-          final isFav = stationDataService.favoriteStationSlugs.value.contains(station.slug);
-          mediaItem.add(item.copyWith(rating: Rating.newHeartRating(isFav)));
-        }
+        // Re-emit with station thumbnail and full metadata text
+        final item = _buildStationMediaItem(station);
+        _lastEmittedSongId = connected ? -1 : station.songId;
+        _lastEmittedArtUriString = item.artUri?.toString();
+        final isFav = stationDataService.favoriteStationSlugs.value.contains(station.slug);
+        mediaItem.add(item.copyWith(rating: Rating.newHeartRating(isFav)));
       });
     }
 
@@ -1072,47 +1052,23 @@ class AppAudioHandler extends BaseAudioHandler {
       stationsMediaItems.add(newStationsMediaItems);
 
       if (mediaItem.value != null && updatedCurrentStation != null) {
-        if (NetworkService.instance.isOnMobileData.value) {
-          _log("updateCurrentStationMetadata: on mobile data, skipping song update");
-        } else {
-          final newSongId = updatedCurrentStation.songId;
-          final songChanged = newSongId != _lastEmittedSongId;
+        final newSongId = updatedCurrentStation.songId;
+        final songChanged = newSongId != _lastEmittedSongId;
 
-          if (songChanged) {
-            final isFav = stationDataService.favoriteStationSlugs.value.contains(updatedCurrentStation.slug);
-            final carConnected = GetIt.instance.isRegistered<CarPlayService>() &&
-                GetIt.instance<CarPlayService>().isConnected;
+        if (songChanged) {
+          final isFav = stationDataService.favoriteStationSlugs.value.contains(updatedCurrentStation.slug);
 
-            if (SeekModeManager.isUnstableConnection) {
-              // Unstable mode: only update thumbnail (persisted permanently), strip song text
-              _log("updateCurrentStationMetadata: unstable mode, thumbnail only");
-              _lastEmittedSongId = newSongId;
-              _ensureSongThumbnailCachedPermanently(updatedCurrentStation);
-              final baseItem = _buildStationMediaItem(updatedCurrentStation);
-              _lastEmittedArtUriString = baseItem.artUri?.toString();
-              mediaItem.add(baseItem.copyWith(
-                displaySubtitle: '',
-                artist: '',
-                rating: Rating.newHeartRating(isFav),
-              ));
-            } else if (carConnected) {
-              // Car connected data saving: strip notification text, keep thumbnail
-              _log("updateCurrentStationMetadata: car connected, data saving mode");
-              _lastEmittedSongId = newSongId;
-              final baseItem = _buildStationMediaItem(updatedCurrentStation);
-              _lastEmittedArtUriString = baseItem.artUri?.toString();
-              mediaItem.add(baseItem.copyWith(
-                displaySubtitle: '',
-                artist: '',
-                rating: Rating.newHeartRating(isFav),
-              ));
-            } else {
-              // Normal mode: update song metadata text
-              final newItem = _buildStationMediaItem(updatedCurrentStation);
-              _lastEmittedSongId = newSongId;
-              _lastEmittedArtUriString = newItem.artUri?.toString();
-              mediaItem.add(newItem.copyWith(rating: Rating.newHeartRating(isFav)));
-            }
+          // Always show metadata text (song name/artist) — differential fetching is lightweight.
+          // Data saving modes (mobile data, car, unstable) only differ in thumbnail handling:
+          // they use the station thumbnail (cached on disk) instead of downloading song thumbnails.
+          final newItem = _buildStationMediaItem(updatedCurrentStation);
+          _lastEmittedSongId = newSongId;
+          _lastEmittedArtUriString = newItem.artUri?.toString();
+          mediaItem.add(newItem.copyWith(rating: Rating.newHeartRating(isFav)));
+
+          // In unstable mode, additionally pre-cache song thumbnails to disk
+          if (SeekModeManager.isUnstableConnection) {
+            _ensureSongThumbnailCachedPermanently(updatedCurrentStation);
           }
         }
       }
