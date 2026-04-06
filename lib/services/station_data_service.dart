@@ -362,6 +362,11 @@ class StationDataService {
       if (_hasStationsChanged(currentStations, updatedStations)) {
         stations.add(updatedStations);
         _log("Stations updated from differential metadata poll");
+
+        // In unstable connection mode, pre-cache all song thumbnails permanently
+        if (SeekModeManager.isUnstableConnection) {
+          _preCacheSongThumbnails(updatedStations);
+        }
       } else {
         _log("Stations unchanged after merge, skipping update");
       }
@@ -543,6 +548,19 @@ class StationDataService {
         .map((s) => s.thumbnailUrl!)
         .toList();
     if (urls.isEmpty) return;
+    ImageCacheService.instance.preCacheUrls(urls);
+  }
+
+  /// In unstable connection mode, pre-cache all song thumbnails permanently to disk.
+  void _preCacheSongThumbnails(List<Station> stationsList) {
+    final urls = stationsList
+        .where((s) => s.rawStationData.now_playing?.song?.thumbnail_url != null)
+        .map((s) => s.rawStationData.now_playing!.song!.thumbnail_url!)
+        .where((url) => url.isNotEmpty)
+        .toSet() // deduplicate
+        .toList();
+    if (urls.isEmpty) return;
+    _log("Pre-caching ${urls.length} song thumbnails (unstable mode)");
     ImageCacheService.instance.preCacheUrls(urls);
   }
 }

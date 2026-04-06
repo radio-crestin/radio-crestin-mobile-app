@@ -357,6 +357,7 @@ class AppAudioHandler extends BaseAudioHandler {
     final stationItem = _buildStationMediaItem(station);
     _lastEmittedSongId = station.songId;
     _lastEmittedArtUriString = stationItem.artUri?.toString();
+    print('DEBUG_ART selectStation artUri=${stationItem.artUri} cachedPath=${station.cachedThumbnailPath}');
     mediaItem.add(stationItem.copyWith(rating: Rating.newHeartRating(isFav)));
     _ensureStationArtCached(station);
     currentStation.add(station);
@@ -408,6 +409,7 @@ class AppAudioHandler extends BaseAudioHandler {
   /// Always uses cached station thumbnails (never downloads song thumbnails) to save bandwidth.
   /// Android Auto/CarPlay home screen requires a bitmap in METADATA_KEY_ALBUM_ART.
   void _ensureStationArtCached(Station station) {
+    print('DEBUG_ART _ensureStationArtCached: ${station.slug} thumbnailUrl=${station.rawStationData.thumbnail_url} cachedPath=${station.cachedThumbnailPath}');
     final stationThumbnailUrl = station.rawStationData.thumbnail_url;
     if (stationThumbnailUrl == null || stationThumbnailUrl.isEmpty) return;
 
@@ -427,6 +429,15 @@ class AppAudioHandler extends BaseAudioHandler {
         _reEmitMediaItemWithLocalArt(Uri.file(file.path), station);
       }
     });
+  }
+
+  /// In unstable connection mode, cache song thumbnails permanently to disk.
+  /// This ensures thumbnails are available even on poor connections.
+  void _ensureSongThumbnailCachedPermanently(Station station) {
+    final songThumbnailUrl = station.rawStationData.now_playing?.song?.thumbnail_url;
+    if (songThumbnailUrl == null || songThumbnailUrl.isEmpty) return;
+    // Just trigger download — ImageCacheService stores on disk permanently
+    ImageCacheService.instance.getOrDownload(songThumbnailUrl);
   }
 
   void _reEmitMediaItemWithLocalArt(Uri localUri, Station station) {
@@ -995,7 +1006,7 @@ class AppAudioHandler extends BaseAudioHandler {
     NetworkService.instance.isOffline.stream.listen((offline) {
       if (offline) return;
       final lifecycle = WidgetsBinding.instance.lifecycleState;
-      final carPlayConnected = GetIt.instance<CarPlayService>().isConnected;
+      final carPlayConnected = GetIt.instance.isRegistered<CarPlayService>() && GetIt.instance<CarPlayService>().isConnected;
       if (lifecycle != AppLifecycleState.resumed && !carPlayConnected) {
         _log("isOffline -> false: app not in foreground ($lifecycle) and CarPlay not connected, skipping reconnect");
         return;
@@ -1031,12 +1042,27 @@ class AppAudioHandler extends BaseAudioHandler {
           final songChanged = newSongId != _lastEmittedSongId;
 
           if (songChanged) {
-            // Update song metadata text but keep station thumbnail (no song art download)
-            final newItem = _buildStationMediaItem(updatedCurrentStation);
-            _lastEmittedSongId = newSongId;
-            _lastEmittedArtUriString = newItem.artUri?.toString();
             final isFav = stationDataService.favoriteStationSlugs.value.contains(updatedCurrentStation.slug);
-            mediaItem.add(newItem.copyWith(rating: Rating.newHeartRating(isFav)));
+
+            if (SeekModeManager.isUnstableConnection) {
+              // Unstable mode: only update thumbnail (persisted permanently), strip song text
+              _log("updateCurrentStationMetadata: unstable mode, thumbnail only");
+              _lastEmittedSongId = newSongId;
+              _ensureSongThumbnailCachedPermanently(updatedCurrentStation);
+              final baseItem = _buildStationMediaItem(updatedCurrentStation);
+              _lastEmittedArtUriString = baseItem.artUri?.toString();
+              mediaItem.add(baseItem.copyWith(
+                displaySubtitle: '',
+                artist: '',
+                rating: Rating.newHeartRating(isFav),
+              ));
+            } else {
+              // Normal mode: update song metadata text
+              final newItem = _buildStationMediaItem(updatedCurrentStation);
+              _lastEmittedSongId = newSongId;
+              _lastEmittedArtUriString = newItem.artUri?.toString();
+              mediaItem.add(newItem.copyWith(rating: Rating.newHeartRating(isFav)));
+            }
           }
         }
       }

@@ -33,6 +33,7 @@ class _SettingsPageState extends State<SettingsPage> {
   bool? _autoStartStation;
   ThemeMode _themeMode = ThemeMode.system;
   SeekMode _seekMode = SeekMode.twoMinutes;
+  bool _unstableConnection = false;
   final String _version = globals.appVersion;
   final String _buildNumber = globals.buildNumber;
   final String _deviceId = globals.deviceId;
@@ -45,6 +46,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _getAutoStartStation();
     _loadThemeMode();
     _loadSeekMode();
+    _loadUnstableConnection();
   }
 
   Future<void> _getNotificationsEnabled() async {
@@ -272,49 +274,95 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                 ),
                 _buildSettingsTile(
-                  icon: Icons.network_check,
-                  title: 'Calitate conexiune',
-                  subtitle: 'Dacă ai internet slab și radioul se tot întrerupe, alege un timp mai mare. Vei auzi emisiunea cu puțin decalaj, dar fără pauze.',
-                  trailing: DropdownButton<SeekMode>(
-                    value: _seekMode,
-                    underline: const SizedBox(),
-                    borderRadius: BorderRadius.circular(12),
-                    onChanged: (SeekMode? newValue) async {
-                      if (newValue != null) {
-                        setState(() {
-                          _seekMode = newValue;
-                        });
-                        await SeekModeManager.saveSeekMode(newValue);
-                        SeekModeManager.changeSeekMode(newValue);
-                        getIt<AppAudioHandler>().reapplySeekOffset();
-                        if (context.mounted) {
-                          final message = newValue == SeekMode.instant
-                              ? 'Acum asculți live cu un mic decalaj de câteva secunde.'
-                              : 'Radioul va avea un decalaj de ${newValue == SeekMode.twoMinutes ? '2' : '5'} minute față de live.';
-                          removeBottomToast(_activeToast);
-                          _activeToast = showBottomToast(
-                            context,
-                            title: 'Gata!',
-                            message: message,
-                            onDismissed: () { _activeToast = null; },
-                          );
+                  icon: Icons.signal_wifi_statusbar_connected_no_internet_4,
+                  title: 'Conexiune instabilă',
+                  subtitle: 'Activează dacă internetul tău este slab. Setează automat 5 minute încărcare în avans și economisește date mobile.',
+                  trailing: Switch.adaptive(
+                    activeColor: Colors.white,
+                    activeTrackColor: isDark ? const Color(0xff48a868) : const Color(0xff34c759),
+                    inactiveThumbColor: Colors.white,
+                    inactiveTrackColor: isDark ? const Color(0xff39393d) : const Color(0xffe9e9ea),
+                    onChanged: (bool value) async {
+                      setState(() {
+                        _unstableConnection = value;
+                        if (value) {
+                          _seekMode = SeekMode.fiveMinutes;
                         }
+                      });
+                      await SeekModeManager.saveUnstableConnection(value);
+                      SeekModeManager.changeUnstableConnection(value);
+                      if (value) {
+                        await SeekModeManager.saveSeekMode(SeekMode.fiveMinutes);
+                        SeekModeManager.changeSeekMode(SeekMode.fiveMinutes);
+                      }
+                      getIt<AppAudioHandler>().reapplySeekOffset();
+                      if (context.mounted) {
+                        removeBottomToast(_activeToast);
+                        _activeToast = showBottomToast(
+                          context,
+                          title: value ? 'Mod conexiune instabilă activat' : 'Mod conexiune instabilă dezactivat',
+                          message: value
+                              ? 'Încărcare în avans setată la 5 minute. Doar miniaturile melodiilor vor fi afișate.'
+                              : 'Poți alege manual timpul de încărcare în avans.',
+                          onDismissed: () { _activeToast = null; },
+                        );
                       }
                     },
-                    items: const [
-                      DropdownMenuItem(
-                        value: SeekMode.instant,
-                        child: Text('Live', style: TextStyle(fontSize: 14)),
+                    value: _unstableConnection,
+                  ),
+                ),
+                _buildSettingsTile(
+                  icon: Icons.network_check,
+                  title: 'Încărcare în avans',
+                  subtitle: _unstableConnection
+                      ? 'Blocat la 5 minute de modul conexiune instabilă.'
+                      : 'Dacă ai internet slab și radioul se tot întrerupe, alege un timp mai mare. Vei auzi emisiunea cu puțin decalaj, dar fără pauze.',
+                  trailing: IgnorePointer(
+                    ignoring: _unstableConnection,
+                    child: Opacity(
+                      opacity: _unstableConnection ? 0.4 : 1.0,
+                      child: DropdownButton<SeekMode>(
+                        value: _unstableConnection ? SeekMode.fiveMinutes : _seekMode,
+                        underline: const SizedBox(),
+                        borderRadius: BorderRadius.circular(12),
+                        onChanged: (SeekMode? newValue) async {
+                          if (newValue != null) {
+                            setState(() {
+                              _seekMode = newValue;
+                            });
+                            await SeekModeManager.saveSeekMode(newValue);
+                            SeekModeManager.changeSeekMode(newValue);
+                            getIt<AppAudioHandler>().reapplySeekOffset();
+                            if (context.mounted) {
+                              final message = newValue == SeekMode.instant
+                                  ? 'Acum asculți live cu un mic decalaj de câteva secunde.'
+                                  : 'Radioul va avea un decalaj de ${newValue == SeekMode.twoMinutes ? '2' : '5'} minute față de live.';
+                              removeBottomToast(_activeToast);
+                              _activeToast = showBottomToast(
+                                context,
+                                title: 'Gata!',
+                                message: message,
+                                onDismissed: () { _activeToast = null; },
+                              );
+                            }
+                          }
+                        },
+                        items: const [
+                          DropdownMenuItem(
+                            value: SeekMode.instant,
+                            child: Text('Live', style: TextStyle(fontSize: 14)),
+                          ),
+                          DropdownMenuItem(
+                            value: SeekMode.twoMinutes,
+                            child: Text('2 minute', style: TextStyle(fontSize: 14)),
+                          ),
+                          DropdownMenuItem(
+                            value: SeekMode.fiveMinutes,
+                            child: Text('5 minute', style: TextStyle(fontSize: 14)),
+                          ),
+                        ],
                       ),
-                      DropdownMenuItem(
-                        value: SeekMode.twoMinutes,
-                        child: Text('2 minute', style: TextStyle(fontSize: 14)),
-                      ),
-                      DropdownMenuItem(
-                        value: SeekMode.fiveMinutes,
-                        child: Text('5 minute', style: TextStyle(fontSize: 14)),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
                 _buildSettingsTile(
@@ -486,6 +534,13 @@ class _SettingsPageState extends State<SettingsPage> {
     final seekMode = await SeekModeManager.loadSeekMode();
     setState(() {
       _seekMode = seekMode;
+    });
+  }
+
+  Future<void> _loadUnstableConnection() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _unstableConnection = prefs.getBool('unstable_connection') ?? false;
     });
   }
 
