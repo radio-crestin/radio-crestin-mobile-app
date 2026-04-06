@@ -276,8 +276,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       // App returned to foreground — check if audio stream was lost in background
       _audioHandler.reconnectIfNeeded();
-      // Resume station polling (may have been paused in background)
-      _stationDataService.resumePolling();
+      // Full refresh + resume polling (picks up all changes while backgrounded)
+      _stationDataService.onAppResumed();
       // Auto-play if the "always play" toggle is enabled and not already playing.
       // Use isPlayingOrConnecting to avoid interrupting playback that is still
       // buffering (e.g. during cold start where resumed fires before audio is ready).

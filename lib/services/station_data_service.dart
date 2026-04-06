@@ -24,7 +24,15 @@ class StationDataService {
   Timer? _pollTimer;
   bool _isPolling = false;
   bool _isPollInFlight = false;
-  static const _pollInterval = Duration(seconds: 5);
+  static const _pollInterval = Duration(seconds: 10);
+  static const _fullRefreshInterval = Duration(minutes: 30);
+
+  /// Timestamp (Unix seconds, rounded to 10s) of the last successful metadata fetch.
+  /// Used as `changes_from_timestamp` to only receive changed stations.
+  int _lastFetchTimestamp = 0;
+
+  /// When the last full refresh (GraphQL + REST) was performed.
+  DateTime? _lastFullRefreshTime;
 
   /// Returns the actual stream type ('HLS', 'direct_stream', etc.) if the given
   /// station ID is currently playing, or null if it's not the active station.
@@ -73,10 +81,22 @@ class StationDataService {
     _setupRefreshStations();
   }
 
+  /// Full refresh: re-fetches stations from GraphQL + metadata from REST.
+  /// Called on init, every 30 minutes, and on app resume from background.
   Future<void> refreshStations() async {
-    _log("Manually refreshing stations");
+    _log("Full refresh triggered");
     await _fetchStationsWithMetadata();
+    _lastFullRefreshTime = DateTime.now();
+    _lastFetchTimestamp = getRoundedTimestamp();
     _preCacheStationThumbnails();
+  }
+
+  /// Called when app resumes from background.
+  /// Forces a full refresh to pick up any changes while backgrounded.
+  Future<void> onAppResumed() async {
+    _log("App resumed from background, triggering full refresh");
+    await refreshStations();
+    resumePolling();
   }
 
   void pausePolling() {
@@ -150,9 +170,12 @@ class StationDataService {
     await _fetchStationsWithMetadata();
     PerformanceMonitor.endOperation('initial_stations_fetch');
 
+    _lastFullRefreshTime = DateTime.now();
+    _lastFetchTimestamp = getRoundedTimestamp();
+
     _preCacheStationThumbnails();
 
-    // Phase 3: Start lightweight metadata polling
+    // Phase 3: Start lightweight differential metadata polling (every 10s)
     _isPolling = true;
     _pollTimer = Timer.periodic(_pollInterval, (_) => _pollMetadata());
   }
@@ -260,7 +283,7 @@ class StationDataService {
   }
 
   // ---------------------------------------------------------------------------
-  // Metadata polling
+  // Metadata polling (differential updates)
   // ---------------------------------------------------------------------------
 
   Future<void> _pollMetadata() async {
@@ -268,6 +291,17 @@ class StationDataService {
     _isPollInFlight = true;
 
     try {
+      // Check if it's time for a full refresh (every 30 minutes)
+      if (_lastFullRefreshTime != null &&
+          DateTime.now().difference(_lastFullRefreshTime!) >= _fullRefreshInterval) {
+        _log("Full refresh interval reached, performing full refresh");
+        await _fetchStationsWithMetadata();
+        _lastFullRefreshTime = DateTime.now();
+        _lastFetchTimestamp = getRoundedTimestamp();
+        _preCacheStationThumbnails();
+        return;
+      }
+
       final liveTimestamp = getRoundedTimestamp();
       final offset = SeekModeManager.currentOffset;
       final offsetTimestamp = getRoundedTimestamp(offset: offset);
@@ -278,18 +312,21 @@ class StationDataService {
       Map<int, Map<String, dynamic>>? offsetMetadata;
 
       if (offset == Duration.zero) {
-        // Single call when no seek offset is configured
-        liveMetadata = await _fetchMetadata(liveTimestamp);
+        // Single differential call when no seek offset is configured
+        liveMetadata = await _fetchMetadata(liveTimestamp, changesFromTimestamp: _lastFetchTimestamp);
         offsetMetadata = liveMetadata;
       } else {
-        // Parallel: live timestamp for non-HLS, offset timestamp for HLS
+        // Parallel: live (differential) + offset timestamp for HLS
         final results = await Future.wait([
-          _fetchMetadata(liveTimestamp),
+          _fetchMetadata(liveTimestamp, changesFromTimestamp: _lastFetchTimestamp),
           _fetchMetadata(offsetTimestamp),
         ]);
         liveMetadata = results[0];
         offsetMetadata = results[1];
       }
+
+      // Update last fetch timestamp for next differential query
+      _lastFetchTimestamp = getRoundedTimestamp();
 
       PerformanceMonitor.endOperation('poll_metadata');
 
@@ -299,6 +336,15 @@ class StationDataService {
       }
       if (liveMetadata == null) _log("Live metadata fetch failed, using offset only");
       if (offsetMetadata == null) _log("Offset metadata fetch failed, using live only");
+
+      // If differential returned empty (no changes), skip update for non-offset stations
+      final hasLiveChanges = liveMetadata != null && liveMetadata.isNotEmpty;
+      final hasOffsetChanges = offsetMetadata != null && offsetMetadata.isNotEmpty;
+
+      if (!hasLiveChanges && !hasOffsetChanges) {
+        _log("No metadata changes detected, skipping update");
+        return;
+      }
 
       final currentStations = stations.value;
       final updatedStations = currentStations.map((station) {
@@ -315,17 +361,37 @@ class StationDataService {
 
       if (_hasStationsChanged(currentStations, updatedStations)) {
         stations.add(updatedStations);
-        _log("Stations updated from metadata poll");
+        _log("Stations updated from differential metadata poll");
       } else {
-        _log("Stations unchanged, skipping update");
+        _log("Stations unchanged after merge, skipping update");
+      }
+    } catch (e) {
+      _log("Error in metadata poll: $e");
+      // On metadata fetch failure, try a full refresh to recover
+      try {
+        _log("Attempting full refresh after poll failure");
+        await _fetchStationsWithMetadata();
+        _lastFullRefreshTime = DateTime.now();
+        _lastFetchTimestamp = getRoundedTimestamp();
+      } catch (e2) {
+        _log("Full refresh recovery also failed: $e2");
       }
     } finally {
       _isPollInFlight = false;
     }
   }
 
-  Future<Map<int, Map<String, dynamic>>?> _fetchMetadata(int timestamp) async {
-    final url = '${CONSTANTS.STATIONS_METADATA_URL}?timestamp=$timestamp';
+  /// Fetches metadata from REST API.
+  /// When [changesFromTimestamp] is provided, only returns stations that changed
+  /// since that timestamp (differential update, like radiocrestin.ro web app).
+  Future<Map<int, Map<String, dynamic>>?> _fetchMetadata(
+    int timestamp, {
+    int? changesFromTimestamp,
+  }) async {
+    var url = '${CONSTANTS.STATIONS_METADATA_URL}?timestamp=$timestamp';
+    if (changesFromTimestamp != null && changesFromTimestamp > 0) {
+      url += '&changes_from_timestamp=$changesFromTimestamp';
+    }
     try {
       final response = await http.get(Uri.parse(url));
       if (response.statusCode == 200) {

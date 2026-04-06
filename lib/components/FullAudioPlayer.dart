@@ -8,6 +8,7 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:like_button/like_button.dart';
 import 'package:radio_crestin/pages/HomePage.dart';
 import 'package:radio_crestin/widgets/share_handler.dart';
+import 'package:radio_crestin/widgets/song_history_modal.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:get_it/get_it.dart';
@@ -245,6 +246,35 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: <Widget>[
+                InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: () {
+                    if (currentStation != null) {
+                      SongHistoryModal.show(
+                        context,
+                        stationSlug: currentStation!.slug,
+                        stationTitle: currentStation!.title,
+                        stationThumbnailUrl: currentStation!.thumbnailUrl,
+                      );
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(10.0),
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.history,
+                          color: Theme.of(context).colorScheme.onSurface,
+                          size: 24,
+                        ),
+                        const Padding(
+                          padding: EdgeInsets.only(top: 8.0),
+                          child: Text('recent', style: TextStyle(fontSize: 12)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
                 InkWell(
                   customBorder: CircleBorder(),
                   onTap: () {
