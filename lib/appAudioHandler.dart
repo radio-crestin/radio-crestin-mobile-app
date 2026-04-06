@@ -411,24 +411,43 @@ class AppAudioHandler extends BaseAudioHandler {
 
   void _cacheSongThumbnail(Station station) {
     if (NetworkService.instance.isOnMobileData.value) return;
+
+    // Cache the song thumbnail if available
     final songThumbnailUrl = station.rawStationData.now_playing?.song?.thumbnail_url;
     if (songThumbnailUrl != null && songThumbnailUrl.isNotEmpty) {
       ImageCacheService.instance.getOrDownload(songThumbnailUrl).then((file) {
         if (NetworkService.instance.isOnMobileData.value) return;
         if (file != null && currentStation.valueOrNull?.id == station.id) {
-          // Update mediaItem with local file URI so notification uses cached image
-          final currentItem = mediaItem.valueOrNull;
-          if (currentItem != null) {
-            final localUri = Uri.file(file.path);
-            _lastEmittedArtUriString = localUri.toString();
-            final isFav = stationDataService.favoriteStationSlugs.value.contains(station.slug);
-            mediaItem.add(currentItem.copyWith(
-              artUri: localUri,
-              rating: Rating.newHeartRating(isFav),
-            ));
-          }
+          _reEmitMediaItemWithLocalArt(Uri.file(file.path), station);
         }
       });
+      return;
+    }
+
+    // No song thumbnail - ensure station thumbnail is cached for Android Auto home screen
+    // (Android Auto requires a bitmap in METADATA_KEY_ALBUM_ART, not just a URI)
+    final stationThumbnailUrl = station.rawStationData.thumbnail_url;
+    if (stationThumbnailUrl != null && stationThumbnailUrl.isNotEmpty) {
+      final cachedPath = ImageCacheService.instance.getCachedPath(stationThumbnailUrl);
+      if (cachedPath != null) return; // Already cached, artUri is file://
+      ImageCacheService.instance.getOrDownload(stationThumbnailUrl).then((file) {
+        if (NetworkService.instance.isOnMobileData.value) return;
+        if (file != null && currentStation.valueOrNull?.id == station.id) {
+          _reEmitMediaItemWithLocalArt(Uri.file(file.path), station);
+        }
+      });
+    }
+  }
+
+  void _reEmitMediaItemWithLocalArt(Uri localUri, Station station) {
+    final currentItem = mediaItem.valueOrNull;
+    if (currentItem != null) {
+      _lastEmittedArtUriString = localUri.toString();
+      final isFav = stationDataService.favoriteStationSlugs.value.contains(station.slug);
+      mediaItem.add(currentItem.copyWith(
+        artUri: localUri,
+        rating: Rating.newHeartRating(isFav),
+      ));
     }
   }
 
