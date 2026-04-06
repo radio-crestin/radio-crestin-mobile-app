@@ -11,6 +11,7 @@ import 'package:radio_crestin/performance_monitor.dart';
 import 'package:radio_crestin/seek_mode_manager.dart';
 import 'package:radio_crestin/services/network_service.dart';
 import 'package:radio_crestin/queries/getStations.graphql.dart';
+import 'package:radio_crestin/graphql_rest_mappings.dart';
 import 'package:radio_crestin/services/image_cache_service.dart';
 import 'package:radio_crestin/types/Station.dart';
 import 'package:radio_crestin/utils/api_utils.dart';
@@ -229,8 +230,18 @@ class StationDataService {
     }
   }
 
+  /// Creates a Station with reviews_stats from the REST cache.
+  Station _createStation(Query$GetStations$stations raw) {
+    final stats = reviewsStatsCache[raw.id];
+    return Station(
+      rawStationData: raw,
+      averageRating: stats?.averageRating ?? 0,
+      numberOfReviews: stats?.numberOfReviews ?? 0,
+    );
+  }
+
   void _applyStationsData(Query$GetStations data) {
-    stations.add(data.stations.map((r) => Station(rawStationData: r)).toList());
+    stations.add(data.stations.map(_createStation).toList());
     stationGroups.add(data.station_groups);
   }
 
@@ -259,7 +270,7 @@ class StationDataService {
       final parsedData = stationsResult.parsedData;
       if (parsedData != null && parsedData.stations.length >= _minStationsForCache) {
         final stationsWithMetadata = parsedData.stations.map((r) {
-          var station = Station(rawStationData: r);
+          var station = _createStation(r);
           final useOffset = _shouldUseOffsetMetadata(station);
           final metadataSource = useOffset ? offsetMetadata : liveMetadata;
           final metadata = metadataSource?[station.id];
@@ -467,7 +478,12 @@ class StationDataService {
       };
     }
 
-    return Station(rawStationData: Query$GetStations$stations.fromJson(stationJson));
+    final stats = reviewsStatsCache[station.id];
+    return Station(
+      rawStationData: Query$GetStations$stations.fromJson(stationJson),
+      averageRating: stats?.averageRating ?? station.averageRating,
+      numberOfReviews: stats?.numberOfReviews ?? station.reviewCount,
+    );
   }
 
   // ---------------------------------------------------------------------------

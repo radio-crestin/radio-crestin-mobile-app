@@ -69,11 +69,7 @@ class StationSortService {
 
   /// Computes a review score for a station: avgRating * numReviews.
   static double _reviewScore(Station station) {
-    final reviews = station.rawStationData.reviews;
-    if (reviews.isEmpty) return 0;
-    final sum = reviews.fold<double>(0, (s, r) => s + (r.stars ?? 0));
-    final avg = sum / reviews.length;
-    return avg * reviews.length;
+    return station.averageRating * station.reviewCount;
   }
 
   /// Builds a score snapshot: 50% normalized reviews + 50% normalized listeners.
