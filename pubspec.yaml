@@ -79,6 +79,7 @@ dependencies:
   objective_c: 9.1.0
   quick_actions: ^1.1.0
   connectivity_plus: ^6.1.5
+  sqflite: ^2.4.2
 
 dev_dependencies:
   dependency_validator: ^5.0.3

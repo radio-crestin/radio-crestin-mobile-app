@@ -33,6 +33,7 @@ import 'services/image_cache_service.dart';
 import 'services/quick_actions_service.dart';
 import 'services/network_service.dart';
 import 'services/play_count_service.dart';
+import 'services/song_like_service.dart';
 import 'services/station_data_service.dart';
 
 final getIt = GetIt.instance;
@@ -184,6 +185,9 @@ void main() async {
 
   final playCountService = PlayCountService();
   getIt.registerSingleton<PlayCountService>(playCountService);
+
+  final songLikeService = await SongLikeService.init();
+  getIt.registerSingleton<SongLikeService>(songLikeService);
 
   // Phase 4: Start AudioService.init() — the biggest remaining blocker.
   // Network and image cache are already initialized (awaited above).

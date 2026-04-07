@@ -19,6 +19,7 @@ import 'package:radio_crestin/services/play_count_service.dart';
 import 'package:radio_crestin/services/network_service.dart';
 import 'package:radio_crestin/services/review_service.dart';
 import 'package:radio_crestin/services/song_history_service.dart';
+import 'package:radio_crestin/services/song_like_service.dart';
 import 'package:radio_crestin/services/station_data_service.dart';
 import 'package:radio_crestin/seek_mode_manager.dart';
 import 'package:radio_crestin/utils.dart';
@@ -437,37 +438,54 @@ class AppAudioHandler extends BaseAudioHandler {
       case 'likeSong':
         final likeStation = currentStation.value;
         if (likeStation == null) return;
-        final likeSongTitle = likeStation.songTitle;
-        final likeSongArtist = likeStation.songArtist;
-        final likeSongInfo = likeSongArtist.isNotEmpty
-            ? '$likeSongTitle - $likeSongArtist'
-            : (likeSongTitle.isNotEmpty ? likeSongTitle : likeStation.title);
-        _log('likeSong: I like: $likeSongInfo');
-        ReviewService.submitReview(
+        final currentLike = _songLikeService.getLikeStatus(likeStation.songId);
+        // Toggle: if already liked, reset to neutral; otherwise set to liked
+        final newStatus = currentLike == 1 ? 0 : 1;
+        await _songLikeService.setLikeStatus(
           stationId: likeStation.id,
-          stars: 5,
-          message: 'I like: $likeSongInfo',
-          userIdentifier: globals.deviceId,
           songId: likeStation.songId,
+          likeStatus: newStatus,
+          thumbnailUrl: likeStation.thumbnailUrl,
+          songTitle: likeStation.songTitle,
+          songArtist: likeStation.songArtist,
         );
+        _broadcastState(player.playbackEvent);
+        if (newStatus == 1) {
+          final info = _buildSongInfo(likeStation);
+          ReviewService.submitReview(
+            stationId: likeStation.id,
+            stars: 5,
+            message: 'I like: $info',
+            userIdentifier: globals.deviceId,
+            songId: likeStation.songId,
+          );
+        }
         break;
       case 'dislikeSong':
         final dislikeStation = currentStation.value;
         if (dislikeStation == null) return;
-        final songTitle = dislikeStation.songTitle;
-        final songArtist = dislikeStation.songArtist;
-        final songInfo = songArtist.isNotEmpty
-            ? '$songTitle - $songArtist'
-            : (songTitle.isNotEmpty ? songTitle : dislikeStation.title);
-        final message = "I don't like: $songInfo";
-        _log('dislikeSong: $message');
-        ReviewService.submitReview(
+        final currentDislike = _songLikeService.getLikeStatus(dislikeStation.songId);
+        // Toggle: if already disliked, reset to neutral; otherwise set to disliked
+        final newDislikeStatus = currentDislike == -1 ? 0 : -1;
+        await _songLikeService.setLikeStatus(
           stationId: dislikeStation.id,
-          stars: 1,
-          message: message,
-          userIdentifier: globals.deviceId,
           songId: dislikeStation.songId,
+          likeStatus: newDislikeStatus,
+          thumbnailUrl: dislikeStation.thumbnailUrl,
+          songTitle: dislikeStation.songTitle,
+          songArtist: dislikeStation.songArtist,
         );
+        _broadcastState(player.playbackEvent);
+        if (newDislikeStatus == -1) {
+          final info = _buildSongInfo(dislikeStation);
+          ReviewService.submitReview(
+            stationId: dislikeStation.id,
+            stars: 1,
+            message: "I don't like: $info",
+            userIdentifier: globals.deviceId,
+            songId: dislikeStation.songId,
+          );
+        }
         break;
       case 'showSongHistory':
         final station = currentStation.value;
@@ -928,39 +946,43 @@ class AppAudioHandler extends BaseAudioHandler {
   }
 
   // Metadata refresh
+  SongLikeService get _songLikeService => GetIt.instance<SongLikeService>();
+
+  String _buildSongInfo(Station station) {
+    final title = station.songTitle;
+    final artist = station.songArtist;
+    if (artist.isNotEmpty) return '$title - $artist';
+    if (title.isNotEmpty) return title;
+    return station.title;
+  }
+
   void _broadcastState(PlaybackEvent event) {
     final playing = player.playing;
     final station = currentStation.valueOrNull;
-    final isFav = station != null &&
-        stationDataService.favoriteStationSlugs.value.contains(station.slug);
+    final songId = station?.songId ?? -1;
+    final likeStatus = _songLikeService.getLikeStatus(songId);
+    final isLiked = likeStatus == 1;
+    final isDisliked = likeStatus == -1;
 
     playbackState.add(playbackState.value.copyWith(
       controls: [
-        // [0] Like song (left on Android Auto)
+        // [0] Like song (filled when liked)
         MediaControl.custom(
-          androidIcon: 'drawable/ic_thumb_up',
+          androidIcon: isLiked ? 'drawable/ic_thumb_up' : 'drawable/ic_thumb_up_outline',
           label: _isRomanian ? 'Îmi place' : 'Like',
           name: 'likeSong',
         ),
-        // [1] Dislike song
+        // [1] Previous
+        MediaControl.skipToPrevious,
+        // [2] Play/Pause
+        if (playing) MediaControl.pause else MediaControl.play,
+        // [3] Next
+        MediaControl.skipToNext,
+        // [4] Dislike song (filled when disliked)
         MediaControl.custom(
-          androidIcon: 'drawable/ic_thumb_down',
+          androidIcon: isDisliked ? 'drawable/ic_thumb_down' : 'drawable/ic_thumb_down_outline',
           label: _isRomanian ? 'Nu îmi place' : 'Dislike',
           name: 'dislikeSong',
-        ),
-        // [2] Previous
-        MediaControl.skipToPrevious,
-        // [3] Play/Pause
-        if (playing) MediaControl.pause else MediaControl.play,
-        // [4] Next
-        MediaControl.skipToNext,
-        // [5] Favorite toggle (right on Android Auto)
-        MediaControl.custom(
-          androidIcon: isFav ? 'drawable/ic_favorite' : 'drawable/ic_favorite_border',
-          label: isFav
-              ? (_isRomanian ? 'Elimină din favorite' : 'Remove from favorites')
-              : (_isRomanian ? 'Adaugă la favorite' : 'Add to favorites'),
-          name: 'toggleFavorite',
         ),
       ],
       systemActions: const {
@@ -973,7 +995,7 @@ class AppAudioHandler extends BaseAudioHandler {
         MediaAction.setRating,
         MediaAction.skipToQueueItem,
       },
-      androidCompactActionIndices: const [2, 3, 4],
+      androidCompactActionIndices: const [1, 2, 3],
       processingState: _isConnecting
         ? AudioProcessingState.loading
         : const {
