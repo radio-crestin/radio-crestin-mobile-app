@@ -122,7 +122,7 @@
 			<string>NSUserActivityTypeBrowsingWeb</string>
 		</array>
 		<key>UIStatusBarHidden</key>
-		<false/>
+		<true/>
 		<key>LSApplicationQueriesSchemes</key>
 		<array>
 			<string>whatsapp</string>

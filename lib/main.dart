@@ -18,7 +18,8 @@ import 'package:radio_crestin/graphql_rest_mappings.dart';
 import 'package:radio_crestin/performance_monitor.dart';
 import 'package:radio_crestin/resilient_hive_store.dart';
 import 'package:radio_crestin/graphql_to_rest_interceptor.dart';
-import 'package:radio_crestin/pages/SplashPage.dart';
+import 'package:radio_crestin/pages/HomePage.dart';
+import 'package:upgrader/upgrader.dart';
 import 'package:radio_crestin/theme.dart';
 import 'package:radio_crestin/theme_manager.dart';
 import 'package:radio_crestin/seek_mode_manager.dart';
@@ -293,7 +294,13 @@ class RadioCrestinApp extends StatelessWidget {
           theme: lightTheme,
           darkTheme: darkTheme,
           themeMode: themeMode,
-          home: const SplashPage(),
+          home: UpgradeAlert(
+            dialogStyle: Platform.isIOS
+                ? UpgradeDialogStyle.cupertino
+                : UpgradeDialogStyle.material,
+            upgrader: Upgrader(),
+            child: const HomePage(),
+          ),
         );
       },
     );
