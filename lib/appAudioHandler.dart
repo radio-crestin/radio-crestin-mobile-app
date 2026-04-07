@@ -11,7 +11,6 @@ import 'package:get_it/get_it.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:radio_crestin/performance_monitor.dart';
-import 'package:radio_crestin/tracking.dart';
 import 'package:radio_crestin/types/Station.dart';
 import 'package:radio_crestin/services/image_cache_service.dart';
 import 'package:radio_crestin/services/car_play_service.dart';
@@ -103,7 +102,6 @@ Future<AppAudioHandler> initAudioService({required graphqlClient}) async {
 class AppAudioHandler extends BaseAudioHandler {
   final GraphQLClient graphqlClient;
   final StationDataService stationDataService = GetIt.instance<StationDataService>();
-  Timer? timer;
 
   Object? error;
   int errorRetryCount = 0;
@@ -642,7 +640,6 @@ class AppAudioHandler extends BaseAudioHandler {
     // Stop and clean up the previous station before starting the new one
     _disconnectTimer?.cancel();
     if (player.playing || player.processingState != ProcessingState.idle) {
-      stopListeningTracker();
       await player.stop();
     }
     _loadedStreamUrl = null;
@@ -692,11 +689,7 @@ class AppAudioHandler extends BaseAudioHandler {
     return super.skipToQueueItem(index);
   }
 
-  String addTrackingParametersToUrl(String url, {bool isHls = false}) {
-    // HLS servers reject unknown query parameters with redirect loops.
-    // iOS AVFoundation hard-limits redirects to 16, causing -1007 errors.
-    if (isHls) return url;
-
+  String addTrackingParametersToUrl(String url) {
     final platform = Platform.isIOS ? "ios" : (Platform.isAndroid ? "android" : "unknown");
     final deviceId = globals.deviceId;
 
@@ -716,11 +709,6 @@ class AppAudioHandler extends BaseAudioHandler {
     _disconnectTimer?.cancel();
     stationDataService.resumePolling();
 
-    if (currentStation.value != null) {
-      AppTracking.trackPlayStation(currentStation.value!, graphQLClient: graphqlClient);
-      AppTracking.trackListenStation(currentStation.value!, currentStreamUrl);
-    }
-    startListeningTracker();
 
     var item = mediaItem.valueOrNull;
 
@@ -754,7 +742,7 @@ class AppAudioHandler extends BaseAudioHandler {
           if (retry > 0) {
             await player.stop();
           }
-          final trackedUrl = addTrackingParametersToUrl(streamUrl, isHls: isHls);
+          final trackedUrl = addTrackingParametersToUrl(streamUrl);
           final timeout = isHls ? const Duration(seconds: 3) : const Duration(seconds: 10);
           // Race setAudioSource against the canceller so playStation() can
           // break this await immediately instead of waiting for the timeout.
@@ -767,7 +755,7 @@ class AppAudioHandler extends BaseAudioHandler {
           await Future.any([loadFuture, canceller.future]).timeout(timeout);
           _loadedStreamUrl = streamUrl;
           _loadedStreamType = streamType;
-          _log("play: source loaded successfully ($streamUrl)");
+          _log("play: source loaded successfully ($trackedUrl)");
           break;
         } catch (e) {
           lastError = e;
@@ -816,10 +804,6 @@ class AppAudioHandler extends BaseAudioHandler {
     _log("pause");
     _cancelInFlightPlay();
     _hasBeenPlayed = false;
-    if (currentStation.value != null) {
-      AppTracking.trackStopStation(currentStation.value!);
-    }
-
     await player.pause();
 
     // Disconnect after 60s of being paused to save bandwidth.
@@ -911,10 +895,6 @@ class AppAudioHandler extends BaseAudioHandler {
     _bufferingStallTimer?.cancel();
     _loadedStreamUrl = null;
     _loadedStreamType = null;
-    if (currentStation.value != null) {
-      AppTracking.trackStopStation(currentStation.value!);
-    }
-    stopListeningTracker();
     await player.stop();
     // Broadcast stopped state with controls still available (no super.stop())
     _broadcastState(player.playbackEvent);
@@ -929,10 +909,6 @@ class AppAudioHandler extends BaseAudioHandler {
     _bufferingStallTimer?.cancel();
     _loadedStreamUrl = null;
     _loadedStreamType = null;
-    if (currentStation.value != null) {
-      AppTracking.trackStopStation(currentStation.value!);
-    }
-    stopListeningTracker();
     await player.stop();
     return super.stop();
   }
@@ -1133,7 +1109,6 @@ class AppAudioHandler extends BaseAudioHandler {
     _disconnectTimer?.cancel();
     _loadedStreamUrl = null;
     _loadedStreamType = null;
-    stopListeningTracker();
     player.stop();
     stationDataService.dispose();
     return super.onTaskRemoved();
@@ -1146,7 +1121,6 @@ class AppAudioHandler extends BaseAudioHandler {
     _disconnectTimer?.cancel();
     _loadedStreamUrl = null;
     _loadedStreamType = null;
-    stopListeningTracker();
     await player.stop();
     await player.dispose();
     stationDataService.dispose();
@@ -1205,20 +1179,6 @@ class AppAudioHandler extends BaseAudioHandler {
     }
   }
 
-  // Events Tracking
-  void startListeningTracker() {
-    timer?.cancel();
-    timer = Timer.periodic(
-        const Duration(seconds: 5),
-        (Timer t) => {
-              if (currentStation.value != null && player.playing)
-                {AppTracking.trackListenStation(currentStation.value!, currentStreamUrl)}
-            });
-  }
-
-  void stopListeningTracker() {
-    timer?.cancel();
-  }
 
   String get currentStreamUrl {
     return mediaItem.value?.id ?? "-";
