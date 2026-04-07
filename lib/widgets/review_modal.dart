@@ -81,7 +81,7 @@ class _ReviewModalState extends State<ReviewModal> {
   }
 
   Future<void> _submit() async {
-    if (_selectedStars == 0 || _messageController.text.trim().isEmpty || _isSubmitting) return;
+    if (_selectedStars == 0 || _isSubmitting) return;
 
     setState(() => _isSubmitting = true);
 
@@ -258,7 +258,7 @@ class _ReviewModalState extends State<ReviewModal> {
                 const SizedBox(height: 24),
                 // Message section
                 Text(
-                  'Mesaj *',
+                  'Mesaj (opțional)',
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -314,7 +314,7 @@ class _ReviewModalState extends State<ReviewModal> {
                   width: double.infinity,
                   height: 48,
                   child: FilledButton(
-                    onPressed: _selectedStars > 0 && _messageController.text.trim().isNotEmpty && !_isSubmitting ? _submit : null,
+                    onPressed: _selectedStars > 0 && !_isSubmitting ? _submit : null,
                     style: FilledButton.styleFrom(
                       backgroundColor: AppColors.primary,
                       disabledBackgroundColor: isDark
