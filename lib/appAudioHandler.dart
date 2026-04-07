@@ -256,11 +256,13 @@ class AppAudioHandler extends BaseAudioHandler {
     queueTitle.add(title);
     // Fire-and-forget: cache the title on the native side before queue is set
     _audioServiceChannel.invokeMethod('setQueueTitle', {'title': title}).catchError((e) {
-      _log('setQueueTitle error: $e');
+      print('RC_DEBUG: setQueueTitle error: $e');
     });
 
     try {
+      print('RC_DEBUG: fetching history for ${station.slug}');
       final history = await SongHistoryService.fetchHistory(station.slug);
+      print('RC_DEBUG: history result: ${history?.history.length ?? "null"} items');
       if (history == null || history.history.isEmpty) {
         queue.add([]);
         return;
@@ -283,10 +285,10 @@ class AppAudioHandler extends BaseAudioHandler {
             );
           })
           .toList();
+      print('RC_DEBUG: setting queue with ${items.length} items');
       queue.add(items);
-      _log('_updateSongHistoryQueue: ${items.length} items');
     } catch (e) {
-      _log('_updateSongHistoryQueue error: $e');
+      print('RC_DEBUG: _updateSongHistoryQueue error: $e');
     }
   }
 
@@ -453,6 +455,7 @@ class AppAudioHandler extends BaseAudioHandler {
 
   Future<void> selectStation(Station station) async {
     _log('selectStation($station)');
+    print('RC_DEBUG: selectStation ${station.slug}');
 
     final isFav = stationDataService.favoriteStationSlugs.value.contains(station.slug);
 
@@ -926,6 +929,7 @@ class AppAudioHandler extends BaseAudioHandler {
         MediaAction.seekForward,
         MediaAction.seekBackward,
         MediaAction.setRating,
+        MediaAction.skipToQueueItem,
       },
       androidCompactActionIndices: const [1, 2, 3],
       processingState: _isConnecting
