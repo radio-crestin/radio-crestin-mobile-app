@@ -5,6 +5,7 @@ import 'dart:ui';
 
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:fuzzywuzzy/fuzzywuzzy.dart';
 import 'package:get_it/get_it.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
@@ -237,6 +238,9 @@ class AppAudioHandler extends BaseAudioHandler {
     }
   }
 
+  static const _audioServiceChannel =
+      MethodChannel('com.ryanheise.audio_service.client.methods');
+
   /// Fetches song history for the current station and sets it as the
   /// MediaSession queue. Android Auto shows this as a "Up next"-style
   /// page accessible from the queue button on the Now Playing screen.
@@ -247,7 +251,13 @@ class AppAudioHandler extends BaseAudioHandler {
       return;
     }
     // Set localized queue title (shown as the page header on Android Auto)
-    queueTitle.add(_isRomanian ? 'Redate recent' : 'Recently played');
+    final title = _isRomanian ? 'Redate recent' : 'Recently played';
+    queueTitle.add(title);
+    try {
+      await _audioServiceChannel.invokeMethod('setQueueTitle', {'title': title});
+    } catch (e) {
+      _log('setQueueTitle error: $e');
+    }
     try {
       final history = await SongHistoryService.fetchHistory(station.slug);
       if (history == null || history.history.isEmpty) {
@@ -884,19 +894,13 @@ class AppAudioHandler extends BaseAudioHandler {
 
     playbackState.add(playbackState.value.copyWith(
       controls: [
-        // [0] Song history (expanded notification + Android Auto)
-        MediaControl.custom(
-          androidIcon: 'drawable/ic_history',
-          label: _isRomanian ? 'Melodii recente' : 'Recent songs',
-          name: 'showSongHistory',
-        ),
-        // [1] Previous
+        // [0] Previous
         MediaControl.skipToPrevious,
-        // [2] Play/Pause
+        // [1] Play/Pause
         if (playing) MediaControl.pause else MediaControl.play,
-        // [3] Next
+        // [2] Next
         MediaControl.skipToNext,
-        // [4] Favorite toggle (expanded notification + Android Auto)
+        // [3] Favorite toggle (expanded notification + Android Auto)
         MediaControl.custom(
           androidIcon: isFav ? 'drawable/ic_favorite' : 'drawable/ic_favorite_border',
           label: isFav
@@ -914,7 +918,7 @@ class AppAudioHandler extends BaseAudioHandler {
         MediaAction.seekBackward,
         MediaAction.setRating,
       },
-      androidCompactActionIndices: const [1, 2, 3],
+      androidCompactActionIndices: const [0, 1, 2],
       processingState: _isConnecting
         ? AudioProcessingState.loading
         : const {
