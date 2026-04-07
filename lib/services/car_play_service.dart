@@ -10,6 +10,8 @@ import 'package:radio_crestin/appAudioHandler.dart';
 import 'package:radio_crestin/services/image_cache_service.dart';
 import 'package:radio_crestin/seek_mode_manager.dart';
 import 'package:radio_crestin/services/network_service.dart';
+import 'package:radio_crestin/services/song_history_service.dart';
+import 'package:radio_crestin/services/song_like_service.dart';
 import 'package:radio_crestin/services/station_data_service.dart';
 import 'package:radio_crestin/types/Station.dart';
 import 'package:rxdart/rxdart.dart';
@@ -44,6 +46,7 @@ class CarPlayService {
   StreamSubscription? _networkRecoverySubscription;
   StreamSubscription? _carPlayPlaybackSubscription;
   StreamSubscription? _carPlayStationsSubscription;
+  StreamSubscription? _mediaItemSubscription;
 
   // Timers
   Timer? _carPlayWaitTimer;
@@ -139,7 +142,7 @@ class CarPlayService {
   }
 
   void _setupNowPlayingButtonsHandler() {
-    // Listen for favorite button presses from native iOS CarPlay
+    // Listen for button presses from native iOS CarPlay
     _nowPlayingChannel.setMethodCallHandler((call) async {
       if (call.method == 'onFavoriteButtonPressed') {
         final args = call.arguments as Map<dynamic, dynamic>;
@@ -148,6 +151,15 @@ class CarPlayService {
         if (currentStation != null) {
           await _audioHandler.setStationIsFavorite(currentStation, isFavorite);
         }
+      } else if (call.method == 'onLikeButtonPressed') {
+        await _audioHandler.customAction('likeSong');
+        // Sync the like/dislike state back to native (customAction toggles internally)
+        _syncNowPlayingLikeState();
+      } else if (call.method == 'onDislikeButtonPressed') {
+        await _audioHandler.customAction('dislikeSong');
+        _syncNowPlayingLikeState();
+      } else if (call.method == 'onUpNextButtonTapped') {
+        await _showCarPlaySongHistory();
       }
     });
 
@@ -160,6 +172,9 @@ class CarPlayService {
         if (slugChanged) {
           // Sync Now Playing favorite button for the new station
           _updateNowPlayingFavoriteState(_isFavorite(station.slug));
+          // Reset like/dislike state for the new song
+          _lastSyncedLikeStatus = null;
+          _syncNowPlayingLikeState();
         }
       }
     });
@@ -176,6 +191,11 @@ class CarPlayService {
       // CPNowPlayingTemplate.shared shows correct play/pause state.
       // audio_service's native bridge may not propagate this in multi-scene CarPlay setups.
       _syncNowPlayingPlaybackState(isPlaying);
+    });
+
+    // Sync like/dislike state when song changes on the same station
+    _mediaItemSubscription = _audioHandler.mediaItem.stream.listen((_) {
+      _syncNowPlayingLikeState();
     });
 
     // Update favorite UI (Now Playing button + CarPlay lists) when favorites change
@@ -208,6 +228,71 @@ class CarPlayService {
       await _nowPlayingChannel.invokeMethod('setFavoriteState', {'isFavorite': isFavorite});
     } catch (e) {
       _log("Error updating Now Playing favorite state: $e");
+    }
+  }
+
+  /// Syncs the like/dislike button state on CarPlay Now Playing screen.
+  void _syncNowPlayingLikeState() {
+    final station = _audioHandler.currentStation.value;
+    if (station == null) return;
+    final songLikeService = GetIt.instance<SongLikeService>();
+    final likeStatus = songLikeService.getLikeStatus(station.songId);
+    _updateNowPlayingLikeDislikeState(likeStatus);
+  }
+
+  int? _lastSyncedLikeStatus;
+
+  Future<void> _updateNowPlayingLikeDislikeState(int likeStatus) async {
+    if (_lastSyncedLikeStatus == likeStatus) return;
+    _lastSyncedLikeStatus = likeStatus;
+    try {
+      await _nowPlayingChannel.invokeMethod('setLikeDislikeState', {'likeStatus': likeStatus});
+    } catch (e) {
+      _log("Error updating Now Playing like/dislike state: $e");
+    }
+  }
+
+  /// Shows the recently played song history as a CarPlay list template.
+  Future<void> _showCarPlaySongHistory() async {
+    final station = _audioHandler.currentStation.value;
+    if (station == null) return;
+
+    try {
+      final history = await SongHistoryService.fetchHistory(station.slug);
+      if (history == null || history.history.isEmpty) {
+        _log("No song history available for ${station.slug}");
+        return;
+      }
+
+      final items = history.history
+          .where((item) => item.hasSong)
+          .take(30)
+          .map((item) {
+            final time = item.dateTime.toLocal();
+            final timeStr = '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+            final title = item.songName ?? (_isRomanian ? 'Necunoscut' : 'Unknown');
+            final artist = item.artistName != null ? '$timeStr - ${item.artistName}' : timeStr;
+            final thumbUrl = _cachedOrNetworkUrl(item.songThumbnailUrl ?? station.thumbnailUrl);
+            return CPListItem(
+              text: title,
+              detailText: artist,
+              image: thumbUrl,
+            );
+          })
+          .toList();
+
+      if (items.isEmpty) return;
+
+      final title = _isRomanian ? 'Redate recent' : 'Recently played';
+      final listTemplate = CPListTemplate(
+        title: title,
+        sections: [CPListSection(items: items)],
+        systemIcon: "clock.arrow.circlepath",
+      );
+
+      await FlutterCarplay.push(template: listTemplate, animated: true);
+    } catch (e) {
+      _log("Error showing CarPlay song history: $e");
     }
   }
 
@@ -987,6 +1072,7 @@ class CarPlayService {
     _favoritesSubscription?.cancel();
     _carPlayPlaybackSubscription?.cancel();
     _carPlayStationsSubscription?.cancel();
+    _mediaItemSubscription?.cancel();
     _connectionErrorSubscription?.cancel();
     _networkRecoverySubscription?.cancel();
     _androidAutoStationSubscription?.cancel();
