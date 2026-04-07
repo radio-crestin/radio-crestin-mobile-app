@@ -866,7 +866,9 @@ public class AudioServicePlugin implements FlutterPlugin, ActivityAware {
                 }
                 case "setQueueTitle": {
                     String title = (String) args.get("title");
-                    AudioService.instance.setQueueTitle(title);
+                    if (AudioService.instance != null) {
+                        AudioService.instance.setQueueTitle(title);
+                    }
                     result.success(null);
                     break;
                 }

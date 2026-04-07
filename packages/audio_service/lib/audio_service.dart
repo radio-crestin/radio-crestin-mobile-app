@@ -1021,7 +1021,6 @@ class AudioService {
     _observeMediaItem();
     _observeAndroidPlaybackInfo();
     _observeQueue();
-    _observeQueueTitle();
     _observePlaybackState();
 
     return handler;
