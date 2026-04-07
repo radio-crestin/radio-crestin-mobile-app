@@ -209,8 +209,6 @@ class AppAudioHandler extends BaseAudioHandler {
             .toList();
       case "allStationsRootId":
         return stationsMediaItems.value;
-      case "recentSongsRootId":
-        return _getRecentSongsForBrowse();
       default:
         if (parentMediaId == AudioService.browsableRootId) {
           const pkg = 'com.radiocrestin.radio_crestin';
@@ -233,47 +231,29 @@ class AppAudioHandler extends BaseAudioHandler {
                 'android.media.browse.CONTENT_STYLE_PLAYABLE_HINT': 1, // list
               },
             ),
-            MediaItem(
-              id: "recentSongsRootId",
-              title: _isRomanian ? "Melodii Recente" : "Recent Songs",
-              artUri: Uri.parse('android.resource://$pkg/drawable/ic_history'),
-              playable: false,
-              extras: const {
-                'android.media.browse.CONTENT_STYLE_PLAYABLE_HINT': 1, // list
-              },
-            ),
           ];
         }
         return [];
     }
   }
 
-  /// Fetches song history for the current station and returns as MediaItems
-  /// for the Android Auto browse tree.
-  Future<List<MediaItem>> _getRecentSongsForBrowse() async {
+  /// Fetches song history for the current station and sets it as the
+  /// MediaSession queue. Android Auto shows this as a "Up next"-style
+  /// page accessible from the queue button on the Now Playing screen.
+  Future<void> _updateSongHistoryQueue() async {
     final station = currentStation.valueOrNull;
     if (station == null) {
-      return [
-        MediaItem(
-          id: 'history_empty',
-          title: _isRomanian ? 'Selectează o stație mai întâi' : 'Select a station first',
-          playable: false,
-        ),
-      ];
+      queue.add([]);
+      return;
     }
     try {
       final history = await SongHistoryService.fetchHistory(station.slug);
       if (history == null || history.history.isEmpty) {
-        return [
-          MediaItem(
-            id: 'history_empty',
-            title: _isRomanian ? 'Niciun istoric disponibil' : 'No history available',
-            playable: false,
-          ),
-        ];
+        queue.add([]);
+        return;
       }
       final stationThumbUrl = station.thumbnailUrl;
-      return history.history
+      final items = history.history
           .where((item) => item.hasSong)
           .take(30)
           .map((item) {
@@ -287,17 +267,13 @@ class AppAudioHandler extends BaseAudioHandler {
                   ? '$timeStr - ${item.artistName}'
                   : timeStr,
               artUri: thumbUrl != null ? Uri.parse(thumbUrl) : null,
-              playable: true,
-              extras: {
-                'is_history_item': true,
-                'station_slug': station.slug,
-              },
             );
           })
           .toList();
+      queue.add(items);
+      _log('_updateSongHistoryQueue: ${items.length} items');
     } catch (e) {
-      _log('_getRecentSongsForBrowse error: $e');
-      return [];
+      _log('_updateSongHistoryQueue error: $e');
     }
   }
 
@@ -445,7 +421,10 @@ class AppAudioHandler extends BaseAudioHandler {
       case 'showSongHistory':
         final station = currentStation.value;
         if (station == null) return;
-        // Notify the UI to open the song history modal
+        // Refresh the queue with latest song history (Android Auto shows
+        // this as a queue page, similar to YouTube Music's "Up next")
+        await _updateSongHistoryQueue();
+        // Notify the phone UI to open the song history modal
         customEvent.add({
           'action': 'showSongHistory',
           'stationSlug': station.slug,
@@ -473,6 +452,8 @@ class AppAudioHandler extends BaseAudioHandler {
 
     // Fire-and-forget: don't block the tap path with disk I/O
     setLastPlayedStation(station);
+    // Populate queue with song history for Android Auto queue page
+    _updateSongHistoryQueue();
   }
 
   /// Builds a MediaItem with the station thumbnail URL and song metadata.
@@ -901,13 +882,11 @@ class AppAudioHandler extends BaseAudioHandler {
 
     playbackState.add(playbackState.value.copyWith(
       controls: [
-        // [0] Favorite toggle (expanded notification + Android Auto)
+        // [0] Song history (expanded notification + Android Auto)
         MediaControl.custom(
-          androidIcon: isFav ? 'drawable/ic_favorite' : 'drawable/ic_favorite_border',
-          label: isFav
-              ? (_isRomanian ? 'Elimină din favorite' : 'Remove from favorites')
-              : (_isRomanian ? 'Adaugă la favorite' : 'Add to favorites'),
-          name: 'toggleFavorite',
+          androidIcon: 'drawable/ic_history',
+          label: _isRomanian ? 'Melodii recente' : 'Recent songs',
+          name: 'showSongHistory',
         ),
         // [1] Previous
         MediaControl.skipToPrevious,
@@ -915,11 +894,13 @@ class AppAudioHandler extends BaseAudioHandler {
         if (playing) MediaControl.pause else MediaControl.play,
         // [3] Next
         MediaControl.skipToNext,
-        // [4] Song history (expanded notification + Android Auto)
+        // [4] Favorite toggle (expanded notification + Android Auto)
         MediaControl.custom(
-          androidIcon: 'drawable/ic_history',
-          label: _isRomanian ? 'Melodii recente' : 'Recent songs',
-          name: 'showSongHistory',
+          androidIcon: isFav ? 'drawable/ic_favorite' : 'drawable/ic_favorite_border',
+          label: isFav
+              ? (_isRomanian ? 'Elimină din favorite' : 'Remove from favorites')
+              : (_isRomanian ? 'Adaugă la favorite' : 'Add to favorites'),
+          name: 'toggleFavorite',
         ),
       ],
       systemActions: const {
@@ -1214,6 +1195,9 @@ class AppAudioHandler extends BaseAudioHandler {
           if (SeekModeManager.isUnstableConnection) {
             _ensureSongThumbnailCachedPermanently(updatedCurrentStation);
           }
+
+          // Refresh queue with latest song history when song changes
+          _updateSongHistoryQueue();
         }
       }
     });
