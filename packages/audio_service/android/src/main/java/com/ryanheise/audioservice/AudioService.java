@@ -765,9 +765,16 @@ public class AudioService extends MediaBrowserServiceCompat {
     synchronized void setQueue(List<MediaSessionCompat.QueueItem> queue) {
         AudioService.queue = queue;
         mediaSession.setQueue(queue);
+        // Also set the queue title if one was configured
+        if (queueTitleOverride != null) {
+            mediaSession.setQueueTitle(queueTitleOverride);
+        }
     }
 
+    private static String queueTitleOverride;
+
     void setQueueTitle(CharSequence title) {
+        queueTitleOverride = title != null ? title.toString() : null;
         mediaSession.setQueueTitle(title);
     }
 

@@ -250,9 +250,14 @@ class AppAudioHandler extends BaseAudioHandler {
       queue.add([]);
       return;
     }
-    // Set localized queue title (shown as the page header on Android Auto)
+    // Set localized queue title FIRST (cached in native queueTitleOverride,
+    // then re-applied each time setQueue is called).
     final title = _isRomanian ? 'Redate recent' : 'Recently played';
     queueTitle.add(title);
+    // Fire-and-forget: cache the title on the native side before queue is set
+    _audioServiceChannel.invokeMethod('setQueueTitle', {'title': title}).catchError((e) {
+      _log('setQueueTitle error: $e');
+    });
 
     try {
       final history = await SongHistoryService.fetchHistory(station.slug);
@@ -283,12 +288,6 @@ class AppAudioHandler extends BaseAudioHandler {
     } catch (e) {
       _log('_updateSongHistoryQueue error: $e');
     }
-
-    // Fire-and-forget: set native queue title after queue is populated
-    // (don't block queue population if this fails)
-    _audioServiceChannel.invokeMethod('setQueueTitle', {'title': title}).catchError((e) {
-      _log('setQueueTitle error: $e');
-    });
   }
 
   static bool get _isRomanian {
