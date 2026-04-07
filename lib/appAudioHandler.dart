@@ -959,6 +959,8 @@ class AppAudioHandler extends BaseAudioHandler {
   void _broadcastState(PlaybackEvent event) {
     final playing = player.playing;
     final station = currentStation.valueOrNull;
+    final isFav = station != null &&
+        stationDataService.favoriteStationSlugs.value.contains(station.slug);
     final songId = station?.songId ?? -1;
     final likeStatus = _songLikeService.getLikeStatus(songId);
     final isLiked = likeStatus == 1;
@@ -966,7 +968,15 @@ class AppAudioHandler extends BaseAudioHandler {
 
     playbackState.add(playbackState.value.copyWith(
       controls: [
-        // [0] Like song
+        // [0] Favorite toggle
+        MediaControl.custom(
+          androidIcon: isFav ? 'drawable/ic_favorite' : 'drawable/ic_favorite_border',
+          label: isFav
+              ? (_isRomanian ? 'Elimină din favorite' : 'Remove from favorites')
+              : (_isRomanian ? 'Adaugă la favorite' : 'Add to favorites'),
+          name: 'toggleFavorite',
+        ),
+        // [1] Like song
         MediaControl.custom(
           androidIcon: 'drawable/ic_thumb_up',
           label: isLiked
@@ -974,13 +984,13 @@ class AppAudioHandler extends BaseAudioHandler {
               : (_isRomanian ? 'Îmi place' : 'Like'),
           name: 'likeSong',
         ),
-        // [1] Previous
+        // [2] Previous
         MediaControl.skipToPrevious,
-        // [2] Play/Pause
+        // [3] Play/Pause
         if (playing) MediaControl.pause else MediaControl.play,
-        // [3] Next
+        // [4] Next
         MediaControl.skipToNext,
-        // [4] Dislike song
+        // [5] Dislike song
         MediaControl.custom(
           androidIcon: 'drawable/ic_thumb_down',
           label: isDisliked
@@ -999,7 +1009,7 @@ class AppAudioHandler extends BaseAudioHandler {
         MediaAction.setRating,
         MediaAction.skipToQueueItem,
       },
-      androidCompactActionIndices: const [1, 2, 3],
+      androidCompactActionIndices: const [2, 3, 4],
       processingState: _isConnecting
         ? AudioProcessingState.loading
         : const {
