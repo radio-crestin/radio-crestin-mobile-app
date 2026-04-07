@@ -253,11 +253,7 @@ class AppAudioHandler extends BaseAudioHandler {
     // Set localized queue title (shown as the page header on Android Auto)
     final title = _isRomanian ? 'Redate recent' : 'Recently played';
     queueTitle.add(title);
-    try {
-      await _audioServiceChannel.invokeMethod('setQueueTitle', {'title': title});
-    } catch (e) {
-      _log('setQueueTitle error: $e');
-    }
+
     try {
       final history = await SongHistoryService.fetchHistory(station.slug);
       if (history == null || history.history.isEmpty) {
@@ -287,6 +283,12 @@ class AppAudioHandler extends BaseAudioHandler {
     } catch (e) {
       _log('_updateSongHistoryQueue error: $e');
     }
+
+    // Fire-and-forget: set native queue title after queue is populated
+    // (don't block queue population if this fails)
+    _audioServiceChannel.invokeMethod('setQueueTitle', {'title': title}).catchError((e) {
+      _log('setQueueTitle error: $e');
+    });
   }
 
   static bool get _isRomanian {
@@ -433,10 +435,12 @@ class AppAudioHandler extends BaseAudioHandler {
       case 'showSongHistory':
         final station = currentStation.value;
         if (station == null) return;
-        // Refresh the queue with latest song history (Android Auto shows
-        // this as a queue page, similar to YouTube Music's "Up next")
+        // Refresh the queue with latest song history
         await _updateSongHistoryQueue();
-        // Notify the phone UI to open the song history modal
+        // Store pending action so the app shows the modal when foregrounded
+        // (Android 12+ blocks background activity launches from services)
+        _prefs.setString('pending_song_history', station.slug);
+        // Also notify the phone UI if already in foreground
         customEvent.add({
           'action': 'showSongHistory',
           'stationSlug': station.slug,

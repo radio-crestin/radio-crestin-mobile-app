@@ -1091,15 +1091,6 @@ public class AudioService extends MediaBrowserServiceCompat {
             } else if (CUSTOM_ACTION_REWIND.equals(action)) {
                 listener.onRewind();
             } else {
-                // For actions that should open the app (e.g. song history
-                // from notification), launch the main activity.
-                if ("showSongHistory".equals(action) && contentIntent != null) {
-                    try {
-                        contentIntent.send();
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                }
                 listener.onCustomAction(action, extras);
             }
         }

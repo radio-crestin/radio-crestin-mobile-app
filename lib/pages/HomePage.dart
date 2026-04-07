@@ -291,6 +291,27 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
+  void _checkPendingSongHistory() {
+    final prefs = getIt<SharedPreferences>();
+    final slug = prefs.getString('pending_song_history');
+    if (slug == null) return;
+    prefs.remove('pending_song_history');
+    final station = _audioHandler.currentStation.valueOrNull;
+    if (station == null || station.slug != slug) return;
+    if (slidingUpPanelController.isAttached) {
+      slidingUpPanelController.open();
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      SongHistoryModal.show(
+        context,
+        stationSlug: station.slug,
+        stationTitle: station.title,
+        stationThumbnailUrl: station.thumbnailUrl,
+      );
+    });
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
@@ -545,6 +566,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       _audioHandler.reconnectIfNeeded();
       // Full refresh + resume polling (picks up all changes while backgrounded)
       _stationDataService.onAppResumed();
+      // Check for pending song history action (from notification button tap)
+      _checkPendingSongHistory();
       // Auto-play if the "always play" toggle is enabled and not already playing.
       // Skip if car is connected — the user is controlling playback from the car.
       try {
