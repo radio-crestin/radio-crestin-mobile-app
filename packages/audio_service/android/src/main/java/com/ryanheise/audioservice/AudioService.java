@@ -767,6 +767,10 @@ public class AudioService extends MediaBrowserServiceCompat {
         mediaSession.setQueue(queue);
     }
 
+    void setQueueTitle(CharSequence title) {
+        mediaSession.setQueueTitle(title);
+    }
+
     void playMediaItem(MediaDescriptionCompat description) {
         mediaSessionCallback.onPlayMediaItem(description);
     }

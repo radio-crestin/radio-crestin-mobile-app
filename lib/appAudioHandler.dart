@@ -246,6 +246,8 @@ class AppAudioHandler extends BaseAudioHandler {
       queue.add([]);
       return;
     }
+    // Set localized queue title (shown as the page header on Android Auto)
+    queueTitle.add(_isRomanian ? 'Redate recent' : 'Recently played');
     try {
       final history = await SongHistoryService.fetchHistory(station.slug);
       if (history == null || history.history.isEmpty) {

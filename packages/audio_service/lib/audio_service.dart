@@ -1021,6 +1021,7 @@ class AudioService {
     _observeMediaItem();
     _observeAndroidPlaybackInfo();
     _observeQueue();
+    _observeQueueTitle();
     _observePlaybackState();
 
     return handler;
@@ -1117,6 +1118,19 @@ class AudioService {
       try {
         await _platform.setQueue(SetQueueRequest(
             queue: queue.map((item) => item._toMessage()).toList()));
+      } catch (e) {
+        _asyncError.add(e);
+      }
+    }
+  }
+
+  static const _clientChannel =
+      MethodChannel('com.ryanheise.audio_service.client.methods');
+
+  static Future<void> _observeQueueTitle() async {
+    await for (var title in _handler.queueTitle) {
+      try {
+        await _clientChannel.invokeMethod('setQueueTitle', {'title': title});
       } catch (e) {
         _asyncError.add(e);
       }
