@@ -976,9 +976,9 @@ class AppAudioHandler extends BaseAudioHandler {
               : (_isRomanian ? 'Adaugă la favorite' : 'Add to favorites'),
           name: 'toggleFavorite',
         ),
-        // [1] Like song
+        // [1] Like song (outline when not liked, filled when liked)
         MediaControl.custom(
-          androidIcon: 'drawable/ic_thumb_up',
+          androidIcon: isLiked ? 'drawable/ic_thumb_up' : 'drawable/ic_thumb_up_outline',
           label: isLiked
               ? (_isRomanian ? 'Retrage like' : 'Remove like')
               : (_isRomanian ? 'Îmi place' : 'Like'),
@@ -990,9 +990,9 @@ class AppAudioHandler extends BaseAudioHandler {
         if (playing) MediaControl.pause else MediaControl.play,
         // [4] Next
         MediaControl.skipToNext,
-        // [5] Dislike song
+        // [5] Dislike song (outline when not disliked, filled when disliked)
         MediaControl.custom(
-          androidIcon: 'drawable/ic_thumb_down',
+          androidIcon: isDisliked ? 'drawable/ic_thumb_down' : 'drawable/ic_thumb_down_outline',
           label: isDisliked
               ? (_isRomanian ? 'Retrage dislike' : 'Remove dislike')
               : (_isRomanian ? 'Nu îmi place' : 'Dislike'),
