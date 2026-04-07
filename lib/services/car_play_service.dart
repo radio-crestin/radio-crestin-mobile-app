@@ -258,14 +258,16 @@ class CarPlayService {
     if (station == null) return;
 
     try {
-      final history = await SongHistoryService.fetchHistory(station.slug);
+      final nowSeconds = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      final history = await SongHistoryService.fetchHistory(station.slug, toTimestamp: nowSeconds);
       if (history == null || history.history.isEmpty) {
         _log("No song history available for ${station.slug}");
         return;
       }
 
+      final now = DateTime.now();
       final items = history.history
-          .where((item) => item.hasSong)
+          .where((item) => item.hasSong && item.dateTime.isBefore(now))
           .take(30)
           .map((item) {
             final time = item.dateTime.toLocal();
