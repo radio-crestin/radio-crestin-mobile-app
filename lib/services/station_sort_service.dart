@@ -112,7 +112,8 @@ class StationSortService {
     final stableOrder = List<Station>.from(stations)
       ..sort((a, b) => a.slug.compareTo(b.slug));
     final now = DateTime.now();
-    final start = DateTime(now.year, 1, 1);
+    // Use Dec 31 of previous year (day 0 of Jan) to match web app's getDayOfYear()
+    final start = DateTime(now.year, 1, 0);
     final dayOfYear = now.difference(start).inDays;
     return stableOrder[dayOfYear % stableOrder.length].slug;
   }

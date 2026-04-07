@@ -59,7 +59,7 @@ Future<AppAudioHandler> initAudioService({required graphqlClient}) async {
     // userAgent: 'radiocrestinapp/1.0 (Linux;Android 11) https://www.radio-crestin.com',
     audioLoadConfiguration: const AudioLoadConfiguration(
       androidLoadControl: AndroidLoadControl(
-        minBufferDuration: Duration(seconds: 30),
+        minBufferDuration: Duration(seconds: 50),
         maxBufferDuration: Duration(minutes: 10),
         bufferForPlaybackDuration: Duration(seconds: 3),
         bufferForPlaybackAfterRebufferDuration: Duration(seconds: 5),
@@ -70,6 +70,8 @@ Future<AppAudioHandler> initAudioService({required graphqlClient}) async {
       ),
       darwinLoadControl: DarwinLoadControl(
         canUseNetworkResourcesForLiveStreamingWhilePaused: true,
+        automaticallyWaitsToMinimizeStalling: true,
+        preferredForwardBufferDuration: Duration(seconds: 60),
       ),
     ),
   );
@@ -209,9 +211,16 @@ class AppAudioHandler extends BaseAudioHandler {
         final favSlugs = stationDataService.favoriteStationSlugs.value;
         return stationsMediaItems.value
             .where((item) => favSlugs.contains(item.extras?["station_slug"]))
+            .map((item) => item.copyWith(
+              extras: {...?item.extras, 'fromFavorites': true},
+            ))
             .toList();
       case "allStationsRootId":
-        return stationsMediaItems.value;
+        return stationsMediaItems.value
+            .map((item) => item.copyWith(
+              extras: {...?item.extras, 'fromFavorites': false},
+            ))
+            .toList();
       default:
         if (parentMediaId == AudioService.browsableRootId) {
           const pkg = 'com.radiocrestin.radio_crestin';
@@ -459,6 +468,12 @@ class AppAudioHandler extends BaseAudioHandler {
             userIdentifier: globals.deviceId,
             songId: likeStation.songId,
           );
+        } else {
+          // Removing like — delete the review on the backend
+          ReviewService.deleteReview(
+            stationId: likeStation.id,
+            songId: likeStation.songId,
+          );
         }
         break;
       case 'dislikeSong':
@@ -485,6 +500,12 @@ class AppAudioHandler extends BaseAudioHandler {
             userIdentifier: globals.deviceId,
             songId: dislikeStation.songId,
           );
+        } else {
+          // Removing dislike — delete the review on the backend
+          ReviewService.deleteReview(
+            stationId: dislikeStation.id,
+            songId: dislikeStation.songId,
+          );
         }
         break;
       case 'showSongHistory':
@@ -493,8 +514,14 @@ class AppAudioHandler extends BaseAudioHandler {
         // Refresh the queue with latest song history
         await _updateSongHistoryQueue();
         // Store pending action so the app shows the modal when foregrounded
-        // (Android 12+ blocks background activity launches from services)
         _prefs.setString('pending_song_history', station.slug);
+        // Bring the app to the foreground
+        try {
+          const channel = MethodChannel('com.radiocrestin.app');
+          await channel.invokeMethod('bringToForeground');
+        } catch (_) {
+          // Ignore — app may already be in foreground or iOS doesn't need this
+        }
         // Also notify the phone UI if already in foreground
         customEvent.add({
           'action': 'showSongHistory',
@@ -583,9 +610,14 @@ class AppAudioHandler extends BaseAudioHandler {
     ImageCacheService.instance.getOrDownload(songThumbnailUrl);
   }
 
-  Future<void> playStation(Station station) async {
-    _log('playStation($station)');
+  Future<void> playStation(Station station, {bool? fromFavorites}) async {
+    _log('playStation(${station.slug}, fromFavorites=$fromFavorites)');
     _hasBeenPlayed = true;
+
+    // Track navigation context for next/previous behavior
+    if (fromFavorites != null) {
+      stationDataService.startedFromFavorites = fromFavorites;
+    }
 
     // Track play count for recommendation algorithm
     GetIt.instance<PlayCountService>().incrementPlayCount(station.slug);
@@ -632,18 +664,20 @@ class AppAudioHandler extends BaseAudioHandler {
 
   @override
   Future<void> skipToNext() {
-    _log('skipToNext()');
+    _log('skipToNext() startedFromFavorites=${stationDataService.startedFromFavorites}');
     if (currentStation.value == null) return super.skipToNext();
     final next = stationDataService.getNextStation(currentStation.value!.slug);
+    _log('skipToNext: current=${currentStation.value!.slug}, next=${next?.slug}');
     if (next == null) return super.skipToNext();
     return playStation(next);
   }
 
   @override
   Future<void> skipToPrevious() {
-    _log('skipToPrevious()');
+    _log('skipToPrevious() startedFromFavorites=${stationDataService.startedFromFavorites}');
     if (currentStation.value == null) return super.skipToPrevious();
     final prev = stationDataService.getPreviousStation(currentStation.value!.slug);
+    _log('skipToPrevious: current=${currentStation.value!.slug}, prev=${prev?.slug}');
     if (prev == null) return super.skipToPrevious();
     return playStation(prev);
   }
@@ -941,8 +975,31 @@ class AppAudioHandler extends BaseAudioHandler {
     _log('playMediaItem($mediaItem)');
     // History items: tapping keeps the current station playing
     if (mediaItem.id.startsWith('history_')) return;
-    final station = stationDataService.stations.value.cast<Station?>().firstWhere((element) => element!.id == mediaItem.extras?["station_id"], orElse: () => null);
-    if (station != null) playStation(station);
+    final stationId = mediaItem.extras?["station_id"];
+    var station = stationDataService.stations.value.cast<Station?>()
+        .firstWhere((element) => element!.id == stationId, orElse: () => null);
+
+    // In release mode, Android Auto can call playMediaItem before stations
+    // have loaded from the API. Wait for the first non-empty emission.
+    if (station == null && stationDataService.stations.value.isEmpty) {
+      _log('playMediaItem: stations not loaded yet, waiting...');
+      try {
+        await stationDataService.stations.stream
+            .firstWhere((stations) => stations.isNotEmpty)
+            .timeout(const Duration(seconds: 10));
+        station = stationDataService.stations.value.cast<Station?>()
+            .firstWhere((element) => element!.id == stationId, orElse: () => null);
+      } catch (e) {
+        _log('playMediaItem: timeout waiting for stations: $e');
+      }
+    }
+
+    if (station != null) {
+      final fromFavorites = mediaItem.extras?['fromFavorites'] as bool?;
+      playStation(station, fromFavorites: fromFavorites);
+    } else {
+      _log('playMediaItem: station not found for $stationId');
+    }
   }
 
   // Metadata refresh
@@ -976,7 +1033,13 @@ class AppAudioHandler extends BaseAudioHandler {
               : (_isRomanian ? 'Adaugă la favorite' : 'Add to favorites'),
           name: 'toggleFavorite',
         ),
-        // [1] Like song (outline when not liked, filled when liked)
+        // [1] Recent songs
+        MediaControl.custom(
+          androidIcon: 'drawable/ic_history',
+          label: _isRomanian ? 'Melodii recente' : 'Recent songs',
+          name: 'showSongHistory',
+        ),
+        // [2] Like song (outline when not liked, filled when liked)
         MediaControl.custom(
           androidIcon: isLiked ? 'drawable/ic_thumb_up' : 'drawable/ic_thumb_up_outline',
           label: isLiked
@@ -984,13 +1047,13 @@ class AppAudioHandler extends BaseAudioHandler {
               : (_isRomanian ? 'Îmi place' : 'Like'),
           name: 'likeSong',
         ),
-        // [2] Previous
+        // [3] Previous
         MediaControl.skipToPrevious,
-        // [3] Play/Pause
+        // [4] Play/Pause
         if (playing) MediaControl.pause else MediaControl.play,
-        // [4] Next
+        // [5] Next
         MediaControl.skipToNext,
-        // [5] Dislike song (outline when not disliked, filled when disliked)
+        // [6] Dislike song (outline when not disliked, filled when disliked)
         MediaControl.custom(
           androidIcon: isDisliked ? 'drawable/ic_thumb_down' : 'drawable/ic_thumb_down_outline',
           label: isDisliked
@@ -1009,7 +1072,7 @@ class AppAudioHandler extends BaseAudioHandler {
         MediaAction.setRating,
         MediaAction.skipToQueueItem,
       },
-      androidCompactActionIndices: const [2, 3, 4],
+      androidCompactActionIndices: const [3, 4, 5],
       processingState: _isConnecting
         ? AudioProcessingState.loading
         : const {
@@ -1109,13 +1172,37 @@ class AppAudioHandler extends BaseAudioHandler {
   }
 
   @override
-  Future<void> playFromMediaId(String mediaId, [Map<String, dynamic>? extras]) {
+  Future<void> playFromMediaId(String mediaId, [Map<String, dynamic>? extras]) async {
     _log('playFromMediaId($mediaId, $extras)');
     // History items: tapping keeps the current station playing
-    if (mediaId.startsWith('history_')) return Future.value();
-    final selectedMediaItem = stationsMediaItems.value.cast<MediaItem?>().firstWhere((item) => item!.id == mediaId, orElse: () => null);
-    if (selectedMediaItem != null) return playMediaItem(selectedMediaItem);
-    return Future.value();
+    if (mediaId.startsWith('history_')) return;
+    var selectedMediaItem = stationsMediaItems.value.cast<MediaItem?>()
+        .firstWhere((item) => item!.id == mediaId, orElse: () => null);
+
+    // Wait for stations to load if not yet available (release mode race condition)
+    if (selectedMediaItem == null && stationsMediaItems.value.isEmpty) {
+      _log('playFromMediaId: waiting for stations to load...');
+      try {
+        await stationsMediaItems.stream
+            .firstWhere((items) => items.isNotEmpty)
+            .timeout(const Duration(seconds: 10));
+        selectedMediaItem = stationsMediaItems.value.cast<MediaItem?>()
+            .firstWhere((item) => item!.id == mediaId, orElse: () => null);
+      } catch (e) {
+        _log('playFromMediaId: timeout waiting for stations: $e');
+      }
+    }
+
+    if (selectedMediaItem != null) {
+      // The system passes extras from getChildren (includes fromFavorites).
+      // Merge them into the media item so playMediaItem can read the flag.
+      if (extras != null && extras.containsKey('fromFavorites')) {
+        selectedMediaItem = selectedMediaItem.copyWith(
+          extras: {...?selectedMediaItem.extras, 'fromFavorites': extras['fromFavorites']},
+        );
+      }
+      return playMediaItem(selectedMediaItem);
+    }
   }
 
   // Events Tracking

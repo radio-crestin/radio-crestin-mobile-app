@@ -79,7 +79,9 @@ dependencies:
   objective_c: 9.1.0
   quick_actions: ^1.1.0
   connectivity_plus: ^6.1.5
+  google_fonts: ^6.2.1
   sqflite: ^2.4.2
+  flutter_svg: ^2.0.17
 
 dev_dependencies:
   dependency_validator: ^5.0.3
@@ -121,6 +123,8 @@ flutter:
   assets:
     - assets/icons/ic_foreground.png
     - assets/icons/ic_logo_filled.png
+    - assets/icons/carplay_logo.svg
+    - assets/icons/android_auto_logo.svg
     - assets/fallback-stations.json
 
 flutter_launcher_icons:

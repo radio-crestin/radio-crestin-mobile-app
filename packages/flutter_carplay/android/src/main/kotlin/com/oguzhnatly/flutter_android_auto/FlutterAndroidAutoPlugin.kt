@@ -38,9 +38,15 @@ class FlutterAndroidAutoPlugin : FlutterPlugin, EventChannel.StreamHandler {
     lateinit var channel: MethodChannel
     lateinit var eventChannel: EventChannel
 
+    // Per-instance sink so onCancel can remove the correct one
+    private var instanceSink: EventChannel.EventSink? = null
+
     companion object {
         private const val TAG = "FlutterAndroidAuto"
-        var events: EventChannel.EventSink? = null
+        // Multiple Flutter engines (main app + Android Auto) each get their own
+        // plugin instance. Broadcast events to ALL sinks so both engines receive
+        // connection change notifications.
+        private val eventSinks = mutableSetOf<EventChannel.EventSink>()
         var currentTemplate: Template? = null
         var currentScreen: MainScreen? = null
         var currentPlayerScreen: Screen? = null
@@ -51,11 +57,15 @@ class FlutterAndroidAutoPlugin : FlutterPlugin, EventChannel.StreamHandler {
         private var lastConnectionStatus: FAAConnectionTypes? = null
 
         fun sendEvent(type: String, data: Map<String, Any>) {
-            events?.success(
-                mapOf(
-                    "type" to type, "data" to data
-                )
-            )
+            val payload = mapOf("type" to type, "data" to data)
+            for (sink in eventSinks.toList()) {
+                try {
+                    sink.success(payload)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to send event to sink, removing: ${e.message}")
+                    eventSinks.remove(sink)
+                }
+            }
         }
 
         fun onAndroidAutoConnectionChange(status: FAAConnectionTypes) {
@@ -848,16 +858,30 @@ class FlutterAndroidAutoPlugin : FlutterPlugin, EventChannel.StreamHandler {
     }
 
     override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
-        FlutterAndroidAutoPlugin.events = events
+        instanceSink = events
+        events?.let { eventSinks.add(it) }
+        // Replay last connection status so late Dart subscribers don't miss
+        // the initial connect event (mirrors iOS FCPStreamHandlerPlugin behavior).
+        lastConnectionStatus?.let { status ->
+            Log.d(TAG, "Replaying last connection status on subscribe: $status")
+            events?.success(
+                mapOf(
+                    "type" to FAAChannelTypes.onAndroidAutoConnectionChange.name,
+                    "data" to mapOf("status" to status.name)
+                )
+            )
+        }
     }
 
     override fun onCancel(arguments: Any?) {
-        events?.endOfStream()
+        instanceSink?.let { eventSinks.remove(it) }
+        instanceSink = null
     }
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         channel.setMethodCallHandler(null)
         eventChannel.setStreamHandler(null)
-        lastConnectionStatus = null
+        instanceSink?.let { eventSinks.remove(it) }
+        instanceSink = null
     }
 }

@@ -51,6 +51,20 @@ class StationDataService {
   final BehaviorSubject<Query$GetStations$station_groups?> selectedStationGroup =
       BehaviorSubject.seeded(null);
 
+  /// When true, next/previous navigation cycles through favorites first,
+  /// then falls through to the full sorted list.
+  bool startedFromFavorites = false;
+
+  /// Cached sort order (list of slugs). Keeps the station order stable
+  /// during the session. Only invalidated on manual refresh or sort change.
+  List<String>? _cachedSortOrder;
+  StationSortOption? _cachedSortOption;
+  int _cachedStationCount = 0;
+
+  /// Emits whenever the sort cache is invalidated, so listeners (CarPlay,
+  /// Android Auto) can rebuild their station lists with the new order.
+  final PublishSubject<void> sortOrderChanged = PublishSubject<void>();
+
   // Constants
   static const _favoriteStationsKey = 'favoriteStationSlugs';
   static const _cachedStationsKey = 'cached_stations_data';
@@ -88,6 +102,7 @@ class StationDataService {
   /// Called on init, every 30 minutes, and on app resume from background.
   Future<void> refreshStations() async {
     _log("Full refresh triggered");
+    invalidateSortCache();
     await _fetchStationsWithMetadata();
     _lastFullRefreshTime = DateTime.now();
     _lastFetchTimestamp = getRoundedTimestamp();
@@ -516,10 +531,35 @@ class StationDataService {
   /// Returns stations sorted by the user's saved sort preference.
   /// This is THE single source of truth for station order across
   /// phone, CarPlay, and Android Auto.
+  ///
+  /// The sort order is cached so it stays stable during the session.
+  /// It only re-sorts on manual refresh, sort option change, or when
+  /// the station set changes (new/removed stations).
   List<Station> getSortedStations() {
     final allStations = filteredStations.value;
     if (allStations.isEmpty) return allStations;
     final sortOption = StationSortService.loadSavedSort();
+
+    // Check if the cached order is still valid
+    final cacheValid = _cachedSortOrder != null &&
+        _cachedSortOption == sortOption &&
+        _cachedStationCount == allStations.length;
+
+    if (cacheValid) {
+      // Reorder current stations by the cached slug order, preserving
+      // fresh metadata (listeners, now_playing, etc.)
+      final stationMap = {for (final s in allStations) s.slug: s};
+      final result = <Station>[];
+      for (final slug in _cachedSortOrder!) {
+        final station = stationMap.remove(slug);
+        if (station != null) result.add(station);
+      }
+      // Append any new stations not in the cache (e.g. added since last sort)
+      result.addAll(stationMap.values);
+      return result;
+    }
+
+    // Cache miss — compute fresh sort
     // Refresh play counts from disk so the Android Auto engine (separate isolate)
     // sees counts written by the phone engine during the current session.
     final playCountService = GetIt.instance.isRegistered<PlayCountService>()
@@ -528,28 +568,59 @@ class StationDataService {
     playCountService?.refresh();
     final playCounts = playCountService?.playCounts ?? <String, int>{};
     final favSlugs = favoriteStationSlugs.value;
-    return StationSortService.sort(
+    final sorted = StationSortService.sort(
       stations: allStations,
       sortBy: sortOption,
       playCounts: playCounts,
       favoriteSlugs: favSlugs,
     ).sorted;
+
+    // Cache the order
+    _cachedSortOrder = sorted.map<String>((s) => s.slug).toList();
+    _cachedSortOption = sortOption;
+    _cachedStationCount = allStations.length;
+
+    return sorted;
   }
 
-  /// Returns the next station in the sorted list after [currentSlug].
+  /// Invalidates the cached sort order, forcing a re-sort on the next call
+  /// to [getSortedStations]. Call this on manual refresh or sort option change.
+  void invalidateSortCache() {
+    _cachedSortOrder = null;
+    _cachedSortOption = null;
+    _cachedStationCount = 0;
+    sortOrderChanged.add(null);
+  }
+
+  /// Builds the navigation playlist: if the user started from favorites,
+  /// favorites come first (in sorted order), then the remaining stations.
+  /// Otherwise, returns the full sorted list.
+  List<Station> _getNavigationPlaylist() {
+    final sorted = getSortedStations();
+    if (!startedFromFavorites) return sorted;
+
+    final favSlugs = favoriteStationSlugs.value;
+    if (favSlugs.isEmpty) return sorted;
+
+    final favorites = sorted.where((s) => favSlugs.contains(s.slug)).toList();
+    final others = sorted.where((s) => !favSlugs.contains(s.slug)).toList();
+    return [...favorites, ...others];
+  }
+
+  /// Returns the next station in the navigation playlist after [currentSlug].
   /// Wraps around to the first station at the end.
   Station? getNextStation(String currentSlug) {
-    final playlist = getSortedStations();
+    final playlist = _getNavigationPlaylist();
     if (playlist.isEmpty) return null;
     final idx = playlist.indexWhere((s) => s.slug == currentSlug);
     if (idx < 0) return playlist.first;
     return playlist[(idx + 1) % playlist.length];
   }
 
-  /// Returns the previous station in the sorted list before [currentSlug].
+  /// Returns the previous station in the navigation playlist before [currentSlug].
   /// Wraps around to the last station at the beginning.
   Station? getPreviousStation(String currentSlug) {
-    final playlist = getSortedStations();
+    final playlist = _getNavigationPlaylist();
     if (playlist.isEmpty) return null;
     final idx = playlist.indexWhere((s) => s.slug == currentSlug);
     if (idx <= 0) return playlist.last;

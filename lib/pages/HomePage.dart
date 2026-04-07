@@ -6,6 +6,7 @@ import 'dart:io' show Platform;
 import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_sticky_header/flutter_sticky_header.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:radio_crestin/appAudioHandler.dart';
 import 'package:radio_crestin/components/FullAudioPlayer.dart';
 import 'package:radio_crestin/widgets/share_promotion_card.dart';
@@ -24,11 +25,12 @@ import '../globals.dart' as globals;
 import '../main.dart';
 import '../queries/getStations.graphql.dart';
 import '../services/network_service.dart';
-import '../services/play_count_service.dart';
 import '../services/station_data_service.dart';
 import '../services/station_sort_service.dart';
 import '../widgets/connectivity_banner.dart';
 import '../widgets/bottom_toast.dart';
+import '../widgets/promo_notification_card.dart';
+import '../services/promo_notification_service.dart';
 import '../types/Station.dart';
 import '../utils/PositionRetainedScrollPhysics.dart';
 import '../widgets/song_history_modal.dart';
@@ -93,7 +95,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   OverlayEntry? _activeConnectionToast;
   final ValueNotifier<double> _panelSlide = ValueNotifier(0.0);
   StationSortOption _sortOption = StationSortOption.recommended;
-  final PlayCountService _playCountService = getIt<PlayCountService>();
+  PromoNotification? _currentPromoNotification;
 
   @override
   void initState() {
@@ -201,6 +203,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkSharePromotionVisibility();
       _loadShareLinkData();
+      _loadPromoNotification();
     });
   }
 
@@ -247,6 +250,30 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (mounted && shouldShow != _showSharePromotion) {
       setState(() {
         _showSharePromotion = shouldShow;
+      });
+    }
+  }
+
+  void _loadPromoNotification() {
+    final prefs = getIt<SharedPreferences>();
+    final service = PromoNotificationService(prefs);
+    final next = service.getNextNotification();
+    if (mounted && next != _currentPromoNotification) {
+      setState(() {
+        _currentPromoNotification = next;
+      });
+    }
+  }
+
+  Future<void> _dismissPromoNotification() async {
+    final notification = _currentPromoNotification;
+    if (notification == null) return;
+    final prefs = getIt<SharedPreferences>();
+    final service = PromoNotificationService(prefs);
+    await service.dismiss(notification.id);
+    if (mounted) {
+      setState(() {
+        _currentPromoNotification = null;
       });
     }
   }
@@ -417,6 +444,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         _sortOption = option;
                       });
                       StationSortService.saveSortOption(option);
+                      _stationDataService.invalidateSortCache();
                       Navigator.pop(context);
                     },
                   );
@@ -568,16 +596,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       _stationDataService.onAppResumed();
       // Check for pending song history action (from notification button tap)
       _checkPendingSongHistory();
-      // Auto-play if the "always play" toggle is enabled and not already playing.
-      // Skip if car is connected — the user is controlling playback from the car.
-      try {
-        if (!_audioHandler.isPlayingOrConnecting && !_audioHandler.isCarConnected) {
-          autoPlayProcessed = false;
-          playerAutoplay();
-        }
-      } catch (e) {
-        developer.log('Error autoplaying on resume: $e');
-      }
+      // Autoplay is handled exclusively in initState() (cold start).
+      // Returning from background should NEVER trigger autoplay.
     } else if (state == AppLifecycleState.paused) {
       // App went to background — keep polling if car is connected (user sees
       // metadata on car screen). Otherwise pause to save data/battery.
@@ -670,19 +690,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             final stationGroups = snapshot.data?.stationGroups ?? [];
             final isDraggable = snapshot.data?.isDraggable ?? true;
             final selectedStationGroup = snapshot.data?.selectedStationGroup;
-            final rawFilteredStations = snapshot.data?.filteredStations ?? [];
             final favoriteSlugs = snapshot.data?.favoriteSlugs ?? [];
 
-            // Apply sorting to filtered stations
-            final sortResult = StationSortService.sort(
-              stations: rawFilteredStations,
-              sortBy: _sortOption,
-              playCounts: _playCountService.playCounts,
-              favoriteSlugs: favoriteSlugs,
-            );
-            final filteredStations = sortResult.sorted;
+            // Apply sorting to filtered stations (cached — stable during session)
+            final filteredStations = _stationDataService.getSortedStations();
 
             final favoriteStations = filteredStations.where((station) => favoriteSlugs.contains(station.slug)).toList();
+            final nonFavoriteStations = filteredStations.where((station) => !favoriteSlugs.contains(station.slug)).toList();
 
             return Stack(
               children: [
@@ -727,10 +741,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             width: 40,
                           ),
                           const SizedBox(width: 10),
-                          const Expanded(
+                          Expanded(
                             child: Text(
                               "Radio Creștin",
-                              style: TextStyle(fontSize: 21),
+                              style: GoogleFonts.nunito(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.3,
+                              ),
                             ),
                           ),
                           const SizedBox(width: 4),
@@ -827,6 +845,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           physics: const PositionRetainedScrollPhysics().applyTo(const AlwaysScrollableScrollPhysics()),
                           cacheExtent: 300.0,
                           slivers: <Widget>[
+                          if (_currentPromoNotification != null)
+                            SliverToBoxAdapter(
+                              child: PromoNotificationCard(
+                                notification: _currentPromoNotification!,
+                                onDismiss: _dismissPromoNotification,
+                              ),
+                            ),
                           if (_showSharePromotion)
                             SliverToBoxAdapter(
                               child: SharePromotionCard(
@@ -864,9 +889,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                     audioHandler: _audioHandler,
                                     panelController: null,
                                     favoriteSlugs: favoriteSlugs,
+                                    isFavoritesList: true,
                                   )),
                             ),
-                          if (stations.isNotEmpty)
+                          if (nonFavoriteStations.isNotEmpty)
                             SliverStickyHeader(
                               header: Container(
                                 height: 60.0,
@@ -926,7 +952,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                               sliver: SliverPadding(
                                   padding: EdgeInsets.only(bottom: Platform.isIOS ? 80.0 : 110.0),
                                   sliver: StationsList(
-                                    stations: filteredStations,
+                                    stations: nonFavoriteStations,
                                     currentStation: currentStation,
                                     audioHandler: _audioHandler,
                                     panelController: null,

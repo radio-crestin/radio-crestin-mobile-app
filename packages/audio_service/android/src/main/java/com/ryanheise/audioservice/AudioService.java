@@ -106,8 +106,36 @@ public class AudioService extends MediaBrowserServiceCompat {
     private static List<MediaSessionCompat.QueueItem> queue = new ArrayList<>();
     private static final Map<String, MediaMetadataCompat> mediaMetadataCache = new HashMap<>();
 
+    // Holds onLoadChildren requests that arrived before the Flutter plugin
+    // connected (listener == null). Processed once init() is called.
+    private static class PendingOnLoadChildren {
+        final String parentMediaId;
+        final Result<List<MediaBrowserCompat.MediaItem>> result;
+        final Bundle options;
+        PendingOnLoadChildren(String parentMediaId, Result<List<MediaBrowserCompat.MediaItem>> result, Bundle options) {
+            this.parentMediaId = parentMediaId;
+            this.result = result;
+            this.options = options;
+        }
+    }
+    private static final List<PendingOnLoadChildren> pendingOnLoadChildrenRequests = new ArrayList<>();
+
     public static void init(ServiceListener listener) {
         AudioService.listener = listener;
+        // Process any onLoadChildren requests that arrived before the listener
+        // was ready (race condition: Android Auto connects before Flutter init).
+        if (instance != null) {
+            instance.processPendingOnLoadChildren();
+        }
+    }
+
+    private void processPendingOnLoadChildren() {
+        if (listener == null) return;
+        List<PendingOnLoadChildren> snapshot = new ArrayList<>(pendingOnLoadChildrenRequests);
+        pendingOnLoadChildrenRequests.clear();
+        for (PendingOnLoadChildren pending : snapshot) {
+            listener.onLoadChildren(pending.parentMediaId, pending.result, pending.options);
+        }
     }
 
     public static int toKeyCode(long action) {
@@ -360,6 +388,11 @@ public class AudioService extends MediaBrowserServiceCompat {
     @Override
     public void onDestroy() {
         super.onDestroy();
+        // Clean up any pending deferred results
+        for (PendingOnLoadChildren pending : pendingOnLoadChildrenRequests) {
+            pending.result.sendResult(new ArrayList<>());
+        }
+        pendingOnLoadChildrenRequests.clear();
         if (listener != null) {
             listener.onDestroy();
             listener = null;
@@ -450,6 +483,14 @@ public class AudioService extends MediaBrowserServiceCompat {
 
     PlaybackStateCompat.CustomAction createCustomAction(MediaControl control) {
         int iconId = getResourceId(control.icon);
+        // Guard against resource shrinking removing drawables that are only
+        // referenced by string name (e.g. from Dart MediaControl.custom).
+        // Without this, CustomAction.Builder throws IllegalArgumentException
+        // which crashes the entire setState() call.
+        if (iconId == 0) {
+            System.err.println("AudioService: drawable not found: " + control.icon + " (possibly removed by resource shrinking — add to res/raw/keep.xml)");
+            return null;
+        }
         if (control.customAction != null) {
             return new PlaybackStateCompat.CustomAction.Builder(control.customAction.name, control.label, iconId)
                 .setExtras(mapToBundle(control.customAction.extras))
@@ -844,7 +885,10 @@ public class AudioService extends MediaBrowserServiceCompat {
     @Override
     public void onLoadChildren(final String parentMediaId, final Result<List<MediaBrowserCompat.MediaItem>> result, Bundle options) {
         if (listener == null) {
-            result.sendResult(new ArrayList<>());
+            // Defer the result instead of returning empty. Android Auto can
+            // connect before the Flutter plugin is ready in release builds.
+            result.detach();
+            pendingOnLoadChildrenRequests.add(new PendingOnLoadChildren(parentMediaId, result, options));
             return;
         }
         listener.onLoadChildren(parentMediaId, result, options);

@@ -91,12 +91,30 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     final hasYoutubeLink = (currentStation != null &&
         (currentStation!.songArtist.isNotEmpty || currentStation!.songTitle.isNotEmpty));
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = Theme.of(context).scaffoldBackgroundColor;
+
     return Container(
       decoration: BoxDecoration(
-        color: Theme.of(context).scaffoldBackgroundColor,
         borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(16.0),
           topRight: Radius.circular(16.0),
+        ),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: isDark
+              ? [
+                  const Color(0xFF2C1018),
+                  const Color(0xFF1A0A0F),
+                  bgColor,
+                ]
+              : [
+                  const Color(0xFFFCE4EC),
+                  const Color(0xFFF8BBD0).withValues(alpha: 0.3),
+                  bgColor,
+                ],
+          stops: const [0.0, 0.35, 0.7],
         ),
       ),
       child: MediaQuery.removePadding(
@@ -211,93 +229,180 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                 ),
               ),
             ),
-            const Spacer(),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: <Widget>[
-                InkWell(
-                  onTap: () {
-                    _playButtonKey.currentState?.notifyWillPlay();
-                    widget.audioHandler.skipToPrevious();
-                  },
-                  child: Padding(
-                    padding: EdgeInsets.all(10.0),
-                    child: Icon(
-                      Icons.skip_previous,
-                      size: 42,
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 28.0),
-                AnimatedPlayButton(
-                  key: _playButtonKey,
-                  playbackStateStream: widget.audioHandler.playbackState,
-                  iconSize: 54,
-                  iconColor: Theme.of(context).colorScheme.onPrimary,
-                  backgroundColor: Theme.of(context).bottomAppBarTheme.color,
-                  onPlay: widget.audioHandler.play,
-                  onPause: widget.audioHandler.pause,
-                  onStop: widget.audioHandler.stop,
-                ),
-                const SizedBox(width: 28.0),
-                InkWell(
-                  onTap: () {
-                    _playButtonKey.currentState?.notifyWillPlay();
-                    widget.audioHandler.skipToNext();
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.all(10.0),
-                    child: Icon(
-                      Icons.skip_next_rounded,
-                      size: 42,
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const Spacer(),
-            // Row 1: like, dislike, share
-            Builder(builder: (context) {
-              final songId = currentStation?.songId ?? -1;
-              final likeStatus = GetIt.instance<SongLikeService>().getLikeStatus(songId);
-              return Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: <Widget>[
-                  _buildActionButton(
-                    context,
-                    icon: likeStatus == 1 ? Icons.thumb_up : Icons.thumb_up_outlined,
-                    label: 'like',
-                    isActive: likeStatus == 1,
-                    onTap: () async {
-                      if (currentStation == null) return;
-                      await widget.audioHandler.customAction('likeSong');
-                      if (mounted) setState(() {});
-                    },
-                  ),
-                  _buildActionButton(
-                    context,
-                    icon: likeStatus == -1 ? Icons.thumb_down : Icons.thumb_down_outlined,
-                    label: 'dislike',
-                    isActive: likeStatus == -1,
-                    onTap: () async {
-                      if (currentStation == null) return;
-                      await widget.audioHandler.customAction('dislikeSong');
-                      if (mounted) setState(() {});
-                    },
-                  ),
-                  _buildActionButton(
-                    context,
-                    icon: Icons.share_outlined,
-                    label: 'share',
-                    onTap: () => _showShareDialog(context),
+            // Centered section: chips + transport controls
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Chip row: [like | dislike] ---- [share]
+                  Builder(builder: (context) {
+                    final songId = currentStation?.songId ?? -1;
+                    final likeStatus = GetIt.instance<SongLikeService>().getLikeStatus(songId);
+                    final chipBg = isDark
+                        ? Colors.white.withValues(alpha: 0.12)
+                        : Colors.black.withValues(alpha: 0.08);
+                    final chipRadius = BorderRadius.circular(24);
+
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                      child: Row(
+                        children: [
+                          // Like chip
+                          InkWell(
+                            borderRadius: chipRadius,
+                            onTap: () => _showReviewModal(context, initialStars: 5),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: chipBg,
+                                borderRadius: chipRadius,
+                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 10.0),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    likeStatus == 1 ? Icons.thumb_up : Icons.thumb_up_outlined,
+                                    size: 20,
+                                    color: likeStatus == 1
+                                        ? Theme.of(context).primaryColor
+                                        : Theme.of(context).colorScheme.onSurface,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Îmi place',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: likeStatus == 1
+                                          ? Theme.of(context).primaryColor
+                                          : Theme.of(context).colorScheme.onSurface,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          // Dislike chip
+                          InkWell(
+                            borderRadius: chipRadius,
+                            onTap: () => _showReviewModal(context, initialStars: 1),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: chipBg,
+                                borderRadius: chipRadius,
+                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 10.0),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    likeStatus == -1 ? Icons.thumb_down : Icons.thumb_down_outlined,
+                                    size: 20,
+                                    color: likeStatus == -1
+                                        ? Theme.of(context).primaryColor
+                                        : Theme.of(context).colorScheme.onSurface,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Nu îmi place',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: likeStatus == -1
+                                          ? Theme.of(context).primaryColor
+                                          : Theme.of(context).colorScheme.onSurface,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          // Share pill
+                          InkWell(
+                            borderRadius: chipRadius,
+                            onTap: () => _showShareDialog(context),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: chipBg,
+                                borderRadius: chipRadius,
+                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 10.0),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.share_outlined,
+                                    size: 20,
+                                    color: Theme.of(context).colorScheme.onSurface,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Trimite',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Theme.of(context).colorScheme.onSurface,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                  const SizedBox(height: 24.0),
+                  // Transport controls: prev | play/pause | next
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: <Widget>[
+                      InkWell(
+                        onTap: () {
+                          _playButtonKey.currentState?.notifyWillPlay();
+                          widget.audioHandler.skipToPrevious();
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.all(10.0),
+                          child: Icon(
+                            Icons.skip_previous,
+                            size: 42,
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 28.0),
+                      AnimatedPlayButton(
+                        key: _playButtonKey,
+                        playbackStateStream: widget.audioHandler.playbackState,
+                        iconSize: 54,
+                        iconColor: Theme.of(context).colorScheme.onPrimary,
+                        backgroundColor: Theme.of(context).bottomAppBarTheme.color,
+                        onPlay: widget.audioHandler.play,
+                        onPause: widget.audioHandler.pause,
+                        onStop: widget.audioHandler.stop,
+                      ),
+                      const SizedBox(width: 28.0),
+                      InkWell(
+                        onTap: () {
+                          _playButtonKey.currentState?.notifyWillPlay();
+                          widget.audioHandler.skipToNext();
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.all(10.0),
+                          child: Icon(
+                            Icons.skip_next_rounded,
+                            size: 42,
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
-              );
-            }),
-            const SizedBox(height: 4),
-            // Row 2: favorit, recent, somn, youtube
+              ),
+            ),
+            const SizedBox(height: 8.0),
+            // Bottom row: favorit, recent, somn, youtube
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: <Widget>[
@@ -420,6 +525,35 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
           ],
         ),
       ),
+    );
+  }
+
+  void _showReviewModal(BuildContext context, {required int initialStars}) async {
+    if (currentStation == null) return;
+    final songId = currentStation!.songId;
+    final likeService = GetIt.instance<SongLikeService>();
+    final currentStatus = likeService.getLikeStatus(songId);
+    // Check if this tap is removing an existing like/dislike
+    final isRemoving = (initialStars >= 4 && currentStatus == 1) ||
+        (initialStars < 4 && currentStatus == -1);
+    // Toggle the like/dislike status
+    if (initialStars >= 4) {
+      await widget.audioHandler.customAction('likeSong');
+    } else {
+      await widget.audioHandler.customAction('dislikeSong');
+    }
+    if (mounted) setState(() {});
+    // Only show review modal when adding, not when removing
+    if (isRemoving) return;
+    if (!context.mounted) return;
+    ReviewModal.show(
+      context,
+      stationId: currentStation!.id,
+      stationTitle: currentStation!.title,
+      songId: currentStation!.songId,
+      songTitle: currentStation!.songTitle,
+      songArtist: currentStation!.songArtist,
+      initialStars: initialStars,
     );
   }
 

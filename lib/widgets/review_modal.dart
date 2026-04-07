@@ -11,6 +11,7 @@ class ReviewModal extends StatefulWidget {
   final int? songId;
   final String? songTitle;
   final String? songArtist;
+  final int initialStars;
 
   const ReviewModal({
     super.key,
@@ -19,6 +20,7 @@ class ReviewModal extends StatefulWidget {
     this.songId,
     this.songTitle,
     this.songArtist,
+    this.initialStars = 0,
   });
 
   static Future<bool?> show(
@@ -28,6 +30,7 @@ class ReviewModal extends StatefulWidget {
     int? songId,
     String? songTitle,
     String? songArtist,
+    int initialStars = 0,
   }) {
     return showModalBottomSheet<bool>(
       context: context,
@@ -40,6 +43,7 @@ class ReviewModal extends StatefulWidget {
         songId: songId,
         songTitle: songTitle,
         songArtist: songArtist,
+        initialStars: initialStars,
       ),
     );
   }
@@ -49,9 +53,18 @@ class ReviewModal extends StatefulWidget {
 }
 
 class _ReviewModalState extends State<ReviewModal> {
-  int _selectedStars = 0;
+  late int _selectedStars = widget.initialStars;
   final _messageController = TextEditingController();
   bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Auto-submit immediately when opened with prefilled stars
+    if (widget.initialStars > 0) {
+      _submitSilently();
+    }
+  }
 
   @override
   void dispose() {
@@ -80,6 +93,24 @@ class _ReviewModalState extends State<ReviewModal> {
     );
   }
 
+  /// Submit silently in the background (no loading state, no toast, no close).
+  /// Used for the auto-submit when the modal opens.
+  Future<void> _submitSilently() async {
+    if (_selectedStars == 0) return;
+    try {
+      await ReviewService.submitReview(
+        stationId: widget.stationId,
+        stars: _selectedStars,
+        message: '',
+        userIdentifier: _getUserIdentifier(),
+        songId: widget.songId,
+      );
+    } catch (_) {
+      // Silently ignore — user can still submit manually via the button
+    }
+  }
+
+  /// Submit with UI feedback — overrides the previous silent submission.
   Future<void> _submit() async {
     if (_selectedStars == 0 || _isSubmitting) return;
 
@@ -212,50 +243,6 @@ class _ReviewModalState extends State<ReviewModal> {
                   ],
                 ),
                 const SizedBox(height: 24),
-                // Stars section
-                Text(
-                  'Evaluarea ta',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: isDark ? Colors.white60 : Colors.black54,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(5, (index) {
-                    final starIndex = index + 1;
-                    return GestureDetector(
-                      onTap: () => setState(() => _selectedStars = starIndex),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 6),
-                        child: Icon(
-                          starIndex <= _selectedStars
-                              ? Icons.star_rounded
-                              : Icons.star_outline_rounded,
-                          size: 40,
-                          color: starIndex <= _selectedStars
-                              ? const Color(0xFFED8A19)
-                              : isDark ? Colors.white24 : Colors.black26,
-                        ),
-                      ),
-                    );
-                  }),
-                ),
-                const SizedBox(height: 4),
-                Center(
-                  child: Text(
-                    _selectedStars == 0
-                        ? 'Selectează o evaluare'
-                        : '$_selectedStars ${_selectedStars == 1 ? 'stea' : 'stele'}',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: isDark ? Colors.white38 : Colors.black38,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
                 // Message section
                 Text(
                   'Mesaj (opțional)',
@@ -276,7 +263,7 @@ class _ReviewModalState extends State<ReviewModal> {
                     color: theme.colorScheme.onSurface,
                   ),
                   decoration: InputDecoration(
-                    hintText: 'Spune-ne părerea ta despre acest radio...',
+                    hintText: 'Spune-ne părerea ta despre această melodie...',
                     hintStyle: TextStyle(
                       fontSize: 14,
                       color: isDark ? Colors.white24 : Colors.black26,
@@ -302,11 +289,29 @@ class _ReviewModalState extends State<ReviewModal> {
                       borderSide: BorderSide(color: AppColors.primary, width: 1.5),
                     ),
                     contentPadding: const EdgeInsets.all(14),
-                    counterStyle: TextStyle(
-                      fontSize: 11,
-                      color: isDark ? Colors.white30 : Colors.black26,
-                    ),
+                    counterText: '',
                   ),
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Recenziile vor fi vizibile tuturor utilizatorilor aplicației.',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: isDark ? Colors.white30 : Colors.black26,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '${_messageController.text.length}/500',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isDark ? Colors.white30 : Colors.black26,
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 16),
                 // Submit button
@@ -314,7 +319,7 @@ class _ReviewModalState extends State<ReviewModal> {
                   width: double.infinity,
                   height: 48,
                   child: FilledButton(
-                    onPressed: _selectedStars > 0 && !_isSubmitting ? _submit : null,
+                    onPressed: !_isSubmitting ? _submit : null,
                     style: FilledButton.styleFrom(
                       backgroundColor: AppColors.primary,
                       disabledBackgroundColor: isDark
