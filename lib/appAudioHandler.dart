@@ -17,6 +17,7 @@ import 'package:radio_crestin/services/image_cache_service.dart';
 import 'package:radio_crestin/services/car_play_service.dart';
 import 'package:radio_crestin/services/play_count_service.dart';
 import 'package:radio_crestin/services/network_service.dart';
+import 'package:radio_crestin/services/review_service.dart';
 import 'package:radio_crestin/services/song_history_service.dart';
 import 'package:radio_crestin/services/station_data_service.dart';
 import 'package:radio_crestin/seek_mode_manager.dart';
@@ -432,6 +433,23 @@ class AppAudioHandler extends BaseAudioHandler {
         await setStationIsFavorite(station, !isFav);
         // Re-broadcast so notification icon updates immediately
         _broadcastState(player.playbackEvent);
+        break;
+      case 'dislikeSong':
+        final dislikeStation = currentStation.value;
+        if (dislikeStation == null) return;
+        final songTitle = dislikeStation.songTitle;
+        final songArtist = dislikeStation.songArtist;
+        final songInfo = songArtist.isNotEmpty
+            ? '$songTitle - $songArtist'
+            : (songTitle.isNotEmpty ? songTitle : dislikeStation.title);
+        final message = "I don't like: $songInfo";
+        _log('dislikeSong: $message');
+        ReviewService.submitReview(
+          stationId: dislikeStation.id,
+          stars: 1,
+          message: message,
+          userIdentifier: globals.deviceId,
+        );
         break;
       case 'showSongHistory':
         final station = currentStation.value;
@@ -900,13 +918,19 @@ class AppAudioHandler extends BaseAudioHandler {
 
     playbackState.add(playbackState.value.copyWith(
       controls: [
-        // [0] Previous
+        // [0] Dislike song (left side on Android Auto)
+        MediaControl.custom(
+          androidIcon: 'drawable/ic_thumb_down',
+          label: _isRomanian ? 'Nu îmi place' : 'Dislike',
+          name: 'dislikeSong',
+        ),
+        // [1] Previous
         MediaControl.skipToPrevious,
-        // [1] Play/Pause
+        // [2] Play/Pause
         if (playing) MediaControl.pause else MediaControl.play,
-        // [2] Next
+        // [3] Next
         MediaControl.skipToNext,
-        // [3] Favorite toggle
+        // [4] Favorite toggle (right side on Android Auto)
         MediaControl.custom(
           androidIcon: isFav ? 'drawable/ic_favorite' : 'drawable/ic_favorite_border',
           label: isFav
@@ -925,7 +949,7 @@ class AppAudioHandler extends BaseAudioHandler {
         MediaAction.setRating,
         MediaAction.skipToQueueItem,
       },
-      androidCompactActionIndices: const [0, 1, 2],
+      androidCompactActionIndices: const [1, 2, 3],
       processingState: _isConnecting
         ? AudioProcessingState.loading
         : const {
