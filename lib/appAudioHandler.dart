@@ -449,6 +449,7 @@ class AppAudioHandler extends BaseAudioHandler {
           stars: 1,
           message: message,
           userIdentifier: globals.deviceId,
+          songId: dislikeStation.songId,
         );
         break;
       case 'showSongHistory':

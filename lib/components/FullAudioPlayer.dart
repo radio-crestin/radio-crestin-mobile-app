@@ -337,6 +337,9 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                         context,
                         stationId: currentStation!.id,
                         stationTitle: currentStation!.title,
+                        songId: currentStation!.songId,
+                        songTitle: currentStation!.songTitle,
+                        songArtist: currentStation!.songArtist,
                       );
                     }
                   },

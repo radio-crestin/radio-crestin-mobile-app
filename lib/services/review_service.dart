@@ -12,20 +12,25 @@ class ReviewService {
     required int stars,
     required String message,
     required String userIdentifier,
+    int? songId,
   }) async {
     try {
+      final body = {
+        'station_id': stationId,
+        'message': message,
+        'stars': stars,
+        'user_identifier': userIdentifier,
+      };
+      if (songId != null && songId > 0) {
+        body['song_id'] = songId;
+      }
       final response = await http.post(
         _reviewsUrl,
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
-        body: jsonEncode({
-          'station_id': stationId,
-          'message': message,
-          'stars': stars,
-          'user_identifier': userIdentifier,
-        }),
+        body: jsonEncode(body),
       );
 
       if (response.statusCode != 200) {

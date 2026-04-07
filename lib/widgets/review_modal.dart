@@ -8,17 +8,26 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ReviewModal extends StatefulWidget {
   final int stationId;
   final String stationTitle;
+  final int? songId;
+  final String? songTitle;
+  final String? songArtist;
 
   const ReviewModal({
     super.key,
     required this.stationId,
     required this.stationTitle,
+    this.songId,
+    this.songTitle,
+    this.songArtist,
   });
 
   static Future<bool?> show(
     BuildContext context, {
     required int stationId,
     required String stationTitle,
+    int? songId,
+    String? songTitle,
+    String? songArtist,
   }) {
     return showModalBottomSheet<bool>(
       context: context,
@@ -28,6 +37,9 @@ class ReviewModal extends StatefulWidget {
       builder: (context) => ReviewModal(
         stationId: stationId,
         stationTitle: stationTitle,
+        songId: songId,
+        songTitle: songTitle,
+        songArtist: songArtist,
       ),
     );
   }
@@ -79,6 +91,7 @@ class _ReviewModalState extends State<ReviewModal> {
         stars: _selectedStars,
         message: _messageController.text.trim(),
         userIdentifier: _getUserIdentifier(),
+        songId: widget.songId,
       );
 
       if (!mounted) return;
@@ -152,6 +165,43 @@ class _ReviewModalState extends State<ReviewModal> {
                               color: isDark ? Colors.white54 : Colors.black54,
                             ),
                           ),
+                          if (widget.songTitle != null && widget.songTitle!.isNotEmpty) ...[
+                            const SizedBox(height: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? Colors.white.withValues(alpha: 0.06)
+                                    : Colors.black.withValues(alpha: 0.04),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.music_note_rounded,
+                                    size: 14,
+                                    color: AppColors.primary,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Flexible(
+                                    child: Text(
+                                      widget.songArtist != null && widget.songArtist!.isNotEmpty
+                                          ? '${widget.songTitle} - ${widget.songArtist}'
+                                          : widget.songTitle!,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                        color: isDark ? Colors.white70 : Colors.black54,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
