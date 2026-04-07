@@ -266,8 +266,11 @@ class CarPlayService {
       }
 
       final now = DateTime.now();
-      final items = history.history
+      final pastSongs = history.history
           .where((item) => item.hasSong && item.dateTime.isBefore(now))
+          .toList()
+        ..sort((a, b) => b.dateTime.compareTo(a.dateTime));
+      final items = pastSongs
           .take(30)
           .map((item) {
             final time = item.dateTime.toLocal();
