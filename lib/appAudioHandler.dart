@@ -894,13 +894,19 @@ class AppAudioHandler extends BaseAudioHandler {
 
     playbackState.add(playbackState.value.copyWith(
       controls: [
-        // [0] Previous
+        // [0] Recent songs (opens queue page on Android Auto)
+        MediaControl.custom(
+          androidIcon: 'drawable/ic_history',
+          label: _isRomanian ? 'Redate recent' : 'Recently played',
+          name: 'showSongHistory',
+        ),
+        // [1] Previous
         MediaControl.skipToPrevious,
-        // [1] Play/Pause
+        // [2] Play/Pause
         if (playing) MediaControl.pause else MediaControl.play,
-        // [2] Next
+        // [3] Next
         MediaControl.skipToNext,
-        // [3] Favorite toggle (expanded notification + Android Auto)
+        // [4] Favorite toggle
         MediaControl.custom(
           androidIcon: isFav ? 'drawable/ic_favorite' : 'drawable/ic_favorite_border',
           label: isFav
@@ -918,7 +924,7 @@ class AppAudioHandler extends BaseAudioHandler {
         MediaAction.seekBackward,
         MediaAction.setRating,
       },
-      androidCompactActionIndices: const [0, 1, 2],
+      androidCompactActionIndices: const [1, 2, 3],
       processingState: _isConnecting
         ? AudioProcessingState.loading
         : const {
