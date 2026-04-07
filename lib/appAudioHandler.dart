@@ -966,10 +966,12 @@ class AppAudioHandler extends BaseAudioHandler {
 
     playbackState.add(playbackState.value.copyWith(
       controls: [
-        // [0] Like song (filled when liked)
+        // [0] Like song
         MediaControl.custom(
-          androidIcon: isLiked ? 'drawable/ic_thumb_up' : 'drawable/ic_thumb_up_outline',
-          label: _isRomanian ? 'Îmi place' : 'Like',
+          androidIcon: 'drawable/ic_thumb_up',
+          label: isLiked
+              ? (_isRomanian ? 'Retrage like' : 'Remove like')
+              : (_isRomanian ? 'Îmi place' : 'Like'),
           name: 'likeSong',
         ),
         // [1] Previous
@@ -978,10 +980,12 @@ class AppAudioHandler extends BaseAudioHandler {
         if (playing) MediaControl.pause else MediaControl.play,
         // [3] Next
         MediaControl.skipToNext,
-        // [4] Dislike song (filled when disliked)
+        // [4] Dislike song
         MediaControl.custom(
-          androidIcon: isDisliked ? 'drawable/ic_thumb_down' : 'drawable/ic_thumb_down_outline',
-          label: _isRomanian ? 'Nu îmi place' : 'Dislike',
+          androidIcon: 'drawable/ic_thumb_down',
+          label: isDisliked
+              ? (_isRomanian ? 'Retrage dislike' : 'Remove dislike')
+              : (_isRomanian ? 'Nu îmi place' : 'Dislike'),
           name: 'dislikeSong',
         ),
       ],
