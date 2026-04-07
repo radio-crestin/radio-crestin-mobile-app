@@ -177,7 +177,7 @@ void main() {
   });
 
   group('Android Auto player - station display', () {
-    test('playing station gets play indicator prefix', () {
+    test('active station gets play indicator prefix', () {
       const currentSlug = 'station-1';
       final station = StationFactory.createStation(
         id: 1,
@@ -185,14 +185,31 @@ void main() {
         title: 'Test Radio',
       );
 
-      final isPlaying = station.slug == currentSlug;
+      // Active station shows ▶ regardless of play/pause state
+      final isActive = station.slug == currentSlug;
       final displayTitle =
-          isPlaying ? "▶ ${station.title}" : station.title;
+          isActive ? "▶ ${station.title}" : station.title;
 
       expect(displayTitle, '▶ Test Radio');
     });
 
-    test('non-playing station has no prefix', () {
+    test('active but paused station still shows prefix', () {
+      const currentSlug = 'station-1';
+      final station = StationFactory.createStation(
+        id: 1,
+        slug: 'station-1',
+        title: 'Test Radio',
+      );
+
+      // Paused but still the active station → shows ▶
+      final isActive = station.slug == currentSlug;
+      final displayTitle =
+          isActive ? "▶ ${station.title}" : station.title;
+
+      expect(displayTitle, '▶ Test Radio');
+    });
+
+    test('non-active station has no prefix', () {
       const currentSlug = 'station-2';
       final station = StationFactory.createStation(
         id: 1,
@@ -200,9 +217,9 @@ void main() {
         title: 'Test Radio',
       );
 
-      final isPlaying = station.slug == currentSlug;
+      final isActive = station.slug == currentSlug;
       final displayTitle =
-          isPlaying ? "▶ ${station.title}" : station.title;
+          isActive ? "▶ ${station.title}" : station.title;
 
       expect(displayTitle, 'Test Radio');
     });

@@ -6,10 +6,13 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:like_button/like_button.dart';
+import 'package:radio_crestin/theme.dart';
 import 'package:radio_crestin/pages/HomePage.dart';
+import 'package:radio_crestin/services/share_service.dart';
 import 'package:radio_crestin/widgets/share_handler.dart';
 import 'package:radio_crestin/widgets/review_modal.dart';
 import 'package:radio_crestin/widgets/song_history_modal.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:get_it/get_it.dart';
@@ -244,32 +247,10 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
               ],
             ),
             const Spacer(),
-            // Row 1: recent, somn, favorit
+            // Row 1: favorit, share
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: <Widget>[
-                _buildActionButton(
-                  context,
-                  icon: Icons.history,
-                  label: 'recent',
-                  onTap: () {
-                    if (currentStation != null) {
-                      SongHistoryModal.show(
-                        context,
-                        stationSlug: currentStation!.slug,
-                        stationTitle: currentStation!.title,
-                        stationThumbnailUrl: currentStation!.thumbnailUrl,
-                      );
-                    }
-                  },
-                ),
-                _buildActionButton(
-                  context,
-                  icon: Icons.nights_stay_sharp,
-                  label: 'somn',
-                  isActive: isTimerActive,
-                  onTap: () => showSleepTimerDialog(context),
-                ),
                 InkWell(
                   customBorder: const CircleBorder(),
                   onTap: () => _likeButtonKey.currentState?.onTap(),
@@ -300,21 +281,52 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                             },
                           ),
                         ),
-                        const Padding(
-                          padding: EdgeInsets.only(top: 8.0),
-                          child: Text('favorit', style: TextStyle(fontSize: 12)),
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8.0),
+                          child: Text('favorit', style: TextStyle(
+                            fontSize: 12,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          )),
                         ),
                       ],
                     ),
                   ),
                 ),
+                _buildActionButton(
+                  context,
+                  icon: Icons.share_outlined,
+                  label: 'share',
+                  onTap: () => _showShareDialog(context),
+                ),
               ],
             ),
             const SizedBox(height: 4),
-            // Row 2: recenzie, youtube, share
+            // Row 2: recent, somn, recenzie, youtube
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: <Widget>[
+                _buildActionButton(
+                  context,
+                  icon: Icons.history,
+                  label: 'recent',
+                  onTap: () {
+                    if (currentStation != null) {
+                      SongHistoryModal.show(
+                        context,
+                        stationSlug: currentStation!.slug,
+                        stationTitle: currentStation!.title,
+                        stationThumbnailUrl: currentStation!.thumbnailUrl,
+                      );
+                    }
+                  },
+                ),
+                _buildActionButton(
+                  context,
+                  icon: Icons.nights_stay_sharp,
+                  label: 'somn',
+                  isActive: isTimerActive,
+                  onTap: () => showSleepTimerDialog(context),
+                ),
                 _buildActionButton(
                   context,
                   icon: Icons.star_outline_rounded,
@@ -342,12 +354,6 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                     await launchUrl(Uri.parse(searchUrl), mode: LaunchMode.externalApplication);
                   },
                 ),
-                _buildActionButton(
-                  context,
-                  icon: Icons.share_outlined,
-                  label: 'share',
-                  onTap: () => _showShareDialog(context),
-                ),
               ],
             ),
             const SizedBox(height: 40.0),
@@ -366,10 +372,15 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     bool isEnabled = true,
   }) {
     final color = !isEnabled
-        ? Theme.of(context).colorScheme.onSurfaceVariant
+        ? Theme.of(context).disabledColor
         : isActive
             ? Theme.of(context).primaryColor
             : Theme.of(context).colorScheme.onSurface;
+    final labelColor = !isEnabled
+        ? Theme.of(context).disabledColor
+        : isActive
+            ? Theme.of(context).primaryColor
+            : Theme.of(context).colorScheme.onSurfaceVariant;
 
     return InkWell(
       customBorder: const CircleBorder(),
@@ -381,7 +392,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
             Icon(icon, color: color, size: 24),
             Padding(
               padding: const EdgeInsets.only(top: 8.0),
-              child: Text(label, style: TextStyle(fontSize: 12, color: color)),
+              child: Text(label, style: TextStyle(fontSize: 12, color: labelColor)),
             ),
           ],
         ),
@@ -394,11 +405,23 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     final shareUrl = slug != null && slug.isNotEmpty
         ? 'https://www.radiocrestin.ro/$slug'
         : 'https://www.radiocrestin.ro/descarca-aplicatia-radio-crestin';
+
     ShareHandler.shareApp(
       context: context,
       shareUrl: shareUrl,
-      shareMessage: 'Aplicația Radio Creștin:\n$shareUrl',
+      shareMessage: 'Instalează și tu aplicația Radio Creștin și ascultă peste 60 de stații de radio creștin:\n$shareUrl',
       stationName: currentStation?.title,
+      songName: currentStation?.songTitle,
+      songArtist: currentStation?.songArtist,
+      songId: currentStation?.songId,
+      showDialog: true,
+      shareLinkLoader: () async {
+        final prefs = await SharedPreferences.getInstance();
+        final deviceId = prefs.getString('device_id');
+        if (deviceId == null) return null;
+        final shareService = ShareService(widget.audioHandler.graphqlClient);
+        return shareService.getShareLink(deviceId);
+      },
     );
   }
 
@@ -479,13 +502,13 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   void setSleepTimer(BuildContext context, Duration duration) {
     Navigator.of(context).pop();
     Fluttertoast.showToast(
-        msg: "Radioul se va opri dupa ${duration.inMinutes} minute",
+        msg: "Radioul se va opri după ${duration.inMinutes} minute",
         toastLength: Toast.LENGTH_SHORT,
         gravity: ToastGravity.BOTTOM,
         timeInSecForIosWeb: 1,
-        backgroundColor: Colors.black,
+        backgroundColor: AppColors.primaryDark,
         textColor: Colors.white,
-        fontSize: 16.0);
+        fontSize: 14.0);
 
     setState(() {
       isTimerActive = true;
@@ -514,9 +537,9 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
           timeInSecForIosWeb: 1,
-          backgroundColor: Colors.black,
+          backgroundColor: AppColors.primaryDark,
           textColor: Colors.white,
-          fontSize: 16.0);
+          fontSize: 14.0);
     }
     Navigator.of(context).pop();
   }

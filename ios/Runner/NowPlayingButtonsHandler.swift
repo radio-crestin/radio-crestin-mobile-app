@@ -1,6 +1,7 @@
 import UIKit
 import Flutter
 import CarPlay
+import MediaPlayer
 
 @available(iOS 14.0, *)
 class NowPlayingButtonsHandler: NSObject, FlutterPlugin {
@@ -42,6 +43,25 @@ class NowPlayingButtonsHandler: NSObject, FlutterPlugin {
                 result(true)
             } else {
                 result(FlutterError(code: "INVALID_ARGUMENTS", message: "Missing isFavorite argument", details: nil))
+            }
+        case "syncPlaybackState":
+            // Explicitly update MPNowPlayingInfoCenter playback rate so
+            // CPNowPlayingTemplate.shared reflects the correct play/pause state.
+            // audio_service updates this via its own bridge, but the CarPlay scene
+            // may not pick up those updates in a multi-scene setup.
+            if let args = call.arguments as? [String: Any],
+               let isPlaying = args["isPlaying"] as? Bool {
+                let rate: Double = isPlaying ? 1.0 : 0.0
+                NSLog("NowPlayingButtonsHandler: syncPlaybackState isPlaying=\(isPlaying) rate=\(rate)")
+                var info = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
+                let oldRate = info[MPNowPlayingInfoPropertyPlaybackRate] as? Double ?? -1
+                NSLog("NowPlayingButtonsHandler: old playbackRate=\(oldRate), setting to \(rate)")
+                info[MPNowPlayingInfoPropertyPlaybackRate] = rate
+                info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = 0
+                MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+                result(true)
+            } else {
+                result(FlutterError(code: "INVALID_ARGUMENTS", message: "Missing isPlaying argument", details: nil))
             }
         default:
             result(FlutterMethodNotImplemented)

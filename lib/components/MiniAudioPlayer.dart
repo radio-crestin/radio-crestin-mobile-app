@@ -101,14 +101,15 @@ class MiniAudioPlayer extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8.0),
-                  AnimatedPlayButton(
-                    key: ValueKey('mini-play-${currentStation?.id}'),
-                    playbackStateStream: audioHandler.playbackState,
-                    iconSize: 36,
-                    iconColor: Theme.of(context).iconTheme.color!,
-                    onPlay: audioHandler.play,
-                    onPause: audioHandler.pause,
-                    onStop: audioHandler.stop,
+                  IgnoreDraggableWidget(
+                    child: AnimatedPlayButton(
+                      playbackStateStream: audioHandler.playbackState,
+                      iconSize: 36,
+                      iconColor: Theme.of(context).iconTheme.color!,
+                      onPlay: audioHandler.play,
+                      onPause: audioHandler.pause,
+                      onStop: audioHandler.stop,
+                    ),
                   ),
                 ],
               ),

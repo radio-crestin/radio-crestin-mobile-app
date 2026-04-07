@@ -8,7 +8,6 @@ import 'package:radio_crestin/widgets/share_handler.dart';
 import 'package:radio_crestin/utils/share_utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:device_info_plus/device_info_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class SharePromotionCard extends StatefulWidget {
@@ -391,46 +390,13 @@ class SharePromotionCardState extends State<SharePromotionCard> {
 
   void _shareToFacebook() async {
     final shareUrl = _getShareUrl();
-    final encodedUrl = Uri.encodeComponent(shareUrl);
-    final facebookUrl = 'https://www.facebook.com/sharer/sharer.php?u=$encodedUrl';
-    
-    if (await canLaunchUrl(Uri.parse(facebookUrl))) {
-      await launchUrl(Uri.parse(facebookUrl), mode: LaunchMode.externalApplication);
-    } else {
-      _shareGeneric(context);
-    }
+    await ShareHandler.shareToFacebook(shareUrl);
   }
 
   void _shareToWhatsApp() async {
     final message = _getShareMessage();
-    final encodedMessage = Uri.encodeComponent(message);
-    
-    // Try WhatsApp app first (allows contact selection)
-    final whatsappAppUrl = 'whatsapp://send?text=$encodedMessage';
-    
-    // Fallback to WhatsApp Web
-    final whatsappWebUrl = 'https://wa.me/?text=$encodedMessage';
-    
-    try {
-      // First try to open WhatsApp app which allows contact/group selection
-      if (await canLaunchUrl(Uri.parse(whatsappAppUrl))) {
-        await launchUrl(
-          Uri.parse(whatsappAppUrl), 
-          mode: LaunchMode.externalApplication,
-        );
-      } else if (await canLaunchUrl(Uri.parse(whatsappWebUrl))) {
-        // Fallback to WhatsApp Web
-        await launchUrl(
-          Uri.parse(whatsappWebUrl), 
-          mode: LaunchMode.externalApplication,
-        );
-      } else {
-        // Final fallback to generic share
-        _shareGeneric(context);
-      }
-    } catch (e) {
-      _shareGeneric(context);
-    }
+    final shareUrl = _getShareUrl();
+    await ShareHandler.shareToWhatsApp(message, shareUrl, widget.currentStationName);
   }
 
   void _shareGeneric(BuildContext context) {

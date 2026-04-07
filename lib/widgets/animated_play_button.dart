@@ -145,7 +145,10 @@ class AnimatedPlayButtonState extends State<AnimatedPlayButton> {
 
     final VoidCallback onTap;
     if (showSpinner) {
-      onTap = () { _setIntent(false); widget.onStop(); };
+      // During loading/buffering, tapping pauses (cancels in-flight play).
+      // Previously this called onStop() which killed the player entirely,
+      // making the button unresponsive after skip next.
+      onTap = () { _setIntent(false); widget.onPause(); };
     } else if (showPlaying) {
       onTap = () { _setIntent(false); widget.onPause(); };
     } else {

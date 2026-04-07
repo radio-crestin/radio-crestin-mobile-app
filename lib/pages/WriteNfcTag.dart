@@ -6,6 +6,7 @@ import 'package:flutter_nfc_kit/flutter_nfc_kit.dart';
 import 'package:ndef/ndef.dart' as ndef;
 import 'package:radio_crestin/appAudioHandler.dart';
 import 'package:radio_crestin/main.dart';
+import 'package:radio_crestin/theme.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class WriteNfcTagPage extends StatefulWidget {
@@ -99,9 +100,17 @@ class _WriteNfcTagPageState extends State<WriteNfcTagPage> {
                   ElevatedButton(
                     onPressed: () {
                       scaffoldMessenger.showSnackBar(
-                        const SnackBar(
-                          content: Text("Va rugam sa apropriati tag-ul NFC."),
-                          duration: Duration(seconds: 3),
+                        SnackBar(
+                          content: const Text(
+                            "Vă rugăm să apropiați tag-ul NFC.",
+                            style: TextStyle(color: Colors.white),
+                          ),
+                          backgroundColor: AppColors.primaryDark,
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          duration: const Duration(seconds: 3),
                         ),
                       );
                       FlutterNfcKit.poll().then((value) async {
@@ -110,9 +119,17 @@ class _WriteNfcTagPageState extends State<WriteNfcTagPage> {
                         await FlutterNfcKit.finish();
                         ScaffoldMessenger.of(context).hideCurrentSnackBar();
                         scaffoldMessenger.showSnackBar(
-                          const SnackBar(
-                            content: Text("Tag-ul NFC a fost inscriptionata."),
-                            duration: Duration(seconds: 3),
+                          SnackBar(
+                            content: const Text(
+                              "Tag-ul NFC a fost inscripționat.",
+                              style: TextStyle(color: Colors.white),
+                            ),
+                            backgroundColor: AppColors.primaryDark,
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            duration: const Duration(seconds: 3),
                           ),
                         );
                       });

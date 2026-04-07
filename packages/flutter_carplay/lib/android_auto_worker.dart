@@ -50,6 +50,9 @@ class FlutterAndroidAuto {
   Function()? _onPlayerFavoriteToggle;
   Function()? _onPlayerClosed;
 
+  /// Search callback.
+  Function(String query)? _onSearchTextChanged;
+
   void addListenerOnTabSelected(Function(String contentId) onTabSelected) {
     _onTabSelected = onTabSelected;
   }
@@ -72,6 +75,10 @@ class FlutterAndroidAuto {
 
   void addListenerOnPlayerClosed(Function() callback) {
     _onPlayerClosed = callback;
+  }
+
+  void addListenerOnSearchTextChanged(Function(String query) callback) {
+    _onSearchTextChanged = callback;
   }
 
   /// Creates an [FlutterAndroidAuto] and starts the connection.
@@ -140,6 +147,9 @@ class FlutterAndroidAuto {
           break;
         case FAAChannelTypes.onPlayerClosed:
           _onPlayerClosed?.call();
+          break;
+        case FAAChannelTypes.onSearchTextChanged:
+          _onSearchTextChanged?.call(event['data']['query'] as String? ?? '');
           break;
         default:
           break;

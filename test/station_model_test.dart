@@ -3,9 +3,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:radio_crestin/queries/getStations.graphql.dart';
 import 'package:radio_crestin/types/Station.dart';
 
+import 'package:radio_crestin/services/network_service.dart';
+
 import 'helpers/station_factory.dart';
 
 void main() {
+  setUpAll(() {
+    NetworkService();
+  });
   group('Station model', () {
     test('exposes correct id, slug, title, and order from raw data', () {
       final station = StationFactory.createStation(

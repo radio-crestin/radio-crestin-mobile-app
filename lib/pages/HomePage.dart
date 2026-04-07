@@ -31,6 +31,7 @@ import '../widgets/connectivity_banner.dart';
 import '../widgets/bottom_toast.dart';
 import '../types/Station.dart';
 import '../utils/PositionRetainedScrollPhysics.dart';
+import '../widgets/song_history_modal.dart';
 import 'SettingsPage.dart';
 
 class HomePage extends StatefulWidget {
@@ -88,6 +89,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Timer? _backOnlineTimer;
   StreamSubscription? _offlineSub;
   StreamSubscription? _connectionErrorSub;
+  StreamSubscription? _customEventSub;
   OverlayEntry? _activeConnectionToast;
   final ValueNotifier<double> _panelSlide = ValueNotifier(0.0);
   StationSortOption _sortOption = StationSortOption.recommended;
@@ -168,6 +170,31 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         isError: true,
         onDismissed: () { _activeConnectionToast = null; },
       );
+    });
+
+    // Listen for custom events from notification/Android Auto actions
+    _customEventSub = _audioHandler.customEvent.listen((event) {
+      if (!mounted) return;
+      if (event is Map && event['action'] == 'showSongHistory') {
+        final slug = event['stationSlug'] as String?;
+        final title = event['stationTitle'] as String?;
+        final thumbUrl = event['stationThumbnailUrl'] as String?;
+        if (slug != null && title != null) {
+          // Open full player panel, then show song history modal
+          if (slidingUpPanelController.isAttached) {
+            slidingUpPanelController.open();
+          }
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            SongHistoryModal.show(
+              context,
+              stationSlug: slug,
+              stationTitle: title,
+              stationThumbnailUrl: thumbUrl,
+            );
+          });
+        }
+      }
     });
 
     // Defer non-critical work to after first frame
@@ -270,6 +297,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _sub.cancel();
     _offlineSub?.cancel();
     _connectionErrorSub?.cancel();
+    _customEventSub?.cancel();
     _backOnlineTimer?.cancel();
     removeBottomToast(_activeConnectionToast);
     _panelSlide.dispose();
@@ -518,10 +546,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       // Full refresh + resume polling (picks up all changes while backgrounded)
       _stationDataService.onAppResumed();
       // Auto-play if the "always play" toggle is enabled and not already playing.
-      // Use isPlayingOrConnecting to avoid interrupting playback that is still
-      // buffering (e.g. during cold start where resumed fires before audio is ready).
+      // Skip if car is connected — the user is controlling playback from the car.
       try {
-        if (!_audioHandler.isPlayingOrConnecting) {
+        if (!_audioHandler.isPlayingOrConnecting && !_audioHandler.isCarConnected) {
           autoPlayProcessed = false;
           playerAutoplay();
         }
@@ -529,17 +556,21 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         developer.log('Error autoplaying on resume: $e');
       }
     } else if (state == AppLifecycleState.paused) {
-      // App went to background — on mobile data, always pause polling to save data.
-      // On WiFi, only pause if not playing.
-      if (_networkService.isOnMobileData.value || !_audioHandler.player.playing) {
+      // App went to background — keep polling if car is connected (user sees
+      // metadata on car screen). Otherwise pause to save data/battery.
+      final carConnected = _audioHandler.isCarConnected;
+      if (!carConnected && (_networkService.isOnMobileData.value || !_audioHandler.player.playing)) {
         _stationDataService.pausePolling();
       }
     } else if (state == AppLifecycleState.detached) {
-      // Stop the audio service when app is being terminated
-      try {
-        await _audioHandler.stop();
-      } catch (e) {
-        developer.log('Error stopping audio service on detach: $e');
+      // Stop the audio service when app is being terminated,
+      // but keep it alive if CarPlay/Android Auto is connected.
+      if (!_audioHandler.isCarConnected) {
+        try {
+          await _audioHandler.stop();
+        } catch (e) {
+          developer.log('Error stopping audio service on detach: $e');
+        }
       }
     }
   }
@@ -553,71 +584,33 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     return count.toString();
   }
 
-  Future<void> _shareApp(BuildContext context) async {
-    try {
-      // Get device ID
-      final prefs = getIt<SharedPreferences>();
-      String? deviceId = prefs.getString('device_id');
-      
-      if (deviceId == null) {
-        final DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
-        if (Platform.isAndroid) {
-          final androidInfo = await deviceInfo.androidInfo;
-          deviceId = androidInfo.id;
-        } else if (Platform.isIOS) {
-          final iosInfo = await deviceInfo.iosInfo;
-          deviceId = iosInfo.identifierForVendor;
-        } else {
-          deviceId = DateTime.now().millisecondsSinceEpoch.toString();
-        }
-        
-        if (deviceId != null) {
-          await prefs.setString('device_id', deviceId);
-        }
-      }
+  void _shareApp(BuildContext context) {
+    final currentStation = _audioHandler.currentStation.valueOrNull;
+    final slug = currentStation?.slug;
+    final fallbackUrl = slug != null && slug.isNotEmpty
+        ? 'https://www.radiocrestin.ro/$slug'
+        : 'https://www.radiocrestin.ro/descarca-aplicatia-radio-crestin';
 
-      // Get GraphQL client
-      final shareService = ShareService(_audioHandler.graphqlClient);
-      final shareLinkData = await shareService.getShareLink(deviceId!);
-      
-      if (shareLinkData != null) {
-        final currentStation = _audioHandler.currentStation.valueOrNull;
-        final shareUrl = shareLinkData.generateShareUrl(
-          stationSlug: currentStation?.slug,
-        );
-        final shareMessage = ShareUtils.formatShareMessage(
-          shareLinkData: shareLinkData,
-          stationName: currentStation?.title,
-          stationSlug: currentStation?.slug,
-        );
-
-        // Show dialog with share options
-        if (mounted) {
-          ShareHandler.shareApp(
-            context: context,
-            shareUrl: shareUrl,
-            shareMessage: shareMessage,
-            stationName: currentStation?.title,
-            shareLinkData: shareLinkData,
-            showDialog: true,
-          );
-        }
-      }
-    } catch (e) {
-      // Fallback to old method if something fails
-      if (mounted) {
-        final slug = _audioHandler.currentStation.valueOrNull?.slug;
-        final fallbackUrl = slug != null && slug.isNotEmpty
-            ? 'https://www.radiocrestin.ro/$slug'
-            : 'https://www.radiocrestin.ro/descarca-aplicatia-radio-crestin';
-        ShareHandler.shareApp(
-          context: context,
-          shareUrl: fallbackUrl,
-          shareMessage: 'Aplicația Radio Creștin:\n$fallbackUrl',
-          showDialog: false,
-        );
-      }
-    }
+    ShareHandler.shareApp(
+      context: context,
+      shareUrl: _shareLinkData?.generateShareUrl(stationSlug: slug, songId: currentStation?.songId) ?? fallbackUrl,
+      shareMessage: 'Instalează și tu aplicația Radio Creștin și ascultă peste 60 de stații de radio creștin:\n$fallbackUrl',
+      stationName: currentStation?.title,
+      songName: currentStation?.songTitle,
+      songArtist: currentStation?.songArtist,
+      songId: currentStation?.songId,
+      shareLinkData: _shareLinkData,
+      showDialog: true,
+      shareLinkLoader: _shareLinkData == null
+          ? () async {
+              final prefs = getIt<SharedPreferences>();
+              final deviceId = prefs.getString('device_id');
+              if (deviceId == null) return null;
+              final shareService = ShareService(_audioHandler.graphqlClient);
+              return shareService.getShareLink(deviceId);
+            }
+          : null,
+    );
   }
 
   @override
@@ -666,7 +659,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             );
             final filteredStations = sortResult.sorted;
 
-            final favoriteStations = stations.where((station) => favoriteSlugs.contains(station.slug)).toList();
+            final favoriteStations = filteredStations.where((station) => favoriteSlugs.contains(station.slug)).toList();
 
             return Stack(
               children: [
@@ -680,6 +673,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               onPanelSlide: (position) {
                 _panelSlide.value = position;
               },
+              onPanelClosed: () {
+                // SlidingUpPanel2 wraps the collapsed widget in IgnorePointer
+                // inside an AnimatedBuilder child, which is only rebuilt on
+                // parent rebuilds — not during animation frames. If the widget
+                // tree was last built while the panel was open, IgnorePointer
+                // stays ignoring=true even after close. Force a rebuild here
+                // so the mini player becomes tappable again.
+                if (mounted) setState(() {});
+              },
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(16.0),
                 topRight: Radius.circular(16.0),
@@ -689,246 +691,231 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           slidingUpPanelController.isPanelOpen)) ||
                   isDraggable,
               body: SafeArea(
-                child: RefreshIndicator(
-                  onRefresh: _handleRefresh,
-                  color: Theme.of(context).primaryColor,
-                  child: Scrollbar(
-                  child: CustomScrollView(
-                    physics: const PositionRetainedScrollPhysics().applyTo(const AlwaysScrollableScrollPhysics()),
-                    cacheExtent: 300.0,
-                    slivers: <Widget>[
-                    SliverAppBar(
-                      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-                      flexibleSpace: FlexibleSpaceBar(
-                        background: Container(color: Theme.of(context).scaffoldBackgroundColor),
-                      ),
-                      floating: true,
-                      centerTitle: true,
-                      toolbarHeight: 75,
-                      automaticallyImplyLeading: false,
-                      title: Container(
-                          margin: const EdgeInsets.only(top: 6),
-                          child: const Row(
-                            children: [
-                              Image(
-                                image: AssetImage('assets/icons/ic_logo_filled.png'),
-                                width: 40,
-                              ),
-                              SizedBox(width: 10),
-                              Text(
-                                "Radio Creștin",
-                                style: TextStyle(fontSize: 21),
-                              ),
-                            ],
-                          )),
-                      actions: [
-                        const SizedBox(width: 4),
-                        _buildRoundedIconButton(
-                          context: context,
-                          icon: Icons.search_rounded,
-                          tooltip: 'Caută o stație radio',
-                          onPressed: () {
-                            showDialog(
-                              context: context,
-                              builder: (BuildContext context) {
-                                return SelectDialog<Station>(
-                                  items: stations,
-                                  displayFunction: (Station station) => station.displayTitle,
-                                  searchFunction: (Station station) => station.displayTitle,
-                                  onItemSelected: (Station station) {
-                                    _audioHandler.playStation(station, playlist: stations);
-                                  },
-                                  itemBuilder: (context, station) {
-                                    return Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                      child: Row(
-                                        children: [
-                                          SizedBox(
-                                            width: 48,
-                                            height: 48,
-                                            child: ClipRRect(
-                                              borderRadius: BorderRadius.circular(10),
-                                              child: station.thumbnail,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Text(
-                                                  station.displayTitle,
-                                                  style: TextStyle(
-                                                    color: Theme.of(context).colorScheme.onSurface,
-                                                    fontWeight: FontWeight.w500,
-                                                    fontSize: 15,
-                                                  ),
-                                                  maxLines: 1,
-                                                  overflow: TextOverflow.ellipsis,
-                                                ),
-                                                if (station.songTitle != "")
-                                                  Padding(
-                                                    padding: const EdgeInsets.only(top: 2),
-                                                    child: Text(
-                                                      station.songArtist != ""
-                                                          ? "${station.songTitle} - ${station.songArtist}"
-                                                          : station.songTitle,
-                                                      style: TextStyle(
-                                                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
-                                                        fontSize: 13,
-                                                      ),
-                                                      maxLines: 1,
-                                                      overflow: TextOverflow.ellipsis,
-                                                    ),
-                                                  ),
-                                              ],
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                  },
-                                );
-                              },
-                            );
-                          },
-                        ),
-                        const SizedBox(width: 8),
-                        _buildRoundedIconButton(
-                          context: context,
-                          icon: Icons.settings_rounded,
-                          tooltip: 'Setări aplicație',
-                          onPressed: () async {
-                            await Navigator.push(context, MaterialPageRoute<void>(
-                              builder: (BuildContext context) {
-                                return const SettingsPage();
-                              },
-                            ));
-                            // Check share promotion visibility after returning from settings
-                            if (mounted) {
-                              await _checkSharePromotionVisibility();
-                              await _loadShareLinkData();
-                            }
-                          },
-                        ),
-                        const SizedBox(width: 8),
-                      ],
-                    ),
-                    if (_showSharePromotion)
-                      SliverToBoxAdapter(
-                        child: SharePromotionCard(
-                          key: _sharePromotionKey,
-                          client: _audioHandler.graphqlClient,
-                          currentStationSlug: currentStation?.slug,
-                          currentStationName: currentStation?.title,
-                          onClose: () async {
-                            // Update local state immediately
-                            setState(() {
-                              _showSharePromotion = false;
-                            });
-                            // Save to preferences
-                            final prefs = getIt<SharedPreferences>();
-                            await prefs.setBool('show_share_promotion', false);
-                          },
-                        ),
-                      ),
-                    if (favoriteStations.isNotEmpty)
-                      SliverStickyHeader(
-                        header: Container(
-                          height: 60.0,
-                          color: Theme.of(context).scaffoldBackgroundColor,
-                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            'Favorite',
-                            style: TextStyle(
-                                fontSize: 18, fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurface),
+                child: Column(
+                  children: [
+                    // Fixed app bar
+                    Container(
+                      color: Theme.of(context).scaffoldBackgroundColor,
+                      padding: const EdgeInsets.only(top: 6, left: 16, right: 8, bottom: 4),
+                      child: Row(
+                        children: [
+                          const Image(
+                            image: AssetImage('assets/icons/ic_logo_filled.png'),
+                            width: 40,
                           ),
-                        ),
-                        sliver: SliverPadding(
-                            padding: const EdgeInsets.only(bottom: 20.0),
-                            sliver: StationsList(
-                              stations: favoriteStations,
-                              currentStation: currentStation,
-                              audioHandler: _audioHandler,
-                              panelController: null,
-                              favoriteSlugs: favoriteSlugs,
-                              isFavoritesPlaylist: true,
-                            )),
-                      ),
-                    if (stations.isNotEmpty)
-                      SliverStickyHeader(
-                        header: Container(
-                          height: 60.0,
-                          color: Theme.of(context).scaffoldBackgroundColor,
-                          padding: const EdgeInsets.only(left: 16.0, right: 4.0),
-                          alignment: Alignment.centerLeft,
-                          child: Row(
-                            children: [
-                              // Sort dropdown
-                              Expanded(
-                                child: GestureDetector(
-                                  onTap: () => _showSortOptions(context),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        StationSortLabels.icons[_sortOption],
-                                        size: 18,
-                                        color: _sortOption == StationSortOption.recommended
-                                            ? const Color(0xFFF59E0B)
-                                            : Theme.of(context).colorScheme.onSurface,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Flexible(
-                                        child: Text(
-                                          StationSortLabels.labels[_sortOption] ?? '',
-                                          style: TextStyle(
-                                            fontSize: 17,
-                                            fontWeight: FontWeight.w600,
-                                            color: Theme.of(context).colorScheme.onSurface,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
+                          const SizedBox(width: 10),
+                          const Expanded(
+                            child: Text(
+                              "Radio Creștin",
+                              style: TextStyle(fontSize: 21),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          _buildRoundedIconButton(
+                            context: context,
+                            icon: Icons.search_rounded,
+                            tooltip: 'Caută o stație radio',
+                            onPressed: () {
+                              showDialog(
+                                context: context,
+                                builder: (BuildContext context) {
+                                  return SelectDialog<Station>(
+                                    items: stations,
+                                    displayFunction: (Station station) => station.displayTitle,
+                                    searchFunction: (Station station) => station.displayTitle,
+                                    onItemSelected: (Station station) {
+                                      _audioHandler.playStation(station);
+                                    },
+                                    itemBuilder: (context, station) {
+                                      return Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                        child: Row(
+                                          children: [
+                                            SizedBox(
+                                              width: 48,
+                                              height: 48,
+                                              child: ClipRRect(
+                                                borderRadius: BorderRadius.circular(10),
+                                                child: station.thumbnail,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 12),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Text(
+                                                    station.displayTitle,
+                                                    style: TextStyle(
+                                                      color: Theme.of(context).colorScheme.onSurface,
+                                                      fontWeight: FontWeight.w500,
+                                                      fontSize: 15,
+                                                    ),
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                  if (station.songTitle != "")
+                                                    Padding(
+                                                      padding: const EdgeInsets.only(top: 2),
+                                                      child: Text(
+                                                        station.songArtist != ""
+                                                            ? "${station.songTitle} - ${station.songArtist}"
+                                                            : station.songTitle,
+                                                        style: TextStyle(
+                                                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                                                          fontSize: 13,
+                                                        ),
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow.ellipsis,
+                                                      ),
+                                                    ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
                                         ),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Icon(
-                                        Icons.keyboard_arrow_down_rounded,
-                                        size: 20,
-                                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                      ),
-                                    ],
-                                  ),
+                                      );
+                                    },
+                                  );
+                                },
+                              );
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                          _buildRoundedIconButton(
+                            context: context,
+                            icon: Icons.settings_rounded,
+                            tooltip: 'Setări aplicație',
+                            onPressed: () {
+                              SettingsPage.show(context, shareLinkData: _shareLinkData);
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Scrollable station lists
+                    Expanded(
+                      child: RefreshIndicator(
+                        onRefresh: _handleRefresh,
+                        color: Theme.of(context).primaryColor,
+                        child: Scrollbar(
+                        child: CustomScrollView(
+                          physics: const PositionRetainedScrollPhysics().applyTo(const AlwaysScrollableScrollPhysics()),
+                          cacheExtent: 300.0,
+                          slivers: <Widget>[
+                          if (_showSharePromotion)
+                            SliverToBoxAdapter(
+                              child: SharePromotionCard(
+                                key: _sharePromotionKey,
+                                client: _audioHandler.graphqlClient,
+                                currentStationSlug: currentStation?.slug,
+                                currentStationName: currentStation?.title,
+                                onClose: () async {
+                                  setState(() {
+                                    _showSharePromotion = false;
+                                  });
+                                  final prefs = getIt<SharedPreferences>();
+                                  await prefs.setBool('show_share_promotion', false);
+                                },
+                              ),
+                            ),
+                          if (favoriteStations.isNotEmpty)
+                            SliverStickyHeader(
+                              header: Container(
+                                height: 60.0,
+                                color: Theme.of(context).scaffoldBackgroundColor,
+                                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  'Favorite',
+                                  style: TextStyle(
+                                      fontSize: 18, fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurface),
                                 ),
                               ),
-                              // Filter icon button
-                              _buildRoundedIconButton(
-                                context: context,
-                                icon: selectedStationGroup != null
-                                    ? Icons.filter_alt_rounded
-                                    : Icons.filter_alt_outlined,
-                                tooltip: selectedStationGroup?.name ?? 'Filtrează',
-                                isActive: selectedStationGroup != null,
-                                onPressed: () => _showFilterOptions(context, stationGroups, selectedStationGroup),
+                              sliver: SliverPadding(
+                                  padding: const EdgeInsets.only(bottom: 20.0),
+                                  sliver: StationsList(
+                                    stations: favoriteStations,
+                                    currentStation: currentStation,
+                                    audioHandler: _audioHandler,
+                                    panelController: null,
+                                    favoriteSlugs: favoriteSlugs,
+                                  )),
+                            ),
+                          if (stations.isNotEmpty)
+                            SliverStickyHeader(
+                              header: Container(
+                                height: 60.0,
+                                color: Theme.of(context).scaffoldBackgroundColor,
+                                padding: const EdgeInsets.only(left: 16.0, right: 4.0),
+                                alignment: Alignment.centerLeft,
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: GestureDetector(
+                                        onTap: () => _showSortOptions(context),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              StationSortLabels.icons[_sortOption],
+                                              size: 18,
+                                              color: _sortOption == StationSortOption.recommended
+                                                  ? const Color(0xFFF59E0B)
+                                                  : Theme.of(context).colorScheme.onSurface,
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Flexible(
+                                              child: Text(
+                                                StationSortLabels.labels[_sortOption] ?? '',
+                                                style: TextStyle(
+                                                  fontSize: 17,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: Theme.of(context).colorScheme.onSurface,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Icon(
+                                              Icons.keyboard_arrow_down_rounded,
+                                              size: 20,
+                                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    _buildRoundedIconButton(
+                                      context: context,
+                                      icon: selectedStationGroup != null
+                                          ? Icons.filter_alt_rounded
+                                          : Icons.filter_alt_outlined,
+                                      tooltip: selectedStationGroup?.name ?? 'Filtrează',
+                                      isActive: selectedStationGroup != null,
+                                      onPressed: () => _showFilterOptions(context, stationGroups, selectedStationGroup),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ],
-                          ),
+                              sliver: SliverPadding(
+                                  padding: EdgeInsets.only(bottom: Platform.isIOS ? 80.0 : 110.0),
+                                  sliver: StationsList(
+                                    stations: filteredStations,
+                                    currentStation: currentStation,
+                                    audioHandler: _audioHandler,
+                                    panelController: null,
+                                    favoriteSlugs: favoriteSlugs,
+                                  )),
+                            ),
+                        ],
                         ),
-                        sliver: SliverPadding(
-                            padding: EdgeInsets.only(bottom: Platform.isIOS ? 80.0 : 110.0),
-                            sliver: StationsList(
-                              stations: filteredStations,
-                              currentStation: currentStation,
-                              audioHandler: _audioHandler,
-                              panelController: null,
-                              favoriteSlugs: favoriteSlugs,
-                            )),
+                        ),
                       ),
+                    ),
                   ],
-                  ),
-                  ),
                 ),
               ),
               collapsed: currentStation != null && stations.isNotEmpty
@@ -987,11 +974,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   playByStationSlug(String stationSlug) async {
     developer.log("playByStationSlug:$stationSlug");
     await waitForStationsUpdate();
-    var stations = await _audioHandler.stationsMediaItems.first;
-    var station = stations.where((item) => item.extras?['station_slug'] == stationSlug).firstOrNull;
+    // Look up directly from the source-of-truth (StationDataService) to avoid
+    // race condition where stationsMediaItems hasn't been updated yet.
+    final allStations = _stationDataService.stations.value;
+    final station = allStations.cast<Station?>().firstWhere(
+      (s) => s!.slug == stationSlug,
+      orElse: () => null,
+    );
     if (station != null) {
-      developer.log("found station:$station");
-      await _audioHandler.playMediaItem(station);
+      developer.log("found station:${station.title}");
+      await _audioHandler.playStation(station);
     } else {
       developer.log("station not found:$stationSlug");
     }
@@ -1000,7 +992,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Future<void> waitForStationsUpdate() {
     if (_stationDataService.stations.value.isNotEmpty) return Future.value();
     return _stationDataService.stations.stream
-        .firstWhere((stations) => stations.isNotEmpty);
+        .firstWhere((stations) => stations.isNotEmpty)
+        .timeout(const Duration(seconds: 5), onTimeout: () => <Station>[]);
   }
 
   String extractSlugWithRegex(String url) {
@@ -1042,19 +1035,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       var station = await _audioHandler.getLastPlayedStation();
       if (station == null) return;
 
-      // Determine playlist context based on whether the station is a favorite
-      final favSlugs = _stationDataService.favoriteStationSlugs.value.toSet();
-      final isFav = favSlugs.contains(station.slug);
-      final playlist = isFav
-          ? _stationDataService.filteredStations.value
-                .where((s) => favSlugs.contains(s.slug))
-                .toList()
-          : _stationDataService.filteredStations.value;
-
       if (autoStart) {
-        _audioHandler.playStation(station, playlist: playlist, isFavoritesPlaylist: isFav);
+        _audioHandler.playStation(station);
       } else {
-        _audioHandler.selectStation(station, playlist: playlist, isFavoritesPlaylist: isFav);
+        _audioHandler.selectStation(station);
       }
     }
   }

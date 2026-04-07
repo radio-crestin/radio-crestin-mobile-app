@@ -16,6 +16,7 @@ import 'package:radio_crestin/services/image_cache_service.dart';
 import 'package:radio_crestin/services/car_play_service.dart';
 import 'package:radio_crestin/services/play_count_service.dart';
 import 'package:radio_crestin/services/network_service.dart';
+import 'package:radio_crestin/services/song_history_service.dart';
 import 'package:radio_crestin/services/station_data_service.dart';
 import 'package:radio_crestin/seek_mode_manager.dart';
 import 'package:radio_crestin/utils.dart';
@@ -84,8 +85,9 @@ Future<AppAudioHandler> initAudioService({required graphqlClient}) async {
       androidStopForegroundOnPause: true,
       androidBrowsableRootExtras: {
         'android.media.browse.CONTENT_STYLE_SUPPORTED': true,
-        'android.media.browse.CONTENT_STYLE_BROWSABLE_HINT': 2, // grid
-        'android.media.browse.CONTENT_STYLE_PLAYABLE_HINT': 2, // grid
+        'android.media.browse.CONTENT_STYLE_BROWSABLE_HINT': 1, // list
+        'android.media.browse.CONTENT_STYLE_PLAYABLE_HINT': 1, // list
+        'android.media.browse.SEARCH_SUPPORTED': true,
       },
     ),
   );
@@ -112,6 +114,8 @@ class AppAudioHandler extends BaseAudioHandler {
   // to prevent spinner flash between setAudioSource() and player.play().
   bool _isConnecting = false;
   bool get isPlayingOrConnecting => player.playing || _isConnecting;
+  bool get isCarConnected => GetIt.instance.isRegistered<CarPlayService>() &&
+      GetIt.instance<CarPlayService>().isConnected;
   bool _hasBeenPlayed = false;
   Timer? _disconnectTimer;
   Timer? _bufferingStallTimer;
@@ -134,11 +138,6 @@ class AppAudioHandler extends BaseAudioHandler {
   /// Emits details when play() exhausts all retries and cannot connect.
   final PublishSubject<ConnectionError> connectionError = PublishSubject<ConnectionError>();
   final BehaviorSubject<List<MediaItem>> stationsMediaItems = BehaviorSubject.seeded(<MediaItem>[]);
-
-  // Active playlist for skip next/prev - set by whoever selects a station (app UI, CarPlay, Android Auto)
-  List<Station> activePlaylist = [];
-  // When true, _getActivePlaylist() filters activePlaylist to only current favorites
-  bool _activePlaylistIsFavorites = false;
 
   _log(String message) {
     developer.log("AppAudioHandler: $message");
@@ -194,7 +193,9 @@ class AppAudioHandler extends BaseAudioHandler {
     }
   }
 
-  // Android Auto media browsing support
+  // Android Auto media browsing support.
+  // The system's built-in media browser calls this to build the browse tree.
+  // No CarAppService needed — works like YouTube Music / Spotify.
   @override
   Future<List<MediaItem>> getChildren(String parentMediaId, [Map<String, dynamic>? options]) async {
     _log("getChildren: $parentMediaId");
@@ -208,22 +209,101 @@ class AppAudioHandler extends BaseAudioHandler {
             .toList();
       case "allStationsRootId":
         return stationsMediaItems.value;
+      case "recentSongsRootId":
+        return _getRecentSongsForBrowse();
       default:
-        return {
-          AudioService.browsableRootId: const [
+        if (parentMediaId == AudioService.browsableRootId) {
+          const pkg = 'com.radiocrestin.radio_crestin';
+          return [
             MediaItem(
               id: "favoriteStationsRootId",
-              title: "Statii Favorite",
+              title: _isRomanian ? "Stații Favorite" : "Favorite Stations",
+              artUri: Uri.parse('android.resource://$pkg/drawable/ic_favorite'),
               playable: false,
+              extras: const {
+                'android.media.browse.CONTENT_STYLE_PLAYABLE_HINT': 1, // list
+              },
             ),
             MediaItem(
               id: "allStationsRootId",
-              title: "Toate Statiile",
+              title: _isRomanian ? "Toate Stațiile" : "All Stations",
+              artUri: Uri.parse('android.resource://$pkg/drawable/ic_radio'),
               playable: false,
+              extras: const {
+                'android.media.browse.CONTENT_STYLE_PLAYABLE_HINT': 1, // list
+              },
             ),
-          ],
-        }[parentMediaId] ?? [];
+            MediaItem(
+              id: "recentSongsRootId",
+              title: _isRomanian ? "Melodii Recente" : "Recent Songs",
+              artUri: Uri.parse('android.resource://$pkg/drawable/ic_history'),
+              playable: false,
+              extras: const {
+                'android.media.browse.CONTENT_STYLE_PLAYABLE_HINT': 1, // list
+              },
+            ),
+          ];
+        }
+        return [];
     }
+  }
+
+  /// Fetches song history for the current station and returns as MediaItems
+  /// for the Android Auto browse tree.
+  Future<List<MediaItem>> _getRecentSongsForBrowse() async {
+    final station = currentStation.valueOrNull;
+    if (station == null) {
+      return [
+        MediaItem(
+          id: 'history_empty',
+          title: _isRomanian ? 'Selectează o stație mai întâi' : 'Select a station first',
+          playable: false,
+        ),
+      ];
+    }
+    try {
+      final history = await SongHistoryService.fetchHistory(station.slug);
+      if (history == null || history.history.isEmpty) {
+        return [
+          MediaItem(
+            id: 'history_empty',
+            title: _isRomanian ? 'Niciun istoric disponibil' : 'No history available',
+            playable: false,
+          ),
+        ];
+      }
+      final stationThumbUrl = station.thumbnailUrl;
+      return history.history
+          .where((item) => item.hasSong)
+          .take(30)
+          .map((item) {
+            final time = item.dateTime.toLocal();
+            final timeStr = '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+            final thumbUrl = item.songThumbnailUrl ?? stationThumbUrl;
+            return MediaItem(
+              id: 'history_${station.slug}_${item.timestamp}',
+              title: item.songName ?? (_isRomanian ? 'Necunoscut' : 'Unknown'),
+              artist: item.artistName != null
+                  ? '$timeStr - ${item.artistName}'
+                  : timeStr,
+              artUri: thumbUrl != null ? Uri.parse(thumbUrl) : null,
+              playable: true,
+              extras: {
+                'is_history_item': true,
+                'station_slug': station.slug,
+              },
+            );
+          })
+          .toList();
+    } catch (e) {
+      _log('_getRecentSongsForBrowse error: $e');
+      return [];
+    }
+  }
+
+  static bool get _isRomanian {
+    final locale = PlatformDispatcher.instance.locale;
+    return locale.languageCode == 'ro';
   }
 
   @override
@@ -278,6 +358,12 @@ class AppAudioHandler extends BaseAudioHandler {
 
     // Propagate all events from the audio player to AudioService clients.
     player.playbackEventStream.listen(_broadcastState);
+
+    // Ensure play/pause state changes are broadcast immediately.
+    // playbackEventStream fires on position/buffer changes but may not fire
+    // promptly on play()/pause() transitions. playingStream fires exactly
+    // when the playing state flips, guaranteeing CarPlay/Android Auto sync.
+    player.playingStream.listen((_) => _broadcastState(player.playbackEvent));
 
     // Handle stream lifecycle events:
     // - completed: HLS reconnect, MP3 stop
@@ -344,12 +430,35 @@ class AppAudioHandler extends BaseAudioHandler {
     await setStationIsFavorite(station, rating.hasHeart());
   }
 
-  Future<void> selectStation(Station station, {List<Station>? playlist, bool isFavoritesPlaylist = false}) async {
-    _log('selectStation($station)');
-    if (playlist != null) {
-      activePlaylist = List.from(playlist);
-      _activePlaylistIsFavorites = isFavoritesPlaylist;
+  @override
+  Future<dynamic> customAction(String name, [Map<String, dynamic>? extras]) async {
+    _log('customAction($name, $extras)');
+    switch (name) {
+      case 'toggleFavorite':
+        final station = currentStation.value;
+        if (station == null) return;
+        final isFav = stationDataService.favoriteStationSlugs.value.contains(station.slug);
+        await setStationIsFavorite(station, !isFav);
+        // Re-broadcast so notification icon updates immediately
+        _broadcastState(player.playbackEvent);
+        break;
+      case 'showSongHistory':
+        final station = currentStation.value;
+        if (station == null) return;
+        // Notify the UI to open the song history modal
+        customEvent.add({
+          'action': 'showSongHistory',
+          'stationSlug': station.slug,
+          'stationTitle': station.title,
+          'stationThumbnailUrl': station.thumbnailUrl,
+        });
+        break;
     }
+    return super.customAction(name, extras);
+  }
+
+  Future<void> selectStation(Station station) async {
+    _log('selectStation($station)');
 
     final isFav = stationDataService.favoriteStationSlugs.value.contains(station.slug);
 
@@ -358,7 +467,6 @@ class AppAudioHandler extends BaseAudioHandler {
     final stationItem = _buildStationMediaItem(station);
     _lastEmittedSongId = station.songId;
     _lastEmittedArtUriString = stationItem.artUri?.toString();
-    print('DEBUG_ART selectStation artUri=${stationItem.artUri} cachedPath=${station.cachedThumbnailPath}');
     mediaItem.add(stationItem.copyWith(rating: Rating.newHeartRating(isFav)));
     _ensureStationArtCached(station);
     currentStation.add(station);
@@ -367,19 +475,15 @@ class AppAudioHandler extends BaseAudioHandler {
     setLastPlayedStation(station);
   }
 
-  /// Builds a MediaItem using the cached station thumbnail (no song thumbnail download).
-  /// Includes song metadata text (title/artist) but always uses station artwork to save bandwidth.
+  /// Builds a MediaItem with the station thumbnail URL and song metadata.
+  /// Always uses HTTPS URLs for artUri (not file:// cached paths) because
+  /// Android Auto's system player runs in a separate process and can't
+  /// access our app's internal storage.
   MediaItem _buildStationMediaItem(Station station) {
-    final Uri stationArtUri;
-    final cachedPath = station.cachedThumbnailPath;
-    if (cachedPath != null) {
-      stationArtUri = Uri.file(cachedPath);
-    } else {
-      final thumbnailUrl = station.rawStationData.thumbnail_url;
-      stationArtUri = (thumbnailUrl != null && thumbnailUrl.isNotEmpty)
-          ? Uri.parse(thumbnailUrl)
-          : Uri.parse(CONSTANTS.DEFAULT_STATION_THUMBNAIL_URL);
-    }
+    final thumbnailUrl = station.rawStationData.thumbnail_url;
+    final Uri stationArtUri = (thumbnailUrl != null && thumbnailUrl.isNotEmpty)
+        ? Uri.parse(thumbnailUrl)
+        : Uri.parse(CONSTANTS.DEFAULT_STATION_THUMBNAIL_URL);
     final isFav = stationDataService.favoriteStationSlugs.value.contains(station.slug);
     return MediaItem(
       id: Utils.getStationStreamUrls(station.rawStationData).firstOrNull ?? "",
@@ -406,30 +510,15 @@ class AppAudioHandler extends BaseAudioHandler {
     );
   }
 
-  /// Ensures the station thumbnail is available as a local file for the media session.
-  /// Always uses cached station thumbnails (never downloads song thumbnails) to save bandwidth.
-  /// Android Auto/CarPlay home screen requires a bitmap in METADATA_KEY_ALBUM_ART.
+  /// Pre-caches the station thumbnail to disk for the in-app UI.
+  /// Does NOT re-emit mediaItem with file:// URIs — the MediaSession
+  /// artUri stays as HTTPS so Android Auto's system player (which runs
+  /// in a separate process) can download it directly.
   void _ensureStationArtCached(Station station) {
-    print('DEBUG_ART _ensureStationArtCached: ${station.slug} thumbnailUrl=${station.rawStationData.thumbnail_url} cachedPath=${station.cachedThumbnailPath}');
     final stationThumbnailUrl = station.rawStationData.thumbnail_url;
     if (stationThumbnailUrl == null || stationThumbnailUrl.isEmpty) return;
-
-    final cachedPath = ImageCacheService.instance.getCachedPath(stationThumbnailUrl);
-    if (cachedPath != null) {
-      // Already cached - re-emit with file:// if current artUri is still https://
-      final currentArt = mediaItem.valueOrNull?.artUri?.toString();
-      if (currentArt != null && currentArt.startsWith('http')) {
-        _reEmitMediaItemWithLocalArt(Uri.file(cachedPath), station);
-      }
-      return;
-    }
-
-    // Not cached yet - download and re-emit
-    ImageCacheService.instance.getOrDownload(stationThumbnailUrl).then((file) {
-      if (file != null && currentStation.valueOrNull?.id == station.id) {
-        _reEmitMediaItemWithLocalArt(Uri.file(file.path), station);
-      }
-    });
+    // Just trigger the download for in-app disk cache — don't replace artUri
+    ImageCacheService.instance.getOrDownload(stationThumbnailUrl);
   }
 
   /// In unstable connection mode, cache song thumbnails permanently to disk.
@@ -441,19 +530,7 @@ class AppAudioHandler extends BaseAudioHandler {
     ImageCacheService.instance.getOrDownload(songThumbnailUrl);
   }
 
-  void _reEmitMediaItemWithLocalArt(Uri localUri, Station station) {
-    final currentItem = mediaItem.valueOrNull;
-    if (currentItem != null) {
-      _lastEmittedArtUriString = localUri.toString();
-      final isFav = stationDataService.favoriteStationSlugs.value.contains(station.slug);
-      mediaItem.add(currentItem.copyWith(
-        artUri: localUri,
-        rating: Rating.newHeartRating(isFav),
-      ));
-    }
-  }
-
-  Future<void> playStation(Station station, {List<Station>? playlist, bool isFavoritesPlaylist = false}) async {
+  Future<void> playStation(Station station) async {
     _log('playStation($station)');
     _hasBeenPlayed = true;
 
@@ -463,15 +540,19 @@ class AppAudioHandler extends BaseAudioHandler {
     // Avoid stop-restart if already playing/loading this exact station
     if (currentStation.valueOrNull?.id == station.id && isPlayingOrConnecting) {
       _log('playStation: already playing/loading station ${station.slug}, skipping');
-      if (playlist != null) {
-        activePlaylist = List.from(playlist);
-        _activePlaylistIsFavorites = isFavoritesPlaylist;
-      }
       return;
     }
 
     // Cancel any in-flight play() from a previous playStation() call
     _cancelInFlightPlay();
+
+    // Enter "connecting" state BEFORE stopping the player so that
+    // _broadcastState emits processingState=loading (not ready).
+    // Without this, player.stop() → idle → mapped to ready → AnimatedPlayButton
+    // treats it as settled state and clears the optimistic play intent,
+    // causing the pause button to stop working during the transition.
+    _isConnecting = true;
+    _broadcastState(player.playbackEvent);
 
     // Stop and clean up the previous station before starting the new one
     _disconnectTimer?.cancel();
@@ -482,7 +563,7 @@ class AppAudioHandler extends BaseAudioHandler {
     _loadedStreamUrl = null;
     _loadedStreamType = null;
 
-    await selectStation(station, playlist: playlist, isFavoritesPlaylist: isFavoritesPlaylist);
+    await selectStation(station);
     if (Platform.isAndroid) {
       await Future.delayed(const Duration(milliseconds: 100));
     }
@@ -490,42 +571,28 @@ class AppAudioHandler extends BaseAudioHandler {
     return play();
   }
 
-  List<Station> _getActivePlaylist() {
-    if (_activePlaylistIsFavorites) {
-      final favSlugs = stationDataService.favoriteStationSlugs.value;
-      final currentFavorites = stationDataService.filteredStations.value
-          .where((s) => favSlugs.contains(s.slug))
-          .toList();
-      if (currentFavorites.isNotEmpty) return currentFavorites;
-    }
-    if (activePlaylist.isNotEmpty) return activePlaylist;
-    return stationDataService.filteredStations.value;
+  /// Returns stations sorted by the user's saved sort preference.
+  /// Delegates to StationDataService (the single source of truth).
+  List<Station> getSortedStations() {
+    return stationDataService.getSortedStations();
   }
 
   @override
   Future<void> skipToNext() {
     _log('skipToNext()');
     if (currentStation.value == null) return super.skipToNext();
-
-    final playlist = _getActivePlaylist();
-    if (playlist.isEmpty) return super.skipToNext();
-
-    final currentIndex = playlist.indexWhere((s) => s.slug == currentStation.value!.slug);
-    final nextIndex = (currentIndex + 1) % playlist.length;
-    return playStation(playlist[nextIndex < 0 ? 0 : nextIndex]);
+    final next = stationDataService.getNextStation(currentStation.value!.slug);
+    if (next == null) return super.skipToNext();
+    return playStation(next);
   }
 
   @override
   Future<void> skipToPrevious() {
     _log('skipToPrevious()');
     if (currentStation.value == null) return super.skipToPrevious();
-
-    final playlist = _getActivePlaylist();
-    if (playlist.isEmpty) return super.skipToPrevious();
-
-    final currentIndex = playlist.indexWhere((s) => s.slug == currentStation.value!.slug);
-    final prevIndex = currentIndex <= 0 ? playlist.length - 1 : currentIndex - 1;
-    return playStation(playlist[prevIndex]);
+    final prev = stationDataService.getPreviousStation(currentStation.value!.slug);
+    if (prev == null) return super.skipToPrevious();
+    return playStation(prev);
   }
 
   @override
@@ -679,7 +746,12 @@ class AppAudioHandler extends BaseAudioHandler {
         AudioSource.uri(Uri.parse(CONSTANTS.STATIC_MP3_URL)),
         preload: false,
       );
-      stationDataService.pausePolling();
+      // Keep polling if car is connected — user sees metadata on car screen
+      final carConnected = GetIt.instance.isRegistered<CarPlayService>() &&
+          GetIt.instance<CarPlayService>().isConnected;
+      if (!carConnected) {
+        stationDataService.pausePolling();
+      }
     });
 
     return super.pause();
@@ -696,6 +768,18 @@ class AppAudioHandler extends BaseAudioHandler {
     _loadedStreamUrl = null;
     _loadedStreamType = null;
     await play();
+  }
+
+  /// Re-emits the current media item so that thumbnail and metadata reflect
+  /// the latest data-saving settings (unstable connection, mobile data, etc.).
+  void refreshCurrentMetadata() {
+    final station = currentStation.valueOrNull;
+    if (station == null || mediaItem.valueOrNull == null) return;
+    final item = _buildStationMediaItem(station);
+    _lastEmittedSongId = -1; // force re-evaluation on next poll
+    _lastEmittedArtUriString = item.artUri?.toString();
+    final isFav = stationDataService.favoriteStationSlugs.value.contains(station.slug);
+    mediaItem.add(item.copyWith(rating: Rating.newHeartRating(isFav)));
   }
 
   /// For HLS streams with retained segments, seeks behind the live edge
@@ -802,6 +886,8 @@ class AppAudioHandler extends BaseAudioHandler {
   @override
   Future<void> playMediaItem(MediaItem mediaItem) async {
     _log('playMediaItem($mediaItem)');
+    // History items: tapping keeps the current station playing
+    if (mediaItem.id.startsWith('history_')) return;
     final station = stationDataService.stations.value.cast<Station?>().firstWhere((element) => element!.id == mediaItem.extras?["station_id"], orElse: () => null);
     if (station != null) playStation(station);
   }
@@ -809,18 +895,43 @@ class AppAudioHandler extends BaseAudioHandler {
   // Metadata refresh
   void _broadcastState(PlaybackEvent event) {
     final playing = player.playing;
+    final station = currentStation.valueOrNull;
+    final isFav = station != null &&
+        stationDataService.favoriteStationSlugs.value.contains(station.slug);
+
     playbackState.add(playbackState.value.copyWith(
       controls: [
+        // [0] Favorite toggle (expanded notification + Android Auto)
+        MediaControl.custom(
+          androidIcon: isFav ? 'drawable/ic_favorite' : 'drawable/ic_favorite_border',
+          label: isFav
+              ? (_isRomanian ? 'Elimină din favorite' : 'Remove from favorites')
+              : (_isRomanian ? 'Adaugă la favorite' : 'Add to favorites'),
+          name: 'toggleFavorite',
+        ),
+        // [1] Previous
         MediaControl.skipToPrevious,
+        // [2] Play/Pause
         if (playing) MediaControl.pause else MediaControl.play,
+        // [3] Next
         MediaControl.skipToNext,
+        // [4] Song history (expanded notification + Android Auto)
+        MediaControl.custom(
+          androidIcon: 'drawable/ic_history',
+          label: _isRomanian ? 'Melodii recente' : 'Recent songs',
+          name: 'showSongHistory',
+        ),
       ],
       systemActions: const {
+        MediaAction.play,
+        MediaAction.pause,
+        MediaAction.skipToNext,
+        MediaAction.skipToPrevious,
         MediaAction.seekForward,
         MediaAction.seekBackward,
         MediaAction.setRating,
       },
-      androidCompactActionIndices: const [0, 1, 2],
+      androidCompactActionIndices: const [1, 2, 3],
       processingState: _isConnecting
         ? AudioProcessingState.loading
         : const {
@@ -850,9 +961,20 @@ class AppAudioHandler extends BaseAudioHandler {
   @override
   Future<List<MediaItem>> search(String query, [Map<String, dynamic>? extras]) async {
     _log('search($query, $extras)');
-    final result = await super.search(query, extras);
-    _log('search -> $result');
-    return result;
+    if (query.isEmpty) return stationsMediaItems.value;
+    final lowerQuery = query.toLowerCase();
+    final results = stationsMediaItems.value.where((item) {
+      final title = (item.title ?? '').toLowerCase();
+      final artist = (item.artist ?? '').toLowerCase();
+      final displayTitle = (item.displayTitle ?? '').toLowerCase();
+      final displaySubtitle = (item.displaySubtitle ?? '').toLowerCase();
+      return title.contains(lowerQuery) ||
+          artist.contains(lowerQuery) ||
+          displayTitle.contains(lowerQuery) ||
+          displaySubtitle.contains(lowerQuery);
+    }).toList();
+    _log('search -> ${results.length} results');
+    return results;
   }
 
   @override
@@ -911,6 +1033,8 @@ class AppAudioHandler extends BaseAudioHandler {
   @override
   Future<void> playFromMediaId(String mediaId, [Map<String, dynamic>? extras]) {
     _log('playFromMediaId($mediaId, $extras)');
+    // History items: tapping keeps the current station playing
+    if (mediaId.startsWith('history_')) return Future.value();
     final selectedMediaItem = stationsMediaItems.value.cast<MediaItem?>().firstWhere((item) => item!.id == mediaId, orElse: () => null);
     if (selectedMediaItem != null) return playMediaItem(selectedMediaItem);
     return Future.value();
@@ -972,6 +1096,8 @@ class AppAudioHandler extends BaseAudioHandler {
     final currentItem = mediaItem.valueOrNull;
     if (currentItem != null && currentStation.value?.slug == station.slug) {
       mediaItem.add(currentItem.copyWith(rating: Rating.newHeartRating(isFavorite)));
+      // Update notification/Android Auto favorite icon
+      _broadcastState(player.playbackEvent);
     }
     Utils.incrementActionsMade(
       graphQLClient: graphqlClient,
@@ -1038,7 +1164,6 @@ class AppAudioHandler extends BaseAudioHandler {
     // Station data poll: update metadata when stations change.
     stationDataService.stations.stream.listen((stations) {
       _log("updateCurrentStationMetadata");
-      final sortedStations = stations..sort((a, b) => a.order.compareTo(b.order));
 
       Station? updatedCurrentStation;
       if(currentStation.valueOrNull != null) {
@@ -1046,8 +1171,27 @@ class AppAudioHandler extends BaseAudioHandler {
         if (updatedCurrentStation != null) currentStation.add(updatedCurrentStation);
       }
 
-      final newStationsMediaItems =
-          sortedStations.map((station) => station.mediaItem).toList();
+      // Use the app's sort preference for the media browse tree so Android
+      // Auto's built-in media browser matches the custom UI order.
+      // Always use HTTPS artUri (not file:// cached paths) because Android
+      // Auto's system player runs in a separate process.
+      final sortedStations = stationDataService.getSortedStations();
+      final newStationsMediaItems = sortedStations.map((station) {
+        final thumbnailUrl = station.rawStationData.thumbnail_url;
+        final artUri = (thumbnailUrl != null && thumbnailUrl.isNotEmpty)
+            ? Uri.parse(thumbnailUrl)
+            : Uri.parse(CONSTANTS.DEFAULT_STATION_THUMBNAIL_URL);
+        final item = station.mediaItem;
+        // Strip "Radio " prefix for the A-Z alphabet index so letters
+        // distribute evenly instead of clustering under "R".
+        final title = station.rawStationData.title;
+        final sortKey = title.startsWith('Radio ')
+            ? title.substring(6)
+            : title;
+        final extras = Map<String, dynamic>.from(item.extras ?? {});
+        extras['android.media.extra.SORT_KEY'] = sortKey;
+        return item.copyWith(artUri: artUri, extras: extras);
+      }).toList();
 
       stationsMediaItems.add(newStationsMediaItems);
 

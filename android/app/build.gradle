@@ -103,6 +103,6 @@ dependencies {
 
     implementation 'com.android.support:multidex:1.0.3'
 
-    // Android Automotive OS support (CarAppActivity for template rendering)
-    implementation "androidx.car.app:app-automotive:1.7.0"
+    // MediaBrowserServiceCompat for RadioAudioService subclass
+    implementation "androidx.media:media:1.7.0"
 }

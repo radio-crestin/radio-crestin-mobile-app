@@ -4,9 +4,14 @@ import 'package:radio_crestin/queries/getStations.graphql.dart';
 import 'package:radio_crestin/types/Station.dart';
 import 'package:rxdart/rxdart.dart';
 
+import 'package:radio_crestin/services/network_service.dart';
+
 import 'helpers/station_factory.dart';
 
 void main() {
+  setUpAll(() {
+    NetworkService();
+  });
   group('Playback state management', () {
     test('currentStation starts as null', () {
       final currentStation = BehaviorSubject<Station?>.seeded(null);

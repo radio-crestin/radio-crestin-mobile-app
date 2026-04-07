@@ -57,39 +57,43 @@ class _ReviewModalState extends State<ReviewModal> {
     return userId;
   }
 
+  void _showToast(String msg, {bool isError = false}) {
+    Fluttertoast.showToast(
+      msg: msg,
+      toastLength: isError ? Toast.LENGTH_LONG : Toast.LENGTH_SHORT,
+      gravity: ToastGravity.BOTTOM,
+      backgroundColor: isError ? AppColors.error : AppColors.primaryDark,
+      textColor: Colors.white,
+      fontSize: 14.0,
+    );
+  }
+
   Future<void> _submit() async {
-    if (_selectedStars == 0 || _isSubmitting) return;
+    if (_selectedStars == 0 || _messageController.text.trim().isEmpty || _isSubmitting) return;
 
     setState(() => _isSubmitting = true);
 
-    final result = await ReviewService.submitReview(
-      stationId: widget.stationId,
-      stars: _selectedStars,
-      message: _messageController.text.trim(),
-      userIdentifier: _getUserIdentifier(),
-    );
-
-    if (!mounted) return;
-
-    setState(() => _isSubmitting = false);
-
-    if (result.success) {
-      Fluttertoast.showToast(
-        msg: 'Recenzia a fost trimisă cu succes!',
-        toastLength: Toast.LENGTH_SHORT,
-        gravity: ToastGravity.BOTTOM,
-        backgroundColor: Colors.green.shade700,
-        textColor: Colors.white,
+    try {
+      final result = await ReviewService.submitReview(
+        stationId: widget.stationId,
+        stars: _selectedStars,
+        message: _messageController.text.trim(),
+        userIdentifier: _getUserIdentifier(),
       );
-      Navigator.of(context).pop(true);
-    } else {
-      Fluttertoast.showToast(
-        msg: result.error ?? 'A apărut o eroare',
-        toastLength: Toast.LENGTH_LONG,
-        gravity: ToastGravity.BOTTOM,
-        backgroundColor: Colors.red.shade700,
-        textColor: Colors.white,
-      );
+
+      if (!mounted) return;
+      setState(() => _isSubmitting = false);
+
+      if (result.success) {
+        _showToast('Recenzia a fost trimisă cu succes!');
+        Navigator.of(context).pop(true);
+      } else {
+        _showToast(result.error ?? 'A apărut o eroare la trimiterea recenziei', isError: true);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isSubmitting = false);
+      _showToast('Eroare de conexiune. Verifică internetul și încearcă din nou.', isError: true);
     }
   }
 
@@ -204,7 +208,7 @@ class _ReviewModalState extends State<ReviewModal> {
                 const SizedBox(height: 24),
                 // Message section
                 Text(
-                  'Mesaj',
+                  'Mesaj *',
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -214,6 +218,7 @@ class _ReviewModalState extends State<ReviewModal> {
                 const SizedBox(height: 8),
                 TextField(
                   controller: _messageController,
+                  onChanged: (_) => setState(() {}),
                   maxLength: 500,
                   maxLines: 4,
                   style: TextStyle(
@@ -259,7 +264,7 @@ class _ReviewModalState extends State<ReviewModal> {
                   width: double.infinity,
                   height: 48,
                   child: FilledButton(
-                    onPressed: _selectedStars > 0 && !_isSubmitting ? _submit : null,
+                    onPressed: _selectedStars > 0 && _messageController.text.trim().isNotEmpty && !_isSubmitting ? _submit : null,
                     style: FilledButton.styleFrom(
                       backgroundColor: AppColors.primary,
                       disabledBackgroundColor: isDark

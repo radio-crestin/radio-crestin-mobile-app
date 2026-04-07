@@ -126,6 +126,7 @@
 		<key>LSApplicationQueriesSchemes</key>
 		<array>
 			<string>whatsapp</string>
+			<string>fb</string>
 		</array>
 		<key>UIApplicationShortcutItems</key>
 		<array>

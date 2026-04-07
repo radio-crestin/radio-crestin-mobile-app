@@ -16,6 +16,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'constants.dart';
 import 'globals.dart';
+import 'seek_mode_manager.dart';
+import 'services/network_service.dart';
 
 class Utils {
 
@@ -34,12 +36,18 @@ class Utils {
     return currentSongTitle;
   }
 
+  /// Returns the thumbnail URL for a station.
+  /// In data saving modes (unstable connection or mobile data), always returns
+  /// the station's own thumbnail (cached on disk) instead of downloading song thumbnails.
   static String getStationThumbnailUrl(Query$GetStations$stations? station) {
     if (station == null) {
       return "";
     }
     String stationThumbnailUrl = station.thumbnail_url ?? CONSTANTS.DEFAULT_STATION_THUMBNAIL_URL;
-    if (station.now_playing?.song?.thumbnail_url != null) {
+    final isDataSaving = SeekModeManager.isUnstableConnection ||
+        SeekModeManager.isCarConnected ||
+        NetworkService.instance.isOnMobileData.value;
+    if (!isDataSaving && station.now_playing?.song?.thumbnail_url != null) {
       stationThumbnailUrl = station.now_playing?.song?.thumbnail_url ?? "";
     }
     if (CONSTANTS.IMAGE_PROXY_PREFIX != "") {

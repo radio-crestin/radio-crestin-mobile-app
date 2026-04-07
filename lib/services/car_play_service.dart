@@ -1,16 +1,16 @@
 import 'dart:async';
 import 'dart:developer' as developer;
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:flutter/services.dart';
 import 'package:flutter_carplay/flutter_carplay.dart';
 import 'package:get_it/get_it.dart';
 import 'package:radio_crestin/appAudioHandler.dart';
 import 'package:radio_crestin/services/image_cache_service.dart';
+import 'package:radio_crestin/seek_mode_manager.dart';
 import 'package:radio_crestin/services/network_service.dart';
-import 'package:radio_crestin/services/play_count_service.dart';
 import 'package:radio_crestin/services/station_data_service.dart';
-import 'package:radio_crestin/services/station_sort_service.dart';
 import 'package:radio_crestin/types/Station.dart';
 import 'package:rxdart/rxdart.dart';
 
@@ -24,13 +24,12 @@ class CarPlayService {
   bool _carPlayInitialized = false;
   bool _androidAutoInitialized = false;
 
-  // Track CarPlay/Android Auto connection state
-  bool _isConnected = false;
-  bool get isConnected => _isConnected;
-
-  /// Reactive stream for car connection state.
+  /// Reactive stream for car connection state (single source of truth).
   /// Used by AppAudioHandler to enable/disable data saving mode while driving.
   final BehaviorSubject<bool> isCarConnected = BehaviorSubject.seeded(false);
+
+  /// Synchronous getter for connection state.
+  bool get isConnected => isCarConnected.value;
 
   // Track last known state to avoid redundant native calls
   String? _lastPlayingSlug;
@@ -43,6 +42,8 @@ class CarPlayService {
   StreamSubscription? _favoritesSubscription;
   StreamSubscription? _connectionErrorSubscription;
   StreamSubscription? _networkRecoverySubscription;
+  StreamSubscription? _carPlayPlaybackSubscription;
+  StreamSubscription? _carPlayStationsSubscription;
 
   // Timers
   Timer? _carPlayWaitTimer;
@@ -57,18 +58,13 @@ class CarPlayService {
   // CarPlay list items by slug - for "Toate statiile" tab
   final Map<String, CPListItem> _allStationsListItems = {};
 
-  // Store sorted stations for CarPlay playlist and title lookups
-  List<Station> _sortedStations = [];
-
-  // Store reference to favorite template for updating
+  // Store references to CarPlay templates for dynamic section updates
   CPListTemplate? _favoriteTemplate;
+  CPListTemplate? _allStationsTemplate;
 
   // Android Auto state
   List<Station> _sortedAndroidAutoStations = [];
-  StreamSubscription? _androidAutoFavoritesSubscription;
-  StreamSubscription? _androidAutoStationSubscription;
-  StreamSubscription? _androidAutoStationsListSubscription;
-  StreamSubscription? _androidAutoPlaybackSubscription;
+  StreamSubscription? _androidAutoStationSubscription; // single merged subscription
   String _activeAndroidAutoTabId = 'favorites';
   bool _isPlayerScreenVisible = false;
 
@@ -79,22 +75,9 @@ class CarPlayService {
   bool? _lastPlayerIsPlaying;
   bool? _lastPlayerIsFavorite;
 
-  /// Sorts stations using the app's saved sort preference (same as mobile UI).
-  List<Station> _sortStationsForCar(List<Station> stations) {
-    final sortOption = StationSortService.loadSavedSort();
-    final playCounts = GetIt.instance<PlayCountService>().playCounts;
-    final favoriteSlugs = _stationDataService.favoriteStationSlugs.value;
-    final result = StationSortService.sort(
-      stations: stations,
-      sortBy: sortOption,
-      playCounts: playCounts,
-      favoriteSlugs: favoriteSlugs,
-    );
-    return result.sorted;
-  }
-
   // Track last Android Auto station list hash to skip no-op rebuilds
   int _lastAndroidAutoListHash = 0;
+
 
   ImageCacheService? get _imageCacheService {
     try {
@@ -116,6 +99,23 @@ class CarPlayService {
     developer.log("CarPlayService: $message");
   }
 
+  /// Returns true if the device locale is Romanian.
+  static bool get _isRomanian {
+    final locale = ui.PlatformDispatcher.instance.locale;
+    return locale.languageCode == 'ro';
+  }
+
+  /// Localized strings for Android Auto / CarPlay.
+  static String get _favoriteStationsTitle => _isRomanian ? 'Stații Favorite' : 'Favorite Stations';
+  static String get _allStationsTitle => _isRomanian ? 'Toate Stațiile' : 'All Stations';
+  static String _favoritesTabTitle(int count) => _isRomanian ? 'Favorite ($count)' : 'Favorites ($count)';
+  static String _allTabTitle(int count) => _isRomanian ? 'Toate ($count)' : 'All ($count)';
+  static String get _loadingTitle => _isRomanian ? 'Se încarcă...' : 'Loading...';
+  static String get _loadingStations => _isRomanian ? 'Se încarcă stațiile...' : 'Loading stations...';
+  static String get _pleaseWait => _isRomanian ? 'Vă rugăm așteptați' : 'Please wait';
+  static String get _noFavorites => _isRomanian ? 'Nicio stație favorită' : 'No favorite stations';
+  static String get _addFavoritesHint => _isRomanian ? 'Adaugă stații la favorite din aplicație' : 'Add favorite stations from the app';
+
   Future<void> initialize() async {
     _log("Initializing CarPlay/Android Auto service");
 
@@ -123,9 +123,11 @@ class CarPlayService {
       _initializeCarPlay();
       _setupNowPlayingButtonsHandler();
       _listenForConnectionErrors();
-    } else if (Platform.isAndroid) {
-      _initializeAndroidAuto();
     }
+    // Android Auto: no custom UI initialization needed.
+    // The system's built-in media browser renders the browse tree from
+    // AppAudioHandler.getChildren() and the Now Playing screen from the
+    // MediaSession — same approach as YouTube Music, Spotify, etc.
 
     _log("CarPlay/Android Auto service initialized");
   }
@@ -151,12 +153,29 @@ class CarPlayService {
 
     // Update CarPlay list playing indicator when station changes
     _currentStationSubscription = _audioHandler.currentStation.stream.listen((station) {
-      if (station != null && _lastPlayingSlug != station.slug) {
+      if (station != null) {
+        final slugChanged = _lastPlayingSlug != station.slug;
         _lastPlayingSlug = station.slug;
         _updateCarPlayListPlayingState(station.slug);
-        // Also sync Now Playing favorite button for the new station
-        _updateNowPlayingFavoriteState(_isFavorite(station.slug));
+        if (slugChanged) {
+          // Sync Now Playing favorite button for the new station
+          _updateNowPlayingFavoriteState(_isFavorite(station.slug));
+        }
       }
+    });
+
+    // Update CarPlay list playing indicator + Now Playing template when play/pause state changes
+    _carPlayPlaybackSubscription = _audioHandler.playbackState.stream.listen((state) {
+      final isPlaying = state.playing;
+      final slug = _audioHandler.currentStation.value?.slug;
+      _log("playbackState changed: playing=$isPlaying, slug=$slug, processing=${state.processingState}");
+      if (slug != null) {
+        _updateCarPlayListPlayingState(slug);
+      }
+      // Explicitly sync MPNowPlayingInfoCenter playback rate so
+      // CPNowPlayingTemplate.shared shows correct play/pause state.
+      // audio_service's native bridge may not propagate this in multi-scene CarPlay setups.
+      _syncNowPlayingPlaybackState(isPlaying);
     });
 
     // Update favorite UI (Now Playing button + CarPlay lists) when favorites change
@@ -171,6 +190,19 @@ class CarPlayService {
     });
   }
 
+  bool? _lastSyncedIsPlaying;
+
+  Future<void> _syncNowPlayingPlaybackState(bool isPlaying) async {
+    if (_lastSyncedIsPlaying == isPlaying) return;
+    _lastSyncedIsPlaying = isPlaying;
+    _log("syncNowPlayingPlaybackState: isPlaying=$isPlaying");
+    try {
+      await _nowPlayingChannel.invokeMethod('syncPlaybackState', {'isPlaying': isPlaying});
+    } catch (e) {
+      _log("Error syncing Now Playing playback state: $e");
+    }
+  }
+
   Future<void> _updateNowPlayingFavoriteState(bool isFavorite) async {
     try {
       await _nowPlayingChannel.invokeMethod('setFavoriteState', {'isFavorite': isFavorite});
@@ -180,21 +212,35 @@ class CarPlayService {
   }
 
   void _updateCarPlayListPlayingState(String currentSlug) {
+    final isPlaying = _audioHandler.playbackState.value.playing;
+    bool anyChanged = false;
     for (final entry in _favoriteListItems.entries) {
-      entry.value.setIsPlaying(entry.key == currentSlug);
+      final shouldBePlaying = entry.key == currentSlug && isPlaying;
+      if (entry.value.isPlaying != shouldBePlaying) {
+        entry.value.setIsPlaying(shouldBePlaying);
+        anyChanged = true;
+      }
     }
     for (final entry in _allStationsListItems.entries) {
-      entry.value.setIsPlaying(entry.key == currentSlug);
+      final shouldBePlaying = entry.key == currentSlug && isPlaying;
+      if (entry.value.isPlaying != shouldBePlaying) {
+        entry.value.setIsPlaying(shouldBePlaying);
+        anyChanged = true;
+      }
+    }
+    if (anyChanged) {
+      _flutterCarplay?.forceUpdateRootTemplate();
     }
   }
 
   void _updateCarPlayFavorites() {
-    if (_favoriteTemplate == null || _sortedStations.isEmpty || _flutterCarplay == null) return;
+    if (_favoriteTemplate == null || _flutterCarplay == null) return;
 
     final favoriteSlugs = _stationDataService.favoriteStationSlugs.value;
+    final sortedStations = _stationDataService.getSortedStations();
 
     // Update star prefix in "Toate statiile" items
-    for (final station in _sortedStations) {
+    for (final station in sortedStations) {
       final item = _allStationsListItems[station.slug];
       if (item == null) continue;
       final isFavorite = favoriteSlugs.contains(station.slug);
@@ -202,7 +248,7 @@ class CarPlayService {
     }
 
     // Get favorite items (reusing pre-created CPListItem objects)
-    final favoriteItems = _sortedStations
+    final favoriteItems = sortedStations
         .where((station) => favoriteSlugs.contains(station.slug))
         .map((station) => _favoriteListItems[station.slug])
         .whereType<CPListItem>()
@@ -221,10 +267,14 @@ class CarPlayService {
 
     _flutterCarplay!.addListenerOnConnectionChange((status) {
       _log("CarPlay connection status changed: $status");
-      _isConnected = status == ConnectionStatusTypes.connected;
-      isCarConnected.add(_isConnected);
-      if (status == ConnectionStatusTypes.disconnected) {
-        _audioHandler.activePlaylist = [];
+      final connected = status == ConnectionStatusTypes.connected;
+      isCarConnected.add(connected);
+      SeekModeManager.changeCarConnected(connected);
+      _audioHandler.reapplySeekOffset();
+      _audioHandler.refreshCurrentMetadata();
+      if (!connected && _audioHandler.playbackState.value.playing) {
+        _log("CarPlay disconnected while playing, pausing");
+        _audioHandler.pause();
       }
     });
 
@@ -257,8 +307,8 @@ class CarPlayService {
         CPListSection(
           items: [
             CPListItem(
-              text: "Se incarca statiile...",
-              detailText: "Va rugam asteptati",
+              text: _loadingStations,
+              detailText: _pleaseWait,
             ),
           ],
         ),
@@ -298,68 +348,66 @@ class CarPlayService {
     _log("Setting up CarPlay with ${stations.length} stations");
 
     final favoriteSlugs = _stationDataService.favoriteStationSlugs.value;
-
-    // Sort stations using the app's saved sort preference
-    _sortedStations = _sortStationsForCar(stations);
+    final sortedStations = _stationDataService.getSortedStations();
 
     final currentSlug = _audioHandler.currentStation.value?.slug;
+    final isCurrentlyPlaying = _audioHandler.playbackState.value.playing;
 
     _favoriteListItems.clear();
     _allStationsListItems.clear();
 
     // Pre-create CPListItem objects for ALL stations (for favorites tab)
-    for (final station in _sortedStations) {
+    for (final station in sortedStations) {
       final item = CPListItem(
         text: station.title,
+        detailText: station.displaySubtitle.isNotEmpty ? station.displaySubtitle : null,
         image: _cachedOrNetworkUrl(station.thumbnailUrl),
-        isPlaying: station.slug == currentSlug,
+        isPlaying: station.slug == currentSlug && isCurrentlyPlaying,
         onPress: (complete, item) async {
           _log("CarPlay: Favorite station selected: ${station.title}");
-          final currentFavorites = _sortedStations
-              .where((s) => _isFavorite(s.slug))
-              .toList();
           complete();
           FlutterCarplay.showSharedNowPlaying(animated: true);
-          await _audioHandler.playStation(station, playlist: currentFavorites, isFavoritesPlaylist: true);
+          await _audioHandler.playStation(station);
         },
       );
       _favoriteListItems[station.slug] = item;
     }
 
     // Get initial favorite items
-    final favoriteItems = _sortedStations
+    final favoriteItems = sortedStations
         .where((station) => favoriteSlugs.contains(station.slug))
         .map((station) => _favoriteListItems[station.slug]!)
         .toList();
 
     _favoriteTemplate = CPListTemplate(
-      title: "Favorite",
+      title: _isRomanian ? "Favorite" : "Favorites",
       sections: [CPListSection(items: favoriteItems)],
-      emptyViewTitleVariants: ["Nicio statie favorita"],
-      emptyViewSubtitleVariants: ["Adauga statii la favorite din aplicatie"],
+      emptyViewTitleVariants: [_noFavorites],
+      emptyViewSubtitleVariants: [_addFavoritesHint],
       systemIcon: "heart.fill",
     );
 
     // Create "Toate statiile" tab with separate CPListItem objects
-    final allStationsItems = _sortedStations.map((station) {
+    final allStationsItems = sortedStations.map((station) {
       final isFavorite = favoriteSlugs.contains(station.slug);
       final item = CPListItem(
         text: isFavorite ? "★ ${station.title}" : station.title,
+        detailText: station.displaySubtitle.isNotEmpty ? station.displaySubtitle : null,
         image: _cachedOrNetworkUrl(station.thumbnailUrl),
-        isPlaying: station.slug == currentSlug,
+        isPlaying: station.slug == currentSlug && isCurrentlyPlaying,
         onPress: (complete, item) async {
           _log("CarPlay: Station selected: ${station.title}");
           complete();
           FlutterCarplay.showSharedNowPlaying(animated: true);
-          await _audioHandler.playStation(station, playlist: _sortedStations);
+          await _audioHandler.playStation(station);
         },
       );
       _allStationsListItems[station.slug] = item;
       return item;
     }).toList();
 
-    final allStationsTemplate = CPListTemplate(
-      title: "Toate statiile",
+    _allStationsTemplate = CPListTemplate(
+      title: _allStationsTitle,
       sections: [
         CPListSection(items: allStationsItems),
       ],
@@ -367,7 +415,7 @@ class CarPlayService {
     );
 
     final tabBarTemplate = CPTabBarTemplate(
-      templates: [_favoriteTemplate!, allStationsTemplate],
+      templates: [_favoriteTemplate!, _allStationsTemplate!],
     );
 
     FlutterCarplay.setRootTemplate(
@@ -379,19 +427,49 @@ class CarPlayService {
     // Mark as initialized - this template will NEVER be replaced
     _carPlayInitialized = true;
     _log("CarPlay setup complete - template locked");
+
+    // Listen for station metadata changes (song title, artist from 10s polls)
+    // and update CarPlay list item detail text accordingly.
+    _carPlayStationsSubscription = _stationDataService.stations.stream.listen((updatedStations) {
+      _updateCarPlayStationMetadata(updatedStations);
+    });
     } catch (e) {
       _log("Error setting up CarPlay: $e");
     }
   }
 
+  /// Updates CarPlay list item detail text with current song metadata.
+  void _updateCarPlayStationMetadata(List<Station> updatedStations) {
+    final stationMap = <String, Station>{};
+    for (final s in updatedStations) {
+      stationMap[s.slug] = s;
+    }
+
+    for (final slug in _favoriteListItems.keys) {
+      final station = stationMap[slug];
+      if (station == null) continue;
+      final subtitle = station.displaySubtitle;
+      _favoriteListItems[slug]!.setDetailText(subtitle);
+    }
+
+    for (final slug in _allStationsListItems.keys) {
+      final station = stationMap[slug];
+      if (station == null) continue;
+      final subtitle = station.displaySubtitle;
+      _allStationsListItems[slug]!.setDetailText(subtitle);
+    }
+
+    _flutterCarplay?.forceUpdateRootTemplate();
+  }
+
   // iOS CarPlay only: listen for connection errors and network state.
   void _listenForConnectionErrors() {
     _connectionErrorSubscription = _audioHandler.connectionError.listen((error) {
-      if (!_isConnected) return;
+      if (!isConnected) return;
       // Debounce rapid errors (e.g. user taps multiple stations quickly)
       _connectionErrorDebounceTimer?.cancel();
       _connectionErrorDebounceTimer = Timer(const Duration(milliseconds: 300), () {
-        if (_isConnected) {
+        if (isConnected) {
           _showCarPlayConnectionError(error);
         }
       });
@@ -399,7 +477,7 @@ class CarPlayService {
 
     // Show alert immediately when network drops; dismiss when it recovers
     _networkRecoverySubscription = NetworkService.instance.isOffline.stream.listen((offline) {
-      if (!_isConnected) return;
+      if (!isConnected) return;
       if (offline) {
         _showCarPlayConnectionError(const ConnectionError(
           stationName: '',
@@ -477,28 +555,45 @@ class CarPlayService {
 
     _flutterAndroidAuto!.addListenerOnConnectionChange((status) {
       _log("Android Auto connection status changed: $status");
-      _isConnected = status == ConnectionStatusTypes.connected;
-      isCarConnected.add(_isConnected);
-      if (status == ConnectionStatusTypes.disconnected) {
-        _audioHandler.activePlaylist = [];
+      final connected = status == ConnectionStatusTypes.connected;
+      // Deduplicate: native side already filters, but guard against edge cases
+      if (isCarConnected.value == connected) return;
+      isCarConnected.add(connected);
+      SeekModeManager.changeCarConnected(connected);
+      _audioHandler.reapplySeekOffset();
+      _audioHandler.refreshCurrentMetadata();
+      if (connected) {
+        // Android Auto just connected — rebuild the template now that
+        // the MainScreen is available on the native side.
+        _rebuildAndroidAutoTemplate();
+      } else {
+        // Session destroyed — clean up player state so stale references
+        // don't leak across reconnections.
+        _isPlayerScreenVisible = false;
+        _lastPlayerStationSlug = null;
+        _lastPlayerSongTitle = null;
+        _lastPlayerArtist = null;
+        _lastPlayerIsPlaying = null;
+        _lastPlayerIsFavorite = null;
+        if (_audioHandler.playbackState.value.playing) {
+          _log("Android Auto disconnected while playing, pausing");
+          _audioHandler.pause();
+        }
       }
     });
 
-    // FAB handler: opens Now Playing screen if playing, otherwise starts playback
+    // FAB handler: opens Now Playing screen if playing, otherwise starts playback.
     FlutterAndroidAuto.onFabPressed = ({String? action}) async {
       _log("Android Auto: FAB pressed, action=$action");
       final station = _audioHandler.currentStation.value;
       if (station != null) {
-        // Station is loaded - open the player screen
         if (!_isPlayerScreenVisible) {
           await _pushAndroidAutoPlayer(station);
         }
-        // Also resume if paused
         if (!_audioHandler.playbackState.value.playing) {
           _audioHandler.play();
         }
       } else {
-        // No station - try to resume last played
         final lastStation = await _audioHandler.getLastPlayedStation();
         if (lastStation != null) {
           _pushAndroidAutoPlayer(lastStation);
@@ -550,6 +645,16 @@ class CarPlayService {
       _lastPlayerArtist = null;
       _lastPlayerIsPlaying = null;
       _lastPlayerIsFavorite = null;
+    });
+
+    _flutterAndroidAuto!.addListenerOnSearchTextChanged((query) {
+      _log("Android Auto: Search query: $query");
+      // Search is handled via audio_service's MediaBrowserService onSearch().
+      // The native SearchTemplate sends results back from the Dart handler.
+      _audioHandler.search(query).then((results) {
+        _log("Android Auto: Search returned ${results.length} results");
+        // TODO: Send results back to native SearchScreen via method channel
+      });
     });
   }
 
@@ -641,11 +746,11 @@ class CarPlayService {
       title: "Radio Crestin",
       sections: [
         AAListSection(
-          title: "Se incarca...",
+          title: _loadingTitle,
           items: [
             AAListItem(
-              title: "Se incarca statiile...",
-              subtitle: "Va rugam asteptati",
+              title: _loadingStations,
+              subtitle: _pleaseWait,
             ),
           ],
         ),
@@ -685,7 +790,7 @@ class CarPlayService {
     try {
       _log("Setting up Android Auto with ${stations.length} stations");
 
-      _updateSortedAndroidAutoStations(stations);
+      _updateSortedAndroidAutoStations();
       _rebuildAndroidAutoTemplate();
 
       // Listen for tab selection events from Android Auto
@@ -694,34 +799,32 @@ class CarPlayService {
         _activeAndroidAutoTabId = contentId;
       });
 
-      // Listen for favorites changes to rebuild the template + update player
-      _androidAutoFavoritesSubscription = _stationDataService.favoriteStationSlugs.stream.listen((_) {
-        _rebuildAndroidAutoTemplate();
-        _updateAndroidAutoPlayer();
-      });
+      // Single merged listener for ALL state changes that affect Android Auto.
+      // Any change to favorites, current station, playback state, or station metadata
+      // triggers a rebuild check + player update from the centralized state.
+      _androidAutoStationSubscription = Rx.merge([
+        _stationDataService.favoriteStationSlugs.stream.map((_) => 'favorites'),
+        _audioHandler.currentStation.stream.map((_) => 'station'),
+        _audioHandler.playbackState.stream.map((_) => 'playback'),
+        _stationDataService.stations.stream.map((_) => 'metadata'),
+      ]).listen((source) {
+        // Refresh sorted stations from single source of truth
+        _updateSortedAndroidAutoStations();
 
-      // Listen for current station changes (playing indicator + update player)
-      _androidAutoStationSubscription = _audioHandler.currentStation.stream.listen((station) {
-        _rebuildAndroidAutoTemplate();
-        if (station != null && _isPlayerScreenVisible) {
-          _updateAndroidAutoPlayer();
+        // Determine if list rebuild is needed
+        bool shouldRebuild = false;
+
+        if (source == 'favorites' || source == 'station') {
+          shouldRebuild = true;
+        } else if (source == 'metadata') {
+          final hash = _computeStationListHash(_sortedAndroidAutoStations);
+          if (hash != _lastAndroidAutoListHash) {
+            _lastAndroidAutoListHash = hash;
+            shouldRebuild = true;
+          }
         }
-      });
 
-      // Listen for playback state changes (play/pause on player screen)
-      _androidAutoPlaybackSubscription = _audioHandler.playbackState.stream.listen((_) {
-        _updateAndroidAutoPlayer();
-      });
-
-      // Listen for station list/metadata changes (song title, artist, new stations, etc.)
-      // Only rebuild if the visible data actually changed to prevent unnecessary native calls.
-      _androidAutoStationsListSubscription = _stationDataService.stations.stream.listen((updatedStations) {
-        _updateSortedAndroidAutoStations(updatedStations);
-        // Compute a lightweight hash of visible data to skip no-op rebuilds
-        final hash = _computeStationListHash(_sortedAndroidAutoStations);
-        if (hash != _lastAndroidAutoListHash) {
-          _lastAndroidAutoListHash = hash;
-          _log("Android Auto: station list changed, rebuilding");
+        if (shouldRebuild) {
           _rebuildAndroidAutoTemplate();
         }
         _updateAndroidAutoPlayer();
@@ -734,8 +837,8 @@ class CarPlayService {
     }
   }
 
-  void _updateSortedAndroidAutoStations(List<Station> stations) {
-    _sortedAndroidAutoStations = _sortStationsForCar(stations);
+  void _updateSortedAndroidAutoStations() {
+    _sortedAndroidAutoStations = _stationDataService.getSortedStations();
   }
 
   // Android Auto hard limit: max 100 items per GridTemplate/ListTemplate
@@ -761,8 +864,6 @@ class CarPlayService {
   AAListTemplate _buildStationListTemplate({
     required String title,
     required List<Station> stations,
-    required List<Station> playlist,
-    bool isFavoritesPlaylist = false,
   }) {
     final stationsToShow = stations.length > _maxAndroidAutoItems
         ? stations.sublist(0, _maxAndroidAutoItems)
@@ -774,20 +875,24 @@ class CarPlayService {
       sections: [
         AAListSection(
           items: stationsToShow.map((station) {
-            final isPlaying = station.slug == currentSlug;
+            // Mark the active station regardless of play/pause state.
+            // The play/pause state is shown on the player screen, not the list.
+            final isActive = station.slug == currentSlug;
             final subtitle = station.displaySubtitle.isNotEmpty
                 ? station.displaySubtitle
                 : null;
             return AAListItem(
-              title: isPlaying ? "▶ ${station.title}" : station.title,
+              title: isActive ? "▶ ${station.title}" : station.title,
               subtitle: subtitle,
               imageUrl: _cachedOrNetworkUrl(station.thumbnailUrl),
               onPress: (complete, item) async {
                 _log("Android Auto: Station selected: ${station.title}");
                 complete();
-                // Push player screen first (like CarPlay's showSharedNowPlaying)
+                // On API 8+: pushPlayer uses MediaPlaybackTemplate (system renders
+                // YouTube Music-style Now Playing from MediaSession automatically).
+                // On API < 8: pushPlayer uses PaneTemplate as fallback.
                 _pushAndroidAutoPlayer(station);
-                await _audioHandler.playStation(station, playlist: playlist, isFavoritesPlaylist: isFavoritesPlaylist);
+                await _audioHandler.playStation(station);
               },
             );
           }).toList(),
@@ -797,6 +902,10 @@ class CarPlayService {
   }
 
   Future<void> _doRebuildAndroidAutoTemplate() async {
+    // Don't try to set templates before Android Auto is connected
+    // (MainScreen won't exist yet on the native side)
+    if (!isCarConnected.value) return;
+
     // Serialize: if a rebuild is in flight, queue one more and return
     if (_isAndroidAutoRebuilding) {
       _needsAndroidAutoRebuild = true;
@@ -818,16 +927,13 @@ class CarPlayService {
 
     // Build list content for each tab
     final favoritesList = _buildStationListTemplate(
-      title: "Statii Favorite",
+      title: _favoriteStationsTitle,
       stations: favoriteStations,
-      playlist: favoriteStations,
-      isFavoritesPlaylist: true,
     );
 
     final allStationsList = _buildStationListTemplate(
-      title: "Toate Statiile",
+      title: _allStationsTitle,
       stations: _sortedAndroidAutoStations,
-      playlist: _sortedAndroidAutoStations,
     );
 
     // Build a TabTemplate with two tabs
@@ -836,12 +942,12 @@ class CarPlayService {
       tabs: [
         AATab(
           contentId: 'favorites',
-          title: "Favorite (${favoriteStations.length})",
+          title: _favoritesTabTitle(favoriteStations.length),
           content: favoritesList,
         ),
         AATab(
           contentId: 'all_stations',
-          title: "Toate (${_sortedAndroidAutoStations.length})",
+          title: _allTabTitle(_sortedAndroidAutoStations.length),
           content: allStationsList,
         ),
       ],
@@ -879,12 +985,11 @@ class CarPlayService {
     _connectionErrorDebounceTimer?.cancel();
     _currentStationSubscription?.cancel();
     _favoritesSubscription?.cancel();
+    _carPlayPlaybackSubscription?.cancel();
+    _carPlayStationsSubscription?.cancel();
     _connectionErrorSubscription?.cancel();
     _networkRecoverySubscription?.cancel();
-    _androidAutoFavoritesSubscription?.cancel();
     _androidAutoStationSubscription?.cancel();
-    _androidAutoStationsListSubscription?.cancel();
-    _androidAutoPlaybackSubscription?.cancel();
     _androidAutoRebuildTimer?.cancel();
 
     if (Platform.isIOS) {

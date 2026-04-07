@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'dart:developer' as developer;
-import 'dart:io' show Platform;
+import 'dart:io' show PathNotFoundException, Platform;
 
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -18,12 +18,11 @@ import 'package:radio_crestin/graphql_rest_mappings.dart';
 import 'package:radio_crestin/performance_monitor.dart';
 import 'package:radio_crestin/resilient_hive_store.dart';
 import 'package:radio_crestin/graphql_to_rest_interceptor.dart';
-import 'package:radio_crestin/pages/HomePage.dart';
+import 'package:radio_crestin/pages/SplashPage.dart';
 import 'package:radio_crestin/theme.dart';
 import 'package:radio_crestin/theme_manager.dart';
 import 'package:radio_crestin/seek_mode_manager.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:upgrader/upgrader.dart';
 
 import 'appAudioHandler.dart';
 import 'constants.dart';
@@ -77,8 +76,9 @@ void main() async {
   WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
 
-  // Run Firebase init, Hive init, and SharedPreferences in parallel.
-  // Firebase must complete before messaging, but Hive and prefs are independent.
+  // Phase 1: Start ALL independent async operations in parallel.
+  // Firebase, Hive, SharedPreferences, image cache, network, and PackageInfo
+  // have no dependencies on each other — run them all concurrently.
   final firebaseInitFuture = PerformanceMonitor.trackAsync('firebase_init', () =>
     Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform),
   );
@@ -94,12 +94,25 @@ void main() async {
   });
 
   final prefsFuture = SharedPreferences.getInstance();
+  final packageInfoFuture = PackageInfo.fromPlatform();
 
-  // Wait for Hive + prefs only — Firebase continues in background.
-  // GraphQL and audio don't need Firebase, so we start them sooner.
+  // Construct services early (sync constructors) and start their async init
+  // in parallel with hive — they only need path_provider / connectivity, not hive.
+  final networkService = NetworkService();
+  final imageCacheService = ImageCacheService();
+
+  final networkInitFuture = networkService.initialize();
+  final imageCacheInitFuture = PerformanceMonitor.trackAsync('image_cache_init',
+    () => imageCacheService.initialize());
+
+  // Phase 2: Wait for hive + prefs (needed for GraphQL client).
+  // Image cache and network init run in parallel — likely finish before hive.
   final hivePrefsResults = await Future.wait([hiveStoreFuture, prefsFuture]);
   final Store graphQlStore = hivePrefsResults[0] as Store;
   final SharedPreferences prefs = hivePrefsResults[1] as SharedPreferences;
+
+  // Also ensure image cache and network are ready (should already be done)
+  await Future.wait([imageCacheInitFuture, networkInitFuture]);
 
   if (prefs.getString('_reviewStatus') == null) {
     var defaultReviewStatus = {
@@ -159,16 +172,11 @@ void main() async {
     ),
   );
 
-  // Register SharedPreferences globally to avoid redundant getInstance() calls
-  getIt.registerSingleton<SharedPreferences>(prefs);
-
-  // Construct and register all services (sync, instant).
+  // Phase 3: Register all services with GetIt (sync, order matters).
   // Registration must happen BEFORE AudioService.init() because the builder
   // callback creates AppAudioHandler which accesses GetIt<StationDataService>.
-  final networkService = NetworkService();
+  getIt.registerSingleton<SharedPreferences>(prefs);
   getIt.registerSingleton<NetworkService>(networkService);
-
-  final imageCacheService = ImageCacheService();
   getIt.registerSingleton<ImageCacheService>(imageCacheService);
 
   final stationDataService = StationDataService(graphqlClient: graphqlClient);
@@ -177,22 +185,14 @@ void main() async {
   final playCountService = PlayCountService();
   getIt.registerSingleton<PlayCountService>(playCountService);
 
-  // NetworkService must be initialized before AudioService.init() because
-  // AppAudioHandler's constructor subscribes to NetworkService.isOnMobileData
-  // and needs the correct initial connectivity state.
-  await networkService.initialize();
-
-  // Start AudioService.init() early — it's the biggest blocker (500-1500ms).
-  // It now runs in parallel with ImageCacheService + StationDataService init.
+  // Phase 4: Start AudioService.init() — the biggest remaining blocker.
+  // Network and image cache are already initialized (awaited above).
   final audioHandlerFuture = PerformanceMonitor.trackAsync('audio_service_init', () =>
     initAudioService(graphqlClient: graphqlClient),
   );
-  final packageInfoFuture = PackageInfo.fromPlatform();
 
-  // ImageCacheService initializes in parallel with AudioService.init()
-  await PerformanceMonitor.trackAsync('image_cache_init', () => imageCacheService.initialize());
-
-  // StationDataService after ImageCacheService (thumbnail pre-caching depends on it)
+  // StationDataService init runs in parallel with audio (thumbnail pre-caching
+  // depends on ImageCacheService which is already initialized).
   await PerformanceMonitor.trackAsync('station_data_init', () => stationDataService.initialize());
 
   // Now await Firebase (likely already done since audio init takes longer)
@@ -204,7 +204,13 @@ void main() async {
   };
   PlatformDispatcher.instance.onError = (error, stack) {
     developer.log('PlatformDispatcher.instance.onError', error: error, stackTrace: stack);
-    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+    // Hive compaction may fail with PathNotFoundException when a concurrent
+    // Flutter engine (Android Auto / CarPlay) deletes the .hivec temp file.
+    // This is harmless — ResilientHiveStore handles the fallback.
+    final isHiveCompactionError = error is PathNotFoundException &&
+        stack.toString().contains('StorageBackendVm.compact');
+    FirebaseCrashlytics.instance.recordError(error, stack,
+        fatal: !isHiveCompactionError);
     return true;
   };
 
@@ -242,12 +248,19 @@ void main() async {
     });
   }
 
-  QuickActionsService.initialize();
-
-  // Remove splash AFTER theme is ready to avoid blank screen flash
-  FlutterNativeSplash.remove();
-
   runApp(const RadioCrestinApp());
+
+  // Remove native splash AFTER runApp + first frame layout to prevent
+  // "Cannot hit test a render box that has never been laid out" errors
+  // from touch events arriving before the widget tree is laid out.
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    FlutterNativeSplash.remove();
+  });
+
+  // Initialize quick actions after runApp so the Android Activity is available
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    QuickActionsService.initialize();
+  });
 
   // Defer CarPlay/Android Auto init to after first frame (not needed for initial render)
   WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -276,11 +289,7 @@ class RadioCrestinApp extends StatelessWidget {
           theme: lightTheme,
           darkTheme: darkTheme,
           themeMode: themeMode,
-          home: UpgradeAlert(
-        dialogStyle: Platform.isIOS ? UpgradeDialogStyle.cupertino : UpgradeDialogStyle.material,
-        upgrader: Upgrader(),
-        child: const HomePage(),
-          ),
+          home: const SplashPage(),
         );
       },
     );

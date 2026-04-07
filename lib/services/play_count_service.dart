@@ -17,6 +17,13 @@ class PlayCountService {
     _load();
   }
 
+  /// Reloads play counts from SharedPreferences.
+  /// Called before sorting to ensure the Android Auto engine (separate isolate)
+  /// picks up play counts written by the phone engine during the current session.
+  void refresh() {
+    _load();
+  }
+
   void _load() {
     try {
       final prefs = GetIt.instance<SharedPreferences>();
