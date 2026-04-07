@@ -10,8 +10,10 @@ import 'package:radio_crestin/theme.dart';
 import 'package:radio_crestin/pages/HomePage.dart';
 import 'package:radio_crestin/services/share_service.dart';
 import 'package:radio_crestin/widgets/share_handler.dart';
+import 'package:radio_crestin/services/review_service.dart';
 import 'package:radio_crestin/widgets/review_modal.dart';
 import 'package:radio_crestin/widgets/song_history_modal.dart';
+import '../globals.dart' as globals;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -44,6 +46,14 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   final _playButtonKey = GlobalKey<AnimatedPlayButtonState>();
   final _likeButtonKey = GlobalKey<LikeButtonState>();
   final StationDataService _stationDataService = GetIt.instance<StationDataService>();
+
+  String _songInfo() {
+    final title = currentStation?.songTitle ?? '';
+    final artist = currentStation?.songArtist ?? '';
+    if (artist.isNotEmpty) return '$title - $artist';
+    if (title.isNotEmpty) return title;
+    return currentStation?.title ?? '';
+  }
 
   @override
   void initState() {
@@ -247,7 +257,66 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
               ],
             ),
             const Spacer(),
-            // Row 1: favorit, share
+            // Row 1: like, dislike, share
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: <Widget>[
+                _buildActionButton(
+                  context,
+                  icon: Icons.thumb_up_outlined,
+                  label: 'like',
+                  onTap: () {
+                    if (currentStation != null) {
+                      ReviewService.submitReview(
+                        stationId: currentStation!.id,
+                        stars: 5,
+                        message: "I like: ${_songInfo()}",
+                        userIdentifier: globals.deviceId,
+                        songId: currentStation!.songId,
+                      );
+                      Fluttertoast.showToast(
+                        msg: 'Like trimis!',
+                        toastLength: Toast.LENGTH_SHORT,
+                        gravity: ToastGravity.BOTTOM,
+                        backgroundColor: AppColors.primaryDark,
+                        textColor: Colors.white,
+                      );
+                    }
+                  },
+                ),
+                _buildActionButton(
+                  context,
+                  icon: Icons.thumb_down_outlined,
+                  label: 'dislike',
+                  onTap: () {
+                    if (currentStation != null) {
+                      ReviewService.submitReview(
+                        stationId: currentStation!.id,
+                        stars: 1,
+                        message: "I don't like: ${_songInfo()}",
+                        userIdentifier: globals.deviceId,
+                        songId: currentStation!.songId,
+                      );
+                      Fluttertoast.showToast(
+                        msg: 'Dislike trimis!',
+                        toastLength: Toast.LENGTH_SHORT,
+                        gravity: ToastGravity.BOTTOM,
+                        backgroundColor: AppColors.primaryDark,
+                        textColor: Colors.white,
+                      );
+                    }
+                  },
+                ),
+                _buildActionButton(
+                  context,
+                  icon: Icons.share_outlined,
+                  label: 'share',
+                  onTap: () => _showShareDialog(context),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            // Row 2: favorit, recent, somn, youtube
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: <Widget>[
@@ -294,19 +363,6 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                 ),
                 _buildActionButton(
                   context,
-                  icon: Icons.share_outlined,
-                  label: 'share',
-                  onTap: () => _showShareDialog(context),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            // Row 2: recent, somn, recenzie, youtube
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: <Widget>[
-                _buildActionButton(
-                  context,
                   icon: Icons.history,
                   label: 'recent',
                   onTap: () {
@@ -326,23 +382,6 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                   label: 'somn',
                   isActive: isTimerActive,
                   onTap: () => showSleepTimerDialog(context),
-                ),
-                _buildActionButton(
-                  context,
-                  icon: Icons.star_outline_rounded,
-                  label: 'recenzie',
-                  onTap: () {
-                    if (currentStation != null) {
-                      ReviewModal.show(
-                        context,
-                        stationId: currentStation!.id,
-                        stationTitle: currentStation!.title,
-                        songId: currentStation!.songId,
-                        songTitle: currentStation!.songTitle,
-                        songArtist: currentStation!.songArtist,
-                      );
-                    }
-                  },
                 ),
                 _buildActionButton(
                   context,

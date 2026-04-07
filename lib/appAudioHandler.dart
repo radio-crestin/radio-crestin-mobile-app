@@ -434,6 +434,23 @@ class AppAudioHandler extends BaseAudioHandler {
         // Re-broadcast so notification icon updates immediately
         _broadcastState(player.playbackEvent);
         break;
+      case 'likeSong':
+        final likeStation = currentStation.value;
+        if (likeStation == null) return;
+        final likeSongTitle = likeStation.songTitle;
+        final likeSongArtist = likeStation.songArtist;
+        final likeSongInfo = likeSongArtist.isNotEmpty
+            ? '$likeSongTitle - $likeSongArtist'
+            : (likeSongTitle.isNotEmpty ? likeSongTitle : likeStation.title);
+        _log('likeSong: I like: $likeSongInfo');
+        ReviewService.submitReview(
+          stationId: likeStation.id,
+          stars: 5,
+          message: 'I like: $likeSongInfo',
+          userIdentifier: globals.deviceId,
+          songId: likeStation.songId,
+        );
+        break;
       case 'dislikeSong':
         final dislikeStation = currentStation.value;
         if (dislikeStation == null) return;
@@ -919,19 +936,25 @@ class AppAudioHandler extends BaseAudioHandler {
 
     playbackState.add(playbackState.value.copyWith(
       controls: [
-        // [0] Dislike song (left side on Android Auto)
+        // [0] Like song (left on Android Auto)
+        MediaControl.custom(
+          androidIcon: 'drawable/ic_thumb_up',
+          label: _isRomanian ? 'Îmi place' : 'Like',
+          name: 'likeSong',
+        ),
+        // [1] Dislike song
         MediaControl.custom(
           androidIcon: 'drawable/ic_thumb_down',
           label: _isRomanian ? 'Nu îmi place' : 'Dislike',
           name: 'dislikeSong',
         ),
-        // [1] Previous
+        // [2] Previous
         MediaControl.skipToPrevious,
-        // [2] Play/Pause
+        // [3] Play/Pause
         if (playing) MediaControl.pause else MediaControl.play,
-        // [3] Next
+        // [4] Next
         MediaControl.skipToNext,
-        // [4] Favorite toggle (right side on Android Auto)
+        // [5] Favorite toggle (right on Android Auto)
         MediaControl.custom(
           androidIcon: isFav ? 'drawable/ic_favorite' : 'drawable/ic_favorite_border',
           label: isFav
@@ -950,7 +973,7 @@ class AppAudioHandler extends BaseAudioHandler {
         MediaAction.setRating,
         MediaAction.skipToQueueItem,
       },
-      androidCompactActionIndices: const [1, 2, 3],
+      androidCompactActionIndices: const [2, 3, 4],
       processingState: _isConnecting
         ? AudioProcessingState.loading
         : const {
