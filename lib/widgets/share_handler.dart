@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:radio_crestin/services/analytics_service.dart';
 import 'package:radio_crestin/services/share_service.dart';
 import 'package:radio_crestin/utils/share_utils.dart';
 
@@ -467,6 +468,7 @@ class _ShareDialogContentState extends State<_ShareDialogContent> {
                         label: 'WhatsApp',
                         color: const Color(0xFF25D366),
                         onTap: () async {
+                          AnalyticsService.instance.capture('button_clicked', {'button_name': 'share_whatsapp', 'station_name': widget.stationName, 'song_id': widget.songId});
                           Navigator.pop(context);
                           await ShareHandler.shareToWhatsApp(_shareMessage, _shareUrl, widget.stationName, songName: widget.songName, songArtist: widget.songArtist);
                         },
@@ -478,6 +480,7 @@ class _ShareDialogContentState extends State<_ShareDialogContent> {
                         label: 'Facebook',
                         color: const Color(0xFF1877F2),
                         onTap: () async {
+                          AnalyticsService.instance.capture('button_clicked', {'button_name': 'share_facebook', 'station_name': widget.stationName, 'song_id': widget.songId});
                           Navigator.pop(context);
                           await ShareHandler.shareToFacebook(_shareUrl);
                         },
@@ -489,6 +492,7 @@ class _ShareDialogContentState extends State<_ShareDialogContent> {
                         label: 'Share',
                         color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
                         onTap: () async {
+                          AnalyticsService.instance.capture('button_clicked', {'button_name': 'share_generic', 'station_name': widget.stationName, 'song_id': widget.songId});
                           Navigator.pop(context);
                           await ShareHandler._performShare(context, _shareUrl, _shareMessage, widget.stationName, songName: widget.songName, songArtist: widget.songArtist);
                         },
@@ -524,6 +528,7 @@ class _ShareDialogContentState extends State<_ShareDialogContent> {
                         const SizedBox(width: 8),
                         InkWell(
                           onTap: () {
+                            AnalyticsService.instance.capture('button_clicked', {'button_name': 'copy_share_link', 'station_name': widget.stationName});
                             Clipboard.setData(ClipboardData(text: _shareUrl));
                             final overlay = Overlay.of(context);
                             final overlayEntry = OverlayEntry(

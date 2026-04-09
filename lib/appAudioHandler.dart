@@ -14,6 +14,7 @@ import 'package:radio_crestin/performance_monitor.dart';
 import 'package:radio_crestin/types/Station.dart';
 import 'package:radio_crestin/services/image_cache_service.dart';
 import 'package:radio_crestin/services/car_play_service.dart';
+import 'package:radio_crestin/services/analytics_service.dart';
 import 'package:radio_crestin/services/play_count_service.dart';
 import 'package:radio_crestin/services/network_service.dart';
 import 'package:radio_crestin/services/review_service.dart';
@@ -204,7 +205,7 @@ class AppAudioHandler extends BaseAudioHandler {
     _log("getChildren: $parentMediaId");
     switch (parentMediaId) {
       case AudioService.recentRootId:
-        return _recentSubject.value;
+        return []; // Disabled: queue button on Now Playing screen is sufficient
       case "favoriteStationsRootId":
         final favSlugs = stationDataService.favoriteStationSlugs.value;
         return stationsMediaItems.value
@@ -277,8 +278,12 @@ class AppAudioHandler extends BaseAudioHandler {
         return;
       }
       final stationThumbUrl = station.thumbnailUrl;
-      final items = history.history
-          .where((item) => item.hasSong)
+      final now = DateTime.now();
+      final pastSongs = history.history
+          .where((item) => item.hasSong && item.dateTime.isBefore(now))
+          .toList()
+        ..sort((a, b) => b.dateTime.compareTo(a.dateTime));
+      final items = pastSongs
           .take(30)
           .map((item) {
             final time = item.dateTime.toLocal();
@@ -646,6 +651,10 @@ class AppAudioHandler extends BaseAudioHandler {
     _loadedStreamType = null;
 
     await selectStation(station);
+
+    // Track listening session in PostHog
+    AnalyticsService.instance.startListening(station.slug, station.title, stationId: station.id);
+
     if (Platform.isAndroid) {
       await Future.delayed(const Duration(milliseconds: 100));
     }
@@ -666,6 +675,7 @@ class AppAudioHandler extends BaseAudioHandler {
     final next = stationDataService.getNextStation(currentStation.value!.slug);
     _log('skipToNext: current=${currentStation.value!.slug}, next=${next?.slug}');
     if (next == null) return super.skipToNext();
+    AnalyticsService.instance.trackStationSkip(currentStation.value!.slug, next.slug, 'next');
     return playStation(next);
   }
 
@@ -676,6 +686,7 @@ class AppAudioHandler extends BaseAudioHandler {
     final prev = stationDataService.getPreviousStation(currentStation.value!.slug);
     _log('skipToPrevious: current=${currentStation.value!.slug}, prev=${prev?.slug}');
     if (prev == null) return super.skipToPrevious();
+    AnalyticsService.instance.trackStationSkip(currentStation.value!.slug, prev.slug, 'previous');
     return playStation(prev);
   }
 
@@ -718,6 +729,7 @@ class AppAudioHandler extends BaseAudioHandler {
     if (_loadedStreamUrl != null &&
         player.processingState != ProcessingState.idle) {
       _log("play: fast resume (stream already loaded)");
+      AnalyticsService.instance.resumeListening();
       return player.play();
     }
 
@@ -776,7 +788,14 @@ class AppAudioHandler extends BaseAudioHandler {
         _loadedStreamType = null;
         PerformanceMonitor.endOperation('audio_play');
         final stationName = currentStation.valueOrNull?.title ?? '';
-        connectionError.add(_classifyError(stationName, lastError));
+        final classifiedError = _classifyError(stationName, lastError);
+        connectionError.add(classifiedError);
+        AnalyticsService.instance.endListening(reason: 'error');
+        AnalyticsService.instance.captureException(
+          lastError ?? Exception('Max retries reached'),
+          null,
+          context: 'play_station_failed:${classifiedError.reason.name}',
+        );
         _stopDueToError();
         return;
       }
@@ -804,6 +823,7 @@ class AppAudioHandler extends BaseAudioHandler {
     _log("pause");
     _cancelInFlightPlay();
     _hasBeenPlayed = false;
+    AnalyticsService.instance.endListening(reason: 'pause');
     await player.pause();
 
     // Disconnect after 60s of being paused to save bandwidth.
@@ -905,6 +925,7 @@ class AppAudioHandler extends BaseAudioHandler {
     _log("stop");
     _cancelInFlightPlay();
     _hasBeenPlayed = false;
+    AnalyticsService.instance.endListening();
     _disconnectTimer?.cancel();
     _bufferingStallTimer?.cancel();
     _loadedStreamUrl = null;
@@ -1109,6 +1130,8 @@ class AppAudioHandler extends BaseAudioHandler {
     _disconnectTimer?.cancel();
     _loadedStreamUrl = null;
     _loadedStreamType = null;
+    AnalyticsService.instance.endListening(reason: 'app_killed');
+    AnalyticsService.instance.flush();
     player.stop();
     stationDataService.dispose();
     return super.onTaskRemoved();

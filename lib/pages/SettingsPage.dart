@@ -1,7 +1,5 @@
 import 'dart:io';
 
-import 'package:firebase_analytics/firebase_analytics.dart';
-import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:radio_crestin/services/share_service.dart';
@@ -14,6 +12,7 @@ import 'package:device_info_plus/device_info_plus.dart';
 import '../appAudioHandler.dart';
 import '../globals.dart' as globals;
 import '../main.dart' show getIt;
+import '../services/analytics_service.dart';
 import '../seek_mode_manager.dart';
 import '../theme.dart';
 import '../theme_manager.dart';
@@ -265,6 +264,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       borderRadius: BorderRadius.circular(12),
                       onChanged: (ThemeMode? newValue) async {
                         if (newValue != null) {
+                          AnalyticsService.instance.capture('button_clicked', {'button_name': 'theme_mode', 'theme_mode': newValue.name});
                           setState(() {
                             _themeMode = newValue;
                           });
@@ -306,6 +306,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           inactiveThumbColor: Colors.white,
                           inactiveTrackColor: isDark ? const Color(0xff39393d) : const Color(0xffe9e9ea),
                           onChanged: (bool value) async {
+                            AnalyticsService.instance.capture('button_clicked', {'button_name': 'unstable_connection', 'enabled': value});
                             setState(() {
                               _unstableConnection = value;
                               if (value) {
@@ -355,6 +356,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           borderRadius: BorderRadius.circular(12),
                           onChanged: (SeekMode? newValue) async {
                             if (newValue != null) {
+                              AnalyticsService.instance.capture('button_clicked', {'button_name': 'buffer_size', 'seek_mode': newValue.name});
                               setState(() {
                                 _seekMode = newValue;
                               });
@@ -404,6 +406,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       inactiveThumbColor: Colors.white,
                       inactiveTrackColor: isDark ? const Color(0xff39393d) : const Color(0xffe9e9ea),
                       onChanged: (bool? value) async {
+                        AnalyticsService.instance.capture('button_clicked', {'button_name': 'auto_start_station', 'enabled': value});
                         final prefs = await SharedPreferences.getInstance();
                         await prefs.setBool('_autoStartStation', value!);
                         setState(() {
@@ -423,13 +426,13 @@ class _SettingsPageState extends State<SettingsPage> {
                       inactiveThumbColor: Colors.white,
                       inactiveTrackColor: isDark ? const Color(0xff39393d) : const Color(0xffe9e9ea),
                       onChanged: (bool? value) async {
+                        AnalyticsService.instance.capture('button_clicked', {'button_name': 'custom_notifications', 'enabled': value});
                         final prefs = await SharedPreferences.getInstance();
                         await prefs.setBool('_notificationsEnabled', value!);
                         setState(() {
                           _notificationsEnabled = value;
                         });
-                        await FirebaseAnalytics.instance
-                            .setUserProperty(name: 'personalized_n', value: value ? 'true' : 'false');
+                        AnalyticsService.instance.setUserProperty('personalized_n', value ? 'true' : 'false');
                       },
                       value: _notificationsEnabled ?? true,
                     ),
@@ -476,6 +479,7 @@ class _SettingsPageState extends State<SettingsPage> {
                             style: TextStyle(fontSize: 12, color: isDark ? const Color(0xff8a8a8a) : const Color(0xff6b6b6b)),
                           ),
                     onTap: () {
+                      AnalyticsService.instance.capture('button_clicked', {'button_name': 'share_app'});
                       _shareApp(context);
                     },
                   ),
@@ -483,6 +487,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     icon: Icons.star_rounded,
                     title: 'Lasă-ne o recenzie',
                     onTap: () async {
+                      AnalyticsService.instance.capture('button_clicked', {'button_name': 'leave_review'});
                       final url = Platform.isIOS
                           ? 'https://apps.apple.com/app/6451270471?action=write-review'
                           : 'https://play.google.com/store/apps/details?id=com.radiocrestin.radio_crestin';
@@ -493,7 +498,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     icon: Icons.chat,
                     title: 'Contactează-ne pe WhatsApp',
                     onTap: () async {
-                      FirebaseCrashlytics.instance.log("WHATSAPP_CONTACT");
+                      AnalyticsService.instance.capture('whatsapp_contact');
 
                       final platform = Platform.isAndroid ? "Android" : Platform.isIOS ? "iOS" : "";
                       final message = "[RadioCrestin/$platform/v${globals.appVersion}/${globals.deviceId}]\n\nBuna ziua,\n";
@@ -509,6 +514,25 @@ class _SettingsPageState extends State<SettingsPage> {
                 if (kDebugMode) ...[
                   _buildSectionHeader('Debug'),
                   _buildSettingsCard(children: [
+                    _buildSettingsTile(
+                      icon: Icons.directions_car,
+                      title: 'CarPlay / Android Auto',
+                      subtitle: _carConnected ? 'Conectat' : 'Deconectat',
+                      trailing: Icon(
+                        _carConnected ? Icons.check_circle : Icons.cancel,
+                        size: 20,
+                        color: _carConnected ? Colors.green : Colors.grey,
+                      ),
+                    ),
+                    _buildSettingsTile(
+                      icon: Icons.bug_report,
+                      title: 'Test crash (PostHog)',
+                      subtitle: 'Aruncă o excepție pentru a testa capturarea erorilor',
+                      trailing: const Icon(Icons.warning_amber_rounded, size: 20, color: Colors.orange),
+                      onTap: () {
+                        throw Exception('Test crash from Settings — verifying PostHog error tracking');
+                      },
+                    ),
                     _buildSettingsTile(
                       icon: Icons.delete_sweep,
                       title: 'Șterge datele aplicației',

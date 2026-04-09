@@ -31,6 +31,7 @@ import '../widgets/connectivity_banner.dart';
 import '../widgets/bottom_toast.dart';
 import '../widgets/promo_notification_card.dart';
 import '../services/promo_notification_service.dart';
+import '../services/analytics_service.dart';
 import '../types/Station.dart';
 import '../utils/PositionRetainedScrollPhysics.dart';
 import '../widgets/song_history_modal.dart';
@@ -352,7 +353,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     super.dispose();
   }
 
-  @override
   Widget _buildRoundedIconButton({
     required BuildContext context,
     required IconData icon,
@@ -360,32 +360,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     required VoidCallback onPressed,
     bool isActive = false,
   }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Material(
-      color: isActive
-          ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.12)
-          : isDark
-              ? Colors.white.withValues(alpha: 0.07)
-              : Colors.black.withValues(alpha: 0.06),
-      shape: const CircleBorder(),
-      child: InkWell(
-        onTap: onPressed,
-        customBorder: const CircleBorder(),
-        child: Tooltip(
-          message: tooltip,
-          child: SizedBox(
-            width: 38,
-            height: 38,
-            child: Icon(
-              icon,
-              size: 20,
-              color: isActive
-                  ? Theme.of(context).colorScheme.primary
-                  : Theme.of(context).colorScheme.onSurface,
-            ),
-          ),
-        ),
-      ),
+    return _AnimatedRoundedIconButton(
+      icon: icon,
+      tooltip: tooltip,
+      onPressed: onPressed,
+      isActive: isActive,
     );
   }
 
@@ -440,6 +419,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         ? Icon(Icons.check_rounded, size: 20, color: Theme.of(context).colorScheme.primary)
                         : null,
                     onTap: () {
+                      AnalyticsService.instance.capture('button_clicked', {'button_name': 'sort_option', 'sort_option': option.name});
                       setState(() {
                         _sortOption = option;
                       });
@@ -539,6 +519,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             ? Icon(Icons.check_rounded, size: 20, color: Theme.of(context).colorScheme.primary)
                             : null,
                         onTap: () {
+                          AnalyticsService.instance.capture('button_clicked', {'button_name': 'filter', 'filter_group': 'all'});
                           setState(() {
                             _stationDataService.selectedStationGroup.add(null);
                           });
@@ -569,6 +550,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                               ? Icon(Icons.check_rounded, size: 20, color: Theme.of(context).colorScheme.primary)
                               : null,
                           onTap: () {
+                            AnalyticsService.instance.capture('button_clicked', {'button_name': 'filter', 'filter_group': group.name, 'filter_group_id': group.id});
                             setState(() {
                               _stationDataService.selectedStationGroup.add(group);
                             });
@@ -606,6 +588,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         _stationDataService.pausePolling();
       }
     } else if (state == AppLifecycleState.detached) {
+      // Flush listening session and analytics before the app is terminated
+      AnalyticsService.instance.endListening(reason: 'app_killed');
+      AnalyticsService.instance.flush();
       // Stop the audio service when app is being terminated,
       // but keep it alive if CarPlay/Android Auto is connected.
       if (!_audioHandler.isCarConnected) {
@@ -659,6 +644,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     double panelMaxHeight = MediaQuery.of(context).size.height * .9;
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -698,11 +684,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             final favoriteStations = filteredStations.where((station) => favoriteSlugs.contains(station.slug)).toList();
             final nonFavoriteStations = filteredStations.where((station) => !favoriteSlugs.contains(station.slug)).toList();
 
-            return Stack(
+            return Container(
+              color: Theme.of(context).scaffoldBackgroundColor,
+              padding: EdgeInsets.only(bottom: Platform.isIOS ? 12 : bottomPadding),
+              child: Stack(
               children: [
               SlidingUpPanel(
-              maxHeight: panelMaxHeight,
-              // minHeight: 115,
+              maxHeight: panelMaxHeight - (Platform.isIOS ? 12 : bottomPadding),
+              minHeight: 96,
               backdropEnabled: true,
               backdropTapClosesPanel: true,
               boxShadow: const [],
@@ -728,6 +717,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           slidingUpPanelController.isPanelOpen)) ||
                   isDraggable,
               body: SafeArea(
+                bottom: false,
                 child: Column(
                   children: [
                     // Fixed app bar
@@ -757,6 +747,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             icon: Icons.search_rounded,
                             tooltip: 'Caută o stație radio',
                             onPressed: () {
+                              AnalyticsService.instance.capture('button_clicked', {'button_name': 'search'});
                               showDialog(
                                 context: context,
                                 builder: (BuildContext context) {
@@ -765,6 +756,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                     displayFunction: (Station station) => station.displayTitle,
                                     searchFunction: (Station station) => station.displayTitle,
                                     onItemSelected: (Station station) {
+                                      AnalyticsService.instance.capture('button_clicked', {'button_name': 'search_result_tap', 'station_id': station.id, 'station_slug': station.slug});
                                       _audioHandler.playStation(station);
                                     },
                                     itemBuilder: (context, station) {
@@ -829,6 +821,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             icon: Icons.settings_rounded,
                             tooltip: 'Setări aplicație',
                             onPressed: () {
+                              AnalyticsService.instance.capture('button_clicked', {'button_name': 'settings'});
                               SettingsPage.show(context, shareLinkData: _shareLinkData);
                             },
                           ),
@@ -903,7 +896,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                   children: [
                                     Expanded(
                                       child: GestureDetector(
-                                        onTap: () => _showSortOptions(context),
+                                        onTap: () {
+                                          AnalyticsService.instance.capture('button_clicked', {'button_name': 'sort_menu'});
+                                          _showSortOptions(context);
+                                        },
                                         child: Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
@@ -944,7 +940,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                           : Icons.filter_alt_outlined,
                                       tooltip: selectedStationGroup?.name ?? 'Filtrează',
                                       isActive: selectedStationGroup != null,
-                                      onPressed: () => _showFilterOptions(context, stationGroups, selectedStationGroup),
+                                      onPressed: () {
+                                        AnalyticsService.instance.capture('button_clicked', {'button_name': 'filter_menu'});
+                                        _showFilterOptions(context, stationGroups, selectedStationGroup);
+                                      },
                                     ),
                                   ],
                                 ),
@@ -969,7 +968,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               ),
               collapsed: currentStation != null && stations.isNotEmpty
                   ? Container(
-                      padding: EdgeInsets.only(bottom: Platform.isIOS ? 20 : 12, left: 8, right: 8),
+                      padding: const EdgeInsets.only(bottom: 4, left: 8, right: 8),
                       color: Theme.of(context).scaffoldBackgroundColor,
                       child: MiniAudioPlayer(
                         currentStation: currentStation,
@@ -1015,6 +1014,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   ),
                 ),
             ],
+            ),
             );
           }),
     );
@@ -1090,5 +1090,96 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         _audioHandler.selectStation(station);
       }
     }
+  }
+}
+
+class _AnimatedRoundedIconButton extends StatefulWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onPressed;
+  final bool isActive;
+
+  const _AnimatedRoundedIconButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+    this.isActive = false,
+  });
+
+  @override
+  State<_AnimatedRoundedIconButton> createState() => _AnimatedRoundedIconButtonState();
+}
+
+class _AnimatedRoundedIconButtonState extends State<_AnimatedRoundedIconButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 120),
+      reverseDuration: const Duration(milliseconds: 200),
+      vsync: this,
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.88).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onTapDown(TapDownDetails _) {
+    _controller.forward();
+  }
+
+  void _onTapUp(TapUpDetails _) {
+    _controller.reverse();
+    widget.onPressed();
+  }
+
+  void _onTapCancel() {
+    _controller.reverse();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return ScaleTransition(
+      scale: _scaleAnimation,
+      child: Material(
+        color: widget.isActive
+            ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.12)
+            : isDark
+                ? Colors.white.withValues(alpha: 0.07)
+                : Colors.black.withValues(alpha: 0.06),
+        shape: const CircleBorder(),
+        child: InkWell(
+          onTapDown: _onTapDown,
+          onTapUp: _onTapUp,
+          onTapCancel: _onTapCancel,
+          customBorder: const CircleBorder(),
+          child: Tooltip(
+            message: widget.tooltip,
+            child: SizedBox(
+              width: 44,
+              height: 44,
+              child: Icon(
+                widget.icon,
+                size: 22,
+                color: widget.isActive
+                    ? Theme.of(context).colorScheme.primary
+                    : Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

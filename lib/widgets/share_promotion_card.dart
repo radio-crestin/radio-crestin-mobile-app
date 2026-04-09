@@ -9,6 +9,7 @@ import 'package:radio_crestin/utils/share_utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:radio_crestin/services/analytics_service.dart';
 
 class SharePromotionCard extends StatefulWidget {
   final GraphQLClient client;
@@ -260,14 +261,20 @@ class SharePromotionCardState extends State<SharePromotionCard> {
                 context: context,
                 icon: FontAwesomeIcons.whatsapp,
                 color: _whatsappColor,
-                onTap: () => _shareToWhatsApp(),
+                onTap: () {
+                  AnalyticsService.instance.capture('button_clicked', {'button_name': 'promo_share_whatsapp'});
+                  _shareToWhatsApp();
+                },
               ),
               const SizedBox(width: 6),
               _buildShareButton(
                 context: context,
                 icon: FontAwesomeIcons.facebook,
                 color: _facebookColor,
-                onTap: () => _shareToFacebook(),
+                onTap: () {
+                  AnalyticsService.instance.capture('button_clicked', {'button_name': 'promo_share_facebook'});
+                  _shareToFacebook();
+                },
               ),
               const SizedBox(width: 6),
               _buildShareButton(
@@ -275,7 +282,10 @@ class SharePromotionCardState extends State<SharePromotionCard> {
                 icon: Icons.people_outline_rounded,
                 label: 'Distribuie',
                 color: Theme.of(context).primaryColor,
-                onTap: () => _shareGeneric(context),
+                onTap: () {
+                  AnalyticsService.instance.capture('button_clicked', {'button_name': 'promo_share_generic'});
+                  _shareGeneric(context);
+                },
               ),
                 ],
               ),
@@ -289,7 +299,10 @@ class SharePromotionCardState extends State<SharePromotionCard> {
             child: Material(
               color: Colors.transparent,
               child: InkWell(
-                onTap: _handleClose,
+                onTap: () {
+                  AnalyticsService.instance.capture('button_clicked', {'button_name': 'promo_card_close'});
+                  _handleClose();
+                },
                 borderRadius: BorderRadius.circular(20),
                 child: Container(
                   padding: const EdgeInsets.all(8),

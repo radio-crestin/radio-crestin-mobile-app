@@ -107,6 +107,9 @@ class CarPlayService {
   /// Auto-play the last station when car connects, if autoplay is enabled
   /// and not already playing. Detects whether the station is in favorites
   /// and passes the context so the correct tab/list is highlighted.
+  ///
+  /// If stations haven't loaded yet (e.g. cold start), waits up to 10 seconds
+  /// for them before giving up.
   Future<void> _autoplayOnCarConnect() async {
     if (_audioHandler.playbackState.value.playing) {
       _log("Already playing, skipping car autoplay");
@@ -119,9 +122,16 @@ class CarPlayService {
         _log("Autoplay disabled in settings, skipping car autoplay");
         return;
       }
-      final station = await _audioHandler.getLastPlayedStation();
+
+      // Wait for stations to load if they haven't yet (cold start scenario).
+      var station = await _audioHandler.getLastPlayedStation();
       if (station == null) {
-        _log("No last played station, skipping car autoplay");
+        _log("Stations not loaded yet, waiting for them...");
+        station = await _waitForLastPlayedStation();
+      }
+
+      if (station == null) {
+        _log("No last played station after waiting, skipping car autoplay");
         return;
       }
       final fromFavorites = _isFavorite(station.slug);
@@ -130,6 +140,36 @@ class CarPlayService {
     } catch (e) {
       _log("Error during car autoplay: $e");
     }
+  }
+
+  /// Waits up to 10 seconds for stations to load, then returns the last
+  /// played station. Returns null if stations never load or no last played
+  /// station is found.
+  Future<Station?> _waitForLastPlayedStation() async {
+    final completer = Completer<Station?>();
+    Timer? timeout;
+    StreamSubscription? sub;
+
+    timeout = Timer(const Duration(seconds: 10), () {
+      sub?.cancel();
+      if (!completer.isCompleted) {
+        _log("Timed out waiting for stations to load for autoplay");
+        completer.complete(null);
+      }
+    });
+
+    sub = _stationDataService.stations.stream.listen((stations) async {
+      if (stations.isNotEmpty) {
+        sub?.cancel();
+        timeout?.cancel();
+        final station = await _audioHandler.getLastPlayedStation();
+        if (!completer.isCompleted) {
+          completer.complete(station);
+        }
+      }
+    });
+
+    return completer.future;
   }
 
   /// Returns true if the device locale is Romanian.
@@ -427,13 +467,31 @@ class CarPlayService {
       final connected = status != ConnectionStatusTypes.disconnected;
       isCarConnected.add(connected);
       SeekModeManager.changeCarConnected(connected);
-      _audioHandler.reapplySeekOffset();
-      _audioHandler.refreshCurrentMetadata();
+
       if (connected && !wasConnected) {
-        _autoplayOnCarConnect();
-      } else if (!connected && _audioHandler.playbackState.value.playing) {
-        _log("CarPlay disconnected while playing, pausing");
-        _audioHandler.pause();
+        // Fresh CarPlay connection.
+        _log(">>> CARPLAY CONNECTED (wasPlaying=${_audioHandler.playbackState.value.playing})");
+        final wasPlaying = _audioHandler.playbackState.value.playing;
+        _audioHandler.refreshCurrentMetadata();
+        if (wasPlaying) {
+          // Already playing from phone — don't interrupt the stream.
+          // Just refresh station metadata for the new seek offset.
+          _audioHandler.stationDataService.refreshStations();
+          _log("Already playing, skipping autoplay — refreshed metadata only");
+        } else {
+          // Not playing — try to autoplay the last station.
+          _autoplayOnCarConnect();
+        }
+      } else if (!connected && wasConnected) {
+        _log(">>> CARPLAY DISCONNECTED (wasPlaying=${_audioHandler.playbackState.value.playing})");
+        if (_audioHandler.playbackState.value.playing) {
+          _log("Pausing playback due to CarPlay disconnect");
+          _audioHandler.pause();
+        }
+      } else if (connected) {
+        // Returning from background — just refresh metadata.
+        _log(">>> CARPLAY FOREGROUND (returning from background)");
+        _audioHandler.refreshCurrentMetadata();
       }
     });
 

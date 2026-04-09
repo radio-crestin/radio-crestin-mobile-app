@@ -15,6 +15,7 @@ import 'package:radio_crestin/services/song_like_service.dart';
 import 'package:radio_crestin/widgets/review_modal.dart';
 import 'package:radio_crestin/widgets/song_history_modal.dart';
 import '../globals.dart' as globals;
+import '../services/analytics_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -94,6 +95,26 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bgColor = Theme.of(context).scaffoldBackgroundColor;
 
+    // Calculate responsive thumbnail size based on available panel height.
+    final screenHeight = MediaQuery.of(context).size.height;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final panelHeight = screenHeight * 0.9;
+    final textScale = MediaQuery.textScalerOf(context).scale(1.0).clamp(1.0, 1.5);
+
+    // Fixed elements budget: drag handle(7) + title(~30) + song+artist(~50)
+    //   + chips(~50) + transport(~90) + bottom row(~75) + spacers(~110) + bottom(~24)
+    final fixedBudget = 420.0 * textScale;
+    // Thumb must also fit horizontally with padding (32px total)
+    final maxThumbWidth = screenWidth - 64.0;
+    final thumbSize = (panelHeight - fixedBudget).clamp(140.0, 300.0).clamp(140.0, maxThumbWidth);
+
+    // Smoothly interpolate transport controls based on available thumb space.
+    // t=0 at thumbSize 140, t=1 at thumbSize 240+
+    final t = ((thumbSize - 140.0) / 100.0).clamp(0.0, 1.0);
+    final playIconSize = 48.0 + (14.0 * t);  // 48..62
+    final skipIconSize = 36.0 + (10.0 * t);  // 36..46
+    final skipSpacing = 20.0 + (12.0 * t);   // 20..32
+
     return Container(
       decoration: BoxDecoration(
         borderRadius: const BorderRadius.only(
@@ -123,32 +144,21 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: <Widget>[
-                Container(
-                  margin: const EdgeInsets.only(top: 3.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: <Widget>[
-                      Container(
-                        width: 32,
-                        height: 4,
-                        decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                            borderRadius: const BorderRadius.all(Radius.circular(12.0))),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+            // Drag handle
+            Container(
+              margin: const EdgeInsets.only(top: 3.0),
+              child: Container(
+                width: 32,
+                height: 4,
+                decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    borderRadius: const BorderRadius.all(Radius.circular(12.0))),
+              ),
             ),
-            const SizedBox(height: 17.0),
+            const SizedBox(height: 10.0),
+            // Station title
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 250),
-              // Keyless transitionBuilder lets AnimatedSwitcher's internal
-              // _childNumber counter ensure unique keys, preventing duplicate
-              // key errors during rapid A -> B -> A station switches.
               transitionBuilder: (Widget child, Animation<double> animation) {
                 return FadeTransition(opacity: animation, child: child);
               },
@@ -162,7 +172,8 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                 textAlign: TextAlign.center,
               ),
             ),
-            const SizedBox(height: 18.0),
+            const Spacer(flex: 1),
+            // Thumbnail
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 300),
               transitionBuilder: (Widget child, Animation<double> animation) {
@@ -170,8 +181,8 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
               },
               child: Container(
                 key: ValueKey('thumb-${currentStation?.id}-${currentStation?.songId}'),
-                width: 260.0,
-                height: 260.0,
+                width: thumbSize,
+                height: thumbSize,
                 decoration: BoxDecoration(
                   color: Theme.of(context).colorScheme.surface,
                   borderRadius: const BorderRadius.all(Radius.circular(8)),
@@ -187,12 +198,13 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                 child: ClipRRect(
                   borderRadius: const BorderRadius.all(Radius.circular(8)),
                   child: currentStation?.displayThumbnail(
-                    cacheWidth: (260 * MediaQuery.devicePixelRatioOf(context)).ceil(),
+                    cacheWidth: (thumbSize * MediaQuery.devicePixelRatioOf(context)).ceil(),
                   ),
                 ),
               ),
             ),
-            const SizedBox(height: 18.0),
+            const SizedBox(height: 16),
+            // Song title
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 250),
               transitionBuilder: (Widget child, Animation<double> animation) {
@@ -203,15 +215,18 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 child: Text(
                   currentStation?.songTitle ?? "Metadate indisponibile",
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                    fontSize: 21,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
             ),
+            const SizedBox(height: 4),
+            // Artist
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 250),
               transitionBuilder: (Widget child, Animation<double> animation) {
@@ -224,191 +239,128 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: 15,
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
             ),
-            // Centered section: chips + transport controls
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Chip row: [like | dislike] ---- [share]
-                  Builder(builder: (context) {
-                    final songId = currentStation?.songId ?? -1;
-                    final likeStatus = GetIt.instance<SongLikeService>().getLikeStatus(songId);
-                    final chipBg = isDark
-                        ? Colors.white.withValues(alpha: 0.12)
-                        : Colors.black.withValues(alpha: 0.08);
-                    final chipRadius = BorderRadius.circular(24);
+            const Spacer(flex: 2),
+            // Chip row: like | dislike | share
+            Builder(builder: (context) {
+              final songId = currentStation?.songId ?? -1;
+              final likeStatus = GetIt.instance<SongLikeService>().getLikeStatus(songId);
+              final chipBg = isDark
+                  ? Colors.white.withValues(alpha: 0.12)
+                  : Colors.black.withValues(alpha: 0.08);
+              final chipRadius = BorderRadius.circular(24);
 
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                      child: Row(
-                        children: [
-                          // Like chip
-                          InkWell(
-                            borderRadius: chipRadius,
-                            onTap: () => _showReviewModal(context, initialStars: 5),
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: chipBg,
-                                borderRadius: chipRadius,
-                              ),
-                              padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 10.0),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    likeStatus == 1 ? Icons.thumb_up : Icons.thumb_up_outlined,
-                                    size: 20,
-                                    color: likeStatus == 1
-                                        ? Theme.of(context).primaryColor
-                                        : Theme.of(context).colorScheme.onSurface,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    'Îmi place',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: likeStatus == 1
-                                          ? Theme.of(context).primaryColor
-                                          : Theme.of(context).colorScheme.onSurface,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          // Dislike chip
-                          InkWell(
-                            borderRadius: chipRadius,
-                            onTap: () => _showReviewModal(context, initialStars: 1),
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: chipBg,
-                                borderRadius: chipRadius,
-                              ),
-                              padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 10.0),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    likeStatus == -1 ? Icons.thumb_down : Icons.thumb_down_outlined,
-                                    size: 20,
-                                    color: likeStatus == -1
-                                        ? Theme.of(context).primaryColor
-                                        : Theme.of(context).colorScheme.onSurface,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    'Nu îmi place',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: likeStatus == -1
-                                          ? Theme.of(context).primaryColor
-                                          : Theme.of(context).colorScheme.onSurface,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          // Share pill
-                          InkWell(
-                            borderRadius: chipRadius,
-                            onTap: () => _showShareDialog(context),
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: chipBg,
-                                borderRadius: chipRadius,
-                              ),
-                              padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 10.0),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.share_outlined,
-                                    size: 20,
-                                    color: Theme.of(context).colorScheme.onSurface,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    'Trimite',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: Theme.of(context).colorScheme.onSurface,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }),
-                  const SizedBox(height: 24.0),
-                  // Transport controls: prev | play/pause | next
-                  Row(
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    children: <Widget>[
-                      InkWell(
+                    children: [
+                      _buildChip(
+                        context,
+                        icon: likeStatus == 1 ? Icons.thumb_up : Icons.thumb_up_outlined,
+                        label: 'Îmi place',
+                        isActive: likeStatus == 1,
+                        chipBg: chipBg,
+                        chipRadius: chipRadius,
                         onTap: () {
-                          _playButtonKey.currentState?.notifyWillPlay();
-                          widget.audioHandler.skipToPrevious();
+                          AnalyticsService.instance.capture('button_clicked', {'button_name': 'like_song', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug, 'song_id': currentStation?.songId});
+                          _showReviewModal(context, initialStars: 5);
                         },
-                        child: Padding(
-                          padding: const EdgeInsets.all(10.0),
-                          child: Icon(
-                            Icons.skip_previous,
-                            size: 42,
-                            color: Theme.of(context).colorScheme.onSurface,
-                          ),
-                        ),
                       ),
-                      const SizedBox(width: 28.0),
-                      AnimatedPlayButton(
-                        key: _playButtonKey,
-                        playbackStateStream: widget.audioHandler.playbackState,
-                        iconSize: 54,
-                        iconColor: Theme.of(context).colorScheme.onPrimary,
-                        backgroundColor: Theme.of(context).bottomAppBarTheme.color,
-                        onPlay: widget.audioHandler.play,
-                        onPause: widget.audioHandler.pause,
-                        onStop: widget.audioHandler.stop,
-                      ),
-                      const SizedBox(width: 28.0),
-                      InkWell(
+                      const SizedBox(width: 8),
+                      _buildChip(
+                        context,
+                        icon: likeStatus == -1 ? Icons.thumb_down : Icons.thumb_down_outlined,
+                        label: 'Nu-mi place',
+                        isActive: likeStatus == -1,
+                        chipBg: chipBg,
+                        chipRadius: chipRadius,
                         onTap: () {
-                          _playButtonKey.currentState?.notifyWillPlay();
-                          widget.audioHandler.skipToNext();
+                          AnalyticsService.instance.capture('button_clicked', {'button_name': 'dislike_song', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug, 'song_id': currentStation?.songId});
+                          _showReviewModal(context, initialStars: 1);
                         },
-                        child: Padding(
-                          padding: const EdgeInsets.all(10.0),
-                          child: Icon(
-                            Icons.skip_next_rounded,
-                            size: 42,
-                            color: Theme.of(context).colorScheme.onSurface,
-                          ),
-                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      _buildChip(
+                        context,
+                        icon: Icons.share_outlined,
+                        label: 'Trimite',
+                        chipBg: chipBg,
+                        chipRadius: chipRadius,
+                        onTap: () {
+                          AnalyticsService.instance.capture('button_clicked', {'button_name': 'share', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug, 'song_id': currentStation?.songId});
+                          _showShareDialog(context);
+                        },
                       ),
                     ],
                   ),
-                ],
-              ),
+                ),
+              );
+            }),
+            const Spacer(flex: 2),
+            // Transport controls: prev | play/pause | next
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                InkWell(
+                  onTap: () {
+                    _playButtonKey.currentState?.notifyWillPlay();
+                    widget.audioHandler.skipToPrevious();
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.all(10.0),
+                    child: Icon(
+                      Icons.skip_previous,
+                      size: skipIconSize,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                  ),
+                ),
+                SizedBox(width: skipSpacing),
+                AnimatedPlayButton(
+                  key: _playButtonKey,
+                  playbackStateStream: widget.audioHandler.playbackState,
+                  iconSize: playIconSize,
+                  iconColor: Theme.of(context).colorScheme.onPrimary,
+                  backgroundColor: Theme.of(context).bottomAppBarTheme.color,
+                  onPlay: widget.audioHandler.play,
+                  onPause: widget.audioHandler.pause,
+                  onStop: widget.audioHandler.stop,
+                ),
+                SizedBox(width: skipSpacing),
+                InkWell(
+                  onTap: () {
+                    _playButtonKey.currentState?.notifyWillPlay();
+                    widget.audioHandler.skipToNext();
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.all(10.0),
+                    child: Icon(
+                      Icons.skip_next_rounded,
+                      size: skipIconSize,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 8.0),
-            // Bottom row: favorit, recent, somn, youtube
+            const Spacer(flex: 2),
+            // Bottom row: favorit, istoric, somn, youtube
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: <Widget>[
                 InkWell(
                   customBorder: const CircleBorder(),
-                  onTap: () => _likeButtonKey.currentState?.onTap(),
+                  onTap: () {
+                    AnalyticsService.instance.capture('button_clicked', {'button_name': 'favorite', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug});
+                    _likeButtonKey.currentState?.onTap();
+                  },
                   child: Container(
                     padding: const EdgeInsets.all(10.0),
                     child: Column(
@@ -450,8 +402,9 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                 _buildActionButton(
                   context,
                   icon: Icons.history,
-                  label: 'recent',
+                  label: 'istoric',
                   onTap: () {
+                    AnalyticsService.instance.capture('button_clicked', {'button_name': 'song_history', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug});
                     if (currentStation != null) {
                       SongHistoryModal.show(
                         context,
@@ -467,7 +420,10 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                   icon: Icons.nights_stay_sharp,
                   label: 'somn',
                   isActive: isTimerActive,
-                  onTap: () => showSleepTimerDialog(context),
+                  onTap: () {
+                    AnalyticsService.instance.capture('button_clicked', {'button_name': 'sleep_timer', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug});
+                    showSleepTimerDialog(context);
+                  },
                 ),
                 _buildActionButton(
                   context,
@@ -476,6 +432,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                   isEnabled: hasYoutubeLink,
                   onTap: () async {
                     if (!hasYoutubeLink || currentStation == null) return;
+                    AnalyticsService.instance.capture('button_clicked', {'button_name': 'youtube_search', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug, 'song_id': currentStation?.songId, 'song_title': currentStation?.songTitle});
                     final query = "${currentStation?.songArtist} - ${currentStation?.songTitle}";
                     final encodedQuery = Uri.encodeQueryComponent(query);
                     final searchUrl = 'https://www.youtube.com/results?q=$encodedQuery';
@@ -484,7 +441,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                 ),
               ],
             ),
-            const SizedBox(height: 40.0),
+            const SizedBox(height: 24.0),
           ],
         ),
       ),
@@ -521,6 +478,46 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
             Padding(
               padding: const EdgeInsets.only(top: 8.0),
               child: Text(label, style: TextStyle(fontSize: 12, color: labelColor)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChip(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required Color chipBg,
+    required BorderRadius chipRadius,
+    required VoidCallback onTap,
+    bool isActive = false,
+  }) {
+    final color = isActive
+        ? Theme.of(context).primaryColor
+        : Theme.of(context).colorScheme.onSurface;
+    return InkWell(
+      borderRadius: chipRadius,
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: chipBg,
+          borderRadius: chipRadius,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 9.0),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 20, color: color),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: color,
+              ),
             ),
           ],
         ),
@@ -657,6 +654,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   }
 
   void setSleepTimer(BuildContext context, Duration duration) {
+    AnalyticsService.instance.capture('button_clicked', {'button_name': 'sleep_timer_set', 'duration_minutes': duration.inMinutes});
     Navigator.of(context).pop();
     Fluttertoast.showToast(
         msg: "Radioul se va opri după ${duration.inMinutes} minute",
@@ -683,6 +681,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   }
 
   void cancelSleepTimer() {
+    AnalyticsService.instance.capture('button_clicked', {'button_name': 'sleep_timer_cancel'});
     if (sleepTimer != null) {
       sleepTimer!.cancel();
       sleepTimer = null;

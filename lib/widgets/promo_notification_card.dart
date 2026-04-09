@@ -72,86 +72,17 @@ class PromoNotificationCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 14),
-                // Platform logos row + button
+                // Official platform badges
                 Row(
                   children: [
-                    // CarPlay logo
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? Colors.white.withValues(alpha: 0.06)
-                            : Colors.black.withValues(alpha: 0.04),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(4),
-                            child: SvgPicture.asset(
-                              'assets/icons/carplay_logo.svg',
-                              width: 22,
-                              height: 22,
-                            ),
-                          ),
-                          const SizedBox(width: 7),
-                          Text(
-                            'CarPlay',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurface
-                                  .withValues(alpha: 0.7),
-                              letterSpacing: -0.1,
-                            ),
-                          ),
-                        ],
-                      ),
+                    _PlatformBadge(
+                      iconAsset: 'assets/icons/carplay_logo.svg',
+                      worksWithLabel: 'Apple CarPlay',
                     ),
-                    const SizedBox(width: 8),
-                    // Android Auto logo
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? Colors.white.withValues(alpha: 0.06)
-                            : Colors.black.withValues(alpha: 0.04),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          SvgPicture.asset(
-                            'assets/icons/android_auto_logo.svg',
-                            width: 22,
-                            height: 22,
-                          ),
-                          const SizedBox(width: 7),
-                          Text(
-                            'Android Auto',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurface
-                                  .withValues(alpha: 0.7),
-                              letterSpacing: -0.1,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Spacer(),
-                    // "Am înțeles" button
-                    _DismissButton(
-                      isDark: isDark,
-                      onTap: onDismiss,
+                    const SizedBox(width: 10),
+                    _PlatformBadge(
+                      iconAsset: 'assets/icons/android_auto_logo.svg',
+                      worksWithLabel: 'Android Auto',
                     ),
                   ],
                 ),
@@ -193,43 +124,62 @@ class PromoNotificationCard extends StatelessWidget {
   }
 }
 
-class _DismissButton extends StatelessWidget {
-  final bool isDark;
-  final VoidCallback onTap;
+class _PlatformBadge extends StatelessWidget {
+  final String iconAsset;
+  final String worksWithLabel;
 
-  const _DismissButton({required this.isDark, required this.onTap});
+  const _PlatformBadge({
+    required this.iconAsset,
+    required this.worksWithLabel,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final color = isDark
-        ? const Color(0xFF64B5F6)
-        : const Color(0xFF1565C0);
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(24),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: isDark ? 0.15 : 0.08),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: color.withValues(alpha: 0.25),
-              width: 1,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.black,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: SvgPicture.asset(
+              iconAsset,
+              width: 28,
+              height: 28,
             ),
           ),
-          child: Text(
-            'Am înțeles',
-            style: TextStyle(
-              color: color,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Works with',
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w400,
+                  color: Color(0xFF999999),
+                  height: 1.2,
+                ),
+              ),
+              Text(
+                worksWithLabel,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                  height: 1.3,
+                ),
+              ),
+            ],
           ),
-        ),
+        ],
       ),
     );
   }
 }
+

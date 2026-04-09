@@ -1,7 +1,7 @@
 import 'dart:io';
 
-import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:quick_actions/quick_actions.dart';
+import 'analytics_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../globals.dart' as globals;
@@ -53,13 +53,13 @@ class QuickActionsService {
   }
 
   static Future<void> _openDeleteFeedback() async {
-    FirebaseCrashlytics.instance.log("QUICK_ACTION_FEEDBACK_DELETE");
+    AnalyticsService.instance.capture('quick_action_feedback_delete');
     final info = _buildPlatformInfo();
     await _openWhatsApp("$info\n\nBuna ziua,\n\nAs dori sa va ofer feedback despre aplicatie:\n");
   }
 
   static Future<void> _openReportProblem() async {
-    FirebaseCrashlytics.instance.log("QUICK_ACTION_REPORT_PROBLEM");
+    AnalyticsService.instance.capture('quick_action_report_problem');
     final info = _buildPlatformInfo();
     await _openWhatsApp("$info\n\nBuna ziua,\n\nAs dori sa raportez urmatoarea problema:\n");
   }

@@ -58,15 +58,15 @@ class MiniAudioPlayer extends StatelessWidget {
                 ),
               ],
             ),
-            SizedBox(height: Platform.isIOS ? 7 : 10),
+            SizedBox(height: Platform.isIOS ? 8 : 10),
             SizedBox(
-              height: 52,
+              height: 62,
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: <Widget>[
                   SizedBox(
-                    width: 52.0,
-                    height: 52.0,
+                    width: 60.0,
+                    height: 60.0,
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(12.0),
                       child: currentStation?.thumbnail,
@@ -83,6 +83,7 @@ class MiniAudioPlayer extends StatelessWidget {
                           style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
+                            fontSize: 15,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -92,7 +93,7 @@ class MiniAudioPlayer extends StatelessWidget {
                             displaySubtitle,
                             style: TextStyle(
                               color: Colors.white.withOpacity(0.7),
-                              fontSize: 12.0,
+                              fontSize: 13.0,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -104,7 +105,7 @@ class MiniAudioPlayer extends StatelessWidget {
                   IgnoreDraggableWidget(
                     child: AnimatedPlayButton(
                       playbackStateStream: audioHandler.playbackState,
-                      iconSize: 36,
+                      iconSize: 38,
                       iconColor: Theme.of(context).iconTheme.color!,
                       onPlay: audioHandler.play,
                       onPause: audioHandler.pause,

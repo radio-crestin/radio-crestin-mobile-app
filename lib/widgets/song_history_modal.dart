@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:radio_crestin/seek_mode_manager.dart';
+import 'package:radio_crestin/services/analytics_service.dart';
 import 'package:radio_crestin/services/song_history_service.dart';
 import 'package:radio_crestin/theme.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -234,6 +235,7 @@ class _SongHistoryModalState extends State<SongHistoryModal> {
   }
 
   void _openYouTubeSearch(SongHistoryItem item) async {
+    AnalyticsService.instance.capture('button_clicked', {'button_name': 'song_history_youtube', 'station_slug': widget.stationSlug, 'song_name': item.songName});
     final query = item.artistName != null && item.artistName!.isNotEmpty
         ? '${item.songName} ${item.artistName}'
         : item.songName ?? '';
@@ -448,7 +450,7 @@ class _SongHistoryModalState extends State<SongHistoryModal> {
       child: InkWell(
         onTap: item.hasSong ? () => _openYouTubeSearch(item) : null,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
           child: Row(
             children: [
               // Thumbnail
@@ -465,31 +467,31 @@ class _SongHistoryModalState extends State<SongHistoryModal> {
                   children: [
                     Text(
                       item.songName ?? 'Necunoscut',
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.w600,
-                        fontSize: 14,
+                        fontSize: 15.5,
                         height: 1.3,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 3),
                     if (item.artistName != null && item.artistName!.isNotEmpty)
                       Text(
                         item.artistName!,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontSize: 13,
+                          fontSize: 14,
                           color: isDark ? Colors.white54 : Colors.black54,
                           height: 1.3,
                         ),
                       ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 3),
                     Text(
                       timeStr,
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: 12,
                         color: isDark ? Colors.white30 : Colors.black26,
                         fontWeight: FontWeight.w500,
                       ),
@@ -503,7 +505,7 @@ class _SongHistoryModalState extends State<SongHistoryModal> {
                   padding: const EdgeInsets.only(left: 12),
                   child: FaIcon(
                     FontAwesomeIcons.youtube,
-                    size: 18,
+                    size: 20,
                     color: isDark ? Colors.white30 : Colors.black26,
                   ),
                 ),
@@ -582,8 +584,8 @@ class _SongHistoryModalState extends State<SongHistoryModal> {
               children: [
                 // Thumbnail skeleton
                 Container(
-                  width: 52,
-                  height: 52,
+                  width: 60,
+                  height: 60,
                   decoration: BoxDecoration(
                     color: index.isEven ? shimmerBase : shimmerHighlight,
                     borderRadius: BorderRadius.circular(8),
@@ -663,8 +665,8 @@ class _SongThumbnail extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(8),
       child: SizedBox(
-        width: 52,
-        height: 52,
+        width: 60,
+        height: 60,
         child: url != null && url.isNotEmpty
             ? Image.network(
                 url,

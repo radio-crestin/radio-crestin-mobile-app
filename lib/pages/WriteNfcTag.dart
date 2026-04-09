@@ -6,6 +6,7 @@ import 'package:flutter_nfc_kit/flutter_nfc_kit.dart';
 import 'package:ndef/ndef.dart' as ndef;
 import 'package:radio_crestin/appAudioHandler.dart';
 import 'package:radio_crestin/main.dart';
+import 'package:radio_crestin/services/analytics_service.dart';
 import 'package:radio_crestin/theme.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -78,6 +79,7 @@ class _WriteNfcTagPageState extends State<WriteNfcTagPage> {
                       );
                     }).toList(),
                     onChanged: (value) {
+                      AnalyticsService.instance.capture('button_clicked', {'button_name': 'nfc_station_select', 'station_slug': value});
                       setState(() {
                         selectedOption = value!;
                         _records = [
@@ -99,6 +101,7 @@ class _WriteNfcTagPageState extends State<WriteNfcTagPage> {
               if (availability && _records.isNotEmpty) (
                   ElevatedButton(
                     onPressed: () {
+                      AnalyticsService.instance.capture('button_clicked', {'button_name': 'nfc_write_start', 'station_slug': selectedOption});
                       scaffoldMessenger.showSnackBar(
                         SnackBar(
                           content: const Text(

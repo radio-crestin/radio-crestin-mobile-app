@@ -2,12 +2,12 @@ import 'dart:convert';
 import 'dart:developer' as developer;
 import 'dart:io' show PathNotFoundException, Platform;
 
-import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:device_info_plus/device_info_plus.dart';
+
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_crashlytics/firebase_crashlytics.dart';
-import 'package:firebase_app_installations/firebase_app_installations.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
+import 'package:posthog_flutter/posthog_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
@@ -30,6 +30,7 @@ import 'constants.dart';
 import 'firebase_options.dart';
 import 'globals.dart' as globals;
 import 'services/car_play_service.dart';
+import 'services/analytics_service.dart';
 import 'services/image_cache_service.dart';
 import 'services/quick_actions_service.dart';
 import 'services/network_service.dart';
@@ -67,7 +68,7 @@ Future<void> initializeFirebaseMessaging() async {
   } catch (e, stackTrace) {
     developer.log("Firebase Messaging initialization failed", error: e, stackTrace: stackTrace);
     if (!e.toString().contains('SERVICE_NOT_AVAILABLE')) {
-      FirebaseCrashlytics.instance.recordError(e, stackTrace, fatal: false);
+      AnalyticsService.instance.captureException(e, stackTrace, context: 'firebase_messaging_init');
     }
   }
 }
@@ -115,6 +116,21 @@ void main() async {
 
   // Also ensure image cache and network are ready (should already be done)
   await Future.wait([imageCacheInitFuture, networkInitFuture]);
+
+  // Set persistent device ID (survives reinstalls) — used for ?s= tracking,
+  // reviews, share links, and Firebase Crashlytics user identifier.
+  String? persistentDeviceId = prefs.getString('device_id');
+  if (persistentDeviceId == null) {
+    final deviceInfo = DeviceInfoPlugin();
+    if (Platform.isAndroid) {
+      persistentDeviceId = (await deviceInfo.androidInfo).id;
+    } else if (Platform.isIOS) {
+      persistentDeviceId = (await deviceInfo.iosInfo).identifierForVendor;
+    }
+    persistentDeviceId ??= DateTime.now().millisecondsSinceEpoch.toString();
+    await prefs.setString('device_id', persistentDeviceId);
+  }
+  globals.deviceId = persistentDeviceId;
 
   if (prefs.getString('_reviewStatus') == null) {
     var defaultReviewStatus = {
@@ -203,24 +219,18 @@ void main() async {
   // Now await Firebase (likely already done since audio init takes longer)
   await firebaseInitFuture;
 
-  // Firebase-dependent: error handlers, analytics, messaging
-  FlutterError.onError = (errorDetails) {
-    FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);
-  };
-  PlatformDispatcher.instance.onError = (error, stack) {
-    developer.log('PlatformDispatcher.instance.onError', error: error, stackTrace: stack);
-    // Hive compaction may fail with PathNotFoundException when a concurrent
-    // Flutter engine (Android Auto / CarPlay) deletes the .hivec temp file.
-    // This is harmless — ResilientHiveStore handles the fallback.
-    final isHiveCompactionError = error is PathNotFoundException &&
-        stack.toString().contains('StorageBackendVm.compact');
-    FirebaseCrashlytics.instance.recordError(error, stack,
-        fatal: !isHiveCompactionError);
-    return true;
-  };
+  // Initialize PostHog analytics (error tracking is handled by PostHog config)
+  await AnalyticsService.instance.initialize();
+
+  // Identify user immediately after PostHog init — before any events fire.
+  // deviceId is already set above; appVersion/buildNumber come later.
+  await AnalyticsService.instance.identify(
+    userId: globals.deviceId,
+    platform: Platform.isAndroid ? 'android' : Platform.isIOS ? 'ios' : 'other',
+  );
 
   if (prefs.getBool('_notificationsEnabled') ?? true) {
-    FirebaseAnalytics.instance.setUserProperty(name: 'personalized_n', value: 'true');
+    AnalyticsService.instance.setUserProperty('personalized_n', 'true');
   }
 
   PerformanceMonitor.trackAsync('firebase_messaging_init', () => initializeFirebaseMessaging());
@@ -233,11 +243,13 @@ void main() async {
   globals.appVersion = packageInfo.version;
   globals.buildNumber = packageInfo.buildNumber;
 
-  // Non-blocking: get device ID for Crashlytics
-  FirebaseInstallations.instance.getId().then((value) {
-    globals.deviceId = value;
-    FirebaseCrashlytics.instance.setUserIdentifier(globals.deviceId);
-  });
+  // Update PostHog user with app version info now that packageInfo is available
+  await AnalyticsService.instance.identify(
+    userId: globals.deviceId,
+    appVersion: packageInfo.version,
+    buildNumber: packageInfo.buildNumber,
+    platform: Platform.isAndroid ? 'android' : Platform.isIOS ? 'ios' : 'other',
+  );
 
   // Initialize theme and seek mode synchronously using already-loaded prefs (no async overhead)
   ThemeManager.initializeFromPrefs(prefs);
@@ -289,6 +301,7 @@ class RadioCrestinApp extends StatelessWidget {
       builder: (context, themeMode, child) {
         return MaterialApp(
           navigatorKey: globals.navigatorKey,
+          navigatorObservers: [PosthogObserver()],
           title: 'Radio Crestin',
           debugShowCheckedModeBanner: false,
           theme: lightTheme,

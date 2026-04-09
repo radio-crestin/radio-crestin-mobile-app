@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:get_it/get_it.dart';
+import 'package:radio_crestin/services/analytics_service.dart';
 import 'package:radio_crestin/services/review_service.dart';
 import 'package:radio_crestin/theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -129,6 +130,13 @@ class _ReviewModalState extends State<ReviewModal> {
       setState(() => _isSubmitting = false);
 
       if (result.success) {
+        AnalyticsService.instance.trackReviewSubmitted(
+          stationId: widget.stationId,
+          stationName: widget.stationTitle,
+          stars: _selectedStars,
+          songId: widget.songId,
+          hasMessage: _messageController.text.trim().isNotEmpty,
+        );
         _showToast('Recenzia a fost trimisă cu succes!');
         Navigator.of(context).pop(true);
       } else {

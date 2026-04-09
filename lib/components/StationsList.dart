@@ -6,6 +6,7 @@ import 'package:radio_crestin/appAudioHandler.dart';
 import 'package:radio_crestin/theme.dart';
 import 'package:sliding_up_panel2/sliding_up_panel2.dart';
 
+import '../services/analytics_service.dart';
 import '../types/Station.dart';
 
 class StationsList extends StatelessWidget {
@@ -40,6 +41,7 @@ class StationsList extends StatelessWidget {
             child: RepaintBoundary(
             child: GestureDetector(
               onTap: () async {
+                AnalyticsService.instance.capture('button_clicked', {'button_name': 'station_tap', 'station_id': station.id, 'station_slug': station.slug, 'from_favorites': isFavoritesList});
                 await audioHandler.playStation(station, fromFavorites: isFavoritesList);
               },
               child: Container(
@@ -139,7 +141,16 @@ class StationsList extends StatelessWidget {
                                               fontSize: 13,
                                             ),
                                           )
-                                        : const SizedBox.shrink(),
+                                        : Text(
+                                            "Metadate indisponibile",
+                                            textAlign: TextAlign.left,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                                              fontSize: 13,
+                                            ),
+                                          ),
                                   ),
                                 ),
                               ),
@@ -190,6 +201,7 @@ class StationsList extends StatelessWidget {
                         behavior: HitTestBehavior.opaque,
                         onTap: () {
                           final isLiked = favoriteSlugs.contains(station.slug);
+                          AnalyticsService.instance.capture('button_clicked', {'button_name': 'favorite_toggle', 'station_slug': station.slug, 'station_id': station.id, 'is_favorite': !isLiked});
                           HapticFeedback.lightImpact();
                           audioHandler.setStationIsFavorite(station, !isLiked);
                         },
