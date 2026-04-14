@@ -125,9 +125,12 @@ class _TvFavoritesPageState extends State<TvFavoritesPage> {
                   isPlaying: isPlaying,
                   isFavorite: true,
                   autofocus: index == 0,
-                  onTap: () {
+                  onSelect: () {
                     _audioHandler.playStation(station, fromFavorites: true);
                     widget.onOpenNowPlaying?.call();
+                  },
+                  onFavoriteToggle: () {
+                    _audioHandler.customAction('toggleFavorite');
                   },
                 );
               },

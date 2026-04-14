@@ -4,13 +4,16 @@ import 'package:flutter/material.dart';
 import '../../types/Station.dart';
 import '../tv_theme.dart';
 
-/// A focusable station card for TV grids and rows.
-/// Shows station thumbnail with title and current song overlay.
-class TvStationCard extends StatelessWidget {
+/// A focusable station card for TV.
+/// Select → play station. Press [F] key or dedicated button → toggle favorite.
+/// When focused, shows a small favorite toggle button below.
+class TvStationCard extends StatefulWidget {
   final Station station;
   final bool isPlaying;
   final bool isFavorite;
-  final VoidCallback onTap;
+  final VoidCallback onSelect;
+  final VoidCallback onFavoriteToggle;
+  final ValueChanged<Station>? onFocus;
   final bool autofocus;
   final double width;
   final double height;
@@ -20,36 +23,51 @@ class TvStationCard extends StatelessWidget {
     required this.station,
     required this.isPlaying,
     required this.isFavorite,
-    required this.onTap,
+    required this.onSelect,
+    required this.onFavoriteToggle,
+    this.onFocus,
     this.autofocus = false,
     this.width = TvSpacing.stationCardWidth,
     this.height = TvSpacing.stationCardHeight,
   });
 
   @override
+  State<TvStationCard> createState() => _TvStationCardState();
+}
+
+class _TvStationCardState extends State<TvStationCard> {
+  bool _isFocused = false;
+
+  @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: width,
-      height: height + 52,
-      child: DpadFocusable(
-        autofocus: autofocus,
-        onSelect: onTap,
-        builder: FocusEffects.scaleWithBorder(
-          scale: TvSpacing.focusScale,
-          borderColor: TvColors.focusBorder,
-          borderWidth: 3,
-          borderRadius: BorderRadius.circular(TvSpacing.radiusMd),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: width,
-              height: height,
+      width: widget.width,
+      height: widget.height + 56,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Main card — focusable, select to play
+          DpadFocusable(
+            autofocus: widget.autofocus,
+            onSelect: widget.onSelect,
+            onFocus: () {
+              setState(() => _isFocused = true);
+              widget.onFocus?.call(widget.station);
+            },
+            onBlur: () => setState(() => _isFocused = false),
+            builder: FocusEffects.scaleWithBorder(
+              scale: TvSpacing.focusScale,
+              borderColor: TvColors.focusBorder,
+              borderWidth: 3,
+              borderRadius: BorderRadius.circular(TvSpacing.radiusMd),
+            ),
+            child: Container(
+              width: widget.width,
+              height: widget.height,
               decoration: BoxDecoration(
                 color: TvColors.surfaceVariant,
                 borderRadius: BorderRadius.circular(TvSpacing.radiusMd),
-                border: isPlaying
+                border: widget.isPlaying
                     ? Border.all(color: TvColors.primary, width: 2)
                     : null,
               ),
@@ -57,11 +75,13 @@ class TvStationCard extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  station.displayThumbnail(cacheWidth: (width * 2).toInt()),
-                  if (isPlaying)
+                  widget.station
+                      .displayThumbnail(cacheWidth: (widget.width * 2).toInt()),
+                  // Playing indicator
+                  if (widget.isPlaying)
                     Positioned(
                       bottom: TvSpacing.sm,
-                      right: TvSpacing.sm,
+                      left: TvSpacing.sm,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 6,
@@ -75,79 +95,97 @@ class TvStationCard extends StatelessWidget {
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(
-                              Icons.equalizer_rounded,
-                              color: Colors.white,
-                              size: 14,
-                            ),
+                            Icon(Icons.equalizer_rounded,
+                                color: Colors.white, size: 14),
                             SizedBox(width: 3),
-                            Text(
-                              'LIVE',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 10,
-                              ),
-                            ),
+                            Text('LIVE',
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 10)),
                           ],
                         ),
                       ),
                     ),
-                  if (isFavorite)
+                  // Favorite badge (always visible if favorite)
+                  if (widget.isFavorite)
                     const Positioned(
                       top: TvSpacing.sm,
                       right: TvSpacing.sm,
-                      child: Icon(
-                        Icons.favorite_rounded,
-                        color: TvColors.primary,
-                        size: 18,
-                      ),
+                      child: Icon(Icons.favorite_rounded,
+                          color: TvColors.primary, size: 18),
                     ),
-                  if (!station.isUp)
+                  // Offline overlay
+                  if (!widget.station.isUp)
                     Container(
                       color: Colors.black54,
                       child: Center(
-                        child: Text(
-                          'OFFLINE',
-                          style: TvTypography.caption.copyWith(
-                            color: TvColors.offline,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                        child: Text('OFFLINE',
+                            style: TvTypography.caption.copyWith(
+                                color: TvColors.offline,
+                                fontWeight: FontWeight.bold)),
                       ),
                     ),
                 ],
               ),
             ),
-            const SizedBox(height: TvSpacing.sm),
-            SizedBox(
-              width: width,
-              child: Text(
-                station.title,
-                style: TvTypography.label.copyWith(
-                  color: isPlaying ? TvColors.primary : TvColors.textPrimary,
+          ),
+          const SizedBox(height: TvSpacing.xs),
+          // Station title + favorite toggle row
+          SizedBox(
+            width: widget.width,
+            height: 20,
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    widget.station.title,
+                    style: TvTypography.label.copyWith(
+                      color: widget.isPlaying
+                          ? TvColors.primary
+                          : TvColors.textPrimary,
+                      fontSize: 13,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
+                // Favorite toggle — visible when card is focused
+                if (_isFocused)
+                  DpadFocusable(
+                    onSelect: widget.onFavoriteToggle,
+                    builder: FocusEffects.scale(scale: 1.3),
+                    child: Icon(
+                      widget.isFavorite
+                          ? Icons.favorite_rounded
+                          : Icons.favorite_border_rounded,
+                      color: widget.isFavorite
+                          ? TvColors.primary
+                          : TvColors.textTertiary,
+                      size: 18,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          // Song info
+          SizedBox(
+            width: widget.width,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 250),
+              child: Text(
+                widget.station.songTitle.isNotEmpty
+                    ? widget.station.songTitle
+                    : '${widget.station.totalListeners ?? 0} ascultători',
+                key: ValueKey(
+                    '${widget.station.id}-${widget.station.songId}'),
+                style: TvTypography.caption,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            SizedBox(
-              width: width,
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 250),
-                child: Text(
-                  station.songTitle.isNotEmpty
-                      ? station.songTitle
-                      : '${station.totalListeners ?? 0} ascultători',
-                  key: ValueKey('${station.id}-${station.songId}'),
-                  style: TvTypography.caption,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

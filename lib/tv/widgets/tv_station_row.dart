@@ -7,7 +7,6 @@ import '../tv_theme.dart';
 import 'tv_station_card.dart';
 
 /// A horizontal scrollable row of station cards with a category title.
-/// Standard Android TV browse layout pattern.
 class TvStationRow extends StatelessWidget {
   final String title;
   final List<Station> stations;
@@ -15,6 +14,7 @@ class TvStationRow extends StatelessWidget {
   final List<String> favoriteSlugs;
   final bool autofocusFirst;
   final VoidCallback? onOpenNowPlaying;
+  final ValueChanged<Station>? onStationFocused;
 
   const TvStationRow({
     super.key,
@@ -24,6 +24,7 @@ class TvStationRow extends StatelessWidget {
     required this.favoriteSlugs,
     this.autofocusFirst = false,
     this.onOpenNowPlaying,
+    this.onStationFocused,
   });
 
   @override
@@ -43,7 +44,7 @@ class TvStationRow extends StatelessWidget {
           child: Text(title, style: TvTypography.headline),
         ),
         SizedBox(
-          height: TvSpacing.stationCardHeight + 60,
+          height: TvSpacing.stationCardHeight + 64,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: TvSpacing.lg),
@@ -59,10 +60,14 @@ class TvStationRow extends StatelessWidget {
                 isPlaying: isPlaying,
                 isFavorite: isFavorite,
                 autofocus: autofocusFirst && index == 0,
-                onTap: () {
+                onSelect: () {
                   audioHandler.playStation(station);
                   onOpenNowPlaying?.call();
                 },
+                onFavoriteToggle: () {
+                  audioHandler.customAction('toggleFavorite');
+                },
+                onFocus: onStationFocused,
               );
             },
           ),
