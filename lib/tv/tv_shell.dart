@@ -27,7 +27,7 @@ class TvShell extends StatefulWidget {
 }
 
 class _TvShellState extends State<TvShell> {
-  bool _browsing = false;
+  late bool _browsing;
 
   late final AppAudioHandler _audioHandler;
   final List<StreamSubscription> _subscriptions = [];
@@ -43,6 +43,9 @@ class _TvShellState extends State<TvShell> {
 
     _audioHandler = GetIt.instance<AppAudioHandler>();
     _currentStation = _audioHandler.currentStation.value;
+
+    // If a station is already loaded, start on Now Playing; otherwise Browse
+    _browsing = _currentStation == null;
 
     // Auto-play last station on startup
     if (_currentStation != null && !_audioHandler.playbackState.value.playing) {
