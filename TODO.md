@@ -26,6 +26,7 @@
 -  Listeaza aplicatia in Play Store - DONE
 
 Pe viitor:
+- controlează TV-ul de pe telefon prin cod de asociere (TV generează un cod de 6 caractere, telefonul îl introduce și trimite comenzi de redare prin API-ul cast.radiocrestin.ro/pair)
 - cand aplicatia este inchisa din task manager, opreste player-ul si request-urile de refresh metadata
 - adauga deep links cu site-ul www.radio-crestin.com ca sa deschida aplicatia - DONE partial
 - adauga optiune sa faci search la o statie
