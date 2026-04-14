@@ -206,6 +206,9 @@ class _DeviceSheetState extends State<_DeviceSheet> {
     // Listen to live device/state streams so the sheet updates in real-time
     final cs = widget.castService;
     if (cs != null) {
+      // Force a fresh network scan when the sheet opens
+      cs.restartDiscovery();
+
       _devices = cs.devices.value;
       _chromecastCasting = cs.isCasting.value;
       _subs.add(cs.devices.listen((d) {
@@ -216,8 +219,8 @@ class _DeviceSheetState extends State<_DeviceSheet> {
       }));
     }
 
-    // Show searching indicator for a few seconds
-    Future.delayed(const Duration(seconds: 4), () {
+    // Show searching indicator while scanning (matches typical mDNS scan time)
+    Future.delayed(const Duration(seconds: 5), () {
       if (mounted) setState(() => _searching = false);
     });
   }

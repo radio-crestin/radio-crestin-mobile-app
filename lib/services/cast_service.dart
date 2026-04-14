@@ -24,7 +24,6 @@ class CastService {
 
   StreamSubscription? _devicesSubscription;
   StreamSubscription? _sessionSubscription;
-  StreamSubscription? _mediaStatusSubscription;
 
   bool _discoveryStarted = false;
 
@@ -33,9 +32,9 @@ class CastService {
   }
 
   Future<void> initialize() async {
-    _log('Initializing');
+    _log('Initializing with appId=$_customReceiverAppId');
     try {
-      // Configure Cast context with app ID
+      // Configure Cast context with app ID — MUST happen before discovery
       if (Platform.isIOS) {
         await GoogleCastContext.instance.setSharedInstanceWithOptions(
           IOSGoogleCastOptions(
@@ -43,35 +42,39 @@ class CastService {
               _customReceiverAppId,
             ),
             suspendSessionsWhenBackgrounded: false,
+            disableDiscoveryAutostart: false,
+            startDiscoveryAfterFirstTapOnCastButton: false,
           ),
         );
       } else {
+        // Android requires GoogleCastOptionsAndroid with explicit appId
         await GoogleCastContext.instance.setSharedInstanceWithOptions(
-          GoogleCastOptions(
-            suspendSessionsWhenBackgrounded: false,
-          ),
+          GoogleCastOptionsAndroid(appId: _customReceiverAppId),
         );
       }
 
       _devicesSubscription = GoogleCastDiscoveryManager.instance.devicesStream
           .listen((deviceList) {
         devices.add(deviceList);
-        _log('Discovered ${deviceList.length} device(s)');
+        if (deviceList.isNotEmpty) {
+          _log('Discovered ${deviceList.length} device(s): ${deviceList.map((d) => d.friendlyName).join(', ')}');
+        }
       });
 
       _sessionSubscription = GoogleCastSessionManager
           .instance.currentSessionStream
           .listen((session) {
-        final state =
-            GoogleCastSessionManager.instance.connectionState;
+        final state = GoogleCastSessionManager.instance.connectionState;
         connectionState.add(state);
         isCasting.add(state == GoogleCastConnectState.connected);
         _log('Session state: $state');
       });
 
+      // Start discovery immediately
       startDiscovery();
-    } catch (e) {
+    } catch (e, st) {
       _log('Initialize failed: $e');
+      developer.log('$_tag stack:', stackTrace: st);
     }
   }
 
@@ -85,6 +88,19 @@ class CastService {
       _discoveryStarted = false;
       _log('startDiscovery failed: $e');
     }
+  }
+
+  /// Restart discovery — useful when the user opens the device picker
+  /// to force a fresh scan of the network.
+  void restartDiscovery() {
+    _log('Restarting discovery');
+    if (_discoveryStarted) {
+      try {
+        GoogleCastDiscoveryManager.instance.stopDiscovery();
+      } catch (_) {}
+    }
+    _discoveryStarted = false;
+    startDiscovery();
   }
 
   void stopDiscovery() {
@@ -171,15 +187,6 @@ class CastService {
     }
   }
 
-  /// Update metadata on the cast device when the song changes
-  /// without restarting the stream.
-  Future<void> updateMetadata(Station station) async {
-    if (!isCasting.value) return;
-    // Reload the media to update metadata — Chromecast doesn't support
-    // metadata-only updates for live streams.
-    await castStation(station);
-  }
-
   String _buildSubtitle(Station station) {
     final parts = <String>[];
     if (station.songTitle.isNotEmpty) parts.add(station.songTitle);
@@ -201,7 +208,6 @@ class CastService {
     stopDiscovery();
     _devicesSubscription?.cancel();
     _sessionSubscription?.cancel();
-    _mediaStatusSubscription?.cancel();
     devices.close();
     isCasting.close();
     connectionState.close();
