@@ -19,8 +19,7 @@ class CastButton extends StatefulWidget {
   State<CastButton> createState() => _CastButtonState();
 }
 
-class _CastButtonState extends State<CastButton>
-    with SingleTickerProviderStateMixin {
+class _CastButtonState extends State<CastButton> {
   CastService? _castService;
   final List<StreamSubscription> _subscriptions = [];
 
@@ -30,32 +29,18 @@ class _CastButtonState extends State<CastButton>
   String? _airPlayDeviceName;
   bool _initialized = false;
 
-  late final AnimationController _pulseController;
-  late final Animation<double> _pulseAnimation;
-
   bool get _isCasting => _isChromecastCasting || _isAirPlayActive;
 
   @override
   void initState() {
     super.initState();
 
-    _pulseController = AnimationController(
-      duration: const Duration(milliseconds: 1500),
-      vsync: this,
-    );
-    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.15).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
-    );
-
     if (Platform.isIOS) {
       final airplay = AirPlayRouteState.instance;
       _isAirPlayActive = airplay.isActive;
       _airPlayDeviceName = airplay.routeName;
       _subscriptions.add(airplay.isActiveStream.listen((active) {
-        if (mounted) {
-          setState(() => _isAirPlayActive = active);
-          _updatePulse();
-        }
+        if (mounted) setState(() => _isAirPlayActive = active);
       }));
       _subscriptions.add(airplay.routeNameStream.listen((name) {
         if (mounted) setState(() => _airPlayDeviceName = name);
@@ -80,20 +65,8 @@ class _CastButtonState extends State<CastButton>
       if (mounted) setState(() => _devices = d);
     }));
     _subscriptions.add(_castService!.isCasting.listen((casting) {
-      if (mounted) {
-        setState(() => _isChromecastCasting = casting);
-        _updatePulse();
-      }
+      if (mounted) setState(() => _isChromecastCasting = casting);
     }));
-  }
-
-  void _updatePulse() {
-    if (_isCasting) {
-      _pulseController.repeat(reverse: true);
-    } else {
-      _pulseController.stop();
-      _pulseController.reset();
-    }
   }
 
   @override
@@ -101,7 +74,6 @@ class _CastButtonState extends State<CastButton>
     for (final s in _subscriptions) {
       s.cancel();
     }
-    _pulseController.dispose();
     super.dispose();
   }
 
@@ -150,12 +122,7 @@ class _CastButtonState extends State<CastButton>
               key: const ValueKey('cast'),
               mainAxisSize: MainAxisSize.min,
               children: [
-                ScaleTransition(
-                  scale: _isCasting
-                      ? _pulseAnimation
-                      : const AlwaysStoppedAnimation(1.0),
-                  child: _buildButton(context),
-                ),
+                _buildButton(context),
                 const SizedBox(width: 8),
               ],
             ),
