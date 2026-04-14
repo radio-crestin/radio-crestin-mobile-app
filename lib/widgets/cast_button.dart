@@ -102,8 +102,46 @@ class _CastButtonState extends State<CastButton> {
           : Row(
               key: const ValueKey('yes'),
               mainAxisSize: MainAxisSize.min,
-              children: [_icon(context), const SizedBox(width: 8)],
+              children: [
+                // AirPlay active → button IS the native picker (tap = iOS system sheet)
+                if (_airPlayActive)
+                  _airPlayButton(context)
+                else
+                  _icon(context),
+                const SizedBox(width: 8),
+              ],
             ),
+    );
+  }
+
+  /// When AirPlay is active, the button itself is the native route picker.
+  Widget _airPlayButton(BuildContext context) {
+    return SizedBox(
+      width: 44,
+      height: 44,
+      child: Stack(
+        children: [
+          // Visual button
+          Material(
+            color: AppColors.primary.withValues(alpha: 0.15),
+            shape: const CircleBorder(),
+            child: const SizedBox(
+              width: 44,
+              height: 44,
+              child: Icon(Icons.airplay_rounded, size: 22,
+                  color: AppColors.primary),
+            ),
+          ),
+          // Native picker overlay — tap opens iOS system route sheet
+          Positioned.fill(
+            child: AirPlayRoutePickerView(
+              tintColor: Colors.transparent,
+              activeTintColor: Colors.transparent,
+              backgroundColor: Colors.transparent,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -215,40 +253,32 @@ class _DeviceSheetState extends State<_DeviceSheet> {
               ),
             ),
 
-            // ── Header with searching indicator ──
+            // ── Header ──
             Padding(
               padding: const EdgeInsets.only(left: 20, right: 20, bottom: 4),
               child: Row(
                 children: [
-                  Expanded(
-                    child: Text(
-                      'Selectează un dispozitiv',
-                      style: TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.w600,
-                        color: onSurface),
-                    ),
+                  Text(
+                    _searching
+                        ? 'Se caută dispozitive...'
+                        : 'Selectează un dispozitiv',
+                    style: TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w600,
+                      color: onSurface),
                   ),
-                  if (_searching)
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        SizedBox(
-                          width: 14, height: 14,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 1.5, color: dim),
-                        ),
-                        const SizedBox(width: 6),
-                        Text('se caută...', style: TextStyle(
-                          fontSize: 12, color: dim)),
-                      ],
+                  if (_searching) ...[
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      width: 14, height: 14,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 1.5, color: dim),
                     ),
+                  ],
                 ],
               ),
             ),
 
-            // ════════════════════════════════════════
-            // CONNECTED Chromecast
-            // ════════════════════════════════════════
+            // Connected Chromecast
             if (_chromecastCasting) ...[
               _sectionLabel(context, 'CONECTAT'),
               _ConnectedChromecastRow(
@@ -257,43 +287,27 @@ class _DeviceSheetState extends State<_DeviceSheet> {
                   Navigator.of(context).pop();
                 },
               ),
+              if (_devices.length > 1 || Platform.isIOS)
+                _sectionLabel(context, 'ALTE DISPOZITIVE'),
             ],
 
-            // ════════════════════════════════════════
-            // AVAILABLE devices
-            // ════════════════════════════════════════
-            if (!_chromecastCasting && _devices.isNotEmpty || Platform.isIOS) ...[
-              if (_chromecastCasting) _sectionLabel(context, 'ALTE DISPOZITIVE'),
+            // Available Chromecast devices
+            if (!_chromecastCasting)
+              ..._devices.map((device) => _DeviceRow(
+                icon: _chromecastIcon(device.friendlyName),
+                title: device.friendlyName,
+                subtitle: device.modelName,
+                onTap: () async {
+                  Navigator.of(context).pop();
+                  await widget.castService?.connectToDevice(device);
+                },
+              )),
 
-              // Chromecast devices
-              if (!_chromecastCasting)
-                ..._devices.map((device) => _DeviceRow(
-                  icon: _chromecastIcon(device.friendlyName),
-                  title: device.friendlyName,
-                  subtitle: device.modelName,
-                  onTap: () async {
-                    Navigator.of(context).pop();
-                    await widget.castService?.connectToDevice(device);
-                  },
-                )),
+            // AirPlay — native picker (handles connect & disconnect)
+            if (Platform.isIOS)
+              _AirPlayRow(),
 
-              // AirPlay — always show native picker (handles both connect & disconnect)
-              if (Platform.isIOS)
-                _AirPlayRow(),
-            ],
-
-            // ── Empty state while searching ──
-            if (_searching && _devices.isEmpty && !_chromecastCasting)
-              _SearchingRow(),
-
-            Divider(height: 24,
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? Colors.white.withValues(alpha: 0.08)
-                  : Colors.black.withValues(alpha: 0.08)),
-
-            // ════════════════════════════════════════
-            // EXTRA OPTIONS
-            // ════════════════════════════════════════
+            // Android TV & Apple TV
             _DeviceRow(
               icon: Icons.tv_rounded,
               title: 'Android TV și Apple TV',
@@ -482,29 +496,6 @@ class _AirPlayRow extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-/// Searching indicator when no devices found yet.
-class _SearchingRow extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final dim = Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          SizedBox(
-            width: 18, height: 18,
-            child: CircularProgressIndicator(strokeWidth: 2, color: dim),
-          ),
-          const SizedBox(width: 12),
-          Text('Se caută dispozitive în rețea...',
-            style: TextStyle(fontSize: 14, color: dim)),
-        ],
-      ),
     );
   }
 }
