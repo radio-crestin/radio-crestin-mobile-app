@@ -9,15 +9,17 @@ import '../../appAudioHandler.dart';
 import '../../queries/getStations.graphql.dart';
 import '../../services/station_data_service.dart';
 import '../../types/Station.dart';
-import '../../widgets/animated_play_button.dart';
 import '../tv_theme.dart';
+import '../widgets/tv_immersive_list.dart';
 import '../widgets/tv_station_row.dart';
 
-/// Android TV Immersive List layout.
+/// TV main page using the Android TV Immersive List pattern.
 ///
-/// Full-screen artwork of the focused station fills the background.
-/// Metadata (station name, song, controls) overlaid on the left, above card rows.
-/// Station rows anchored to the bottom. Focusing a card updates the background.
+/// Full-screen artwork background (subject aligned top-right).
+/// Cinematic scrim: dark on left + dark on bottom.
+/// Content block (station name, song, artist) bottom-left above card rows.
+/// Card rows pinned to bottom: Favorites → All → Categories.
+/// Focusing a card crossfades the background + updates metadata.
 class TvMainPage extends StatefulWidget {
   const TvMainPage({super.key});
 
@@ -29,7 +31,6 @@ class _TvMainPageState extends State<TvMainPage> {
   late final AppAudioHandler _audioHandler;
   late final StationDataService _stationDataService;
   final List<StreamSubscription> _subscriptions = [];
-  final _playButtonKey = GlobalKey<AnimatedPlayButtonState>();
 
   Station? _currentStation;
   Station? _focusedStation;
@@ -50,9 +51,8 @@ class _TvMainPageState extends State<TvMainPage> {
         _stationDataService.favoriteStationSlugs.stream,
         _stationDataService.stationGroups.stream,
         (Station? current, List<Station> all, List<String> favs,
-            List<Query$GetStations$station_groups> groups) {
-          return (current, all, favs, groups);
-        },
+            List<Query$GetStations$station_groups> groups) =>
+            (current, all, favs, groups),
       ).listen((data) {
         if (mounted) {
           setState(() {
@@ -74,6 +74,12 @@ class _TvMainPageState extends State<TvMainPage> {
     super.dispose();
   }
 
+  Station? get _hero =>
+      _focusedStation ?? _currentStation ?? _allStations.firstOrNull;
+
+  bool get _isHeroPlaying =>
+      _hero != null && _currentStation?.id == _hero!.id;
+
   List<Station> get _favoriteStations =>
       _allStations.where((s) => _favoriteSlugs.contains(s.slug)).toList();
 
@@ -92,27 +98,14 @@ class _TvMainPageState extends State<TvMainPage> {
     return map;
   }
 
-  /// The station whose artwork fills the background.
-  /// Focused station takes priority, falls back to currently playing.
-  Station? get _heroStation =>
-      _focusedStation ?? _currentStation ?? _allStations.firstOrNull;
-
-  bool get _isFavorite =>
-      _heroStation != null && _favoriteSlugs.contains(_heroStation!.slug);
-
-  bool get _isHeroPlaying =>
-      _heroStation != null && _currentStation?.id == _heroStation!.id;
-
   KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
     final key = event.logicalKey;
     if (key == LogicalKeyboardKey.mediaTrackNext) {
-      _playButtonKey.currentState?.notifyWillPlay();
       _audioHandler.skipToNext();
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.mediaTrackPrevious) {
-      _playButtonKey.currentState?.notifyWillPlay();
       _audioHandler.skipToPrevious();
       return KeyEventResult.handled;
     }
@@ -149,220 +142,161 @@ class _TvMainPageState extends State<TvMainPage> {
 
   @override
   Widget build(BuildContext context) {
-    final hero = _heroStation;
+    final hero = _hero;
 
     return Focus(
       onKeyEvent: _onKeyEvent,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          // === LAYER 1: Full-screen artwork background ===
-          if (hero != null)
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 500),
-              child: SizedBox.expand(
-                key: ValueKey('bg-${hero.id}-${hero.artUri}'),
-                child: FittedBox(
-                  fit: BoxFit.cover,
-                  clipBehavior: Clip.hardEdge,
-                  child: SizedBox(
-                    width: 800,
-                    height: 450,
-                    child: hero.displayThumbnail(cacheWidth: 800),
-                  ),
-                ),
-              ),
+      child: TvImmersiveList(
+        // Background: full-screen station artwork
+        backgroundBuilder: (_) {
+          if (hero == null) return const ColoredBox(color: TvColors.background);
+          return TvImmersiveBackground(
+            childKey: ValueKey('bg-${hero.id}-${hero.artUri}'),
+            child: SizedBox(
+              width: 960,
+              height: 540,
+              child: hero.displayThumbnail(cacheWidth: 960),
             ),
-
-          // === LAYER 2: Gradient scrim (dark at bottom for cards) ===
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.black.withValues(alpha: 0.1),
-                    Colors.black.withValues(alpha: 0.3),
-                    Colors.black.withValues(alpha: 0.85),
-                    Colors.black.withValues(alpha: 0.95),
-                  ],
-                  stops: const [0.0, 0.35, 0.6, 1.0],
-                ),
-              ),
+          );
+        },
+        // Content block: metadata overlaid bottom-left
+        contentBlock: hero != null
+            ? _ContentBlock(
+                station: hero,
+                isPlaying: _isHeroPlaying,
+              )
+            : const SizedBox.shrink(),
+        // Card rows at bottom
+        cardRows: [
+          if (_favoriteStations.isNotEmpty)
+            TvStationRow(
+              title: 'Favorite',
+              stations: _favoriteStations,
+              currentStation: _currentStation,
+              favoriteSlugs: _favoriteSlugs,
+              autofocusFirst: true,
+              onStationSelected: _onStationSelected,
+              onStationFocused: _onStationFocused,
             ),
+          TvStationRow(
+            title: 'Alese pentru tine',
+            stations: _allStations,
+            currentStation: _currentStation,
+            favoriteSlugs: _favoriteSlugs,
+            autofocusFirst: _favoriteStations.isEmpty,
+            onStationSelected: _onStationSelected,
+            onStationFocused: _onStationFocused,
           ),
-
-          // === LAYER 3: Content (metadata + card rows) ===
-          SafeArea(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Top spacer — pushes metadata to lower portion
-                const Spacer(),
-
-                // Metadata overlay — left aligned, above the card rows
-                if (hero != null)
-                  Padding(
-                    padding: const EdgeInsets.only(
-                      left: TvSpacing.marginHorizontal,
-                      right: TvSpacing.marginHorizontal,
-                      bottom: TvSpacing.md,
-                    ),
-                    child: _ImmersiveMetadata(
-                      station: hero,
-                      isPlaying: _isHeroPlaying,
-                      isFavorite: _isFavorite,
-                      audioHandler: _audioHandler,
-                      playButtonKey: _playButtonKey,
-                    ),
-                  ),
-
-                // Station card rows — anchored to bottom
-                _buildStationRows(),
-
-                const SizedBox(height: TvSpacing.sm),
-              ],
-            ),
-          ),
+          ..._groupedStations.entries.map((entry) {
+            return TvStationRow(
+              title: entry.key,
+              stations: entry.value,
+              currentStation: _currentStation,
+              favoriteSlugs: _favoriteSlugs,
+              onStationSelected: _onStationSelected,
+              onStationFocused: _onStationFocused,
+            );
+          }),
         ],
       ),
     );
   }
-
-  Widget _buildStationRows() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Favorites row
-        if (_favoriteStations.isNotEmpty)
-          TvStationRow(
-            title: 'Favorite',
-            stations: _favoriteStations,
-            currentStation: _currentStation,
-            favoriteSlugs: _favoriteSlugs,
-            autofocusFirst: true,
-            onStationSelected: _onStationSelected,
-            onStationFocused: _onStationFocused,
-          ),
-        // All stations
-        TvStationRow(
-          title: 'Alese pentru tine',
-          stations: _allStations,
-          currentStation: _currentStation,
-          favoriteSlugs: _favoriteSlugs,
-          autofocusFirst: _favoriteStations.isEmpty,
-          onStationSelected: _onStationSelected,
-          onStationFocused: _onStationFocused,
-        ),
-        // Category rows — only the first 2 visible initially
-        ..._groupedStations.entries.take(2).map((entry) {
-          return TvStationRow(
-            title: entry.key,
-            stations: entry.value,
-            currentStation: _currentStation,
-            favoriteSlugs: _favoriteSlugs,
-            onStationSelected: _onStationSelected,
-            onStationFocused: _onStationFocused,
-          );
-        }),
-      ],
-    );
-  }
 }
 
-/// Metadata overlay for the immersive list hero area.
-/// Shows station name, song, artist, listeners, and compact controls.
-class _ImmersiveMetadata extends StatelessWidget {
+/// Content block for the immersive list — bottom-left metadata.
+/// Shows station tags, title (large), description.
+class _ContentBlock extends StatelessWidget {
   final Station station;
   final bool isPlaying;
-  final bool isFavorite;
-  final AppAudioHandler audioHandler;
-  final GlobalKey<AnimatedPlayButtonState> playButtonKey;
 
-  const _ImmersiveMetadata({
+  const _ContentBlock({
     required this.station,
     required this.isPlaying,
-    required this.isFavorite,
-    required this.audioHandler,
-    required this.playButtonKey,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Station name + playing indicator
-        Row(
-          children: [
-            if (isPlaying) ...[
-              const Icon(Icons.equalizer_rounded,
-                  color: TvColors.primary, size: 16),
-              const SizedBox(width: TvSpacing.xs),
-            ],
-            if (isFavorite) ...[
-              const Icon(Icons.favorite_rounded,
-                  color: TvColors.primary, size: 14),
-              const SizedBox(width: TvSpacing.xs),
-            ],
-            Flexible(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 250),
-                child: Text(
-                  station.title,
-                  key: ValueKey('meta-station-${station.id}'),
-                  style: TvTypography.label.copyWith(
-                    color: TvColors.textSecondary,
-                    fontSize: 15,
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 300),
+      child: Column(
+        key: ValueKey('content-${station.id}-${station.songId}'),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Tags row: station name + playing status + listeners
+          Row(
+            children: [
+              if (isPlaying) ...[
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(4),
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.equalizer_rounded,
+                          color: TvColors.primary, size: 12),
+                      const SizedBox(width: 4),
+                      Text('LIVE',
+                          style: TvTypography.caption.copyWith(
+                              color: TvColors.primary,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 10)),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: TvSpacing.sm),
+              ],
+              Text(
+                station.title,
+                style: TvTypography.caption.copyWith(
+                  color: TvColors.textSecondary,
+                  fontSize: 13,
                 ),
               ),
-            ),
-            if (station.totalListeners != null &&
-                station.totalListeners > 0) ...[
-              const SizedBox(width: TvSpacing.md),
-              Text(
-                '${station.totalListeners} ascultători',
-                style: TvTypography.caption,
-              ),
+              if (station.totalListeners != null &&
+                  station.totalListeners > 0) ...[
+                Text(
+                  '  •  ${station.totalListeners} ascultători',
+                  style: TvTypography.caption.copyWith(fontSize: 12),
+                ),
+              ],
             ],
+          ),
+          const SizedBox(height: TvSpacing.sm),
+          // Title — large, prominent
+          Text(
+            station.songTitle.isNotEmpty ? station.songTitle : station.title,
+            style: TvTypography.displayMedium.copyWith(
+              fontSize: 30,
+              fontWeight: FontWeight.bold,
+              height: 1.15,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          // Description / artist
+          if (station.songArtist.isNotEmpty ||
+              station.displaySubtitle.isNotEmpty) ...[
+            const SizedBox(height: TvSpacing.xs),
+            Text(
+              station.songArtist.isNotEmpty
+                  ? station.songArtist
+                  : station.displaySubtitle,
+              style: TvTypography.body.copyWith(
+                fontSize: 15,
+                color: TvColors.textSecondary,
+                height: 1.3,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
           ],
-        ),
-        const SizedBox(height: TvSpacing.xs),
-        // Song title — large
-        AnimatedSwitcher(
-          duration: const Duration(milliseconds: 250),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              station.songTitle.isNotEmpty ? station.songTitle : station.title,
-              key: ValueKey('meta-song-${station.id}-${station.songId}'),
-              style: TvTypography.displayMedium.copyWith(fontSize: 28),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ),
-        // Artist
-        if (station.songArtist.isNotEmpty) ...[
-          const SizedBox(height: 2),
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 250),
-            child: Text(
-              station.songArtist,
-              key: ValueKey('meta-artist-${station.id}-${station.songId}'),
-              style: TvTypography.body.copyWith(fontSize: 16),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
         ],
-      ],
+      ),
     );
   }
 }

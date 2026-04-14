@@ -4,10 +4,9 @@ import 'package:flutter/material.dart';
 import '../../types/Station.dart';
 import '../tv_theme.dart';
 
-/// A focusable station card for TV.
-/// Select → play station. Focus border uses primary color.
-/// No favorite icon on the card — favorites managed from Now Playing.
-class TvStationCard extends StatefulWidget {
+/// Compact station card for the immersive list card rows.
+/// 16:9 aspect ratio. Focus scales + border. Select to play.
+class TvStationCard extends StatelessWidget {
   final Station station;
   final bool isPlaying;
   final bool isFavorite;
@@ -15,8 +14,9 @@ class TvStationCard extends StatefulWidget {
   final VoidCallback onFavoriteToggle;
   final ValueChanged<Station>? onFocus;
   final bool autofocus;
-  final double width;
-  final double height;
+
+  static const double cardWidth = 200.0;
+  static const double cardHeight = 112.0; // ~16:9
 
   const TvStationCard({
     super.key,
@@ -27,134 +27,97 @@ class TvStationCard extends StatefulWidget {
     required this.onFavoriteToggle,
     this.onFocus,
     this.autofocus = false,
-    this.width = TvSpacing.stationCardWidth,
-    this.height = TvSpacing.stationCardHeight,
   });
 
   @override
-  State<TvStationCard> createState() => _TvStationCardState();
-}
-
-class _TvStationCardState extends State<TvStationCard> {
-  @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: widget.width + 14,
-      height: widget.height + 48,
+      width: cardWidth + 8,
+      height: cardHeight + 36, // Card + text below
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Main card — focusable, select to play
           DpadFocusable(
-            autofocus: widget.autofocus,
-            onSelect: widget.onSelect,
-            onFocus: () => widget.onFocus?.call(widget.station),
+            autofocus: autofocus,
+            onSelect: onSelect,
+            onFocus: () => onFocus?.call(station),
             builder: (context, isFocused, child) {
               return AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.all(4),
+                curve: Curves.easeOut,
+                padding: const EdgeInsets.all(3),
                 decoration: BoxDecoration(
                   border: Border.all(
                     color: isFocused ? TvColors.primary : Colors.transparent,
-                    width: 3,
+                    width: 2.5,
                   ),
-                  borderRadius:
-                      BorderRadius.circular(TvSpacing.radiusMd + 4),
+                  borderRadius: BorderRadius.circular(14),
                 ),
-                child: child,
+                child: AnimatedScale(
+                  scale: isFocused ? 1.03 : 1.0,
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOut,
+                  child: child,
+                ),
               );
             },
             child: Container(
-              width: widget.width,
-              height: widget.height,
+              width: cardWidth,
+              height: cardHeight,
               decoration: BoxDecoration(
                 color: TvColors.surfaceVariant,
-                borderRadius: BorderRadius.circular(TvSpacing.radiusMd),
+                borderRadius: BorderRadius.circular(10),
               ),
               clipBehavior: Clip.antiAlias,
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  widget.station
-                      .displayThumbnail(cacheWidth: (widget.width * 2).toInt()),
-                  // Playing indicator — bottom left
-                  if (widget.isPlaying)
+                  station.displayThumbnail(
+                      cacheWidth: (cardWidth * 2).toInt()),
+                  // Playing indicator
+                  if (isPlaying)
                     Positioned(
-                      bottom: TvSpacing.sm,
-                      left: TvSpacing.sm,
+                      bottom: 6,
+                      left: 6,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 3),
+                            horizontal: 5, vertical: 2),
                         decoration: BoxDecoration(
                           color: TvColors.primary,
-                          borderRadius:
-                              BorderRadius.circular(TvSpacing.radiusSm),
+                          borderRadius: BorderRadius.circular(4),
                         ),
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.equalizer_rounded,
-                                color: Colors.white, size: 14),
-                            SizedBox(width: 3),
+                                color: Colors.white, size: 12),
+                            SizedBox(width: 2),
                             Text('LIVE',
                                 style: TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.bold,
-                                    fontSize: 10)),
+                                    fontSize: 9)),
                           ],
                         ),
-                      ),
-                    ),
-                  // Offline overlay
-                  if (!widget.station.isUp)
-                    Container(
-                      color: Colors.black54,
-                      child: Center(
-                        child: Text('OFFLINE',
-                            style: TvTypography.caption.copyWith(
-                                color: TvColors.offline,
-                                fontWeight: FontWeight.bold)),
                       ),
                     ),
                 ],
               ),
             ),
           ),
-          const SizedBox(height: TvSpacing.xs + 2),
-          // Station title — bigger, left-aligned
+          const SizedBox(height: 4),
+          // Title below card
           Padding(
             padding: const EdgeInsets.only(left: 4),
             child: Text(
-              widget.station.title,
+              station.title,
               style: TvTypography.label.copyWith(
-                color: widget.isPlaying
-                    ? TvColors.primary
-                    : TvColors.textPrimary,
-                fontSize: 14,
+                color: isPlaying ? TvColors.primary : TvColors.textPrimary,
+                fontSize: 13,
                 fontWeight: FontWeight.w500,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          // Song info
-          Padding(
-            padding: const EdgeInsets.only(left: 4),
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 250),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  widget.station.songTitle.isNotEmpty
-                      ? widget.station.songTitle
-                      : '${widget.station.totalListeners ?? 0} ascultători',
-                  key: ValueKey(
-                      '${widget.station.id}-${widget.station.songId}'),
-                  style: TvTypography.caption,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
             ),
           ),
         ],
