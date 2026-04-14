@@ -26,11 +26,15 @@ class _CastButtonState extends State<CastButton>
   final List<StreamSubscription> _subscriptions = [];
 
   List<GoogleCastDevice> _devices = [];
-  bool _isCasting = false;
+  bool _isChromecastCasting = false;
+  bool _isAirPlayActive = false;
+  String? _airPlayDeviceName;
   bool _initialized = false;
 
   late final AnimationController _pulseController;
   late final Animation<double> _pulseAnimation;
+
+  bool get _isCasting => _isChromecastCasting || _isAirPlayActive;
 
   @override
   void initState() {
@@ -43,6 +47,22 @@ class _CastButtonState extends State<CastButton>
     _pulseAnimation = Tween<double>(begin: 1.0, end: 1.15).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
+
+    // AirPlay route state (iOS only, no-op on Android)
+    if (Platform.isIOS) {
+      final airplay = AirPlayRouteState.instance;
+      _isAirPlayActive = airplay.isActive;
+      _airPlayDeviceName = airplay.routeName;
+      _subscriptions.add(airplay.isActiveStream.listen((active) {
+        if (mounted) {
+          setState(() => _isAirPlayActive = active);
+          _updatePulse();
+        }
+      }));
+      _subscriptions.add(airplay.routeNameStream.listen((name) {
+        if (mounted) setState(() => _airPlayDeviceName = name);
+      }));
+    }
 
     _tryInit();
     // CastService is registered lazily after first frame — retry shortly
@@ -64,15 +84,19 @@ class _CastButtonState extends State<CastButton>
     }));
     _subscriptions.add(_castService!.isCasting.listen((casting) {
       if (mounted) {
-        setState(() => _isCasting = casting);
-        if (casting) {
-          _pulseController.repeat(reverse: true);
-        } else {
-          _pulseController.stop();
-          _pulseController.reset();
-        }
+        setState(() => _isChromecastCasting = casting);
+        _updatePulse();
       }
     }));
+  }
+
+  void _updatePulse() {
+    if (_isCasting) {
+      _pulseController.repeat(reverse: true);
+    } else {
+      _pulseController.stop();
+      _pulseController.reset();
+    }
   }
 
   @override
@@ -113,14 +137,17 @@ class _CastButtonState extends State<CastButton>
   }
 
   void _showConnectedDialog() {
-    if (_castService == null) return;
     showDialog(
       context: context,
       barrierDismissible: true,
       barrierColor: Colors.black.withValues(alpha:0.65),
       builder: (context) => BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-        child: _CastConnectedDialog(castService: _castService!),
+        child: _CastConnectedDialog(
+          castService: _castService,
+          isAirPlay: _isAirPlayActive,
+          deviceName: _isAirPlayActive ? _airPlayDeviceName : null,
+        ),
       ),
     );
   }
@@ -172,7 +199,11 @@ class _CastButtonState extends State<CastButton>
             width: 44,
             height: 44,
             child: Icon(
-              _isCasting ? Icons.cast_connected_rounded : Icons.cast_rounded,
+              _isAirPlayActive
+                  ? Icons.airplay_rounded
+                  : _isChromecastCasting
+                      ? Icons.cast_connected_rounded
+                      : Icons.cast_rounded,
               size: 22,
               color: _isCasting
                   ? AppColors.primary
@@ -477,13 +508,25 @@ class _AirPlayTile extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _CastConnectedDialog extends StatelessWidget {
-  final CastService castService;
+  final CastService? castService;
+  final bool isAirPlay;
+  final String? deviceName;
 
-  const _CastConnectedDialog({required this.castService});
+  const _CastConnectedDialog({
+    required this.castService,
+    this.isAirPlay = false,
+    this.deviceName,
+  });
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final icon = isAirPlay ? Icons.airplay_rounded : Icons.cast_connected_rounded;
+    final label = isAirPlay ? 'AirPlay' : 'Chromecast';
+    final subtitle = deviceName != null
+        ? 'Se redă pe $deviceName'
+        : 'Radioul se redă pe dispozitivul conectat.';
+
     return Center(
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 32),
@@ -508,18 +551,18 @@ class _CastConnectedDialog extends StatelessWidget {
                 width: 56,
                 height: 56,
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha:0.12),
+                  color: (isAirPlay ? Colors.blue : AppColors.primary).withValues(alpha:0.12),
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: const Icon(
-                  Icons.cast_connected_rounded,
-                  color: AppColors.primary,
+                child: Icon(
+                  icon,
+                  color: isAirPlay ? Colors.blue : AppColors.primary,
                   size: 28,
                 ),
               ),
               const SizedBox(height: 16),
               Text(
-                'Se transmite',
+                'Se transmite prin $label',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
@@ -528,7 +571,7 @@ class _CastConnectedDialog extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               Text(
-                'Radioul se redă pe dispozitivul conectat.',
+                subtitle,
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 14,
@@ -539,29 +582,73 @@ class _CastConnectedDialog extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    castService.disconnect();
-                    Navigator.of(context).pop();
-                  },
-                  icon: const Icon(Icons.cast_rounded, size: 20),
-                  label: const Text('Oprește transmiterea'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    textStyle: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
+              if (isAirPlay)
+                // AirPlay: show native route picker to switch/disconnect
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: Stack(
+                    children: [
+                      // Visual button
+                      Container(
+                        width: double.infinity,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: Colors.blue,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.airplay_rounded, size: 20, color: Colors.white),
+                            SizedBox(width: 8),
+                            Text(
+                              'Schimbă dispozitivul',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Invisible native picker overlaid on top
+                      Positioned.fill(
+                        child: AirPlayRoutePickerView(
+                          tintColor: Colors.transparent,
+                          activeTintColor: Colors.transparent,
+                          backgroundColor: Colors.transparent,
+                          onShowPickerView: () => Navigator.of(context).pop(),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      castService?.disconnect();
+                      Navigator.of(context).pop();
+                    },
+                    icon: const Icon(Icons.cast_rounded, size: 20),
+                    label: const Text('Oprește transmiterea'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      textStyle: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ),
-              ),
             ],
           ),
         ),

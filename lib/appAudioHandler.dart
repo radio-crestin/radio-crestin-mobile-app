@@ -571,6 +571,7 @@ class AppAudioHandler extends BaseAudioHandler {
     return MediaItem(
       id: Utils.getStationStreamUrls(station.rawStationData).firstOrNull ?? "",
       title: station.rawStationData.title,
+      album: station.rawStationData.title,
       displayTitle: station.displayTitle,
       displaySubtitle: station.displaySubtitle,
       artist: station.artist,
