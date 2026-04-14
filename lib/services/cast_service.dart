@@ -12,10 +12,9 @@ import 'analytics_service.dart';
 class CastService {
   static const _tag = 'CastService';
 
-  /// Custom receiver app ID — set this after registering at
-  /// https://cast.google.com/publish/
-  /// Using the Default Media Receiver until custom receiver is deployed.
-  static const String _customReceiverAppId = 'CC1AD845';
+  /// Custom receiver app ID registered at https://cast.google.com/publish/
+  /// Receiver hosted at https://cast.radiocrestin.ro
+  static const String _customReceiverAppId = 'ED38209C';
 
   final BehaviorSubject<List<GoogleCastDevice>> devices =
       BehaviorSubject.seeded([]);

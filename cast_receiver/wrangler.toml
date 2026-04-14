@@ -1,0 +1,11 @@
+name = "radio-crestin-cast-receiver"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+# Deploy with: cd cast_receiver && npx wrangler deploy
+# Then add a custom domain in Cloudflare dashboard:
+#   Workers & Pages → radio-crestin-cast-receiver → Settings → Triggers → Custom Domains
+#   Add: cast.radiocrestin.ro
+
+# No secrets, no environment variables — this is a static HTML page
+# served to Chromecast devices on the local network.
