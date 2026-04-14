@@ -37,6 +37,9 @@ import 'services/network_service.dart';
 import 'services/play_count_service.dart';
 import 'services/song_like_service.dart';
 import 'services/station_data_service.dart';
+import 'tv/tv_platform.dart';
+import 'tv/tv_shell.dart';
+import 'tv/tv_theme.dart';
 
 final getIt = GetIt.instance;
 
@@ -131,6 +134,9 @@ void main() async {
     await prefs.setString('device_id', persistentDeviceId);
   }
   globals.deviceId = persistentDeviceId;
+
+  // Detect TV platform (Android TV, Apple TV)
+  await TvPlatform.initialize();
 
   if (prefs.getString('_reviewStatus') == null) {
     var defaultReviewStatus = {
@@ -296,6 +302,20 @@ class RadioCrestinApp extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
+    // TV gets a dedicated dark theme and TV-optimized UI shell
+    if (TvPlatform.isTV) {
+      return MaterialApp(
+        navigatorKey: globals.navigatorKey,
+        navigatorObservers: [PosthogObserver()],
+        title: 'Radio Crestin',
+        debugShowCheckedModeBanner: false,
+        theme: tvTheme,
+        darkTheme: tvTheme,
+        themeMode: ThemeMode.dark,
+        home: const TvShell(),
+      );
+    }
+
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: ThemeManager.themeMode,
       builder: (context, themeMode, child) {
