@@ -1,8 +1,12 @@
+import 'dart:io' show Platform;
+
 import 'package:dpad/dpad.dart';
 import 'package:flutter/material.dart';
 
 import '../../globals.dart' as globals;
+import '../tv_platform.dart';
 import '../tv_theme.dart';
+import '../widgets/desktop_focusable.dart';
 
 /// TV Settings page with large, D-pad navigable items.
 class TvSettingsPage extends StatelessWidget {
@@ -29,10 +33,12 @@ class TvSettingsPage extends StatelessWidget {
                       subtitle: '${globals.appVersion} (${globals.buildNumber})',
                       autofocus: true,
                     ),
-                    const _TvSettingsItem(
-                      icon: Icons.tv_rounded,
+                    _TvSettingsItem(
+                      icon: TvPlatform.isDesktop ? Icons.desktop_mac_rounded : Icons.tv_rounded,
                       title: 'Platformă',
-                      subtitle: 'Android TV',
+                      subtitle: TvPlatform.isDesktop
+                          ? (Platform.isMacOS ? 'macOS Desktop' : Platform.isWindows ? 'Windows Desktop' : 'Linux Desktop')
+                          : 'Android TV',
                     ),
                     const _TvSettingsItem(
                       icon: Icons.radio_rounded,
@@ -116,7 +122,7 @@ class _TvSettingsItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: TvSpacing.sm),
-      child: DpadFocusable(
+      child: DesktopFocusable(
         autofocus: autofocus,
         builder: FocusEffects.border(
           focusColor: TvColors.focusBorder,

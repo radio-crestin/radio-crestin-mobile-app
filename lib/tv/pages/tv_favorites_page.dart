@@ -110,8 +110,8 @@ class _TvFavoritesPageState extends State<TvFavoritesPage> {
           const SizedBox(height: TvSpacing.lg),
           Expanded(
             child: GridView.builder(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 5,
+              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                maxCrossAxisExtent: 220,
                 crossAxisSpacing: TvSpacing.gutter,
                 mainAxisSpacing: TvSpacing.gutter,
                 childAspectRatio: 196 / 248,

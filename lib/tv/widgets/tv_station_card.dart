@@ -1,8 +1,8 @@
-import 'package:dpad/dpad.dart';
 import 'package:flutter/material.dart';
 
 import '../../types/Station.dart';
 import '../tv_theme.dart';
+import 'desktop_focusable.dart';
 
 /// Square station card for TV browse.
 /// Shows thumbnail (1:1), station title, and current song below.
@@ -37,7 +37,7 @@ class TvStationCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Thumbnail
-          DpadFocusable(
+          DesktopFocusable(
             autofocus: autofocus,
             onSelect: onSelect,
             onFocus: () => onFocus?.call(station),

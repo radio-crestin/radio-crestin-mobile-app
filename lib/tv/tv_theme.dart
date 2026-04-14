@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
-/// TV-specific design tokens following Android TV design guidelines.
+import 'tv_platform.dart';
+
+/// TV/Desktop design tokens following Android TV design guidelines.
 /// Design base: 960×540dp (MDPI), scaled to 1080p.
-/// Viewing distance: ~3 meters (10ft UI).
+/// On desktop, reduced overscan margins since monitors don't clip edges.
 class TvColors {
   // Brand
   static const Color primary = Color(0xFFE91E63);
@@ -30,12 +32,13 @@ class TvColors {
   static const Color divider = Color(0x1AFFFFFF); // 10%
 }
 
-/// TV-specific spacing following Android TV layout grid.
+/// TV/Desktop spacing following Android TV layout grid.
 /// Grid: 12 columns × 52dp + 20dp gutters + 58dp margins = 960dp.
+/// Desktop uses smaller margins since monitors don't have overscan.
 class TvSpacing {
-  // Safe area margins (overscan)
-  static const double marginHorizontal = 48.0;
-  static const double marginVertical = 27.0;
+  // Safe area margins — smaller on desktop (no overscan)
+  static double get marginHorizontal => TvPlatform.isDesktop ? 24.0 : 48.0;
+  static double get marginVertical => TvPlatform.isDesktop ? 12.0 : 27.0;
 
   // Grid
   static const double gutter = 20.0;

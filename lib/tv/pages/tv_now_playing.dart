@@ -12,6 +12,7 @@ import '../../services/station_data_service.dart';
 import '../../types/Station.dart';
 import '../tv_shell.dart';
 import '../tv_theme.dart';
+import '../widgets/desktop_focusable.dart';
 
 /// Station page (Now Playing).
 /// Back (top-left) and favorite (top-right) span full width.
@@ -140,7 +141,7 @@ class _TvNowPlayingState extends State<TvNowPlaying> {
     bool autofocus = false,
     Color? bg,
   }) {
-    return DpadFocusable(
+    return DesktopFocusable(
       autofocus: autofocus,
       onSelect: onSelect,
       builder: FocusEffects.scaleWithBorder(
@@ -206,7 +207,7 @@ class _TvNowPlayingState extends State<TvNowPlaying> {
           // Content — one Column, all focusable items reachable
           SafeArea(
             child: Padding(
-              padding: const EdgeInsets.symmetric(
+              padding: EdgeInsets.symmetric(
                 horizontal: TvSpacing.marginHorizontal,
                 vertical: TvSpacing.md,
               ),
@@ -386,7 +387,7 @@ class _TvNowPlayingState extends State<TvNowPlaying> {
                                   ),
                                   const SizedBox(width: TvSpacing.md),
                                   // Play/Pause — pure DpadFocusable
-                                  DpadFocusable(
+                                  DesktopFocusable(
                                     autofocus: true,
                                     onSelect: () => _isPlaying
                                         ? _audioHandler.pause()

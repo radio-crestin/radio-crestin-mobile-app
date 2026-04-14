@@ -362,6 +362,7 @@ class _DeviceSheetState extends State<_DeviceSheet> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
+      isScrollControlled: true,
       builder: (_) => const _TvInstructionsSheet(),
     );
   }
@@ -375,6 +376,7 @@ class _DeviceSheetState extends State<_DeviceSheet> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
+      isScrollControlled: true,
       builder: (_) => const _LinkByCodeSheet(),
     );
   }
@@ -613,7 +615,7 @@ class _TvInstructionsSheet extends StatelessWidget {
     final dim = onSurface.withValues(alpha: 0.6);
 
     return SafeArea(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -788,35 +790,39 @@ class _LinkByCodeSheetState extends State<_LinkByCodeSheet> {
     final dim = onSurface.withValues(alpha: 0.6);
     final dark = Theme.of(context).brightness == Brightness.dark;
 
-    return SafeArea(
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(
-            24, 12, 24, MediaQuery.of(context).viewInsets.bottom + 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 36, height: 4,
-              margin: const EdgeInsets.only(bottom: 20),
-              decoration: BoxDecoration(
-                color: dark ? Colors.white24 : Colors.black12,
-                borderRadius: BorderRadius.circular(2)),
-            ),
-            const Icon(Icons.link_rounded, size: 40, color: AppColors.primary),
-            const SizedBox(height: 16),
-            Text('Conectare cu cod TV',
-              style: TextStyle(
-                fontSize: 20, fontWeight: FontWeight.w700, color: onSurface)),
-            const SizedBox(height: 8),
-            Text(
-              'Introdu codul afișat pe ecranul televizorului pentru a conecta telefonul.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, color: dim, height: 1.5)),
-            const SizedBox(height: 24),
-            TextField(
-              controller: _controller,
-              textCapitalization: TextCapitalization.characters,
-              textAlign: TextAlign.center,
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 200),
+      padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 36, height: 4,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: dark ? Colors.white24 : Colors.black12,
+                  borderRadius: BorderRadius.circular(2)),
+              ),
+              const Icon(Icons.link_rounded, size: 40, color: AppColors.primary),
+              const SizedBox(height: 16),
+              Text('Conectare cu cod TV',
+                style: TextStyle(
+                  fontSize: 20, fontWeight: FontWeight.w700, color: onSurface)),
+              const SizedBox(height: 8),
+              Text(
+                'Introdu codul afișat pe ecranul televizorului pentru a conecta telefonul.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, color: dim, height: 1.5)),
+              const SizedBox(height: 24),
+              TextField(
+                controller: _controller,
+                autofocus: true,
+                textCapitalization: TextCapitalization.characters,
+                textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 28, fontWeight: FontWeight.w700,
                 letterSpacing: 8, color: onSurface),
@@ -865,6 +871,7 @@ class _LinkByCodeSheetState extends State<_LinkByCodeSheet> {
               ),
             ),
           ],
+          ),
         ),
       ),
     );

@@ -36,7 +36,7 @@ class TvStationRow extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Padding(
-            padding: const EdgeInsets.only(
+            padding: EdgeInsets.only(
               left: TvSpacing.marginHorizontal,
               bottom: TvSpacing.xs,
             ),
@@ -52,7 +52,7 @@ class TvStationRow extends StatelessWidget {
             height: TvStationCard.cardSize + 68,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(
+              padding: EdgeInsets.symmetric(
                   horizontal: TvSpacing.marginHorizontal),
               itemCount: stations.length,
               separatorBuilder: (_, __) =>

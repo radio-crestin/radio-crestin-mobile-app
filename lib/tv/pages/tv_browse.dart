@@ -11,6 +11,7 @@ import '../../queries/getStations.graphql.dart';
 import '../../services/station_data_service.dart';
 import '../../types/Station.dart';
 import '../tv_theme.dart';
+import '../widgets/desktop_focusable.dart';
 import '../widgets/tv_station_row.dart';
 
 /// Station list page (Browse).
@@ -183,13 +184,13 @@ class _NowPlayingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(
+      padding: EdgeInsets.only(
         left: TvSpacing.marginHorizontal,
         right: TvSpacing.marginHorizontal,
         top: TvSpacing.lg,
         bottom: TvSpacing.lg,
       ),
-      child: DpadFocusable(
+      child: DesktopFocusable(
         autofocus: true,
         onSelect: onTap,
         builder: FocusEffects.scaleWithBorder(
