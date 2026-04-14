@@ -347,7 +347,6 @@ class _DeviceSheetState extends State<_DeviceSheet> {
   }
 
   void _showTvInstructions(BuildContext context) {
-    Navigator.of(context).pop();
     showModalBottomSheet(
       context: context,
       backgroundColor: Theme.of(context).brightness == Brightness.dark
