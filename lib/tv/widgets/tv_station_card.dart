@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../types/Station.dart';
+import '../tv_platform.dart';
 import '../tv_theme.dart';
 import 'desktop_focusable.dart';
 
@@ -42,6 +43,20 @@ class TvStationCard extends StatelessWidget {
             onSelect: onSelect,
             onFocus: () => onFocus?.call(station),
             builder: (context, isFocused, child) {
+              if (TvPlatform.isDesktop) {
+                // Desktop: scale only, no border
+                return AnimatedScale(
+                  scale: isFocused ? 1.05 : 1.0,
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOut,
+                  child: AnimatedOpacity(
+                    opacity: isFocused ? 1.0 : 0.9,
+                    duration: const Duration(milliseconds: 180),
+                    child: child,
+                  ),
+                );
+              }
+              // TV: border + scale for D-pad visibility
               return AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 curve: Curves.easeOut,

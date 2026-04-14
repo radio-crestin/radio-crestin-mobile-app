@@ -88,6 +88,16 @@ class _DesktopFocusableState extends State<DesktopFocusable> {
     if (widget.builder != null) {
       return widget.builder!(context, effectivelyFocused, child);
     }
-    return FocusEffects.border()(context, effectivelyFocused, child!);
+    // Desktop default: subtle scale only (no border)
+    return AnimatedScale(
+      scale: effectivelyFocused ? 1.03 : 1.0,
+      duration: const Duration(milliseconds: 150),
+      curve: Curves.easeOut,
+      child: AnimatedOpacity(
+        opacity: effectivelyFocused ? 1.0 : 0.85,
+        duration: const Duration(milliseconds: 150),
+        child: child!,
+      ),
+    );
   }
 }

@@ -10,6 +10,7 @@ import 'package:rxdart/rxdart.dart';
 import '../../appAudioHandler.dart';
 import '../../services/station_data_service.dart';
 import '../../types/Station.dart';
+import '../tv_platform.dart';
 import '../tv_shell.dart';
 import '../tv_theme.dart';
 import '../widgets/desktop_focusable.dart';
@@ -144,12 +145,26 @@ class _TvNowPlayingState extends State<TvNowPlaying> {
     return DesktopFocusable(
       autofocus: autofocus,
       onSelect: onSelect,
-      builder: FocusEffects.scaleWithBorder(
-        scale: 1.1,
-        borderColor: TvColors.primary,
-        borderWidth: 2,
-        borderRadius: BorderRadius.circular(size / 2),
-      ),
+      builder: TvPlatform.isDesktop
+          ? (context, isFocused, child) {
+              // Desktop: scale + brightness, no border
+              return AnimatedScale(
+                scale: isFocused ? 1.15 : 1.0,
+                duration: const Duration(milliseconds: 150),
+                curve: Curves.easeOut,
+                child: AnimatedOpacity(
+                  opacity: isFocused ? 1.0 : 0.7,
+                  duration: const Duration(milliseconds: 150),
+                  child: child,
+                ),
+              );
+            }
+          : FocusEffects.scaleWithBorder(
+              scale: 1.1,
+              borderColor: TvColors.primary,
+              borderWidth: 2,
+              borderRadius: BorderRadius.circular(size / 2),
+            ),
       child: Container(
         width: size,
         height: size,
@@ -386,19 +401,27 @@ class _TvNowPlayingState extends State<TvNowPlaying> {
                                         _audioHandler.skipToPrevious(),
                                   ),
                                   const SizedBox(width: TvSpacing.md),
-                                  // Play/Pause — pure DpadFocusable
+                                  // Play/Pause
                                   DesktopFocusable(
                                     autofocus: true,
                                     onSelect: () => _isPlaying
                                         ? _audioHandler.pause()
                                         : _audioHandler.play(),
-                                    builder: FocusEffects.scaleWithBorder(
-                                      scale: 1.1,
-                                      borderColor: Colors.white,
-                                      borderWidth: 2,
-                                      borderRadius:
-                                          BorderRadius.circular(36),
-                                    ),
+                                    builder: TvPlatform.isDesktop
+                                        ? (context, isFocused, child) {
+                                            return AnimatedScale(
+                                              scale: isFocused ? 1.12 : 1.0,
+                                              duration: const Duration(milliseconds: 150),
+                                              curve: Curves.easeOut,
+                                              child: child,
+                                            );
+                                          }
+                                        : FocusEffects.scaleWithBorder(
+                                            scale: 1.1,
+                                            borderColor: Colors.white,
+                                            borderWidth: 2,
+                                            borderRadius: BorderRadius.circular(36),
+                                          ),
                                     child: Container(
                                       width: 64,
                                       height: 64,
