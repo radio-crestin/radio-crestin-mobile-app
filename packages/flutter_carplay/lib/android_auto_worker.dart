@@ -38,7 +38,7 @@ class FlutterAndroidAuto {
   Function(ConnectionStatusTypes status)? _onAndroidAutoConnectionChange;
 
   /// Callback when the FAB (floating action button) is pressed on Android Auto.
-  static Function()? onFabPressed;
+  static Function({String? action})? onFabPressed;
 
   /// Callback when a tab is selected on Android Auto.
   Function(String contentId)? _onTabSelected;
@@ -49,6 +49,9 @@ class FlutterAndroidAuto {
   Function()? _onPlayerNext;
   Function()? _onPlayerFavoriteToggle;
   Function()? _onPlayerClosed;
+
+  /// Search callback.
+  Function(String query)? _onSearchTextChanged;
 
   void addListenerOnTabSelected(Function(String contentId) onTabSelected) {
     _onTabSelected = onTabSelected;
@@ -72,6 +75,10 @@ class FlutterAndroidAuto {
 
   void addListenerOnPlayerClosed(Function() callback) {
     _onPlayerClosed = callback;
+  }
+
+  void addListenerOnSearchTextChanged(Function(String query) callback) {
+    _onSearchTextChanged = callback;
   }
 
   /// Creates an [FlutterAndroidAuto] and starts the connection.
@@ -123,7 +130,8 @@ class FlutterAndroidAuto {
           _onTabSelected?.call(event['data']['contentId'] as String);
           break;
         case FAAChannelTypes.onFabPressed:
-          onFabPressed?.call();
+          final fabAction = event['data']?['action'] as String?;
+          onFabPressed?.call(action: fabAction);
           break;
         case FAAChannelTypes.onPlayerPlayPause:
           _onPlayerPlayPause?.call();
@@ -139,6 +147,9 @@ class FlutterAndroidAuto {
           break;
         case FAAChannelTypes.onPlayerClosed:
           _onPlayerClosed?.call();
+          break;
+        case FAAChannelTypes.onSearchTextChanged:
+          _onSearchTextChanged?.call(event['data']['query'] as String? ?? '');
           break;
         default:
           break;

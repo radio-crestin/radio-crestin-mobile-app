@@ -28,4 +28,6 @@ enum class FAAChannelTypes {
     onPlayerNext,
     onPlayerFavoriteToggle,
     onPlayerClosed,
+    onSearchTextChanged,
+    updateSearchResults,
 }

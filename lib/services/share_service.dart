@@ -70,14 +70,18 @@ class ShareLinkData {
     required this.shareSectionTitle,
   });
 
-  String generateShareUrl({String? stationSlug}) {
+  String generateShareUrl({String? stationSlug, int? songId}) {
     final baseUrl = url;
-    final shareParam = '?s=$shareId';
-    
-    if (stationSlug != null && stationSlug.isNotEmpty) {
-      return '$baseUrl/$stationSlug$shareParam';
+    final params = <String>['s=$shareId'];
+    if (songId != null && songId > 0) {
+      params.add('song=$songId');
     }
-    
-    return '$baseUrl$shareParam';
+    final query = '?${params.join('&')}';
+
+    if (stationSlug != null && stationSlug.isNotEmpty) {
+      return '$baseUrl/$stationSlug$query';
+    }
+
+    return '$baseUrl$query';
   }
 }

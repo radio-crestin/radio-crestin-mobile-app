@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.3.4+74
+version: 1.4.0+76
 
 
 environment:
@@ -40,7 +40,8 @@ dependencies:
   provider: ^6.0.5
   graphql: ^5.1.3
   gql: ^1.0.0
-  audio_service: ^0.18.15
+  audio_service:
+    path: packages/audio_service
   get_it: ^9.2.0
   url_launcher: ^6.2.2
   package_info_plus: ^9.0.0
@@ -52,8 +53,7 @@ dependencies:
   device_info_plus: ^12.3.0
   font_awesome_flutter: ^10.7.0
   firebase_core: ^4.4.0
-  firebase_analytics: ^12.1.1
-  firebase_crashlytics: ^5.0.7
+  posthog_flutter: ^5.23.1
   firebase_remote_config: ^6.1.4
   flutter_launcher_icons: ^0.14.0
   rxdart: ^0.28.0
@@ -78,6 +78,9 @@ dependencies:
   objective_c: 9.1.0
   quick_actions: ^1.1.0
   connectivity_plus: ^6.1.5
+  google_fonts: ^6.2.1
+  sqflite: ^2.4.2
+  flutter_svg: ^2.0.17
 
 dev_dependencies:
   dependency_validator: ^5.0.3
@@ -119,6 +122,8 @@ flutter:
   assets:
     - assets/icons/ic_foreground.png
     - assets/icons/ic_logo_filled.png
+    - assets/icons/carplay_logo.svg
+    - assets/icons/android_auto_logo.svg
     - assets/fallback-stations.json
 
 flutter_launcher_icons:

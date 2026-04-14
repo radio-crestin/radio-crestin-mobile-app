@@ -55,6 +55,8 @@ captures/
 .externalNativeBuild/
 .cxx/
 *.apk
+# Allow Android Auto APKs bundled for emulator sideloading
+!dhu/*.apk
 output.json
 
 

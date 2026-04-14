@@ -38,22 +38,40 @@ class FlutterAndroidAutoPlugin : FlutterPlugin, EventChannel.StreamHandler {
     lateinit var channel: MethodChannel
     lateinit var eventChannel: EventChannel
 
+    // Per-instance sink so onCancel can remove the correct one
+    private var instanceSink: EventChannel.EventSink? = null
+
     companion object {
         private const val TAG = "FlutterAndroidAuto"
-        var events: EventChannel.EventSink? = null
+        // Multiple Flutter engines (main app + Android Auto) each get their own
+        // plugin instance. Broadcast events to ALL sinks so both engines receive
+        // connection change notifications.
+        private val eventSinks = mutableSetOf<EventChannel.EventSink>()
         var currentTemplate: Template? = null
         var currentScreen: MainScreen? = null
-        var currentPlayerScreen: PlayerScreen? = null
+        var currentPlayerScreen: Screen? = null
+
+        // Track last emitted connection status to deduplicate events.
+        // onStart fires every time the car app comes back to foreground,
+        // but we only want to notify Flutter on actual state changes.
+        private var lastConnectionStatus: FAAConnectionTypes? = null
 
         fun sendEvent(type: String, data: Map<String, Any>) {
-            events?.success(
-                mapOf(
-                    "type" to type, "data" to data
-                )
-            )
+            val payload = mapOf("type" to type, "data" to data)
+            for (sink in eventSinks.toList()) {
+                try {
+                    sink.success(payload)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to send event to sink, removing: ${e.message}")
+                    eventSinks.remove(sink)
+                }
+            }
         }
 
         fun onAndroidAutoConnectionChange(status: FAAConnectionTypes) {
+            if (status == lastConnectionStatus) return
+            lastConnectionStatus = status
+            Log.d(TAG, "Connection state changed: $status")
             sendEvent(
                 type = FAAChannelTypes.onAndroidAutoConnectionChange.name,
                 data = mapOf("status" to status.name)
@@ -471,7 +489,7 @@ class FlutterAndroidAutoPlugin : FlutterPlugin, EventChannel.StreamHandler {
 
                             button.imageUrl?.let {
                                 loadCarImageAsync(it)?.let { carIcon ->
-                                    rowBuilder.setImage(carIcon)
+                                    rowBuilder.setImage(carIcon, Row.IMAGE_TYPE_SMALL)
                                 }
                             }
 
@@ -520,7 +538,7 @@ class FlutterAndroidAutoPlugin : FlutterPlugin, EventChannel.StreamHandler {
                 val icon = IconCompat.createWithResource(context, resId)
                 val fabAction = Action.Builder()
                     .setIcon(CarIcon.Builder(icon).build())
-                    .setBackgroundColor(CarColor.RED)
+                    .setBackgroundColor(CarColor.createCustom(0xFFE91E63.toInt(), 0xFFF8BBD0.toInt()))
                     .setOnClickListener {
                         sendEvent(
                             type = FAAChannelTypes.onFabPressed.name,
@@ -538,8 +556,10 @@ class FlutterAndroidAutoPlugin : FlutterPlugin, EventChannel.StreamHandler {
     private fun pushPlayerTemplate(
         call: MethodCall, result: MethodChannel.Result
     ) {
+        Log.d(TAG, "pushPlayerTemplate called")
         val carContext = AndroidAutoService.session?.carContext
         if (carContext == null) {
+            Log.e(TAG, "pushPlayerTemplate: No car context")
             result.error("No car context", "Android Auto not connected", null)
             return
         }
@@ -547,16 +567,24 @@ class FlutterAndroidAutoPlugin : FlutterPlugin, EventChannel.StreamHandler {
         pluginScope.launch {
             try {
                 val data = call.arguments as Map<String, Any?>
-                val screen = PlayerScreen(carContext)
-                screen.stationTitle = data["stationTitle"] as? String ?: ""
-                screen.songTitle = data["songTitle"] as? String ?: ""
-                screen.songArtist = data["songArtist"] as? String ?: ""
-                screen.isPlaying = data["isPlaying"] as? Boolean ?: false
-                screen.isFavorite = data["isFavorite"] as? Boolean ?: false
+                val isFavorite = data["isFavorite"] as? Boolean ?: false
 
-                // Pre-load station image
-                (data["imageUrl"] as? String)?.let { url ->
-                    screen.stationImage = loadCarImageAsync(url)
+                // API 8+: MediaPlaybackTemplate — host renders the YouTube Music-
+                // style Now Playing screen from the MediaSession automatically.
+                // API < 8: PaneTemplate fallback with manual UI.
+                val apiLevel = carContext.carAppApiLevel
+                val screen: Screen = if (apiLevel >= 8) {
+                    Log.d(TAG, "Using MediaPlaybackTemplate (API $apiLevel)")
+                    MediaPlaybackScreen(carContext, isFavorite = isFavorite)
+                } else {
+                    Log.d(TAG, "Using PaneTemplate fallback (API $apiLevel)")
+                    PlayerScreen(carContext).apply {
+                        stationTitle = data["stationTitle"] as? String ?: ""
+                        songTitle = data["songTitle"] as? String ?: ""
+                        songArtist = data["songArtist"] as? String ?: ""
+                        isPlaying = data["isPlaying"] as? Boolean ?: false
+                        this.isFavorite = isFavorite
+                    }
                 }
 
                 // Send onPlayerClosed when screen is destroyed (back button)
@@ -577,6 +605,17 @@ class FlutterAndroidAutoPlugin : FlutterPlugin, EventChannel.StreamHandler {
                 currentPlayerScreen = screen
                 carContext.getCarService(ScreenManager::class.java).push(screen)
                 result.success(true)
+
+                // For legacy PaneTemplate, load station image in background
+                if (screen is PlayerScreen) {
+                    (data["imageUrl"] as? String)?.let { url ->
+                        val image = loadCarImageAsync(url)
+                        if (image != null && currentPlayerScreen == screen) {
+                            screen.stationImage = image
+                            screen.invalidate()
+                        }
+                    }
+                }
             } catch (e: Exception) {
                 e.printStackTrace()
                 result.error("Error pushing player", e.message, null)
@@ -596,18 +635,32 @@ class FlutterAndroidAutoPlugin : FlutterPlugin, EventChannel.StreamHandler {
         pluginScope.launch {
             try {
                 val data = call.arguments as Map<String, Any?>
-                screen.stationTitle = data["stationTitle"] as? String ?: screen.stationTitle
-                screen.songTitle = data["songTitle"] as? String ?: screen.songTitle
-                screen.songArtist = data["songArtist"] as? String ?: screen.songArtist
-                screen.isPlaying = data["isPlaying"] as? Boolean ?: screen.isPlaying
-                screen.isFavorite = data["isFavorite"] as? Boolean ?: screen.isFavorite
 
-                // Re-load image if URL changed
-                (data["imageUrl"] as? String)?.let { url ->
-                    screen.stationImage = loadCarImageAsync(url)
+                if (screen is MediaPlaybackScreen) {
+                    // MediaPlaybackTemplate: host reads metadata from MediaSession
+                    // automatically. We only need to update the favorite state
+                    // (shown as a header action).
+                    val newFav = data["isFavorite"] as? Boolean ?: screen.isFavorite
+                    if (newFav != screen.isFavorite) {
+                        screen.isFavorite = newFav
+                        screen.invalidate()
+                    }
+                } else if (screen is PlayerScreen) {
+                    // Legacy PaneTemplate: manual sync
+                    screen.stationTitle = data["stationTitle"] as? String ?: screen.stationTitle
+                    screen.songTitle = data["songTitle"] as? String ?: screen.songTitle
+                    screen.songArtist = data["songArtist"] as? String ?: screen.songArtist
+                    screen.isPlaying = data["isPlaying"] as? Boolean ?: screen.isPlaying
+                    screen.isFavorite = data["isFavorite"] as? Boolean ?: screen.isFavorite
+
+                    // Re-load image if URL changed
+                    (data["imageUrl"] as? String)?.let { url ->
+                        screen.stationImage = loadCarImageAsync(url)
+                    }
+
+                    screen.invalidate()
                 }
 
-                screen.invalidate()
                 result.success(true)
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -677,7 +730,7 @@ class FlutterAndroidAutoPlugin : FlutterPlugin, EventChannel.StreamHandler {
                     val icon = IconCompat.createWithResource(context, resId)
                     val fabAction = Action.Builder()
                         .setIcon(CarIcon.Builder(icon).build())
-                        .setBackgroundColor(CarColor.RED)
+                        .setBackgroundColor(CarColor.createCustom(0xFFE91E63.toInt(), 0xFFF8BBD0.toInt()))
                         .setOnClickListener {
                             sendEvent(
                                 type = FAAChannelTypes.onFabPressed.name,
@@ -701,7 +754,7 @@ class FlutterAndroidAutoPlugin : FlutterPlugin, EventChannel.StreamHandler {
 
         item.imageUrl?.let {
             loadCarImageAsync(it)?.let { carIcon ->
-                rowBuilder.setImage(carIcon)
+                rowBuilder.setImage(carIcon, Row.IMAGE_TYPE_SMALL)
             }
         }
 
@@ -805,15 +858,30 @@ class FlutterAndroidAutoPlugin : FlutterPlugin, EventChannel.StreamHandler {
     }
 
     override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
-        FlutterAndroidAutoPlugin.events = events
+        instanceSink = events
+        events?.let { eventSinks.add(it) }
+        // Replay last connection status so late Dart subscribers don't miss
+        // the initial connect event (mirrors iOS FCPStreamHandlerPlugin behavior).
+        lastConnectionStatus?.let { status ->
+            Log.d(TAG, "Replaying last connection status on subscribe: $status")
+            events?.success(
+                mapOf(
+                    "type" to FAAChannelTypes.onAndroidAutoConnectionChange.name,
+                    "data" to mapOf("status" to status.name)
+                )
+            )
+        }
     }
 
     override fun onCancel(arguments: Any?) {
-        events?.endOfStream()
+        instanceSink?.let { eventSinks.remove(it) }
+        instanceSink = null
     }
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         channel.setMethodCallHandler(null)
         eventChannel.setStreamHandler(null)
+        instanceSink?.let { eventSinks.remove(it) }
+        instanceSink = null
     }
 }

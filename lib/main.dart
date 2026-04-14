@@ -1,13 +1,13 @@
 import 'dart:convert';
 import 'dart:developer' as developer;
-import 'dart:io' show Platform;
+import 'dart:io' show PathNotFoundException, Platform;
 
-import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:device_info_plus/device_info_plus.dart';
+
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_crashlytics/firebase_crashlytics.dart';
-import 'package:firebase_app_installations/firebase_app_installations.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
+import 'package:posthog_flutter/posthog_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
@@ -19,20 +19,23 @@ import 'package:radio_crestin/performance_monitor.dart';
 import 'package:radio_crestin/resilient_hive_store.dart';
 import 'package:radio_crestin/graphql_to_rest_interceptor.dart';
 import 'package:radio_crestin/pages/HomePage.dart';
+import 'package:upgrader/upgrader.dart';
 import 'package:radio_crestin/theme.dart';
 import 'package:radio_crestin/theme_manager.dart';
 import 'package:radio_crestin/seek_mode_manager.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:upgrader/upgrader.dart';
 
 import 'appAudioHandler.dart';
 import 'constants.dart';
 import 'firebase_options.dart';
 import 'globals.dart' as globals;
 import 'services/car_play_service.dart';
+import 'services/analytics_service.dart';
 import 'services/image_cache_service.dart';
 import 'services/quick_actions_service.dart';
 import 'services/network_service.dart';
+import 'services/play_count_service.dart';
+import 'services/song_like_service.dart';
 import 'services/station_data_service.dart';
 
 final getIt = GetIt.instance;
@@ -65,7 +68,7 @@ Future<void> initializeFirebaseMessaging() async {
   } catch (e, stackTrace) {
     developer.log("Firebase Messaging initialization failed", error: e, stackTrace: stackTrace);
     if (!e.toString().contains('SERVICE_NOT_AVAILABLE')) {
-      FirebaseCrashlytics.instance.recordError(e, stackTrace, fatal: false);
+      AnalyticsService.instance.captureException(e, stackTrace, context: 'firebase_messaging_init');
     }
   }
 }
@@ -76,8 +79,9 @@ void main() async {
   WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
 
-  // Run Firebase init, Hive init, and SharedPreferences in parallel.
-  // Firebase must complete before messaging, but Hive and prefs are independent.
+  // Phase 1: Start ALL independent async operations in parallel.
+  // Firebase, Hive, SharedPreferences, image cache, network, and PackageInfo
+  // have no dependencies on each other — run them all concurrently.
   final firebaseInitFuture = PerformanceMonitor.trackAsync('firebase_init', () =>
     Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform),
   );
@@ -93,12 +97,40 @@ void main() async {
   });
 
   final prefsFuture = SharedPreferences.getInstance();
+  final packageInfoFuture = PackageInfo.fromPlatform();
 
-  // Wait for Hive + prefs only — Firebase continues in background.
-  // GraphQL and audio don't need Firebase, so we start them sooner.
+  // Construct services early (sync constructors) and start their async init
+  // in parallel with hive — they only need path_provider / connectivity, not hive.
+  final networkService = NetworkService();
+  final imageCacheService = ImageCacheService();
+
+  final networkInitFuture = networkService.initialize();
+  final imageCacheInitFuture = PerformanceMonitor.trackAsync('image_cache_init',
+    () => imageCacheService.initialize());
+
+  // Phase 2: Wait for hive + prefs (needed for GraphQL client).
+  // Image cache and network init run in parallel — likely finish before hive.
   final hivePrefsResults = await Future.wait([hiveStoreFuture, prefsFuture]);
   final Store graphQlStore = hivePrefsResults[0] as Store;
   final SharedPreferences prefs = hivePrefsResults[1] as SharedPreferences;
+
+  // Also ensure image cache and network are ready (should already be done)
+  await Future.wait([imageCacheInitFuture, networkInitFuture]);
+
+  // Set persistent device ID (survives reinstalls) — used for ?s= tracking,
+  // reviews, share links, and Firebase Crashlytics user identifier.
+  String? persistentDeviceId = prefs.getString('device_id');
+  if (persistentDeviceId == null) {
+    final deviceInfo = DeviceInfoPlugin();
+    if (Platform.isAndroid) {
+      persistentDeviceId = (await deviceInfo.androidInfo).id;
+    } else if (Platform.isIOS) {
+      persistentDeviceId = (await deviceInfo.iosInfo).identifierForVendor;
+    }
+    persistentDeviceId ??= DateTime.now().millisecondsSinceEpoch.toString();
+    await prefs.setString('device_id', persistentDeviceId);
+  }
+  globals.deviceId = persistentDeviceId;
 
   if (prefs.getString('_reviewStatus') == null) {
     var defaultReviewStatus = {
@@ -158,54 +190,47 @@ void main() async {
     ),
   );
 
-  // Register SharedPreferences globally to avoid redundant getInstance() calls
-  getIt.registerSingleton<SharedPreferences>(prefs);
-
-  // Construct and register all services (sync, instant).
+  // Phase 3: Register all services with GetIt (sync, order matters).
   // Registration must happen BEFORE AudioService.init() because the builder
   // callback creates AppAudioHandler which accesses GetIt<StationDataService>.
-  final networkService = NetworkService();
+  getIt.registerSingleton<SharedPreferences>(prefs);
   getIt.registerSingleton<NetworkService>(networkService);
-
-  final imageCacheService = ImageCacheService();
   getIt.registerSingleton<ImageCacheService>(imageCacheService);
 
   final stationDataService = StationDataService(graphqlClient: graphqlClient);
   getIt.registerSingleton<StationDataService>(stationDataService);
 
-  // NetworkService must be initialized before AudioService.init() because
-  // AppAudioHandler's constructor subscribes to NetworkService.isOnMobileData
-  // and needs the correct initial connectivity state.
-  await networkService.initialize();
+  final playCountService = PlayCountService();
+  getIt.registerSingleton<PlayCountService>(playCountService);
 
-  // Start AudioService.init() early — it's the biggest blocker (500-1500ms).
-  // It now runs in parallel with ImageCacheService + StationDataService init.
+  final songLikeService = await SongLikeService.init();
+  getIt.registerSingleton<SongLikeService>(songLikeService);
+
+  // Phase 4: Start AudioService.init() — the biggest remaining blocker.
+  // Network and image cache are already initialized (awaited above).
   final audioHandlerFuture = PerformanceMonitor.trackAsync('audio_service_init', () =>
     initAudioService(graphqlClient: graphqlClient),
   );
-  final packageInfoFuture = PackageInfo.fromPlatform();
 
-  // ImageCacheService initializes in parallel with AudioService.init()
-  await PerformanceMonitor.trackAsync('image_cache_init', () => imageCacheService.initialize());
-
-  // StationDataService after ImageCacheService (thumbnail pre-caching depends on it)
+  // StationDataService init runs in parallel with audio (thumbnail pre-caching
+  // depends on ImageCacheService which is already initialized).
   await PerformanceMonitor.trackAsync('station_data_init', () => stationDataService.initialize());
 
   // Now await Firebase (likely already done since audio init takes longer)
   await firebaseInitFuture;
 
-  // Firebase-dependent: error handlers, analytics, messaging
-  FlutterError.onError = (errorDetails) {
-    FirebaseCrashlytics.instance.recordFlutterFatalError(errorDetails);
-  };
-  PlatformDispatcher.instance.onError = (error, stack) {
-    developer.log('PlatformDispatcher.instance.onError', error: error, stackTrace: stack);
-    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
-    return true;
-  };
+  // Initialize PostHog analytics (error tracking is handled by PostHog config)
+  await AnalyticsService.instance.initialize();
+
+  // Identify user immediately after PostHog init — before any events fire.
+  // deviceId is already set above; appVersion/buildNumber come later.
+  await AnalyticsService.instance.identify(
+    userId: globals.deviceId,
+    platform: Platform.isAndroid ? 'android' : Platform.isIOS ? 'ios' : 'other',
+  );
 
   if (prefs.getBool('_notificationsEnabled') ?? true) {
-    FirebaseAnalytics.instance.setUserProperty(name: 'personalized_n', value: 'true');
+    AnalyticsService.instance.setUserProperty('personalized_n', 'true');
   }
 
   PerformanceMonitor.trackAsync('firebase_messaging_init', () => initializeFirebaseMessaging());
@@ -218,11 +243,13 @@ void main() async {
   globals.appVersion = packageInfo.version;
   globals.buildNumber = packageInfo.buildNumber;
 
-  // Non-blocking: get device ID for Crashlytics
-  FirebaseInstallations.instance.getId().then((value) {
-    globals.deviceId = value;
-    FirebaseCrashlytics.instance.setUserIdentifier(globals.deviceId);
-  });
+  // Update PostHog user with app version info now that packageInfo is available
+  await AnalyticsService.instance.identify(
+    userId: globals.deviceId,
+    appVersion: packageInfo.version,
+    buildNumber: packageInfo.buildNumber,
+    platform: Platform.isAndroid ? 'android' : Platform.isIOS ? 'ios' : 'other',
+  );
 
   // Initialize theme and seek mode synchronously using already-loaded prefs (no async overhead)
   ThemeManager.initializeFromPrefs(prefs);
@@ -238,12 +265,19 @@ void main() async {
     });
   }
 
-  QuickActionsService.initialize();
-
-  // Remove splash AFTER theme is ready to avoid blank screen flash
-  FlutterNativeSplash.remove();
-
   runApp(const RadioCrestinApp());
+
+  // Remove native splash AFTER runApp + first frame layout to prevent
+  // "Cannot hit test a render box that has never been laid out" errors
+  // from touch events arriving before the widget tree is laid out.
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    FlutterNativeSplash.remove();
+  });
+
+  // Initialize quick actions after runApp so the Android Activity is available
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    QuickActionsService.initialize();
+  });
 
   // Defer CarPlay/Android Auto init to after first frame (not needed for initial render)
   WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -267,15 +301,18 @@ class RadioCrestinApp extends StatelessWidget {
       builder: (context, themeMode, child) {
         return MaterialApp(
           navigatorKey: globals.navigatorKey,
+          navigatorObservers: [PosthogObserver()],
           title: 'Radio Crestin',
           debugShowCheckedModeBanner: false,
           theme: lightTheme,
           darkTheme: darkTheme,
           themeMode: themeMode,
           home: UpgradeAlert(
-        dialogStyle: Platform.isIOS ? UpgradeDialogStyle.cupertino : UpgradeDialogStyle.material,
-        upgrader: Upgrader(),
-        child: const HomePage(),
+            dialogStyle: Platform.isIOS
+                ? UpgradeDialogStyle.cupertino
+                : UpgradeDialogStyle.material,
+            upgrader: Upgrader(),
+            child: const HomePage(),
           ),
         );
       },

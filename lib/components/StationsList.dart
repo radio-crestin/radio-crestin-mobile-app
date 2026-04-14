@@ -6,6 +6,7 @@ import 'package:radio_crestin/appAudioHandler.dart';
 import 'package:radio_crestin/theme.dart';
 import 'package:sliding_up_panel2/sliding_up_panel2.dart';
 
+import '../services/analytics_service.dart';
 import '../types/Station.dart';
 
 class StationsList extends StatelessWidget {
@@ -16,7 +17,7 @@ class StationsList extends StatelessWidget {
     required this.panelController,
     required this.favoriteSlugs,
     this.currentStation,
-    this.isFavoritesPlaylist = false,
+    this.isFavoritesList = false,
   });
 
   final Station? currentStation;
@@ -24,7 +25,7 @@ class StationsList extends StatelessWidget {
   final AppAudioHandler audioHandler;
   final PanelController? panelController;
   final List<String> favoriteSlugs;
-  final bool isFavoritesPlaylist;
+  final bool isFavoritesList;
 
   @override
   Widget build(BuildContext context) {
@@ -40,7 +41,8 @@ class StationsList extends StatelessWidget {
             child: RepaintBoundary(
             child: GestureDetector(
               onTap: () async {
-                await audioHandler.playStation(station, playlist: stations, isFavoritesPlaylist: isFavoritesPlaylist);
+                AnalyticsService.instance.capture('button_clicked', {'button_name': 'station_tap', 'station_id': station.id, 'station_slug': station.slug, 'from_favorites': isFavoritesList});
+                await audioHandler.playStation(station, fromFavorites: isFavoritesList);
               },
               child: Container(
                 margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
@@ -77,81 +79,115 @@ class StationsList extends StatelessWidget {
                             mainAxisAlignment: MainAxisAlignment.center,
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                station.displayTitle,
-                                style: TextStyle(
-                                  color: Theme.of(context).colorScheme.onSurface,
-                                  fontWeight: FontWeight.normal,
-                                  fontSize: 16,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 2,
+                              Row(
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      station.displayTitle,
+                                      style: TextStyle(
+                                        color: Theme.of(context).colorScheme.onSurface,
+                                        fontWeight: FontWeight.normal,
+                                        fontSize: 16,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
+                                    ),
+                                  ),
+                                  if (station.averageRating > 0) ...[
+                                    const SizedBox(width: 6),
+                                    Icon(
+                                      Icons.star_rounded,
+                                      size: 14,
+                                      color: const Color(0xFFED8A19),
+                                    ),
+                                    const SizedBox(width: 1),
+                                    Text(
+                                      station.averageRating.toStringAsFixed(1),
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: const Color(0xFFED8A19),
+                                      ),
+                                    ),
+                                  ],
+                                ],
                               ),
-                              AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 250),
-                                layoutBuilder: (currentChild, previousChildren) => Stack(
-                                  alignment: Alignment.centerLeft,
-                                  children: [...previousChildren, if (currentChild != null) currentChild],
-                                ),
-                                child: Container(
-                                  key: ValueKey('meta-${station.id}-${station.songTitle}-${station.songArtist}'),
-                                  margin: const EdgeInsets.only(top: 0, bottom: 4),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      if (station.isUp == false)
-                                        Text(
+                              SizedBox(
+                                height: 22,
+                                child: AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 250),
+                                  layoutBuilder: (currentChild, previousChildren) => Stack(
+                                    alignment: Alignment.centerLeft,
+                                    children: [...previousChildren, if (currentChild != null) currentChild],
+                                  ),
+                                  child: Container(
+                                    key: ValueKey('meta-${station.id}-${station.songTitle}-${station.songArtist}'),
+                                    alignment: Alignment.centerLeft,
+                                    child: station.isUp == false
+                                      ? Text(
                                           "Stație posibil indisponibilă",
                                           style: const TextStyle(color: Color(0xFFF87171)),
-                                        ),
-                                      if (station.songTitle != "")
-                                        Text(
-                                          station.songArtist != ""
-                                            ? "${station.songTitle} - ${station.songArtist}"
-                                            : station.songTitle,
-                                          textAlign: TextAlign.left,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                            color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
-                                            fontSize: 13,
-                                          ),
                                         )
-                                    ],
+                                      : station.songTitle != ""
+                                        ? Text(
+                                            station.songArtist != ""
+                                              ? "${station.songTitle} - ${station.songArtist}"
+                                              : station.songTitle,
+                                            textAlign: TextAlign.left,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                                              fontSize: 13,
+                                            ),
+                                          )
+                                        : Text(
+                                            "Metadate indisponibile",
+                                            textAlign: TextAlign.left,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                                              fontSize: 13,
+                                            ),
+                                          ),
                                   ),
                                 ),
                               ),
-                              AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 250),
-                                layoutBuilder: (currentChild, previousChildren) => Stack(
-                                  alignment: Alignment.centerLeft,
-                                  children: [...previousChildren, if (currentChild != null) currentChild],
+                              SizedBox(
+                                height: 18,
+                                child: AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 250),
+                                  layoutBuilder: (currentChild, previousChildren) => Stack(
+                                    alignment: Alignment.centerLeft,
+                                    children: [...previousChildren, if (currentChild != null) currentChild],
+                                  ),
+                                  child: station.totalListeners != null && station.totalListeners! > 0
+                                    ? Row(
+                                        key: ValueKey('listeners-${station.id}-${station.totalListeners}'),
+                                        children: [
+                                          Container(
+                                            width: 8,
+                                            height: 8,
+                                            margin: const EdgeInsets.only(right: 4),
+                                            decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              color: station.isUp
+                                                  ? AppColors.success
+                                                  : AppColors.offline,
+                                            ),
+                                          ),
+                                          Text(
+                                            '${station.totalListeners} ascultator${station.totalListeners == 1 ? "" : "i"}',
+                                            style: TextStyle(
+                                              color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ],
+                                      )
+                                    : SizedBox.shrink(key: ValueKey('no-listeners-${station.id}')),
                                 ),
-                                child: station.totalListeners != null && station.totalListeners! > 0
-                                  ? Row(
-                                      key: ValueKey('listeners-${station.id}-${station.totalListeners}'),
-                                      children: [
-                                        Container(
-                                          width: 8,
-                                          height: 8,
-                                          margin: const EdgeInsets.only(right: 4),
-                                          decoration: BoxDecoration(
-                                            shape: BoxShape.circle,
-                                            color: station.isUp
-                                                ? AppColors.success
-                                                : AppColors.offline,
-                                          ),
-                                        ),
-                                        Text(
-                                          '${station.totalListeners} ascultator${station.totalListeners == 1 ? "" : "i"}',
-                                          style: TextStyle(
-                                            color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ],
-                                    )
-                                  : SizedBox.shrink(key: ValueKey('no-listeners-${station.id}')),
                               )
                             ],
                           ),
@@ -165,6 +201,7 @@ class StationsList extends StatelessWidget {
                         behavior: HitTestBehavior.opaque,
                         onTap: () {
                           final isLiked = favoriteSlugs.contains(station.slug);
+                          AnalyticsService.instance.capture('button_clicked', {'button_name': 'favorite_toggle', 'station_slug': station.slug, 'station_id': station.id, 'is_favorite': !isLiked});
                           HapticFeedback.lightImpact();
                           audioHandler.setStationIsFavorite(station, !isLiked);
                         },

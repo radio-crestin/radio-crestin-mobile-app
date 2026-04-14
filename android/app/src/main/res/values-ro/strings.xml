@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <!-- Android Auto strings -->
+  <string name="aa_now_playing">Acum se redă</string>
+  <string name="aa_search_hint">Caută stație radio…</string>
+  <string name="aa_loading">Se încarcă…</string>
+  <string name="aa_favorite_stations">Stații Favorite</string>
+  <string name="aa_all_stations">Toate Stațiile</string>
+  <string name="aa_favorites_count">Favorite (%1$d)</string>
+  <string name="aa_all_count">Toate (%1$d)</string>
+</resources>

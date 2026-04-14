@@ -87,7 +87,7 @@
 			<true/>
 		</dict>
 		<key>UIViewControllerBasedStatusBarAppearance</key>
-		<false/>
+		<true/>
 		<key>com.apple.developer.nfc.readersession.iso7816.select-identifiers</key>
 		<array>
 			<string>A00000000386980701</string>
@@ -121,11 +121,19 @@
 		<array>
 			<string>NSUserActivityTypeBrowsingWeb</string>
 		</array>
+		<key>com.posthog.posthog</key>
+		<dict>
+			<key>apiKey</key>
+			<string>phc_9lTquHDSyoFxkYq4VPd8cFiQ21VZd627Lv8jSV8S7Fi</string>
+			<key>host</key>
+			<string>https://k.radiocrestin.ro</string>
+		</dict>
 		<key>UIStatusBarHidden</key>
 		<false/>
 		<key>LSApplicationQueriesSchemes</key>
 		<array>
 			<string>whatsapp</string>
+			<string>fb</string>
 		</array>
 		<key>UIApplicationShortcutItems</key>
 		<array>

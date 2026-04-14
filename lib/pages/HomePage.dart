@@ -6,6 +6,7 @@ import 'dart:io' show Platform;
 import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_sticky_header/flutter_sticky_header.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:radio_crestin/appAudioHandler.dart';
 import 'package:radio_crestin/components/FullAudioPlayer.dart';
 import 'package:radio_crestin/widgets/share_promotion_card.dart';
@@ -25,10 +26,15 @@ import '../main.dart';
 import '../queries/getStations.graphql.dart';
 import '../services/network_service.dart';
 import '../services/station_data_service.dart';
+import '../services/station_sort_service.dart';
 import '../widgets/connectivity_banner.dart';
 import '../widgets/bottom_toast.dart';
+import '../widgets/promo_notification_card.dart';
+import '../services/promo_notification_service.dart';
+import '../services/analytics_service.dart';
 import '../types/Station.dart';
 import '../utils/PositionRetainedScrollPhysics.dart';
+import '../widgets/song_history_modal.dart';
 import 'SettingsPage.dart';
 
 class HomePage extends StatefulWidget {
@@ -86,13 +92,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Timer? _backOnlineTimer;
   StreamSubscription? _offlineSub;
   StreamSubscription? _connectionErrorSub;
+  StreamSubscription? _customEventSub;
   OverlayEntry? _activeConnectionToast;
   final ValueNotifier<double> _panelSlide = ValueNotifier(0.0);
+  StationSortOption _sortOption = StationSortOption.recommended;
+  PromoNotification? _currentPromoNotification;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _sortOption = StationSortService.loadSavedSort();
 
     // AppLinks initialization (moved from constructor to avoid async work in constructor)
     _appLinks.getInitialLink().then((uri) {
@@ -165,10 +175,36 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       );
     });
 
+    // Listen for custom events from notification/Android Auto actions
+    _customEventSub = _audioHandler.customEvent.listen((event) {
+      if (!mounted) return;
+      if (event is Map && event['action'] == 'showSongHistory') {
+        final slug = event['stationSlug'] as String?;
+        final title = event['stationTitle'] as String?;
+        final thumbUrl = event['stationThumbnailUrl'] as String?;
+        if (slug != null && title != null) {
+          // Open full player panel, then show song history modal
+          if (slidingUpPanelController.isAttached) {
+            slidingUpPanelController.open();
+          }
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            SongHistoryModal.show(
+              context,
+              stationSlug: slug,
+              stationTitle: title,
+              stationThumbnailUrl: thumbUrl,
+            );
+          });
+        }
+      }
+    });
+
     // Defer non-critical work to after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkSharePromotionVisibility();
       _loadShareLinkData();
+      _loadPromoNotification();
     });
   }
 
@@ -219,6 +255,30 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
+  void _loadPromoNotification() {
+    final prefs = getIt<SharedPreferences>();
+    final service = PromoNotificationService(prefs);
+    final next = service.getNextNotification();
+    if (mounted && next != _currentPromoNotification) {
+      setState(() {
+        _currentPromoNotification = next;
+      });
+    }
+  }
+
+  Future<void> _dismissPromoNotification() async {
+    final notification = _currentPromoNotification;
+    if (notification == null) return;
+    final prefs = getIt<SharedPreferences>();
+    final service = PromoNotificationService(prefs);
+    await service.dismiss(notification.id);
+    if (mounted) {
+      setState(() {
+        _currentPromoNotification = null;
+      });
+    }
+  }
+
   Future<void> _loadShareLinkData() async {
     try {
       final prefs = getIt<SharedPreferences>();
@@ -259,16 +319,254 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
+  void _checkPendingSongHistory() {
+    final prefs = getIt<SharedPreferences>();
+    final slug = prefs.getString('pending_song_history');
+    if (slug == null) return;
+    prefs.remove('pending_song_history');
+    final station = _audioHandler.currentStation.valueOrNull;
+    if (station == null || station.slug != slug) return;
+    if (slidingUpPanelController.isAttached) {
+      slidingUpPanelController.open();
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      SongHistoryModal.show(
+        context,
+        stationSlug: station.slug,
+        stationTitle: station.title,
+        stationThumbnailUrl: station.thumbnailUrl,
+      );
+    });
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _sub.cancel();
     _offlineSub?.cancel();
     _connectionErrorSub?.cancel();
+    _customEventSub?.cancel();
     _backOnlineTimer?.cancel();
     removeBottomToast(_activeConnectionToast);
     _panelSlide.dispose();
     super.dispose();
+  }
+
+  Widget _buildRoundedIconButton({
+    required BuildContext context,
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onPressed,
+    bool isActive = false,
+  }) {
+    return _AnimatedRoundedIconButton(
+      icon: icon,
+      tooltip: tooltip,
+      onPressed: onPressed,
+      isActive: isActive,
+    );
+  }
+
+  void _showSortOptions(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Drag handle
+                Container(
+                  width: 36,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 8),
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white24 : Colors.black12,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                ...StationSortOption.values.map((option) {
+                  final isSelected = option == _sortOption;
+                  return ListTile(
+                    leading: Icon(
+                      StationSortLabels.icons[option],
+                      size: 20,
+                      color: option == StationSortOption.recommended
+                          ? const Color(0xFFF59E0B)
+                          : isSelected
+                              ? Theme.of(context).colorScheme.primary
+                              : Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                    title: Text(
+                      StationSortLabels.labels[option] ?? '',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                        color: isSelected
+                            ? Theme.of(context).colorScheme.primary
+                            : Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                    trailing: isSelected
+                        ? Icon(Icons.check_rounded, size: 20, color: Theme.of(context).colorScheme.primary)
+                        : null,
+                    onTap: () {
+                      AnalyticsService.instance.capture('button_clicked', {'button_name': 'sort_option', 'sort_option': option.name});
+                      setState(() {
+                        _sortOption = option;
+                      });
+                      StationSortService.saveSortOption(option);
+                      _stationDataService.invalidateSortCache();
+                      Navigator.pop(context);
+                    },
+                  );
+                }),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showFilterOptions(
+    BuildContext context,
+    List<Query$GetStations$station_groups> stationGroups,
+    Query$GetStations$station_groups? selectedGroup,
+  ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final sortedGroups = List<Query$GetStations$station_groups>.from(stationGroups)
+      ..sort((a, b) => a.order.compareTo(b.order));
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.7,
+          minChildSize: 0.4,
+          maxChildSize: 0.9,
+          expand: false,
+          builder: (context, scrollController) {
+            return Column(
+              children: [
+                // Drag handle
+                Padding(
+                  padding: const EdgeInsets.only(top: 10, bottom: 6),
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white24 : Colors.black12,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                // Title
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Filtrează stații',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 20,
+                      ),
+                    ),
+                  ),
+                ),
+                Divider(height: 1, thickness: 0.5, color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.06)),
+                // Scrollable list
+                Expanded(
+                  child: ListView(
+                    controller: scrollController,
+                    padding: const EdgeInsets.only(top: 4, bottom: 24),
+                    children: [
+                      // "All stations" option
+                      ListTile(
+                        leading: Icon(
+                          Icons.radio_rounded,
+                          size: 20,
+                          color: selectedGroup == null
+                              ? Theme.of(context).colorScheme.primary
+                              : Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                        title: Text(
+                          'Toate stațiile radio',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: selectedGroup == null ? FontWeight.w600 : FontWeight.w400,
+                            color: selectedGroup == null
+                                ? Theme.of(context).colorScheme.primary
+                                : Theme.of(context).colorScheme.onSurface,
+                          ),
+                        ),
+                        trailing: selectedGroup == null
+                            ? Icon(Icons.check_rounded, size: 20, color: Theme.of(context).colorScheme.primary)
+                            : null,
+                        onTap: () {
+                          AnalyticsService.instance.capture('button_clicked', {'button_name': 'filter', 'filter_group': 'all'});
+                          setState(() {
+                            _stationDataService.selectedStationGroup.add(null);
+                          });
+                          Navigator.pop(context);
+                        },
+                      ),
+                      ...sortedGroups.map((group) {
+                        final isSelected = selectedGroup?.id == group.id;
+                        return ListTile(
+                          leading: Icon(
+                            Icons.folder_rounded,
+                            size: 20,
+                            color: isSelected
+                                ? Theme.of(context).colorScheme.primary
+                                : Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                          title: Text(
+                            group.name,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                              color: isSelected
+                                  ? Theme.of(context).colorScheme.primary
+                                  : Theme.of(context).colorScheme.onSurface,
+                            ),
+                          ),
+                          trailing: isSelected
+                              ? Icon(Icons.check_rounded, size: 20, color: Theme.of(context).colorScheme.primary)
+                              : null,
+                          onTap: () {
+                            AnalyticsService.instance.capture('button_clicked', {'button_name': 'filter', 'filter_group': group.name, 'filter_group_id': group.id});
+                            setState(() {
+                              _stationDataService.selectedStationGroup.add(group);
+                            });
+                            Navigator.pop(context);
+                          },
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   @override
@@ -276,31 +574,31 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       // App returned to foreground — check if audio stream was lost in background
       _audioHandler.reconnectIfNeeded();
-      // Resume station polling (may have been paused in background)
-      _stationDataService.resumePolling();
-      // Auto-play if the "always play" toggle is enabled and not already playing.
-      // Use isPlayingOrConnecting to avoid interrupting playback that is still
-      // buffering (e.g. during cold start where resumed fires before audio is ready).
-      try {
-        if (!_audioHandler.isPlayingOrConnecting) {
-          autoPlayProcessed = false;
-          playerAutoplay();
-        }
-      } catch (e) {
-        developer.log('Error autoplaying on resume: $e');
-      }
+      // Full refresh + resume polling (picks up all changes while backgrounded)
+      _stationDataService.onAppResumed();
+      // Check for pending song history action (from notification button tap)
+      _checkPendingSongHistory();
+      // Autoplay is handled exclusively in initState() (cold start).
+      // Returning from background should NEVER trigger autoplay.
     } else if (state == AppLifecycleState.paused) {
-      // App went to background — on mobile data, always pause polling to save data.
-      // On WiFi, only pause if not playing.
-      if (_networkService.isOnMobileData.value || !_audioHandler.player.playing) {
+      // App went to background — keep polling if car is connected (user sees
+      // metadata on car screen). Otherwise pause to save data/battery.
+      final carConnected = _audioHandler.isCarConnected;
+      if (!carConnected && (_networkService.isOnMobileData.value || !_audioHandler.player.playing)) {
         _stationDataService.pausePolling();
       }
     } else if (state == AppLifecycleState.detached) {
-      // Stop the audio service when app is being terminated
-      try {
-        await _audioHandler.stop();
-      } catch (e) {
-        developer.log('Error stopping audio service on detach: $e');
+      // Flush listening session and analytics before the app is terminated
+      AnalyticsService.instance.endListening(reason: 'app_killed');
+      AnalyticsService.instance.flush();
+      // Stop the audio service when app is being terminated,
+      // but keep it alive if CarPlay/Android Auto is connected.
+      if (!_audioHandler.isCarConnected) {
+        try {
+          await _audioHandler.stop();
+        } catch (e) {
+          developer.log('Error stopping audio service on detach: $e');
+        }
       }
     }
   }
@@ -314,76 +612,39 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     return count.toString();
   }
 
-  Future<void> _shareApp(BuildContext context) async {
-    try {
-      // Get device ID
-      final prefs = getIt<SharedPreferences>();
-      String? deviceId = prefs.getString('device_id');
-      
-      if (deviceId == null) {
-        final DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
-        if (Platform.isAndroid) {
-          final androidInfo = await deviceInfo.androidInfo;
-          deviceId = androidInfo.id;
-        } else if (Platform.isIOS) {
-          final iosInfo = await deviceInfo.iosInfo;
-          deviceId = iosInfo.identifierForVendor;
-        } else {
-          deviceId = DateTime.now().millisecondsSinceEpoch.toString();
-        }
-        
-        if (deviceId != null) {
-          await prefs.setString('device_id', deviceId);
-        }
-      }
+  void _shareApp(BuildContext context) {
+    final currentStation = _audioHandler.currentStation.valueOrNull;
+    final slug = currentStation?.slug;
+    final fallbackUrl = slug != null && slug.isNotEmpty
+        ? 'https://www.radiocrestin.ro/$slug'
+        : 'https://www.radiocrestin.ro/descarca-aplicatia-radio-crestin';
 
-      // Get GraphQL client
-      final shareService = ShareService(_audioHandler.graphqlClient);
-      final shareLinkData = await shareService.getShareLink(deviceId!);
-      
-      if (shareLinkData != null) {
-        final currentStation = _audioHandler.currentStation.valueOrNull;
-        final shareUrl = shareLinkData.generateShareUrl(
-          stationSlug: currentStation?.slug,
-        );
-        final shareMessage = ShareUtils.formatShareMessage(
-          shareLinkData: shareLinkData,
-          stationName: currentStation?.title,
-          stationSlug: currentStation?.slug,
-        );
-
-        // Show dialog with share options
-        if (mounted) {
-          ShareHandler.shareApp(
-            context: context,
-            shareUrl: shareUrl,
-            shareMessage: shareMessage,
-            stationName: currentStation?.title,
-            shareLinkData: shareLinkData,
-            showDialog: true,
-          );
-        }
-      }
-    } catch (e) {
-      // Fallback to old method if something fails
-      if (mounted) {
-        final slug = _audioHandler.currentStation.valueOrNull?.slug;
-        final fallbackUrl = slug != null && slug.isNotEmpty
-            ? 'https://www.radiocrestin.ro/$slug'
-            : 'https://www.radiocrestin.ro/descarca-aplicatia-radio-crestin';
-        ShareHandler.shareApp(
-          context: context,
-          shareUrl: fallbackUrl,
-          shareMessage: 'Aplicația Radio Creștin:\n$fallbackUrl',
-          showDialog: false,
-        );
-      }
-    }
+    ShareHandler.shareApp(
+      context: context,
+      shareUrl: _shareLinkData?.generateShareUrl(stationSlug: slug, songId: currentStation?.songId) ?? fallbackUrl,
+      shareMessage: 'Instalează și tu aplicația Radio Creștin și ascultă peste 60 de stații de radio creștin:\n$fallbackUrl',
+      stationName: currentStation?.title,
+      songName: currentStation?.songTitle,
+      songArtist: currentStation?.songArtist,
+      songId: currentStation?.songId,
+      shareLinkData: _shareLinkData,
+      showDialog: true,
+      shareLinkLoader: _shareLinkData == null
+          ? () async {
+              final prefs = getIt<SharedPreferences>();
+              final deviceId = prefs.getString('device_id');
+              if (deviceId == null) return null;
+              final shareService = ShareService(_audioHandler.graphqlClient);
+              return shareService.getShareLink(deviceId);
+            }
+          : null,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     double panelMaxHeight = MediaQuery.of(context).size.height * .9;
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -415,22 +676,37 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             final stationGroups = snapshot.data?.stationGroups ?? [];
             final isDraggable = snapshot.data?.isDraggable ?? true;
             final selectedStationGroup = snapshot.data?.selectedStationGroup;
-            final filteredStations = snapshot.data?.filteredStations ?? [];
             final favoriteSlugs = snapshot.data?.favoriteSlugs ?? [];
 
-            final favoriteStations = stations.where((station) => favoriteSlugs.contains(station.slug)).toList();
+            // Apply sorting to filtered stations (cached — stable during session)
+            final filteredStations = _stationDataService.getSortedStations();
 
-            return Stack(
+            final favoriteStations = filteredStations.where((station) => favoriteSlugs.contains(station.slug)).toList();
+            final nonFavoriteStations = filteredStations.where((station) => !favoriteSlugs.contains(station.slug)).toList();
+
+            return Container(
+              color: Theme.of(context).scaffoldBackgroundColor,
+              padding: EdgeInsets.only(bottom: Platform.isIOS ? 12 : bottomPadding),
+              child: Stack(
               children: [
               SlidingUpPanel(
-              maxHeight: panelMaxHeight,
-              // minHeight: 115,
+              maxHeight: panelMaxHeight - (Platform.isIOS ? 12 : bottomPadding),
+              minHeight: 96,
               backdropEnabled: true,
               backdropTapClosesPanel: true,
               boxShadow: const [],
               controller: slidingUpPanelController,
               onPanelSlide: (position) {
                 _panelSlide.value = position;
+              },
+              onPanelClosed: () {
+                // SlidingUpPanel2 wraps the collapsed widget in IgnorePointer
+                // inside an AnimatedBuilder child, which is only rebuilt on
+                // parent rebuilds — not during animation frames. If the widget
+                // tree was last built while the panel was open, IgnorePointer
+                // stays ignoring=true even after close. Force a rebuild here
+                // so the mini player becomes tappable again.
+                if (mounted) setState(() {});
               },
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(16.0),
@@ -441,317 +717,258 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           slidingUpPanelController.isPanelOpen)) ||
                   isDraggable,
               body: SafeArea(
-                child: RefreshIndicator(
-                  onRefresh: _handleRefresh,
-                  color: Theme.of(context).primaryColor,
-                  child: Scrollbar(
-                  child: CustomScrollView(
-                    physics: const PositionRetainedScrollPhysics().applyTo(const AlwaysScrollableScrollPhysics()),
-                    cacheExtent: 300.0,
-                    slivers: <Widget>[
-                    SliverAppBar(
-                      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-                      flexibleSpace: FlexibleSpaceBar(
-                        background: Container(color: Theme.of(context).scaffoldBackgroundColor),
-                      ),
-                      floating: true,
-                      centerTitle: true,
-                      toolbarHeight: 75,
-                      automaticallyImplyLeading: false,
-                      title: Container(
-                          margin: const EdgeInsets.only(top: 6),
-                          child: const Row(
-                            children: [
-                              Image(
-                                image: AssetImage('assets/icons/ic_logo_filled.png'),
-                                width: 40,
+                bottom: false,
+                child: Column(
+                  children: [
+                    // Fixed app bar
+                    Container(
+                      color: Theme.of(context).scaffoldBackgroundColor,
+                      padding: const EdgeInsets.only(top: 6, left: 16, right: 8, bottom: 4),
+                      child: Row(
+                        children: [
+                          const Image(
+                            image: AssetImage('assets/icons/ic_logo_filled.png'),
+                            width: 40,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              "Radio Creștin",
+                              style: GoogleFonts.nunito(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.3,
                               ),
-                              SizedBox(width: 10),
-                              Text(
-                                "Radio Creștin",
-                                style: TextStyle(fontSize: 21),
-                              ),
-                            ],
-                          )),
-                      actions: [
-                        AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 600),
-                          transitionBuilder: (Widget child, Animation<double> animation) {
-                            return ScaleTransition(
-                              scale: Tween<double>(
-                                begin: 0.3,
-                                end: 1.0,
-                              ).animate(CurvedAnimation(
-                                parent: animation,
-                                curve: Curves.easeOutBack,
-                              )),
-                              child: child,
-                            );
-                          },
-                          child: _shareLinkData != null && _shareLinkData!.visitCount != null
-                            ? Container(
-                              key: ValueKey('share-badge'),
-                              margin: const EdgeInsets.only(right: 4),
-                              child: InkWell(
-                                onTap: () {
-                                  _shareApp(context);
-                                },
-                                borderRadius: BorderRadius.circular(20),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                  decoration: BoxDecoration(
-                                    color: (Theme.of(context).brightness == Brightness.light
-                                        ? const Color(0xFFFF6B35) // Orange for light theme
-                                        : const Color(0xFFffc700)).withOpacity(0.12), // Yellow for dark theme
-                                    borderRadius: BorderRadius.circular(20),
-                                    border: Border.all(
-                                      color: (Theme.of(context).brightness == Brightness.light
-                                          ? const Color(0xFFFF6B35)
-                                          : const Color(0xFFffc700)).withOpacity(0.3),
-                                      width: 1,
-                                    ),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        _formatVisitCount(_shareLinkData!.visitCount),
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                          color: Theme.of(context).brightness == Brightness.light
-                                              ? const Color(0xFFFF6B35) // Orange for light theme
-                                              : const Color(0xFFffc700), // Yellow for dark theme
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          _buildRoundedIconButton(
+                            context: context,
+                            icon: Icons.search_rounded,
+                            tooltip: 'Caută o stație radio',
+                            onPressed: () {
+                              AnalyticsService.instance.capture('button_clicked', {'button_name': 'search'});
+                              showDialog(
+                                context: context,
+                                builder: (BuildContext context) {
+                                  return SelectDialog<Station>(
+                                    items: stations,
+                                    displayFunction: (Station station) => station.displayTitle,
+                                    searchFunction: (Station station) => station.displayTitle,
+                                    onItemSelected: (Station station) {
+                                      AnalyticsService.instance.capture('button_clicked', {'button_name': 'search_result_tap', 'station_id': station.id, 'station_slug': station.slug});
+                                      _audioHandler.playStation(station);
+                                    },
+                                    itemBuilder: (context, station) {
+                                      return Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                        child: Row(
+                                          children: [
+                                            SizedBox(
+                                              width: 48,
+                                              height: 48,
+                                              child: ClipRRect(
+                                                borderRadius: BorderRadius.circular(10),
+                                                child: station.thumbnail,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 12),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Text(
+                                                    station.displayTitle,
+                                                    style: TextStyle(
+                                                      color: Theme.of(context).colorScheme.onSurface,
+                                                      fontWeight: FontWeight.w500,
+                                                      fontSize: 15,
+                                                    ),
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                  if (station.songTitle != "")
+                                                    Padding(
+                                                      padding: const EdgeInsets.only(top: 2),
+                                                      child: Text(
+                                                        station.songArtist != ""
+                                                            ? "${station.songTitle} - ${station.songArtist}"
+                                                            : station.songTitle,
+                                                        style: TextStyle(
+                                                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                                                          fontSize: 13,
+                                                        ),
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow.ellipsis,
+                                                      ),
+                                                    ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
                                         ),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Icon(
-                                        Icons.people_outline_rounded,
-                                        size: 18,
-                                        color: Theme.of(context).brightness == Brightness.light
-                                            ? const Color(0xFFFF6B35) // Orange for light theme
-                                            : const Color(0xFFffc700), // Yellow for dark theme
-                                      ),
-                                    ],
-                                  ),
+                                      );
+                                    },
+                                  );
+                                },
+                              );
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                          _buildRoundedIconButton(
+                            context: context,
+                            icon: Icons.settings_rounded,
+                            tooltip: 'Setări aplicație',
+                            onPressed: () {
+                              AnalyticsService.instance.capture('button_clicked', {'button_name': 'settings'});
+                              SettingsPage.show(context, shareLinkData: _shareLinkData);
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Scrollable station lists
+                    Expanded(
+                      child: RefreshIndicator(
+                        onRefresh: _handleRefresh,
+                        color: Theme.of(context).primaryColor,
+                        child: Scrollbar(
+                        child: CustomScrollView(
+                          physics: const PositionRetainedScrollPhysics().applyTo(const AlwaysScrollableScrollPhysics()),
+                          cacheExtent: 300.0,
+                          slivers: <Widget>[
+                          if (_currentPromoNotification != null)
+                            SliverToBoxAdapter(
+                              child: PromoNotificationCard(
+                                notification: _currentPromoNotification!,
+                                onDismiss: _dismissPromoNotification,
+                              ),
+                            ),
+                          if (_showSharePromotion)
+                            SliverToBoxAdapter(
+                              child: SharePromotionCard(
+                                key: _sharePromotionKey,
+                                client: _audioHandler.graphqlClient,
+                                currentStationSlug: currentStation?.slug,
+                                currentStationName: currentStation?.title,
+                                onClose: () async {
+                                  setState(() {
+                                    _showSharePromotion = false;
+                                  });
+                                  final prefs = getIt<SharedPreferences>();
+                                  await prefs.setBool('show_share_promotion', false);
+                                },
+                              ),
+                            ),
+                          if (favoriteStations.isNotEmpty)
+                            SliverStickyHeader(
+                              header: Container(
+                                height: 60.0,
+                                color: Theme.of(context).scaffoldBackgroundColor,
+                                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  'Favorite',
+                                  style: TextStyle(
+                                      fontSize: 18, fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurface),
                                 ),
                               ),
-                            )
-                            : SizedBox.shrink(key: ValueKey('empty')),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.search),
-                          color: Theme.of(context).colorScheme.onSurface,
-                          tooltip: 'Caută o stație radio',
-                          onPressed: () {
-                            showDialog(
-                              context: context,
-                              builder: (BuildContext context) {
-                                return SelectDialog<Station>(
-                                  items: stations,
-                                  displayFunction: (Station station) => station.displayTitle,
-                                  searchFunction: (Station station) => station.displayTitle,
-                                  onItemSelected: (Station station) {
-                                    _audioHandler.playStation(station, playlist: stations);
-                                  },
-                                  itemBuilder: (context, station) {
-                                    return Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                      child: Row(
-                                        children: [
-                                          SizedBox(
-                                            width: 48,
-                                            height: 48,
-                                            child: ClipRRect(
-                                              borderRadius: BorderRadius.circular(10),
-                                              child: station.thumbnail,
+                              sliver: SliverPadding(
+                                  padding: const EdgeInsets.only(bottom: 20.0),
+                                  sliver: StationsList(
+                                    stations: favoriteStations,
+                                    currentStation: currentStation,
+                                    audioHandler: _audioHandler,
+                                    panelController: null,
+                                    favoriteSlugs: favoriteSlugs,
+                                    isFavoritesList: true,
+                                  )),
+                            ),
+                          if (nonFavoriteStations.isNotEmpty)
+                            SliverStickyHeader(
+                              header: Container(
+                                height: 60.0,
+                                color: Theme.of(context).scaffoldBackgroundColor,
+                                padding: const EdgeInsets.only(left: 16.0, right: 4.0),
+                                alignment: Alignment.centerLeft,
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: GestureDetector(
+                                        onTap: () {
+                                          AnalyticsService.instance.capture('button_clicked', {'button_name': 'sort_menu'});
+                                          _showSortOptions(context);
+                                        },
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              StationSortLabels.icons[_sortOption],
+                                              size: 18,
+                                              color: _sortOption == StationSortOption.recommended
+                                                  ? const Color(0xFFF59E0B)
+                                                  : Theme.of(context).colorScheme.onSurface,
                                             ),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Text(
-                                                  station.displayTitle,
-                                                  style: TextStyle(
-                                                    color: Theme.of(context).colorScheme.onSurface,
-                                                    fontWeight: FontWeight.w500,
-                                                    fontSize: 15,
-                                                  ),
-                                                  maxLines: 1,
-                                                  overflow: TextOverflow.ellipsis,
+                                            const SizedBox(width: 8),
+                                            Flexible(
+                                              child: Text(
+                                                StationSortLabels.labels[_sortOption] ?? '',
+                                                style: TextStyle(
+                                                  fontSize: 17,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: Theme.of(context).colorScheme.onSurface,
                                                 ),
-                                                if (station.songTitle != "")
-                                                  Padding(
-                                                    padding: const EdgeInsets.only(top: 2),
-                                                    child: Text(
-                                                      station.songArtist != ""
-                                                          ? "${station.songTitle} - ${station.songArtist}"
-                                                          : station.songTitle,
-                                                      style: TextStyle(
-                                                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
-                                                        fontSize: 13,
-                                                      ),
-                                                      maxLines: 1,
-                                                      overflow: TextOverflow.ellipsis,
-                                                    ),
-                                                  ),
-                                              ],
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
                                             ),
-                                          ),
-                                        ],
+                                            const SizedBox(width: 4),
+                                            Icon(
+                                              Icons.keyboard_arrow_down_rounded,
+                                              size: 20,
+                                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                            ),
+                                          ],
+                                        ),
                                       ),
-                                    );
-                                  },
-                                );
-                              },
-                            );
-                          },
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.settings),
-                          color: Theme.of(context).colorScheme.onSurface,
-                          tooltip: 'Setări aplicație',
-                          onPressed: () async {
-                            await Navigator.push(context, MaterialPageRoute<void>(
-                              builder: (BuildContext context) {
-                                return const SettingsPage();
-                              },
-                            ));
-                            // Check share promotion visibility after returning from settings
-                            if (mounted) {
-                              await _checkSharePromotionVisibility();
-                              await _loadShareLinkData();
-                            }
-                          },
-                        ),
-                      ],
-                    ),
-                    if (_showSharePromotion)
-                      SliverToBoxAdapter(
-                        child: SharePromotionCard(
-                          key: _sharePromotionKey,
-                          client: _audioHandler.graphqlClient,
-                          currentStationSlug: currentStation?.slug,
-                          currentStationName: currentStation?.title,
-                          onClose: () async {
-                            // Update local state immediately
-                            setState(() {
-                              _showSharePromotion = false;
-                            });
-                            // Save to preferences
-                            final prefs = getIt<SharedPreferences>();
-                            await prefs.setBool('show_share_promotion', false);
-                          },
-                        ),
-                      ),
-                    if (favoriteStations.isNotEmpty)
-                      SliverStickyHeader(
-                        header: Container(
-                          height: 60.0,
-                          color: Theme.of(context).scaffoldBackgroundColor,
-                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            'Favorite',
-                            style: TextStyle(
-                                fontSize: 18, fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurface),
-                          ),
-                        ),
-                        sliver: SliverPadding(
-                            padding: const EdgeInsets.only(bottom: 20.0),
-                            sliver: StationsList(
-                              stations: favoriteStations,
-                              currentStation: currentStation,
-                              audioHandler: _audioHandler,
-                              panelController: null,
-                              favoriteSlugs: favoriteSlugs,
-                              isFavoritesPlaylist: true,
-                            )),
-                      ),
-                    if (stations.isNotEmpty)
-                      SliverStickyHeader(
-                        header: Container(
-                          height: 60.0,
-                          color: Theme.of(context).scaffoldBackgroundColor,
-                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                          alignment: Alignment.centerLeft,
-                          child: Row(
-                            children: [
-                              Text(
-                                selectedStationGroup?.name ?? "Toate stațiile radio",
-                                style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w600,
-                                    color: Theme.of(context).colorScheme.onSurface),
-                              ),
-                              const Spacer(),
-                              TextButton(
-                                  onPressed: () {
-                                    showDialog(
+                                    ),
+                                    _buildRoundedIconButton(
                                       context: context,
-                                      builder: (BuildContext context) {
-                                        final stationGroupOptions = [
-                                          Query$GetStations$station_groups(
-                                            id: -1,
-                                            name: 'Toate stațiile radio',
-                                            order: -1,
-                                            slug: 'all-stations',
-                                            station_to_station_groups: [],
-                                          ),
-                                          ...stationGroups
-                                            ..sort((a, b) => a.order.compareTo(b.order))
-                                        ];
-                                        return SelectDialog<Query$GetStations$station_groups>(
-                                          items: stationGroupOptions,
-                                          displayFunction:
-                                              (Query$GetStations$station_groups stationGroup) =>
-                                                  stationGroup.name,
-                                          onItemSelected:
-                                              (Query$GetStations$station_groups stationGroup) {
-                                            setState(() {
-                                              if (stationGroup.slug == 'all-stations') {
-                                                _stationDataService.selectedStationGroup.add(null);
-                                              } else {
-                                                _stationDataService.selectedStationGroup
-                                                    .add(stationGroup);
-                                              }
-                                            });
-                                          },
-                                        );
+                                      icon: selectedStationGroup != null
+                                          ? Icons.filter_alt_rounded
+                                          : Icons.filter_alt_outlined,
+                                      tooltip: selectedStationGroup?.name ?? 'Filtrează',
+                                      isActive: selectedStationGroup != null,
+                                      onPressed: () {
+                                        AnalyticsService.instance.capture('button_clicked', {'button_name': 'filter_menu'});
+                                        _showFilterOptions(context, stationGroups, selectedStationGroup);
                                       },
-                                    );
-                                  },
-                                  child: Text(
-                                    "Filtrează",
-                                    style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w500,
-                                        color: Theme.of(context).colorScheme.primary),
-                                  ))
-                            ],
-                          ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              sliver: SliverPadding(
+                                  padding: EdgeInsets.only(bottom: Platform.isIOS ? 80.0 : 110.0),
+                                  sliver: StationsList(
+                                    stations: nonFavoriteStations,
+                                    currentStation: currentStation,
+                                    audioHandler: _audioHandler,
+                                    panelController: null,
+                                    favoriteSlugs: favoriteSlugs,
+                                  )),
+                            ),
+                        ],
                         ),
-                        sliver: SliverPadding(
-                            padding: EdgeInsets.only(bottom: Platform.isIOS ? 80.0 : 110.0),
-                            sliver: StationsList(
-                              stations: filteredStations,
-                              currentStation: currentStation,
-                              audioHandler: _audioHandler,
-                              panelController: null,
-                              favoriteSlugs: favoriteSlugs,
-                            )),
+                        ),
                       ),
+                    ),
                   ],
-                  ),
-                  ),
                 ),
               ),
               collapsed: currentStation != null && stations.isNotEmpty
                   ? Container(
-                      padding: EdgeInsets.only(bottom: Platform.isIOS ? 20 : 12, left: 8, right: 8),
+                      padding: const EdgeInsets.only(bottom: 4, left: 8, right: 8),
                       color: Theme.of(context).scaffoldBackgroundColor,
                       child: MiniAudioPlayer(
                         currentStation: currentStation,
@@ -797,6 +1014,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   ),
                 ),
             ],
+            ),
             );
           }),
     );
@@ -805,11 +1023,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   playByStationSlug(String stationSlug) async {
     developer.log("playByStationSlug:$stationSlug");
     await waitForStationsUpdate();
-    var stations = await _audioHandler.stationsMediaItems.first;
-    var station = stations.where((item) => item.extras?['station_slug'] == stationSlug).firstOrNull;
+    // Look up directly from the source-of-truth (StationDataService) to avoid
+    // race condition where stationsMediaItems hasn't been updated yet.
+    final allStations = _stationDataService.stations.value;
+    final station = allStations.cast<Station?>().firstWhere(
+      (s) => s!.slug == stationSlug,
+      orElse: () => null,
+    );
     if (station != null) {
-      developer.log("found station:$station");
-      await _audioHandler.playMediaItem(station);
+      developer.log("found station:${station.title}");
+      await _audioHandler.playStation(station);
     } else {
       developer.log("station not found:$stationSlug");
     }
@@ -818,7 +1041,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Future<void> waitForStationsUpdate() {
     if (_stationDataService.stations.value.isNotEmpty) return Future.value();
     return _stationDataService.stations.stream
-        .firstWhere((stations) => stations.isNotEmpty);
+        .firstWhere((stations) => stations.isNotEmpty)
+        .timeout(const Duration(seconds: 5), onTimeout: () => <Station>[]);
   }
 
   String extractSlugWithRegex(String url) {
@@ -860,20 +1084,102 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       var station = await _audioHandler.getLastPlayedStation();
       if (station == null) return;
 
-      // Determine playlist context based on whether the station is a favorite
-      final favSlugs = _stationDataService.favoriteStationSlugs.value.toSet();
-      final isFav = favSlugs.contains(station.slug);
-      final playlist = isFav
-          ? _stationDataService.filteredStations.value
-                .where((s) => favSlugs.contains(s.slug))
-                .toList()
-          : _stationDataService.filteredStations.value;
-
       if (autoStart) {
-        _audioHandler.playStation(station, playlist: playlist, isFavoritesPlaylist: isFav);
+        _audioHandler.playStation(station);
       } else {
-        _audioHandler.selectStation(station, playlist: playlist, isFavoritesPlaylist: isFav);
+        _audioHandler.selectStation(station);
       }
     }
+  }
+}
+
+class _AnimatedRoundedIconButton extends StatefulWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onPressed;
+  final bool isActive;
+
+  const _AnimatedRoundedIconButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+    this.isActive = false,
+  });
+
+  @override
+  State<_AnimatedRoundedIconButton> createState() => _AnimatedRoundedIconButtonState();
+}
+
+class _AnimatedRoundedIconButtonState extends State<_AnimatedRoundedIconButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 120),
+      reverseDuration: const Duration(milliseconds: 200),
+      vsync: this,
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.88).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onTapDown(TapDownDetails _) {
+    _controller.forward();
+  }
+
+  void _onTapUp(TapUpDetails _) {
+    _controller.reverse();
+    widget.onPressed();
+  }
+
+  void _onTapCancel() {
+    _controller.reverse();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return ScaleTransition(
+      scale: _scaleAnimation,
+      child: Material(
+        color: widget.isActive
+            ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.12)
+            : isDark
+                ? Colors.white.withValues(alpha: 0.07)
+                : Colors.black.withValues(alpha: 0.06),
+        shape: const CircleBorder(),
+        child: InkWell(
+          onTapDown: _onTapDown,
+          onTapUp: _onTapUp,
+          onTapCancel: _onTapCancel,
+          customBorder: const CircleBorder(),
+          child: Tooltip(
+            message: widget.tooltip,
+            child: SizedBox(
+              width: 44,
+              height: 44,
+              child: Icon(
+                widget.icon,
+                size: 22,
+                color: widget.isActive
+                    ? Theme.of(context).colorScheme.primary
+                    : Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

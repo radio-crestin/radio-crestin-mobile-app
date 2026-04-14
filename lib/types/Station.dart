@@ -9,7 +9,19 @@ import '../utils.dart';
 
 class Station {
   Query$GetStations$stations rawStationData;
-  Station({required this.rawStationData});
+
+  /// Aggregated review stats from REST API (reviews_stats field).
+  /// These are separate from rawStationData.reviews because the REST endpoint
+  /// returns pre-computed stats while the GraphQL reviews array may be empty.
+  double _averageRating;
+  int _numberOfReviews;
+
+  Station({
+    required this.rawStationData,
+    double averageRating = 0,
+    int numberOfReviews = 0,
+  })  : _averageRating = averageRating,
+        _numberOfReviews = numberOfReviews;
 
   get id => rawStationData.id;
   get slug => rawStationData.slug;
@@ -71,6 +83,21 @@ class Station {
     );
   }
 
+  /// Average star rating from reviews_stats (REST API pre-computed).
+  /// Falls back to computing from individual reviews if stats aren't available.
+  double get averageRating {
+    if (_averageRating > 0) return _averageRating;
+    final reviews = rawStationData.reviews;
+    if (reviews.isEmpty) return 0;
+    final sum = reviews.fold<int>(0, (s, r) => s + r.stars);
+    return sum / reviews.length;
+  }
+
+  /// Number of reviews from reviews_stats (REST API pre-computed).
+  int get reviewCount {
+    if (_numberOfReviews > 0) return _numberOfReviews;
+    return rawStationData.reviews.length;
+  }
 
   MediaItem get mediaItem {
     return MediaItem(

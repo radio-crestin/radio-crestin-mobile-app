@@ -2,4 +2,13 @@
 <resources>
   <string name="asset_statements" translatable="false">[{\"include\": \"https://share.radiocrestin.ro/.well-known/assetlinks.json\"},{\"include\": \"https://asculta.radiocrestin.ro/.well-known/assetlinks.json\"},{\"include\": \"https://www.radiocrestin.ro/.well-known/assetlinks.json\"},{\"include\": \"https://www.radio-crestin.com/.well-known/assetlinks.json\"}]
 </string>
+
+  <!-- Android Auto strings -->
+  <string name="aa_now_playing">Now Playing</string>
+  <string name="aa_search_hint">Search radio station…</string>
+  <string name="aa_loading">Loading…</string>
+  <string name="aa_favorite_stations">Favorite Stations</string>
+  <string name="aa_all_stations">All Stations</string>
+  <string name="aa_favorites_count">Favorites (%1$d)</string>
+  <string name="aa_all_count">All (%1$d)</string>
 </resources>

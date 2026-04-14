@@ -8,8 +8,8 @@ import 'package:radio_crestin/widgets/share_handler.dart';
 import 'package:radio_crestin/utils/share_utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:device_info_plus/device_info_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:radio_crestin/services/analytics_service.dart';
 
 class SharePromotionCard extends StatefulWidget {
   final GraphQLClient client;
@@ -261,14 +261,20 @@ class SharePromotionCardState extends State<SharePromotionCard> {
                 context: context,
                 icon: FontAwesomeIcons.whatsapp,
                 color: _whatsappColor,
-                onTap: () => _shareToWhatsApp(),
+                onTap: () {
+                  AnalyticsService.instance.capture('button_clicked', {'button_name': 'promo_share_whatsapp'});
+                  _shareToWhatsApp();
+                },
               ),
               const SizedBox(width: 6),
               _buildShareButton(
                 context: context,
                 icon: FontAwesomeIcons.facebook,
                 color: _facebookColor,
-                onTap: () => _shareToFacebook(),
+                onTap: () {
+                  AnalyticsService.instance.capture('button_clicked', {'button_name': 'promo_share_facebook'});
+                  _shareToFacebook();
+                },
               ),
               const SizedBox(width: 6),
               _buildShareButton(
@@ -276,7 +282,10 @@ class SharePromotionCardState extends State<SharePromotionCard> {
                 icon: Icons.people_outline_rounded,
                 label: 'Distribuie',
                 color: Theme.of(context).primaryColor,
-                onTap: () => _shareGeneric(context),
+                onTap: () {
+                  AnalyticsService.instance.capture('button_clicked', {'button_name': 'promo_share_generic'});
+                  _shareGeneric(context);
+                },
               ),
                 ],
               ),
@@ -290,7 +299,10 @@ class SharePromotionCardState extends State<SharePromotionCard> {
             child: Material(
               color: Colors.transparent,
               child: InkWell(
-                onTap: _handleClose,
+                onTap: () {
+                  AnalyticsService.instance.capture('button_clicked', {'button_name': 'promo_card_close'});
+                  _handleClose();
+                },
                 borderRadius: BorderRadius.circular(20),
                 child: Container(
                   padding: const EdgeInsets.all(8),
@@ -391,46 +403,13 @@ class SharePromotionCardState extends State<SharePromotionCard> {
 
   void _shareToFacebook() async {
     final shareUrl = _getShareUrl();
-    final encodedUrl = Uri.encodeComponent(shareUrl);
-    final facebookUrl = 'https://www.facebook.com/sharer/sharer.php?u=$encodedUrl';
-    
-    if (await canLaunchUrl(Uri.parse(facebookUrl))) {
-      await launchUrl(Uri.parse(facebookUrl), mode: LaunchMode.externalApplication);
-    } else {
-      _shareGeneric(context);
-    }
+    await ShareHandler.shareToFacebook(shareUrl);
   }
 
   void _shareToWhatsApp() async {
     final message = _getShareMessage();
-    final encodedMessage = Uri.encodeComponent(message);
-    
-    // Try WhatsApp app first (allows contact selection)
-    final whatsappAppUrl = 'whatsapp://send?text=$encodedMessage';
-    
-    // Fallback to WhatsApp Web
-    final whatsappWebUrl = 'https://wa.me/?text=$encodedMessage';
-    
-    try {
-      // First try to open WhatsApp app which allows contact/group selection
-      if (await canLaunchUrl(Uri.parse(whatsappAppUrl))) {
-        await launchUrl(
-          Uri.parse(whatsappAppUrl), 
-          mode: LaunchMode.externalApplication,
-        );
-      } else if (await canLaunchUrl(Uri.parse(whatsappWebUrl))) {
-        // Fallback to WhatsApp Web
-        await launchUrl(
-          Uri.parse(whatsappWebUrl), 
-          mode: LaunchMode.externalApplication,
-        );
-      } else {
-        // Final fallback to generic share
-        _shareGeneric(context);
-      }
-    } catch (e) {
-      _shareGeneric(context);
-    }
+    final shareUrl = _getShareUrl();
+    await ShareHandler.shareToWhatsApp(message, shareUrl, widget.currentStationName);
   }
 
   void _shareGeneric(BuildContext context) {

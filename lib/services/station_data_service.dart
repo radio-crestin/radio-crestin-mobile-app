@@ -10,7 +10,10 @@ import 'package:radio_crestin/constants.dart';
 import 'package:radio_crestin/performance_monitor.dart';
 import 'package:radio_crestin/seek_mode_manager.dart';
 import 'package:radio_crestin/services/network_service.dart';
+import 'package:radio_crestin/services/play_count_service.dart';
+import 'package:radio_crestin/services/station_sort_service.dart';
 import 'package:radio_crestin/queries/getStations.graphql.dart';
+import 'package:radio_crestin/graphql_rest_mappings.dart';
 import 'package:radio_crestin/services/image_cache_service.dart';
 import 'package:radio_crestin/types/Station.dart';
 import 'package:radio_crestin/utils/api_utils.dart';
@@ -24,7 +27,15 @@ class StationDataService {
   Timer? _pollTimer;
   bool _isPolling = false;
   bool _isPollInFlight = false;
-  static const _pollInterval = Duration(seconds: 5);
+  static const _pollInterval = Duration(seconds: 10);
+  static const _fullRefreshInterval = Duration(minutes: 30);
+
+  /// Timestamp (Unix seconds, rounded to 10s) of the last successful metadata fetch.
+  /// Used as `changes_from_timestamp` to only receive changed stations.
+  int _lastFetchTimestamp = 0;
+
+  /// When the last full refresh (GraphQL + REST) was performed.
+  DateTime? _lastFullRefreshTime;
 
   /// Returns the actual stream type ('HLS', 'direct_stream', etc.) if the given
   /// station ID is currently playing, or null if it's not the active station.
@@ -39,6 +50,20 @@ class StationDataService {
       BehaviorSubject.seeded(<Query$GetStations$station_groups>[]);
   final BehaviorSubject<Query$GetStations$station_groups?> selectedStationGroup =
       BehaviorSubject.seeded(null);
+
+  /// When true, next/previous navigation cycles through favorites first,
+  /// then falls through to the full sorted list.
+  bool startedFromFavorites = false;
+
+  /// Cached sort order (list of slugs). Keeps the station order stable
+  /// during the session. Only invalidated on manual refresh or sort change.
+  List<String>? _cachedSortOrder;
+  StationSortOption? _cachedSortOption;
+  int _cachedStationCount = 0;
+
+  /// Emits whenever the sort cache is invalidated, so listeners (CarPlay,
+  /// Android Auto) can rebuild their station lists with the new order.
+  final PublishSubject<void> sortOrderChanged = PublishSubject<void>();
 
   // Constants
   static const _favoriteStationsKey = 'favoriteStationSlugs';
@@ -73,10 +98,23 @@ class StationDataService {
     _setupRefreshStations();
   }
 
+  /// Full refresh: re-fetches stations from GraphQL + metadata from REST.
+  /// Called on init, every 30 minutes, and on app resume from background.
   Future<void> refreshStations() async {
-    _log("Manually refreshing stations");
+    _log("Full refresh triggered");
+    invalidateSortCache();
     await _fetchStationsWithMetadata();
+    _lastFullRefreshTime = DateTime.now();
+    _lastFetchTimestamp = getRoundedTimestamp();
     _preCacheStationThumbnails();
+  }
+
+  /// Called when app resumes from background.
+  /// Forces a full refresh to pick up any changes while backgrounded.
+  Future<void> onAppResumed() async {
+    _log("App resumed from background, triggering full refresh");
+    await refreshStations();
+    resumePolling();
   }
 
   void pausePolling() {
@@ -134,7 +172,8 @@ class StationDataService {
 
     // Phase 1: Load cached data from previous session, or bundled fallback
     final cached = await _loadCachedStations();
-    if (cached != null) {
+    final hasCachedData = cached != null;
+    if (hasCachedData) {
       _log("Loaded ${cached.stations.length} stations from cache");
       _applyStationsData(cached);
     } else {
@@ -145,16 +184,36 @@ class StationDataService {
       }
     }
 
-    // Phase 2: Fetch stations + metadata in parallel, merge, apply once
-    PerformanceMonitor.startOperation('initial_stations_fetch');
-    await _fetchStationsWithMetadata();
-    PerformanceMonitor.endOperation('initial_stations_fetch');
+    // Phase 2: Fetch stations + metadata from network.
+    // If we have cached data, don't block — fetch in background for faster startup.
+    // If no cache, we must await to get initial data.
+    if (hasCachedData) {
+      // Non-blocking: start network fetch and polling immediately
+      _lastFullRefreshTime = DateTime.now();
+      _lastFetchTimestamp = getRoundedTimestamp();
+      _isPolling = true;
+      _pollTimer = Timer.periodic(_pollInterval, (_) => _pollMetadata());
 
-    _preCacheStationThumbnails();
+      // Background refresh — updates UI when ready, no-op if offline
+      _fetchStationsWithMetadata().then((_) {
+        _lastFullRefreshTime = DateTime.now();
+        _lastFetchTimestamp = getRoundedTimestamp();
+        _preCacheStationThumbnails();
+      });
+    } else {
+      // No cache: must wait for network
+      PerformanceMonitor.startOperation('initial_stations_fetch');
+      await _fetchStationsWithMetadata();
+      PerformanceMonitor.endOperation('initial_stations_fetch');
 
-    // Phase 3: Start lightweight metadata polling
-    _isPolling = true;
-    _pollTimer = Timer.periodic(_pollInterval, (_) => _pollMetadata());
+      _lastFullRefreshTime = DateTime.now();
+      _lastFetchTimestamp = getRoundedTimestamp();
+      _preCacheStationThumbnails();
+
+      // Phase 3: Start lightweight differential metadata polling (every 10s)
+      _isPolling = true;
+      _pollTimer = Timer.periodic(_pollInterval, (_) => _pollMetadata());
+    }
   }
 
   Future<Query$GetStations?> _loadCachedStations() async {
@@ -206,8 +265,18 @@ class StationDataService {
     }
   }
 
+  /// Creates a Station with reviews_stats from the REST cache.
+  Station _createStation(Query$GetStations$stations raw) {
+    final stats = reviewsStatsCache[raw.id];
+    return Station(
+      rawStationData: raw,
+      averageRating: stats?.averageRating ?? 0,
+      numberOfReviews: stats?.numberOfReviews ?? 0,
+    );
+  }
+
   void _applyStationsData(Query$GetStations data) {
-    stations.add(data.stations.map((r) => Station(rawStationData: r)).toList());
+    stations.add(data.stations.map(_createStation).toList());
     stationGroups.add(data.station_groups);
   }
 
@@ -236,10 +305,11 @@ class StationDataService {
       final parsedData = stationsResult.parsedData;
       if (parsedData != null && parsedData.stations.length >= _minStationsForCache) {
         final stationsWithMetadata = parsedData.stations.map((r) {
-          var station = Station(rawStationData: r);
+          var station = _createStation(r);
           final useOffset = _shouldUseOffsetMetadata(station);
-          final metadataSource = useOffset ? offsetMetadata : liveMetadata;
-          final metadata = metadataSource?[station.id];
+          final primarySource = useOffset ? offsetMetadata : liveMetadata;
+          final fallbackSource = useOffset ? liveMetadata : offsetMetadata;
+          final metadata = primarySource?[station.id] ?? fallbackSource?[station.id];
           if (metadata != null) {
             final liveNowPlaying = liveMetadata?[station.id]?['now_playing'];
             final liveListeners = liveNowPlaying is Map<String, dynamic>
@@ -260,7 +330,7 @@ class StationDataService {
   }
 
   // ---------------------------------------------------------------------------
-  // Metadata polling
+  // Metadata polling (differential updates)
   // ---------------------------------------------------------------------------
 
   Future<void> _pollMetadata() async {
@@ -268,6 +338,17 @@ class StationDataService {
     _isPollInFlight = true;
 
     try {
+      // Check if it's time for a full refresh (every 30 minutes)
+      if (_lastFullRefreshTime != null &&
+          DateTime.now().difference(_lastFullRefreshTime!) >= _fullRefreshInterval) {
+        _log("Full refresh interval reached, performing full refresh");
+        await _fetchStationsWithMetadata();
+        _lastFullRefreshTime = DateTime.now();
+        _lastFetchTimestamp = getRoundedTimestamp();
+        _preCacheStationThumbnails();
+        return;
+      }
+
       final liveTimestamp = getRoundedTimestamp();
       final offset = SeekModeManager.currentOffset;
       final offsetTimestamp = getRoundedTimestamp(offset: offset);
@@ -278,18 +359,21 @@ class StationDataService {
       Map<int, Map<String, dynamic>>? offsetMetadata;
 
       if (offset == Duration.zero) {
-        // Single call when no seek offset is configured
-        liveMetadata = await _fetchMetadata(liveTimestamp);
+        // Single differential call when no seek offset is configured
+        liveMetadata = await _fetchMetadata(liveTimestamp, changesFromTimestamp: _lastFetchTimestamp);
         offsetMetadata = liveMetadata;
       } else {
-        // Parallel: live timestamp for non-HLS, offset timestamp for HLS
+        // Parallel: live (differential) + offset timestamp for HLS
         final results = await Future.wait([
-          _fetchMetadata(liveTimestamp),
+          _fetchMetadata(liveTimestamp, changesFromTimestamp: _lastFetchTimestamp),
           _fetchMetadata(offsetTimestamp),
         ]);
         liveMetadata = results[0];
         offsetMetadata = results[1];
       }
+
+      // Update last fetch timestamp for next differential query
+      _lastFetchTimestamp = getRoundedTimestamp();
 
       PerformanceMonitor.endOperation('poll_metadata');
 
@@ -300,11 +384,22 @@ class StationDataService {
       if (liveMetadata == null) _log("Live metadata fetch failed, using offset only");
       if (offsetMetadata == null) _log("Offset metadata fetch failed, using live only");
 
+      // If differential returned empty (no changes), skip update for non-offset stations
+      final hasLiveChanges = liveMetadata != null && liveMetadata.isNotEmpty;
+      final hasOffsetChanges = offsetMetadata != null && offsetMetadata.isNotEmpty;
+
+      if (!hasLiveChanges && !hasOffsetChanges) {
+        _log("No metadata changes detected, skipping update");
+        return;
+      }
+
       final currentStations = stations.value;
       final updatedStations = currentStations.map((station) {
         final useOffset = _shouldUseOffsetMetadata(station);
-        final metadataSource = useOffset ? offsetMetadata : liveMetadata;
-        final metadata = metadataSource?[station.id];
+        // Primary source based on stream type; fall back to the other if missing
+        final primarySource = useOffset ? offsetMetadata : liveMetadata;
+        final fallbackSource = useOffset ? liveMetadata : offsetMetadata;
+        final metadata = primarySource?[station.id] ?? fallbackSource?[station.id];
         if (metadata == null) return station;
         final liveNowPlaying = liveMetadata?[station.id]?['now_playing'];
         final liveListeners = liveNowPlaying is Map<String, dynamic>
@@ -315,19 +410,44 @@ class StationDataService {
 
       if (_hasStationsChanged(currentStations, updatedStations)) {
         stations.add(updatedStations);
-        _log("Stations updated from metadata poll");
+        _log("Stations updated from differential metadata poll");
+
+        // In unstable connection mode, pre-cache all song thumbnails permanently
+        if (SeekModeManager.isUnstableConnection) {
+          _preCacheSongThumbnails(updatedStations);
+        }
       } else {
-        _log("Stations unchanged, skipping update");
+        _log("Stations unchanged after merge, skipping update");
+      }
+    } catch (e) {
+      _log("Error in metadata poll: $e");
+      // On metadata fetch failure, try a full refresh to recover
+      try {
+        _log("Attempting full refresh after poll failure");
+        await _fetchStationsWithMetadata();
+        _lastFullRefreshTime = DateTime.now();
+        _lastFetchTimestamp = getRoundedTimestamp();
+      } catch (e2) {
+        _log("Full refresh recovery also failed: $e2");
       }
     } finally {
       _isPollInFlight = false;
     }
   }
 
-  Future<Map<int, Map<String, dynamic>>?> _fetchMetadata(int timestamp) async {
-    final url = '${CONSTANTS.STATIONS_METADATA_URL}?timestamp=$timestamp';
+  /// Fetches metadata from REST API.
+  /// When [changesFromTimestamp] is provided, only returns stations that changed
+  /// since that timestamp (differential update, like radiocrestin.ro web app).
+  Future<Map<int, Map<String, dynamic>>?> _fetchMetadata(
+    int timestamp, {
+    int? changesFromTimestamp,
+  }) async {
+    var url = '${CONSTANTS.STATIONS_METADATA_URL}?timestamp=$timestamp';
+    if (changesFromTimestamp != null && changesFromTimestamp > 0) {
+      url += '&changes_from_timestamp=$changesFromTimestamp';
+    }
     try {
-      final response = await http.get(Uri.parse(url));
+      final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 8));
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body) as Map<String, dynamic>;
         final stationsMetadata = (jsonData['data']?['stations_metadata'] as List?) ?? [];
@@ -396,7 +516,115 @@ class StationDataService {
       };
     }
 
-    return Station(rawStationData: Query$GetStations$stations.fromJson(stationJson));
+    final stats = reviewsStatsCache[station.id];
+    return Station(
+      rawStationData: Query$GetStations$stations.fromJson(stationJson),
+      averageRating: stats?.averageRating ?? station.averageRating,
+      numberOfReviews: stats?.numberOfReviews ?? station.reviewCount,
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Station ordering & navigation (single source of truth)
+  // ---------------------------------------------------------------------------
+
+  /// Returns stations sorted by the user's saved sort preference.
+  /// This is THE single source of truth for station order across
+  /// phone, CarPlay, and Android Auto.
+  ///
+  /// The sort order is cached so it stays stable during the session.
+  /// It only re-sorts on manual refresh, sort option change, or when
+  /// the station set changes (new/removed stations).
+  List<Station> getSortedStations() {
+    final allStations = filteredStations.value;
+    if (allStations.isEmpty) return allStations;
+    final sortOption = StationSortService.loadSavedSort();
+
+    // Check if the cached order is still valid
+    final cacheValid = _cachedSortOrder != null &&
+        _cachedSortOption == sortOption &&
+        _cachedStationCount == allStations.length;
+
+    if (cacheValid) {
+      // Reorder current stations by the cached slug order, preserving
+      // fresh metadata (listeners, now_playing, etc.)
+      final stationMap = {for (final s in allStations) s.slug: s};
+      final result = <Station>[];
+      for (final slug in _cachedSortOrder!) {
+        final station = stationMap.remove(slug);
+        if (station != null) result.add(station);
+      }
+      // Append any new stations not in the cache (e.g. added since last sort)
+      result.addAll(stationMap.values);
+      return result;
+    }
+
+    // Cache miss — compute fresh sort
+    // Refresh play counts from disk so the Android Auto engine (separate isolate)
+    // sees counts written by the phone engine during the current session.
+    final playCountService = GetIt.instance.isRegistered<PlayCountService>()
+        ? GetIt.instance<PlayCountService>()
+        : null;
+    playCountService?.refresh();
+    final playCounts = playCountService?.playCounts ?? <String, int>{};
+    final favSlugs = favoriteStationSlugs.value;
+    final sorted = StationSortService.sort(
+      stations: allStations,
+      sortBy: sortOption,
+      playCounts: playCounts,
+      favoriteSlugs: favSlugs,
+    ).sorted;
+
+    // Cache the order
+    _cachedSortOrder = sorted.map<String>((s) => s.slug).toList();
+    _cachedSortOption = sortOption;
+    _cachedStationCount = allStations.length;
+
+    return sorted;
+  }
+
+  /// Invalidates the cached sort order, forcing a re-sort on the next call
+  /// to [getSortedStations]. Call this on manual refresh or sort option change.
+  void invalidateSortCache() {
+    _cachedSortOrder = null;
+    _cachedSortOption = null;
+    _cachedStationCount = 0;
+    sortOrderChanged.add(null);
+  }
+
+  /// Builds the navigation playlist: if the user started from favorites,
+  /// favorites come first (in sorted order), then the remaining stations.
+  /// Otherwise, returns the full sorted list.
+  List<Station> _getNavigationPlaylist() {
+    final sorted = getSortedStations();
+    if (!startedFromFavorites) return sorted;
+
+    final favSlugs = favoriteStationSlugs.value;
+    if (favSlugs.isEmpty) return sorted;
+
+    final favorites = sorted.where((s) => favSlugs.contains(s.slug)).toList();
+    final others = sorted.where((s) => !favSlugs.contains(s.slug)).toList();
+    return [...favorites, ...others];
+  }
+
+  /// Returns the next station in the navigation playlist after [currentSlug].
+  /// Wraps around to the first station at the end.
+  Station? getNextStation(String currentSlug) {
+    final playlist = _getNavigationPlaylist();
+    if (playlist.isEmpty) return null;
+    final idx = playlist.indexWhere((s) => s.slug == currentSlug);
+    if (idx < 0) return playlist.first;
+    return playlist[(idx + 1) % playlist.length];
+  }
+
+  /// Returns the previous station in the navigation playlist before [currentSlug].
+  /// Wraps around to the last station at the beginning.
+  Station? getPreviousStation(String currentSlug) {
+    final playlist = _getNavigationPlaylist();
+    if (playlist.isEmpty) return null;
+    final idx = playlist.indexWhere((s) => s.slug == currentSlug);
+    if (idx <= 0) return playlist.last;
+    return playlist[idx - 1];
   }
 
   // ---------------------------------------------------------------------------
@@ -477,6 +705,19 @@ class StationDataService {
         .map((s) => s.thumbnailUrl!)
         .toList();
     if (urls.isEmpty) return;
+    ImageCacheService.instance.preCacheUrls(urls);
+  }
+
+  /// In unstable connection mode, pre-cache all song thumbnails permanently to disk.
+  void _preCacheSongThumbnails(List<Station> stationsList) {
+    final urls = stationsList
+        .where((s) => s.rawStationData.now_playing?.song?.thumbnail_url != null)
+        .map((s) => s.rawStationData.now_playing!.song!.thumbnail_url!)
+        .where((url) => url.isNotEmpty)
+        .toSet() // deduplicate
+        .toList();
+    if (urls.isEmpty) return;
+    _log("Pre-caching ${urls.length} song thumbnails (unstable mode)");
     ImageCacheService.instance.preCacheUrls(urls);
   }
 }

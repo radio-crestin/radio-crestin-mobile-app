@@ -1,11 +1,16 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:radio_crestin/constants.dart';
 import 'package:radio_crestin/queries/getStations.graphql.dart';
+import 'package:radio_crestin/services/network_service.dart';
 import 'package:radio_crestin/utils.dart';
 
 import 'helpers/station_factory.dart';
 
 void main() {
+  setUpAll(() {
+    // NetworkService is needed by Utils.getStationThumbnailUrl
+    NetworkService();
+  });
   group('Utils.getCurrentPlayedSongTitle', () {
     test('returns empty string for null station', () {
       expect(Utils.getCurrentPlayedSongTitle(null), '');

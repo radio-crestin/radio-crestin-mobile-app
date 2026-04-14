@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/ic_favorite,
+                @drawable/ic_favorite_border,
+                @drawable/ic_radio,
+                @drawable/ic_thumb_up,
+                @drawable/ic_thumb_up_outline,
+                @drawable/ic_thumb_down,
+                @drawable/ic_thumb_down_outline,
+                @drawable/ic_launcher_foreground,
+                @drawable/ic_play_arrow,
+                @drawable/ic_pause,
+                @drawable/ic_skip_next,
+                @drawable/ic_skip_previous,
+                @drawable/ic_search,
+                @drawable/ic_history,
+                @drawable/ic_transparent" />

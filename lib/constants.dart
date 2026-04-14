@@ -4,7 +4,9 @@ class CONSTANTS {
   static String API_BASE_URL = "https://api.radiocrestin.ro/api/v1";
   static String STATIONS_URL = "$API_BASE_URL/stations";
   static String STATIONS_METADATA_URL = "$API_BASE_URL/stations-metadata";
+  static String STATIONS_METADATA_HISTORY_URL = "$API_BASE_URL/stations-metadata-history";
   static String SHARE_LINKS_URL = "$API_BASE_URL/share-links";
+  static String REVIEWS_URL = "$API_BASE_URL/reviews/";
   static String DEFAULT_STATION_THUMBNAIL_URL = "";
   static String IMAGE_PROXY_PREFIX = "";
   static String STATIC_MP3_URL =

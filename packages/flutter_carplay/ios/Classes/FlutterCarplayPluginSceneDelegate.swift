@@ -25,6 +25,12 @@ extension CPTemplate {
 class FlutterCarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate, CPInterfaceControllerDelegate {
   static private var interfaceController: CPInterfaceController?
 
+  /// Tracks whether the initial `sceneDidBecomeActive` after `didConnect` has
+  /// been consumed. iOS fires `sceneDidBecomeActive` immediately after
+  /// `didConnect`, producing a duplicate CONNECTED event. We suppress that
+  /// first activation and only emit CONNECTED on subsequent foreground returns.
+  private var _initialActivationConsumed = false
+
   static public func forceUpdateRootTemplate() {
     let rootTemplate = SwiftFlutterCarplayPlugin.rootTemplate
     let animated = SwiftFlutterCarplayPlugin.animated
@@ -53,8 +59,15 @@ class FlutterCarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelega
     templateFromHistory.updateTemplates(newTemplatesData: templates)
   }
 
-  // Fired when just before the carplay become active
+  // Fired when just before the carplay become active.
+  // After `didConnect`, iOS fires this immediately — skip that first one to
+  // avoid a duplicate CONNECTED event. Subsequent activations (returning from
+  // background) are real and should emit CONNECTED.
   func sceneDidBecomeActive(_ scene: UIScene) {
+    guard _initialActivationConsumed else {
+      _initialActivationConsumed = true
+      return
+    }
     SwiftFlutterCarplayPlugin.onCarplayConnectionChange(status: FCPConnectionTypes.connected)
   }
   
@@ -137,14 +150,16 @@ class FlutterCarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelega
   
   func templateApplicationScene(_ templateApplicationScene: CPTemplateApplicationScene,
                                 didDisconnect interfaceController: CPInterfaceController, from window: CPWindow) {
+    _initialActivationConsumed = false
     SwiftFlutterCarplayPlugin.onCarplayConnectionChange(status: FCPConnectionTypes.disconnected)
 
     interfaceController.delegate = nil
     FlutterCarPlaySceneDelegate.interfaceController = nil
   }
-  
+
   func templateApplicationScene(_ templateApplicationScene: CPTemplateApplicationScene,
                                 didDisconnectInterfaceController interfaceController: CPInterfaceController) {
+    _initialActivationConsumed = false
     SwiftFlutterCarplayPlugin.onCarplayConnectionChange(status: FCPConnectionTypes.disconnected)
 
     interfaceController.delegate = nil

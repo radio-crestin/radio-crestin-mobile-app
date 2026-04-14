@@ -1,137 +1,133 @@
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:radio_crestin/services/share_service.dart';
 import 'package:radio_crestin/utils/share_utils.dart';
+import 'package:radio_crestin/services/share_service.dart';
 
 void main() {
-  group('ShareUtils', () {
-    late ShareLinkData shareLinkData;
-
-    setUp(() {
-      shareLinkData = ShareLinkData(
-        shareId: 'abc123',
-        url: 'https://radio-crestin.com/share',
-        shareMessage: 'Ascultă radio creștin la {url}',
-        shareStationMessage: 'Ascultă {station_name} la {url}',
-        visitCount: 10,
-        createdAt: '2024-01-01',
-        isActive: true,
-        shareSectionMessage: '',
-        shareSectionTitle: '',
+  group('ShareUtils.formatMessageWithStation', () {
+    test('includes station, song name and artist in parentheses', () {
+      final result = ShareUtils.formatMessageWithStation(
+        'Aplicația Radio Creștin:',
+        'https://www.radiocrestin.ro/radio-vocea-evangheliei?s=abc',
+        'Radio Vocea Evangheliei',
+        songName: 'Doamne al meu',
+        songArtist: 'Grup Vocea Evangheliei',
+      );
+      expect(
+        result,
+        'Te invit să asculți Radio Vocea Evangheliei (Doamne al meu • Grup Vocea Evangheliei):\nhttps://www.radiocrestin.ro/radio-vocea-evangheliei?s=abc',
       );
     });
 
-    group('formatShareMessage', () {
-      test('uses shareStationMessage when stationName is provided', () {
-        final message = ShareUtils.formatShareMessage(
-          shareLinkData: shareLinkData,
-          stationName: 'Radio Emanuel',
-          stationSlug: 'radio-emanuel',
-        );
-        expect(message, contains('Radio Emanuel'));
-        expect(message, contains('radio-crestin.com/share/radio-emanuel'));
-      });
-
-      test('uses shareMessage when no stationName', () {
-        final message = ShareUtils.formatShareMessage(
-          shareLinkData: shareLinkData,
-          stationName: null,
-          stationSlug: null,
-        );
-        expect(message, contains('Ascultă radio creștin'));
-        expect(message, contains('radio-crestin.com/share'));
-      });
-
-      test('falls back to default message when shareMessage is empty', () {
-        final emptyData = ShareLinkData(
-          shareId: 'abc',
-          url: 'https://radio-crestin.com/share',
-          shareMessage: '',
-          shareStationMessage: '',
-          visitCount: 0,
-          createdAt: '',
-          isActive: true,
-          shareSectionMessage: '',
-          shareSectionTitle: '',
-        );
-
-        final message = ShareUtils.formatShareMessage(
-          shareLinkData: emptyData,
-          stationName: null,
-        );
-        expect(message, contains('Ascultă posturile de radio creștine'));
-        expect(message, contains('radio-crestin.com/share'));
-      });
-
-      test('replaces {url} placeholder in shareStationMessage', () {
-        final message = ShareUtils.formatShareMessage(
-          shareLinkData: shareLinkData,
-          stationName: 'Test',
-          stationSlug: 'test-slug',
-        );
-        expect(message, isNot(contains('{url}')));
-        expect(message, contains('?s=abc123'));
-      });
-
-      test('replaces {station_name} placeholder', () {
-        final message = ShareUtils.formatShareMessage(
-          shareLinkData: shareLinkData,
-          stationName: 'Radio Vocea',
-          stationSlug: null,
-        );
-        expect(message, isNot(contains('{station_name}')));
-        expect(message, contains('Radio Vocea'));
-      });
+    test('includes station and song name without artist', () {
+      final result = ShareUtils.formatMessageWithStation(
+        'msg',
+        'https://example.com',
+        'Radio Trinitas',
+        songName: 'Psalmul 23',
+      );
+      expect(
+        result,
+        'Te invit să asculți Radio Trinitas (Psalmul 23):\nhttps://example.com',
+      );
     });
 
-    group('combineMessageWithUrl', () {
-      test('appends URL if not already in message', () {
-        final result = ShareUtils.combineMessageWithUrl(
-          'Hello world',
-          'https://example.com',
-        );
-        expect(result, 'Hello world\nhttps://example.com');
-      });
-
-      test('does not duplicate URL if already present', () {
-        final result = ShareUtils.combineMessageWithUrl(
-          'Visit https://example.com today',
-          'https://example.com',
-        );
-        expect(result, 'Visit https://example.com today');
-      });
+    test('includes station and artist without song name', () {
+      final result = ShareUtils.formatMessageWithStation(
+        'msg',
+        'https://example.com',
+        'Radio Trinitas',
+        songArtist: 'Corul Madrigal',
+      );
+      expect(
+        result,
+        'Te invit să asculți Radio Trinitas (Corul Madrigal):\nhttps://example.com',
+      );
     });
 
-    group('formatMessageWithStation', () {
-      test('appends station name and URL when not in message', () {
-        final result = ShareUtils.formatMessageWithStation(
-          'Check this out',
-          'https://example.com',
-          'Radio Emanuel',
-        );
-        expect(result, contains('Ascultă acum: Radio Emanuel'));
-        expect(result, contains('https://example.com'));
-      });
+    test('station only, no song info — colon after station name', () {
+      final result = ShareUtils.formatMessageWithStation(
+        'msg',
+        'https://example.com',
+        'Radio Trinitas',
+      );
+      expect(
+        result,
+        'Te invit să asculți Radio Trinitas:\nhttps://example.com',
+      );
+    });
 
-      test('appends station name when URL already in message', () {
-        final result = ShareUtils.formatMessageWithStation(
-          'Visit https://example.com',
-          'https://example.com',
-          'Radio Emanuel',
-        );
-        expect(result, contains('Ascultă acum: Radio Emanuel'));
-        // URL should not be duplicated at the end
-        expect(result, 'Visit https://example.com\n\nAscultă acum: Radio Emanuel');
-      });
+    test('no station falls back to message + url', () {
+      final result = ShareUtils.formatMessageWithStation(
+        'Aplicația Radio Creștin:',
+        'https://example.com',
+        null,
+        songName: 'SomeSong',
+      );
+      expect(result, 'Aplicația Radio Creștin:\nhttps://example.com');
+    });
 
-      test('falls back to combineMessageWithUrl when stationName is null', () {
-        final result = ShareUtils.formatMessageWithStation(
-          'Hello',
-          'https://example.com',
-          null,
-        );
-        expect(result, 'Hello\nhttps://example.com');
-      });
+    test('ignores empty song name and artist', () {
+      final result = ShareUtils.formatMessageWithStation(
+        'msg',
+        'https://example.com',
+        'Station',
+        songName: '',
+        songArtist: '',
+      );
+      expect(result, 'Te invit să asculți Station:\nhttps://example.com');
+    });
+  });
+
+  group('ShareLinkData.generateShareUrl', () {
+    final data = ShareLinkData(
+      shareId: 'abc123',
+      url: 'https://www.radiocrestin.ro',
+      shareMessage: '',
+      shareStationMessage: '',
+      visitCount: 5,
+      createdAt: '',
+      isActive: true,
+      shareSectionMessage: '',
+      shareSectionTitle: '',
+    );
+
+    test('generates base url with share param', () {
+      expect(
+        data.generateShareUrl(),
+        'https://www.radiocrestin.ro?s=abc123',
+      );
+    });
+
+    test('includes station slug', () {
+      expect(
+        data.generateShareUrl(stationSlug: 'radio-vocea'),
+        'https://www.radiocrestin.ro/radio-vocea?s=abc123',
+      );
+    });
+
+    test('includes song id', () {
+      expect(
+        data.generateShareUrl(songId: 42),
+        'https://www.radiocrestin.ro?s=abc123&song=42',
+      );
+    });
+
+    test('includes station slug and song id', () {
+      expect(
+        data.generateShareUrl(stationSlug: 'radio-vocea', songId: 42),
+        'https://www.radiocrestin.ro/radio-vocea?s=abc123&song=42',
+      );
+    });
+
+    test('ignores songId <= 0', () {
+      expect(
+        data.generateShareUrl(songId: 0),
+        'https://www.radiocrestin.ro?s=abc123',
+      );
+      expect(
+        data.generateShareUrl(songId: -1),
+        'https://www.radiocrestin.ro?s=abc123',
+      );
     });
   });
 }
