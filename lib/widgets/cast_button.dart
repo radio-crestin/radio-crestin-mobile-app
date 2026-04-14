@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_airplay/flutter_airplay.dart';
 import 'package:flutter_chrome_cast/flutter_chrome_cast.dart';
 import 'package:get_it/get_it.dart';
@@ -160,8 +159,6 @@ class _DeviceSheetState extends State<_DeviceSheet> {
 
   List<GoogleCastDevice> _devices = [];
   bool _chromecastCasting = false;
-  bool _airPlayActive = false;
-  String? _airPlayDevice;
   bool _searching = true;
 
   @override
@@ -181,18 +178,6 @@ class _DeviceSheetState extends State<_DeviceSheet> {
       }));
     }
 
-    if (Platform.isIOS) {
-      final ap = AirPlayRouteState.instance;
-      _airPlayActive = ap.isActive;
-      _airPlayDevice = ap.routeName;
-      _subs.add(ap.isActiveStream.listen((v) {
-        if (mounted) setState(() => _airPlayActive = v);
-      }));
-      _subs.add(ap.routeNameStream.listen((v) {
-        if (mounted) setState(() => _airPlayDevice = v);
-      }));
-    }
-
     // Show searching indicator for a few seconds
     Future.delayed(const Duration(seconds: 4), () {
       if (mounted) setState(() => _searching = false);
@@ -204,8 +189,6 @@ class _DeviceSheetState extends State<_DeviceSheet> {
     for (final s in _subs) { s.cancel(); }
     super.dispose();
   }
-
-  bool get _hasConnected => _chromecastCasting || _airPlayActive;
 
   @override
   Widget build(BuildContext context) {
@@ -232,39 +215,55 @@ class _DeviceSheetState extends State<_DeviceSheet> {
               ),
             ),
 
-            // ── Header ──
+            // ── Header with searching indicator ──
             Padding(
               padding: const EdgeInsets.only(left: 20, right: 20, bottom: 4),
-              child: Text(
-                'Selectează un dispozitiv',
-                style: TextStyle(
-                  fontSize: 16, fontWeight: FontWeight.w600, color: onSurface),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Selectează un dispozitiv',
+                      style: TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.w600,
+                        color: onSurface),
+                    ),
+                  ),
+                  if (_searching)
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: 14, height: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 1.5, color: dim),
+                        ),
+                        const SizedBox(width: 6),
+                        Text('se caută...', style: TextStyle(
+                          fontSize: 12, color: dim)),
+                      ],
+                    ),
+                ],
               ),
             ),
 
             // ════════════════════════════════════════
-            // CONNECTED section
+            // CONNECTED Chromecast
             // ════════════════════════════════════════
-            if (_hasConnected) ...[
+            if (_chromecastCasting) ...[
               _sectionLabel(context, 'CONECTAT'),
-
-              if (_chromecastCasting)
-                _ConnectedChromecastRow(
-                  onDisconnect: () {
-                    widget.castService?.disconnect();
-                    Navigator.of(context).pop();
-                  },
-                ),
-
-              if (_airPlayActive)
-                _ConnectedAirPlayRow(deviceName: _airPlayDevice),
+              _ConnectedChromecastRow(
+                onDisconnect: () {
+                  widget.castService?.disconnect();
+                  Navigator.of(context).pop();
+                },
+              ),
             ],
 
             // ════════════════════════════════════════
-            // AVAILABLE section
+            // AVAILABLE devices
             // ════════════════════════════════════════
             if (!_chromecastCasting && _devices.isNotEmpty || Platform.isIOS) ...[
-              if (_hasConnected) _sectionLabel(context, 'ALTE DISPOZITIVE'),
+              if (_chromecastCasting) _sectionLabel(context, 'ALTE DISPOZITIVE'),
 
               // Chromecast devices
               if (!_chromecastCasting)
@@ -278,33 +277,19 @@ class _DeviceSheetState extends State<_DeviceSheet> {
                   },
                 )),
 
-              // AirPlay (when not active)
-              if (Platform.isIOS && !_airPlayActive)
+              // AirPlay — always show native picker (handles both connect & disconnect)
+              if (Platform.isIOS)
                 _AirPlayRow(),
             ],
 
-            // ── Searching indicator ──
-            if (_searching && _devices.isEmpty && !_hasConnected)
+            // ── Empty state while searching ──
+            if (_searching && _devices.isEmpty && !_chromecastCasting)
               _SearchingRow(),
 
-            if (_searching && _devices.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 14, height: 14,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 1.5, color: dim),
-                    ),
-                    const SizedBox(width: 10),
-                    Text('Se caută alte dispozitive...',
-                      style: TextStyle(fontSize: 13, color: dim)),
-                  ],
-                ),
-              ),
-
-            const Divider(height: 24),
+            Divider(height: 24,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.white.withValues(alpha: 0.08)
+                  : Colors.black.withValues(alpha: 0.08)),
 
             // ════════════════════════════════════════
             // EXTRA OPTIONS
@@ -316,12 +301,6 @@ class _DeviceSheetState extends State<_DeviceSheet> {
               onTap: () => _showTvInstructions(context),
             ),
 
-            _DeviceRow(
-              icon: Icons.link_rounded,
-              title: 'Conectare cu cod TV',
-              subtitle: 'Introdu codul afișat pe televizor',
-              onTap: () => _showLinkByCode(context),
-            ),
           ],
         ),
       ),
@@ -367,19 +346,6 @@ class _DeviceSheetState extends State<_DeviceSheet> {
     );
   }
 
-  void _showLinkByCode(BuildContext context) {
-    Navigator.of(context).pop();
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Theme.of(context).brightness == Brightness.dark
-          ? const Color(0xFF1E1E1E) : Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      isScrollControlled: true,
-      builder: (_) => const _LinkByCodeSheet(),
-    );
-  }
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -493,66 +459,7 @@ class _ConnectedChromecastRow extends StatelessWidget {
   }
 }
 
-/// Connected AirPlay — highlighted with native route picker to change/disconnect.
-class _ConnectedAirPlayRow extends StatelessWidget {
-  final String? deviceName;
-  const _ConnectedAirPlayRow({this.deviceName});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.blue.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Colors.blue.withValues(alpha: 0.2), width: 1),
-      ),
-      child: Stack(
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
-              children: [
-                const Icon(Icons.airplay_rounded, size: 24, color: Colors.blue),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(deviceName ?? 'AirPlay',
-                        style: TextStyle(
-                          fontSize: 15, fontWeight: FontWeight.w600,
-                          color: Theme.of(context).colorScheme.onSurface)),
-                      const Text('Conectat — atinge pentru a schimba',
-                        style: TextStyle(fontSize: 13, color: Colors.blue)),
-                    ],
-                  ),
-                ),
-                const Icon(Icons.chevron_right_rounded,
-                    size: 20, color: Colors.blue),
-              ],
-            ),
-          ),
-          // Invisible native picker — tap anywhere on the card
-          Positioned.fill(
-            child: AirPlayRoutePickerView(
-              tintColor: Colors.transparent,
-              activeTintColor: Colors.transparent,
-              backgroundColor: Colors.transparent,
-              onShowPickerView: () {
-                Navigator.of(context).pop();
-                AnalyticsService.instance.capture('airplay_picker_opened');
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// AirPlay row (not connected) — native picker overlay.
+/// AirPlay row with native picker overlay — always shows, handles both connect & disconnect.
 class _AirPlayRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -741,139 +648,3 @@ class _InstructionCard extends StatelessWidget {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// Link by TV code sheet
-// ═══════════════════════════════════════════════════════════════════
-
-class _LinkByCodeSheet extends StatefulWidget {
-  const _LinkByCodeSheet();
-
-  @override
-  State<_LinkByCodeSheet> createState() => _LinkByCodeSheetState();
-}
-
-class _LinkByCodeSheetState extends State<_LinkByCodeSheet> {
-  final _controller = TextEditingController();
-  bool _loading = false;
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _submit() {
-    final code = _controller.text.trim().toUpperCase();
-    if (code.length < 4) return;
-    setState(() => _loading = true);
-    // TV code linking is a placeholder — the TV app would display a code,
-    // and this screen lets the user enter it to pair. Implementation depends
-    // on backend pairing API.
-    AnalyticsService.instance.capture('tv_code_entered', {'code': code});
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) {
-        setState(() => _loading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Funcția va fi disponibilă în curând.'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-        Navigator.of(context).pop();
-      }
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final onSurface = Theme.of(context).colorScheme.onSurface;
-    final dim = onSurface.withValues(alpha: 0.6);
-    final dark = Theme.of(context).brightness == Brightness.dark;
-
-    return AnimatedPadding(
-      duration: const Duration(milliseconds: 200),
-      padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 36, height: 4,
-                margin: const EdgeInsets.only(bottom: 20),
-                decoration: BoxDecoration(
-                  color: dark ? Colors.white24 : Colors.black12,
-                  borderRadius: BorderRadius.circular(2)),
-              ),
-              const Icon(Icons.link_rounded, size: 40, color: AppColors.primary),
-              const SizedBox(height: 16),
-              Text('Conectare cu cod TV',
-                style: TextStyle(
-                  fontSize: 20, fontWeight: FontWeight.w700, color: onSurface)),
-              const SizedBox(height: 8),
-              Text(
-                'Introdu codul afișat pe ecranul televizorului pentru a conecta telefonul.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 14, color: dim, height: 1.5)),
-              const SizedBox(height: 24),
-              TextField(
-                controller: _controller,
-                autofocus: true,
-                textCapitalization: TextCapitalization.characters,
-                textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 28, fontWeight: FontWeight.w700,
-                letterSpacing: 8, color: onSurface),
-              maxLength: 6,
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9]')),
-              ],
-              decoration: InputDecoration(
-                counterText: '',
-                hintText: '• • • • • •',
-                hintStyle: TextStyle(
-                  fontSize: 28, letterSpacing: 8,
-                  color: onSurface.withValues(alpha: 0.2)),
-                filled: true,
-                fillColor: dark
-                    ? Colors.white.withValues(alpha: 0.05)
-                    : Colors.black.withValues(alpha: 0.04),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none),
-                contentPadding: const EdgeInsets.symmetric(
-                    vertical: 16, horizontal: 20),
-              ),
-              onSubmitted: (_) => _submit(),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _loading ? null : _submit,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-                ),
-                child: _loading
-                    ? const SizedBox(
-                        width: 20, height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white))
-                    : const Text('Conectare',
-                        style: TextStyle(
-                          fontSize: 15, fontWeight: FontWeight.w600)),
-              ),
-            ),
-          ],
-          ),
-        ),
-      ),
-    );
-  }
-}
