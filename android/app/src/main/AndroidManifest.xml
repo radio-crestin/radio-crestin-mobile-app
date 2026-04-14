@@ -20,7 +20,7 @@
         android:name="${applicationName}"
         android:networkSecurityConfig="@xml/network_security_config"
         android:icon="@mipmap/ic_launcher"
-        android:banner="@mipmap/ic_launcher"
+        android:banner="@drawable/tv_banner"
         >
         <meta-data android:name="asset_statements" android:resource="@string/asset_statements" />
         <meta-data android:name="com.posthog.posthog.API_KEY" android:value="phc_9lTquHDSyoFxkYq4VPd8cFiQ21VZd627Lv8jSV8S7Fi" />
