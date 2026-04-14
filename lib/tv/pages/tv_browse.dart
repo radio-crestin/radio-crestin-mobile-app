@@ -293,22 +293,6 @@ class _NowPlayingCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: TvSpacing.md),
-              // Listeners + arrow
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    '${station.totalListeners ?? 0}',
-                    style: TvTypography.title.copyWith(
-                      fontSize: 18,
-                      color: TvColors.textPrimary,
-                    ),
-                  ),
-                  Text('ascultători',
-                      style: TvTypography.caption.copyWith(fontSize: 10)),
-                ],
-              ),
-              const SizedBox(width: TvSpacing.md),
               const Icon(Icons.chevron_right_rounded,
                   color: TvColors.textTertiary, size: 28),
             ],

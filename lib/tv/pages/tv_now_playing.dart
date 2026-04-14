@@ -163,12 +163,11 @@ class _TvNowPlayingState extends State<TvNowPlaying> {
   Widget build(BuildContext context) {
     final station = _station;
 
-    // No station loaded — go directly to browse
+    // No station loaded yet — show loading
     if (station == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        widget.onBrowse();
-      });
-      return const SizedBox.expand();
+      return const Center(
+        child: CircularProgressIndicator(color: TvColors.primary),
+      );
     }
 
     final prevSongs = _prevSongs;

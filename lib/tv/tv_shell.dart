@@ -86,12 +86,7 @@ class _TvShellState extends State<TvShell> {
 
   void _openBrowse() => setState(() => _browsing = true);
 
-  void _closeBrowse() {
-    // Only go to station page if we have a station
-    if (_currentStation != null) {
-      setState(() => _browsing = false);
-    }
-  }
+  void _closeBrowse() => setState(() => _browsing = false);
 
   void _onStationSelected(Station station) {
     _audioHandler.playStation(station);
