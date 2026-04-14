@@ -69,6 +69,8 @@ PODS:
   - FirebaseRemoteConfigInterop (12.8.0)
   - FirebaseSharedSwift (12.8.0)
   - Flutter (1.0.0)
+  - flutter_airplay (1.0.0):
+    - Flutter
   - flutter_carplay (1.1.0):
     - Flutter
   - flutter_chrome_cast (1.4.1):
@@ -159,6 +161,7 @@ DEPENDENCIES:
   - firebase_messaging (from `.symlinks/plugins/firebase_messaging/ios`)
   - firebase_remote_config (from `.symlinks/plugins/firebase_remote_config/ios`)
   - Flutter (from `Flutter`)
+  - flutter_airplay (from `.symlinks/plugins/flutter_airplay/ios`)
   - flutter_carplay (from `.symlinks/plugins/flutter_carplay/ios`)
   - flutter_chrome_cast (from `.symlinks/plugins/flutter_chrome_cast/ios`)
   - flutter_native_splash (from `.symlinks/plugins/flutter_native_splash/ios`)
@@ -217,6 +220,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/firebase_remote_config/ios"
   Flutter:
     :path: Flutter
+  flutter_airplay:
+    :path: ".symlinks/plugins/flutter_airplay/ios"
   flutter_carplay:
     :path: ".symlinks/plugins/flutter_carplay/ios"
   flutter_chrome_cast:
@@ -272,6 +277,7 @@ SPEC CHECKSUMS:
   FirebaseRemoteConfigInterop: 869ddca16614f979e5c931ece11fbb0b8729ed41
   FirebaseSharedSwift: f57ed48f4542b2d7eb4738f4f23ba443f78b3780
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
+  flutter_airplay: 79e9039aaf4d4f2cfadf6a4bfc48245acd44980d
   flutter_carplay: 0e3f943484e00399dac7f599715ae6761288f0db
   flutter_chrome_cast: db3f7ddddedfb14be1836d979a2e87deeda80cf8
   flutter_native_splash: c32d145d68aeda5502d5f543ee38c192065986cf

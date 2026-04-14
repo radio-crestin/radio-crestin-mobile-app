@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_airplay/flutter_airplay.dart';
 import 'package:flutter_chrome_cast/flutter_chrome_cast.dart';
 import 'package:get_it/get_it.dart';
 
@@ -82,10 +84,12 @@ class _CastButtonState extends State<CastButton>
     super.dispose();
   }
 
+  bool get _hasDevices => _devices.isNotEmpty || Platform.isIOS;
+
   void _onTap() {
     if (_isCasting) {
       _showConnectedDialog();
-    } else if (_devices.isNotEmpty) {
+    } else if (_hasDevices) {
       _showDevicePicker();
     }
   }
@@ -134,7 +138,7 @@ class _CastButtonState extends State<CastButton>
           child: child,
         ),
       ),
-      child: _devices.isEmpty
+      child: !_hasDevices
           ? const SizedBox.shrink(key: ValueKey('empty'))
           : Row(
               key: const ValueKey('cast'),
@@ -196,6 +200,12 @@ class _CastDevicePickerDialog extends StatelessWidget {
     required this.castService,
   });
 
+  static String _deviceCountLabel(int chromecastCount) {
+    final total = chromecastCount + (Platform.isIOS ? 1 : 0); // +1 for AirPlay
+    if (total == 1) return '1 opțiune disponibilă';
+    return '$total opțiuni disponibile';
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -249,7 +259,7 @@ class _CastDevicePickerDialog extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          '${devices.length} ${devices.length == 1 ? 'dispozitiv găsit' : 'dispozitive găsite'}',
+                          _deviceCountLabel(devices.length),
                           style: TextStyle(
                             fontSize: 13,
                             color: Theme.of(context)
@@ -275,25 +285,31 @@ class _CastDevicePickerDialog extends StatelessWidget {
               ),
             ),
             const Divider(height: 1),
-            // Device list
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 300),
-              child: ListView.builder(
-                shrinkWrap: true,
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                itemCount: devices.length,
-                itemBuilder: (context, index) {
-                  final device = devices[index];
-                  return _DeviceTile(
-                    device: device,
-                    onTap: () async {
-                      Navigator.of(context).pop();
-                      await castService.connectToDevice(device);
-                    },
-                  );
-                },
+            // Chromecast device list
+            if (devices.isNotEmpty)
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 240),
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  itemCount: devices.length,
+                  itemBuilder: (context, index) {
+                    final device = devices[index];
+                    return _DeviceTile(
+                      device: device,
+                      onTap: () async {
+                        Navigator.of(context).pop();
+                        await castService.connectToDevice(device);
+                      },
+                    );
+                  },
+                ),
               ),
-            ),
+            // AirPlay section (iOS only)
+            if (Platform.isIOS) ...[
+              if (devices.isNotEmpty) const Divider(height: 1),
+              _AirPlayTile(),
+            ],
             const SizedBox(height: 8),
           ],
         ),
@@ -382,6 +398,75 @@ class _DeviceTile extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// AirPlay tile — embeds native AVRoutePickerView inside the dialog
+// ---------------------------------------------------------------------------
+
+class _AirPlayTile extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: Colors.blue.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.airplay_rounded,
+              size: 22,
+              color: Colors.blue,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'AirPlay',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                ),
+                Text(
+                  'AirPods, HomePod, Apple TV, difuzoare',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.5),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Native AirPlay route picker button — triggers iOS system picker
+          SizedBox(
+            width: 44,
+            height: 44,
+            child: AirPlayRoutePickerView(
+              tintColor: Theme.of(context).colorScheme.primary,
+              activeTintColor: Colors.blue,
+              onShowPickerView: () {
+                Navigator.of(context).pop();
+                AnalyticsService.instance.capture('airplay_picker_opened');
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

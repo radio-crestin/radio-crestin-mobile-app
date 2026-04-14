@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:developer' as developer;
+import 'dart:io' show Platform;
 
 import 'package:flutter_chrome_cast/flutter_chrome_cast.dart';
 import 'package:rxdart/rxdart.dart';
@@ -10,6 +11,11 @@ import 'analytics_service.dart';
 
 class CastService {
   static const _tag = 'CastService';
+
+  /// Custom receiver app ID — set this after registering at
+  /// https://cast.google.com/publish/
+  /// Using the Default Media Receiver until custom receiver is deployed.
+  static const String _customReceiverAppId = 'CC1AD845';
 
   final BehaviorSubject<List<GoogleCastDevice>> devices =
       BehaviorSubject.seeded([]);
@@ -30,6 +36,24 @@ class CastService {
   Future<void> initialize() async {
     _log('Initializing');
     try {
+      // Configure Cast context with app ID
+      if (Platform.isIOS) {
+        await GoogleCastContext.instance.setSharedInstanceWithOptions(
+          IOSGoogleCastOptions(
+            GoogleCastDiscoveryCriteriaInitialize.initWithApplicationID(
+              _customReceiverAppId,
+            ),
+            suspendSessionsWhenBackgrounded: false,
+          ),
+        );
+      } else {
+        await GoogleCastContext.instance.setSharedInstanceWithOptions(
+          GoogleCastOptions(
+            suspendSessionsWhenBackgrounded: false,
+          ),
+        );
+      }
+
       _devicesSubscription = GoogleCastDiscoveryManager.instance.devicesStream
           .listen((deviceList) {
         devices.add(deviceList);

@@ -493,6 +493,13 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+  flutter_airplay:
+    dependency: "direct main"
+    description:
+      path: "packages/flutter_airplay"
+      relative: true
+    source: path
+    version: "1.0.0"
   flutter_cache_manager:
     dependency: transitive
     description:
