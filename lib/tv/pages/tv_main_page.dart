@@ -1,7 +1,5 @@
 import 'dart:async';
-import 'dart:ui';
 
-import 'package:dpad/dpad.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get_it/get_it.dart';
@@ -15,15 +13,11 @@ import '../../widgets/animated_play_button.dart';
 import '../tv_theme.dart';
 import '../widgets/tv_station_row.dart';
 
-/// Unified TV page: Now Playing background with station rows overlaid.
+/// Android TV Immersive List layout.
 ///
-/// Layout (full screen, single scrollable view):
-/// - Background: blurred artwork of current station
-/// - Top: favorite button (right)
-/// - Center: artwork (left) + metadata + controls (right)
-/// - Bottom: station browse rows (Favorites, All, categories)
-///   - D-pad down from controls reaches station rows
-///   - Selecting a station switches playback, background updates
+/// Full-screen artwork of the focused station fills the background.
+/// Metadata (station name, song, controls) overlaid on the left, above card rows.
+/// Station rows anchored to the bottom. Focusing a card updates the background.
 class TvMainPage extends StatefulWidget {
   const TvMainPage({super.key});
 
@@ -37,11 +31,11 @@ class _TvMainPageState extends State<TvMainPage> {
   final List<StreamSubscription> _subscriptions = [];
   final _playButtonKey = GlobalKey<AnimatedPlayButtonState>();
 
-  Station? _station;
+  Station? _currentStation;
+  Station? _focusedStation;
   List<Station> _allStations = [];
   List<String> _favoriteSlugs = [];
   List<Query$GetStations$station_groups> _groups = [];
-  final List<_SongHistoryEntry> _songHistory = [];
 
   @override
   void initState() {
@@ -50,55 +44,35 @@ class _TvMainPageState extends State<TvMainPage> {
     _stationDataService = GetIt.instance<StationDataService>();
 
     _subscriptions.add(
-      Rx.combineLatest5(
+      Rx.combineLatest4(
         _audioHandler.currentStation.stream,
         _stationDataService.stations.stream,
         _stationDataService.favoriteStationSlugs.stream,
         _stationDataService.stationGroups.stream,
-        _stationDataService.favoriteStationSlugs.stream,
-        (Station? station, List<Station> all, List<String> favs,
-            List<Query$GetStations$station_groups> groups, _) {
-          return (station, all, favs, groups);
+        (Station? current, List<Station> all, List<String> favs,
+            List<Query$GetStations$station_groups> groups) {
+          return (current, all, favs, groups);
         },
       ).listen((data) {
         if (mounted) {
-          final newStation = data.$1;
-          final oldStation = _station;
           setState(() {
-            _station = newStation;
+            _currentStation = data.$1;
             _allStations = data.$2;
             _favoriteSlugs = data.$3;
             _groups = data.$4;
           });
-          if (newStation != null &&
-              newStation.songTitle.isNotEmpty &&
-              (oldStation == null ||
-                  oldStation.songId != newStation.songId)) {
-            _addToHistory(newStation);
-          }
         }
       }),
     );
   }
 
-  void _addToHistory(Station station) {
-    setState(() {
-      _songHistory.insert(
-        0,
-        _SongHistoryEntry(
-          songTitle: station.songTitle,
-          songArtist: station.songArtist,
-          timestamp: DateTime.now(),
-        ),
-      );
-      if (_songHistory.length > 10) {
-        _songHistory.removeRange(10, _songHistory.length);
-      }
-    });
+  @override
+  void dispose() {
+    for (final sub in _subscriptions) {
+      sub.cancel();
+    }
+    super.dispose();
   }
-
-  List<_SongHistoryEntry> get _previousSongs =>
-      _songHistory.length > 1 ? _songHistory.sublist(1) : [];
 
   List<Station> get _favoriteStations =>
       _allStations.where((s) => _favoriteSlugs.contains(s.slug)).toList();
@@ -118,16 +92,16 @@ class _TvMainPageState extends State<TvMainPage> {
     return map;
   }
 
-  @override
-  void dispose() {
-    for (final sub in _subscriptions) {
-      sub.cancel();
-    }
-    super.dispose();
-  }
+  /// The station whose artwork fills the background.
+  /// Focused station takes priority, falls back to currently playing.
+  Station? get _heroStation =>
+      _focusedStation ?? _currentStation ?? _allStations.firstOrNull;
 
   bool get _isFavorite =>
-      _station != null && _favoriteSlugs.contains(_station!.slug);
+      _heroStation != null && _favoriteSlugs.contains(_heroStation!.slug);
+
+  bool get _isHeroPlaying =>
+      _heroStation != null && _currentStation?.id == _heroStation!.id;
 
   KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
@@ -165,359 +139,89 @@ class _TvMainPageState extends State<TvMainPage> {
     return KeyEventResult.ignored;
   }
 
+  void _onStationFocused(Station station) {
+    setState(() => _focusedStation = station);
+  }
+
   void _onStationSelected(Station station) {
     _audioHandler.playStation(station);
   }
 
-  Widget _buildControlButton({
-    required IconData icon,
-    required VoidCallback onSelect,
-    Color? iconColor,
-    double iconSize = 24,
-    double size = 48,
-    bool autofocus = false,
-  }) {
-    return DpadFocusable(
-      autofocus: autofocus,
-      onSelect: onSelect,
-      builder: FocusEffects.scaleWithBorder(
-        scale: 1.1,
-        borderColor: TvColors.focusBorder,
-        borderWidth: 2,
-        borderRadius: BorderRadius.circular(size / 2),
-      ),
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          color: TvColors.surfaceVariant.withValues(alpha: 0.6),
-          shape: BoxShape.circle,
-        ),
-        child: Icon(icon, color: iconColor ?? TvColors.textSecondary, size: iconSize),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final station = _station;
-    final prevSongs = _previousSongs;
+    final hero = _heroStation;
 
     return Focus(
       onKeyEvent: _onKeyEvent,
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // Blurred background — current station artwork
-          if (station != null)
+          // === LAYER 1: Full-screen artwork background ===
+          if (hero != null)
             AnimatedSwitcher(
-              duration: const Duration(milliseconds: 600),
+              duration: const Duration(milliseconds: 500),
               child: SizedBox.expand(
-                key: ValueKey('bg-${station.id}-${station.artUri}'),
-                child: ImageFiltered(
-                  imageFilter: ImageFilter.blur(sigmaX: 50, sigmaY: 50),
-                  child: ColorFiltered(
-                    colorFilter: ColorFilter.mode(
-                      Colors.black.withValues(alpha: 0.7),
-                      BlendMode.darken,
-                    ),
-                    child: FittedBox(
-                      fit: BoxFit.cover,
-                      clipBehavior: Clip.hardEdge,
-                      child: SizedBox(
-                        width: 200,
-                        height: 200,
-                        child: station.displayThumbnail(cacheWidth: 400),
-                      ),
-                    ),
+                key: ValueKey('bg-${hero.id}-${hero.artUri}'),
+                child: FittedBox(
+                  fit: BoxFit.cover,
+                  clipBehavior: Clip.hardEdge,
+                  child: SizedBox(
+                    width: 800,
+                    height: 450,
+                    child: hero.displayThumbnail(cacheWidth: 800),
                   ),
                 ),
               ),
             ),
-          // Scrollable content overlaid
+
+          // === LAYER 2: Gradient scrim (dark at bottom for cards) ===
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withValues(alpha: 0.1),
+                    Colors.black.withValues(alpha: 0.3),
+                    Colors.black.withValues(alpha: 0.85),
+                    Colors.black.withValues(alpha: 0.95),
+                  ],
+                  stops: const [0.0, 0.35, 0.6, 1.0],
+                ),
+              ),
+            ),
+          ),
+
+          // === LAYER 3: Content (metadata + card rows) ===
           SafeArea(
-            child: CustomScrollView(
-              slivers: [
-                // === NOW PLAYING SECTION ===
-                if (station != null) ...[
-                  // Top bar: favorite (right-aligned)
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.only(
-                        left: TvSpacing.marginHorizontal,
-                        right: TvSpacing.marginHorizontal,
-                        top: TvSpacing.md,
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          DpadFocusable(
-                            onSelect: () =>
-                                _audioHandler.customAction('toggleFavorite'),
-                            builder: FocusEffects.scaleWithBorder(
-                              scale: 1.1,
-                              borderColor: TvColors.primary,
-                              borderWidth: 2,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.4),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                _isFavorite
-                                    ? Icons.favorite_rounded
-                                    : Icons.favorite_border_rounded,
-                                color: _isFavorite
-                                    ? TvColors.primary
-                                    : Colors.white,
-                                size: 22,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Top spacer — pushes metadata to lower portion
+                const Spacer(),
+
+                // Metadata overlay — left aligned, above the card rows
+                if (hero != null)
+                  Padding(
+                    padding: const EdgeInsets.only(
+                      left: TvSpacing.marginHorizontal,
+                      right: TvSpacing.marginHorizontal,
+                      bottom: TvSpacing.md,
+                    ),
+                    child: _ImmersiveMetadata(
+                      station: hero,
+                      isPlaying: _isHeroPlaying,
+                      isFavorite: _isFavorite,
+                      audioHandler: _audioHandler,
+                      playButtonKey: _playButtonKey,
                     ),
                   ),
-                  // Artwork + metadata + controls
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: TvSpacing.marginHorizontal,
-                      ),
-                      child: SizedBox(
-                        height: 300,
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            // Artwork
-                            AspectRatio(
-                              aspectRatio: 1,
-                              child: AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 400),
-                                child: Container(
-                                  key: ValueKey('art-${station.artUri}'),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(
-                                        TvSpacing.radiusLg),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black
-                                            .withValues(alpha: 0.5),
-                                        blurRadius: 40,
-                                        spreadRadius: 5,
-                                      ),
-                                    ],
-                                  ),
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(
-                                        TvSpacing.radiusLg),
-                                    child: station.displayThumbnail(
-                                        cacheWidth: 600),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: TvSpacing.xl),
-                            // Metadata + controls + prev songs
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    station.title,
-                                    style: TvTypography.body.copyWith(
-                                      color: TvColors.textSecondary,
-                                      fontSize: 17,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  const SizedBox(height: TvSpacing.sm),
-                                  AnimatedSwitcher(
-                                    duration:
-                                        const Duration(milliseconds: 250),
-                                    child: Align(
-                                      alignment: Alignment.centerLeft,
-                                      child: Text(
-                                        station.songTitle.isNotEmpty
-                                            ? station.songTitle
-                                            : 'Live Radio',
-                                        key: ValueKey(
-                                            'song-${station.songId}'),
-                                        style: TvTypography.displayMedium,
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ),
-                                  if (station.songArtist.isNotEmpty) ...[
-                                    const SizedBox(height: TvSpacing.xs),
-                                    AnimatedSwitcher(
-                                      duration:
-                                          const Duration(milliseconds: 250),
-                                      child: Align(
-                                        alignment: Alignment.centerLeft,
-                                        child: Text(
-                                          station.songArtist,
-                                          key: ValueKey(
-                                              'artist-${station.songId}'),
-                                          style:
-                                              TvTypography.title.copyWith(
-                                            color: TvColors.textSecondary,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                  const SizedBox(height: TvSpacing.sm),
-                                  Row(
-                                    children: [
-                                      const Icon(Icons.headphones_rounded,
-                                          size: 16,
-                                          color: TvColors.textTertiary),
-                                      const SizedBox(width: TvSpacing.xs),
-                                      Text(
-                                        '${station.totalListeners ?? 0} ascultători',
-                                        style: TvTypography.caption,
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: TvSpacing.lg),
-                                  // Controls
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      _buildControlButton(
-                                        icon: Icons.thumb_up_alt_rounded,
-                                        iconSize: 20,
-                                        onSelect: () => _audioHandler
-                                            .customAction('likeSong'),
-                                      ),
-                                      const SizedBox(width: TvSpacing.md),
-                                      _buildControlButton(
-                                        icon: Icons.skip_previous_rounded,
-                                        iconColor: TvColors.textPrimary,
-                                        iconSize: 28,
-                                        size: 52,
-                                        onSelect: () {
-                                          _playButtonKey.currentState
-                                              ?.notifyWillPlay();
-                                          _audioHandler.skipToPrevious();
-                                        },
-                                      ),
-                                      const SizedBox(width: TvSpacing.md),
-                                      AnimatedPlayButton(
-                                        key: _playButtonKey,
-                                        playbackStateStream:
-                                            _audioHandler.playbackState,
-                                        iconSize: 48,
-                                        iconColor: Colors.white,
-                                        backgroundColor: TvColors.primary,
-                                        onPlay: _audioHandler.play,
-                                        onPause: _audioHandler.pause,
-                                        onStop: _audioHandler.stop,
-                                      ),
-                                      const SizedBox(width: TvSpacing.md),
-                                      _buildControlButton(
-                                        icon: Icons.skip_next_rounded,
-                                        iconColor: TvColors.textPrimary,
-                                        iconSize: 28,
-                                        size: 52,
-                                        autofocus: true,
-                                        onSelect: () {
-                                          _playButtonKey.currentState
-                                              ?.notifyWillPlay();
-                                          _audioHandler.skipToNext();
-                                        },
-                                      ),
-                                      const SizedBox(width: TvSpacing.md),
-                                      _buildControlButton(
-                                        icon: Icons.thumb_down_alt_rounded,
-                                        iconSize: 20,
-                                        onSelect: () => _audioHandler
-                                            .customAction('dislikeSong'),
-                                      ),
-                                    ],
-                                  ),
-                                  // Previous songs
-                                  if (prevSongs.isNotEmpty) ...[
-                                    const SizedBox(height: TvSpacing.md),
-                                    Text('Melodii recente',
-                                        style: TvTypography.title
-                                            .copyWith(fontSize: 14)),
-                                    const SizedBox(height: TvSpacing.xs),
-                                    ...List.generate(
-                                      prevSongs.length.clamp(0, 3),
-                                      (i) => _SongHistoryTile(
-                                          entry: prevSongs[i]),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-                // === STATION BROWSE ROWS ===
-                // Favorites
-                if (_favoriteStations.isNotEmpty)
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: TvSpacing.lg),
-                      child: TvStationRow(
-                        title: 'Favorite',
-                        stations: _favoriteStations,
-                        currentStation: _station,
-                        favoriteSlugs: _favoriteSlugs,
-                        autofocusFirst: station == null,
-                        onStationSelected: _onStationSelected,
-                      ),
-                    ),
-                  ),
-                // All stations
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: TvSpacing.md),
-                    child: TvStationRow(
-                      title: 'Alese pentru tine',
-                      stations: _allStations,
-                      currentStation: _station,
-                      favoriteSlugs: _favoriteSlugs,
-                      autofocusFirst:
-                          station == null && _favoriteStations.isEmpty,
-                      onStationSelected: _onStationSelected,
-                    ),
-                  ),
-                ),
-                // Categories
-                ..._groupedStations.entries.map((entry) {
-                  return SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: TvSpacing.md),
-                      child: TvStationRow(
-                        title: entry.key,
-                        stations: entry.value,
-                        currentStation: _station,
-                        favoriteSlugs: _favoriteSlugs,
-                        onStationSelected: _onStationSelected,
-                      ),
-                    ),
-                  );
-                }),
-                const SliverToBoxAdapter(
-                  child: SizedBox(height: TvSpacing.xxl),
-                ),
+
+                // Station card rows — anchored to bottom
+                _buildStationRows(),
+
+                const SizedBox(height: TvSpacing.sm),
               ],
             ),
           ),
@@ -525,59 +229,140 @@ class _TvMainPageState extends State<TvMainPage> {
       ),
     );
   }
-}
 
-class _SongHistoryEntry {
-  final String songTitle;
-  final String songArtist;
-  final DateTime timestamp;
-
-  _SongHistoryEntry({
-    required this.songTitle,
-    required this.songArtist,
-    required this.timestamp,
-  });
-}
-
-class _SongHistoryTile extends StatelessWidget {
-  final _SongHistoryEntry entry;
-
-  const _SongHistoryTile({required this.entry});
-
-  String get _timeAgo {
-    final diff = DateTime.now().difference(entry.timestamp);
-    if (diff.inSeconds < 30) return 'acum';
-    if (diff.inSeconds < 60) return 'acum ${diff.inSeconds}s';
-    if (diff.inMinutes < 60) return 'acum ${diff.inMinutes} min';
-    if (diff.inHours < 24) {
-      final h = diff.inHours;
-      final m = diff.inMinutes % 60;
-      return m > 0 ? 'acum ${h}h ${m}min' : 'acum ${h}h';
-    }
-    return 'acum ${diff.inDays}z';
+  Widget _buildStationRows() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Favorites row
+        if (_favoriteStations.isNotEmpty)
+          TvStationRow(
+            title: 'Favorite',
+            stations: _favoriteStations,
+            currentStation: _currentStation,
+            favoriteSlugs: _favoriteSlugs,
+            autofocusFirst: true,
+            onStationSelected: _onStationSelected,
+            onStationFocused: _onStationFocused,
+          ),
+        // All stations
+        TvStationRow(
+          title: 'Alese pentru tine',
+          stations: _allStations,
+          currentStation: _currentStation,
+          favoriteSlugs: _favoriteSlugs,
+          autofocusFirst: _favoriteStations.isEmpty,
+          onStationSelected: _onStationSelected,
+          onStationFocused: _onStationFocused,
+        ),
+        // Category rows — only the first 2 visible initially
+        ..._groupedStations.entries.take(2).map((entry) {
+          return TvStationRow(
+            title: entry.key,
+            stations: entry.value,
+            currentStation: _currentStation,
+            favoriteSlugs: _favoriteSlugs,
+            onStationSelected: _onStationSelected,
+            onStationFocused: _onStationFocused,
+          );
+        }),
+      ],
+    );
   }
+}
+
+/// Metadata overlay for the immersive list hero area.
+/// Shows station name, song, artist, listeners, and compact controls.
+class _ImmersiveMetadata extends StatelessWidget {
+  final Station station;
+  final bool isPlaying;
+  final bool isFavorite;
+  final AppAudioHandler audioHandler;
+  final GlobalKey<AnimatedPlayButtonState> playButtonKey;
+
+  const _ImmersiveMetadata({
+    required this.station,
+    required this.isPlaying,
+    required this.isFavorite,
+    required this.audioHandler,
+    required this.playButtonKey,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Row(
-        children: [
-          const Icon(Icons.music_note_rounded,
-              size: 13, color: TvColors.textTertiary),
-          const SizedBox(width: TvSpacing.sm),
-          Expanded(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Station name + playing indicator
+        Row(
+          children: [
+            if (isPlaying) ...[
+              const Icon(Icons.equalizer_rounded,
+                  color: TvColors.primary, size: 16),
+              const SizedBox(width: TvSpacing.xs),
+            ],
+            if (isFavorite) ...[
+              const Icon(Icons.favorite_rounded,
+                  color: TvColors.primary, size: 14),
+              const SizedBox(width: TvSpacing.xs),
+            ],
+            Flexible(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 250),
+                child: Text(
+                  station.title,
+                  key: ValueKey('meta-station-${station.id}'),
+                  style: TvTypography.label.copyWith(
+                    color: TvColors.textSecondary,
+                    fontSize: 15,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+            if (station.totalListeners != null &&
+                station.totalListeners > 0) ...[
+              const SizedBox(width: TvSpacing.md),
+              Text(
+                '${station.totalListeners} ascultători',
+                style: TvTypography.caption,
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: TvSpacing.xs),
+        // Song title — large
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 250),
+          child: Align(
+            alignment: Alignment.centerLeft,
             child: Text(
-              '${entry.songTitle}${entry.songArtist.isNotEmpty ? ' - ${entry.songArtist}' : ''}',
-              style: TvTypography.caption.copyWith(fontSize: 12),
+              station.songTitle.isNotEmpty ? station.songTitle : station.title,
+              key: ValueKey('meta-song-${station.id}-${station.songId}'),
+              style: TvTypography.displayMedium.copyWith(fontSize: 28),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          const SizedBox(width: TvSpacing.sm),
-          Text(_timeAgo, style: TvTypography.caption.copyWith(fontSize: 11)),
+        ),
+        // Artist
+        if (station.songArtist.isNotEmpty) ...[
+          const SizedBox(height: 2),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 250),
+            child: Text(
+              station.songArtist,
+              key: ValueKey('meta-artist-${station.id}-${station.songId}'),
+              style: TvTypography.body.copyWith(fontSize: 16),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
         ],
-      ),
+      ],
     );
   }
 }
