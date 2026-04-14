@@ -29,6 +29,7 @@ import '../services/station_data_service.dart';
 import '../services/station_sort_service.dart';
 import '../widgets/connectivity_banner.dart';
 import '../widgets/bottom_toast.dart';
+import '../widgets/cast_button.dart';
 import '../widgets/promo_notification_card.dart';
 import '../services/promo_notification_service.dart';
 import '../services/analytics_service.dart';
@@ -742,6 +743,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             ),
                           ),
                           const SizedBox(width: 4),
+                          const CastButton(),
                           _buildRoundedIconButton(
                             context: context,
                             icon: Icons.search_rounded,

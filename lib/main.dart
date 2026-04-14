@@ -30,6 +30,7 @@ import 'constants.dart';
 import 'firebase_options.dart';
 import 'globals.dart' as globals;
 import 'services/car_play_service.dart';
+import 'services/cast_service.dart';
 import 'services/analytics_service.dart';
 import 'services/image_cache_service.dart';
 import 'services/quick_actions_service.dart';
@@ -294,6 +295,29 @@ void main() async {
     });
     getIt.registerSingleton<CarPlayService>(carPlayService);
   });
+
+  // Defer Chromecast/AirPlay discovery to after first frame
+  if (!TvPlatform.isTV) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final castService = CastService();
+      await castService.initialize();
+      getIt.registerSingleton<CastService>(castService);
+
+      // Auto-cast current station on connect, update metadata on song change
+      final audioHandler = getIt<AppAudioHandler>();
+      castService.isCasting.listen((casting) {
+        if (casting) {
+          final station = audioHandler.currentStation.value;
+          if (station != null) castService.castStation(station);
+        }
+      });
+      audioHandler.currentStation.listen((station) {
+        if (station != null && castService.isCasting.value) {
+          castService.castStation(station);
+        }
+      });
+    });
+  }
 }
 
 class RadioCrestinApp extends StatelessWidget {

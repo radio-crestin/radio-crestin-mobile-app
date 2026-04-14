@@ -128,6 +128,12 @@
 			<key>host</key>
 			<string>https://k.radiocrestin.ro</string>
 		</dict>
+		<key>NSLocalNetworkUsageDescription</key>
+		<string>Radio Creștin folosește rețeaua locală pentru a găsi dispozitive Chromecast și AirPlay pe care poți asculta posturile de radio.</string>
+		<key>NSBonjourServices</key>
+		<array>
+			<string>_googlecast._tcp</string>
+		</array>
 		<key>UIStatusBarHidden</key>
 		<false/>
 		<key>LSApplicationQueriesSchemes</key>
