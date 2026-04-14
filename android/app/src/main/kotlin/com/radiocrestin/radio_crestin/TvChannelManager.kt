@@ -60,35 +60,21 @@ class TvChannelManager(private val context: Context) {
             val existingPrograms = queryExistingPrograms(channelId)
             val currentSlugs = stations.map { it.slug }.toSet()
 
-            // Upsert programs
+            // Insert only new programs (skip existing ones to avoid redundant I/O)
             for (station in stations) {
+                if (station.slug in existingPrograms) continue
                 try {
                     val posterUri = downloadAndCacheImage(station.thumbnailUrl, station.slug)
-                    val existing = existingPrograms[station.slug]
-
-                    if (existing != null) {
-                        // Update existing program
-                        val updated = buildProgram(channelId, station, posterUri)
-                        withContext(Dispatchers.IO) {
-                            context.contentResolver.update(
-                                TvContractCompat.buildPreviewProgramUri(existing),
-                                updated.toContentValues(),
-                                null, null
-                            )
-                        }
-                    } else {
-                        // Insert new program
-                        val program = buildProgram(channelId, station, posterUri)
-                        withContext(Dispatchers.IO) {
-                            helper.publishPreviewProgram(program)
-                        }
+                    val program = buildProgram(channelId, station, posterUri)
+                    withContext(Dispatchers.IO) {
+                        helper.publishPreviewProgram(program)
                     }
                 } catch (e: Exception) {
-                    Log.e(TAG, "Failed to sync program for ${station.slug}", e)
+                    Log.e(TAG, "Failed to insert program for ${station.slug}", e)
                 }
             }
 
-            // Delete programs no longer in favorites
+            // Delete programs for stations that no longer exist
             for ((slug, programId) in existingPrograms) {
                 if (slug !in currentSlugs) {
                     try {
@@ -238,16 +224,21 @@ class TvChannelManager(private val context: Context) {
 
     /**
      * Download station thumbnail and create a 16:9 poster with the logo centered on a dark background.
+     * Skips download if the poster is already cached on disk.
      */
     private suspend fun downloadAndCacheImage(url: String?, slug: String): Uri? {
         if (url.isNullOrEmpty()) return null
 
         val outFile = File(imageDir, "${slug}.jpg")
 
+        // Skip download if already cached
+        if (outFile.exists() && outFile.length() > 0) {
+            return Uri.fromFile(outFile)
+        }
+
         return withContext(Dispatchers.IO) {
             try {
                 val actualUrl = if (url.startsWith("file://")) {
-                    // Already a local file
                     val localFile = File(url.removePrefix("file://"))
                     if (localFile.exists()) {
                         return@withContext Uri.fromFile(localFile)

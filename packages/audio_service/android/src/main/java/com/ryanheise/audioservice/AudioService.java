@@ -432,6 +432,9 @@ public class AudioService extends MediaBrowserServiceCompat {
             intent.setComponent(new ComponentName(context, config.activityClassName));
             //Intent intent = new Intent(context, config.activityClassName);
             intent.setAction(NOTIFICATION_CLICK_ACTION);
+            // Bring existing activity to foreground (required for Android TV "Open" button
+            // and notification tap when activity is in a separate task)
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
             int flags = PendingIntent.FLAG_UPDATE_CURRENT;
             if (Build.VERSION.SDK_INT >= 23) {
                 flags |= PendingIntent.FLAG_IMMUTABLE;
