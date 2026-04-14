@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -12,18 +13,13 @@ import '../../types/Station.dart';
 import '../tv_theme.dart';
 import '../widgets/tv_station_row.dart';
 
-/// Browse page — Android TV Immersive List pattern.
+/// Browse page — Android TV Immersive List.
 ///
-/// Matches the native Kotlin implementation:
-///   Box(height = 400.dp, fillMaxWidth) {
-///     Background(aspectRatio = 20/7, fillMaxWidth)  // top
-///     LazyRow(align = BottomEnd)                     // bottom
-///   }
-///
-/// Full-screen background shows the focused station's artwork.
-/// Station rows are pinned to the bottom.
-/// Metadata (content block) sits just above the card rows.
-/// BACK → returns to Now Playing. Select → plays station + returns.
+/// Background: dark with the focused station's artwork as a subtle dimmed
+/// backdrop (like seeing the station page through a dark overlay).
+/// Content block + scrollable card rows fill the lower portion.
+/// D-pad scrolls vertically through category rows.
+/// BACK → Now Playing. Select station → plays + Now Playing.
 class TvBrowse extends StatefulWidget {
   final VoidCallback onBack;
   final ValueChanged<Station> onStationSelected;
@@ -109,7 +105,6 @@ class _TvBrowseState extends State<TvBrowse> {
     return map;
   }
 
-  /// BACK key → return to Now Playing
   KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
     final key = event.logicalKey;
@@ -137,142 +132,106 @@ class _TvBrowseState extends State<TvBrowse> {
       },
       child: Focus(
         onKeyEvent: _onKeyEvent,
-        child: SizedBox.expand(
-          // The immersive list container (full screen)
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              // === Background: full-screen station artwork ===
-              if (hero != null)
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 500),
-                  switchInCurve: Curves.easeIn,
-                  switchOutCurve: Curves.easeOut,
-                  child: SizedBox.expand(
-                    key: ValueKey('browse-bg-${hero.id}-${hero.artUri}'),
-                    child: FittedBox(
-                      fit: BoxFit.cover,
-                      alignment: Alignment.topRight,
-                      clipBehavior: Clip.hardEdge,
-                      child: SizedBox(
-                        width: 960,
-                        height: 540,
-                        child: hero.displayThumbnail(cacheWidth: 960),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // === Background: dark base with dimmed station artwork ===
+            const ColoredBox(color: TvColors.background),
+            if (hero != null)
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 500),
+                child: SizedBox.expand(
+                  key: ValueKey('bg-${hero.id}-${hero.artUri}'),
+                  child: ImageFiltered(
+                    imageFilter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+                    child: ColorFiltered(
+                      colorFilter: ColorFilter.mode(
+                        Colors.black.withValues(alpha: 0.8),
+                        BlendMode.darken,
+                      ),
+                      child: FittedBox(
+                        fit: BoxFit.cover,
+                        alignment: Alignment.topCenter,
+                        clipBehavior: Clip.hardEdge,
+                        child: SizedBox(
+                          width: 400,
+                          height: 400,
+                          child: hero.displayThumbnail(cacheWidth: 400),
+                        ),
                       ),
                     ),
                   ),
                 ),
-
-              // === Cinematic scrim ===
-              // Left gradient: dark on left for text readability
-              Positioned.fill(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                      colors: [
-                        Colors.black.withValues(alpha: 0.85),
-                        Colors.black.withValues(alpha: 0.5),
-                        Colors.black.withValues(alpha: 0.1),
-                      ],
-                      stops: const [0.0, 0.35, 0.65],
-                    ),
-                  ),
-                ),
-              ),
-              // Bottom gradient: dark at bottom for card rows
-              Positioned.fill(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent,
-                        Colors.transparent,
-                        Colors.black.withValues(alpha: 0.7),
-                        Colors.black.withValues(alpha: 0.95),
-                      ],
-                      stops: const [0.0, 0.3, 0.6, 0.85],
-                    ),
-                  ),
-                ),
               ),
 
-              // === Content: metadata + card rows, aligned to bottom ===
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: SafeArea(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Content block (metadata)
-                      if (hero != null)
-                        Padding(
-                          padding: const EdgeInsets.only(
-                            left: TvSpacing.marginHorizontal,
-                            right: TvSpacing.marginHorizontal,
-                            bottom: TvSpacing.md,
-                          ),
-                          child: _ContentBlock(
-                            station: hero,
-                            isPlaying: _isHeroPlaying,
-                          ),
-                        ),
-                      // Card rows (LazyRow equivalent)
-                      if (_favoriteStations.isNotEmpty)
-                        TvStationRow(
-                          title: 'Favorite',
-                          stations: _favoriteStations,
-                          currentStation: _currentStation,
-                          favoriteSlugs: _favoriteSlugs,
-                          autofocusFirst: true,
-                          onStationSelected: widget.onStationSelected,
-                          onStationFocused: _onStationFocused,
-                        ),
-                      TvStationRow(
-                        title: 'Alese pentru tine',
-                        stations: _allStations,
+            // === Scrollable content: metadata + card rows ===
+            SafeArea(
+              child: CustomScrollView(
+                slivers: [
+                  // Top area: station preview (artwork + metadata)
+                  SliverToBoxAdapter(
+                    child: hero != null
+                        ? _StationPreview(
+                            station: hero, isPlaying: _isHeroPlaying)
+                        : const SizedBox(height: 160),
+                  ),
+                  // Card rows — all scrollable via D-pad
+                  if (_favoriteStations.isNotEmpty)
+                    SliverToBoxAdapter(
+                      child: TvStationRow(
+                        title: 'Favorite',
+                        stations: _favoriteStations,
                         currentStation: _currentStation,
                         favoriteSlugs: _favoriteSlugs,
-                        autofocusFirst: _favoriteStations.isEmpty,
+                        autofocusFirst: true,
                         onStationSelected: widget.onStationSelected,
                         onStationFocused: _onStationFocused,
                       ),
-                      ..._groupedStations.entries.take(2).map((entry) {
-                        return TvStationRow(
-                          title: entry.key,
-                          stations: entry.value,
-                          currentStation: _currentStation,
-                          favoriteSlugs: _favoriteSlugs,
-                          onStationSelected: widget.onStationSelected,
-                          onStationFocused: _onStationFocused,
-                        );
-                      }),
-                      const SizedBox(height: TvSpacing.sm),
-                    ],
+                    ),
+                  SliverToBoxAdapter(
+                    child: TvStationRow(
+                      title: 'Alese pentru tine',
+                      stations: _allStations,
+                      currentStation: _currentStation,
+                      favoriteSlugs: _favoriteSlugs,
+                      autofocusFirst: _favoriteStations.isEmpty,
+                      onStationSelected: widget.onStationSelected,
+                      onStationFocused: _onStationFocused,
+                    ),
                   ),
-                ),
+                  ..._groupedStations.entries.map((entry) {
+                    return SliverToBoxAdapter(
+                      child: TvStationRow(
+                        title: entry.key,
+                        stations: entry.value,
+                        currentStation: _currentStation,
+                        favoriteSlugs: _favoriteSlugs,
+                        onStationSelected: widget.onStationSelected,
+                        onStationFocused: _onStationFocused,
+                      ),
+                    );
+                  }),
+                  const SliverToBoxAdapter(
+                    child: SizedBox(height: TvSpacing.xxl),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-/// Content block — metadata overlaid bottom-left above card rows.
-/// Tags (station name, LIVE, listeners) + large title + artist.
-class _ContentBlock extends StatelessWidget {
+/// Station preview shown at the top of the browse page.
+/// Displays the focused station's artwork, name, song, and artist
+/// in a compact layout — a dimmed "now playing" preview.
+class _StationPreview extends StatelessWidget {
   final Station station;
   final bool isPlaying;
 
-  const _ContentBlock({
+  const _StationPreview({
     required this.station,
     required this.isPlaying,
   });
@@ -281,74 +240,107 @@ class _ContentBlock extends StatelessWidget {
   Widget build(BuildContext context) {
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 300),
-      child: Column(
-        key: ValueKey('cb-${station.id}-${station.songId}'),
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Tags row
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (isPlaying) ...[
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Row(
+      child: Padding(
+        key: ValueKey('preview-${station.id}-${station.songId}'),
+        padding: const EdgeInsets.only(
+          left: TvSpacing.marginHorizontal,
+          right: TvSpacing.marginHorizontal,
+          top: TvSpacing.lg,
+          bottom: TvSpacing.md,
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Station artwork
+            ClipRRect(
+              borderRadius: BorderRadius.circular(TvSpacing.radiusMd),
+              child: SizedBox(
+                width: 120,
+                height: 120,
+                child: station.displayThumbnail(cacheWidth: 240),
+              ),
+            ),
+            const SizedBox(width: TvSpacing.lg),
+            // Metadata
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Tags
+                  Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.equalizer_rounded,
-                          color: TvColors.primary, size: 12),
-                      const SizedBox(width: 4),
-                      Text('LIVE',
+                      if (isPlaying) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: TvColors.primary.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.equalizer_rounded,
+                                  color: TvColors.primary, size: 12),
+                              const SizedBox(width: 4),
+                              Text('LIVE',
+                                  style: TvTypography.caption.copyWith(
+                                    color: TvColors.primary,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 10,
+                                  )),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: TvSpacing.sm),
+                      ],
+                      Flexible(
+                        child: Text(
+                          station.title,
                           style: TvTypography.caption.copyWith(
-                            color: TvColors.primary,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 10,
-                          )),
+                              color: TvColors.textSecondary, fontSize: 14),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (station.totalListeners != null &&
+                          station.totalListeners > 0)
+                        Text(
+                          '  •  ${station.totalListeners} ascultători',
+                          style: TvTypography.caption.copyWith(fontSize: 12),
+                        ),
                     ],
                   ),
-                ),
-                const SizedBox(width: TvSpacing.sm),
-              ],
-              Text(
-                station.title,
-                style: TvTypography.caption.copyWith(
-                    color: TvColors.textSecondary, fontSize: 13),
+                  const SizedBox(height: TvSpacing.sm),
+                  // Song title
+                  Text(
+                    station.songTitle.isNotEmpty
+                        ? station.songTitle
+                        : station.title,
+                    style: TvTypography.displayMedium.copyWith(
+                      fontSize: 26,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (station.songArtist.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      station.songArtist,
+                      style: TvTypography.body.copyWith(
+                          fontSize: 15, color: TvColors.textSecondary),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ],
               ),
-              if (station.totalListeners != null &&
-                  station.totalListeners > 0)
-                Text(
-                  '  •  ${station.totalListeners} ascultători',
-                  style: TvTypography.caption.copyWith(fontSize: 12),
-                ),
-            ],
-          ),
-          const SizedBox(height: TvSpacing.sm),
-          // Song title — large
-          Text(
-            station.songTitle.isNotEmpty ? station.songTitle : station.title,
-            style: TvTypography.displayMedium
-                .copyWith(fontSize: 28, fontWeight: FontWeight.bold),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          // Artist / subtitle
-          if (station.songArtist.isNotEmpty) ...[
-            const SizedBox(height: 2),
-            Text(
-              station.songArtist,
-              style: TvTypography.body
-                  .copyWith(fontSize: 15, color: TvColors.textSecondary),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
             ),
           ],
-        ],
+        ),
       ),
     );
   }
