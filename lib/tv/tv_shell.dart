@@ -12,14 +12,17 @@ import 'tv_theme.dart';
 import 'pages/tv_now_playing.dart';
 import 'pages/tv_browse.dart';
 
-/// TV app — two pages:
-///
-/// 1. **Station page** (Now Playing): artwork + metadata + controls.
-/// 2. **Station list** (Browse): scrollable station rows.
-///
-/// On startup: auto-plays the last station, or the first available.
-/// Browse: focus previews station info, select plays + opens station page.
-/// BACK from station page → browse. BACK from browse → station page.
+/// Song history entry with real timestamp.
+class TvSongEntry {
+  final String title;
+  final String artist;
+  final DateTime timestamp;
+  TvSongEntry({required this.title, required this.artist, DateTime? at})
+      : timestamp = at ?? DateTime.now();
+}
+
+/// TV app — two pages: station page + station list.
+/// Song history tracked here so it persists across page switches.
 class TvShell extends StatefulWidget {
   const TvShell({super.key});
 
@@ -36,6 +39,10 @@ class _TvShellState extends State<TvShell> {
   final List<StreamSubscription> _subscriptions = [];
   Station? _currentStation;
 
+  /// Song history persisted across page switches.
+  /// Index 0 = current song, 1+ = previous songs.
+  final List<TvSongEntry> songHistory = [];
+
   @override
   void initState() {
     super.initState();
@@ -48,22 +55,35 @@ class _TvShellState extends State<TvShell> {
     _stationDataService = GetIt.instance<StationDataService>();
     _currentStation = _audioHandler.currentStation.value;
 
-    // If station already loaded → station page. Otherwise → browse.
     _browsing = _currentStation == null;
 
-    // Auto-play if station loaded but not playing
     if (_currentStation != null && !_audioHandler.playbackState.value.playing) {
       _audioHandler.play();
       _autoPlayDone = true;
     }
 
+    // Track station changes
     _subscriptions.add(
       _audioHandler.currentStation.stream.listen((station) {
-        if (mounted) setState(() => _currentStation = station);
+        if (mounted) {
+          final oldStation = _currentStation;
+          setState(() => _currentStation = station);
+          // Track song history
+          if (station != null &&
+              station.songTitle.isNotEmpty &&
+              (oldStation == null ||
+                  oldStation.songId != station.songId)) {
+            songHistory.insert(0,
+                TvSongEntry(title: station.songTitle, artist: station.songArtist));
+            if (songHistory.length > 20) {
+              songHistory.removeRange(20, songHistory.length);
+            }
+          }
+        }
       }),
     );
 
-    // If no station loaded, auto-play the first one once stations arrive
+    // Auto-play first station if none loaded
     if (_currentStation == null) {
       _subscriptions.add(
         _stationDataService.stations.stream.listen((stations) {
@@ -85,12 +105,11 @@ class _TvShellState extends State<TvShell> {
   }
 
   void _openBrowse() => setState(() => _browsing = true);
-
   void _closeBrowse() => setState(() => _browsing = false);
 
   void _onStationSelected(Station station) {
     _audioHandler.playStation(station);
-    setState(() => _browsing = false); // Go to station page
+    setState(() => _browsing = false);
   }
 
   @override
@@ -106,6 +125,7 @@ class _TvShellState extends State<TvShell> {
               )
             : TvNowPlaying(
                 onBrowse: _openBrowse,
+                songHistory: songHistory,
               ),
       ),
     );
