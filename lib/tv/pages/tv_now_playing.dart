@@ -10,15 +10,12 @@ import 'package:rxdart/rxdart.dart';
 import '../../appAudioHandler.dart';
 import '../../services/station_data_service.dart';
 import '../../types/Station.dart';
-import '../tv_platform.dart';
 import '../tv_shell.dart';
 import '../tv_theme.dart';
-import '../widgets/desktop_focusable.dart';
 
-/// Station page (Now Playing).
+/// TV-only now-playing page.
 /// Back (top-left) and favorite (top-right) span full width.
 /// Below: artwork left, metadata + recent songs + controls right.
-/// All in one Column for D-pad traversal.
 class TvNowPlaying extends StatefulWidget {
   final VoidCallback onBrowse;
   final List<TvSongEntry> songHistory;
@@ -63,7 +60,6 @@ class _TvNowPlayingState extends State<TvNowPlaying> {
             _station = newStation;
             _favoriteSlugs = data.$2;
           });
-          // Reset like/dislike on song change
           if (newStation != null && newStation.songId != _lastSongId) {
             _lastSongId = newStation.songId;
             _liked = false;
@@ -91,7 +87,6 @@ class _TvNowPlayingState extends State<TvNowPlaying> {
   bool get _isFavorite =>
       _station != null && _favoriteSlugs.contains(_station!.slug);
 
-  /// Previous songs = skip index 0 (current song).
   List<TvSongEntry> get _prevSongs =>
       widget.songHistory.length > 1 ? widget.songHistory.sublist(1) : [];
 
@@ -142,29 +137,15 @@ class _TvNowPlayingState extends State<TvNowPlaying> {
     bool autofocus = false,
     Color? bg,
   }) {
-    return DesktopFocusable(
+    return DpadFocusable(
       autofocus: autofocus,
       onSelect: onSelect,
-      builder: TvPlatform.isDesktop
-          ? (context, isFocused, child) {
-              // Desktop: scale + brightness, no border
-              return AnimatedScale(
-                scale: isFocused ? 1.15 : 1.0,
-                duration: const Duration(milliseconds: 150),
-                curve: Curves.easeOut,
-                child: AnimatedOpacity(
-                  opacity: isFocused ? 1.0 : 0.7,
-                  duration: const Duration(milliseconds: 150),
-                  child: child,
-                ),
-              );
-            }
-          : FocusEffects.scaleWithBorder(
-              scale: 1.1,
-              borderColor: TvColors.primary,
-              borderWidth: 2,
-              borderRadius: BorderRadius.circular(size / 2),
-            ),
+      builder: FocusEffects.scaleWithBorder(
+        scale: 1.1,
+        borderColor: TvColors.primary,
+        borderWidth: 2,
+        borderRadius: BorderRadius.circular(size / 2),
+      ),
       child: Container(
         width: size,
         height: size,
@@ -219,7 +200,7 @@ class _TvNowPlayingState extends State<TvNowPlaying> {
               ),
             ),
           ),
-          // Content — one Column, all focusable items reachable
+          // Content
           SafeArea(
             child: Padding(
               padding: EdgeInsets.symmetric(
@@ -228,8 +209,7 @@ class _TvNowPlayingState extends State<TvNowPlaying> {
               ),
               child: Column(
                 children: [
-                  // TOP ROW: back (left) — favorite (right)
-                  // Full width, spans above the artwork
+                  // Top row: back + favorite
                   Row(
                     children: [
                       _btn(
@@ -255,7 +235,7 @@ class _TvNowPlayingState extends State<TvNowPlaying> {
                     ],
                   ),
                   const SizedBox(height: TvSpacing.sm),
-                  // MAIN: artwork (left) + metadata/songs/controls (right)
+                  // Main: artwork + metadata/controls
                   Expanded(
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
@@ -273,22 +253,18 @@ class _TvNowPlayingState extends State<TvNowPlaying> {
                                   child: Container(
                                     key: ValueKey('art-${station.artUri}'),
                                     decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(
-                                          TvSpacing.radiusLg),
+                                      borderRadius: BorderRadius.circular(TvSpacing.radiusLg),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: Colors.black
-                                              .withValues(alpha: 0.5),
+                                          color: Colors.black.withValues(alpha: 0.5),
                                           blurRadius: 40,
                                           spreadRadius: 5,
                                         ),
                                       ],
                                     ),
                                     child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(
-                                          TvSpacing.radiusLg),
-                                      child: station.displayThumbnail(
-                                          cacheWidth: 600),
+                                      borderRadius: BorderRadius.circular(TvSpacing.radiusLg),
+                                      child: station.displayThumbnail(cacheWidth: 600),
                                     ),
                                   ),
                                 ),
@@ -297,24 +273,21 @@ class _TvNowPlayingState extends State<TvNowPlaying> {
                           ),
                         ),
                         const SizedBox(width: TvSpacing.lg),
-                        // Right side: metadata + songs + controls
+                        // Right side
                         Expanded(
                           flex: 5,
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              // Station name
                               Text(
                                 station.title,
                                 style: TvTypography.body.copyWith(
-                                    color: TvColors.textSecondary,
-                                    fontSize: 17),
+                                    color: TvColors.textSecondary, fontSize: 17),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
                               const SizedBox(height: TvSpacing.sm),
-                              // Song title
                               AnimatedSwitcher(
                                 duration: const Duration(milliseconds: 250),
                                 child: Align(
@@ -338,10 +311,9 @@ class _TvNowPlayingState extends State<TvNowPlaying> {
                                     alignment: Alignment.centerLeft,
                                     child: Text(
                                       station.songArtist,
-                                      key: ValueKey(
-                                          'artist-${station.songId}'),
-                                      style: TvTypography.title.copyWith(
-                                          color: TvColors.textSecondary),
+                                      key: ValueKey('artist-${station.songId}'),
+                                      style: TvTypography.title
+                                          .copyWith(color: TvColors.textSecondary),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                     ),
@@ -352,20 +324,18 @@ class _TvNowPlayingState extends State<TvNowPlaying> {
                               Row(
                                 children: [
                                   const Icon(Icons.headphones_rounded,
-                                      size: 16,
-                                      color: TvColors.textTertiary),
+                                      size: 16, color: TvColors.textTertiary),
                                   const SizedBox(width: TvSpacing.xs),
                                   Text(
                                       '${station.totalListeners ?? 0} ascultători',
                                       style: TvTypography.caption),
                                 ],
                               ),
-                              // Recent songs above controls
+                              // Recent songs
                               if (prevSongs.isNotEmpty) ...[
                                 const SizedBox(height: TvSpacing.lg),
                                 Text('Melodii recente',
-                                    style: TvTypography.title
-                                        .copyWith(fontSize: 15)),
+                                    style: TvTypography.title.copyWith(fontSize: 15)),
                                 const SizedBox(height: TvSpacing.sm),
                                 ...List.generate(
                                   prevSongs.length.clamp(0, 3),
@@ -397,31 +367,20 @@ class _TvNowPlayingState extends State<TvNowPlaying> {
                                     color: TvColors.textPrimary,
                                     iconSize: 28,
                                     size: 52,
-                                    onSelect: () =>
-                                        _audioHandler.skipToPrevious(),
+                                    onSelect: () => _audioHandler.skipToPrevious(),
                                   ),
                                   const SizedBox(width: TvSpacing.md),
-                                  // Play/Pause
-                                  DesktopFocusable(
+                                  DpadFocusable(
                                     autofocus: true,
                                     onSelect: () => _isPlaying
                                         ? _audioHandler.pause()
                                         : _audioHandler.play(),
-                                    builder: TvPlatform.isDesktop
-                                        ? (context, isFocused, child) {
-                                            return AnimatedScale(
-                                              scale: isFocused ? 1.12 : 1.0,
-                                              duration: const Duration(milliseconds: 150),
-                                              curve: Curves.easeOut,
-                                              child: child,
-                                            );
-                                          }
-                                        : FocusEffects.scaleWithBorder(
-                                            scale: 1.1,
-                                            borderColor: Colors.white,
-                                            borderWidth: 2,
-                                            borderRadius: BorderRadius.circular(36),
-                                          ),
+                                    builder: FocusEffects.scaleWithBorder(
+                                      scale: 1.1,
+                                      borderColor: Colors.white,
+                                      borderWidth: 2,
+                                      borderRadius: BorderRadius.circular(36),
+                                    ),
                                     child: Container(
                                       width: 64,
                                       height: 64,
@@ -430,8 +389,7 @@ class _TvNowPlayingState extends State<TvNowPlaying> {
                                         shape: BoxShape.circle,
                                       ),
                                       child: AnimatedSwitcher(
-                                        duration:
-                                            const Duration(milliseconds: 150),
+                                        duration: const Duration(milliseconds: 150),
                                         child: Icon(
                                           _isPlaying
                                               ? Icons.pause_rounded
@@ -449,8 +407,7 @@ class _TvNowPlayingState extends State<TvNowPlaying> {
                                     color: TvColors.textPrimary,
                                     iconSize: 28,
                                     size: 52,
-                                    onSelect: () =>
-                                        _audioHandler.skipToNext(),
+                                    onSelect: () => _audioHandler.skipToNext(),
                                   ),
                                   const SizedBox(width: TvSpacing.md),
                                   _btn(
@@ -458,15 +415,13 @@ class _TvNowPlayingState extends State<TvNowPlaying> {
                                         ? Icons.thumb_down_alt_rounded
                                         : Icons.thumb_down_alt_outlined,
                                     iconSize: 20,
-                                    color:
-                                        _disliked ? TvColors.primary : null,
+                                    color: _disliked ? TvColors.primary : null,
                                     onSelect: () {
                                       setState(() {
                                         _disliked = !_disliked;
                                         if (_disliked) _liked = false;
                                       });
-                                      _audioHandler
-                                          .customAction('dislikeSong');
+                                      _audioHandler.customAction('dislikeSong');
                                     },
                                   ),
                                 ],
@@ -489,7 +444,6 @@ class _TvNowPlayingState extends State<TvNowPlaying> {
 
 class _SongTile extends StatelessWidget {
   final TvSongEntry entry;
-
   const _SongTile({required this.entry});
 
   String get _timeAgo {

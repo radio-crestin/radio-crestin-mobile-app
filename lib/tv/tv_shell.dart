@@ -10,6 +10,7 @@ import 'package:get_it/get_it.dart';
 import '../appAudioHandler.dart';
 import '../services/station_data_service.dart';
 import '../types/Station.dart';
+import 'desktop_shell.dart';
 import 'tv_platform.dart';
 import 'tv_theme.dart';
 import 'pages/tv_now_playing.dart';
@@ -173,6 +174,12 @@ class _TvShellState extends State<TvShell> {
 
   @override
   Widget build(BuildContext context) {
+    // Desktop gets its own shell (browse + bottom mini player + drawer)
+    if (TvPlatform.isDesktop) {
+      return DesktopShell(songHistory: songHistory);
+    }
+
+    // TV: D-pad navigable two-page layout
     return DpadNavigator(
       enabled: true,
       child: Scaffold(
