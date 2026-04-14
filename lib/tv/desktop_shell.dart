@@ -377,6 +377,7 @@ class _DesktopShellState extends State<DesktopShell> {
             isPlaying: _isPlaying,
             onTap: _openNowPlaying,
             onPlayPause: () => _isPlaying ? _audioHandler.pause() : _audioHandler.play(),
+            onPrevious: () => _audioHandler.skipToPrevious(),
             onNext: () => _audioHandler.skipToNext(),
           ),
         ],
@@ -386,13 +387,14 @@ class _DesktopShellState extends State<DesktopShell> {
 }
 
 // ─────────────────────────────────────────────
-// Mini player bar pinned to the bottom
+// Mini player bar pinned to the bottom — matches mobile style
 // ─────────────────────────────────────────────
 class _DesktopMiniPlayer extends StatelessWidget {
   final Station station;
   final bool isPlaying;
   final VoidCallback onTap;
   final VoidCallback onPlayPause;
+  final VoidCallback onPrevious;
   final VoidCallback onNext;
 
   const _DesktopMiniPlayer({
@@ -400,102 +402,202 @@ class _DesktopMiniPlayer extends StatelessWidget {
     required this.isPlaying,
     required this.onTap,
     required this.onPlayPause,
+    required this.onPrevious,
     required this.onNext,
   });
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _controlBtn({
+    required IconData icon,
+    required VoidCallback onTap,
+    double size = 40,
+    double iconSize = 22,
+    Color? iconColor,
+    Color? bg,
+  }) {
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
         onTap: onTap,
+        behavior: HitTestBehavior.opaque,
         child: Container(
-          height: 72,
-          decoration: const BoxDecoration(
-            color: TvColors.surface,
-            border: Border(top: BorderSide(color: TvColors.divider, width: 0.5)),
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            color: bg ?? Colors.white.withValues(alpha: 0.08),
+            shape: BoxShape.circle,
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Row(
-            children: [
-              // Artwork
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: SizedBox(
-                  width: 48,
-                  height: 48,
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 300),
-                    child: SizedBox(
-                      key: ValueKey('mp-${station.artUri}'),
-                      child: station.displayThumbnail(cacheWidth: 96),
-                    ),
+          child: Icon(icon, color: iconColor ?? Colors.white, size: iconSize),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: onTap,
+          // Allow vertical drag to open the full player
+          onVerticalDragEnd: (details) {
+            if (details.primaryVelocity != null && details.primaryVelocity! < -100) {
+              onTap();
+            }
+          },
+          child: Container(
+            height: 80,
+            decoration: BoxDecoration(
+              color: TvColors.surface,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.4),
+                  blurRadius: 16,
+                  spreadRadius: 1,
+                  offset: const Offset(0, -2),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                // Drag handle
+                Container(
+                  width: 32,
+                  height: 4,
+                  margin: const EdgeInsets.only(top: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-              ),
-              const SizedBox(width: 14),
-              // Metadata
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 250),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          station.songTitle.isNotEmpty ? station.songTitle : station.title,
-                          key: ValueKey('mp-t-${station.songId}'),
-                          style: TvTypography.label.copyWith(
-                              fontSize: 14, color: TvColors.textPrimary, fontWeight: FontWeight.w600),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                // Content row
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 4, 14, 6),
+                    child: Row(
+                      children: [
+                        // Artwork
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: SizedBox(
+                            width: 52,
+                            height: 52,
+                            child: AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 300),
+                              child: SizedBox(
+                                key: ValueKey('mp-${station.artUri}'),
+                                child: station.displayThumbnail(cacheWidth: 104),
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      station.songArtist.isNotEmpty ? station.songArtist : station.title,
-                      style: TvTypography.caption.copyWith(fontSize: 12),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              // Play / Pause
-              MouseRegion(
-                cursor: SystemMouseCursors.click,
-                child: GestureDetector(
-                  onTap: onPlayPause,
-                  behavior: HitTestBehavior.opaque,
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 150),
-                    child: Icon(
-                      isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                      key: ValueKey('mp-pp-$isPlaying'),
-                      color: Colors.white,
-                      size: 32,
+                        const SizedBox(width: 14),
+                        // Metadata: station name + song + artist
+                        Expanded(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // "Se redă acum" + station name
+                              Row(
+                                children: [
+                                  const Icon(Icons.equalizer_rounded,
+                                      color: TvColors.primary, size: 14),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Se redă acum',
+                                    style: TvTypography.caption.copyWith(
+                                      color: TvColors.primary,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Flexible(
+                                    child: Text(
+                                      station.title,
+                                      style: TvTypography.caption.copyWith(
+                                        fontSize: 11,
+                                        color: TvColors.textTertiary,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 3),
+                              // Song title
+                              AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 250),
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    station.songTitle.isNotEmpty
+                                        ? station.songTitle
+                                        : station.title,
+                                    key: ValueKey('mp-t-${station.songId}'),
+                                    style: TvTypography.label.copyWith(
+                                      fontSize: 14,
+                                      color: TvColors.textPrimary,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ),
+                              // Artist
+                              if (station.songArtist.isNotEmpty) ...[
+                                const SizedBox(height: 1),
+                                Text(
+                                  station.songArtist,
+                                  style: TvTypography.caption.copyWith(
+                                    fontSize: 12,
+                                    color: TvColors.textSecondary,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        // Transport controls: prev | play/pause | next
+                        _controlBtn(
+                          icon: Icons.skip_previous_rounded,
+                          iconColor: TvColors.textSecondary,
+                          iconSize: 22,
+                          size: 36,
+                          onTap: onPrevious,
+                        ),
+                        const SizedBox(width: 8),
+                        _controlBtn(
+                          icon: isPlaying
+                              ? Icons.pause_rounded
+                              : Icons.play_arrow_rounded,
+                          iconSize: 26,
+                          size: 42,
+                          bg: TvColors.primary,
+                          onTap: onPlayPause,
+                        ),
+                        const SizedBox(width: 8),
+                        _controlBtn(
+                          icon: Icons.skip_next_rounded,
+                          iconColor: TvColors.textSecondary,
+                          iconSize: 22,
+                          size: 36,
+                          onTap: onNext,
+                        ),
+                      ],
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              // Next
-              MouseRegion(
-                cursor: SystemMouseCursors.click,
-                child: GestureDetector(
-                  onTap: onNext,
-                  behavior: HitTestBehavior.opaque,
-                  child: const Icon(Icons.skip_next_rounded, color: TvColors.textSecondary, size: 28),
-                ),
-              ),
-              const SizedBox(width: 8),
-              // Expand chevron
-              const Icon(Icons.keyboard_arrow_up_rounded, color: TvColors.textTertiary, size: 24),
-            ],
+              ],
+            ),
           ),
         ),
       ),
