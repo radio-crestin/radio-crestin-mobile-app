@@ -9,6 +9,8 @@ import 'package:rxdart/rxdart.dart';
 import '../../appAudioHandler.dart';
 import '../../queries/getStations.graphql.dart';
 import '../../services/station_data_service.dart';
+import '../../services/station_sort_service.dart';
+import '../../services/play_count_service.dart';
 import '../../types/Station.dart';
 import '../tv_platform.dart';
 import '../tv_theme.dart';
@@ -19,7 +21,7 @@ import '../widgets/tv_station_row.dart';
 /// Station list page (Browse).
 ///
 /// On Android TV: horizontal rows (Favorites → Categories).
-/// On Desktop: category tabs at top + responsive vertical grid.
+/// On Desktop: "Pentru tine" dropdown + filter button (same as mobile), vertical grid.
 class TvBrowse extends StatefulWidget {
   final VoidCallback onBack;
   final ValueChanged<Station> onStationSelected;
@@ -44,16 +46,18 @@ class _TvBrowseState extends State<TvBrowse> {
   List<String> _favoriteSlugs = [];
   List<Query$GetStations$station_groups> _groups = [];
 
-  /// Currently selected category for desktop grid view.
-  String _selectedCategory = _kForYou;
-  static const String _kForYou = 'Pentru tine';
-  static const String _kFavorites = 'Favorite';
+  /// Sort option — mirrors mobile app's sort selector.
+  StationSortOption _sortOption = StationSortOption.recommended;
+
+  /// Selected filter group — null means "all stations".
+  Query$GetStations$station_groups? _selectedGroup;
 
   @override
   void initState() {
     super.initState();
     _audioHandler = GetIt.instance<AppAudioHandler>();
     _stationDataService = GetIt.instance<StationDataService>();
+    _sortOption = StationSortService.loadSavedSort();
 
     _subscriptions.add(
       Rx.combineLatest4(
@@ -103,19 +107,215 @@ class _TvBrowseState extends State<TvBrowse> {
     return map;
   }
 
-  /// All category names for the tab selector.
-  List<String> get _categories {
-    final cats = <String>[_kForYou];
-    if (_favoriteStations.isNotEmpty) cats.add(_kFavorites);
-    cats.addAll(_groupedStations.keys);
-    return cats;
+  /// Stations for desktop grid — filtered by group, sorted by sort option.
+  List<Station> get _desktopStations {
+    List<Station> base;
+    if (_selectedGroup != null) {
+      final ids = _selectedGroup!.station_to_station_groups
+          .map((e) => e.station_id)
+          .toSet();
+      base = _allStations.where((s) => ids.contains(s.id)).toList();
+    } else {
+      base = List<Station>.from(_allStations);
+    }
+
+    final playCounts = GetIt.instance<PlayCountService>().playCounts;
+    final result = StationSortService.sort(
+      stations: base,
+      sortBy: _sortOption,
+      playCounts: playCounts,
+      favoriteSlugs: _favoriteSlugs,
+    );
+    return result.sorted;
   }
 
-  /// Stations for the currently selected category.
-  List<Station> get _stationsForCategory {
-    if (_selectedCategory == _kForYou) return _allStations;
-    if (_selectedCategory == _kFavorites) return _favoriteStations;
-    return _groupedStations[_selectedCategory] ?? [];
+  void _showSortOptions() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: TvColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Drag handle
+                Container(
+                  width: 36,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                ...StationSortOption.values.map((option) {
+                  final isSelected = option == _sortOption;
+                  return ListTile(
+                    leading: Icon(
+                      StationSortLabels.icons[option],
+                      size: 20,
+                      color: option == StationSortOption.recommended
+                          ? const Color(0xFFF59E0B)
+                          : isSelected
+                              ? TvColors.primary
+                              : TvColors.textSecondary,
+                    ),
+                    title: Text(
+                      StationSortLabels.labels[option] ?? '',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                        color: isSelected
+                            ? TvColors.primary
+                            : TvColors.textPrimary,
+                      ),
+                    ),
+                    trailing: isSelected
+                        ? const Icon(Icons.check_rounded,
+                            size: 20, color: TvColors.primary)
+                        : null,
+                    onTap: () {
+                      setState(() => _sortOption = option);
+                      StationSortService.saveSortOption(option);
+                      _stationDataService.invalidateSortCache();
+                      Navigator.pop(context);
+                    },
+                  );
+                }),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showFilterOptions() {
+    final sortedGroups = List<Query$GetStations$station_groups>.from(_groups)
+      ..sort((a, b) => a.order.compareTo(b.order));
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: TvColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.6,
+          minChildSize: 0.3,
+          maxChildSize: 0.85,
+          expand: false,
+          builder: (context, scrollController) {
+            return Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 10, bottom: 6),
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.white24,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Filtrează stații',
+                      style: TvTypography.title.copyWith(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 20,
+                      ),
+                    ),
+                  ),
+                ),
+                const Divider(height: 1, thickness: 0.5, color: TvColors.divider),
+                Expanded(
+                  child: ListView(
+                    controller: scrollController,
+                    padding: const EdgeInsets.only(top: 4, bottom: 24),
+                    children: [
+                      // "All stations" option
+                      ListTile(
+                        leading: Icon(
+                          Icons.radio_rounded,
+                          size: 20,
+                          color: _selectedGroup == null
+                              ? TvColors.primary
+                              : TvColors.textSecondary,
+                        ),
+                        title: Text(
+                          'Toate stațiile radio',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: _selectedGroup == null
+                                ? FontWeight.w600
+                                : FontWeight.w400,
+                            color: _selectedGroup == null
+                                ? TvColors.primary
+                                : TvColors.textPrimary,
+                          ),
+                        ),
+                        trailing: _selectedGroup == null
+                            ? const Icon(Icons.check_rounded,
+                                size: 20, color: TvColors.primary)
+                            : null,
+                        onTap: () {
+                          setState(() => _selectedGroup = null);
+                          Navigator.pop(context);
+                        },
+                      ),
+                      ...sortedGroups.map((group) {
+                        final isSelected = _selectedGroup?.id == group.id;
+                        return ListTile(
+                          leading: Icon(
+                            Icons.folder_rounded,
+                            size: 20,
+                            color: isSelected
+                                ? TvColors.primary
+                                : TvColors.textSecondary,
+                          ),
+                          title: Text(
+                            group.name,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight:
+                                  isSelected ? FontWeight.w600 : FontWeight.w400,
+                              color: isSelected
+                                  ? TvColors.primary
+                                  : TvColors.textPrimary,
+                            ),
+                          ),
+                          trailing: isSelected
+                              ? const Icon(Icons.check_rounded,
+                                  size: 20, color: TvColors.primary)
+                              : null,
+                          onTap: () {
+                            setState(() => _selectedGroup = group);
+                            Navigator.pop(context);
+                          },
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
@@ -142,32 +342,107 @@ class _TvBrowseState extends State<TvBrowse> {
         child: ColoredBox(
           color: TvColors.background,
           child: SafeArea(
-            child: TvPlatform.isDesktop ? _buildDesktopLayout() : _buildTvLayout(),
+            child: TvPlatform.isDesktop
+                ? _buildDesktopLayout()
+                : _buildTvLayout(),
           ),
         ),
       ),
     );
   }
 
-  /// Desktop: tabs + vertical grid.
+  /// Desktop: sort dropdown + filter button + vertical grid.
   Widget _buildDesktopLayout() {
     final playing = _currentStation;
-    final stations = _stationsForCategory;
+    final stations = _desktopStations;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Now Playing bar at top
+        // Now Playing bar
         if (playing != null)
           _NowPlayingCard(station: playing, onTap: widget.onBack),
-        // Category tabs
-        _DesktopCategoryTabs(
-          categories: _categories,
-          selected: _selectedCategory,
-          onSelected: (cat) => setState(() => _selectedCategory = cat),
+        // Sort selector + filter button (matches mobile app)
+        Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: TvSpacing.marginHorizontal,
+            vertical: TvSpacing.sm,
+          ),
+          child: SizedBox(
+            height: 48,
+            child: Row(
+              children: [
+                // Sort selector: icon + label + chevron
+                Expanded(
+                  child: MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: GestureDetector(
+                      onTap: _showSortOptions,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            StationSortLabels.icons[_sortOption],
+                            size: 18,
+                            color: _sortOption == StationSortOption.recommended
+                                ? const Color(0xFFF59E0B)
+                                : TvColors.textPrimary,
+                          ),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              StationSortLabels.labels[_sortOption] ?? '',
+                              style: TvTypography.title.copyWith(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          const Icon(
+                            Icons.keyboard_arrow_down_rounded,
+                            size: 20,
+                            color: TvColors.textTertiary,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                // Filter button
+                MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: GestureDetector(
+                    onTap: _showFilterOptions,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: _selectedGroup != null
+                            ? TvColors.primary.withValues(alpha: 0.12)
+                            : Colors.white.withValues(alpha: 0.07),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        _selectedGroup != null
+                            ? Icons.filter_alt_rounded
+                            : Icons.filter_alt_outlined,
+                        size: 22,
+                        color: _selectedGroup != null
+                            ? TvColors.primary
+                            : TvColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
-        const SizedBox(height: TvSpacing.sm),
-        // Station grid — vertical scrollable
+        // Station grid
         Expanded(
           child: stations.isEmpty
               ? Center(
@@ -181,7 +456,8 @@ class _TvBrowseState extends State<TvBrowse> {
                     horizontal: TvSpacing.marginHorizontal,
                   ),
                   child: GridView.builder(
-                    gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                    gridDelegate:
+                        const SliverGridDelegateWithMaxCrossAxisExtent(
                       maxCrossAxisExtent: 200,
                       crossAxisSpacing: 12,
                       mainAxisSpacing: 12,
@@ -191,13 +467,15 @@ class _TvBrowseState extends State<TvBrowse> {
                     itemBuilder: (context, index) {
                       final station = stations[index];
                       final isPlaying = _currentStation?.id == station.id;
-                      final isFavorite = _favoriteSlugs.contains(station.slug);
+                      final isFavorite =
+                          _favoriteSlugs.contains(station.slug);
                       return TvStationCard(
                         station: station,
                         isPlaying: isPlaying,
                         isFavorite: isFavorite,
                         autofocus: index == 0,
-                        onSelect: () => widget.onStationSelected(station),
+                        onSelect: () =>
+                            widget.onStationSelected(station),
                         onFavoriteToggle: () {},
                       );
                     },
@@ -248,61 +526,6 @@ class _TvBrowseState extends State<TvBrowse> {
   }
 }
 
-/// Desktop category tab selector — horizontal scrolling chips.
-class _DesktopCategoryTabs extends StatelessWidget {
-  final List<String> categories;
-  final String selected;
-  final ValueChanged<String> onSelected;
-
-  const _DesktopCategoryTabs({
-    required this.categories,
-    required this.selected,
-    required this.onSelected,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 44,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: EdgeInsets.symmetric(
-          horizontal: TvSpacing.marginHorizontal,
-          vertical: 4,
-        ),
-        itemCount: categories.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          final cat = categories[index];
-          final isActive = cat == selected;
-          return MouseRegion(
-            cursor: SystemMouseCursors.click,
-            child: GestureDetector(
-              onTap: () => onSelected(cat),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: isActive ? TvColors.primary : TvColors.surfaceVariant,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  cat,
-                  style: TvTypography.label.copyWith(
-                    color: isActive ? Colors.white : TvColors.textSecondary,
-                    fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
-                    fontSize: 13,
-                  ),
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
 /// Now Playing card — compact on desktop, bigger on TV.
 class _NowPlayingCard extends StatelessWidget {
   final Station station;
@@ -324,13 +547,10 @@ class _NowPlayingCard extends StatelessWidget {
         onSelect: onTap,
         builder: TvPlatform.isDesktop
             ? (context, isFocused, child) {
-                // Desktop: subtle brightness change, no border
                 return AnimatedContainer(
                   duration: const Duration(milliseconds: 150),
                   decoration: BoxDecoration(
-                    color: isFocused
-                        ? TvColors.surfaceHigh
-                        : TvColors.surface,
+                    color: isFocused ? TvColors.surfaceHigh : TvColors.surface,
                     borderRadius: BorderRadius.circular(TvSpacing.radiusMd),
                   ),
                   child: child,
@@ -349,7 +569,6 @@ class _NowPlayingCard extends StatelessWidget {
           ),
           child: Row(
             children: [
-              // Artwork
               ClipRRect(
                 borderRadius: BorderRadius.circular(TvSpacing.radiusSm),
                 child: SizedBox(
@@ -359,7 +578,6 @@ class _NowPlayingCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: TvSpacing.md),
-              // Metadata
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
