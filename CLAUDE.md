@@ -1,5 +1,17 @@
 # Radio Crestin - Flutter Mobile App
 
+## Work Methodology
+
+- **Never be lazy.** Break every task into small, focused chunks. Work through each chunk carefully, analyzing all details before writing code.
+- **Analyze before implementing.** Read existing code, understand patterns, check how similar features were built. Don't guess — verify.
+- **Implement features that are easy to use.** The end user should never struggle. Every interaction must feel intuitive and natural on the target platform.
+- **Write maintainable, professional code.** Clean structure, clear naming, no hacks. Code should be readable by any developer joining the project.
+- **Great UX and UI are mandatory.** Every screen, every transition, every focus state must feel polished and professional. Follow platform design guidelines (Material 3, Android TV Leanback, iOS HIG). Test from the user's perspective — if it feels wrong, fix it before moving on.
+- **Small commits, frequent progress.** Commit after each meaningful change so progress is visible and reviewable.
+- **Fix issues at the root.** When something doesn't work, diagnose why — don't patch symptoms. Understand the framework behavior, the widget lifecycle, the focus system.
+
+---
+
 ## Project Overview
 
 Radio Crestin is a production Flutter app for streaming Romanian Christian radio stations. It supports background audio, CarPlay (iOS), Android Auto, NFC tag writing, deep linking, and push notifications. The app is live on both app stores.
