@@ -490,7 +490,6 @@ class _AirPlayRow extends StatelessWidget {
             activeTintColor: Colors.transparent,
             backgroundColor: Colors.transparent,
             onShowPickerView: () {
-              Navigator.of(context).pop();
               AnalyticsService.instance.capture('airplay_picker_opened');
             },
           ),
