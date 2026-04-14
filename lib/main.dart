@@ -31,6 +31,7 @@ import 'firebase_options.dart';
 import 'globals.dart' as globals;
 import 'services/car_play_service.dart';
 import 'services/cast_service.dart';
+import 'services/tv_channel_service.dart';
 import 'package:flutter_airplay/flutter_airplay.dart' as flutter_airplay;
 import 'services/analytics_service.dart';
 import 'services/image_cache_service.dart';
@@ -296,6 +297,15 @@ void main() async {
         return service;
       });
       getIt.registerSingleton<CarPlayService>(carPlayService);
+    });
+  }
+
+  // Initialize Android TV home screen channels (favorites channel)
+  if (TvPlatform.isTV && Platform.isAndroid) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final tvChannelService = TvChannelService();
+      await tvChannelService.initialize();
+      getIt.registerSingleton<TvChannelService>(tvChannelService);
     });
   }
 

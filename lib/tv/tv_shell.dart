@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 
+import 'package:app_links/app_links.dart';
 import 'package:dpad/dpad.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,6 +10,7 @@ import 'package:get_it/get_it.dart';
 import '../appAudioHandler.dart';
 import '../services/station_data_service.dart';
 import '../types/Station.dart';
+import 'tv_platform.dart';
 import 'tv_theme.dart';
 import 'pages/tv_now_playing.dart';
 import 'pages/tv_browse.dart';
@@ -46,10 +49,13 @@ class _TvShellState extends State<TvShell> {
   @override
   void initState() {
     super.initState();
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.landscapeLeft,
-      DeviceOrientation.landscapeRight,
-    ]);
+    // Lock to landscape only on actual Android TV — desktop handles its own window
+    if (TvPlatform.isAndroidTV) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    }
 
     _audioHandler = GetIt.instance<AppAudioHandler>();
     _stationDataService = GetIt.instance<StationDataService>();
@@ -61,6 +67,9 @@ class _TvShellState extends State<TvShell> {
       _audioHandler.play();
       _autoPlayDone = true;
     }
+
+    // Handle deep links (e.g. from TV home screen channel programs)
+    _initDeepLinks();
 
     // Track station changes
     _subscriptions.add(
@@ -102,6 +111,56 @@ class _TvShellState extends State<TvShell> {
       sub.cancel();
     }
     super.dispose();
+  }
+
+  void _initDeepLinks() {
+    final appLinks = AppLinks();
+
+    // Handle initial link (cold start from TV channel program)
+    appLinks.getInitialLink().then((uri) {
+      if (uri != null) _handleDeepLink(uri);
+    });
+
+    // Handle links while running
+    _subscriptions.add(
+      appLinks.uriLinkStream.listen(
+        (uri) => _handleDeepLink(uri),
+        onError: (err) {
+          developer.log('Deep link error: $err', name: 'TvShell');
+        },
+      ),
+    );
+  }
+
+  void _handleDeepLink(Uri uri) {
+    developer.log('TV deep link: $uri', name: 'TvShell');
+
+    // Extract station slug from URI
+    String slug;
+    if (uri.scheme == 'radiocrestin') {
+      // radiocrestin://{slug}
+      slug = uri.host;
+    } else {
+      // https://www.radiocrestin.ro/radio/{slug}
+      final segments = uri.pathSegments;
+      slug = segments.isNotEmpty ? segments.last : '';
+    }
+
+    if (slug.isEmpty) return;
+
+    // Find and play the station
+    final allStations = _stationDataService.stations.value;
+    final station = allStations.cast<Station?>().firstWhere(
+      (s) => s!.slug == slug,
+      orElse: () => null,
+    );
+
+    if (station != null) {
+      _audioHandler.playStation(station);
+      if (mounted) setState(() => _browsing = false);
+    } else {
+      developer.log('Station not found for slug: $slug', name: 'TvShell');
+    }
   }
 
   void _openBrowse() => setState(() => _browsing = true);
