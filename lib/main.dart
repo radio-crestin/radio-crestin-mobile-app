@@ -31,6 +31,7 @@ import 'firebase_options.dart';
 import 'globals.dart' as globals;
 import 'services/car_play_service.dart';
 import 'services/cast_service.dart';
+import 'package:flutter_airplay/flutter_airplay.dart' as flutter_airplay;
 import 'services/analytics_service.dart';
 import 'services/image_cache_service.dart';
 import 'services/quick_actions_service.dart';
@@ -136,7 +137,7 @@ void main() async {
   }
   globals.deviceId = persistentDeviceId;
 
-  // Detect TV platform (Android TV, Apple TV)
+  // Detect TV/desktop platform (Android TV, macOS, Windows, Linux)
   await TvPlatform.initialize();
 
   if (prefs.getString('_reviewStatus') == null) {
@@ -233,7 +234,7 @@ void main() async {
   // deviceId is already set above; appVersion/buildNumber come later.
   await AnalyticsService.instance.identify(
     userId: globals.deviceId,
-    platform: Platform.isAndroid ? 'android' : Platform.isIOS ? 'ios' : 'other',
+    platform: Platform.isAndroid ? 'android' : Platform.isIOS ? 'ios' : Platform.isMacOS ? 'macos' : Platform.isWindows ? 'windows' : Platform.isLinux ? 'linux' : 'other',
   );
 
   if (prefs.getBool('_notificationsEnabled') ?? true) {
@@ -255,7 +256,7 @@ void main() async {
     userId: globals.deviceId,
     appVersion: packageInfo.version,
     buildNumber: packageInfo.buildNumber,
-    platform: Platform.isAndroid ? 'android' : Platform.isIOS ? 'ios' : 'other',
+    platform: Platform.isAndroid ? 'android' : Platform.isIOS ? 'ios' : Platform.isMacOS ? 'macos' : Platform.isWindows ? 'windows' : Platform.isLinux ? 'linux' : 'other',
   );
 
   // Initialize theme and seek mode synchronously using already-loaded prefs (no async overhead)
@@ -286,15 +287,17 @@ void main() async {
     QuickActionsService.initialize();
   });
 
-  // Defer CarPlay/Android Auto init to after first frame (not needed for initial render)
-  WidgetsBinding.instance.addPostFrameCallback((_) async {
-    final carPlayService = await PerformanceMonitor.trackAsync('carplay_service_init', () async {
-      final service = CarPlayService();
-      await service.initialize();
-      return service;
+  // Defer CarPlay/Android Auto init to after first frame (mobile only)
+  if (Platform.isIOS || Platform.isAndroid) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final carPlayService = await PerformanceMonitor.trackAsync('carplay_service_init', () async {
+        final service = CarPlayService();
+        await service.initialize();
+        return service;
+      });
+      getIt.registerSingleton<CarPlayService>(carPlayService);
     });
-    getIt.registerSingleton<CarPlayService>(carPlayService);
-  });
+  }
 
   // Defer Chromecast/AirPlay discovery to after first frame
   if (!TvPlatform.isTV) {
@@ -303,19 +306,36 @@ void main() async {
       await castService.initialize();
       getIt.registerSingleton<CastService>(castService);
 
-      // Auto-cast current station on connect, update metadata on song change
+      // Auto-play + cast on Chromecast connect
       final audioHandler = getIt<AppAudioHandler>();
-      castService.isCasting.listen((casting) {
+      castService.isCasting.listen((casting) async {
         if (casting) {
-          final station = audioHandler.currentStation.value;
+          var station = audioHandler.currentStation.value;
+          // Nothing playing — start last played station automatically
+          if (station == null) {
+            station = await audioHandler.getLastPlayedStation();
+            if (station != null) audioHandler.playStation(station);
+          }
           if (station != null) castService.castStation(station);
         }
       });
+      // Push metadata updates when song changes during active cast
       audioHandler.currentStation.listen((station) {
         if (station != null && castService.isCasting.value) {
           castService.castStation(station);
         }
       });
+
+      // Auto-play on AirPlay connect (iOS only)
+      if (Platform.isIOS) {
+        final airplay = flutter_airplay.AirPlayRouteState.instance;
+        airplay.isActiveStream.listen((active) async {
+          if (active && audioHandler.currentStation.value == null) {
+            final station = await audioHandler.getLastPlayedStation();
+            if (station != null) audioHandler.playStation(station);
+          }
+        });
+      }
     });
   }
 }
