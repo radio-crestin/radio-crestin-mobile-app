@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io' show Platform;
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_airplay/flutter_airplay.dart';
@@ -11,8 +10,8 @@ import '../services/cast_service.dart';
 import '../services/analytics_service.dart';
 import '../theme.dart';
 
-/// Animated cast button that auto-hides when no devices are available.
-/// Shows a device picker dialog on tap, or disconnects if already casting.
+/// Cast button in the AppBar — auto-appears when devices are found.
+/// Single tap opens a unified bottom sheet with all available devices.
 class CastButton extends StatefulWidget {
   const CastButton({super.key});
 
@@ -48,7 +47,6 @@ class _CastButtonState extends State<CastButton>
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
 
-    // AirPlay route state (iOS only, no-op on Android)
     if (Platform.isIOS) {
       final airplay = AirPlayRouteState.instance;
       _isAirPlayActive = airplay.isActive;
@@ -65,7 +63,6 @@ class _CastButtonState extends State<CastButton>
     }
 
     _tryInit();
-    // CastService is registered lazily after first frame — retry shortly
     if (!_initialized) {
       Future.delayed(const Duration(seconds: 2), () {
         if (mounted) _tryInit();
@@ -111,50 +108,32 @@ class _CastButtonState extends State<CastButton>
   bool get _hasDevices => _devices.isNotEmpty || Platform.isIOS;
 
   void _onTap() {
-    if (_isCasting) {
-      _showConnectedDialog();
-    } else if (_hasDevices) {
-      _showDevicePicker();
-    }
-  }
-
-  void _showDevicePicker() {
-    if (_castService == null) return;
+    if (!_hasDevices) return;
     AnalyticsService.instance
         .capture('cast_picker_opened', {'device_count': _devices.length});
-    showDialog(
-      context: context,
-      barrierDismissible: true,
-      barrierColor: Colors.black.withValues(alpha:0.65),
-      builder: (context) => BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-        child: _CastDevicePickerDialog(
-          devices: _devices,
-          castService: _castService!,
-        ),
-      ),
-    );
+    _showDeviceSheet();
   }
 
-  void _showConnectedDialog() {
-    showDialog(
+  void _showDeviceSheet() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showModalBottomSheet(
       context: context,
-      barrierDismissible: true,
-      barrierColor: Colors.black.withValues(alpha:0.65),
-      builder: (context) => BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-        child: _CastConnectedDialog(
-          castService: _castService,
-          isAirPlay: _isAirPlayActive,
-          deviceName: _isAirPlayActive ? _airPlayDeviceName : null,
-        ),
+      backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => _DeviceSheet(
+        devices: _devices,
+        castService: _castService,
+        isChromecastCasting: _isChromecastCasting,
+        isAirPlayActive: _isAirPlayActive,
+        airPlayDeviceName: _airPlayDeviceName,
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    // Hide completely when no devices found
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 250),
       transitionBuilder: (child, animation) => FadeTransition(
@@ -172,7 +151,9 @@ class _CastButtonState extends State<CastButton>
               mainAxisSize: MainAxisSize.min,
               children: [
                 ScaleTransition(
-                  scale: _isCasting ? _pulseAnimation : const AlwaysStoppedAnimation(1.0),
+                  scale: _isCasting
+                      ? _pulseAnimation
+                      : const AlwaysStoppedAnimation(1.0),
                   child: _buildButton(context),
                 ),
                 const SizedBox(width: 8),
@@ -194,7 +175,8 @@ class _CastButtonState extends State<CastButton>
         onTap: _onTap,
         customBorder: const CircleBorder(),
         child: Tooltip(
-          message: _isCasting ? 'Oprește transmiterea' : 'Transmite pe dispozitiv',
+          message:
+              _isCasting ? 'Oprește transmiterea' : 'Transmite pe dispozitiv',
           child: SizedBox(
             width: 44,
             height: 44,
@@ -219,148 +201,117 @@ class _CastButtonState extends State<CastButton>
 }
 
 // ---------------------------------------------------------------------------
-// Device picker dialog
+// Unified device bottom sheet (YouTube-style)
 // ---------------------------------------------------------------------------
 
-class _CastDevicePickerDialog extends StatelessWidget {
+class _DeviceSheet extends StatelessWidget {
   final List<GoogleCastDevice> devices;
-  final CastService castService;
+  final CastService? castService;
+  final bool isChromecastCasting;
+  final bool isAirPlayActive;
+  final String? airPlayDeviceName;
 
-  const _CastDevicePickerDialog({
+  const _DeviceSheet({
     required this.devices,
     required this.castService,
+    required this.isChromecastCasting,
+    required this.isAirPlayActive,
+    required this.airPlayDeviceName,
   });
-
-  static String _deviceCountLabel(int chromecastCount) {
-    final total = chromecastCount + (Platform.isIOS ? 1 : 0); // +1 for AirPlay
-    if (total == 1) return '1 opțiune disponibilă';
-    return '$total opțiuni disponibile';
-  }
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Center(
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 32),
-        constraints: const BoxConstraints(maxWidth: 380),
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha:0.3),
-              blurRadius: 30,
-              offset: const Offset(0, 10),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Header
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
-              child: Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha:0.12),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(
-                      Icons.cast_rounded,
-                      color: AppColors.primary,
-                      size: 22,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Transmite pe',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            color: Theme.of(context).colorScheme.onSurface,
-                          ),
-                        ),
-                        Text(
-                          _deviceCountLabel(devices.length),
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurface
-                                .withValues(alpha:0.5),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: Icon(
-                      Icons.close_rounded,
-                      color: Theme.of(context)
-                          .colorScheme
-                          .onSurface
-                          .withValues(alpha:0.5),
-                    ),
-                  ),
-                ],
+    return SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Drag handle
+          Center(
+            child: Container(
+              width: 36,
+              height: 4,
+              margin: const EdgeInsets.only(top: 12, bottom: 16),
+              decoration: BoxDecoration(
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white24
+                    : Colors.black12,
+                borderRadius: BorderRadius.circular(2),
               ),
             ),
-            const Divider(height: 1),
-            // Chromecast device list
-            if (devices.isNotEmpty)
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 240),
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  itemCount: devices.length,
-                  itemBuilder: (context, index) {
-                    final device = devices[index];
-                    return _DeviceTile(
-                      device: device,
-                      onTap: () async {
-                        Navigator.of(context).pop();
-                        await castService.connectToDevice(device);
-                      },
-                    );
+          ),
+          // Title
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Text(
+              'Selectează un dispozitiv',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // --- Connected device (if casting) ---
+          if (isChromecastCasting)
+            _SheetRow(
+              icon: Icons.cast_connected_rounded,
+              iconColor: AppColors.primary,
+              title: 'Conectat la Chromecast',
+              trailing: TextButton(
+                onPressed: () {
+                  castService?.disconnect();
+                  Navigator.of(context).pop();
+                },
+                child: const Text('Deconectare'),
+              ),
+            ),
+
+          if (isAirPlayActive)
+            _AirPlaySheetRow(
+              deviceName: airPlayDeviceName,
+              isActive: true,
+            ),
+
+          // --- Available Chromecast devices ---
+          if (!isChromecastCasting)
+            ...devices.map((device) => _ChromecastDeviceRow(
+                  device: device,
+                  onTap: () async {
+                    Navigator.of(context).pop();
+                    await castService?.connectToDevice(device);
                   },
-                ),
-              ),
-            // AirPlay section (iOS only)
-            if (Platform.isIOS) ...[
-              if (devices.isNotEmpty) const Divider(height: 1),
-              _AirPlayTile(),
-            ],
-            const SizedBox(height: 8),
-          ],
-        ),
+                )),
+
+          // --- AirPlay row (iOS only, when not already active) ---
+          if (Platform.isIOS && !isAirPlayActive)
+            _AirPlaySheetRow(isActive: false),
+
+          const SizedBox(height: 8),
+        ],
       ),
     );
   }
 }
 
-class _DeviceTile extends StatelessWidget {
+// --- Chromecast device row ---
+
+class _ChromecastDeviceRow extends StatelessWidget {
   final GoogleCastDevice device;
   final VoidCallback onTap;
 
-  const _DeviceTile({required this.device, required this.onTap});
+  const _ChromecastDeviceRow({required this.device, required this.onTap});
 
   IconData _deviceIcon() {
     final name = device.friendlyName.toLowerCase();
     if (name.contains('tv') || name.contains('television')) {
       return Icons.tv_rounded;
     }
-    if (name.contains('speaker') || name.contains('home') || name.contains('nest')) {
+    if (name.contains('speaker') ||
+        name.contains('home') ||
+        name.contains('nest')) {
       return Icons.speaker_rounded;
     }
     if (name.contains('display') || name.contains('hub')) {
@@ -371,286 +322,121 @@ class _DeviceTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary.withValues(alpha:0.08),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  _deviceIcon(),
-                  size: 22,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      device.friendlyName,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
-                    ),
-                    if (device.modelName != null && device.modelName!.isNotEmpty)
-                      Text(
-                        device.modelName!,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurface
-                              .withValues(alpha:0.5),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              Icon(
-                Icons.chevron_right_rounded,
-                color: Theme.of(context)
-                    .colorScheme
-                    .onSurface
-                    .withValues(alpha:0.3),
-              ),
-            ],
-          ),
-        ),
-      ),
+    return _SheetRow(
+      icon: _deviceIcon(),
+      title: device.friendlyName,
+      subtitle: device.modelName,
+      onTap: onTap,
     );
   }
 }
 
-// ---------------------------------------------------------------------------
-// AirPlay tile — embeds native AVRoutePickerView inside the dialog
-// ---------------------------------------------------------------------------
+// --- AirPlay row with native picker overlay ---
 
-class _AirPlayTile extends StatelessWidget {
+class _AirPlaySheetRow extends StatelessWidget {
+  final String? deviceName;
+  final bool isActive;
+
+  const _AirPlaySheetRow({this.deviceName, required this.isActive});
+
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: Colors.blue.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.airplay_rounded,
-              size: 22,
-              color: Colors.blue,
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'AirPlay',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: Theme.of(context).colorScheme.onSurface,
+    return Stack(
+      children: [
+        _SheetRow(
+          icon: Icons.airplay_rounded,
+          iconColor: isActive ? Colors.blue : null,
+          title: isActive
+              ? (deviceName != null ? 'AirPlay: $deviceName' : 'AirPlay conectat')
+              : 'AirPlay și Bluetooth',
+          subtitle: isActive ? null : 'AirPods, HomePod, Apple TV, difuzoare',
+          trailing: isActive
+              ? Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(
+                    color: Colors.blue,
+                    shape: BoxShape.circle,
                   ),
-                ),
-                Text(
-                  'AirPods, HomePod, Apple TV, difuzoare',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withValues(alpha: 0.5),
-                  ),
-                ),
-              ],
-            ),
+                )
+              : null,
+        ),
+        // Invisible native picker covers the entire row — any tap triggers iOS system sheet
+        Positioned.fill(
+          child: AirPlayRoutePickerView(
+            tintColor: Colors.transparent,
+            activeTintColor: Colors.transparent,
+            backgroundColor: Colors.transparent,
+            onShowPickerView: () {
+              Navigator.of(context).pop();
+              AnalyticsService.instance.capture('airplay_picker_opened');
+            },
           ),
-          // Native AirPlay route picker button — triggers iOS system picker
-          SizedBox(
-            width: 44,
-            height: 44,
-            child: AirPlayRoutePickerView(
-              tintColor: Theme.of(context).colorScheme.primary,
-              activeTintColor: Colors.blue,
-              onShowPickerView: () {
-                Navigator.of(context).pop();
-                AnalyticsService.instance.capture('airplay_picker_opened');
-              },
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
 
-// ---------------------------------------------------------------------------
-// Connected / disconnect dialog
-// ---------------------------------------------------------------------------
+// --- Generic sheet row ---
 
-class _CastConnectedDialog extends StatelessWidget {
-  final CastService? castService;
-  final bool isAirPlay;
-  final String? deviceName;
+class _SheetRow extends StatelessWidget {
+  final IconData icon;
+  final Color? iconColor;
+  final String title;
+  final String? subtitle;
+  final VoidCallback? onTap;
+  final Widget? trailing;
 
-  const _CastConnectedDialog({
-    required this.castService,
-    this.isAirPlay = false,
-    this.deviceName,
+  const _SheetRow({
+    required this.icon,
+    this.iconColor,
+    required this.title,
+    this.subtitle,
+    this.onTap,
+    this.trailing,
   });
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final icon = isAirPlay ? Icons.airplay_rounded : Icons.cast_connected_rounded;
-    final label = isAirPlay ? 'AirPlay' : 'Chromecast';
-    final subtitle = deviceName != null
-        ? 'Se redă pe $deviceName'
-        : 'Radioul se redă pe dispozitivul conectat.';
-
-    return Center(
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 32),
-        constraints: const BoxConstraints(maxWidth: 380),
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha:0.3),
-              blurRadius: 30,
-              offset: const Offset(0, 10),
-            ),
-          ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: (isAirPlay ? Colors.blue : AppColors.primary).withValues(alpha:0.12),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Icon(
-                  icon,
-                  color: isAirPlay ? Colors.blue : AppColors.primary,
-                  size: 28,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Se transmite prin $label',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: Theme.of(context).colorScheme.onSurface,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                subtitle,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Theme.of(context)
-                      .colorScheme
-                      .onSurface
-                      .withValues(alpha:0.6),
-                ),
-              ),
-              const SizedBox(height: 24),
-              if (isAirPlay)
-                // AirPlay: show native route picker to switch/disconnect
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: Stack(
-                    children: [
-                      // Visual button
-                      Container(
-                        width: double.infinity,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: Colors.blue,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.airplay_rounded, size: 20, color: Colors.white),
-                            SizedBox(width: 8),
-                            Text(
-                              'Schimbă dispozitivul',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      // Invisible native picker overlaid on top
-                      Positioned.fill(
-                        child: AirPlayRoutePickerView(
-                          tintColor: Colors.transparent,
-                          activeTintColor: Colors.transparent,
-                          backgroundColor: Colors.transparent,
-                          onShowPickerView: () => Navigator.of(context).pop(),
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              else
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      castService?.disconnect();
-                      Navigator.of(context).pop();
-                    },
-                    icon: const Icon(Icons.cast_rounded, size: 20),
-                    label: const Text('Oprește transmiterea'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      textStyle: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                      ),
+    final color = iconColor ??
+        Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7);
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        child: Row(
+          children: [
+            Icon(icon, size: 24, color: color),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
-                ),
-            ],
-          ),
+                  if (subtitle != null && subtitle!.isNotEmpty)
+                    Text(
+                      subtitle!,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withValues(alpha: 0.5),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            if (trailing != null) trailing!,
+          ],
         ),
       ),
     );
