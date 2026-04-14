@@ -148,17 +148,6 @@ class _TvBrowseState extends State<TvBrowse> {
                       onStationSelected: widget.onStationSelected,
                     ),
                   ),
-                SliverToBoxAdapter(
-                  child: TvStationRow(
-                    title: 'Alese pentru tine',
-                    stations: _allStations,
-                    currentStation: _currentStation,
-                    favoriteSlugs: _favoriteSlugs,
-                    autofocusFirst:
-                        playing == null && _favoriteStations.isEmpty,
-                    onStationSelected: widget.onStationSelected,
-                  ),
-                ),
                 ..._groupedStations.entries.map((entry) {
                   return SliverToBoxAdapter(
                     child: TvStationRow(

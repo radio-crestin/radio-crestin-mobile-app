@@ -6,7 +6,6 @@ import '../tv_theme.dart';
 
 /// Square station card for TV browse.
 /// Shows thumbnail (1:1), station title, and current song below.
-/// Focus: primary color border + subtle scale. Select to play.
 class TvStationCard extends StatelessWidget {
   final Station station;
   final bool isPlaying;
@@ -16,7 +15,7 @@ class TvStationCard extends StatelessWidget {
   final ValueChanged<Station>? onFocus;
   final bool autofocus;
 
-  static const double cardSize = 140.0; // 1:1 square
+  static const double cardSize = 160.0;
 
   const TvStationCard({
     super.key,
@@ -32,12 +31,12 @@ class TvStationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: cardSize + 12,
-      height: cardSize + 50, // thumbnail + title + song
+      width: cardSize + 14,
+      height: cardSize + 56,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Thumbnail — square, focusable
+          // Thumbnail
           DpadFocusable(
             autofocus: autofocus,
             onSelect: onSelect,
@@ -75,11 +74,10 @@ class TvStationCard extends StatelessWidget {
                 children: [
                   station.displayThumbnail(
                       cacheWidth: (cardSize * 2).toInt()),
-                  // Playing indicator — bottom left
                   if (isPlaying)
                     Positioned(
-                      bottom: 5,
-                      left: 5,
+                      bottom: 6,
+                      left: 6,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 5, vertical: 2),
@@ -91,13 +89,13 @@ class TvStationCard extends StatelessWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.equalizer_rounded,
-                                color: Colors.white, size: 11),
+                                color: Colors.white, size: 12),
                             SizedBox(width: 2),
                             Text('LIVE',
                                 style: TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.bold,
-                                    fontSize: 8)),
+                                    fontSize: 9)),
                           ],
                         ),
                       ),
@@ -106,39 +104,44 @@ class TvStationCard extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 5),
-          // Station title
-          SizedBox(
-            width: cardSize,
+          const SizedBox(height: 6),
+          // Station title — left aligned, bigger
+          Padding(
+            padding: const EdgeInsets.only(left: 4),
             child: Text(
               station.title,
               style: TvTypography.label.copyWith(
                 color: isPlaying ? TvColors.primary : TvColors.textPrimary,
-                fontSize: 12,
+                fontSize: 14,
                 fontWeight: FontWeight.w600,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.left,
             ),
           ),
-          // Song name
-          SizedBox(
-            width: cardSize,
+          // Song name — left aligned, bigger
+          Padding(
+            padding: const EdgeInsets.only(left: 4),
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 250),
-              child: Text(
-                station.songTitle.isNotEmpty
-                    ? station.songTitle
-                    : station.displaySubtitle.isNotEmpty
-                        ? station.displaySubtitle
-                        : '${station.totalListeners ?? 0} ascultători',
-                key: ValueKey('${station.id}-${station.songId}'),
-                style: TvTypography.caption.copyWith(
-                  fontSize: 10,
-                  color: TvColors.textTertiary,
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  station.songTitle.isNotEmpty
+                      ? station.songTitle
+                      : station.displaySubtitle.isNotEmpty
+                          ? station.displaySubtitle
+                          : '',
+                  key: ValueKey('${station.id}-${station.songId}'),
+                  style: TvTypography.caption.copyWith(
+                    fontSize: 12,
+                    color: TvColors.textTertiary,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.left,
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
               ),
             ),
           ),
