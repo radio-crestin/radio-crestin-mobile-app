@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:get_it/get_it.dart';
 
-import '../../appAudioHandler.dart';
 import '../../types/Station.dart';
 import '../tv_theme.dart';
 import 'tv_station_card.dart';
@@ -13,7 +11,7 @@ class TvStationRow extends StatelessWidget {
   final Station? currentStation;
   final List<String> favoriteSlugs;
   final bool autofocusFirst;
-  final VoidCallback? onOpenNowPlaying;
+  final ValueChanged<Station>? onStationSelected;
   final ValueChanged<Station>? onStationFocused;
 
   const TvStationRow({
@@ -23,15 +21,13 @@ class TvStationRow extends StatelessWidget {
     required this.currentStation,
     required this.favoriteSlugs,
     this.autofocusFirst = false,
-    this.onOpenNowPlaying,
+    this.onStationSelected,
     this.onStationFocused,
   });
 
   @override
   Widget build(BuildContext context) {
     if (stations.isEmpty) return const SizedBox.shrink();
-
-    final audioHandler = GetIt.instance<AppAudioHandler>();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -44,7 +40,7 @@ class TvStationRow extends StatelessWidget {
           child: Text(title, style: TvTypography.headline),
         ),
         SizedBox(
-          height: TvSpacing.stationCardHeight + 70, // Card + border padding + text
+          height: TvSpacing.stationCardHeight + 70,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: TvSpacing.lg),
@@ -60,13 +56,8 @@ class TvStationRow extends StatelessWidget {
                 isPlaying: isPlaying,
                 isFavorite: isFavorite,
                 autofocus: autofocusFirst && index == 0,
-                onSelect: () {
-                  audioHandler.playStation(station);
-                  onOpenNowPlaying?.call();
-                },
-                onFavoriteToggle: () {
-                  audioHandler.customAction('toggleFavorite');
-                },
+                onSelect: () => onStationSelected?.call(station),
+                onFavoriteToggle: () {},
                 onFocus: onStationFocused,
               );
             },
