@@ -259,20 +259,21 @@ class _DeviceSheetState extends State<_DeviceSheet> {
               child: Row(
                 children: [
                   Text(
-                    _searching
-                        ? 'Se caută dispozitive...'
-                        : 'Selectează un dispozitiv',
+                    'Selectează un dispozitiv',
                     style: TextStyle(
                       fontSize: 16, fontWeight: FontWeight.w600,
                       color: onSurface),
                   ),
                   if (_searching) ...[
-                    const SizedBox(width: 8),
+                    const Spacer(),
                     SizedBox(
-                      width: 14, height: 14,
+                      width: 12, height: 12,
                       child: CircularProgressIndicator(
                         strokeWidth: 1.5, color: dim),
                     ),
+                    const SizedBox(width: 6),
+                    Text('Se caută dispozitive...', style: TextStyle(
+                      fontSize: 12, color: dim)),
                   ],
                 ],
               ),
