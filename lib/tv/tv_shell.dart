@@ -11,9 +11,10 @@ import 'tv_theme.dart';
 import 'pages/tv_home_page.dart';
 import 'pages/tv_now_playing_page.dart';
 
-/// TV app shell — full-screen, no sidebar, no persistent mini player.
-/// Select a station → full-screen Now Playing.
-/// Back → return to browse.
+/// TV app shell — full-screen.
+/// Starts with Now Playing if a station is already loaded (auto-resume).
+/// Select a station from browse → full-screen Now Playing.
+/// Back from Now Playing → browse.
 class TvShell extends StatefulWidget {
   const TvShell({super.key});
 
@@ -22,7 +23,7 @@ class TvShell extends StatefulWidget {
 }
 
 class _TvShellState extends State<TvShell> {
-  bool _showNowPlaying = false;
+  late bool _showNowPlaying;
 
   late final AppAudioHandler _audioHandler;
   final List<StreamSubscription> _subscriptions = [];
@@ -38,6 +39,15 @@ class _TvShellState extends State<TvShell> {
     ]);
 
     _audioHandler = GetIt.instance<AppAudioHandler>();
+
+    // Start with Now Playing if a station is already loaded
+    _currentStation = _audioHandler.currentStation.value;
+    _showNowPlaying = _currentStation != null;
+
+    // Auto-play the last station if it was loaded
+    if (_currentStation != null && !_audioHandler.playbackState.value.playing) {
+      _audioHandler.play();
+    }
 
     _subscriptions.add(
       _audioHandler.currentStation.stream.listen((station) {

@@ -44,7 +44,7 @@ class TvStationRow extends StatelessWidget {
           child: Text(title, style: TvTypography.headline),
         ),
         SizedBox(
-          height: TvSpacing.stationCardHeight + 64,
+          height: TvSpacing.stationCardHeight + 70, // Card + border padding + text
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: TvSpacing.lg),

@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:dpad/dpad.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get_it/get_it.dart';
 import 'package:rxdart/rxdart.dart';
 
@@ -12,7 +14,8 @@ import '../../widgets/animated_play_button.dart';
 import '../tv_theme.dart';
 
 /// Full-screen TV now playing page.
-/// Layout: Large artwork on left, metadata + controls + recent songs on right.
+/// Blurred artwork background. Artwork left, metadata + controls + 3 recent songs right.
+/// Remote media keys bound directly.
 class TvNowPlayingPage extends StatefulWidget {
   final VoidCallback onBack;
 
@@ -30,7 +33,7 @@ class _TvNowPlayingPageState extends State<TvNowPlayingPage> {
 
   Station? _station;
   List<String> _favoriteSlugs = [];
-  List<_SongHistoryEntry> _songHistory = [];
+  final List<_SongHistoryEntry> _songHistory = [];
 
   @override
   void initState() {
@@ -51,7 +54,6 @@ class _TvNowPlayingPageState extends State<TvNowPlayingPage> {
             _station = newStation;
             _favoriteSlugs = data.$2;
           });
-          // Track song changes for history
           if (newStation != null &&
               newStation.songTitle.isNotEmpty &&
               (oldStation == null ||
@@ -70,12 +72,12 @@ class _TvNowPlayingPageState extends State<TvNowPlayingPage> {
         _SongHistoryEntry(
           songTitle: station.songTitle,
           songArtist: station.songArtist,
-          stationTitle: station.title,
           timestamp: DateTime.now(),
         ),
       );
-      if (_songHistory.length > 20) {
-        _songHistory = _songHistory.sublist(0, 20);
+      // Keep only last 10 in memory (display 3)
+      if (_songHistory.length > 10) {
+        _songHistory.removeRange(10, _songHistory.length);
       }
     });
   }
@@ -91,6 +93,43 @@ class _TvNowPlayingPageState extends State<TvNowPlayingPage> {
   bool get _isFavorite =>
       _station != null && _favoriteSlugs.contains(_station!.slug);
 
+  KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    final key = event.logicalKey;
+
+    if (key == LogicalKeyboardKey.mediaTrackNext) {
+      _playButtonKey.currentState?.notifyWillPlay();
+      _audioHandler.skipToNext();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.mediaTrackPrevious) {
+      _playButtonKey.currentState?.notifyWillPlay();
+      _audioHandler.skipToPrevious();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.mediaPlayPause) {
+      if (_audioHandler.playbackState.value.playing) {
+        _audioHandler.pause();
+      } else {
+        _audioHandler.play();
+      }
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.keyF) {
+      _audioHandler.customAction('toggleFavorite');
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.keyL) {
+      _audioHandler.customAction('likeSong');
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.keyD) {
+      _audioHandler.customAction('dislikeSong');
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
   @override
   Widget build(BuildContext context) {
     final station = _station;
@@ -105,116 +144,176 @@ class _TvNowPlayingPageState extends State<TvNowPlayingPage> {
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) widget.onBack();
       },
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: TvSpacing.marginHorizontal,
-          vertical: TvSpacing.marginVertical,
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
+      child: Focus(
+        onKeyEvent: _onKeyEvent,
+        child: Stack(
+          fit: StackFit.expand,
           children: [
-            // LEFT: Large artwork
-            Expanded(
-              flex: 4,
-              child: Center(
-                child: AspectRatio(
-                  aspectRatio: 1,
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 400),
-                    child: ClipRRect(
-                      key: ValueKey('np-art-${station.artUri}'),
-                      borderRadius:
-                          BorderRadius.circular(TvSpacing.radiusLg),
-                      child: station.displayThumbnail(cacheWidth: 600),
+            // Blurred artwork background
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 600),
+              child: SizedBox.expand(
+                key: ValueKey('np-bg-${station.id}-${station.artUri}'),
+                child: ImageFiltered(
+                  imageFilter: ImageFilter.blur(sigmaX: 40, sigmaY: 40),
+                  child: ColorFiltered(
+                    colorFilter: ColorFilter.mode(
+                      Colors.black.withValues(alpha: 0.55),
+                      BlendMode.darken,
+                    ),
+                    child: FittedBox(
+                      fit: BoxFit.cover,
+                      clipBehavior: Clip.hardEdge,
+                      child: SizedBox(
+                        width: 200,
+                        height: 200,
+                        child: station.displayThumbnail(cacheWidth: 400),
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
-            const SizedBox(width: TvSpacing.xxl),
-            // RIGHT: Metadata + controls + song history
-            Expanded(
-              flex: 5,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
+            // Content
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: TvSpacing.marginHorizontal,
+                vertical: TvSpacing.marginVertical,
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // Station name
-                  Text(
-                    station.title,
-                    style: TvTypography.headline.copyWith(
-                      color: TvColors.textSecondary,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: TvSpacing.sm),
-                  // Song title
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 250),
-                    child: Text(
-                      station.songTitle.isNotEmpty
-                          ? station.songTitle
-                          : 'Live Radio',
-                      key: ValueKey('np-song-${station.songId}'),
-                      style: TvTypography.displayMedium,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  if (station.songArtist.isNotEmpty) ...[
-                    const SizedBox(height: TvSpacing.xs),
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 250),
-                      child: Text(
-                        station.songArtist,
-                        key: ValueKey('np-artist-${station.songId}'),
-                        style: TvTypography.title.copyWith(
-                          color: TvColors.textSecondary,
+                  // LEFT: Large artwork
+                  Expanded(
+                    flex: 4,
+                    child: Padding(
+                      padding: const EdgeInsets.all(TvSpacing.lg),
+                      child: Center(
+                        child: AspectRatio(
+                          aspectRatio: 1,
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 400),
+                            child: Container(
+                              key: ValueKey('np-art-${station.artUri}'),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(
+                                    TvSpacing.radiusLg),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color:
+                                        Colors.black.withValues(alpha: 0.4),
+                                    blurRadius: 30,
+                                    spreadRadius: 5,
+                                  ),
+                                ],
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(
+                                    TvSpacing.radiusLg),
+                                child: station.displayThumbnail(
+                                    cacheWidth: 600),
+                              ),
+                            ),
+                          ),
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                  ],
-                  const SizedBox(height: TvSpacing.sm),
-                  // Listener count
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.headphones_rounded,
-                        size: 16,
-                        color: TvColors.textTertiary,
-                      ),
-                      const SizedBox(width: TvSpacing.xs),
-                      Text(
-                        '${station.totalListeners ?? 0} ascultători',
-                        style: TvTypography.caption,
-                      ),
-                    ],
                   ),
-                  const SizedBox(height: TvSpacing.xl),
-                  // Transport controls
-                  _buildControls(),
-                  const SizedBox(height: TvSpacing.xl),
-                  // Recent songs section
-                  if (_songHistory.isNotEmpty) ...[
-                    Text(
-                      'Melodii recente',
-                      style: TvTypography.title.copyWith(fontSize: 18),
-                    ),
-                    const SizedBox(height: TvSpacing.sm),
-                    Expanded(
-                      child: ListView.builder(
-                        shrinkWrap: true,
-                        itemCount: _songHistory.length.clamp(0, 8),
-                        itemBuilder: (context, index) {
-                          final entry = _songHistory[index];
-                          return _SongHistoryTile(entry: entry);
-                        },
+                  const SizedBox(width: TvSpacing.lg),
+                  // RIGHT: Metadata + controls + recent songs
+                  Expanded(
+                    flex: 5,
+                    child: Padding(
+                      padding:
+                          const EdgeInsets.symmetric(vertical: TvSpacing.lg),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // Station name
+                          Text(
+                            station.title,
+                            style: TvTypography.body.copyWith(
+                              color: TvColors.textSecondary,
+                              fontSize: 18,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: TvSpacing.sm),
+                          // Song title
+                          AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 250),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                station.songTitle.isNotEmpty
+                                    ? station.songTitle
+                                    : 'Live Radio',
+                                key: ValueKey('np-song-${station.songId}'),
+                                style: TvTypography.displayMedium,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ),
+                          if (station.songArtist.isNotEmpty) ...[
+                            const SizedBox(height: TvSpacing.xs),
+                            AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 250),
+                              child: Align(
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  station.songArtist,
+                                  key: ValueKey(
+                                      'np-artist-${station.songId}'),
+                                  style: TvTypography.title.copyWith(
+                                    color: TvColors.textSecondary,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: TvSpacing.sm),
+                          // Listener count
+                          Row(
+                            children: [
+                              const Icon(Icons.headphones_rounded,
+                                  size: 16, color: TvColors.textTertiary),
+                              const SizedBox(width: TvSpacing.xs),
+                              Text(
+                                '${station.totalListeners ?? 0} ascultători',
+                                style: TvTypography.caption,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: TvSpacing.xl),
+                          // Transport controls
+                          _buildControls(),
+                          const Spacer(),
+                          // Recent songs — last 3 only
+                          Text(
+                            'Melodii recente',
+                            style: TvTypography.title.copyWith(fontSize: 16),
+                          ),
+                          const SizedBox(height: TvSpacing.sm),
+                          if (_songHistory.isEmpty)
+                            Text(
+                              'Melodiile redate vor apărea aici',
+                              style: TvTypography.caption,
+                            )
+                          else
+                            ...List.generate(
+                              _songHistory.length.clamp(0, 3),
+                              (i) => _SongHistoryTile(
+                                  entry: _songHistory[i]),
+                            ),
+                        ],
                       ),
                     ),
-                  ],
+                  ),
                 ],
               ),
             ),
@@ -244,8 +343,8 @@ class _TvNowPlayingPageState extends State<TvNowPlayingPage> {
       child: Container(
         width: size,
         height: size,
-        decoration: const BoxDecoration(
-          color: TvColors.surfaceVariant,
+        decoration: BoxDecoration(
+          color: TvColors.surfaceVariant.withValues(alpha: 0.7),
           shape: BoxShape.circle,
         ),
         child: Icon(
@@ -269,24 +368,24 @@ class _TvNowPlayingPageState extends State<TvNowPlayingPage> {
           iconColor: _isFavorite ? TvColors.primary : TvColors.textSecondary,
           onSelect: () => _audioHandler.customAction('toggleFavorite'),
         ),
-        const SizedBox(width: TvSpacing.lg),
+        const SizedBox(width: TvSpacing.md),
         // Skip previous
         _buildControlButton(
           icon: Icons.skip_previous_rounded,
           iconColor: TvColors.textPrimary,
-          iconSize: 32,
-          size: 56,
+          iconSize: 28,
+          size: 52,
           onSelect: () {
             _playButtonKey.currentState?.notifyWillPlay();
             _audioHandler.skipToPrevious();
           },
         ),
         const SizedBox(width: TvSpacing.md),
-        // Play/Pause
+        // Play/Pause — large
         AnimatedPlayButton(
           key: _playButtonKey,
           playbackStateStream: _audioHandler.playbackState,
-          iconSize: 40,
+          iconSize: 48,
           iconColor: Colors.white,
           backgroundColor: TvColors.primary,
           onPlay: _audioHandler.play,
@@ -298,19 +397,27 @@ class _TvNowPlayingPageState extends State<TvNowPlayingPage> {
         _buildControlButton(
           icon: Icons.skip_next_rounded,
           iconColor: TvColors.textPrimary,
-          iconSize: 32,
-          size: 56,
+          iconSize: 28,
+          size: 52,
           onSelect: () {
             _playButtonKey.currentState?.notifyWillPlay();
             _audioHandler.skipToNext();
           },
         ),
-        const SizedBox(width: TvSpacing.lg),
-        // Like song
+        const SizedBox(width: TvSpacing.md),
+        // Like
         _buildControlButton(
           icon: Icons.thumb_up_alt_rounded,
+          iconSize: 20,
           autofocus: true,
           onSelect: () => _audioHandler.customAction('likeSong'),
+        ),
+        const SizedBox(width: TvSpacing.sm),
+        // Dislike
+        _buildControlButton(
+          icon: Icons.thumb_down_alt_rounded,
+          iconSize: 20,
+          onSelect: () => _audioHandler.customAction('dislikeSong'),
         ),
       ],
     );
@@ -320,13 +427,11 @@ class _TvNowPlayingPageState extends State<TvNowPlayingPage> {
 class _SongHistoryEntry {
   final String songTitle;
   final String songArtist;
-  final String stationTitle;
   final DateTime timestamp;
 
   _SongHistoryEntry({
     required this.songTitle,
     required this.songArtist,
-    required this.stationTitle,
     required this.timestamp,
   });
 }
@@ -338,26 +443,30 @@ class _SongHistoryTile extends StatelessWidget {
 
   String get _timeAgo {
     final diff = DateTime.now().difference(entry.timestamp);
-    if (diff.inMinutes < 1) return 'acum';
+    if (diff.inSeconds < 30) return 'acum';
+    if (diff.inSeconds < 60) return 'acum ${diff.inSeconds}s';
     if (diff.inMinutes < 60) return 'acum ${diff.inMinutes} min';
-    return 'acum ${diff.inHours}h';
+    if (diff.inHours < 24) {
+      final h = diff.inHours;
+      final m = diff.inMinutes % 60;
+      return m > 0 ? 'acum ${h}h ${m}min' : 'acum ${h}h';
+    }
+    return 'acum ${diff.inDays}z';
   }
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: TvSpacing.xs),
+      padding: const EdgeInsets.only(bottom: 6),
       child: Row(
         children: [
-          const Icon(
-            Icons.music_note_rounded,
-            size: 16,
-            color: TvColors.textTertiary,
-          ),
+          const Icon(Icons.music_note_rounded,
+              size: 14, color: TvColors.textTertiary),
           const SizedBox(width: TvSpacing.sm),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   entry.songTitle,
@@ -378,6 +487,7 @@ class _SongHistoryTile extends StatelessWidget {
               ],
             ),
           ),
+          const SizedBox(width: TvSpacing.sm),
           Text(
             _timeAgo,
             style: TvTypography.caption.copyWith(fontSize: 11),

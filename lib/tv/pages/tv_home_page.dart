@@ -110,84 +110,65 @@ class _TvHomePageState extends State<TvHomePage> {
     final hero = _focusedStation ?? _currentStation ?? _allStations.firstOrNull;
     final isHeroPlaying = hero != null && _currentStation?.id == hero.id;
 
-    return Stack(
-      children: [
-        // Main scrollable content
-        CustomScrollView(
-          slivers: [
-            // Immersive hero area — updates as user focuses different stations
-            SliverToBoxAdapter(
-              child: _TvHeroArea(
-                station: hero,
-                isPlaying: isHeroPlaying,
-              ),
-            ),
-            // Favorite stations row
-            if (_favoriteStations.isNotEmpty)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.only(top: TvSpacing.md),
-                  child: TvStationRow(
-                    title: 'Favorite',
-                    stations: _favoriteStations,
-                    currentStation: _currentStation,
-                    favoriteSlugs: _favoriteSlugs,
-                    autofocusFirst: true,
-                    onOpenNowPlaying: widget.onOpenNowPlaying,
-                    onStationFocused: _onStationFocused,
-                  ),
-                ),
-              ),
-            // All stations row
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.only(top: TvSpacing.md),
-                child: TvStationRow(
-                  title: 'Toate Posturile',
-                  stations: _allStations,
-                  currentStation: _currentStation,
-                  favoriteSlugs: _favoriteSlugs,
-                  autofocusFirst: _favoriteStations.isEmpty,
-                  onOpenNowPlaying: widget.onOpenNowPlaying,
-                  onStationFocused: _onStationFocused,
-                ),
-              ),
-            ),
-            // Grouped rows
-            ..._groupedStations.entries.map((entry) {
-              return SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.only(top: TvSpacing.md),
-                  child: TvStationRow(
-                    title: entry.key,
-                    stations: entry.value,
-                    currentStation: _currentStation,
-                    favoriteSlugs: _favoriteSlugs,
-                    onOpenNowPlaying: widget.onOpenNowPlaying,
-                    onStationFocused: _onStationFocused,
-                  ),
-                ),
-              );
-            }),
-            // Bottom padding to not clip behind the floating bar
-            const SliverToBoxAdapter(
-              child: SizedBox(height: 100),
-            ),
-          ],
+    return CustomScrollView(
+      slivers: [
+        // Immersive hero area — updates as user focuses different stations
+        SliverToBoxAdapter(
+          child: _TvHeroArea(
+            station: hero,
+            isPlaying: isHeroPlaying,
+          ),
         ),
-
-        // Floating bottom info bar — shows focused station details
-        if (_focusedStation != null)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: _TvBottomInfoBar(
-              station: _focusedStation!,
-              isPlaying: _currentStation?.id == _focusedStation!.id,
-              isFavorite: _favoriteSlugs.contains(_focusedStation!.slug),
+        // Favorite stations row
+        if (_favoriteStations.isNotEmpty)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.only(top: TvSpacing.md),
+              child: TvStationRow(
+                title: 'Favorite',
+                stations: _favoriteStations,
+                currentStation: _currentStation,
+                favoriteSlugs: _favoriteSlugs,
+                autofocusFirst: true,
+                onOpenNowPlaying: widget.onOpenNowPlaying,
+                onStationFocused: _onStationFocused,
+              ),
             ),
           ),
+        // All stations row
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.only(top: TvSpacing.md),
+            child: TvStationRow(
+              title: 'Toate Posturile',
+              stations: _allStations,
+              currentStation: _currentStation,
+              favoriteSlugs: _favoriteSlugs,
+              autofocusFirst: _favoriteStations.isEmpty,
+              onOpenNowPlaying: widget.onOpenNowPlaying,
+              onStationFocused: _onStationFocused,
+            ),
+          ),
+        ),
+        // Grouped rows
+        ..._groupedStations.entries.map((entry) {
+          return SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.only(top: TvSpacing.md),
+              child: TvStationRow(
+                title: entry.key,
+                stations: entry.value,
+                currentStation: _currentStation,
+                favoriteSlugs: _favoriteSlugs,
+                onOpenNowPlaying: widget.onOpenNowPlaying,
+                onStationFocused: _onStationFocused,
+              ),
+            ),
+          );
+        }),
+        const SliverToBoxAdapter(
+          child: SizedBox(height: TvSpacing.xxl),
+        ),
       ],
     );
   }
@@ -336,115 +317,3 @@ class _TvHeroArea extends StatelessWidget {
   }
 }
 
-/// Floating bottom info bar — appears while browsing stations.
-/// Shows the focused station's thumbnail, name, song, and status.
-class _TvBottomInfoBar extends StatelessWidget {
-  final Station station;
-  final bool isPlaying;
-  final bool isFavorite;
-
-  const _TvBottomInfoBar({
-    required this.station,
-    required this.isPlaying,
-    required this.isFavorite,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Colors.transparent,
-            TvColors.background.withValues(alpha: 0.95),
-            TvColors.background,
-          ],
-          stops: const [0.0, 0.3, 1.0],
-        ),
-      ),
-      padding: const EdgeInsets.only(
-        left: TvSpacing.marginHorizontal,
-        right: TvSpacing.marginHorizontal,
-        top: TvSpacing.xl,
-        bottom: TvSpacing.md,
-      ),
-      child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 200),
-        child: Row(
-          key: ValueKey('bar-${station.id}'),
-          children: [
-            // Thumbnail
-            ClipRRect(
-              borderRadius: BorderRadius.circular(TvSpacing.radiusSm),
-              child: SizedBox(
-                width: 48,
-                height: 48,
-                child: station.displayThumbnail(cacheWidth: 96),
-              ),
-            ),
-            const SizedBox(width: TvSpacing.md),
-            // Station name
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    station.title,
-                    style: TvTypography.label.copyWith(
-                      color: TvColors.textPrimary,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    station.songTitle.isNotEmpty
-                        ? '${station.songTitle}${station.songArtist.isNotEmpty ? ' • ${station.songArtist}' : ''}'
-                        : '${station.totalListeners ?? 0} ascultători',
-                    style: TvTypography.caption,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-            // Status indicators
-            if (isFavorite) ...[
-              const SizedBox(width: TvSpacing.sm),
-              const Icon(Icons.favorite_rounded,
-                  color: TvColors.primary, size: 18),
-            ],
-            if (isPlaying) ...[
-              const SizedBox(width: TvSpacing.sm),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: TvColors.primary,
-                  borderRadius: BorderRadius.circular(TvSpacing.radiusSm),
-                ),
-                child: Text(
-                  'REDĂ',
-                  style: TvTypography.caption.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 10,
-                  ),
-                ),
-              ),
-            ],
-            const SizedBox(width: TvSpacing.md),
-            // Hint
-            Text(
-              'Apasă OK pentru a reda',
-              style: TvTypography.caption.copyWith(fontSize: 11),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
