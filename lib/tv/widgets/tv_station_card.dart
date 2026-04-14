@@ -4,8 +4,9 @@ import 'package:flutter/material.dart';
 import '../../types/Station.dart';
 import '../tv_theme.dart';
 
-/// Compact station card for the immersive list card rows.
-/// 16:9 aspect ratio. Focus scales + border. Select to play.
+/// Square station card for TV browse.
+/// Shows thumbnail (1:1), station title, and current song below.
+/// Focus: primary color border + subtle scale. Select to play.
 class TvStationCard extends StatelessWidget {
   final Station station;
   final bool isPlaying;
@@ -15,8 +16,7 @@ class TvStationCard extends StatelessWidget {
   final ValueChanged<Station>? onFocus;
   final bool autofocus;
 
-  static const double cardWidth = 200.0;
-  static const double cardHeight = 112.0; // ~16:9
+  static const double cardSize = 140.0; // 1:1 square
 
   const TvStationCard({
     super.key,
@@ -32,11 +32,12 @@ class TvStationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: cardWidth + 8,
-      height: cardHeight + 36, // Card + text below
+      width: cardSize + 12,
+      height: cardSize + 50, // thumbnail + title + song
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Thumbnail — square, focusable
           DpadFocusable(
             autofocus: autofocus,
             onSelect: onSelect,
@@ -54,7 +55,7 @@ class TvStationCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: AnimatedScale(
-                  scale: isFocused ? 1.03 : 1.0,
+                  scale: isFocused ? 1.04 : 1.0,
                   duration: const Duration(milliseconds: 200),
                   curve: Curves.easeOut,
                   child: child,
@@ -62,8 +63,8 @@ class TvStationCard extends StatelessWidget {
               );
             },
             child: Container(
-              width: cardWidth,
-              height: cardHeight,
+              width: cardSize,
+              height: cardSize,
               decoration: BoxDecoration(
                 color: TvColors.surfaceVariant,
                 borderRadius: BorderRadius.circular(10),
@@ -73,12 +74,12 @@ class TvStationCard extends StatelessWidget {
                 fit: StackFit.expand,
                 children: [
                   station.displayThumbnail(
-                      cacheWidth: (cardWidth * 2).toInt()),
-                  // Playing indicator
+                      cacheWidth: (cardSize * 2).toInt()),
+                  // Playing indicator — bottom left
                   if (isPlaying)
                     Positioned(
-                      bottom: 6,
-                      left: 6,
+                      bottom: 5,
+                      left: 5,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 5, vertical: 2),
@@ -90,13 +91,13 @@ class TvStationCard extends StatelessWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.equalizer_rounded,
-                                color: Colors.white, size: 12),
+                                color: Colors.white, size: 11),
                             SizedBox(width: 2),
                             Text('LIVE',
                                 style: TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.bold,
-                                    fontSize: 9)),
+                                    fontSize: 8)),
                           ],
                         ),
                       ),
@@ -105,19 +106,40 @@ class TvStationCard extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 4),
-          // Title below card
-          Padding(
-            padding: const EdgeInsets.only(left: 4),
+          const SizedBox(height: 5),
+          // Station title
+          SizedBox(
+            width: cardSize,
             child: Text(
               station.title,
               style: TvTypography.label.copyWith(
                 color: isPlaying ? TvColors.primary : TvColors.textPrimary,
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          // Song name
+          SizedBox(
+            width: cardSize,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 250),
+              child: Text(
+                station.songTitle.isNotEmpty
+                    ? station.songTitle
+                    : station.displaySubtitle.isNotEmpty
+                        ? station.displaySubtitle
+                        : '${station.totalListeners ?? 0} ascultători',
+                key: ValueKey('${station.id}-${station.songId}'),
+                style: TvTypography.caption.copyWith(
+                  fontSize: 10,
+                  color: TvColors.textTertiary,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ),
         ],

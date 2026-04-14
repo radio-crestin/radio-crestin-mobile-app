@@ -163,28 +163,12 @@ class _TvNowPlayingState extends State<TvNowPlaying> {
   Widget build(BuildContext context) {
     final station = _station;
 
-    // No station loaded — show prompt to browse
+    // No station loaded — go directly to browse
     if (station == null) {
-      return Focus(
-        onKeyEvent: _onKeyEvent,
-        autofocus: true,
-        child: GestureDetector(
-          onTap: widget.onBrowse,
-          child: const Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.radio_rounded, size: 64, color: TvColors.textTertiary),
-                SizedBox(height: TvSpacing.md),
-                Text('Radio Crestin', style: TvTypography.displayMedium),
-                SizedBox(height: TvSpacing.sm),
-                Text('Apasă pentru a alege un post',
-                    style: TvTypography.body),
-              ],
-            ),
-          ),
-        ),
-      );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        widget.onBrowse();
+      });
+      return const SizedBox.expand();
     }
 
     final prevSongs = _prevSongs;

@@ -4,8 +4,7 @@ import '../../types/Station.dart';
 import '../tv_theme.dart';
 import 'tv_station_card.dart';
 
-/// A horizontal scrollable row of station cards with a category title.
-/// Matches the Android TV immersive list card grid pattern.
+/// Horizontal scrollable row of square station cards with category title.
 class TvStationRow extends StatelessWidget {
   final String title;
   final List<Station> stations;
@@ -31,12 +30,11 @@ class TvStationRow extends StatelessWidget {
     if (stations.isEmpty) return const SizedBox.shrink();
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: TvSpacing.xs),
+      padding: const EdgeInsets.only(bottom: TvSpacing.sm),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Row title
           Padding(
             padding: const EdgeInsets.only(
               left: TvSpacing.marginHorizontal,
@@ -44,16 +42,14 @@ class TvStationRow extends StatelessWidget {
             ),
             child: Text(
               title,
-              style: TvTypography.label.copyWith(
-                fontSize: 14,
-                color: TvColors.textSecondary,
-                fontWeight: FontWeight.w600,
+              style: TvTypography.headline.copyWith(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ),
-          // Card row
           SizedBox(
-            height: TvStationCard.cardHeight + 44,
+            height: TvStationCard.cardSize + 58,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(
