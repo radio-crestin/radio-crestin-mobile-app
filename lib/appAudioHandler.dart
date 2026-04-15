@@ -728,7 +728,13 @@ class AppAudioHandler extends BaseAudioHandler {
 
   @override
   Future<void> play() async {
-    _log("play");
+    _log("play (isCasting=$isCasting)");
+    if (isCasting) {
+      // Resume playback on Cast — just send play(), don't reload media
+      GetIt.instance<CastService>().play();
+      _broadcastState(player.playbackEvent);
+      return;
+    }
     final myOpId = _playOperationId;
     _disconnectTimer?.cancel();
     stationDataService.resumePolling();
@@ -833,7 +839,13 @@ class AppAudioHandler extends BaseAudioHandler {
 
   @override
   Future<void> pause() async {
-    _log("pause");
+    _log("pause (isCasting=$isCasting)");
+    if (isCasting) {
+      GetIt.instance<CastService>().pause();
+      // Broadcast paused state so the UI updates
+      playbackState.add(playbackState.value.copyWith(playing: false));
+      return;
+    }
     _cancelInFlightPlay();
     _hasBeenPlayed = false;
     AnalyticsService.instance.endListening(reason: 'pause');
@@ -935,7 +947,12 @@ class AppAudioHandler extends BaseAudioHandler {
 
   @override
   Future<void> stop() async {
-    _log("stop");
+    _log("stop (isCasting=$isCasting)");
+    if (isCasting) {
+      GetIt.instance<CastService>().stop();
+      playbackState.add(playbackState.value.copyWith(playing: false));
+      return;
+    }
     _cancelInFlightPlay();
     _hasBeenPlayed = false;
     AnalyticsService.instance.endListening();
@@ -1024,7 +1041,8 @@ class AppAudioHandler extends BaseAudioHandler {
   }
 
   void _broadcastState(PlaybackEvent event) {
-    final playing = player.playing;
+    // When casting, use the last-known playback state (not the local player)
+    final playing = isCasting ? (playbackState.value.playing) : player.playing;
     final station = currentStation.valueOrNull;
     final isFav = station != null &&
         stationDataService.favoriteStationSlugs.value.contains(station.slug);
@@ -1085,14 +1103,16 @@ class AppAudioHandler extends BaseAudioHandler {
       androidCompactActionIndices: const [3, 4, 5],
       processingState: _isConnecting
         ? AudioProcessingState.loading
-        : const {
-            // We're using ready here to not interupt Android Auto playback when going to next/previous station
-            ProcessingState.idle: AudioProcessingState.ready,
-            ProcessingState.loading: AudioProcessingState.loading,
-            ProcessingState.buffering: AudioProcessingState.buffering,
-            ProcessingState.ready: AudioProcessingState.ready,
-            ProcessingState.completed: AudioProcessingState.completed,
-          }[player.processingState] ?? AudioProcessingState.idle,
+        : isCasting
+          ? AudioProcessingState.ready
+          : const {
+              // We're using ready here to not interupt Android Auto playback when going to next/previous station
+              ProcessingState.idle: AudioProcessingState.ready,
+              ProcessingState.loading: AudioProcessingState.loading,
+              ProcessingState.buffering: AudioProcessingState.buffering,
+              ProcessingState.ready: AudioProcessingState.ready,
+              ProcessingState.completed: AudioProcessingState.completed,
+            }[player.processingState] ?? AudioProcessingState.idle,
       playing: playing,
       updatePosition: player.position,
       bufferedPosition: player.bufferedPosition,

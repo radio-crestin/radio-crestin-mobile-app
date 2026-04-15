@@ -1,11 +1,7 @@
 /**
  * Cloudflare Worker for cast.radiocrestin.ro
- *
  * Serves the Google Cast Custom Web Receiver for Radio Creștin.
  * Deploy: wrangler deploy
- * Route: cast.radiocrestin.ro/*
- *
- * No secrets needed — this is a public static HTML page loaded by Chromecast.
  */
 
 const RECEIVER_HTML = `<!DOCTYPE html>
@@ -60,128 +56,154 @@ const RECEIVER_HTML = `<!DOCTYPE html>
       inset: 0;
       background: linear-gradient(
         180deg,
-        rgba(0,0,0,0.15) 0%,
-        rgba(0,0,0,0.35) 35%,
-        rgba(0,0,0,0.75) 70%,
-        rgba(0,0,0,0.90) 100%
+        rgba(0,0,0,0.10) 0%,
+        rgba(0,0,0,0.30) 30%,
+        rgba(0,0,0,0.70) 65%,
+        rgba(0,0,0,0.88) 100%
       );
       z-index: 2;
     }
 
-    .content {
+    .layout {
       position: relative;
       z-index: 3;
       width: 100%;
       height: 100%;
       display: flex;
       align-items: flex-end;
-      padding: 60px 80px;
+      justify-content: space-between;
+      padding: 50px 60px;
+      gap: 60px;
     }
 
-    .player-card {
+    .now-playing {
       display: flex;
       align-items: center;
-      gap: 40px;
-      max-width: 900px;
+      gap: 32px;
+      min-width: 0;
+      flex: 1;
     }
 
     .artwork-container {
       flex-shrink: 0;
-      width: 200px;
-      height: 200px;
-      border-radius: 20px;
+      width: 180px;
+      height: 180px;
+      border-radius: 18px;
       overflow: hidden;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+      box-shadow: 0 16px 48px rgba(0,0,0,0.5);
     }
 
     .artwork-container img {
       width: 100%;
       height: 100%;
       object-fit: cover;
-      transition: opacity 0.5s ease;
     }
 
-    .metadata {
+    .meta {
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 6px;
       min-width: 0;
     }
 
     .station-name {
-      font-size: 42px;
+      font-size: 38px;
       font-weight: 800;
       letter-spacing: -0.5px;
       line-height: 1.1;
-      text-shadow: 0 2px 20px rgba(0,0,0,0.5);
+      text-shadow: 0 2px 16px rgba(0,0,0,0.5);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
 
     .song-title {
-      font-size: 24px;
+      font-size: 22px;
       font-weight: 500;
       opacity: 0.85;
-      text-shadow: 0 1px 10px rgba(0,0,0,0.4);
+      text-shadow: 0 1px 8px rgba(0,0,0,0.4);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
 
     .song-artist {
-      font-size: 20px;
+      font-size: 17px;
       font-weight: 400;
       opacity: 0.6;
-      text-shadow: 0 1px 8px rgba(0,0,0,0.3);
+      text-shadow: 0 1px 6px rgba(0,0,0,0.3);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
 
-    .live-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      margin-top: 8px;
-      width: fit-content;
+    .recent-panel {
+      flex-shrink: 0;
+      width: 320px;
+      max-height: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      overflow: hidden;
     }
 
-    .live-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #E91E63;
-      animation: pulse 2s ease-in-out infinite;
-    }
-
-    .live-text {
-      font-size: 14px;
+    .recent-title {
+      font-size: 13px;
       font-weight: 700;
-      letter-spacing: 2px;
+      letter-spacing: 1.5px;
       text-transform: uppercase;
-      opacity: 0.7;
+      opacity: 0.4;
+      margin-bottom: 4px;
     }
 
-    @keyframes pulse {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.5; transform: scale(0.85); }
+    .recent-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 12px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.06);
+    }
+
+    .recent-item.active {
+      background: rgba(233,30,99,0.15);
+      border: 1px solid rgba(233,30,99,0.3);
+    }
+
+    .recent-thumb {
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
+      object-fit: cover;
+      flex-shrink: 0;
+    }
+
+    .recent-meta { min-width: 0; flex: 1; }
+
+    .recent-station {
+      font-size: 14px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .recent-song {
+      font-size: 12px;
+      opacity: 0.5;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .logo {
       position: fixed;
-      top: 40px;
-      right: 60px;
+      top: 32px;
+      right: 48px;
       z-index: 4;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      opacity: 0.7;
-    }
-
-    .logo-text {
-      font-size: 18px;
-      font-weight: 700;
+      opacity: 0.5;
+      font-size: 14px;
+      font-weight: 600;
       letter-spacing: 0.5px;
     }
 
@@ -197,32 +219,18 @@ const RECEIVER_HTML = `<!DOCTYPE html>
       transition: opacity 0.6s ease;
     }
 
-    .idle-screen.hidden {
-      opacity: 0;
-      pointer-events: none;
-    }
-
-    .idle-title {
-      font-size: 36px;
-      font-weight: 800;
-    }
-
-    .idle-subtitle {
-      font-size: 18px;
-      opacity: 0.5;
-      margin-top: 8px;
-    }
+    .idle-screen.hidden { opacity: 0; pointer-events: none; }
+    .idle-title { font-size: 36px; font-weight: 800; }
+    .idle-subtitle { font-size: 18px; opacity: 0.5; margin-top: 8px; }
 
     #debug {
       position: fixed;
-      bottom: 10px;
-      left: 10px;
+      bottom: 8px;
+      left: 8px;
       z-index: 100;
-      font-size: 11px;
-      color: rgba(255,255,255,0.5);
+      font-size: 10px;
+      color: rgba(255,255,255,0.3);
       font-family: monospace;
-      max-width: 80%;
-      word-break: break-all;
     }
   </style>
 </head>
@@ -237,24 +245,22 @@ const RECEIVER_HTML = `<!DOCTYPE html>
   <div id="bg-artwork" class="bg-artwork"></div>
   <div class="bg-gradient"></div>
 
-  <div class="logo">
-    <span class="logo-text">Radio Cre\u0219tin</span>
-  </div>
+  <div class="logo">Radio Cre\u0219tin</div>
 
-  <div class="content">
-    <div class="player-card">
+  <div class="layout">
+    <div class="now-playing">
       <div class="artwork-container">
         <img id="artwork" src="" alt="">
       </div>
-      <div class="metadata">
+      <div class="meta">
         <div id="station-name" class="station-name"></div>
         <div id="song-title" class="song-title"></div>
         <div id="song-artist" class="song-artist"></div>
-        <div class="live-badge">
-          <div class="live-dot"></div>
-          <span class="live-text">Live</span>
-        </div>
       </div>
+    </div>
+
+    <div id="recent-panel" class="recent-panel">
+      <div class="recent-title">Ascultate recent</div>
     </div>
   </div>
 
@@ -262,12 +268,7 @@ const RECEIVER_HTML = `<!DOCTYPE html>
 
   <script>
     var debugEl = document.getElementById('debug');
-    function dbg(msg) {
-      console.log('[RC] ' + msg);
-      if (debugEl) debugEl.textContent = msg;
-    }
-
-    dbg('Receiver loading...');
+    function dbg(msg) { console.log('[RC] ' + msg); if (debugEl) debugEl.textContent = msg; }
 
     var context = cast.framework.CastReceiverContext.getInstance();
     var playerManager = context.getPlayerManager();
@@ -278,13 +279,15 @@ const RECEIVER_HTML = `<!DOCTYPE html>
     var artworkEl = document.getElementById('artwork');
     var bgArtworkEl = document.getElementById('bg-artwork');
     var idleScreen = document.getElementById('idle-screen');
+    var recentPanel = document.getElementById('recent-panel');
+
+    var currentStationTitle = '';
 
     function updateUI(metadata, source) {
-      if (!metadata) { dbg(source + ': null metadata'); return; }
+      if (!metadata) return;
 
       var title = metadata.title || '';
       var artist = metadata.artist || '';
-      var albumName = metadata.albumName || '';
       var imageUrl = '';
       var images = metadata.images;
       if (images && images.length > 0) {
@@ -292,28 +295,71 @@ const RECEIVER_HTML = `<!DOCTYPE html>
         imageUrl = (typeof img === 'string') ? img : (img.url || '');
       }
 
-      dbg(source + ': t=' + title + ' ar=' + artist + ' al=' + albumName);
+      dbg(source + ': ' + title + ' | ' + artist);
 
-      if (!title && !artist && !albumName && !imageUrl) return;
+      if (!title && !artist && !imageUrl) return;
 
-      stationNameEl.textContent = albumName || title;
-      songTitleEl.textContent = title;
-      songArtistEl.textContent = artist;
+      stationNameEl.textContent = title;
+      songTitleEl.textContent = artist;
 
       if (imageUrl && artworkEl.src !== imageUrl) {
         artworkEl.src = imageUrl;
         bgArtworkEl.style.backgroundImage = 'url(' + imageUrl + ')';
       }
+
+      currentStationTitle = title;
       idleScreen.classList.add('hidden');
+    }
+
+    function renderRecent(stations) {
+      if (!stations || !stations.length) return;
+
+      // Keep header, remove old items
+      while (recentPanel.children.length > 1) {
+        recentPanel.removeChild(recentPanel.lastChild);
+      }
+
+      for (var i = 0; i < stations.length; i++) {
+        var s = stations[i];
+        var item = document.createElement('div');
+        item.className = 'recent-item' + (s.title === currentStationTitle ? ' active' : '');
+
+        var thumb = document.createElement('img');
+        thumb.className = 'recent-thumb';
+        thumb.src = s.thumbnail || '';
+        thumb.alt = '';
+        item.appendChild(thumb);
+
+        var meta = document.createElement('div');
+        meta.className = 'recent-meta';
+
+        var name = document.createElement('div');
+        name.className = 'recent-station';
+        name.textContent = s.title || '';
+        meta.appendChild(name);
+
+        if (s.song) {
+          var song = document.createElement('div');
+          song.className = 'recent-song';
+          song.textContent = s.song;
+          meta.appendChild(song);
+        }
+
+        item.appendChild(meta);
+        recentPanel.appendChild(item);
+      }
     }
 
     playerManager.setMessageInterceptor(
       cast.framework.messages.MessageType.LOAD,
       function(request) {
         try {
-          dbg('LOAD: ' + (request.media ? request.media.contentId : 'no media'));
+          dbg('LOAD: ' + (request.media ? request.media.contentId : 'none'));
           if (request.media && request.media.metadata) {
             updateUI(request.media.metadata, 'LOAD');
+          }
+          if (request.media && request.media.customData && request.media.customData.recentStations) {
+            renderRecent(request.media.customData.recentStations);
           }
         } catch(e) { dbg('LOAD err: ' + e.message); }
         return request;
@@ -349,31 +395,27 @@ const RECEIVER_HTML = `<!DOCTYPE html>
       function() { dbg('FINISHED'); idleScreen.classList.remove('hidden'); }
     );
 
-    dbg('Starting...');
     var options = new cast.framework.CastReceiverOptions();
     options.disableIdleTimeout = true;
     context.start(options);
     dbg('Started');
   <\/script>
 </body>
-</html>`;
+</html>
+`;
 
 export default {
   async fetch(request) {
     const url = new URL(request.url);
-
-    // Health check
-    if (url.pathname === '/health') {
-      return new Response('ok', { status: 200 });
+    if (url.pathname === "/health") {
+      return new Response("ok", { status: 200 });
     }
-
-    // Serve receiver HTML for all paths (Chromecast loads the root)
     return new Response(RECEIVER_HTML, {
       status: 200,
       headers: {
-        'Content-Type': 'text/html; charset=utf-8',
-        'Cache-Control': 'no-cache',
-        'Access-Control-Allow-Origin': '*',
+        "Content-Type": "text/html; charset=utf-8",
+        "Cache-Control": "no-cache",
+        "Access-Control-Allow-Origin": "*",
       },
     });
   },

@@ -324,6 +324,9 @@ void main() async {
           // Stop local audio — Chromecast takes over playback
           print('[CastMain] Stopping local player...');
           await audioHandler.player.stop();
+          // Set playing state for Cast session
+          audioHandler.playbackState.add(
+            audioHandler.playbackState.value.copyWith(playing: true));
           var station = audioHandler.currentStation.value;
           print('[CastMain] Current station: ${station?.title}');
           // Nothing playing — start last played station automatically

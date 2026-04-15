@@ -5,9 +5,13 @@ import 'dart:io' show Platform;
 import 'package:flutter_chrome_cast/flutter_chrome_cast.dart';
 import 'package:rxdart/rxdart.dart';
 
+import 'package:get_it/get_it.dart';
+
 import '../types/Station.dart';
 import '../utils.dart';
 import 'analytics_service.dart';
+import 'play_count_service.dart';
+import 'station_data_service.dart';
 
 class CastService {
   static const _tag = 'CastService';
@@ -159,6 +163,36 @@ class CastService {
     }
   }
 
+  Future<void> play() async {
+    if (!isCasting.value) return;
+    _log('play on Cast');
+    try {
+      await GoogleCastRemoteMediaClient.instance.play();
+    } catch (e) {
+      _log('play failed: $e');
+    }
+  }
+
+  Future<void> pause() async {
+    if (!isCasting.value) return;
+    _log('pause on Cast');
+    try {
+      await GoogleCastRemoteMediaClient.instance.pause();
+    } catch (e) {
+      _log('pause failed: $e');
+    }
+  }
+
+  Future<void> stop() async {
+    if (!isCasting.value) return;
+    _log('stop on Cast');
+    try {
+      await GoogleCastRemoteMediaClient.instance.stop();
+    } catch (e) {
+      _log('stop failed: $e');
+    }
+  }
+
   Future<void> castStation(Station station) async {
     _log('castStation called: station=${station.title}, isCasting=${isCasting.value}');
     if (!isCasting.value) {
@@ -204,9 +238,17 @@ class CastService {
       ),
     );
 
+    // Build recently played stations list for the receiver UI
+    final recentStations = _buildRecentStations(station);
+
     _log('castStation: calling loadMedia...');
     try {
-      await GoogleCastRemoteMediaClient.instance.loadMedia(mediaInfo);
+      await GoogleCastRemoteMediaClient.instance.loadMedia(
+        mediaInfo,
+        customData: {
+          'recentStations': recentStations,
+        },
+      );
       _log('castStation: loadMedia completed for ${station.title}');
       AnalyticsService.instance.capture('cast_station', {
         'station_id': station.id,
@@ -222,6 +264,37 @@ class CastService {
     if (station.songTitle.isNotEmpty) parts.add(station.songTitle);
     if (station.songArtist.isNotEmpty) parts.add(station.songArtist);
     return parts.join(' — ');
+  }
+
+  List<Map<String, dynamic>> _buildRecentStations(Station currentStation) {
+    try {
+      final stationDataService = GetIt.instance<StationDataService>();
+      final playCountService = GetIt.instance<PlayCountService>();
+      final allStations = stationDataService.stations.value;
+      final counts = playCountService.playCounts;
+
+      // Sort stations by play count descending, take top 6
+      final sorted = allStations
+          .where((s) => counts.containsKey(s.slug))
+          .toList()
+        ..sort((a, b) => (counts[b.slug] ?? 0).compareTo(counts[a.slug] ?? 0));
+
+      final top = sorted.take(6).toList();
+
+      return top.map((s) {
+        final songParts = <String>[];
+        if (s.songTitle.isNotEmpty) songParts.add(s.songTitle);
+        if (s.songArtist.isNotEmpty) songParts.add(s.songArtist);
+        return <String, dynamic>{
+          'title': s.title,
+          'thumbnail': s.rawStationData.thumbnail_url ?? '',
+          'song': songParts.join(' \u2014 '),
+        };
+      }).toList();
+    } catch (e) {
+      _log('_buildRecentStations failed: $e');
+      return [];
+    }
   }
 
   String _guessContentType(String url) {
