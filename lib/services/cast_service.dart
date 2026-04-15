@@ -25,13 +25,23 @@ class CastService {
   final BehaviorSubject<GoogleCastConnectState> connectionState =
       BehaviorSubject.seeded(GoogleCastConnectState.disconnected);
 
+  /// Cast player state streamed from the receiver via mediaStatusStream.
+  final BehaviorSubject<CastMediaPlayerState> castPlayerState =
+      BehaviorSubject.seeded(CastMediaPlayerState.unknown);
+
   StreamSubscription? _devicesSubscription;
   StreamSubscription? _sessionSubscription;
+  StreamSubscription? _mediaStatusSubscription;
 
   bool _discoveryStarted = false;
 
-  /// Last station slug sent to Cast — prevents duplicate loadMedia calls.
+  /// Last station slug sent to Cast — prevents duplicate loadMedia calls
+  /// when the station changes. Does NOT block metadata-only updates.
   String? lastCastSlug;
+
+  /// The stream URL currently loaded on the Cast device. Used to re-load
+  /// the same stream with updated metadata without picking a new URL.
+  String? _lastCastStreamUrl;
 
   void _log(String message) {
     developer.log('$_tag: $message');
@@ -86,9 +96,28 @@ class CastService {
         final wasCasting = isCasting.value;
         final nowCasting = state == GoogleCastConnectState.connected;
         isCasting.add(nowCasting);
+        if (!nowCasting) {
+          castPlayerState.add(CastMediaPlayerState.unknown);
+          _lastCastStreamUrl = null;
+        }
         _log('Session changed: state=$state, wasCasting=$wasCasting, nowCasting=$nowCasting, session=${session?.runtimeType}');
       }, onError: (e) {
         _log('Session stream error: $e');
+      });
+
+      // Subscribe to remote media status for real-time playback state sync
+      _mediaStatusSubscription = GoogleCastRemoteMediaClient
+          .instance.mediaStatusStream
+          .listen((status) {
+        if (status != null) {
+          final prev = castPlayerState.value;
+          castPlayerState.add(status.playerState);
+          if (prev != status.playerState) {
+            _log('Cast player state: $prev -> ${status.playerState}');
+          }
+        }
+      }, onError: (e) {
+        _log('Media status stream error: $e');
       });
 
       // Start discovery immediately
@@ -157,6 +186,7 @@ class CastService {
       try { await GoogleCastRemoteMediaClient.instance.stop(); } catch (_) {}
       await GoogleCastSessionManager.instance.endSessionAndStopCasting();
       lastCastSlug = null;
+      _lastCastStreamUrl = null;
       _log('Disconnected successfully');
       AnalyticsService.instance.capture('cast_disconnected');
     } catch (e) {
@@ -201,44 +231,16 @@ class CastService {
       return;
     }
 
-    // Prefer non-HLS stream for Cast (more compatible with Google Home Mini)
     final streamUrl = _pickCastStreamUrl(station);
     if (streamUrl == null) {
       _log('castStation: no stream URL for station ${station.title}');
       return;
     }
 
-    // Convert CDN image URLs: WebP → JPEG, 250px → 480px for Cast devices
-    final thumbnailUrl = station.rawStationData.thumbnail_url ?? '';
-    final songThumbnailUrl =
-        station.rawStationData.now_playing?.song?.thumbnail_url;
-
-    final images = <GoogleCastImage>[];
-    final artUrl = _castImageUrl(songThumbnailUrl ?? thumbnailUrl);
-    if (artUrl.isNotEmpty) {
-      images.add(GoogleCastImage(url: Uri.parse(artUrl)));
-    }
-
-    final subtitle = _buildSubtitle(station);
-    final contentType = _guessContentType(streamUrl);
     final trackedUrl = _addCastTrackingParams(streamUrl);
+    _lastCastStreamUrl = trackedUrl;
 
-    _log('castStation: streamUrl=$trackedUrl, contentType=$contentType, '
-        'title=${station.title}, artist=${subtitle.isNotEmpty ? subtitle : station.title}, '
-        'artUrl=$artUrl, images=${images.length}');
-
-    final mediaInfo = GoogleCastMediaInformation(
-      contentId: trackedUrl,
-      streamType: CastMediaStreamType.live,
-      contentUrl: Uri.parse(trackedUrl),
-      contentType: contentType,
-      metadata: GoogleCastMusicMediaMetadata(
-        title: station.title,
-        albumName: 'Radio Creștin',
-        artist: subtitle.isNotEmpty ? subtitle : station.title,
-        images: images,
-      ),
-    );
+    final mediaInfo = _buildMediaInfo(station, trackedUrl, streamUrl);
 
     _log('castStation: loadMedia $trackedUrl');
     try {
@@ -253,6 +255,63 @@ class CastService {
     }
   }
 
+  /// Push updated metadata (song title, artist, artwork) to the Cast
+  /// device without changing the audio stream. Called when the station
+  /// poll detects a new song while casting.
+  Future<void> updateCastMetadata(Station station) async {
+    if (!isCasting.value) return;
+    final castUrl = _lastCastStreamUrl;
+    if (castUrl == null) {
+      _log('updateCastMetadata: no active stream, falling back to full castStation');
+      return castStation(station);
+    }
+
+    // Use the original stream URL (before tracking params) for content type
+    final rawUrl = _pickCastStreamUrl(station) ?? castUrl;
+    final mediaInfo = _buildMediaInfo(station, castUrl, rawUrl);
+    _log('updateCastMetadata: reloading with updated metadata for ${station.title}');
+    try {
+      await GoogleCastRemoteMediaClient.instance.loadMedia(mediaInfo);
+      _log('updateCastMetadata: OK');
+    } catch (e) {
+      _log('updateCastMetadata: FAILED: $e');
+    }
+  }
+
+  /// Builds a GoogleCastMediaInformation with current station metadata.
+  GoogleCastMediaInformation _buildMediaInfo(
+      Station station, String trackedUrl, String rawStreamUrl) {
+    final thumbnailUrl = station.rawStationData.thumbnail_url ?? '';
+    final songThumbnailUrl =
+        station.rawStationData.now_playing?.song?.thumbnail_url;
+
+    final images = <GoogleCastImage>[];
+    final artUrl = _castImageUrl(songThumbnailUrl ?? thumbnailUrl);
+    if (artUrl.isNotEmpty) {
+      images.add(GoogleCastImage(url: Uri.parse(artUrl)));
+    }
+
+    final subtitle = _buildSubtitle(station);
+    final contentType = _guessContentType(rawStreamUrl);
+
+    _log('_buildMediaInfo: title=${station.title}, '
+        'artist=${subtitle.isNotEmpty ? subtitle : station.title}, '
+        'contentType=$contentType, artUrl=$artUrl');
+
+    return GoogleCastMediaInformation(
+      contentId: trackedUrl,
+      streamType: CastMediaStreamType.live,
+      contentUrl: Uri.parse(trackedUrl),
+      contentType: contentType,
+      metadata: GoogleCastMusicMediaMetadata(
+        title: station.title,
+        albumName: 'Radio Creștin',
+        artist: subtitle.isNotEmpty ? subtitle : station.title,
+        images: images,
+      ),
+    );
+  }
+
   String _buildSubtitle(Station station) {
     final parts = <String>[];
     if (station.songTitle.isNotEmpty) parts.add(station.songTitle);
@@ -260,18 +319,28 @@ class CastService {
     return parts.join(' — ');
   }
 
-  /// Pick a stream URL for Cast — excludes HLS completely.
-  /// The Google Default Media Receiver has broken HLS live stream
-  /// handling (relative URL resolution, intermittent disconnects).
-  /// Direct streams (MP3/AAC) work reliably on all Cast devices.
+  /// Pick a stream URL for Cast. Prefers direct MP3/AAC streams for
+  /// widest compatibility, but falls back to HLS when no direct stream
+  /// is available. The flutter_chrome_cast package supports HLS
+  /// (application/x-mpegURL) on both iOS and Android receivers.
   String? _pickCastStreamUrl(Station station) {
     final streams = Utils.getStationStreamObjects(station.rawStationData);
     if (streams.isEmpty) return null;
 
+    // First pass: prefer non-HLS (MP3/AAC — works on all Cast devices)
     for (final s in streams) {
       if (s['type'] != 'HLS') return s['url'];
     }
-    _log('No non-HLS stream for ${station.title}, station cannot be cast');
+
+    // Second pass: fall back to HLS
+    for (final s in streams) {
+      if (s['type'] == 'HLS') {
+        _log('Using HLS stream for ${station.title} (no direct stream available)');
+        return s['url'];
+      }
+    }
+
+    _log('No stream for ${station.title}, station cannot be cast');
     return null;
   }
 
@@ -327,8 +396,10 @@ class CastService {
     stopDiscovery();
     _devicesSubscription?.cancel();
     _sessionSubscription?.cancel();
+    _mediaStatusSubscription?.cancel();
     devices.close();
     isCasting.close();
     connectionState.close();
+    castPlayerState.close();
   }
 }

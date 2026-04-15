@@ -17,6 +17,7 @@ import 'package:radio_crestin/services/image_cache_service.dart';
 import 'package:radio_crestin/services/car_play_service.dart';
 import 'package:radio_crestin/services/analytics_service.dart';
 import 'package:radio_crestin/services/cast_service.dart';
+import 'package:flutter_chrome_cast/flutter_chrome_cast.dart' show CastMediaPlayerState;
 import 'package:radio_crestin/tv/tv_platform.dart';
 import 'package:radio_crestin/services/play_count_service.dart';
 import 'package:radio_crestin/services/network_service.dart';
@@ -769,6 +770,8 @@ class AppAudioHandler extends BaseAudioHandler {
       // Resume playback on Cast — just send play(), don't reload media
       GetIt.instance<CastService>().play();
       _broadcastState(player.playbackEvent);
+      _disconnectTimer?.cancel();
+      stationDataService.resumePolling();
       return;
     }
     final myOpId = _playOperationId;
@@ -898,10 +901,10 @@ class AppAudioHandler extends BaseAudioHandler {
         AudioSource.uri(Uri.parse(CONSTANTS.STATIC_MP3_URL)),
         preload: false,
       );
-      // Keep polling if car is connected — user sees metadata on car screen
+      // Keep polling if car or cast is connected — user sees metadata on screen
       final carConnected = GetIt.instance.isRegistered<CarPlayService>() &&
           GetIt.instance<CarPlayService>().isConnected;
-      if (!carConnected) {
+      if (!carConnected && !isCasting) {
         stationDataService.pausePolling();
       }
     });
@@ -1076,6 +1079,23 @@ class AppAudioHandler extends BaseAudioHandler {
     return station.title;
   }
 
+  /// Maps the Cast receiver's player state to AudioProcessingState.
+  AudioProcessingState _castProcessingState() {
+    if (!GetIt.instance.isRegistered<CastService>()) {
+      return AudioProcessingState.ready;
+    }
+    switch (GetIt.instance<CastService>().castPlayerState.value) {
+      case CastMediaPlayerState.buffering:
+      case CastMediaPlayerState.loading:
+        return AudioProcessingState.buffering;
+      case CastMediaPlayerState.idle:
+      case CastMediaPlayerState.playing:
+      case CastMediaPlayerState.paused:
+      case CastMediaPlayerState.unknown:
+        return AudioProcessingState.ready;
+    }
+  }
+
   void _broadcastState(PlaybackEvent event) {
     // When casting, use the last-known playback state (not the local player)
     final playing = isCasting ? (playbackState.value.playing) : player.playing;
@@ -1140,7 +1160,7 @@ class AppAudioHandler extends BaseAudioHandler {
       processingState: _isConnecting
         ? AudioProcessingState.loading
         : isCasting
-          ? AudioProcessingState.ready
+          ? _castProcessingState()
           : const {
               // We're using ready here to not interupt Android Auto playback when going to next/previous station
               ProcessingState.idle: AudioProcessingState.ready,
@@ -1426,6 +1446,15 @@ class AppAudioHandler extends BaseAudioHandler {
           _lastEmittedSongId = newSongId;
           _lastEmittedArtUriString = newItem.artUri?.toString();
           mediaItem.add(newItem.copyWith(rating: Rating.newHeartRating(isFav)));
+
+          // Push updated metadata to Cast device in real-time
+          if (isCasting) {
+            try {
+              GetIt.instance<CastService>().updateCastMetadata(updatedCurrentStation);
+            } catch (e) {
+              _log('Cast metadata update failed: $e');
+            }
+          }
 
           // In unstable mode, additionally pre-cache song thumbnails to disk
           if (SeekModeManager.isUnstableConnection) {

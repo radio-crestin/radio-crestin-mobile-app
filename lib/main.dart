@@ -31,6 +31,7 @@ import 'firebase_options.dart';
 import 'globals.dart' as globals;
 import 'services/car_play_service.dart';
 import 'services/cast_service.dart';
+import 'package:flutter_chrome_cast/flutter_chrome_cast.dart' show CastMediaPlayerState;
 import 'services/tv_channel_service.dart';
 import 'package:flutter_airplay/flutter_airplay.dart' as flutter_airplay;
 import 'services/analytics_service.dart';
@@ -348,6 +349,17 @@ void main() async {
             station.slug != castService.lastCastSlug) {
           castService.lastCastSlug = station.slug;
           castService.castStation(station);
+        }
+      });
+
+      // Sync Cast player state changes back to the app UI
+      castService.castPlayerState.distinct().listen((playerState) {
+        if (!castService.isCasting.value) return;
+        final isPlaying = playerState == CastMediaPlayerState.playing;
+        final isPaused = playerState == CastMediaPlayerState.paused;
+        if (isPlaying || isPaused) {
+          audioHandler.playbackState.add(
+            audioHandler.playbackState.value.copyWith(playing: isPlaying));
         }
       });
 
