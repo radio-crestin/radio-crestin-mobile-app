@@ -12,10 +12,12 @@ import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:radio_crestin/performance_monitor.dart';
 import 'package:radio_crestin/types/Station.dart';
+import 'package:flutter_airplay/flutter_airplay.dart' as flutter_airplay;
 import 'package:radio_crestin/services/image_cache_service.dart';
 import 'package:radio_crestin/services/car_play_service.dart';
 import 'package:radio_crestin/services/analytics_service.dart';
 import 'package:radio_crestin/services/cast_service.dart';
+import 'package:radio_crestin/tv/tv_platform.dart';
 import 'package:radio_crestin/services/play_count_service.dart';
 import 'package:radio_crestin/services/network_service.dart';
 import 'package:radio_crestin/services/review_service.dart';
@@ -350,6 +352,16 @@ class AppAudioHandler extends BaseAudioHandler {
     stationDataService.getPlayingStreamType = (stationId) {
       if (currentStation.value?.id == stationId) return _loadedStreamType;
       return null;
+    };
+    stationDataService.getActualPlaybackOffset = () {
+      if (_loadedStreamType != 'HLS' || !player.playing) return null;
+      final duration = player.duration;
+      final position = player.position;
+      if (duration == null || duration.inSeconds < 10) return null;
+      final offset = duration - position;
+      // Sanity check: offset should be positive and reasonable (< 10 minutes)
+      if (offset.inSeconds <= 0 || offset.inMinutes > 10) return null;
+      return offset;
     };
     _initPlayer();
     _initUpdateCurrentStationMetadata();
@@ -713,14 +725,34 @@ class AppAudioHandler extends BaseAudioHandler {
     return super.skipToQueueItem(index);
   }
 
+  /// Determines the playback source for stream tracking.
+  ///
+  /// Priority order (most specific wins):
+  /// 1. CarPlay / Android Auto (car connection active)
+  /// 2. AirPlay (iOS audio routed to AirPlay device)
+  /// 3. Android TV (leanback hardware)
+  /// 4. Phone/tablet (default mobile)
+  String _getPlaybackSource() {
+    if (isCarConnected) {
+      return Platform.isIOS ? 'carplay' : 'android-auto';
+    }
+    if (Platform.isIOS && flutter_airplay.AirPlayRouteState.instance.isActive) {
+      return 'airplay';
+    }
+    if (TvPlatform.isAndroidTV) {
+      return 'android-tv';
+    }
+    return Platform.isIOS ? 'ios' : (Platform.isAndroid ? 'android' : 'unknown');
+  }
+
   String addTrackingParametersToUrl(String url) {
-    final platform = Platform.isIOS ? "ios" : (Platform.isAndroid ? "android" : "unknown");
+    final source = _getPlaybackSource();
     final deviceId = globals.deviceId;
 
     final uri = Uri.parse(url);
     final queryParams = Map<String, String>.from(uri.queryParameters);
 
-    queryParams['ref'] = 'radio-crestin-mobile-app-$platform';
+    queryParams['ref'] = 'radio-crestin-$source';
     queryParams['s'] = deviceId;
 
     return uri.replace(queryParameters: queryParams).toString();

@@ -8,6 +8,7 @@ import 'package:rxdart/rxdart.dart';
 import 'package:get_it/get_it.dart';
 
 import '../appAudioHandler.dart';
+import '../globals.dart' as globals;
 import '../types/Station.dart';
 import '../utils.dart';
 import 'analytics_service.dart';
@@ -219,15 +220,16 @@ class CastService {
 
     final subtitle = _buildSubtitle(station);
     final contentType = _guessContentType(streamUrl);
+    final trackedUrl = _addCastTrackingParams(streamUrl);
 
-    _log('castStation: streamUrl=$streamUrl, contentType=$contentType, '
+    _log('castStation: streamUrl=$trackedUrl, contentType=$contentType, '
         'title=${station.title}, artist=${subtitle.isNotEmpty ? subtitle : station.title}, '
         'artUrl=$artUrl, images=${images.length}');
 
     final mediaInfo = GoogleCastMediaInformation(
-      contentId: streamUrl,
+      contentId: trackedUrl,
       streamType: CastMediaStreamType.live,
-      contentUrl: Uri.parse(streamUrl),
+      contentUrl: Uri.parse(trackedUrl),
       contentType: contentType,
       metadata: GoogleCastMusicMediaMetadata(
         title: station.title,
@@ -334,6 +336,18 @@ class CastService {
     if (lower.contains('.aac')) return 'audio/aac';
     if (lower.contains('.ogg')) return 'audio/ogg';
     return 'audio/mpeg';
+  }
+
+  /// Adds tracking parameters to the Cast stream URL.
+  /// The sender platform (ios/android) is included so we can distinguish
+  /// which device initiated the Cast session.
+  String _addCastTrackingParams(String url) {
+    final senderPlatform = Platform.isIOS ? 'ios' : 'android';
+    final uri = Uri.parse(url);
+    final queryParams = Map<String, String>.from(uri.queryParameters);
+    queryParams['ref'] = 'radio-crestin-chromecast-$senderPlatform';
+    queryParams['s'] = globals.deviceId;
+    return uri.replace(queryParameters: queryParams).toString();
   }
 
   void dispose() {
