@@ -288,21 +288,19 @@ class CastService {
     }
   }
 
-  /// Pick the best stream URL for Cast devices.
-  /// Prefers direct streams (MP3/AAC) over HLS because the Google
-  /// Default Media Receiver has known issues with HLS live streams
-  /// (broken relative URL handling, intermittent failures).
-  /// Falls back to HLS if no direct stream is available.
+  /// Pick a stream URL for Cast — excludes HLS completely.
+  /// The Google Default Media Receiver has broken HLS live stream
+  /// handling (relative URL resolution, intermittent disconnects).
+  /// Direct streams (MP3/AAC) work reliably on all Cast devices.
   String? _pickCastStreamUrl(Station station) {
     final streams = Utils.getStationStreamObjects(station.rawStationData);
     if (streams.isEmpty) return null;
 
-    // Try direct streams first (MP3, AAC, etc.)
     for (final s in streams) {
       if (s['type'] != 'HLS') return s['url'];
     }
-    // Fallback to HLS
-    return streams.first['url'];
+    _log('No non-HLS stream for ${station.title}, station cannot be cast');
+    return null;
   }
 
   /// Convert a CDN image URL from WebP to JPEG and increase size for Cast.
