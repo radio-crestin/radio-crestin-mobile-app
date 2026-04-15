@@ -518,10 +518,9 @@ packages:
   flutter_chrome_cast:
     dependency: "direct main"
     description:
-      name: flutter_chrome_cast
-      sha256: a65263327c810739ca724987544be3aea338363492f3a9e62847c742834779b6
-      url: "https://pub.dev"
-    source: hosted
+      path: "packages/flutter_chrome_cast"
+      relative: true
+    source: path
     version: "1.4.5"
   flutter_hooks:
     dependency: transitive
