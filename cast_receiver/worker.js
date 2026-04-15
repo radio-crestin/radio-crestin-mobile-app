@@ -1,6 +1,5 @@
 /**
  * Cloudflare Worker for cast.radiocrestin.ro
- * Serves the Google Cast Custom Web Receiver for Radio Creștin.
  * Deploy: wrangler deploy
  */
 
@@ -260,7 +259,7 @@ const RECEIVER_HTML = `<!DOCTYPE html>
     </div>
 
     <div id="recent-panel" class="recent-panel">
-      <div class="recent-title">Ascultate recent</div>
+      <div class="recent-title">Melodii recente</div>
     </div>
   </div>
 
@@ -311,24 +310,26 @@ const RECEIVER_HTML = `<!DOCTYPE html>
       idleScreen.classList.add('hidden');
     }
 
-    function renderRecent(stations) {
-      if (!stations || !stations.length) return;
+    function renderRecent(songs) {
+      if (!songs || !songs.length) return;
 
       // Keep header, remove old items
       while (recentPanel.children.length > 1) {
         recentPanel.removeChild(recentPanel.lastChild);
       }
 
-      for (var i = 0; i < stations.length; i++) {
-        var s = stations[i];
+      for (var i = 0; i < songs.length; i++) {
+        var s = songs[i];
         var item = document.createElement('div');
-        item.className = 'recent-item' + (s.title === currentStationTitle ? ' active' : '');
+        item.className = 'recent-item';
 
-        var thumb = document.createElement('img');
-        thumb.className = 'recent-thumb';
-        thumb.src = s.thumbnail || '';
-        thumb.alt = '';
-        item.appendChild(thumb);
+        if (s.thumbnail) {
+          var thumb = document.createElement('img');
+          thumb.className = 'recent-thumb';
+          thumb.src = s.thumbnail;
+          thumb.alt = '';
+          item.appendChild(thumb);
+        }
 
         var meta = document.createElement('div');
         meta.className = 'recent-meta';
@@ -338,14 +339,23 @@ const RECEIVER_HTML = `<!DOCTYPE html>
         name.textContent = s.title || '';
         meta.appendChild(name);
 
-        if (s.song) {
-          var song = document.createElement('div');
-          song.className = 'recent-song';
-          song.textContent = s.song;
-          meta.appendChild(song);
+        if (s.artist) {
+          var artist = document.createElement('div');
+          artist.className = 'recent-song';
+          artist.textContent = s.artist;
+          meta.appendChild(artist);
         }
 
         item.appendChild(meta);
+
+        if (s.time) {
+          var time = document.createElement('div');
+          time.className = 'recent-song';
+          time.style.flexShrink = '0';
+          time.textContent = s.time;
+          item.appendChild(time);
+        }
+
         recentPanel.appendChild(item);
       }
     }
@@ -358,8 +368,8 @@ const RECEIVER_HTML = `<!DOCTYPE html>
           if (request.media && request.media.metadata) {
             updateUI(request.media.metadata, 'LOAD');
           }
-          if (request.media && request.media.customData && request.media.customData.recentStations) {
-            renderRecent(request.media.customData.recentStations);
+          if (request.media && request.media.customData && request.media.customData.recentSongs) {
+            renderRecent(request.media.customData.recentSongs);
           }
         } catch(e) { dbg('LOAD err: ' + e.message); }
         return request;

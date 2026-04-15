@@ -318,7 +318,8 @@ void main() async {
 
       // Chromecast session management — only one output at a time
       final audioHandler = getIt<AppAudioHandler>();
-      castService.isCasting.listen((casting) async {
+      // Skip initial false emissions — only react to actual transitions
+      castService.isCasting.skip(1).distinct().listen((casting) async {
         print('[CastMain] isCasting changed: $casting');
         if (casting) {
           // Stop local audio — Chromecast takes over playback

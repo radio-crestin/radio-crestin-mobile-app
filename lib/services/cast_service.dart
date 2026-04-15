@@ -7,11 +7,10 @@ import 'package:rxdart/rxdart.dart';
 
 import 'package:get_it/get_it.dart';
 
+import '../appAudioHandler.dart';
 import '../types/Station.dart';
 import '../utils.dart';
 import 'analytics_service.dart';
-import 'play_count_service.dart';
-import 'station_data_service.dart';
 
 class CastService {
   static const _tag = 'CastService';
@@ -238,15 +237,15 @@ class CastService {
       ),
     );
 
-    // Build recently played stations list for the receiver UI
-    final recentStations = _buildRecentStations(station);
+    // Build recent songs for the current station for the receiver UI
+    final recentSongs = _buildRecentSongs(station);
 
     _log('castStation: calling loadMedia...');
     try {
       await GoogleCastRemoteMediaClient.instance.loadMedia(
         mediaInfo,
         customData: {
-          'recentStations': recentStations,
+          'recentSongs': recentSongs,
         },
       );
       _log('castStation: loadMedia completed for ${station.title}');
@@ -266,33 +265,29 @@ class CastService {
     return parts.join(' — ');
   }
 
-  List<Map<String, dynamic>> _buildRecentStations(Station currentStation) {
+  /// Builds a list of recent songs from the queue (populated by
+  /// _updateSongHistoryQueue from the API). Each queue item has
+  /// title=songName, artist="HH:MM - ArtistName", artUri=thumbnail.
+  List<Map<String, dynamic>> _buildRecentSongs(Station currentStation) {
     try {
-      final stationDataService = GetIt.instance<StationDataService>();
-      final playCountService = GetIt.instance<PlayCountService>();
-      final allStations = stationDataService.stations.value;
-      final counts = playCountService.playCounts;
+      final audioHandler = GetIt.instance<AppAudioHandler>();
+      final queueItems = audioHandler.queue.value;
 
-      // Sort stations by play count descending, take top 6
-      final sorted = allStations
-          .where((s) => counts.containsKey(s.slug))
-          .toList()
-        ..sort((a, b) => (counts[b.slug] ?? 0).compareTo(counts[a.slug] ?? 0));
+      return queueItems.take(5).map((item) {
+        // artist field is "HH:MM - ArtistName" — extract the time part
+        final artistParts = item.artist?.split(' - ') ?? [];
+        final time = artistParts.isNotEmpty ? artistParts[0] : '';
+        final artist = artistParts.length > 1 ? artistParts.sublist(1).join(' - ') : '';
 
-      final top = sorted.take(6).toList();
-
-      return top.map((s) {
-        final songParts = <String>[];
-        if (s.songTitle.isNotEmpty) songParts.add(s.songTitle);
-        if (s.songArtist.isNotEmpty) songParts.add(s.songArtist);
         return <String, dynamic>{
-          'title': s.title,
-          'thumbnail': s.rawStationData.thumbnail_url ?? '',
-          'song': songParts.join(' \u2014 '),
+          'title': item.title,
+          'artist': artist,
+          'time': time,
+          'thumbnail': item.artUri?.toString() ?? '',
         };
       }).toList();
     } catch (e) {
-      _log('_buildRecentStations failed: $e');
+      _log('_buildRecentSongs failed: $e');
       return [];
     }
   }
