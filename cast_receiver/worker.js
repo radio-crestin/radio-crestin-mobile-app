@@ -27,6 +27,23 @@ const RECEIVER_HTML = `<!DOCTYPE html>
       color: #fff;
     }
 
+    cast-media-player {
+      --background-image: none;
+      --logo-image: none;
+      --watermark-image: none;
+      --background-color: #121212;
+      --playback-logo-image: none;
+      --theme-hue: 327;
+      --progress-color: #E91E63;
+      --splash-image: none;
+      --splash-size: 0;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 0;
+      opacity: 0;
+    }
+
     .bg-artwork {
       position: fixed;
       inset: -40px;
@@ -35,7 +52,7 @@ const RECEIVER_HTML = `<!DOCTYPE html>
       filter: blur(50px) saturate(1.3);
       transform: scale(1.15);
       transition: background-image 0.8s ease-in-out;
-      z-index: 0;
+      z-index: 1;
     }
 
     .bg-gradient {
@@ -48,12 +65,12 @@ const RECEIVER_HTML = `<!DOCTYPE html>
         rgba(0,0,0,0.75) 70%,
         rgba(0,0,0,0.90) 100%
       );
-      z-index: 1;
+      z-index: 2;
     }
 
     .content {
       position: relative;
-      z-index: 2;
+      z-index: 3;
       width: 100%;
       height: 100%;
       display: flex;
@@ -155,7 +172,7 @@ const RECEIVER_HTML = `<!DOCTYPE html>
       position: fixed;
       top: 40px;
       right: 60px;
-      z-index: 3;
+      z-index: 4;
       display: flex;
       align-items: center;
       gap: 12px;
@@ -196,7 +213,17 @@ const RECEIVER_HTML = `<!DOCTYPE html>
       margin-top: 8px;
     }
 
-    cast-media-player { display: none; }
+    #debug {
+      position: fixed;
+      bottom: 10px;
+      left: 10px;
+      z-index: 100;
+      font-size: 11px;
+      color: rgba(255,255,255,0.5);
+      font-family: monospace;
+      max-width: 80%;
+      word-break: break-all;
+    }
   </style>
 </head>
 <body>
@@ -231,7 +258,17 @@ const RECEIVER_HTML = `<!DOCTYPE html>
     </div>
   </div>
 
+  <div id="debug"></div>
+
   <script>
+    var debugEl = document.getElementById('debug');
+    function dbg(msg) {
+      console.log('[RC] ' + msg);
+      if (debugEl) debugEl.textContent = msg;
+    }
+
+    dbg('Receiver loading...');
+
     var context = cast.framework.CastReceiverContext.getInstance();
     var playerManager = context.getPlayerManager();
 
@@ -242,32 +279,20 @@ const RECEIVER_HTML = `<!DOCTYPE html>
     var bgArtworkEl = document.getElementById('bg-artwork');
     var idleScreen = document.getElementById('idle-screen');
 
-    function getStr(metadata, key) {
-      try {
-        if (metadata[key]) return metadata[key];
-        if (typeof metadata.getString === 'function') return metadata.getString(key) || '';
-      } catch (e) {}
-      return '';
-    }
+    function updateUI(metadata, source) {
+      if (!metadata) { dbg(source + ': null metadata'); return; }
 
-    function extractImageUrl(metadata) {
-      try {
-        var images = metadata.images || [];
-        if (images.length > 0) {
-          var img = images[0];
-          return (typeof img === 'string') ? img : (img.url || '');
-        }
-      } catch (e) {}
-      return '';
-    }
+      var title = metadata.title || '';
+      var artist = metadata.artist || '';
+      var albumName = metadata.albumName || '';
+      var imageUrl = '';
+      var images = metadata.images;
+      if (images && images.length > 0) {
+        var img = images[0];
+        imageUrl = (typeof img === 'string') ? img : (img.url || '');
+      }
 
-    function updateUI(metadata) {
-      if (!metadata) return;
-
-      var title = getStr(metadata, 'title');
-      var artist = getStr(metadata, 'artist');
-      var albumName = getStr(metadata, 'albumName');
-      var imageUrl = extractImageUrl(metadata);
+      dbg(source + ': t=' + title + ' ar=' + artist + ' al=' + albumName);
 
       if (!title && !artist && !albumName && !imageUrl) return;
 
@@ -279,45 +304,56 @@ const RECEIVER_HTML = `<!DOCTYPE html>
         artworkEl.src = imageUrl;
         bgArtworkEl.style.backgroundImage = 'url(' + imageUrl + ')';
       }
-
       idleScreen.classList.add('hidden');
-    }
-
-    function tryUpdateFromPlayer() {
-      var mediaInfo = playerManager.getMediaInformation();
-      if (mediaInfo && mediaInfo.metadata) {
-        updateUI(mediaInfo.metadata);
-      }
     }
 
     playerManager.setMessageInterceptor(
       cast.framework.messages.MessageType.LOAD,
       function(request) {
-        if (request.media && request.media.metadata) {
-          updateUI(request.media.metadata);
-        }
+        try {
+          dbg('LOAD: ' + (request.media ? request.media.contentId : 'no media'));
+          if (request.media && request.media.metadata) {
+            updateUI(request.media.metadata, 'LOAD');
+          }
+        } catch(e) { dbg('LOAD err: ' + e.message); }
         return request;
       }
     );
 
     playerManager.addEventListener(
       cast.framework.events.EventType.PLAYER_LOAD_COMPLETE,
-      function() { tryUpdateFromPlayer(); }
+      function() {
+        dbg('LOAD_COMPLETE');
+        var mi = playerManager.getMediaInformation();
+        if (mi && mi.metadata) updateUI(mi.metadata, 'COMPLETE');
+      }
     );
 
     playerManager.addEventListener(
       cast.framework.events.EventType.MEDIA_STATUS,
-      function() { tryUpdateFromPlayer(); }
+      function() {
+        var s = playerManager.getPlayerState();
+        dbg('STATUS: ' + s);
+        var mi = playerManager.getMediaInformation();
+        if (mi && mi.metadata) updateUI(mi.metadata, 'STATUS');
+      }
+    );
+
+    playerManager.addEventListener(
+      cast.framework.events.EventType.ERROR,
+      function(event) { dbg('ERROR: ' + JSON.stringify(event)); }
     );
 
     playerManager.addEventListener(
       cast.framework.events.EventType.MEDIA_FINISHED,
-      function() { idleScreen.classList.remove('hidden'); }
+      function() { dbg('FINISHED'); idleScreen.classList.remove('hidden'); }
     );
 
+    dbg('Starting...');
     var options = new cast.framework.CastReceiverOptions();
     options.disableIdleTimeout = true;
     context.start(options);
+    dbg('Started');
   <\/script>
 </body>
 </html>`;
@@ -336,7 +372,7 @@ export default {
       status: 200,
       headers: {
         'Content-Type': 'text/html; charset=utf-8',
-        'Cache-Control': 'public, max-age=3600',
+        'Cache-Control': 'no-cache',
         'Access-Control-Allow-Origin': '*',
       },
     });

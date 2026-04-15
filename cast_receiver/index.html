@@ -6,7 +6,6 @@
   <title>Radio Creștin</title>
   <script src="//www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js"></script>
   <style>
-    /* === Reset === */
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
@@ -18,7 +17,26 @@
       color: #fff;
     }
 
-    /* === Background layers === */
+    /* Use the cast-media-player as the base layer — it MUST be rendered
+       (not display:none) for the Cast framework to handle audio playback.
+       We make it fill the screen but sit behind our custom UI. */
+    cast-media-player {
+      --background-image: none;
+      --logo-image: none;
+      --watermark-image: none;
+      --background-color: #121212;
+      --playback-logo-image: none;
+      --theme-hue: 327;
+      --progress-color: #E91E63;
+      --splash-image: none;
+      --splash-size: 0;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 0;
+      opacity: 0;
+    }
+
     .bg-artwork {
       position: fixed;
       inset: -40px;
@@ -27,7 +45,7 @@
       filter: blur(50px) saturate(1.3);
       transform: scale(1.15);
       transition: background-image 0.8s ease-in-out;
-      z-index: 0;
+      z-index: 1;
     }
 
     .bg-gradient {
@@ -40,13 +58,12 @@
         rgba(0, 0, 0, 0.75) 70%,
         rgba(0, 0, 0, 0.90) 100%
       );
-      z-index: 1;
+      z-index: 2;
     }
 
-    /* === Content === */
     .content {
       position: relative;
-      z-index: 2;
+      z-index: 3;
       width: 100%;
       height: 100%;
       display: flex;
@@ -61,7 +78,6 @@
       max-width: 900px;
     }
 
-    /* === Album art === */
     .artwork-container {
       flex-shrink: 0;
       width: 200px;
@@ -78,7 +94,6 @@
       transition: opacity 0.5s ease;
     }
 
-    /* === Metadata === */
     .metadata {
       display: flex;
       flex-direction: column;
@@ -117,7 +132,6 @@
       text-overflow: ellipsis;
     }
 
-    /* === Live badge === */
     .live-badge {
       display: inline-flex;
       align-items: center;
@@ -147,22 +161,15 @@
       50% { opacity: 0.5; transform: scale(0.85); }
     }
 
-    /* === Logo === */
     .logo {
       position: fixed;
       top: 40px;
       right: 60px;
-      z-index: 3;
+      z-index: 4;
       display: flex;
       align-items: center;
       gap: 12px;
       opacity: 0.7;
-    }
-
-    .logo-icon {
-      width: 36px;
-      height: 36px;
-      border-radius: 8px;
     }
 
     .logo-text {
@@ -171,7 +178,6 @@
       letter-spacing: 0.5px;
     }
 
-    /* === Idle / splash === */
     .idle-screen {
       position: fixed;
       inset: 0;
@@ -189,13 +195,6 @@
       pointer-events: none;
     }
 
-    .idle-logo {
-      width: 120px;
-      height: 120px;
-      border-radius: 24px;
-      margin-bottom: 24px;
-    }
-
     .idle-title {
       font-size: 36px;
       font-weight: 800;
@@ -207,32 +206,38 @@
       margin-top: 8px;
     }
 
-    /* === Hide default cast player chrome === */
-    cast-media-player {
-      display: none;
+    /* Debug overlay — visible on TV during development */
+    #debug {
+      position: fixed;
+      bottom: 10px;
+      left: 10px;
+      z-index: 100;
+      font-size: 11px;
+      color: rgba(255,255,255,0.5);
+      font-family: monospace;
+      max-width: 80%;
+      word-break: break-all;
     }
   </style>
 </head>
 <body>
-  <!-- Default cast player (hidden, handles media session) -->
+  <!-- cast-media-player MUST be in the DOM and NOT display:none
+       for the Cast framework to handle audio playback. We use opacity:0
+       and layer our custom UI on top. -->
   <cast-media-player></cast-media-player>
 
-  <!-- Idle/splash screen -->
   <div id="idle-screen" class="idle-screen">
     <div class="idle-title">Radio Creștin</div>
     <div class="idle-subtitle">Se conectează...</div>
   </div>
 
-  <!-- Background layers -->
   <div id="bg-artwork" class="bg-artwork"></div>
   <div class="bg-gradient"></div>
 
-  <!-- App logo -->
   <div class="logo">
     <span class="logo-text">Radio Creștin</span>
   </div>
 
-  <!-- Player content -->
   <div class="content">
     <div class="player-card">
       <div class="artwork-container">
@@ -250,7 +255,19 @@
     </div>
   </div>
 
+  <div id="debug"></div>
+
   <script>
+    var debugEl = document.getElementById('debug');
+    function dbg(msg) {
+      console.log('[RC] ' + msg);
+      if (debugEl) {
+        debugEl.textContent = msg;
+      }
+    }
+
+    dbg('Receiver loading...');
+
     var context = cast.framework.CastReceiverContext.getInstance();
     var playerManager = context.getPlayerManager();
 
@@ -261,34 +278,42 @@
     var bgArtworkEl = document.getElementById('bg-artwork');
     var idleScreen = document.getElementById('idle-screen');
 
-    function getStr(metadata, key) {
+    function dumpKeys(obj, label) {
       try {
-        if (metadata[key]) return metadata[key];
-        if (typeof metadata.getString === 'function') return metadata.getString(key) || '';
-      } catch (e) {}
-      return '';
+        var keys = Object.keys(obj);
+        dbg(label + ' keys: ' + keys.join(', '));
+      } catch(e) {
+        dbg(label + ' not enumerable');
+      }
     }
 
-    function extractImageUrl(metadata) {
-      try {
-        var images = metadata.images || [];
-        if (images.length > 0) {
-          var img = images[0];
-          return (typeof img === 'string') ? img : (img.url || '');
-        }
-      } catch (e) {}
-      return '';
-    }
+    function updateUI(metadata, source) {
+      if (!metadata) {
+        dbg(source + ': metadata is null');
+        return;
+      }
 
-    function updateUI(metadata) {
-      if (!metadata) return;
+      dbg(source + ': got metadata, type=' + typeof metadata);
+      dumpKeys(metadata, source);
 
-      var title = getStr(metadata, 'title');
-      var artist = getStr(metadata, 'artist');
-      var albumName = getStr(metadata, 'albumName');
-      var imageUrl = extractImageUrl(metadata);
+      var title = metadata.title || '';
+      var artist = metadata.artist || '';
+      var albumName = metadata.albumName || '';
+      var imageUrl = '';
 
-      if (!title && !artist && !albumName && !imageUrl) return;
+      var images = metadata.images;
+      if (images && images.length > 0) {
+        var img = images[0];
+        imageUrl = (typeof img === 'string') ? img : (img.url || '');
+      }
+
+      dbg(source + ': title=' + title + ', artist=' + artist +
+          ', album=' + albumName + ', img=' + (imageUrl ? 'yes' : 'no'));
+
+      if (!title && !artist && !albumName && !imageUrl) {
+        dbg(source + ': all fields empty, skipping UI update');
+        return;
+      }
 
       stationNameEl.textContent = albumName || title;
       songTitleEl.textContent = title;
@@ -300,44 +325,76 @@
       }
 
       idleScreen.classList.add('hidden');
+      dbg(source + ': UI updated OK');
     }
 
-    function tryUpdateFromPlayer() {
-      var mediaInfo = playerManager.getMediaInformation();
-      if (mediaInfo && mediaInfo.metadata) {
-        updateUI(mediaInfo.metadata);
-      }
-    }
-
-    // Intercept LOAD messages — most reliable way to capture initial metadata
+    // Intercept LOAD — capture metadata before playback starts
     playerManager.setMessageInterceptor(
       cast.framework.messages.MessageType.LOAD,
       function(request) {
-        if (request.media && request.media.metadata) {
-          updateUI(request.media.metadata);
+        try {
+          dbg('LOAD intercepted: contentId=' + (request.media ? request.media.contentId : 'none'));
+          if (request.media) {
+            dbg('LOAD media: contentType=' + request.media.contentType +
+                ', streamType=' + request.media.streamType);
+            if (request.media.metadata) {
+              updateUI(request.media.metadata, 'LOAD');
+            } else {
+              dbg('LOAD: no metadata in request');
+            }
+          }
+        } catch(e) {
+          dbg('LOAD interceptor error: ' + e.message);
         }
         return request;
       }
     );
 
+    // Player state changes
     playerManager.addEventListener(
       cast.framework.events.EventType.PLAYER_LOAD_COMPLETE,
-      function() { tryUpdateFromPlayer(); }
+      function(event) {
+        dbg('PLAYER_LOAD_COMPLETE');
+        var mediaInfo = playerManager.getMediaInformation();
+        if (mediaInfo && mediaInfo.metadata) {
+          updateUI(mediaInfo.metadata, 'LOAD_COMPLETE');
+        }
+      }
     );
 
     playerManager.addEventListener(
       cast.framework.events.EventType.MEDIA_STATUS,
-      function() { tryUpdateFromPlayer(); }
+      function(event) {
+        var state = playerManager.getPlayerState();
+        dbg('MEDIA_STATUS: playerState=' + state);
+        var mediaInfo = playerManager.getMediaInformation();
+        if (mediaInfo && mediaInfo.metadata) {
+          updateUI(mediaInfo.metadata, 'STATUS');
+        }
+      }
+    );
+
+    // Error handling
+    playerManager.addEventListener(
+      cast.framework.events.EventType.ERROR,
+      function(event) {
+        dbg('ERROR: ' + JSON.stringify(event));
+      }
     );
 
     playerManager.addEventListener(
       cast.framework.events.EventType.MEDIA_FINISHED,
-      function() { idleScreen.classList.remove('hidden'); }
+      function() {
+        dbg('MEDIA_FINISHED');
+        idleScreen.classList.remove('hidden');
+      }
     );
 
+    dbg('Starting receiver context...');
     var options = new cast.framework.CastReceiverOptions();
     options.disableIdleTimeout = true;
     context.start(options);
+    dbg('Receiver started');
   </script>
 </body>
 </html>
