@@ -199,20 +199,20 @@ class CastService {
       return;
     }
 
-    final streamUrl =
-        Utils.getStationStreamUrls(station.rawStationData).firstOrNull;
+    // Prefer non-HLS stream for Cast (more compatible with Google Home Mini)
+    final streamUrl = _pickCastStreamUrl(station);
     if (streamUrl == null) {
       _log('castStation: no stream URL for station ${station.title}');
       return;
     }
 
-    // Use HTTPS thumbnail URL (not file:// cached path) — cast devices fetch remotely
+    // Convert CDN image URLs: WebP → JPEG, 250px → 480px for Cast devices
     final thumbnailUrl = station.rawStationData.thumbnail_url ?? '';
     final songThumbnailUrl =
         station.rawStationData.now_playing?.song?.thumbnail_url;
 
     final images = <GoogleCastImage>[];
-    final artUrl = songThumbnailUrl ?? thumbnailUrl;
+    final artUrl = _castImageUrl(songThumbnailUrl ?? thumbnailUrl);
     if (artUrl.isNotEmpty) {
       images.add(GoogleCastImage(url: Uri.parse(artUrl)));
     }
@@ -283,13 +283,47 @@ class CastService {
           'title': item.title,
           'artist': artist,
           'time': time,
-          'thumbnail': item.artUri?.toString() ?? '',
+          'thumbnail': _castImageUrl(item.artUri?.toString() ?? ''),
         };
       }).toList();
     } catch (e) {
       _log('_buildRecentSongs failed: $e');
       return [];
     }
+  }
+
+  /// Pick the stream URL for Cast — same order as the app (HLS first).
+  /// The receiver and Cast SDK handle HLS natively.
+  /// Falls back to MP3/AAC if no HLS is available.
+  String? _pickCastStreamUrl(Station station) {
+    final urls = Utils.getStationStreamUrls(station.rawStationData);
+    return urls.firstOrNull;
+  }
+
+  /// Convert a CDN image URL from WebP to JPEG and increase size for Cast.
+  /// CDN format: https://cdn.radiocrestin.ro/?url=...&w=250&f=webp&max_age=...
+  /// Cast needs: JPEG format, 480px width for TV display.
+  String _castImageUrl(String url) {
+    if (url.isEmpty) return url;
+    if (!url.contains('cdn.radiocrestin.ro')) return url;
+
+    // Replace WebP with JPEG and increase width to 480
+    var castUrl = url
+        .replaceAll('&f=webp', '&f=jpeg')
+        .replaceAll('&f=avif', '&f=jpeg')
+        .replaceAll('&w=250', '&w=480')
+        .replaceAll('&w=100', '&w=480');
+
+    // If no format was specified, add JPEG
+    if (!castUrl.contains('&f=')) {
+      castUrl += '&f=jpeg';
+    }
+    // If no width was specified, add 480
+    if (!castUrl.contains('&w=')) {
+      castUrl += '&w=480';
+    }
+
+    return castUrl;
   }
 
   String _guessContentType(String url) {

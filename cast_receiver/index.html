@@ -400,8 +400,18 @@
       function() { dbg('FINISHED'); idleScreen.classList.remove('hidden'); }
     );
 
+    // Configure supported commands for audio playback
+    playerManager.setSupportedMediaCommands(
+      cast.framework.messages.Command.PAUSE |
+      cast.framework.messages.Command.STREAM_VOLUME |
+      cast.framework.messages.Command.STREAM_MUTE
+    );
+
     var options = new cast.framework.CastReceiverOptions();
     options.disableIdleTimeout = true;
+    // Support both audio and video Cast devices (Google Home Mini, Chromecast)
+    options.playbackConfig = new cast.framework.PlaybackConfig();
+    options.playbackConfig.autoResumeDuration = 5;
     context.start(options);
     dbg('Started');
   </script>
