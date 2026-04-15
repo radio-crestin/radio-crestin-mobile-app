@@ -13,7 +13,7 @@ const RECEIVER_HTML = `<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Radio Creștin</title>
+  <title>Radio Cre\u0219tin</title>
   <script src="//www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js"><\/script>
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -232,51 +232,82 @@ const RECEIVER_HTML = `<!DOCTYPE html>
   </div>
 
   <script>
-    const context = cast.framework.CastReceiverContext.getInstance();
-    const playerManager = context.getPlayerManager();
+    var context = cast.framework.CastReceiverContext.getInstance();
+    var playerManager = context.getPlayerManager();
 
-    const stationNameEl = document.getElementById('station-name');
-    const songTitleEl = document.getElementById('song-title');
-    const songArtistEl = document.getElementById('song-artist');
-    const artworkEl = document.getElementById('artwork');
-    const bgArtworkEl = document.getElementById('bg-artwork');
-    const idleScreen = document.getElementById('idle-screen');
+    var stationNameEl = document.getElementById('station-name');
+    var songTitleEl = document.getElementById('song-title');
+    var songArtistEl = document.getElementById('song-artist');
+    var artworkEl = document.getElementById('artwork');
+    var bgArtworkEl = document.getElementById('bg-artwork');
+    var idleScreen = document.getElementById('idle-screen');
+
+    function getStr(metadata, key) {
+      try {
+        if (metadata[key]) return metadata[key];
+        if (typeof metadata.getString === 'function') return metadata.getString(key) || '';
+      } catch (e) {}
+      return '';
+    }
+
+    function extractImageUrl(metadata) {
+      try {
+        var images = metadata.images || [];
+        if (images.length > 0) {
+          var img = images[0];
+          return (typeof img === 'string') ? img : (img.url || '');
+        }
+      } catch (e) {}
+      return '';
+    }
 
     function updateUI(metadata) {
       if (!metadata) return;
-      const title = metadata.title || '';
-      const artist = metadata.artist || '';
-      const albumName = metadata.albumName || '';
-      const images = metadata.images || [];
+
+      var title = getStr(metadata, 'title');
+      var artist = getStr(metadata, 'artist');
+      var albumName = getStr(metadata, 'albumName');
+      var imageUrl = extractImageUrl(metadata);
+
+      if (!title && !artist && !albumName && !imageUrl) return;
 
       stationNameEl.textContent = albumName || title;
       songTitleEl.textContent = title;
       songArtistEl.textContent = artist;
 
-      if (images.length > 0) {
-        const imageUrl = images[0].url;
-        if (artworkEl.src !== imageUrl) {
-          artworkEl.src = imageUrl;
-          bgArtworkEl.style.backgroundImage = 'url(' + imageUrl + ')';
-        }
+      if (imageUrl && artworkEl.src !== imageUrl) {
+        artworkEl.src = imageUrl;
+        bgArtworkEl.style.backgroundImage = 'url(' + imageUrl + ')';
       }
+
       idleScreen.classList.add('hidden');
     }
 
-    playerManager.addEventListener(
-      cast.framework.events.EventType.MEDIA_STATUS,
-      function(event) {
-        const mediaInfo = playerManager.getMediaInformation();
-        if (mediaInfo && mediaInfo.metadata) updateUI(mediaInfo.metadata);
+    function tryUpdateFromPlayer() {
+      var mediaInfo = playerManager.getMediaInformation();
+      if (mediaInfo && mediaInfo.metadata) {
+        updateUI(mediaInfo.metadata);
+      }
+    }
+
+    playerManager.setMessageInterceptor(
+      cast.framework.messages.MessageType.LOAD,
+      function(request) {
+        if (request.media && request.media.metadata) {
+          updateUI(request.media.metadata);
+        }
+        return request;
       }
     );
 
     playerManager.addEventListener(
       cast.framework.events.EventType.PLAYER_LOAD_COMPLETE,
-      function(event) {
-        const mediaInfo = playerManager.getMediaInformation();
-        if (mediaInfo && mediaInfo.metadata) updateUI(mediaInfo.metadata);
-      }
+      function() { tryUpdateFromPlayer(); }
+    );
+
+    playerManager.addEventListener(
+      cast.framework.events.EventType.MEDIA_STATUS,
+      function() { tryUpdateFromPlayer(); }
     );
 
     playerManager.addEventListener(
@@ -284,7 +315,7 @@ const RECEIVER_HTML = `<!DOCTYPE html>
       function() { idleScreen.classList.remove('hidden'); }
     );
 
-    const options = new cast.framework.CastReceiverOptions();
+    var options = new cast.framework.CastReceiverOptions();
     options.disableIdleTimeout = true;
     context.start(options);
   <\/script>

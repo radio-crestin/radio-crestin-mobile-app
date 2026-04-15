@@ -15,6 +15,7 @@ import 'package:radio_crestin/types/Station.dart';
 import 'package:radio_crestin/services/image_cache_service.dart';
 import 'package:radio_crestin/services/car_play_service.dart';
 import 'package:radio_crestin/services/analytics_service.dart';
+import 'package:radio_crestin/services/cast_service.dart';
 import 'package:radio_crestin/services/play_count_service.dart';
 import 'package:radio_crestin/services/network_service.dart';
 import 'package:radio_crestin/services/review_service.dart';
@@ -120,6 +121,8 @@ class AppAudioHandler extends BaseAudioHandler {
   bool get isPlayingOrConnecting => player.playing || _isConnecting;
   bool get isCarConnected => GetIt.instance.isRegistered<CarPlayService>() &&
       GetIt.instance<CarPlayService>().isConnected;
+  bool get isCasting => GetIt.instance.isRegistered<CastService>() &&
+      GetIt.instance<CastService>().isCasting.value;
   bool _hasBeenPlayed = false;
   Timer? _disconnectTimer;
   Timer? _bufferingStallTimer;
@@ -652,6 +655,15 @@ class AppAudioHandler extends BaseAudioHandler {
     _loadedStreamType = null;
 
     await selectStation(station);
+
+    // When casting, the Chromecast handles playback — don't start local audio.
+    // The currentStation.listen in main.dart will push the station to Cast.
+    if (isCasting) {
+      _log('playStation: casting active, skipping local audio');
+      _isConnecting = false;
+      _broadcastState(player.playbackEvent);
+      return;
+    }
 
     // Track listening session in PostHog
     AnalyticsService.instance.startListening(station.slug, station.title, stationId: station.id);

@@ -316,17 +316,25 @@ void main() async {
       await castService.initialize();
       getIt.registerSingleton<CastService>(castService);
 
-      // Auto-play + cast on Chromecast connect
+      // Chromecast session management — only one output at a time
       final audioHandler = getIt<AppAudioHandler>();
       castService.isCasting.listen((casting) async {
         if (casting) {
+          // Stop local audio — Chromecast takes over playback
+          await audioHandler.player.stop();
           var station = audioHandler.currentStation.value;
           // Nothing playing — start last played station automatically
           if (station == null) {
             station = await audioHandler.getLastPlayedStation();
-            if (station != null) audioHandler.playStation(station);
+            if (station != null) await audioHandler.selectStation(station);
           }
           if (station != null) castService.castStation(station);
+        } else {
+          // Cast disconnected — resume local playback for the selected station
+          final station = audioHandler.currentStation.value;
+          if (station != null) {
+            audioHandler.playStation(station);
+          }
         }
       });
       // Push metadata updates when song changes during active cast
