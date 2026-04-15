@@ -69,12 +69,13 @@ class CastService {
       _sessionSubscription = GoogleCastSessionManager
           .instance.currentSessionStream
           .listen((session) {
-        final state = GoogleCastSessionManager.instance.connectionState;
+        // Read state from the session object directly (more reliable than the getter)
+        final state = session?.connectionState ?? GoogleCastConnectState.disconnected;
         connectionState.add(state);
         final wasCasting = isCasting.value;
         final nowCasting = state == GoogleCastConnectState.connected;
         isCasting.add(nowCasting);
-        _log('Session changed: state=$state, wasCasting=$wasCasting, nowCasting=$nowCasting, session=$session');
+        _log('Session changed: state=$state, wasCasting=$wasCasting, nowCasting=$nowCasting, session=${session?.runtimeType}');
       }, onError: (e) {
         _log('Session stream error: $e');
       });
@@ -131,6 +132,15 @@ class CastService {
       AnalyticsService.instance.capture('cast_connected', {
         'device_name': device.friendlyName,
       });
+
+      // Wait briefly for the session to fully establish, then check state
+      await Future.delayed(const Duration(seconds: 2));
+      final state = GoogleCastSessionManager.instance.connectionState;
+      _log('Post-connect state: $state');
+      if (state == GoogleCastConnectState.connected && !isCasting.value) {
+        _log('Force-setting isCasting=true (stream may have missed the transition)');
+        isCasting.add(true);
+      }
       return true;
     } catch (e, st) {
       _log('Connect failed: $e\n$st');
