@@ -352,9 +352,13 @@ void main() async {
           }
         }
       });
-      // Push metadata updates when song changes during active cast
+      // Only push to Cast when the STATION changes (not on song metadata updates).
+      // currentStation fires on every poll cycle — we only care about station switches.
+      String? lastCastStationSlug;
       audioHandler.currentStation.listen((station) {
-        if (station != null && castService.isCasting.value) {
+        if (station != null && castService.isCasting.value &&
+            station.slug != lastCastStationSlug) {
+          lastCastStationSlug = station.slug;
           print('[CastMain] Station changed while casting: ${station.title}');
           castService.castStation(station);
         }

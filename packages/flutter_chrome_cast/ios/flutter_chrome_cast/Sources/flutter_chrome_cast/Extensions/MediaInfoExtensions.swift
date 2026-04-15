@@ -27,6 +27,12 @@ extension GCKMediaInformation{
         
         let builder =  GCKMediaInformationBuilder.init(contentURL: contentUrl)
         builder.streamType = streamType
+        // contentID is required by Cast — use contentID from map, or fall back to contentURL
+        if let contentId = arguments["contentID"] as? String, !contentId.isEmpty {
+            builder.contentID = contentId
+        } else {
+            builder.contentID = contentUrlString
+        }
         if let contentType = arguments["contentType"] as? String {
              builder.contentType = contentType
         }
