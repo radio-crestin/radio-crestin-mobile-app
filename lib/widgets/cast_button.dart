@@ -219,10 +219,20 @@ class _DeviceSheetState extends State<_DeviceSheet> {
       }));
     }
 
-    // Show searching indicator while scanning (matches typical mDNS scan time)
-    Future.delayed(const Duration(seconds: 5), () {
+    _startSearchTimer();
+  }
+
+  void _startSearchTimer() {
+    // Show searching indicator while scanning (mDNS can take up to 15s)
+    Future.delayed(const Duration(seconds: 15), () {
       if (mounted) setState(() => _searching = false);
     });
+  }
+
+  void _rescan() {
+    widget.castService?.restartDiscovery();
+    setState(() => _searching = true);
+    _startSearchTimer();
   }
 
   @override
@@ -306,6 +316,32 @@ class _DeviceSheetState extends State<_DeviceSheet> {
                   await widget.castService?.connectToDevice(device);
                 },
               )),
+
+            // Scan again button — shown when not actively searching
+            if (!_chromecastCasting && !_searching)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 40,
+                  child: OutlinedButton.icon(
+                    onPressed: _rescan,
+                    icon: const Icon(Icons.refresh_rounded, size: 18),
+                    label: Text(
+                      _devices.isEmpty
+                          ? 'Caută din nou'
+                          : 'Caută alte dispozitive',
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: dim,
+                      side: BorderSide(color: dim.withValues(alpha: 0.3)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ),
+              ),
 
             // AirPlay — native picker (handles connect & disconnect)
             if (Platform.isIOS)
