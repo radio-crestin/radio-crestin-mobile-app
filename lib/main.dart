@@ -319,15 +319,11 @@ void main() async {
       // Chromecast session management — only one output at a time
       final audioHandler = getIt<AppAudioHandler>();
       bool hasEverCasted = false;
-      // Track which station slug was last sent to Cast to prevent duplicates.
-      // Shared between both listeners so they don't double-fire.
-      String? lastCastSlug;
 
       castService.isCasting.distinct().listen((casting) async {
-        print('[CastMain] isCasting changed: $casting, hasEverCasted=$hasEverCasted');
+        print('[CastMain] isCasting=$casting');
         if (casting) {
           hasEverCasted = true;
-          // Stop local audio — Chromecast takes over playback
           await audioHandler.player.stop();
           audioHandler.playbackState.add(
             audioHandler.playbackState.value.copyWith(playing: true));
@@ -337,25 +333,20 @@ void main() async {
             if (station != null) await audioHandler.selectStation(station);
           }
           if (station != null) {
-            lastCastSlug = station.slug;
-            print('[CastMain] Casting station: ${station.title}');
+            castService.lastCastSlug = station.slug;
             castService.castStation(station);
           }
         } else if (hasEverCasted) {
-          lastCastSlug = null;
+          castService.lastCastSlug = null;
           final station = audioHandler.currentStation.value;
-          print('[CastMain] Cast disconnected, resuming: ${station?.title}');
-          if (station != null) {
-            audioHandler.playStation(station);
-          }
+          if (station != null) audioHandler.playStation(station);
         }
       });
-      // Only push to Cast when the user switches to a DIFFERENT station.
+      // Catch station changes not initiated by playStation (e.g. auto-start)
       audioHandler.currentStation.listen((station) {
         if (station != null && castService.isCasting.value &&
-            station.slug != lastCastSlug) {
-          lastCastSlug = station.slug;
-          print('[CastMain] Station changed while casting: ${station.title}');
+            station.slug != castService.lastCastSlug) {
+          castService.lastCastSlug = station.slug;
           castService.castStation(station);
         }
       });

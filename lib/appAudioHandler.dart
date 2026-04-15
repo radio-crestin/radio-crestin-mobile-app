@@ -668,12 +668,16 @@ class AppAudioHandler extends BaseAudioHandler {
 
     await selectStation(station);
 
-    // When casting, the Chromecast handles playback — don't start local audio.
-    // The currentStation.listen in main.dart will push the station to Cast.
+    // When casting, send directly to Chromecast — don't start local audio.
     if (isCasting) {
-      _log('playStation: casting active, skipping local audio');
+      _log('playStation: casting active, sending to Cast');
       _isConnecting = false;
+      playbackState.add(playbackState.value.copyWith(playing: true));
       _broadcastState(player.playbackEvent);
+      // Cast immediately — don't wait for the reactive listener chain
+      final castService = GetIt.instance<CastService>();
+      castService.lastCastSlug = station.slug;
+      castService.castStation(station);
       return;
     }
 

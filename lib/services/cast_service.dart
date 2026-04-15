@@ -31,6 +31,9 @@ class CastService {
 
   bool _discoveryStarted = false;
 
+  /// Last station slug sent to Cast — prevents duplicate loadMedia calls.
+  String? lastCastSlug;
+
   void _log(String message) {
     developer.log('$_tag: $message');
     // Also print to system console for easier debugging
@@ -217,6 +220,9 @@ class CastService {
         'title=${station.title}, artist=${subtitle.isNotEmpty ? subtitle : station.title}, '
         'artUrl=$artUrl, images=${images.length}');
 
+    // Build recent songs synchronously from the existing queue (fast)
+    final recentSongs = _buildRecentSongs(station);
+
     final mediaInfo = GoogleCastMediaInformation(
       contentId: trackedUrl,
       streamType: CastMediaStreamType.live,
@@ -230,10 +236,7 @@ class CastService {
       ),
     );
 
-    // Build recent songs for the current station for the receiver UI
-    final recentSongs = _buildRecentSongs(station);
-
-    _log('castStation: calling loadMedia...');
+    _log('castStation: loadMedia $trackedUrl');
     try {
       await GoogleCastRemoteMediaClient.instance.loadMedia(
         mediaInfo,
@@ -241,13 +244,13 @@ class CastService {
           'recentSongs': recentSongs,
         },
       );
-      _log('castStation: loadMedia completed for ${station.title}');
+      _log('castStation: loadMedia OK');
       AnalyticsService.instance.capture('cast_station', {
         'station_id': station.id,
         'station_slug': station.slug,
       });
-    } catch (e, st) {
-      _log('castStation: loadMedia FAILED: $e\n$st');
+    } catch (e) {
+      _log('castStation: loadMedia FAILED: $e');
     }
   }
 
