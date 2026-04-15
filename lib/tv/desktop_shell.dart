@@ -5,6 +5,7 @@ import 'package:get_it/get_it.dart';
 import 'package:rxdart/rxdart.dart';
 
 import '../appAudioHandler.dart';
+import '../pages/SettingsPage.dart';
 import '../queries/getStations.graphql.dart';
 import '../services/station_data_service.dart';
 import '../services/station_sort_service.dart';
@@ -39,6 +40,12 @@ class _DesktopShellState extends State<DesktopShell> {
 
   StationSortOption _sortOption = StationSortOption.recommended;
   Query$GetStations$station_groups? _selectedGroup;
+
+  // Search
+  bool _searchOpen = false;
+  String _searchQuery = '';
+  final _searchController = TextEditingController();
+  final _searchFocus = FocusNode();
 
   @override
   void initState() {
@@ -80,6 +87,8 @@ class _DesktopShellState extends State<DesktopShell> {
     for (final sub in _subscriptions) {
       sub.cancel();
     }
+    _searchController.dispose();
+    _searchFocus.dispose();
     super.dispose();
   }
 
@@ -94,12 +103,34 @@ class _DesktopShellState extends State<DesktopShell> {
       base = List<Station>.from(_allStations);
     }
     final playCounts = GetIt.instance<PlayCountService>().playCounts;
-    return StationSortService.sort(
+    var sorted = StationSortService.sort(
       stations: base,
       sortBy: _sortOption,
       playCounts: playCounts,
       favoriteSlugs: _favoriteSlugs,
     ).sorted;
+
+    // Apply search filter
+    if (_searchQuery.isNotEmpty) {
+      final q = _searchQuery.toLowerCase();
+      sorted = sorted.where((s) =>
+          s.title.toLowerCase().contains(q) ||
+          s.songTitle.toLowerCase().contains(q) ||
+          s.songArtist.toLowerCase().contains(q)).toList();
+    }
+    return sorted;
+  }
+
+  void _toggleSearch() {
+    setState(() {
+      _searchOpen = !_searchOpen;
+      if (!_searchOpen) {
+        _searchQuery = '';
+        _searchController.clear();
+      } else {
+        Future.microtask(() => _searchFocus.requestFocus());
+      }
+    });
   }
 
   void _playStation(Station station) {
@@ -262,6 +293,35 @@ class _DesktopShellState extends State<DesktopShell> {
     );
   }
 
+  Widget _navBtn({
+    required IconData icon,
+    required VoidCallback onTap,
+    String? tooltip,
+    bool active = false,
+  }) {
+    return Tooltip(
+      message: tooltip ?? '',
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: onTap,
+          child: Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: active
+                  ? TvColors.primary.withValues(alpha: 0.12)
+                  : Colors.white.withValues(alpha: 0.06),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, size: 20,
+                color: active ? TvColors.primary : TvColors.textSecondary),
+          ),
+        ),
+      ),
+    );
+  }
+
   // ─── Build ───
 
   @override
@@ -273,13 +333,106 @@ class _DesktopShellState extends State<DesktopShell> {
       backgroundColor: TvColors.background,
       body: Column(
         children: [
+          // ── Top navbar ──
+          Container(
+            height: 56,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            decoration: const BoxDecoration(
+              color: TvColors.background,
+              border: Border(
+                bottom: BorderSide(color: TvColors.divider, width: 0.5),
+              ),
+            ),
+            child: Row(
+              children: [
+                // Logo + brand
+                Image.asset('assets/icons/ic_logo_filled.png', width: 32, height: 32),
+                const SizedBox(width: 10),
+                const Text(
+                  'Radio Crestin',
+                  style: TextStyle(
+                    color: TvColors.textPrimary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+                const Spacer(),
+                // Search
+                _navBtn(
+                  icon: _searchOpen ? Icons.close_rounded : Icons.search_rounded,
+                  tooltip: 'Caută',
+                  active: _searchOpen,
+                  onTap: _toggleSearch,
+                ),
+                const SizedBox(width: 8),
+                // Settings
+                _navBtn(
+                  icon: Icons.settings_outlined,
+                  tooltip: 'Setări',
+                  onTap: () => SettingsPage.show(context),
+                ),
+              ],
+            ),
+          ),
+
+          // ── Search bar (animated) ──
+          AnimatedSize(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOut,
+            child: _searchOpen
+                ? Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 10, 24, 2),
+                    child: Container(
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: TvColors.surfaceVariant,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: TextField(
+                        controller: _searchController,
+                        focusNode: _searchFocus,
+                        onChanged: (v) => setState(() => _searchQuery = v),
+                        style: const TextStyle(color: TvColors.textPrimary, fontSize: 14),
+                        decoration: InputDecoration(
+                          hintText: 'Caută o stație, melodie sau artist...',
+                          hintStyle: TextStyle(
+                            color: TvColors.textTertiary,
+                            fontSize: 14,
+                          ),
+                          prefixIcon: const Icon(Icons.search_rounded,
+                              color: TvColors.textTertiary, size: 20),
+                          suffixIcon: _searchQuery.isNotEmpty
+                              ? MouseRegion(
+                                  cursor: SystemMouseCursors.click,
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      _searchController.clear();
+                                      setState(() => _searchQuery = '');
+                                    },
+                                    child: const Icon(Icons.clear_rounded,
+                                        color: TvColors.textTertiary, size: 18),
+                                  ),
+                                )
+                              : null,
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 11),
+                        ),
+                      ),
+                    ),
+                  )
+                : const SizedBox.shrink(),
+          ),
+
           // ── Sort selector + filter ──
           Padding(
-            padding: const EdgeInsets.fromLTRB(24, 16, 24, 4),
+            padding: const EdgeInsets.fromLTRB(24, 10, 24, 4),
             child: SizedBox(
-              height: 48,
+              height: 40,
               child: Row(
                 children: [
+                  // Sort dropdown
                   Expanded(
                     child: MouseRegion(
                       cursor: SystemMouseCursors.click,
@@ -311,31 +464,14 @@ class _DesktopShellState extends State<DesktopShell> {
                       ),
                     ),
                   ),
-                  MouseRegion(
-                    cursor: SystemMouseCursors.click,
-                    child: GestureDetector(
-                      onTap: _showFilterOptions,
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: _selectedGroup != null
-                              ? TvColors.primary.withValues(alpha: 0.12)
-                              : Colors.white.withValues(alpha: 0.07),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          _selectedGroup != null
-                              ? Icons.filter_alt_rounded
-                              : Icons.filter_alt_outlined,
-                          size: 22,
-                          color: _selectedGroup != null
-                              ? TvColors.primary
-                              : TvColors.textSecondary,
-                        ),
-                      ),
-                    ),
+                  // Filter button
+                  _navBtn(
+                    icon: _selectedGroup != null
+                        ? Icons.filter_alt_rounded
+                        : Icons.filter_alt_outlined,
+                    tooltip: _selectedGroup?.name ?? 'Filtrează',
+                    active: _selectedGroup != null,
+                    onTap: _showFilterOptions,
                   ),
                 ],
               ),
@@ -345,7 +481,25 @@ class _DesktopShellState extends State<DesktopShell> {
           // ── Station grid ──
           Expanded(
             child: stations.isEmpty
-                ? Center(child: Text('Nu sunt posturi', style: TvTypography.body))
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _searchQuery.isNotEmpty ? Icons.search_off_rounded : Icons.radio_rounded,
+                          size: 48,
+                          color: TvColors.textTertiary,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          _searchQuery.isNotEmpty
+                              ? 'Nicio stație găsită pentru "$_searchQuery"'
+                              : 'Nu sunt posturi disponibile',
+                          style: TvTypography.body,
+                        ),
+                      ],
+                    ),
+                  )
                 : Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                     child: GridView.builder(
