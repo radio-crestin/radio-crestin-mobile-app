@@ -133,7 +133,7 @@
 		<key>NSBonjourServices</key>
 		<array>
 			<string>_googlecast._tcp</string>
-			<string>_ED38209C._googlecast._tcp</string>
+			<string>_CC1AD845._googlecast._tcp</string>
 		</array>
 		<key>UIStatusBarHidden</key>
 		<false/>

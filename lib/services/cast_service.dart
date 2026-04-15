@@ -16,9 +16,12 @@ import 'analytics_service.dart';
 class CastService {
   static const _tag = 'CastService';
 
-  /// Custom receiver app ID registered at https://cast.google.com/publish/
-  /// Receiver hosted at https://cast.radiocrestin.ro
-  static const String _customReceiverAppId = 'ED38209C';
+  /// Google's Default Media Receiver — handles HLS, metadata, artwork
+  /// natively on all Cast devices (Chromecast, Google Home Mini, etc.).
+  /// No custom receiver HTML needed. Shows station art + metadata.
+  /// Custom receiver at cast.radiocrestin.ro (ED38209C) can be restored
+  /// once the custom UI is properly tested.
+  static const String _customReceiverAppId = 'CC1AD845';
 
   final BehaviorSubject<List<GoogleCastDevice>> devices =
       BehaviorSubject.seeded([]);
