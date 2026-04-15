@@ -7,7 +7,6 @@ import 'package:rxdart/rxdart.dart';
 
 import 'package:get_it/get_it.dart';
 
-import '../appAudioHandler.dart';
 import '../globals.dart' as globals;
 import '../types/Station.dart';
 import '../utils.dart';
@@ -16,9 +15,9 @@ import 'analytics_service.dart';
 class CastService {
   static const _tag = 'CastService';
 
-  /// Custom receiver app ID registered at https://cast.google.com/publish/
-  /// Receiver hosted at https://cast.radiocrestin.ro
-  static const String _customReceiverAppId = 'ED38209C';
+  /// Google Default Media Receiver — native UI with artwork, metadata,
+  /// and playback controls on all Cast devices.
+  static const String _customReceiverAppId = 'CC1AD845';
 
   final BehaviorSubject<List<GoogleCastDevice>> devices =
       BehaviorSubject.seeded([]);
@@ -149,7 +148,10 @@ class CastService {
   Future<void> disconnect() async {
     _log('Disconnecting');
     try {
+      // Stop playback on Cast device first, then end session
+      try { await GoogleCastRemoteMediaClient.instance.stop(); } catch (_) {}
       await GoogleCastSessionManager.instance.endSessionAndStopCasting();
+      lastCastSlug = null;
       _log('Disconnected successfully');
       AnalyticsService.instance.capture('cast_disconnected');
     } catch (e) {
@@ -220,9 +222,6 @@ class CastService {
         'title=${station.title}, artist=${subtitle.isNotEmpty ? subtitle : station.title}, '
         'artUrl=$artUrl, images=${images.length}');
 
-    // Build recent songs synchronously from the existing queue (fast)
-    final recentSongs = _buildRecentSongs(station);
-
     final mediaInfo = GoogleCastMediaInformation(
       contentId: trackedUrl,
       streamType: CastMediaStreamType.live,
@@ -238,12 +237,7 @@ class CastService {
 
     _log('castStation: loadMedia $trackedUrl');
     try {
-      await GoogleCastRemoteMediaClient.instance.loadMedia(
-        mediaInfo,
-        customData: {
-          'recentSongs': recentSongs,
-        },
-      );
+      await GoogleCastRemoteMediaClient.instance.loadMedia(mediaInfo);
       _log('castStation: loadMedia OK');
       AnalyticsService.instance.capture('cast_station', {
         'station_id': station.id,
@@ -259,33 +253,6 @@ class CastService {
     if (station.songTitle.isNotEmpty) parts.add(station.songTitle);
     if (station.songArtist.isNotEmpty) parts.add(station.songArtist);
     return parts.join(' — ');
-  }
-
-  /// Builds a list of recent songs from the queue (populated by
-  /// _updateSongHistoryQueue from the API). Each queue item has
-  /// title=songName, artist="HH:MM - ArtistName", artUri=thumbnail.
-  List<Map<String, dynamic>> _buildRecentSongs(Station currentStation) {
-    try {
-      final audioHandler = GetIt.instance<AppAudioHandler>();
-      final queueItems = audioHandler.queue.value;
-
-      return queueItems.take(5).map((item) {
-        // artist field is "HH:MM - ArtistName" — extract the time part
-        final artistParts = item.artist?.split(' - ') ?? [];
-        final time = artistParts.isNotEmpty ? artistParts[0] : '';
-        final artist = artistParts.length > 1 ? artistParts.sublist(1).join(' - ') : '';
-
-        return <String, dynamic>{
-          'title': item.title,
-          'artist': artist,
-          'time': time,
-          'thumbnail': _castImageUrl(item.artUri?.toString() ?? ''),
-        };
-      }).toList();
-    } catch (e) {
-      _log('_buildRecentSongs failed: $e');
-      return [];
-    }
   }
 
   /// Pick a stream URL for Cast — excludes HLS completely.
