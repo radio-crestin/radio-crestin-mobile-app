@@ -29,6 +29,10 @@ class CastService {
   final BehaviorSubject<CastMediaPlayerState> castPlayerState =
       BehaviorSubject.seeded(CastMediaPlayerState.unknown);
 
+  /// Friendly name of the currently connected Cast device (e.g. "Living Room TV").
+  final BehaviorSubject<String?> connectedDeviceName =
+      BehaviorSubject.seeded(null);
+
   StreamSubscription? _devicesSubscription;
   StreamSubscription? _sessionSubscription;
   StreamSubscription? _mediaStatusSubscription;
@@ -96,11 +100,12 @@ class CastService {
         final wasCasting = isCasting.value;
         final nowCasting = state == GoogleCastConnectState.connected;
         isCasting.add(nowCasting);
+        connectedDeviceName.add(nowCasting ? session?.device?.friendlyName : null);
         if (!nowCasting) {
           castPlayerState.add(CastMediaPlayerState.unknown);
           _lastCastStreamUrl = null;
         }
-        _log('Session changed: state=$state, wasCasting=$wasCasting, nowCasting=$nowCasting, session=${session?.runtimeType}');
+        _log('Session changed: state=$state, wasCasting=$wasCasting, nowCasting=$nowCasting, device=${session?.device?.friendlyName}');
       }, onError: (e) {
         _log('Session stream error: $e');
       });
@@ -401,5 +406,6 @@ class CastService {
     isCasting.close();
     connectionState.close();
     castPlayerState.close();
+    connectedDeviceName.close();
   }
 }

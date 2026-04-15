@@ -31,7 +31,7 @@ class _CastButtonState extends State<CastButton> {
   bool _ready = false;
 
   bool get _casting => _chromecastCasting || _airPlayActive;
-  bool get _visible => _devices.isNotEmpty || Platform.isIOS;
+  bool get _visible => _devices.isNotEmpty || Platform.isIOS || _chromecastCasting;
 
   @override
   void initState() {
@@ -197,6 +197,7 @@ class _DeviceSheetState extends State<_DeviceSheet> {
 
   List<GoogleCastDevice> _devices = [];
   bool _chromecastCasting = false;
+  String? _connectedDeviceName;
   bool _searching = true;
 
   @override
@@ -206,16 +207,25 @@ class _DeviceSheetState extends State<_DeviceSheet> {
     // Listen to live device/state streams so the sheet updates in real-time
     final cs = widget.castService;
     if (cs != null) {
-      // Force a fresh network scan when the sheet opens
-      cs.restartDiscovery();
-
       _devices = cs.devices.value;
       _chromecastCasting = cs.isCasting.value;
+      _connectedDeviceName = cs.connectedDeviceName.value;
+
+      // Only restart discovery when NOT connected — restarting while
+      // connected causes the native SDK to drop the connected device
+      // from the discovery list, making the sheet appear empty.
+      if (!_chromecastCasting) {
+        cs.restartDiscovery();
+      }
+
       _subs.add(cs.devices.listen((d) {
         if (mounted) setState(() => _devices = d);
       }));
       _subs.add(cs.isCasting.listen((v) {
         if (mounted) setState(() => _chromecastCasting = v);
+      }));
+      _subs.add(cs.connectedDeviceName.listen((name) {
+        if (mounted) setState(() => _connectedDeviceName = name);
       }));
     }
 
@@ -296,6 +306,7 @@ class _DeviceSheetState extends State<_DeviceSheet> {
             if (_chromecastCasting) ...[
               _sectionLabel(context, 'CONECTAT'),
               _ConnectedChromecastRow(
+                deviceName: _connectedDeviceName,
                 onDisconnect: () {
                   widget.castService?.disconnect();
                   Navigator.of(context).pop();
@@ -457,8 +468,12 @@ class _DeviceRow extends StatelessWidget {
 
 /// Connected Chromecast — highlighted with disconnect button.
 class _ConnectedChromecastRow extends StatelessWidget {
+  final String? deviceName;
   final VoidCallback onDisconnect;
-  const _ConnectedChromecastRow({required this.onDisconnect});
+  const _ConnectedChromecastRow({
+    this.deviceName,
+    required this.onDisconnect,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -481,7 +496,7 @@ class _ConnectedChromecastRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Chromecast',
+                  Text(deviceName ?? 'Chromecast',
                     style: TextStyle(
                       fontSize: 15, fontWeight: FontWeight.w600,
                       color: Theme.of(context).colorScheme.onSurface)),
