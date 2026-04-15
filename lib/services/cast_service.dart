@@ -53,13 +53,18 @@ class CastService {
             suspendSessionsWhenBackgrounded: false,
             disableDiscoveryAutostart: false,
             startDiscoveryAfterFirstTapOnCastButton: false,
+            stopReceiverApplicationWhenEndingSession: true,
+            stopCastingOnAppTerminated: true,
           ),
         );
         _log('iOS Cast options set successfully');
       } else {
         _log('Setting up Android Cast options...');
         await GoogleCastContext.instance.setSharedInstanceWithOptions(
-          GoogleCastOptionsAndroid(appId: _customReceiverAppId),
+          GoogleCastOptionsAndroid(
+            appId: _customReceiverAppId,
+            stopCastingOnAppTerminated: true,
+          ),
         );
         _log('Android Cast options set successfully');
       }
