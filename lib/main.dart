@@ -318,33 +318,31 @@ void main() async {
 
       // Chromecast session management — only one output at a time
       final audioHandler = getIt<AppAudioHandler>();
-      // Track whether we've ever been casting — only resume local playback
-      // on true→false transitions, not on startup false emissions.
       bool hasEverCasted = false;
+      // Track which station slug was last sent to Cast to prevent duplicates.
+      // Shared between both listeners so they don't double-fire.
+      String? lastCastSlug;
+
       castService.isCasting.distinct().listen((casting) async {
         print('[CastMain] isCasting changed: $casting, hasEverCasted=$hasEverCasted');
         if (casting) {
           hasEverCasted = true;
           // Stop local audio — Chromecast takes over playback
-          print('[CastMain] Stopping local player...');
           await audioHandler.player.stop();
-          // Set playing state for Cast session
           audioHandler.playbackState.add(
             audioHandler.playbackState.value.copyWith(playing: true));
           var station = audioHandler.currentStation.value;
-          print('[CastMain] Current station: ${station?.title}');
-          // Nothing playing — start last played station automatically
           if (station == null) {
             station = await audioHandler.getLastPlayedStation();
-            print('[CastMain] Last played station: ${station?.title}');
             if (station != null) await audioHandler.selectStation(station);
           }
           if (station != null) {
+            lastCastSlug = station.slug;
             print('[CastMain] Casting station: ${station.title}');
             castService.castStation(station);
           }
         } else if (hasEverCasted) {
-          // Cast disconnected — resume local playback for the selected station
+          lastCastSlug = null;
           final station = audioHandler.currentStation.value;
           print('[CastMain] Cast disconnected, resuming: ${station?.title}');
           if (station != null) {
@@ -352,13 +350,11 @@ void main() async {
           }
         }
       });
-      // Only push to Cast when the STATION changes (not on song metadata updates).
-      // currentStation fires on every poll cycle — we only care about station switches.
-      String? lastCastStationSlug;
+      // Only push to Cast when the user switches to a DIFFERENT station.
       audioHandler.currentStation.listen((station) {
         if (station != null && castService.isCasting.value &&
-            station.slug != lastCastStationSlug) {
-          lastCastStationSlug = station.slug;
+            station.slug != lastCastSlug) {
+          lastCastSlug = station.slug;
           print('[CastMain] Station changed while casting: ${station.title}');
           castService.castStation(station);
         }

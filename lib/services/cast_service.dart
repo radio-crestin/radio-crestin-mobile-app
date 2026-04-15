@@ -139,15 +139,6 @@ class CastService {
       AnalyticsService.instance.capture('cast_connected', {
         'device_name': device.friendlyName,
       });
-
-      // Wait briefly for the session to fully establish, then check state
-      await Future.delayed(const Duration(seconds: 2));
-      final state = GoogleCastSessionManager.instance.connectionState;
-      _log('Post-connect state: $state');
-      if (state == GoogleCastConnectState.connected && !isCasting.value) {
-        _log('Force-setting isCasting=true (stream may have missed the transition)');
-        isCasting.add(true);
-      }
       return true;
     } catch (e, st) {
       _log('Connect failed: $e\n$st');
@@ -297,12 +288,21 @@ class CastService {
     }
   }
 
-  /// Pick the stream URL for Cast — same order as the app (HLS first).
-  /// The receiver and Cast SDK handle HLS natively.
-  /// Falls back to MP3/AAC if no HLS is available.
+  /// Pick the best stream URL for Cast devices.
+  /// Prefers direct streams (MP3/AAC) over HLS because the Google
+  /// Default Media Receiver has known issues with HLS live streams
+  /// (broken relative URL handling, intermittent failures).
+  /// Falls back to HLS if no direct stream is available.
   String? _pickCastStreamUrl(Station station) {
-    final urls = Utils.getStationStreamUrls(station.rawStationData);
-    return urls.firstOrNull;
+    final streams = Utils.getStationStreamObjects(station.rawStationData);
+    if (streams.isEmpty) return null;
+
+    // Try direct streams first (MP3, AAC, etc.)
+    for (final s in streams) {
+      if (s['type'] != 'HLS') return s['url'];
+    }
+    // Fallback to HLS
+    return streams.first['url'];
   }
 
   /// Convert a CDN image URL from WebP to JPEG and increase size for Cast.
