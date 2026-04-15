@@ -318,10 +318,13 @@ void main() async {
 
       // Chromecast session management — only one output at a time
       final audioHandler = getIt<AppAudioHandler>();
-      // Skip initial false emissions — only react to actual transitions
-      castService.isCasting.skip(1).distinct().listen((casting) async {
-        print('[CastMain] isCasting changed: $casting');
+      // Track whether we've ever been casting — only resume local playback
+      // on true→false transitions, not on startup false emissions.
+      bool hasEverCasted = false;
+      castService.isCasting.distinct().listen((casting) async {
+        print('[CastMain] isCasting changed: $casting, hasEverCasted=$hasEverCasted');
         if (casting) {
+          hasEverCasted = true;
           // Stop local audio — Chromecast takes over playback
           print('[CastMain] Stopping local player...');
           await audioHandler.player.stop();
@@ -340,7 +343,7 @@ void main() async {
             print('[CastMain] Casting station: ${station.title}');
             castService.castStation(station);
           }
-        } else {
+        } else if (hasEverCasted) {
           // Cast disconnected — resume local playback for the selected station
           final station = audioHandler.currentStation.value;
           print('[CastMain] Cast disconnected, resuming: ${station?.title}');
