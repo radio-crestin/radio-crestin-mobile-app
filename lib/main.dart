@@ -381,7 +381,10 @@ void main() async {
         }
       });
 
-      // Sync Cast player state changes back to the app UI
+      // Sync Cast player state changes back to the app UI. We also
+      // rebroadcast via broadcastCurrentState() so the notification's
+      // play/pause icon rebuilds from the new `playing` value —
+      // copyWith alone preserves the (now-stale) controls list.
       castService.castPlayerState.distinct().listen((playerState) {
         if (!castService.isCasting.value) return;
         final isPlaying = playerState == CastMediaPlayerState.playing;
@@ -389,6 +392,7 @@ void main() async {
         if (isPlaying || isPaused) {
           audioHandler.playbackState.add(
             audioHandler.playbackState.value.copyWith(playing: isPlaying));
+          audioHandler.broadcastCurrentState();
         }
       });
 

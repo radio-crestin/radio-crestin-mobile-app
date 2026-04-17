@@ -767,8 +767,11 @@ class AppAudioHandler extends BaseAudioHandler {
   Future<void> play() async {
     _log("play (isCasting=$isCasting)");
     if (isCasting) {
-      // Resume playback on Cast — just send play(), don't reload media
+      // Resume playback on Cast — just send play(), don't reload media.
+      // Optimistically flip `playing` to true first so _broadcastState
+      // rebuilds the controls with MediaControl.pause (not MediaControl.play).
       GetIt.instance<CastService>().play();
+      playbackState.add(playbackState.value.copyWith(playing: true));
       _broadcastState(player.playbackEvent);
       _disconnectTimer?.cancel();
       stationDataService.resumePolling();
@@ -881,8 +884,11 @@ class AppAudioHandler extends BaseAudioHandler {
     _log("pause (isCasting=$isCasting)");
     if (isCasting) {
       GetIt.instance<CastService>().pause();
-      // Broadcast paused state so the UI updates
+      // Flip `playing` and rebroadcast so the notification's play/pause
+      // icon rebuilds to MediaControl.play instead of keeping the stale
+      // MediaControl.pause from before the tap.
       playbackState.add(playbackState.value.copyWith(playing: false));
+      _broadcastState(player.playbackEvent);
       return;
     }
     _cancelInFlightPlay();
@@ -990,6 +996,7 @@ class AppAudioHandler extends BaseAudioHandler {
     if (isCasting) {
       GetIt.instance<CastService>().stop();
       playbackState.add(playbackState.value.copyWith(playing: false));
+      _broadcastState(player.playbackEvent);
       return;
     }
     _cancelInFlightPlay();
