@@ -291,9 +291,10 @@ class CastService {
   }
 
   /// Builds a GoogleCastMediaInformation with current station metadata.
-  /// [streamType] is the API-declared type ('HLS' or 'direct_stream');
-  /// it selects the correct MIME content type and, for HLS, the
-  /// `hlsSegmentFormat` hint (MPEG-TS).
+  /// [streamType] is the API-declared type — currently always a non-HLS
+  /// direct stream because Google Home / Nest audio-only receivers don't
+  /// implement an HLS playlist parser (LOAD hangs in LOADING indefinitely
+  /// regardless of segment format).
   GoogleCastMediaInformation _buildMediaInfo(
       Station station, String trackedUrl, String streamType) {
     final thumbnailUrl = station.rawStationData.thumbnail_url ?? '';
@@ -307,9 +308,7 @@ class CastService {
     }
 
     final subtitle = _buildSubtitle(station);
-    final isHls = streamType == 'HLS';
-    final contentType =
-        isHls ? 'application/x-mpegURL' : _guessContentType(trackedUrl);
+    final contentType = _guessContentType(trackedUrl);
 
     _log('_buildMediaInfo: title=${station.title}, '
         'artist=${subtitle.isNotEmpty ? subtitle : station.title}, '
@@ -320,9 +319,6 @@ class CastService {
       streamType: CastMediaStreamType.live,
       contentUrl: Uri.parse(trackedUrl),
       contentType: contentType,
-      // iOS: applied via GCKMediaInformationBuilder. Android: ignored by
-      // the plugin's method channel; the Cast SDK infers it from contentType.
-      hlsSegmentFormat: isHls ? CastHlsSegmentFormat.ts : null,
       metadata: GoogleCastMusicMediaMetadata(
         title: station.title,
         albumName: 'Radio Creștin',
@@ -339,30 +335,23 @@ class CastService {
     return parts.join(' — ');
   }
 
-  /// Pick a stream for Cast. Prefers HLS for richer playback (live edge
-  /// tracking via `EXT-X-PROGRAM-DATE-TIME`, retained segments, adaptive
-  /// buffering) and falls back to direct MP3/AAC for stations that don't
-  /// expose an HLS variant.
+  /// Pick a stream for Cast. Skips HLS entirely (audio-only Google/Nest
+  /// receivers hang on HLS LOAD) and returns the first non-HLS stream in
+  /// API order. Returns null when the station has no non-HLS variant —
+  /// those stations cannot be cast.
   ({String url, String type})? _pickCastStream(Station station) {
     final streams = Utils.getStationStreamObjects(station.rawStationData);
     if (streams.isEmpty) return null;
 
     for (final s in streams) {
-      if (s['type'] == 'HLS' && (s['url']?.isNotEmpty ?? false)) {
-        return (url: s['url']!, type: 'HLS');
-      }
-    }
-
-    for (final s in streams) {
       final type = s['type'];
       final url = s['url'];
       if (type != null && type != 'HLS' && (url?.isNotEmpty ?? false)) {
-        _log('No HLS for ${station.title}, falling back to $type');
         return (url: url!, type: type);
       }
     }
 
-    _log('No stream for ${station.title}, station cannot be cast');
+    _log('No non-HLS stream for ${station.title}, station cannot be cast');
     return null;
   }
 
