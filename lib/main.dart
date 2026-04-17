@@ -30,6 +30,7 @@ import 'constants.dart';
 import 'firebase_options.dart';
 import 'globals.dart' as globals;
 import 'services/car_play_service.dart';
+import 'types/Station.dart';
 import 'services/cast_service.dart';
 import 'package:flutter_chrome_cast/flutter_chrome_cast.dart'
     show CastMediaPlayerState;
@@ -324,24 +325,30 @@ void main() async {
 
       // ─── Cast session lifecycle ──────────────────────────────────
       //
-      // On connect:
+      // On connect (user tap, or iOS auto-resuming a saved session at
+      // app startup — both routes emit `isCasting=true` through this
+      // same listener):
       //   1. Stop the local player so iOS doesn't keep the audio
       //      session active in parallel with the Cast output.
-      //   2. If the receiver is already playing one of our stations
-      //      (another sender, or a previously-saved session that
-      //      resumed), ADOPT it: sync local currentStation/mediaItem,
-      //      mark the session adopted so updateCastMetadata no-ops,
-      //      reflect the receiver's playerState in the notification.
-      //   3. Otherwise, push our current/last station to the receiver
-      //      with a fresh LOAD.
+      //   2. Inspect the receiver's current MediaStatus:
+      //      a) It's actively playing/paused/buffering one of our
+      //         stations → ADOPT. Sync local currentStation /
+      //         mediaItem, mark the session adopted so
+      //         updateCastMetadata no-ops, and if it's anything but
+      //         `playing`, send a play command — the user just picked
+      //         us, they want audio out of this device.
+      //      b) Otherwise (idle receiver, no match, or no session
+      //         media yet) → PUSH our current/last station with a
+      //         fresh loadMedia. `autoPlay` defaults to true in the
+      //         plugin, so this starts playback automatically.
       //
       // On disconnect:
       //   - Explicitly stop the local player. iOS ends the Cast-side
       //     audio-session interruption when the remote device goes
       //     away, and without an explicit stop, just_audio can
       //     auto-resume the previously-loaded stream as if the user
-      //     had tapped play — which is what produced the "starts
-      //     again after stopping from the app" bug.
+      //     had tapped play (root cause of the "starts again after
+      //     stopping from the app" regression).
       //   - Flip playbackState.playing=false via setCastPlaying so
       //     the notification ends up with MediaControl.play.
       castService.isCasting.distinct().listen((casting) async {
@@ -352,19 +359,34 @@ void main() async {
 
           final existingStatus =
               await castService.waitForActiveMediaStatus();
-          final stations = getIt<StationDataService>().stations.value;
+          // On startup the station list may still be loading when the
+          // iOS Cast SDK restores a saved session. Wait briefly for
+          // the first non-empty emission so matchStationFromCastMedia
+          // and getLastPlayedStation can do their jobs.
+          final stations = await _waitForStations(
+              getIt<StationDataService>());
           final adopted = castService.matchStationFromCastMedia(
               stations, existingStatus);
+          final receiverState = existingStatus?.playerState;
+          final receiverIsActive =
+              receiverState == CastMediaPlayerState.playing ||
+                  receiverState == CastMediaPlayerState.paused ||
+                  receiverState == CastMediaPlayerState.buffering;
 
-          if (adopted != null) {
+          if (adopted != null && receiverIsActive) {
             print('[CastMain] Adopting session: station=${adopted.slug}, '
-                'playerState=${existingStatus?.playerState}');
+                'playerState=$receiverState');
             castService.lastCastSlug = adopted.slug;
             castService.markSessionAdopted();
             await audioHandler.selectStation(adopted);
-            audioHandler.setCastPlaying(
-                existingStatus?.playerState ==
-                    CastMediaPlayerState.playing);
+            // User just connected us: auto-play regardless of the
+            // upstream sender's pause. Sending PLAY to an existing
+            // media session doesn't reload it, so the adoption
+            // contract (don't clobber their LOAD) still holds.
+            if (receiverState != CastMediaPlayerState.playing) {
+              castService.play();
+            }
+            audioHandler.setCastPlaying(true);
             return;
           }
 
@@ -433,6 +455,24 @@ void main() async {
         });
       }
     });
+  }
+}
+
+/// Returns the current list of stations, waiting up to [timeout] for the
+/// first non-empty emission. Used when the Cast-connect flow fires on
+/// startup before the station catalog has loaded from cache/network.
+Future<List<Station>> _waitForStations(
+  StationDataService service, {
+  Duration timeout = const Duration(seconds: 3),
+}) async {
+  final existing = service.stations.value;
+  if (existing.isNotEmpty) return existing;
+  try {
+    return await service.stations.stream
+        .firstWhere((s) => s.isNotEmpty)
+        .timeout(timeout);
+  } catch (_) {
+    return service.stations.value;
   }
 }
 
