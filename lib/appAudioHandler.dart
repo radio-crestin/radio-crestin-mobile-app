@@ -673,12 +673,11 @@ class AppAudioHandler extends BaseAudioHandler {
     if (isCasting) {
       _log('playStation: casting active, sending to Cast');
       _isConnecting = false;
-      playbackState.add(playbackState.value.copyWith(playing: true));
-      _broadcastState(player.playbackEvent);
       // Cast immediately — don't wait for the reactive listener chain
       final castService = GetIt.instance<CastService>();
       castService.lastCastSlug = station.slug;
       castService.castStation(station);
+      setCastPlaying(true);
       return;
     }
 
@@ -768,11 +767,11 @@ class AppAudioHandler extends BaseAudioHandler {
     _log("play (isCasting=$isCasting)");
     if (isCasting) {
       // Resume playback on Cast — just send play(), don't reload media.
-      // Optimistically flip `playing` to true first so _broadcastState
-      // rebuilds the controls with MediaControl.pause (not MediaControl.play).
+      // Optimistic UI via setCastPlaying so the notification icon flips
+      // to pause immediately; the receiver's PLAYING MediaStatus will
+      // re-confirm shortly via the main.dart state sync listener.
       GetIt.instance<CastService>().play();
-      playbackState.add(playbackState.value.copyWith(playing: true));
-      _broadcastState(player.playbackEvent);
+      setCastPlaying(true);
       _disconnectTimer?.cancel();
       stationDataService.resumePolling();
       return;
@@ -884,11 +883,7 @@ class AppAudioHandler extends BaseAudioHandler {
     _log("pause (isCasting=$isCasting)");
     if (isCasting) {
       GetIt.instance<CastService>().pause();
-      // Flip `playing` and rebroadcast so the notification's play/pause
-      // icon rebuilds to MediaControl.play instead of keeping the stale
-      // MediaControl.pause from before the tap.
-      playbackState.add(playbackState.value.copyWith(playing: false));
-      _broadcastState(player.playbackEvent);
+      setCastPlaying(false);
       return;
     }
     _cancelInFlightPlay();
@@ -995,8 +990,7 @@ class AppAudioHandler extends BaseAudioHandler {
     _log("stop (isCasting=$isCasting)");
     if (isCasting) {
       GetIt.instance<CastService>().stop();
-      playbackState.add(playbackState.value.copyWith(playing: false));
-      _broadcastState(player.playbackEvent);
+      setCastPlaying(false);
       return;
     }
     _cancelInFlightPlay();
@@ -1108,6 +1102,24 @@ class AppAudioHandler extends BaseAudioHandler {
   /// state changes outside the normal `player.playbackEventStream` path
   /// (e.g., adopting an in-progress Cast session).
   void broadcastCurrentState() {
+    _broadcastState(player.playbackEvent);
+  }
+
+  /// Single source of truth for "playing" while casting.
+  ///
+  /// Flipping `playbackState.playing` with `copyWith` alone leaves the
+  /// `controls` list stale — the Play/Pause icon is rebuilt inside
+  /// `_broadcastState` from the current `playing` value. This helper
+  /// does both atomically and is the only sanctioned way to mutate
+  /// the Cast-side playing flag.
+  ///
+  /// Call this from:
+  ///   - `play()` / `pause()` / `stop()` Cast branches (optimistic)
+  ///   - the main.dart cast-state sync listener (reactive, from receiver)
+  ///   - `playStation()` Cast branch (new station loaded)
+  ///   - Cast session adoption in main.dart
+  void setCastPlaying(bool playing) {
+    playbackState.add(playbackState.value.copyWith(playing: playing));
     _broadcastState(player.playbackEvent);
   }
 
@@ -1317,6 +1329,10 @@ class AppAudioHandler extends BaseAudioHandler {
     if (currentStation.valueOrNull == null) return;
     if (_isConnecting) return;
     if (!_hasBeenPlayed) return;
+    // While casting, the local player is intentionally idle — Cast owns
+    // playback. Don't treat its idle state as a "stall" and trigger a
+    // reconnect, which would cascade into play() and an unwanted LOAD.
+    if (isCasting) return;
     final state = player.processingState;
     if (state == ProcessingState.idle ||
         (state == ProcessingState.buffering && player.playing)) {

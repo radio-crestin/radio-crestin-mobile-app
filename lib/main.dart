@@ -322,16 +322,34 @@ void main() async {
       final audioHandler = getIt<AppAudioHandler>();
       bool hasEverCasted = false;
 
+      // ─── Cast session lifecycle ──────────────────────────────────
+      //
+      // On connect:
+      //   1. Stop the local player so iOS doesn't keep the audio
+      //      session active in parallel with the Cast output.
+      //   2. If the receiver is already playing one of our stations
+      //      (another sender, or a previously-saved session that
+      //      resumed), ADOPT it: sync local currentStation/mediaItem,
+      //      mark the session adopted so updateCastMetadata no-ops,
+      //      reflect the receiver's playerState in the notification.
+      //   3. Otherwise, push our current/last station to the receiver
+      //      with a fresh LOAD.
+      //
+      // On disconnect:
+      //   - Explicitly stop the local player. iOS ends the Cast-side
+      //     audio-session interruption when the remote device goes
+      //     away, and without an explicit stop, just_audio can
+      //     auto-resume the previously-loaded stream as if the user
+      //     had tapped play — which is what produced the "starts
+      //     again after stopping from the app" bug.
+      //   - Flip playbackState.playing=false via setCastPlaying so
+      //     the notification ends up with MediaControl.play.
       castService.isCasting.distinct().listen((casting) async {
         print('[CastMain] isCasting=$casting');
         if (casting) {
           hasEverCasted = true;
-          // Stop local playback and hand off to Cast device
           await audioHandler.player.stop();
 
-          // If we joined an in-progress session (e.g. another phone is
-          // already casting one of our stations), adopt its state instead
-          // of firing loadMedia — that would clobber the upstream sender.
           final existingStatus =
               await castService.waitForActiveMediaStatus();
           final stations = getIt<StationDataService>().stations.value;
@@ -344,17 +362,12 @@ void main() async {
             castService.lastCastSlug = adopted.slug;
             castService.markSessionAdopted();
             await audioHandler.selectStation(adopted);
-            final isPlaying = existingStatus?.playerState ==
-                CastMediaPlayerState.playing;
-            audioHandler.playbackState.add(
-              audioHandler.playbackState.value.copyWith(playing: isPlaying));
-            audioHandler.broadcastCurrentState();
+            audioHandler.setCastPlaying(
+                existingStatus?.playerState ==
+                    CastMediaPlayerState.playing);
             return;
           }
 
-          // No adoption — push our current/last station to the receiver.
-          audioHandler.playbackState.add(
-            audioHandler.playbackState.value.copyWith(playing: true));
           var station = audioHandler.currentStation.value;
           if (station == null) {
             station = await audioHandler.getLastPlayedStation();
@@ -363,15 +376,15 @@ void main() async {
           if (station != null) {
             castService.lastCastSlug = station.slug;
             castService.castStation(station);
+            audioHandler.setCastPlaying(true);
           }
         } else if (hasEverCasted) {
-          // Cast disconnected — leave the player paused with the station
-          // selected so the user can resume locally if they want.
           castService.lastCastSlug = null;
-          audioHandler.playbackState.add(
-            audioHandler.playbackState.value.copyWith(playing: false));
+          await audioHandler.player.stop();
+          audioHandler.setCastPlaying(false);
         }
       });
+
       // Catch station changes not initiated by playStation (e.g. auto-start)
       audioHandler.currentStation.listen((station) {
         if (station != null && castService.isCasting.value &&
@@ -381,18 +394,31 @@ void main() async {
         }
       });
 
-      // Sync Cast player state changes back to the app UI. We also
-      // rebroadcast via broadcastCurrentState() so the notification's
-      // play/pause icon rebuilds from the new `playing` value —
-      // copyWith alone preserves the (now-stale) controls list.
+      // ─── Cast receiver → local notification state sync ───────────
+      //
+      // Receiver-initiated transitions (another sender toggled play,
+      // content ended, error) flow in via castPlayerState. Map every
+      // known state to the single boolean `playing`:
+      //   PLAYING                  → true
+      //   PAUSED / IDLE            → false (receiver isn't playing)
+      //   BUFFERING / LOADING /    → keep previous value — these are
+      //   UNKNOWN                    transient; the next concrete
+      //                              state will resolve.
       castService.castPlayerState.distinct().listen((playerState) {
         if (!castService.isCasting.value) return;
-        final isPlaying = playerState == CastMediaPlayerState.playing;
-        final isPaused = playerState == CastMediaPlayerState.paused;
-        if (isPlaying || isPaused) {
-          audioHandler.playbackState.add(
-            audioHandler.playbackState.value.copyWith(playing: isPlaying));
-          audioHandler.broadcastCurrentState();
+        switch (playerState) {
+          case CastMediaPlayerState.playing:
+            audioHandler.setCastPlaying(true);
+            break;
+          case CastMediaPlayerState.paused:
+          case CastMediaPlayerState.idle:
+            audioHandler.setCastPlaying(false);
+            break;
+          case CastMediaPlayerState.buffering:
+          case CastMediaPlayerState.loading:
+          case CastMediaPlayerState.unknown:
+            // Transient — don't clobber the optimistic intent.
+            break;
         }
       });
 
