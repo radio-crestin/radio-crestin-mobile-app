@@ -278,11 +278,14 @@ class CarPlayService {
     });
   }
 
-  bool? _lastSyncedIsPlaying;
-
   Future<void> _syncNowPlayingPlaybackState(bool isPlaying) async {
-    if (_lastSyncedIsPlaying == isPlaying) return;
-    _lastSyncedIsPlaying = isPlaying;
+    // Do NOT dedupe on the Dart side: audio_service's iOS bridge also
+    // writes MPNowPlayingInfoCenter.playbackRate using its own cache.
+    // When the two caches diverge (e.g. the user casts, the local
+    // player's stop nudges audio_service to rate=0.0, but our sync
+    // ran earlier with rate=1.0), a Dart-side dedupe blocks the
+    // correcting write and the lock-screen icon gets stuck on the
+    // wrong state. The native method is cheap — fire it every time.
     _log("syncNowPlayingPlaybackState: isPlaying=$isPlaying");
     try {
       await _nowPlayingChannel.invokeMethod('syncPlaybackState', {'isPlaying': isPlaying});
