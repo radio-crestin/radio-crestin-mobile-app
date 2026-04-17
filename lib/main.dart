@@ -31,7 +31,8 @@ import 'firebase_options.dart';
 import 'globals.dart' as globals;
 import 'services/car_play_service.dart';
 import 'services/cast_service.dart';
-import 'package:flutter_chrome_cast/flutter_chrome_cast.dart' show CastMediaPlayerState;
+import 'package:flutter_chrome_cast/flutter_chrome_cast.dart'
+    show CastMediaPlayerState;
 import 'services/tv_channel_service.dart';
 import 'package:flutter_airplay/flutter_airplay.dart' as flutter_airplay;
 import 'services/analytics_service.dart';
@@ -325,7 +326,33 @@ void main() async {
         print('[CastMain] isCasting=$casting');
         if (casting) {
           hasEverCasted = true;
+          // Stop local playback and hand off to Cast device
           await audioHandler.player.stop();
+
+          // If we joined an in-progress session (e.g. another phone is
+          // already casting one of our stations), adopt its state instead
+          // of firing loadMedia — that would clobber the upstream sender.
+          final existingStatus =
+              await castService.waitForActiveMediaStatus();
+          final stations = getIt<StationDataService>().stations.value;
+          final adopted = castService.matchStationFromCastMedia(
+              stations, existingStatus);
+
+          if (adopted != null) {
+            print('[CastMain] Adopting session: station=${adopted.slug}, '
+                'playerState=${existingStatus?.playerState}');
+            castService.lastCastSlug = adopted.slug;
+            castService.markSessionAdopted();
+            await audioHandler.selectStation(adopted);
+            final isPlaying = existingStatus?.playerState ==
+                CastMediaPlayerState.playing;
+            audioHandler.playbackState.add(
+              audioHandler.playbackState.value.copyWith(playing: isPlaying));
+            audioHandler.broadcastCurrentState();
+            return;
+          }
+
+          // No adoption — push our current/last station to the receiver.
           audioHandler.playbackState.add(
             audioHandler.playbackState.value.copyWith(playing: true));
           var station = audioHandler.currentStation.value;
@@ -338,9 +365,11 @@ void main() async {
             castService.castStation(station);
           }
         } else if (hasEverCasted) {
+          // Cast disconnected — leave the player paused with the station
+          // selected so the user can resume locally if they want.
           castService.lastCastSlug = null;
-          final station = audioHandler.currentStation.value;
-          if (station != null) audioHandler.playStation(station);
+          audioHandler.playbackState.add(
+            audioHandler.playbackState.value.copyWith(playing: false));
         }
       });
       // Catch station changes not initiated by playStation (e.g. auto-start)

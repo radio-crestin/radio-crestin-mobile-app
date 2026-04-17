@@ -51,10 +51,93 @@ class CastService {
   /// Drives `contentType` and `hlsSegmentFormat` on metadata reloads.
   String? _lastCastStreamType;
 
+  /// True when the current Cast session was started by another sender
+  /// (another phone, another app) and this app is merely observing /
+  /// controlling playback. While set, metadata refreshes are suppressed
+  /// — replacing the media would clobber the other sender's session.
+  /// Cleared automatically when we call `castStation()` (the user picked
+  /// a station from this app, so we take ownership).
+  bool _adoptedSession = false;
+
+  bool get isSessionAdopted => _adoptedSession;
+
+  /// Mark the currently connected Cast session as adopted — tells
+  /// `updateCastMetadata` to no-op so we don't send a LOAD that would
+  /// replace another sender's media.
+  void markSessionAdopted() {
+    _adoptedSession = true;
+    _log('Session marked as adopted (external sender) — '
+        'metadata pushes suppressed');
+  }
+
   void _log(String message) {
     developer.log('$_tag: $message');
     // Also print to system console for easier debugging
     print('[$_tag] $message');
+  }
+
+  /// The Cast receiver's current MediaStatus, or `null` if no media is
+  /// loaded / the session hasn't reported yet. Backed by a BehaviorSubject
+  /// inside the plugin so it's synchronous after the first event arrives.
+  GoggleCastMediaStatus? get currentMediaStatus =>
+      GoogleCastRemoteMediaClient.instance.mediaStatus;
+
+  /// Waits up to [timeout] for the Cast receiver to report a MediaStatus
+  /// with non-empty `mediaInformation.contentId`. Used when adopting an
+  /// in-progress Cast session so we don't clobber another sender's media
+  /// with our own LOAD before we've seen what's already playing.
+  Future<GoggleCastMediaStatus?> waitForActiveMediaStatus({
+    Duration timeout = const Duration(milliseconds: 800),
+  }) async {
+    final existing = currentMediaStatus;
+    if (_hasActiveMedia(existing)) return existing;
+    try {
+      return await GoogleCastRemoteMediaClient.instance.mediaStatusStream
+          .firstWhere(_hasActiveMedia)
+          .timeout(timeout);
+    } catch (_) {
+      return currentMediaStatus;
+    }
+  }
+
+  bool _hasActiveMedia(GoggleCastMediaStatus? status) {
+    final id = status?.mediaInformation?.contentId;
+    return id != null && id.isNotEmpty;
+  }
+
+  /// Identifies which [Station] the Cast receiver is currently playing by
+  /// matching its MediaInformation against each station's declared stream
+  /// URLs. Query parameters (tracking refs etc.) are stripped before
+  /// comparison — our app appends `?ref=...&s=...` and other senders may
+  /// append different params, so only the bare URL is load-bearing.
+  /// Returns `null` when nothing matches (another app is casting) or
+  /// MediaStatus has no content yet.
+  Station? matchStationFromCastMedia(
+    List<Station> stations,
+    GoggleCastMediaStatus? status,
+  ) {
+    final info = status?.mediaInformation;
+    if (info == null) return null;
+    final candidates = <String>[
+      info.contentId,
+      info.contentUrl?.toString() ?? '',
+    ].where((s) => s.isNotEmpty).map(_stripQuery).toSet();
+    if (candidates.isEmpty) return null;
+
+    for (final station in stations) {
+      final streams = Utils.getStationStreamObjects(station.rawStationData);
+      for (final entry in streams) {
+        final url = entry['url'] ?? '';
+        if (url.isEmpty) continue;
+        if (candidates.contains(_stripQuery(url))) return station;
+      }
+    }
+    return null;
+  }
+
+  String _stripQuery(String url) {
+    final idx = url.indexOf('?');
+    return idx >= 0 ? url.substring(0, idx) : url;
   }
 
   Future<void> initialize() async {
@@ -109,6 +192,7 @@ class CastService {
           castPlayerState.add(CastMediaPlayerState.unknown);
           _lastCastStreamUrl = null;
           _lastCastStreamType = null;
+          _adoptedSession = false;
         }
         _log('Session changed: state=$state, wasCasting=$wasCasting, nowCasting=$nowCasting, device=${session?.device?.friendlyName}');
       }, onError: (e) {
@@ -198,6 +282,7 @@ class CastService {
       lastCastSlug = null;
       _lastCastStreamUrl = null;
       _lastCastStreamType = null;
+      _adoptedSession = false;
       _log('Disconnected successfully');
       AnalyticsService.instance.capture('cast_disconnected');
     } catch (e) {
@@ -248,6 +333,10 @@ class CastService {
       return;
     }
 
+    // The user picked a station from this app — we own the session now.
+    // Any prior "adopted" state ends here; metadata pushes resume.
+    _adoptedSession = false;
+
     final trackedUrl = _addCastTrackingParams(pick.url);
     _lastCastStreamUrl = trackedUrl;
     _lastCastStreamType = pick.type;
@@ -273,6 +362,11 @@ class CastService {
   /// poll detects a new song while casting.
   Future<void> updateCastMetadata(Station station) async {
     if (!isCasting.value) return;
+    if (_adoptedSession) {
+      // Another sender owns this session — they're already pushing
+      // metadata. Sending our own LOAD would replace their media.
+      return;
+    }
     final castUrl = _lastCastStreamUrl;
     final castType = _lastCastStreamType;
     if (castUrl == null || castType == null) {

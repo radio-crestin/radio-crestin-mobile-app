@@ -1096,6 +1096,14 @@ class AppAudioHandler extends BaseAudioHandler {
     }
   }
 
+  /// Re-emits `playbackState` with current controls, processing state, and
+  /// the latest known `playing` flag. Callers use this after synthesizing
+  /// state changes outside the normal `player.playbackEventStream` path
+  /// (e.g., adopting an in-progress Cast session).
+  void broadcastCurrentState() {
+    _broadcastState(player.playbackEvent);
+  }
+
   void _broadcastState(PlaybackEvent event) {
     // When casting, use the last-known playback state (not the local player)
     final playing = isCasting ? (playbackState.value.playing) : player.playing;
