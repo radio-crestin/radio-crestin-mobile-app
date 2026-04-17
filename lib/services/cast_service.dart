@@ -47,6 +47,10 @@ class CastService {
   /// the same stream with updated metadata without picking a new URL.
   String? _lastCastStreamUrl;
 
+  /// Type of the currently loaded Cast stream ('HLS' or 'direct_stream').
+  /// Drives `contentType` and `hlsSegmentFormat` on metadata reloads.
+  String? _lastCastStreamType;
+
   void _log(String message) {
     developer.log('$_tag: $message');
     // Also print to system console for easier debugging
@@ -104,6 +108,7 @@ class CastService {
         if (!nowCasting) {
           castPlayerState.add(CastMediaPlayerState.unknown);
           _lastCastStreamUrl = null;
+          _lastCastStreamType = null;
         }
         _log('Session changed: state=$state, wasCasting=$wasCasting, nowCasting=$nowCasting, device=${session?.device?.friendlyName}');
       }, onError: (e) {
@@ -192,6 +197,7 @@ class CastService {
       await GoogleCastSessionManager.instance.endSessionAndStopCasting();
       lastCastSlug = null;
       _lastCastStreamUrl = null;
+      _lastCastStreamType = null;
       _log('Disconnected successfully');
       AnalyticsService.instance.capture('cast_disconnected');
     } catch (e) {
@@ -236,24 +242,26 @@ class CastService {
       return;
     }
 
-    final streamUrl = _pickCastStreamUrl(station);
-    if (streamUrl == null) {
+    final pick = _pickCastStream(station);
+    if (pick == null) {
       _log('castStation: no stream URL for station ${station.title}');
       return;
     }
 
-    final trackedUrl = _addCastTrackingParams(streamUrl);
+    final trackedUrl = _addCastTrackingParams(pick.url);
     _lastCastStreamUrl = trackedUrl;
+    _lastCastStreamType = pick.type;
 
-    final mediaInfo = _buildMediaInfo(station, trackedUrl, streamUrl);
+    final mediaInfo = _buildMediaInfo(station, trackedUrl, pick.type);
 
-    _log('castStation: loadMedia $trackedUrl');
+    _log('castStation: loadMedia $trackedUrl (type=${pick.type})');
     try {
       await GoogleCastRemoteMediaClient.instance.loadMedia(mediaInfo);
       _log('castStation: loadMedia OK');
       AnalyticsService.instance.capture('cast_station', {
         'station_id': station.id,
         'station_slug': station.slug,
+        'stream_type': pick.type,
       });
     } catch (e) {
       _log('castStation: loadMedia FAILED: $e');
@@ -266,14 +274,13 @@ class CastService {
   Future<void> updateCastMetadata(Station station) async {
     if (!isCasting.value) return;
     final castUrl = _lastCastStreamUrl;
-    if (castUrl == null) {
+    final castType = _lastCastStreamType;
+    if (castUrl == null || castType == null) {
       _log('updateCastMetadata: no active stream, falling back to full castStation');
       return castStation(station);
     }
 
-    // Use the original stream URL (before tracking params) for content type
-    final rawUrl = _pickCastStreamUrl(station) ?? castUrl;
-    final mediaInfo = _buildMediaInfo(station, castUrl, rawUrl);
+    final mediaInfo = _buildMediaInfo(station, castUrl, castType);
     _log('updateCastMetadata: reloading with updated metadata for ${station.title}');
     try {
       await GoogleCastRemoteMediaClient.instance.loadMedia(mediaInfo);
@@ -284,8 +291,11 @@ class CastService {
   }
 
   /// Builds a GoogleCastMediaInformation with current station metadata.
+  /// [streamType] is the API-declared type ('HLS' or 'direct_stream');
+  /// it selects the correct MIME content type and, for HLS, the
+  /// `hlsSegmentFormat` hint (MPEG-TS).
   GoogleCastMediaInformation _buildMediaInfo(
-      Station station, String trackedUrl, String rawStreamUrl) {
+      Station station, String trackedUrl, String streamType) {
     final thumbnailUrl = station.rawStationData.thumbnail_url ?? '';
     final songThumbnailUrl =
         station.rawStationData.now_playing?.song?.thumbnail_url;
@@ -297,17 +307,22 @@ class CastService {
     }
 
     final subtitle = _buildSubtitle(station);
-    final contentType = _guessContentType(rawStreamUrl);
+    final isHls = streamType == 'HLS';
+    final contentType =
+        isHls ? 'application/x-mpegURL' : _guessContentType(trackedUrl);
 
     _log('_buildMediaInfo: title=${station.title}, '
         'artist=${subtitle.isNotEmpty ? subtitle : station.title}, '
-        'contentType=$contentType, artUrl=$artUrl');
+        'streamType=$streamType, contentType=$contentType, artUrl=$artUrl');
 
     return GoogleCastMediaInformation(
       contentId: trackedUrl,
       streamType: CastMediaStreamType.live,
       contentUrl: Uri.parse(trackedUrl),
       contentType: contentType,
+      // iOS: applied via GCKMediaInformationBuilder. Android: ignored by
+      // the plugin's method channel; the Cast SDK infers it from contentType.
+      hlsSegmentFormat: isHls ? CastHlsSegmentFormat.ts : null,
       metadata: GoogleCastMusicMediaMetadata(
         title: station.title,
         albumName: 'Radio Creștin',
@@ -324,24 +339,26 @@ class CastService {
     return parts.join(' — ');
   }
 
-  /// Pick a stream URL for Cast. Prefers direct MP3/AAC streams for
-  /// widest compatibility, but falls back to HLS when no direct stream
-  /// is available. The flutter_chrome_cast package supports HLS
-  /// (application/x-mpegURL) on both iOS and Android receivers.
-  String? _pickCastStreamUrl(Station station) {
+  /// Pick a stream for Cast. Prefers HLS for richer playback (live edge
+  /// tracking via `EXT-X-PROGRAM-DATE-TIME`, retained segments, adaptive
+  /// buffering) and falls back to direct MP3/AAC for stations that don't
+  /// expose an HLS variant.
+  ({String url, String type})? _pickCastStream(Station station) {
     final streams = Utils.getStationStreamObjects(station.rawStationData);
     if (streams.isEmpty) return null;
 
-    // First pass: prefer non-HLS (MP3/AAC — works on all Cast devices)
     for (final s in streams) {
-      if (s['type'] != 'HLS') return s['url'];
+      if (s['type'] == 'HLS' && (s['url']?.isNotEmpty ?? false)) {
+        return (url: s['url']!, type: 'HLS');
+      }
     }
 
-    // Second pass: fall back to HLS
     for (final s in streams) {
-      if (s['type'] == 'HLS') {
-        _log('Using HLS stream for ${station.title} (no direct stream available)');
-        return s['url'];
+      final type = s['type'];
+      final url = s['url'];
+      if (type != null && type != 'HLS' && (url?.isNotEmpty ?? false)) {
+        _log('No HLS for ${station.title}, falling back to $type');
+        return (url: url!, type: type);
       }
     }
 
