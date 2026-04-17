@@ -211,12 +211,15 @@ class _DeviceSheetState extends State<_DeviceSheet> {
       _chromecastCasting = cs.isCasting.value;
       _connectedDeviceName = cs.connectedDeviceName.value;
 
-      // Only restart discovery when NOT connected — restarting while
-      // connected causes the native SDK to drop the connected device
-      // from the discovery list, making the sheet appear empty.
-      if (!_chromecastCasting) {
-        cs.restartDiscovery();
-      }
+      // Discovery runs continuously from app init — the sheet just
+      // reflects the live device list. Do NOT restart here: on a cold
+      // launch the first mDNS announcements usually omit the
+      // `_CC1AD845` subtype, so the SDK must TCP-probe each device
+      // (~20s). Restarting the scan on every open cancels those
+      // in-flight probes and forces the whole cycle to start over,
+      // which makes the sheet look empty when devices were seconds
+      // away from publishing. Manual refresh is available via the
+      // "Caută din nou" button below.
 
       _subs.add(cs.devices.listen((d) {
         if (mounted) setState(() => _devices = d);
