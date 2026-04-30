@@ -22,6 +22,11 @@ settings:
     ENABLE_BITCODE: NO
     SWIFT_TREAT_WARNINGS_AS_ERRORS: NO
 
+packages:
+  PostHog:
+    url: https://github.com/PostHog/posthog-ios
+    from: "3.0.0"
+
 targets:
   RadioCrestinTV:
     type: application
@@ -30,6 +35,9 @@ targets:
     sources:
       - path: RadioCrestinTV/Sources
       - path: RadioCrestinTV/Resources
+    dependencies:
+      - package: PostHog
+        product: PostHog
     info:
       path: RadioCrestinTV/Info.plist
       properties:

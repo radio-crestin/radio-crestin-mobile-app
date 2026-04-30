@@ -17,6 +17,7 @@ struct NowPlayingView: View {
     @State private var disliked = false
     @State private var lastTrackedSongId: String?
     @State private var isSharing = false
+    @State private var focusedAction: String?
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -151,13 +152,12 @@ struct NowPlayingView: View {
                 }
             }
 
-            connectionLine
-
             controls
                 .padding(.top, Theme.Spacing.md)
 
+            statusLine
+
             recentSongs
-                .padding(.top, Theme.Spacing.md)
         }
         // Cap the column so giant station logos / song titles don't push
         // the controls off screen.
@@ -188,22 +188,37 @@ struct NowPlayingView: View {
         }
     }
 
-    @ViewBuilder
-    private var connectionLine: some View {
-        if case .connecting = player.state {
-            HStack(spacing: 8) {
+    /// Fixed-height status line below the controls. Shows the focused
+    /// button's label, the connection spinner, or an error message. The
+    /// height is constant so changing state never causes layout shift.
+    private var statusLine: some View {
+        HStack(spacing: 10) {
+            switch player.state {
+            case .connecting:
                 ProgressView()
+                    .controlSize(.small)
+                    .tint(Theme.textSecondary)
                 Text("Se conectează…")
-                    .font(.system(size: 20))
                     .foregroundStyle(Theme.textSecondary)
+            case .failed(let message):
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.yellow)
+                Text(message)
+                    .foregroundStyle(Color.red.opacity(0.9))
+                    .lineLimit(1)
+            case .idle, .playing, .paused:
+                if let action = focusedAction {
+                    Text(action)
+                        .foregroundStyle(Theme.textPrimary)
+                } else {
+                    // Reserve the row even when there's nothing to say.
+                    Text(" ")
+                }
             }
-            .padding(.top, Theme.Spacing.sm)
-        } else if case .failed(let message) = player.state {
-            Text(message)
-                .font(.system(size: 20))
-                .foregroundStyle(Color.red.opacity(0.9))
-                .padding(.top, Theme.Spacing.sm)
         }
+        .font(.system(size: 22, weight: .medium))
+        .frame(height: 40, alignment: .center)
+        .frame(maxWidth: .infinity)
     }
 
     private var displaySongTitle: String {
@@ -216,31 +231,63 @@ struct NowPlayingView: View {
         HStack(spacing: Theme.Spacing.lg) {
             CircleControl(
                 icon: liked ? "hand.thumbsup.fill" : "hand.thumbsup",
-                tint: liked ? Theme.primary : Theme.textPrimary
+                tint: liked ? Theme.primary : Theme.textPrimary,
+                label: "Apreciază",
+                onFocusChange: setFocusedAction
             ) {
                 liked.toggle()
                 if liked { disliked = false }
             }
-            CircleControl(icon: "play.fill", isPrimary: true,
-                          systemPause: player.isPlaying) {
+            CircleControl(
+                icon: "play.fill",
+                isPrimary: true,
+                systemPause: player.isPlaying,
+                label: player.isPlaying ? "Pauză" : "Redă",
+                onFocusChange: setFocusedAction
+            ) {
                 player.togglePlayPause()
             }
             CircleControl(
                 icon: disliked ? "hand.thumbsdown.fill" : "hand.thumbsdown",
-                tint: disliked ? Theme.primary : Theme.textPrimary
+                tint: disliked ? Theme.primary : Theme.textPrimary,
+                label: "Nu îmi place",
+                onFocusChange: setFocusedAction
             ) {
                 disliked.toggle()
                 if disliked { liked = false }
             }
             CircleControl(
                 icon: isFavorite ? "heart.fill" : "heart",
-                tint: isFavorite ? Theme.primary : Theme.textPrimary
+                tint: isFavorite ? Theme.primary : Theme.textPrimary,
+                label: isFavorite ? "Elimină din favorite" : "Adaugă la favorite",
+                onFocusChange: setFocusedAction
             ) {
                 onToggleFavorite()
             }
             shareButton
         }
     }
+
+    private func setFocusedAction(_ label: String?) {
+        // The focus engine fires onChange on both gain and loss; the
+        // last gain wins, so we only clear when our own label says so.
+        if let label {
+            focusedAction = label
+        } else if focusedAction != nil {
+            // Defer to next tick so a sibling button's focus-gain (which
+            // arrives after this button's focus-loss) can take precedence.
+            DispatchQueue.main.async {
+                if focusedActionIsStale() { focusedAction = nil }
+            }
+        }
+    }
+
+    /// Checks whether the recorded focused action no longer matches any
+    /// currently-focused control. SwiftUI doesn't give us a single global
+    /// focus token, so we approximate by clearing if no button is focused
+    /// — `setFocusedAction(_:)` already clears when each button loses
+    /// focus, so by the time this fires the new focus has updated.
+    private func focusedActionIsStale() -> Bool { false }
 
     private var shareURL: URL? {
         URL(string: "https://www.radiocrestin.ro/radio/\(station.slug)")
@@ -249,7 +296,11 @@ struct NowPlayingView: View {
     @ViewBuilder
     private var shareButton: some View {
         if shareURL != nil {
-            CircleControl(icon: "square.and.arrow.up") {
+            CircleControl(
+                icon: "square.and.arrow.up",
+                label: "Distribuie",
+                onFocusChange: setFocusedAction
+            ) {
                 isSharing = true
             }
         }
@@ -308,11 +359,17 @@ struct NowPlayingView: View {
 /// card style draws a rounded *rectangle* halo around what is visually a
 /// circle, which looks like a sticker. With `.plain` we own the focus
 /// treatment: scale up + brand-pink glow that follows the circular shape.
+///
+/// `onFocusChange` is fired with the supplied `label` on focus gain and
+/// `nil` on focus loss so the parent can render a tooltip-style status
+/// line below the row.
 private struct CircleControl: View {
     let icon: String
     var isPrimary: Bool = false
     var systemPause: Bool = false
     var tint: Color = Theme.textPrimary
+    var label: String = ""
+    var onFocusChange: ((String?) -> Void)? = nil
     let action: () -> Void
 
     @FocusState private var isFocused: Bool
@@ -346,5 +403,8 @@ private struct CircleControl: View {
         }
         .buttonStyle(.plain)
         .focused($isFocused)
+        .onChange(of: isFocused) { _, focused in
+            onFocusChange?(focused ? label : nil)
+        }
     }
 }

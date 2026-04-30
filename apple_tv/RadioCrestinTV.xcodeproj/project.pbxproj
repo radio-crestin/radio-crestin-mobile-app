@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		01BFE1CC6F4D49D651A4A668 /* SortPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AE27E2F2F99A9C2738D8B60 /* SortPicker.swift */; };
 		26EB9DB4A133F5693FE7B8DC /* NowPlayingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4804A680D602D313E3B83192 /* NowPlayingView.swift */; };
+		2B2901FED93DE3F3AB60C982 /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = C219CB93B743E3BFF8A388ED /* PostHog */; };
 		2EA9FA0983EF4A5BB5818E37 /* StationSort.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7397F56295F5E766A046C54B /* StationSort.swift */; };
 		310B8F64C84C4D2F5E1A1826 /* SongHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 269B67C8908EFAF83BE1CE01 /* SongHistory.swift */; };
 		4BEC4D93814DC8F4CB9A71FC /* RatingStars.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91CB5D5C822ED753150F891A /* RatingStars.swift */; };
@@ -21,6 +22,7 @@
 		9B76A5E266B049A8A7F7EF4D /* ShareSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A628C76C5B881F09F5A607C /* ShareSheet.swift */; };
 		A123D8FDDF2FB37C3BE73157 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B0936A6AE22F15E63C9A0D1 /* SettingsView.swift */; };
 		B99A6D1E526523C8501E780B /* StationCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC4A7E03F25C3EDE274E2B29 /* StationCard.swift */; };
+		CD31E5E9DE0C9D06EFF6C231 /* Analytics.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE42B02A6F27AD11E369F759 /* Analytics.swift */; };
 		DD26FB0F72762D5A4D267DF3 /* Station.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F7A6A97B8B9C2A4B4A27F23 /* Station.swift */; };
 		FC1B3C3049FA8E758439255F /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58ABB1A505FBA87FD83C143E /* AppState.swift */; };
 		FE115CCE7C0A0F164C401DBE /* GraphQLClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB38E18FC2231B31C88C1976 /* GraphQLClient.swift */; };
@@ -45,7 +47,19 @@
 		C9D2628C7F33A9A1C03F2F07 /* AudioPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioPlayer.swift; sourceTree = "<group>"; };
 		CC4A7E03F25C3EDE274E2B29 /* StationCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StationCard.swift; sourceTree = "<group>"; };
 		DB38E18FC2231B31C88C1976 /* GraphQLClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphQLClient.swift; sourceTree = "<group>"; };
+		DE42B02A6F27AD11E369F759 /* Analytics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Analytics.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		80EAB7C67140B29694E2A0BD /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2B2901FED93DE3F3AB60C982 /* PostHog in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		04EF11A87AB25EAEC852F55B /* Sources */ = {
@@ -131,6 +145,7 @@
 		A983CB1D1437E56CBCF92875 /* Network */ = {
 			isa = PBXGroup;
 			children = (
+				DE42B02A6F27AD11E369F759 /* Analytics.swift */,
 				DB38E18FC2231B31C88C1976 /* GraphQLClient.swift */,
 				2217B745B5247094D27CCEBD /* StationRepository.swift */,
 			);
@@ -160,6 +175,7 @@
 			buildConfigurationList = BB6B726D5B62754204A0DD7D /* Build configuration list for PBXNativeTarget "RadioCrestinTV" */;
 			buildPhases = (
 				6DB1A55C2DB75D729F4064D2 /* Sources */,
+				80EAB7C67140B29694E2A0BD /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -167,6 +183,7 @@
 			);
 			name = RadioCrestinTV;
 			packageProductDependencies = (
+				C219CB93B743E3BFF8A388ED /* PostHog */,
 			);
 			productName = RadioCrestinTV;
 			productReference = 52AAEFA45204249EE060A620 /* RadioCrestinTV.app */;
@@ -195,6 +212,9 @@
 			);
 			mainGroup = 6BB8CFB322545BE1EEF860A2;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				144AA9048C69F1CB9BA8C584 /* XCRemoteSwiftPackageReference "posthog-ios" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 7D10900A5D3AA3D51388D628 /* Products */;
 			projectDirPath = "";
@@ -210,6 +230,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CD31E5E9DE0C9D06EFF6C231 /* Analytics.swift in Sources */,
 				FC1B3C3049FA8E758439255F /* AppState.swift in Sources */,
 				6E3ABB672123D5A369039938 /* AudioPlayer.swift in Sources */,
 				FE115CCE7C0A0F164C401DBE /* GraphQLClient.swift in Sources */,
@@ -422,6 +443,25 @@
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		144AA9048C69F1CB9BA8C584 /* XCRemoteSwiftPackageReference "posthog-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/PostHog/posthog-ios";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 3.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		C219CB93B743E3BFF8A388ED /* PostHog */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 144AA9048C69F1CB9BA8C584 /* XCRemoteSwiftPackageReference "posthog-ios" */;
+			productName = PostHog;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 650E1A0F7CD00B08C1ABDD03 /* Project object */;
 }
