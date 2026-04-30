@@ -193,6 +193,85 @@ lib/
 
 ---
 
+## Dart Best Practices
+
+*(Based on [Flutter official rules](https://github.com/flutter/flutter/blob/main/docs/rules/rules.md) and Effective Dart)*
+
+### Language Features
+- **Null Safety:** Write soundly null-safe code. Leverage Dart's null safety features. Avoid `!` unless the value is guaranteed to be non-null.
+- **Pattern Matching:** Use pattern matching features where they simplify the code.
+- **Records:** Use records to return multiple types when defining an entire class is cumbersome.
+- **Switch Statements:** Prefer exhaustive `switch` statements or expressions (no `break` needed).
+- **Arrow Functions:** Use arrow syntax (`=>`) for simple one-line functions.
+
+### Async/Await
+- Use `Future`s, `async`, and `await` for asynchronous operations with robust error handling.
+- Use `Stream`s for sequences of asynchronous events.
+- Always handle errors in async operations with try/catch.
+
+### Code Style
+- **Line length:** 80 characters or fewer.
+- **Functions:** Keep short and single-purpose. Strive for less than 20 lines.
+- **Naming:** `PascalCase` for classes, `camelCase` for members/variables/functions/enums, `snake_case` for files (see project-specific exceptions below).
+- **Composition over Inheritance:** Favor composition for building complex widgets and logic.
+- **Immutability:** Prefer immutable data structures. Widgets (especially `StatelessWidget`) should be immutable.
+- **Conciseness:** Write code that is as short as it can be while remaining clear and straightforward.
+
+### Documentation
+- Use `///` for doc comments on all public APIs (classes, constructors, methods, top-level functions).
+- Start with a single-sentence summary ending with a period. Add a blank line after for additional details.
+- Comment to explain **why**, not **what** — the code should be self-explanatory.
+- No useless documentation that only restates what's obvious from the name.
+- Use backticks for code references in comments.
+- Place doc comments before annotations.
+
+---
+
+## Flutter Best Practices
+
+### Widget Architecture
+- **Private Widget classes:** Use small, private `Widget` classes instead of private helper methods that return a `Widget`.
+- **Break down `build()` methods** into smaller, reusable private Widget classes.
+- **Const constructors:** Use `const` constructors for widgets and in `build()` methods whenever possible to reduce rebuilds.
+- **Avoid expensive operations** (network calls, complex computations) directly within `build()` methods.
+- **Isolates:** Use `compute()` to run expensive calculations in a separate isolate to avoid blocking the UI thread.
+
+### Layout Best Practices
+- **`Expanded`:** Use to fill remaining space along the main axis in `Row`/`Column`.
+- **`Flexible`:** Use when a widget should shrink to fit but not necessarily grow. Don't combine `Flexible` and `Expanded` in the same `Row`/`Column`.
+- **`Wrap`:** Use when widgets would overflow a `Row`/`Column` and should wrap to the next line.
+- **`SingleChildScrollView`:** For content intrinsically larger than the viewport but fixed size.
+- **`ListView.builder` / `GridView.builder`:** Always use builder constructors for long lists/grids.
+- **`LayoutBuilder` / `MediaQuery`:** Use for responsive layouts that adapt to available space.
+- **`FittedBox`:** Use to scale/fit a single child within its parent.
+- **Stack layering:** Use `Positioned` for precise placement, `Align` for alignment-based positioning.
+
+### Theming Best Practices
+- **`ThemeExtension`:** For custom styles not part of standard `ThemeData`, create a class extending `ThemeExtension<T>` with `copyWith` and `lerp` methods.
+- **`WidgetStateProperty`:** Use `WidgetStateProperty.resolveWith` to provide state-dependent styles (pressed, hovered, etc.).
+- **Component themes:** Customize specific component themes (`appBarTheme`, `elevatedButtonTheme`, `cardTheme`) within `ThemeData` for consistency.
+
+### Color & Contrast
+- **WCAG 2.1:** Aim for minimum contrast ratio of **4.5:1** for normal text, **3:1** for large text (18pt or 14pt bold).
+- **60-30-10 Rule:** 60% primary/neutral, 30% secondary, 10% accent color.
+- **Complementary colors:** Use with caution — good for accents, poor for text/background pairings.
+
+### Accessibility (A11Y)
+- **Dynamic Text Scaling:** Test UI remains usable when users increase system font size.
+- **Semantic Labels:** Use the `Semantics` widget to provide clear, descriptive labels for UI elements.
+- **Screen Reader Testing:** Test with TalkBack (Android) and VoiceOver (iOS).
+- **Color independence:** Never rely on color alone to convey information.
+
+### Font & Typography
+- Limit to 1-2 font families for the entire app.
+- Prioritize legibility — sans-serif fonts preferred for UI body text.
+- **Line height:** 1.4x to 1.6x the font size for body text.
+- **Line length:** 45-75 characters for body text.
+- Avoid all-caps for long-form text.
+- Use font weight and opacity to create visual hierarchy.
+
+---
+
 ## Code Quality Standards
 
 ### Naming Conventions
@@ -274,6 +353,14 @@ final subject = BehaviorSubject<Station?>.seeded(null);
 // Verify stream emissions
 expect(subject.stream, emitsInOrder([null, station]));
 ```
+
+### Test Methodology
+- Follow the **Arrange-Act-Assert** (Given-When-Then) pattern.
+- Prefer **fakes or stubs** over mocks. Use `mockito` or `mocktail` only when necessary.
+- Write **unit tests** for domain logic, data layer, and state management.
+- Write **widget tests** for UI components.
+- Use `package:integration_test` for end-to-end user flow validation.
+- Use `package:checks` for more expressive and readable assertions where possible.
 
 ### What to Test
 - State transitions in `AppAudioHandler` (favorites, navigation, filtering).
