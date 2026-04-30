@@ -40,6 +40,15 @@ struct Station: Codable, Identifiable, Hashable {
         nowPlaying?.song?.thumbnailUrl ?? nowPlaying?.song?.artist?.thumbnailUrl
     }
 
+    /// URL list to try in order: song / artist art first (so the user
+    /// sees the actual album cover when available), then station logo.
+    /// Mirrors Station.displayThumbnail in the Flutter app.
+    var displayThumbnailURLs: [URL] {
+        [songThumbnailUrl, thumbnailUrl]
+            .compactMap { $0 }
+            .compactMap { URL(string: $0) }
+    }
+
     /// Average review stars (0..5). 0 when no reviews.
     var averageRating: Double {
         guard !reviews.isEmpty else { return 0 }

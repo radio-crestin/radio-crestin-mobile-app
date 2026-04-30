@@ -47,36 +47,12 @@ struct StationCard: View {
         .buttonStyle(.card)
     }
 
-    @ViewBuilder
     private var artwork: some View {
-        if let urlString = station.thumbnailUrl,
-           let url = URL(string: urlString) {
-            AsyncImage(url: url) { phase in
-                switch phase {
-                case .success(let image):
-                    image.resizable().aspectRatio(contentMode: .fill)
-                case .empty, .failure:
-                    placeholder
-                @unknown default:
-                    placeholder
-                }
-            }
-            .frame(width: 280, height: 280)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.lg))
-        } else {
-            placeholder
-                .frame(width: 280, height: 280)
-                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.lg))
-        }
-    }
-
-    private var placeholder: some View {
-        ZStack {
-            Theme.surfaceVariant
-            Image(systemName: "radio.fill")
-                .font(.system(size: 64))
-                .foregroundStyle(Theme.textTertiary)
-        }
+        StationArtwork(
+            station: station,
+            cornerRadius: Theme.Radius.lg,
+            targetSize: CGSize(width: 280, height: 280)
+        )
     }
 
     private var playingBadge: some View {

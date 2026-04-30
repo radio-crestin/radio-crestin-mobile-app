@@ -85,35 +85,12 @@ struct NowPlayingView: View {
     }
 
     private var artwork: some View {
-        Group {
-            if let urlString = station.thumbnailUrl,
-               let url = URL(string: urlString) {
-                AsyncImage(url: url) { phase in
-                    if let image = phase.image {
-                        image.resizable().aspectRatio(contentMode: .fill)
-                    } else {
-                        artworkPlaceholder
-                    }
-                }
-            } else {
-                artworkPlaceholder
-            }
-        }
-        .frame(width: 460, height: 460)
-        .clipShape(RoundedRectangle(cornerRadius: 28))
+        StationArtwork(
+            station: station,
+            cornerRadius: 28,
+            targetSize: CGSize(width: 460, height: 460)
+        )
         .shadow(color: .black.opacity(0.6), radius: 32, x: 0, y: 12)
-    }
-
-    private var artworkPlaceholder: some View {
-        ZStack {
-            LinearGradient(
-                colors: [Theme.primary, Theme.primaryDark],
-                startPoint: .topLeading, endPoint: .bottomTrailing
-            )
-            Image(systemName: "radio.fill")
-                .font(.system(size: 160))
-                .foregroundStyle(.white.opacity(0.85))
-        }
     }
 
     private var backgroundArtwork: some View {

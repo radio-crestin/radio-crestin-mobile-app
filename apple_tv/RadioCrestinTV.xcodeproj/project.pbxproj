@@ -24,6 +24,7 @@
 		B99A6D1E526523C8501E780B /* StationCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC4A7E03F25C3EDE274E2B29 /* StationCard.swift */; };
 		CD31E5E9DE0C9D06EFF6C231 /* Analytics.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE42B02A6F27AD11E369F759 /* Analytics.swift */; };
 		DD26FB0F72762D5A4D267DF3 /* Station.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F7A6A97B8B9C2A4B4A27F23 /* Station.swift */; };
+		E1EB8CE1B17942A2C5248B73 /* StationArtwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = 654F66EB9F649E224E0EE5D5 /* StationArtwork.swift */; };
 		FC1B3C3049FA8E758439255F /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58ABB1A505FBA87FD83C143E /* AppState.swift */; };
 		FE115CCE7C0A0F164C401DBE /* GraphQLClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB38E18FC2231B31C88C1976 /* GraphQLClient.swift */; };
 /* End PBXBuildFile section */
@@ -40,6 +41,7 @@
 		4F7A6A97B8B9C2A4B4A27F23 /* Station.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Station.swift; sourceTree = "<group>"; };
 		52AAEFA45204249EE060A620 /* RadioCrestinTV.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = RadioCrestinTV.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		58ABB1A505FBA87FD83C143E /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		654F66EB9F649E224E0EE5D5 /* StationArtwork.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StationArtwork.swift; sourceTree = "<group>"; };
 		7397F56295F5E766A046C54B /* StationSort.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StationSort.swift; sourceTree = "<group>"; };
 		7AE27E2F2F99A9C2738D8B60 /* SortPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SortPicker.swift; sourceTree = "<group>"; };
 		91CB5D5C822ED753150F891A /* RatingStars.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RatingStars.swift; sourceTree = "<group>"; };
@@ -161,6 +163,7 @@
 				2B0936A6AE22F15E63C9A0D1 /* SettingsView.swift */,
 				3A628C76C5B881F09F5A607C /* ShareSheet.swift */,
 				7AE27E2F2F99A9C2738D8B60 /* SortPicker.swift */,
+				654F66EB9F649E224E0EE5D5 /* StationArtwork.swift */,
 				CC4A7E03F25C3EDE274E2B29 /* StationCard.swift */,
 				12F5451DFA66A04B21CDAA01 /* StationGrid.swift */,
 			);
@@ -243,6 +246,7 @@
 				310B8F64C84C4D2F5E1A1826 /* SongHistory.swift in Sources */,
 				01BFE1CC6F4D49D651A4A668 /* SortPicker.swift in Sources */,
 				DD26FB0F72762D5A4D267DF3 /* Station.swift in Sources */,
+				E1EB8CE1B17942A2C5248B73 /* StationArtwork.swift in Sources */,
 				B99A6D1E526523C8501E780B /* StationCard.swift in Sources */,
 				5A432BD6BE891CBE01788A61 /* StationGrid.swift in Sources */,
 				7F081E2384A840C5D0160341 /* StationRepository.swift in Sources */,
