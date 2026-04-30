@@ -19,14 +19,26 @@ struct NowPlayingView: View {
     @State private var isSharing = false
 
     var body: some View {
-        ZStack {
+        ZStack(alignment: .topLeading) {
+            // Opaque base — without this the tab grid shows through the
+            // 65%-opacity background-artwork overlay.
+            Theme.background
             backgroundArtwork
-            HStack(alignment: .top, spacing: Theme.Spacing.xxl) {
+
+            // Center the artwork + metadata pair both horizontally and
+            // vertically so the screen feels balanced regardless of how
+            // many recent songs the metadata column ends up showing.
+            HStack(alignment: .center, spacing: Theme.Spacing.xxl) {
                 artwork
                 metadataAndControls
             }
             .padding(.horizontal, Theme.Spacing.xxl)
-            .padding(.vertical, Theme.Spacing.xl)
+            .padding(.vertical, Theme.Spacing.xxl)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+
+            // Visible back affordance — Siri Remote Menu also works (onExitCommand).
+            backButton
+                .padding(Theme.Spacing.xl)
 
             if isSharing, let url = shareURL {
                 ShareSheet(
@@ -53,6 +65,23 @@ struct NowPlayingView: View {
     }
 
     // MARK: - Artwork
+
+    private var backButton: some View {
+        Button(action: onBack) {
+            HStack(spacing: 10) {
+                Image(systemName: "chevron.left")
+                Text("Înapoi")
+            }
+            .font(.system(size: 22, weight: .semibold))
+            .foregroundStyle(Theme.textPrimary)
+            .padding(.horizontal, 22)
+            .padding(.vertical, 14)
+            .background(
+                Capsule().fill(Color.black.opacity(0.55))
+            )
+        }
+        .buttonStyle(.plain)
+    }
 
     private var artwork: some View {
         Group {
@@ -108,27 +137,31 @@ struct NowPlayingView: View {
     // MARK: - Right column
 
     private var metadataAndControls: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
             stationLine
-            Text(displaySongTitle)
-                .font(.system(size: 56, weight: .heavy))
-                .foregroundStyle(Theme.textPrimary)
-                .lineLimit(2)
-            if !station.songArtist.isEmpty {
-                Text(station.songArtist)
-                    .font(.system(size: 28))
-                    .foregroundStyle(Theme.textSecondary)
+            VStack(alignment: .leading, spacing: 8) {
+                Text(displaySongTitle)
+                    .font(.system(size: 56, weight: .heavy))
+                    .foregroundStyle(Theme.textPrimary)
+                    .lineLimit(2)
+                if !station.songArtist.isEmpty {
+                    Text(station.songArtist)
+                        .font(.system(size: 28))
+                        .foregroundStyle(Theme.textSecondary)
+                }
             }
 
             connectionLine
 
             controls
-                .padding(.top, Theme.Spacing.lg)
+                .padding(.top, Theme.Spacing.md)
 
             recentSongs
-                .padding(.top, Theme.Spacing.lg)
+                .padding(.top, Theme.Spacing.md)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        // Cap the column so giant station logos / song titles don't push
+        // the controls off screen.
+        .frame(maxWidth: 900, alignment: .leading)
     }
 
     private var stationLine: some View {
@@ -270,6 +303,11 @@ struct NowPlayingView: View {
 
 /// Circular focusable control. The play button doubles up as pause when
 /// `systemPause` is true — keeps the focused element stable across state.
+///
+/// We use `.buttonStyle(.plain)` instead of `.card` because the system
+/// card style draws a rounded *rectangle* halo around what is visually a
+/// circle, which looks like a sticker. With `.plain` we own the focus
+/// treatment: scale up + brand-pink glow that follows the circular shape.
 private struct CircleControl: View {
     let icon: String
     var isPrimary: Bool = false
@@ -277,16 +315,36 @@ private struct CircleControl: View {
     var tint: Color = Theme.textPrimary
     let action: () -> Void
 
+    @FocusState private var isFocused: Bool
+
     var body: some View {
         Button(action: action) {
-            Image(systemName: systemPause ? "pause.fill" : icon)
-                .font(.system(size: 32, weight: .bold))
-                .foregroundStyle(isPrimary ? .white : tint)
-                .frame(width: 80, height: 80)
-                .background(
-                    Circle().fill(isPrimary ? Theme.primary : Theme.surfaceVariant)
-                )
+            ZStack {
+                Circle()
+                    .fill(isPrimary ? Theme.primary : Theme.surfaceVariant)
+                if isFocused {
+                    Circle()
+                        .stroke(Color.white.opacity(isPrimary ? 0.95 : 0.85),
+                                lineWidth: 4)
+                }
+                Image(systemName: systemPause ? "pause.fill" : icon)
+                    .font(.system(size: 32, weight: .bold))
+                    .foregroundStyle(isPrimary ? .white : tint)
+            }
+            .frame(width: 80, height: 80)
+            .scaleEffect(isFocused ? 1.18 : 1.0)
+            .shadow(
+                color: isFocused
+                    ? (isPrimary ? Theme.primary.opacity(0.55) : .black.opacity(0.55))
+                    : .black.opacity(0.25),
+                radius: isFocused ? 28 : 8,
+                x: 0,
+                y: isFocused ? 12 : 4
+            )
+            .animation(.spring(response: 0.28, dampingFraction: 0.72),
+                       value: isFocused)
         }
-        .buttonStyle(.card)
+        .buttonStyle(.plain)
+        .focused($isFocused)
     }
 }
