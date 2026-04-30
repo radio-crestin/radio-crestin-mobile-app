@@ -64,11 +64,15 @@ struct RootView: View {
             }
             await appState.loadStations()
         }
-        .onChange(of: appState.currentStation) { _, newValue in
-            // Keep AVPlayer in sync with the user's selection.
-            if let station = newValue {
-                player.play(station)
-            }
+        .onChange(of: appState.currentStation?.id) { _, newId in
+            // Restart playback only when the *station* changed — not
+            // when its metadata did. Watching the whole `Station` value
+            // here meant every metadata poll re-set the AVPlayer item,
+            // which audibly cut the audio every ~10s.
+            guard let newId,
+                  let station = appState.stations.first(where: { $0.id == newId })
+            else { return }
+            player.play(station)
         }
     }
 
@@ -114,17 +118,14 @@ struct RootView: View {
     private var tabbedShell: some View {
         TabView(selection: $selectedTab) {
             StationGrid(
-                title: appState.sortOption.label,
+                title: "Pentru tine",
                 subtitle: "\(appState.stations.count) posturi",
                 stations: appState.sortedStations,
                 appState: appState,
                 onSelect: open,
                 emptyTitle: "Nu sunt posturi",
                 emptySystemImage: "radio",
-                emptyMessage: "",
-                trailingHeader: {
-                    SortPicker(selection: $appState.sortOption)
-                }
+                emptyMessage: ""
             )
             .tabItem { Label("Posturi", systemImage: "radio") }
             .tag(Tab.stations)

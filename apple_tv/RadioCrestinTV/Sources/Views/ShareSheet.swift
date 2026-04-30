@@ -10,6 +10,8 @@ struct ShareSheet: View {
     let url: URL
     let onDismiss: () -> Void
 
+    @FocusState private var closeFocused: Bool
+
     var body: some View {
         ZStack {
             Color.black.opacity(0.85).ignoresSafeArea()
@@ -34,14 +36,27 @@ struct ShareSheet: View {
                     .font(.system(size: 22))
                     .foregroundStyle(Theme.textSecondary)
 
-                Button("Închide", action: onDismiss)
-                    .buttonStyle(.card)
-                    .padding(.top, Theme.Spacing.md)
+                Button(action: onDismiss) {
+                    // The default `.card` button label has very little
+                    // internal padding around a short string, so the
+                    // focused capsule looked cramped. A larger label
+                    // also reads better at 10ft viewing distance.
+                    Text("Închide")
+                        .font(.system(size: 26, weight: .semibold))
+                        .padding(.horizontal, Theme.Spacing.xl)
+                        .padding(.vertical, Theme.Spacing.sm)
+                }
+                .buttonStyle(.card)
+                .focused($closeFocused)
+                .padding(.top, Theme.Spacing.md)
             }
             .padding(Theme.Spacing.xxl)
             .background(Theme.surface, in: RoundedRectangle(cornerRadius: 28))
             .shadow(radius: 40)
         }
+        // Autofocus the dismiss control — the QR is the entire payload,
+        // so the only thing the user needs to do is close the sheet.
+        .defaultFocus($closeFocused, true)
         .onExitCommand(perform: onDismiss)
     }
 

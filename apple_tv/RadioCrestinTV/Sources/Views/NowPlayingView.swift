@@ -240,7 +240,7 @@ struct NowPlayingView: View {
     // MARK: - Controls
 
     private var controls: some View {
-        HStack(spacing: Theme.Spacing.lg) {
+        HStack(spacing: Theme.Spacing.xl) {
             CircleControl(
                 icon: liked ? "hand.thumbsup.fill" : "hand.thumbsup",
                 tint: liked ? Theme.primary : Theme.textPrimary,
@@ -320,47 +320,82 @@ struct NowPlayingView: View {
 
     // MARK: - Recent songs
 
-    @ViewBuilder
+    /// Always renders three rows so the layout doesn't shift when entries
+    /// arrive from the API a moment after the view mounts. Empty slots
+    /// are invisible but reserve their height.
     private var recentSongs: some View {
         let entries = songHistory.entries(for: station.slug)
-        if !entries.isEmpty {
-            VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-                Text("Melodii recente")
-                    .font(.system(size: 22, weight: .bold))
-                    .foregroundStyle(Theme.textSecondary)
-                ForEach(entries.prefix(4)) { entry in
-                    HStack(spacing: Theme.Spacing.md) {
-                        Image(systemName: "music.note")
-                            .foregroundStyle(Theme.textTertiary)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(entry.title)
-                                .font(.system(size: 18, weight: .semibold))
-                                .foregroundStyle(Theme.textPrimary)
-                                .lineLimit(1)
-                            if !entry.artist.isEmpty {
-                                Text(entry.artist)
-                                    .font(.system(size: 16))
-                                    .foregroundStyle(Theme.textTertiary)
-                                    .lineLimit(1)
-                            }
-                        }
-                        Spacer()
-                        Text(timeAgo(entry.timestamp))
-                            .font(.system(size: 14))
-                            .foregroundStyle(Theme.textTertiary)
-                    }
-                }
+        return VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+            Text("Melodii recente")
+                .font(.system(size: 22, weight: .bold))
+                .foregroundStyle(Theme.textSecondary)
+            ForEach(0..<3, id: \.self) { idx in
+                _SongHistoryRow(entry: entries.dropFirst(idx).first)
             }
         }
     }
+}
 
-    private func timeAgo(_ date: Date) -> String {
+/// Single row in the "Melodii recente" list. Renders an empty (but
+/// space-reserving) row when `entry` is nil so the layout is stable
+/// before the API call completes.
+private struct _SongHistoryRow: View {
+    let entry: SongEntry?
+
+    var body: some View {
+        HStack(spacing: Theme.Spacing.md) {
+            if let entry, let url = entry.thumbnailUrl.flatMap(URL.init(string:)) {
+                AsyncImage(url: url) { phase in
+                    if let image = phase.image {
+                        image.resizable().aspectRatio(contentMode: .fill)
+                    } else {
+                        placeholderArt
+                    }
+                }
+                .frame(width: 36, height: 36)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+            } else {
+                placeholderArt
+                    .frame(width: 36, height: 36)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(entry?.title ?? " ")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                    .lineLimit(1)
+                Text(entry?.artist ?? " ")
+                    .font(.system(size: 16))
+                    .foregroundStyle(Theme.textTertiary)
+                    .lineLimit(1)
+            }
+            Spacer()
+            Text(entry.map { Self.timeAgo($0.timestamp) } ?? " ")
+                .font(.system(size: 14))
+                .foregroundStyle(Theme.textTertiary)
+        }
+        .opacity(entry == nil ? 0 : 1)
+        .frame(height: 44)
+    }
+
+    private var placeholderArt: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 6)
+                .fill(Theme.surfaceVariant)
+            Image(systemName: "music.note")
+                .foregroundStyle(Theme.textTertiary)
+                .font(.system(size: 16))
+        }
+    }
+
+    private static func timeAgo(_ date: Date) -> String {
         let seconds = Int(Date().timeIntervalSince(date))
         if seconds < 60 { return "acum" }
         let minutes = seconds / 60
         if minutes < 60 { return "acum \(minutes) min" }
         let hours = minutes / 60
-        return "acum \(hours)h"
+        if hours < 24 { return "acum \(hours)h" }
+        let days = hours / 24
+        return "acum \(days)z"
     }
 }
 
@@ -387,34 +422,42 @@ private struct CircleControl: View {
     @FocusState private var isFocused: Bool
 
     var body: some View {
-        Button(action: action) {
-            ZStack {
-                Circle()
-                    .fill(isPrimary ? Theme.primary : Theme.surfaceVariant)
-                if isFocused {
+        // We use a focusable view + tap gesture instead of `Button`
+        // because tvOS draws a rounded-rectangle halo around any
+        // `Button`, regardless of `buttonStyle`. By owning the focus
+        // visual ourselves we get a circle that hugs the control
+        // (matches Apple Music's playback chrome).
+        ZStack {
+            Circle()
+                .fill(isPrimary ? Theme.primary : Theme.surfaceVariant)
+                .overlay(
                     Circle()
-                        .stroke(Color.white.opacity(isPrimary ? 0.95 : 0.85),
-                                lineWidth: 4)
-                }
-                Image(systemName: systemPause ? "pause.fill" : icon)
-                    .font(.system(size: 32, weight: .bold))
-                    .foregroundStyle(isPrimary ? .white : tint)
-            }
-            .frame(width: 80, height: 80)
-            .scaleEffect(isFocused ? 1.18 : 1.0)
-            .shadow(
-                color: isFocused
-                    ? (isPrimary ? Theme.primary.opacity(0.55) : .black.opacity(0.55))
-                    : .black.opacity(0.25),
-                radius: isFocused ? 28 : 8,
-                x: 0,
-                y: isFocused ? 12 : 4
-            )
-            .animation(.spring(response: 0.28, dampingFraction: 0.72),
-                       value: isFocused)
+                        .stroke(
+                            Color.white.opacity(isPrimary ? 0.95 : 0.85),
+                            lineWidth: isFocused ? 3 : 0
+                        )
+                )
+            Image(systemName: systemPause ? "pause.fill" : icon)
+                .font(.system(size: 30, weight: .bold))
+                .foregroundStyle(isPrimary ? .white : tint)
         }
-        .buttonStyle(.plain)
+        .frame(width: 72, height: 72)
+        .scaleEffect(isFocused ? 1.08 : 1.0)
+        .shadow(
+            color: isFocused
+                ? (isPrimary ? Theme.primary.opacity(0.55) : .black.opacity(0.5))
+                : .black.opacity(0.25),
+            radius: isFocused ? 16 : 6,
+            x: 0,
+            y: isFocused ? 8 : 3
+        )
+        .animation(.spring(response: 0.28, dampingFraction: 0.72),
+                   value: isFocused)
+        .focusable(true)
         .focused($isFocused)
+        // Siri-Remote Select fires onTapGesture on tvOS when the view
+        // is focused — same activation contract as a Button.
+        .onTapGesture(perform: action)
         .onChange(of: isFocused) { _, focused in
             onFocusChange?(focused ? label : nil)
         }

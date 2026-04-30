@@ -37,6 +37,27 @@ final class StationRepository {
         return envelope.data.stations
     }
 
+    // MARK: - Per-station song history
+
+    /// Fetches the recent song history for one station — used to seed
+    /// the "Melodii recente" list in NowPlayingView so the section is
+    /// populated instantly on entry instead of growing as new songs
+    /// trickle in via the metadata poll.
+    func fetchSongHistory(stationSlug: String) async throws -> [SongHistoryItem] {
+        guard !stationSlug.isEmpty else { return [] }
+        guard var components = URLComponents(string: "\(API.base)/stations-metadata-history") else {
+            throw APIError.invalidURL
+        }
+        components.queryItems = [
+            URLQueryItem(name: "station_slug", value: stationSlug),
+            URLQueryItem(name: "timestamp", value: "\(roundedTimestamp())")
+        ]
+        guard let url = components.url else { throw APIError.invalidURL }
+        let envelope = try await client.get(url, as: HistoryEnvelope.self)
+        // The API returns oldest-first; the UI wants newest-first.
+        return envelope.data.stations_metadata_history.history.reversed()
+    }
+
     // MARK: - Lightweight metadata
 
     /// Fetches `now_playing` + `uptime` for every station.
@@ -109,4 +130,44 @@ struct NowPlayingMetadata: Decodable {
     let timestamp: String?
     let listeners: Int?
     let song: Song?
+}
+
+// MARK: - Song history wire types
+
+private struct HistoryEnvelope: Decodable {
+    let data: HistoryPayload
+    // swiftlint:disable:next nesting
+    struct HistoryPayload: Decodable {
+        let stations_metadata_history: HistoryBlock
+    }
+    // swiftlint:disable:next nesting
+    struct HistoryBlock: Decodable {
+        let history: [SongHistoryItem]
+    }
+}
+
+/// One entry from `/stations-metadata-history`.
+struct SongHistoryItem: Decodable {
+    let timestamp: String?
+    let listeners: Int?
+    let song: Song?
+
+    /// Parses the ISO-8601 timestamp into a Date. Returns now() as a
+    /// safe fallback so the UI can still render relative times if the
+    /// server ever sends a malformed value.
+    var date: Date {
+        guard let timestamp else { return Date() }
+        if let parsed = ISO8601DateFormatter.withFractional.date(from: timestamp) {
+            return parsed
+        }
+        return ISO8601DateFormatter().date(from: timestamp) ?? Date()
+    }
+}
+
+private extension ISO8601DateFormatter {
+    static let withFractional: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
 }

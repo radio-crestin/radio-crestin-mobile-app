@@ -271,6 +271,15 @@ final class AppState: ObservableObject {
         recordRecent(slug: station.slug)
         incrementPlayCount(slug: station.slug)
 
+        // Eagerly seed song history for this station so the
+        // "Melodii recente" list in NowPlayingView is already
+        // populated by the time the user lands on it. No-op when
+        // the store already has entries for this station from a
+        // previous open in this session.
+        Task { [weak self] in
+            await self?.loadSongHistoryIfNeeded(for: station.slug)
+        }
+
         // PostHog: stop the previous session (if any) and start a new one
         // so dashboards can compute listen-duration distributions.
         if let prev = previous, prev.id != station.id {
@@ -287,6 +296,26 @@ final class AppState: ObservableObject {
             stationTitle: station.title,
             stationId: station.id
         )
+    }
+
+    /// Fetches `/stations-metadata-history` for the given slug and seeds
+    /// `songHistory`. Skipped when the store already has data so re-entry
+    /// to the same station is instant.
+    func loadSongHistoryIfNeeded(for slug: String) async {
+        guard !slug.isEmpty else { return }
+        if !songHistory.entries(for: slug).isEmpty { return }
+        guard let history = try? await repository.fetchSongHistory(stationSlug: slug)
+        else { return }
+        let entries: [SongEntry] = history.compactMap { item in
+            guard let song = item.song else { return nil }
+            return SongEntry(
+                title: song.name,
+                artist: song.artist?.name ?? "",
+                timestamp: item.date,
+                thumbnailUrl: song.thumbnailUrl ?? song.artist?.thumbnailUrl
+            )
+        }
+        songHistory.seed(entries, for: slug)
     }
 
     /// Stations sorted using the user's saved preference. Favorites bubble

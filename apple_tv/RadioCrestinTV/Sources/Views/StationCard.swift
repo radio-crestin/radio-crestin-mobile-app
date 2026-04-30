@@ -30,16 +30,21 @@ struct StationCard: View {
                             .padding(8)
                     }
                 }
-                Text(station.title)
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundStyle(Theme.textPrimary)
-                    .lineLimit(1)
-                if !station.songTitle.isEmpty {
-                    Text(station.songTitle)
-                        .font(.system(size: 18))
-                        .foregroundStyle(Theme.textTertiary)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(station.title)
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundStyle(Theme.textPrimary)
                         .lineLimit(1)
+                    if !station.songTitle.isEmpty {
+                        Text(station.songTitle)
+                            .font(.system(size: 18))
+                            .foregroundStyle(Theme.textTertiary)
+                            .lineLimit(1)
+                    }
                 }
+                // Horizontal inset so the labels don't bleed into the
+                // edge of the card / focus halo.
+                .padding(.horizontal, Theme.Spacing.sm)
             }
             .frame(width: 280)
             .contentShape(Rectangle())
