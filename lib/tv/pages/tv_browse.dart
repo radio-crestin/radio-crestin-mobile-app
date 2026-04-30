@@ -164,8 +164,8 @@ class _TvBrowseState extends State<TvBrowse> {
                           child: GridView.builder(
                             gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
                               maxCrossAxisExtent: 220,
-                              crossAxisSpacing: 16,
-                              mainAxisSpacing: 12,
+                              crossAxisSpacing: 8,
+                              mainAxisSpacing: 8,
                               childAspectRatio: 160 / 216,
                             ),
                             itemCount: stations.length,

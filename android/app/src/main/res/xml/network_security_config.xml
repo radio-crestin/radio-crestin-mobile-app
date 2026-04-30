@@ -1,6 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Allow cleartext traffic globally to match the iOS app
+  (NSAllowsArbitraryLoads=true in Info.plist). Many of the radio stream
+  origins are self-hosted Icecast/Shoutcast servers without TLS, and
+  the audio fallback chain (appAudioHandler.dart) already handles
+  per-stream errors. Without this, ExoPlayer rejects http:// streams
+  with CleartextNotPermittedException on API 28+ and playback silently
+  fails to start.
+-->
 <network-security-config>
-	<domain-config cleartextTrafficPermitted="true">
-		<domain includeSubdomains="false">127.0.0.1</domain>
-	</domain-config>
+	<base-config cleartextTrafficPermitted="true">
+		<trust-anchors>
+			<certificates src="system" />
+		</trust-anchors>
+	</base-config>
 </network-security-config>

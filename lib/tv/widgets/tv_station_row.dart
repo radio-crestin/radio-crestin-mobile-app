@@ -56,7 +56,7 @@ class TvStationRow extends StatelessWidget {
                   horizontal: TvSpacing.marginHorizontal),
               itemCount: stations.length,
               separatorBuilder: (_, __) =>
-                  const SizedBox(width: TvSpacing.md),
+                  const SizedBox(width: TvSpacing.sm),
               itemBuilder: (context, index) {
                 final station = stations[index];
                 final isPlaying = currentStation?.id == station.id;
