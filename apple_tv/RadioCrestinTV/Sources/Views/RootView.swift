@@ -53,6 +53,15 @@ struct RootView: View {
         .animation(.easeInOut(duration: 0.22), value: nowPlayingStation?.id)
         .preferredColorScheme(.dark)
         .task {
+            // Wire metadata-sync hooks before the first fetch so an
+            // in-progress HLS stream (rare on cold launch, common on
+            // tab-switch) gets the right `?timestamp=` immediately.
+            appState.hlsPlaybackTimestampProvider = { [weak player] in
+                player?.hlsPlaybackTimestamp
+            }
+            appState.isPlayingHlsProvider = { [weak player] in
+                player?.isPlayingHls ?? false
+            }
             await appState.loadStations()
         }
         .onChange(of: appState.currentStation) { _, newValue in

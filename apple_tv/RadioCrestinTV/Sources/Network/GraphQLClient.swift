@@ -1,88 +1,73 @@
 import Foundation
 
-/// Minimal GraphQL client for the tvOS app — URLSession + Codable, no
-/// runtime dep on Apollo. The Hasura endpoint accepts the standard
-/// `{"query": "...", "variables": {...}}` shape, so a single typed
-/// helper covers every query the app needs.
-enum GraphQLError: Error, LocalizedError {
+/// REST client + timestamp helpers shared with the Flutter app.
+///
+/// History note: this file was originally a GraphQL client (the public
+/// Hasura endpoint). The mobile app moved to REST under `/api/v1` so the
+/// metadata fetches can be parameterised with a 10s-aligned `timestamp`
+/// query argument — that timestamp is used to align the `now_playing`
+/// metadata with the actual audio the user is hearing (HLS streams have
+/// a few-second buffer; direct MP3 plays live). The Apple TV app now
+/// follows the same contract; the file keeps its old name to avoid
+/// editing the Xcode project.
+
+enum APIError: Error, LocalizedError {
     case invalidURL
     case http(Int)
     case empty
-    case server(messages: [String])
     case decoding(underlying: Error)
 
     var errorDescription: String? {
         switch self {
-        case .invalidURL: return "GraphQL endpoint URL is malformed"
-        case .http(let code): return "HTTP \(code) from GraphQL server"
-        case .empty: return "Empty response from GraphQL server"
-        case .server(let messages):
-            return "GraphQL: " + messages.joined(separator: "; ")
+        case .invalidURL: return "API endpoint URL is malformed"
+        case .http(let code): return "HTTP \(code) from API"
+        case .empty: return "Empty response from API"
         case .decoding(let err): return "Decoding failed: \(err)"
         }
     }
 }
 
-struct GraphQLClient {
-    let endpoint: URL
-    let authToken: String
+/// Returns a Unix timestamp (seconds) rounded to the nearest 10 seconds.
+/// Matches `getRoundedTimestamp` in `lib/utils/api_utils.dart` so the
+/// server-side cache used by the radiocrestin.ro web client stays warm.
+func roundedTimestamp(at date: Date = Date(), offset: TimeInterval = 0) -> Int {
+    let epoch = Int(date.timeIntervalSince1970 - offset)
+    return (epoch / 10) * 10
+}
+
+/// Thin REST wrapper that decodes a `Decodable` payload from a URL.
+/// Adds an 8s timeout so a slow API doesn't stall the metadata poller.
+struct RestClient {
     let session: URLSession
 
-    init(
-        endpoint: URL = URL(string: "https://api.radiocrestin.ro/v1/graphql")!,
-        // Public read-only token; the same one the iOS / Android apps ship.
-        // Treat as non-secret.
-        authToken: String = "Token public",
-        session: URLSession = .shared
-    ) {
-        self.endpoint = endpoint
-        self.authToken = authToken
+    init(session: URLSession = .shared) {
         self.session = session
     }
 
-    /// Runs a GraphQL query and decodes `data` into `T`.
-    /// Throws `GraphQLError.server` when the response carries an `errors`
-    /// array (so callers don't silently get an empty struct).
-    func query<T: Decodable>(
-        _ query: String,
-        variables: [String: Any]? = nil,
-        as: T.Type
-    ) async throws -> T {
-        var req = URLRequest(url: endpoint)
-        req.httpMethod = "POST"
-        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.setValue(authToken, forHTTPHeaderField: "Authorization")
-
-        var body: [String: Any] = ["query": query]
-        if let variables { body["variables"] = variables }
-        req.httpBody = try JSONSerialization.data(withJSONObject: body)
+    func get<T: Decodable>(_ url: URL, as: T.Type) async throws -> T {
+        var req = URLRequest(url: url)
+        req.timeoutInterval = 8
+        req.setValue("application/json", forHTTPHeaderField: "Accept")
 
         let (data, response) = try await session.data(for: req)
         guard let http = response as? HTTPURLResponse else {
-            throw GraphQLError.empty
+            throw APIError.empty
         }
         guard (200..<300).contains(http.statusCode) else {
-            throw GraphQLError.http(http.statusCode)
+            throw APIError.http(http.statusCode)
         }
-        guard !data.isEmpty else { throw GraphQLError.empty }
-
-        // Two-step decode: pull errors[] first, fall through to data.
-        let envelope = try JSONDecoder().decode(
-            GraphQLEnvelope<T>.self, from: data
-        )
-        if let errors = envelope.errors, !errors.isEmpty {
-            throw GraphQLError.server(messages: errors.map { $0.message })
+        guard !data.isEmpty else { throw APIError.empty }
+        do {
+            return try JSONDecoder().decode(T.self, from: data)
+        } catch {
+            throw APIError.decoding(underlying: error)
         }
-        guard let payload = envelope.data else { throw GraphQLError.empty }
-        return payload
     }
 }
 
-private struct GraphQLEnvelope<T: Decodable>: Decodable {
-    let data: T?
-    let errors: [GraphQLErrorMessage]?
-}
-
-private struct GraphQLErrorMessage: Decodable {
-    let message: String
+/// Base URL for the public mobile-app API. Mirrors `lib/constants.dart`.
+enum API {
+    static let base = "https://api.radiocrestin.ro/api/v1"
+    static let stationsURL = "\(base)/stations"
+    static let stationsMetadataURL = "\(base)/stations-metadata"
 }

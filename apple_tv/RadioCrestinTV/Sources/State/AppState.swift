@@ -2,9 +2,17 @@ import Foundation
 import SwiftUI
 
 /// App-wide state, scoped to the lifetime of the SwiftUI App. Holds the
-/// station list (loaded from GraphQL), favorites (persisted in
-/// UserDefaults), recents (also persisted), and the current selection
-/// driving Now Playing.
+/// station list (loaded from the REST `/stations` endpoint), favorites
+/// (persisted in UserDefaults), recents (also persisted), and the
+/// current selection driving Now Playing.
+///
+/// Also owns the **metadata sync loop**: every 10 seconds it fetches
+/// `/stations-metadata` and merges `now_playing` + `uptime` + listener
+/// counts into the live station list. When the active stream is HLS
+/// (which lags the broadcast by 6–30s) the request is parameterised
+/// with the EXT-X-PROGRAM-DATE-TIME of the audio currently being heard,
+/// so the song shown matches the song the user is hearing. Mirrors the
+/// Flutter `StationDataService._pollMetadata` contract.
 ///
 /// Keeping a single observable holder avoids passing 4-5 bindings down
 /// the view tree.
@@ -29,6 +37,33 @@ final class AppState: ObservableObject {
     @Published var currentStation: Station?
     let songHistory = SongHistoryStore()
 
+    // MARK: - Audio sync hooks (set by RootView after AudioPlayer init)
+
+    /// Returns the 10s-aligned PROGRAM-DATE-TIME of the audio currently
+    /// being heard, or nil if not playing HLS / playlist not yet parsed.
+    var hlsPlaybackTimestampProvider: (() -> Int?)?
+
+    /// True when the currently playing stream is HLS. Used as a fallback
+    /// trigger to fetch an offset metadata payload even when the precise
+    /// HLS timestamp isn't yet available.
+    var isPlayingHlsProvider: (() -> Bool)?
+
+    // MARK: - Polling state
+
+    private var pollTask: Task<Void, Never>?
+
+    /// Unix timestamp (seconds, 10s-rounded) of the last successful
+    /// metadata fetch — used as `changes_from_timestamp` on the next
+    /// poll so the server only sends rows that actually changed.
+    private var lastFetchTimestamp: Int = 0
+
+    /// When the last full refresh happened. Triggers a heavy `/stations`
+    /// re-fetch every 30 minutes so descriptions / streams stay current.
+    private var lastFullRefresh: Date?
+
+    private static let pollInterval: TimeInterval = 10
+    private static let fullRefreshInterval: TimeInterval = 30 * 60
+
     init(
         repository: StationRepository = StationRepository(),
         defaults: UserDefaults = .standard
@@ -46,25 +81,46 @@ final class AppState: ObservableObject {
         }
     }
 
+    deinit {
+        pollTask?.cancel()
+    }
+
     // MARK: - Loading
 
+    /// Initial / forced full refresh — fetches the heavy `/stations`
+    /// payload, merges live `now_playing` + `uptime`, then starts the
+    /// 10s metadata poll if it isn't already running.
     func loadStations() async {
         isLoading = true
         defer { isLoading = false }
         do {
-            let fresh = try await repository.fetchStations()
-            stations = fresh
+            let liveTs = roundedTimestamp()
+            // Parallel: full station list + live metadata. If HLS is
+            // already playing (rare on first load, possible on re-entry)
+            // we also fetch an offset metadata payload so the active
+            // station's now_playing matches the audio.
+            let hlsTs = hlsPlaybackTimestampProvider?()
+            async let stationsResult = repository.fetchStations(timestamp: liveTs)
+            async let liveMetaResult = repository.fetchMetadata(timestamp: liveTs)
+            async let offsetMetaResult: [Int: StationMetadata]? = {
+                guard let hlsTs else { return nil }
+                return try? await repository.fetchMetadata(timestamp: hlsTs)
+            }()
+
+            let fresh = try await stationsResult
+            let live = (try? await liveMetaResult) ?? [:]
+            let offset = await offsetMetaResult
+
+            stations = mergeMetadata(into: fresh, live: live, offset: offset)
+            lastFetchTimestamp = liveTs
+            lastFullRefresh = Date()
             loadError = nil
-            // If the user already had a current station, refresh its
-            // metadata from the new list (slug is the stable identifier)
-            // and append the song change to history if it changed.
+
+            // Refresh the user's selection from the new list.
             if let current = currentStation,
-               let updated = fresh.first(where: { $0.slug == current.slug }) {
+               let updated = stations.first(where: { $0.slug == current.slug }) {
                 currentStation = updated
             }
-            // Always run history capture against the fresh list so the
-            // currently-playing station picks up new songs without us
-            // needing a separate metadata poller.
             if let cur = currentStation {
                 songHistory.record(
                     songTitle: cur.songTitle,
@@ -72,11 +128,137 @@ final class AppState: ObservableObject {
                     for: cur.slug
                 )
             }
+            startPollingIfNeeded()
         } catch {
             loadError = (error as? LocalizedError)?.errorDescription
                 ?? error.localizedDescription
             Analytics.captureError(error, context: "load_stations")
         }
+    }
+
+    // MARK: - Metadata polling
+
+    private func startPollingIfNeeded() {
+        guard pollTask == nil else { return }
+        pollTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: UInt64(Self.pollInterval * 1_000_000_000))
+                guard !Task.isCancelled else { break }
+                await self?.pollOnce()
+            }
+        }
+    }
+
+    /// Single poll iteration. Promotes to a full refresh after 30
+    /// minutes, otherwise issues a differential metadata fetch and
+    /// merges the result into `stations`.
+    private func pollOnce() async {
+        guard !stations.isEmpty else { return }
+
+        // Full refresh window? (every 30 min) — re-fetch everything.
+        if let last = lastFullRefresh,
+           Date().timeIntervalSince(last) >= Self.fullRefreshInterval {
+            await loadStations()
+            return
+        }
+
+        let liveTs = roundedTimestamp()
+        let hlsTs = hlsPlaybackTimestampProvider?()
+        let hlsActive = isPlayingHlsProvider?() ?? false
+        let needsOffset = hlsTs != nil || hlsActive
+
+        do {
+            // Live (differential) covers every station + listener counts.
+            // Offset is only needed when HLS is active so the playing
+            // station's now_playing matches the audio being heard.
+            async let liveResult = repository.fetchMetadata(
+                timestamp: liveTs,
+                changesFromTimestamp: lastFetchTimestamp
+            )
+            async let offsetResult: [Int: StationMetadata]? = {
+                guard needsOffset else { return nil }
+                return try? await repository.fetchMetadata(
+                    timestamp: hlsTs ?? liveTs
+                )
+            }()
+
+            let live = try await liveResult
+            let offset = await offsetResult
+
+            lastFetchTimestamp = liveTs
+
+            if live.isEmpty && (offset?.isEmpty ?? true) {
+                // Nothing changed — let the UI keep what it has.
+                return
+            }
+
+            let merged = mergeMetadata(into: stations, live: live, offset: offset)
+            // Only republish when something user-visible actually moved.
+            if hasMeaningfulChanges(old: stations, new: merged) {
+                stations = merged
+                if let current = currentStation,
+                   let updated = stations.first(where: { $0.slug == current.slug }) {
+                    currentStation = updated
+                    songHistory.record(
+                        songTitle: updated.songTitle,
+                        artist: updated.songArtist,
+                        for: updated.slug
+                    )
+                }
+            }
+        } catch {
+            // Polling failures are quiet by design — try again in 10s.
+            Analytics.captureError(error, context: "poll_metadata")
+        }
+    }
+
+    /// Picks the right metadata source per station and merges it in.
+    /// Mirrors `_mergeStationWithMetadata` in `station_data_service.dart`:
+    /// HLS-playing stations get the offset payload (so the song matches
+    /// the audio), every other station gets the live payload, and the
+    /// listener count always comes from the live payload.
+    private func mergeMetadata(
+        into source: [Station],
+        live: [Int: StationMetadata],
+        offset: [Int: StationMetadata]?
+    ) -> [Station] {
+        source.map { station in
+            let useOffset = shouldUseOffsetMetadata(station)
+            let primary = useOffset ? offset : live
+            let fallback = useOffset ? live : offset
+            guard let metadata = primary?[station.id] ?? fallback?[station.id] else {
+                return station
+            }
+            let liveListeners = live[station.id]?.listeners
+            return station.merging(metadata, liveListeners: liveListeners)
+        }
+    }
+
+    /// True when the offset (HLS-aligned) metadata should be preferred
+    /// for this station. Currently only the actively-playing HLS stream
+    /// qualifies; everything else uses the live timestamp.
+    private func shouldUseOffsetMetadata(_ station: Station) -> Bool {
+        guard let current = currentStation, current.id == station.id else {
+            return false
+        }
+        return isPlayingHlsProvider?() ?? station.primaryStreamIsHls
+    }
+
+    /// Cheap diff that catches the fields the UI actually shows. Avoids
+    /// re-publishing `stations` (and re-rendering every grid cell) when
+    /// only ignored fields like `uptime.timestamp` changed.
+    private func hasMeaningfulChanges(old: [Station], new: [Station]) -> Bool {
+        guard old.count == new.count else { return true }
+        for (o, n) in zip(old, new) {
+            if o.id != n.id ||
+                o.songTitle != n.songTitle ||
+                o.songArtist != n.songArtist ||
+                o.totalListeners != n.totalListeners ||
+                o.isUp != n.isUp {
+                return true
+            }
+        }
+        return false
     }
 
     // MARK: - Selection / playback

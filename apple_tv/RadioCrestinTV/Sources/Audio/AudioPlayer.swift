@@ -7,6 +7,15 @@ import Foundation
 /// Mirrors the Android handler's contract: feed it a Station and it walks
 /// the API-ordered streams[] until one starts playing. Caller observes
 /// `state` to render play/pause/buffering.
+///
+/// In addition to playback, this type exposes:
+///   * `currentStreamType` — "HLS" / "direct_stream" / nil. Used by the
+///     metadata sync to pick the right query timestamp.
+///   * `hlsPlaybackTimestamp` — the EXT-X-PROGRAM-DATE-TIME of the audio
+///     currently being heard (rounded to 10s). Mirrors the Flutter
+///     `getHlsPlaybackTimestamp` callback so the Apple TV app can fetch
+///     `now_playing` aligned with the actual broadcast moment instead of
+///     wall-clock — important because HLS has a 6–30s buffer.
 @MainActor
 final class AudioPlayer: ObservableObject {
     enum PlaybackState: Equatable {
@@ -25,6 +34,10 @@ final class AudioPlayer: ObservableObject {
     private var attemptIndex = 0
     private var statusObserver: NSKeyValueObservation?
     private var playerItemObserver: AnyCancellable?
+
+    /// Stream type the engine is currently feeding to AVPlayer. `nil`
+    /// when no item is loaded. Public for metadata sync.
+    private(set) var currentStreamType: String?
 
     init() {
         // Active audio session so the player keeps running when the
@@ -63,8 +76,32 @@ final class AudioPlayer: ObservableObject {
     func stop() {
         player.pause()
         player.replaceCurrentItem(with: nil)
+        currentStreamType = nil
         state = .idle
     }
+
+    // MARK: - Stream-time accessors (for metadata sync)
+
+    /// Wall-clock date of the audio currently being heard, derived from
+    /// `EXT-X-PROGRAM-DATE-TIME`. Only present for HLS streams that
+    /// embed the tag — radiocrestin.ro's HLS playlists do.
+    var hlsPlaybackDate: Date? {
+        player.currentItem?.currentDate()
+    }
+
+    /// 10s-aligned Unix timestamp of the audio currently being heard for
+    /// the active HLS stream, suitable as the `?timestamp=` parameter on
+    /// `/api/v1/stations-metadata`. Returns nil for non-HLS streams or
+    /// before the playlist has been parsed.
+    var hlsPlaybackTimestamp: Int? {
+        guard currentStreamType == "HLS", let date = hlsPlaybackDate else {
+            return nil
+        }
+        return roundedTimestamp(at: date)
+    }
+
+    /// True when the currently loaded item is an HLS stream.
+    var isPlayingHls: Bool { currentStreamType == "HLS" }
 
     // MARK: - Internals
 
@@ -75,9 +112,11 @@ final class AudioPlayer: ObservableObject {
             // Out of streams. Keep the connecting state visible briefly so
             // the user sees something happened, then surface failure.
             state = .failed("Nu am putut conecta la flux")
+            currentStreamType = nil
             return
         }
 
+        currentStreamType = streams[attemptIndex].type
         let item = AVPlayerItem(url: url)
         observe(item: item)
         player.replaceCurrentItem(with: item)
@@ -116,6 +155,7 @@ final class AudioPlayer: ObservableObject {
             state = .failed(
                 error?.localizedDescription ?? "Eroare flux audio"
             )
+            currentStreamType = nil
             if let error {
                 Analytics.captureError(
                     error,

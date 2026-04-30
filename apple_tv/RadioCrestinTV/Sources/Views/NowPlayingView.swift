@@ -193,7 +193,7 @@ struct NowPlayingView: View {
             if station.averageRating > 0 {
                 RatingStars(
                     rating: station.averageRating,
-                    count: station.reviews.count,
+                    count: station.reviewCount,
                     size: 16
                 )
             }
