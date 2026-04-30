@@ -14,7 +14,7 @@ import 'desktop_shell.dart';
 import 'tv_platform.dart';
 import 'tv_theme.dart';
 import 'pages/tv_now_playing.dart';
-import 'pages/tv_browse.dart';
+import 'pages/tv_home.dart';
 
 /// Song history entry with real timestamp.
 class TvSongEntry {
@@ -201,9 +201,9 @@ class _TvShellState extends State<TvShell> {
       child: Scaffold(
         backgroundColor: TvColors.background,
         body: _browsing
-            ? TvBrowse(
-                onBack: _closeBrowse,
+            ? TvHome(
                 onStationSelected: _onStationSelected,
+                onOpenNowPlaying: _closeBrowse,
               )
             : TvNowPlaying(
                 onBrowse: _openBrowse,
