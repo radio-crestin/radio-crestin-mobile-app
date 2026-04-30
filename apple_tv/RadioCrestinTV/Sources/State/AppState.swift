@@ -75,6 +75,7 @@ final class AppState: ObservableObject {
         } catch {
             loadError = (error as? LocalizedError)?.errorDescription
                 ?? error.localizedDescription
+            Analytics.captureError(error, context: "load_stations")
         }
     }
 
@@ -83,9 +84,27 @@ final class AppState: ObservableObject {
     /// Pick a station to play. The audio player observes `currentStation`
     /// and switches sources accordingly.
     func selectStation(_ station: Station) {
+        let previous = currentStation
         currentStation = station
         recordRecent(slug: station.slug)
         incrementPlayCount(slug: station.slug)
+
+        // PostHog: stop the previous session (if any) and start a new one
+        // so dashboards can compute listen-duration distributions.
+        if let prev = previous, prev.id != station.id {
+            Analytics.listeningStopped(
+                stationSlug: prev.slug,
+                stationTitle: prev.title,
+                stationId: prev.id,
+                durationSeconds: 0,            // tvOS doesn't track yet
+                reason: "station_switch"
+            )
+        }
+        Analytics.listeningStarted(
+            stationSlug: station.slug,
+            stationTitle: station.title,
+            stationId: station.id
+        )
     }
 
     /// Stations sorted using the user's saved preference. Favorites bubble
@@ -111,12 +130,19 @@ final class AppState: ObservableObject {
     }
 
     func toggleFavorite(_ station: Station) {
+        let willBeFavorite: Bool
         if favoriteSlugs.contains(station.slug) {
             favoriteSlugs.remove(station.slug)
+            willBeFavorite = false
         } else {
             favoriteSlugs.insert(station.slug)
+            willBeFavorite = true
         }
         defaults.set(Array(favoriteSlugs), forKey: Keys.favorites)
+        Analytics.favoriteToggled(
+            stationSlug: station.slug,
+            willBeFavorite: willBeFavorite
+        )
     }
 
     var favoriteStations: [Station] {

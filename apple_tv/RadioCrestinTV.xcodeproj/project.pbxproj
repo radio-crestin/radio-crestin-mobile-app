@@ -21,6 +21,7 @@
 		7F081E2384A840C5D0160341 /* StationRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2217B745B5247094D27CCEBD /* StationRepository.swift */; };
 		9B76A5E266B049A8A7F7EF4D /* ShareSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A628C76C5B881F09F5A607C /* ShareSheet.swift */; };
 		A123D8FDDF2FB37C3BE73157 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B0936A6AE22F15E63C9A0D1 /* SettingsView.swift */; };
+		A887B27A16256552E63F0B7A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1D2518EA14E13FD106A01010 /* Assets.xcassets */; };
 		B99A6D1E526523C8501E780B /* StationCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC4A7E03F25C3EDE274E2B29 /* StationCard.swift */; };
 		CD31E5E9DE0C9D06EFF6C231 /* Analytics.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE42B02A6F27AD11E369F759 /* Analytics.swift */; };
 		DD26FB0F72762D5A4D267DF3 /* Station.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F7A6A97B8B9C2A4B4A27F23 /* Station.swift */; };
@@ -33,6 +34,7 @@
 		0054B91C15491A977EC8F554 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		0FFF5E066FAA15A3DDD23763 /* RadioCrestinTVApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RadioCrestinTVApp.swift; sourceTree = "<group>"; };
 		12F5451DFA66A04B21CDAA01 /* StationGrid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StationGrid.swift; sourceTree = "<group>"; };
+		1D2518EA14E13FD106A01010 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		2217B745B5247094D27CCEBD /* StationRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StationRepository.swift; sourceTree = "<group>"; };
 		269B67C8908EFAF83BE1CE01 /* SongHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SongHistory.swift; sourceTree = "<group>"; };
 		2B0936A6AE22F15E63C9A0D1 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -108,6 +110,7 @@
 		63C8E294DD954FB196B4EDF5 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				1D2518EA14E13FD106A01010 /* Assets.xcassets */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -178,6 +181,7 @@
 			buildConfigurationList = BB6B726D5B62754204A0DD7D /* Build configuration list for PBXNativeTarget "RadioCrestinTV" */;
 			buildPhases = (
 				6DB1A55C2DB75D729F4064D2 /* Sources */,
+				23162929237CD6B5CBF11C53 /* Resources */,
 				80EAB7C67140B29694E2A0BD /* Frameworks */,
 			);
 			buildRules = (
@@ -227,6 +231,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		23162929237CD6B5CBF11C53 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A887B27A16256552E63F0B7A /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		6DB1A55C2DB75D729F4064D2 /* Sources */ = {

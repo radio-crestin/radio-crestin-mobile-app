@@ -116,6 +116,19 @@ final class AudioPlayer: ObservableObject {
             state = .failed(
                 error?.localizedDescription ?? "Eroare flux audio"
             )
+            if let error {
+                Analytics.captureError(
+                    error,
+                    context: "avplayer_stream_failed",
+                    extra: [
+                        "station_slug": currentStation?.slug ?? "?",
+                        "stream_count": streams.count,
+                        "last_attempted_url":
+                            attemptIndex - 1 >= 0 && attemptIndex - 1 < streams.count
+                                ? streams[attemptIndex - 1].streamUrl : "?"
+                    ]
+                )
+            }
         }
     }
 }
