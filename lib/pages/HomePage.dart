@@ -582,10 +582,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       // Autoplay is handled exclusively in initState() (cold start).
       // Returning from background should NEVER trigger autoplay.
     } else if (state == AppLifecycleState.paused) {
-      // App went to background — keep polling if car is connected (user sees
-      // metadata on car screen). Otherwise pause to save data/battery.
+      // App went to background — keep polling if car or cast is connected
+      // (user sees metadata on car/cast screen). During casting, player.playing
+      // is false (playback is on Cast device), so we must check isCasting too.
       final carConnected = _audioHandler.isCarConnected;
-      if (!carConnected && (_networkService.isOnMobileData.value || !_audioHandler.player.playing)) {
+      final casting = _audioHandler.isCasting;
+      if (!carConnected && !casting && (_networkService.isOnMobileData.value || !_audioHandler.player.playing)) {
         _stationDataService.pausePolling();
       }
     } else if (state == AppLifecycleState.detached) {

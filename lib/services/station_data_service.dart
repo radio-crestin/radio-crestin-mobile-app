@@ -42,6 +42,26 @@ class StationDataService {
   /// Set by AppAudioHandler after init to avoid circular dependency.
   String? Function(int stationId)? getPlayingStreamType;
 
+  /// Returns the actual offset from the live edge for the currently playing
+  /// HLS stream, derived from `player.duration - player.position`.
+  /// Returns null if not playing HLS or if duration/position is unavailable.
+  /// Set by AppAudioHandler after init to avoid circular dependency.
+  Duration? Function()? getActualPlaybackOffset;
+
+  /// Returns the precise Unix timestamp (10s-aligned) of the audio currently
+  /// being played, derived from EXT-X-PROGRAM-DATE-TIME + player.position.
+  /// This is the most accurate source for metadata sync — preferred over
+  /// the offset-based approach. Returns null when not playing HLS or when
+  /// the playlist hasn't been parsed yet.
+  /// Set by AppAudioHandler after init to avoid circular dependency.
+  int? Function()? getHlsPlaybackTimestamp;
+
+  /// Returns true when HLS is the active stream type. Used to decide whether
+  /// an offset timestamp is needed — non-HLS streams play live so their
+  /// metadata should always use the live timestamp.
+  /// Set by AppAudioHandler after init to avoid circular dependency.
+  bool Function()? isPlayingHls;
+
   // Streams
   final BehaviorSubject<List<Station>> stations = BehaviorSubject.seeded(<Station>[]);
   final BehaviorSubject<List<Station>> filteredStations = BehaviorSubject.seeded(<Station>[]);
@@ -283,22 +303,37 @@ class StationDataService {
   /// Fetches stations + metadata in parallel, merges, and applies in a single UI update.
   Future<void> _fetchStationsWithMetadata() async {
     try {
-      final offset = SeekModeManager.currentOffset;
+      // Same logic as _pollMetadata: offset only when HLS active + offset configured.
+      final hlsActive = isPlayingHls?.call() ?? false;
+      final configuredOffset = SeekModeManager.currentOffset;
+      final hlsTimestamp = getHlsPlaybackTimestamp?.call();
+      final int offsetTimestamp;
+      final bool hasOffset;
+      if (hlsTimestamp != null) {
+        offsetTimestamp = hlsTimestamp;
+        hasOffset = true;
+      } else if (hlsActive && configuredOffset != Duration.zero) {
+        final actualOffset = getActualPlaybackOffset?.call();
+        offsetTimestamp = getRoundedTimestamp(offset: actualOffset ?? configuredOffset);
+        hasOffset = true;
+      } else {
+        offsetTimestamp = getRoundedTimestamp();
+        hasOffset = false;
+      }
       final liveTimestamp = getRoundedTimestamp();
-      final offsetTimestamp = getRoundedTimestamp(offset: offset);
 
       final futures = <Future>[
         graphqlClient.query(
           Options$Query$GetStations(fetchPolicy: FetchPolicy.networkOnly),
         ),
         _fetchMetadata(liveTimestamp),
-        if (offset != Duration.zero) _fetchMetadata(offsetTimestamp),
+        if (hasOffset) _fetchMetadata(offsetTimestamp),
       ];
       final results = await Future.wait(futures);
 
       final stationsResult = results[0] as QueryResult<Query$GetStations>;
       final liveMetadata = results[1] as Map<int, Map<String, dynamic>>?;
-      final offsetMetadata = offset != Duration.zero
+      final offsetMetadata = hasOffset
           ? results[2] as Map<int, Map<String, dynamic>>?
           : liveMetadata;
 
@@ -350,15 +385,37 @@ class StationDataService {
       }
 
       final liveTimestamp = getRoundedTimestamp();
-      final offset = SeekModeManager.currentOffset;
-      final offsetTimestamp = getRoundedTimestamp(offset: offset);
+
+      // Offset metadata is only needed when BOTH conditions are true:
+      // 1. HLS is the active stream (non-HLS plays live, can't be delayed)
+      // 2. The configured "încărcare în avans" offset is non-zero (not instant mode)
+      // When either condition is false → live-only fetch for all stations.
+      final hlsActive = isPlayingHls?.call() ?? false;
+      final configuredOffset = SeekModeManager.currentOffset;
+      final hlsTimestamp = getHlsPlaybackTimestamp?.call();
+      final int offsetTimestamp;
+      final bool hasOffset;
+      if (hlsTimestamp != null) {
+        // Precise HLS timestamp from EXT-X-PROGRAM-DATE-TIME
+        offsetTimestamp = hlsTimestamp;
+        hasOffset = true;
+      } else if (hlsActive && configuredOffset != Duration.zero) {
+        // HLS active with configured offset, but precise timestamp not yet available
+        final actualOffset = getActualPlaybackOffset?.call();
+        offsetTimestamp = getRoundedTimestamp(offset: actualOffset ?? configuredOffset);
+        hasOffset = true;
+      } else {
+        // Not playing HLS, or instant mode → live only
+        offsetTimestamp = liveTimestamp;
+        hasOffset = false;
+      }
 
       PerformanceMonitor.startOperation('poll_metadata');
 
       Map<int, Map<String, dynamic>>? liveMetadata;
       Map<int, Map<String, dynamic>>? offsetMetadata;
 
-      if (offset == Duration.zero) {
+      if (!hasOffset) {
         // Single differential call when no seek offset is configured
         liveMetadata = await _fetchMetadata(liveTimestamp, changesFromTimestamp: _lastFetchTimestamp);
         offsetMetadata = liveMetadata;

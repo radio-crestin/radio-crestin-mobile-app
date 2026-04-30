@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:ui';
 
 import 'package:audio_service/audio_service.dart';
+import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fuzzywuzzy/fuzzywuzzy.dart';
@@ -128,6 +129,11 @@ class AppAudioHandler extends BaseAudioHandler {
       GetIt.instance<CastService>().isCasting.value;
   bool _hasBeenPlayed = false;
   Timer? _disconnectTimer;
+
+  // HLS EXT-X-PROGRAM-DATE-TIME tracking — used to compute the exact
+  // Unix timestamp of the audio the user is hearing, for metadata sync.
+  int? _hlsFirstSegmentEpoch;
+  Timer? _hlsPlaylistRefreshTimer;
   Timer? _bufferingStallTimer;
   static const _bufferingStallTimeout = Duration(seconds: 15);
   // Monotonically increasing ID to cancel stale play() operations.
@@ -364,6 +370,16 @@ class AppAudioHandler extends BaseAudioHandler {
       if (offset.inSeconds <= 0 || offset.inMinutes > 10) return null;
       return offset;
     };
+    stationDataService.getHlsPlaybackTimestamp = () {
+      if (_loadedStreamType != 'HLS' || !player.playing) return null;
+      if (_hlsFirstSegmentEpoch == null) return null;
+      final positionSec = player.position.inSeconds;
+      final epoch = _hlsFirstSegmentEpoch! + positionSec;
+      // Align to 10s to match the API's timestamp granularity
+      return (epoch ~/ 10) * 10;
+    };
+    stationDataService.isPlayingHls = () =>
+        _loadedStreamType == 'HLS' && player.playing;
     _initPlayer();
     _initUpdateCurrentStationMetadata();
   }
@@ -661,6 +677,7 @@ class AppAudioHandler extends BaseAudioHandler {
 
     // Stop and clean up the previous station before starting the new one
     _disconnectTimer?.cancel();
+    _stopHlsPlaylistRefresh();
     if (player.playing || player.processingState != ProcessingState.idle) {
       await player.stop();
     }
@@ -873,6 +890,9 @@ class AppAudioHandler extends BaseAudioHandler {
 
     if (_loadedStreamType == 'HLS') {
       _seekBehindLiveEdge(); // non-blocking: seek starts, play() follows immediately
+      _startHlsPlaylistRefresh(); // parse EXT-X-PROGRAM-DATE-TIME for metadata sync
+    } else {
+      _stopHlsPlaylistRefresh();
     }
 
     return player.play();
@@ -969,6 +989,49 @@ class AppAudioHandler extends BaseAudioHandler {
     });
   }
 
+  /// Fetch the HLS playlist and extract the first EXT-X-PROGRAM-DATE-TIME epoch.
+  /// This is the authoritative timestamp for the first segment in the playlist
+  /// window — combined with player.position it gives the exact epoch of the
+  /// audio being played, used for metadata sync.
+  Future<void> _refreshHlsPlaylistTimestamp() async {
+    final url = _loadedStreamUrl;
+    if (url == null || _loadedStreamType != 'HLS') return;
+    try {
+      final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 5));
+      if (response.statusCode != 200) return;
+      for (final line in response.body.split('\n')) {
+        if (line.startsWith('#EXT-X-PROGRAM-DATE-TIME:')) {
+          final dateStr = line.substring('#EXT-X-PROGRAM-DATE-TIME:'.length).trim();
+          final dt = DateTime.tryParse(dateStr);
+          if (dt != null) {
+            _hlsFirstSegmentEpoch = dt.millisecondsSinceEpoch ~/ 1000;
+            _log('_refreshHlsPlaylistTimestamp: first segment epoch=$_hlsFirstSegmentEpoch');
+            return;
+          }
+        }
+      }
+    } catch (e) {
+      _log('_refreshHlsPlaylistTimestamp: $e');
+    }
+  }
+
+  /// Start periodic refresh of HLS playlist timestamps.
+  void _startHlsPlaylistRefresh() {
+    _hlsPlaylistRefreshTimer?.cancel();
+    // Initial fetch, then refresh every 30s as the playlist window slides
+    _refreshHlsPlaylistTimestamp();
+    _hlsPlaylistRefreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      _refreshHlsPlaylistTimestamp();
+    });
+  }
+
+  /// Stop periodic refresh and clear HLS playlist state.
+  void _stopHlsPlaylistRefresh() {
+    _hlsPlaylistRefreshTimer?.cancel();
+    _hlsPlaylistRefreshTimer = null;
+    _hlsFirstSegmentEpoch = null;
+  }
+
   /// Stops playback after an error WITHOUT calling super.stop().
   /// This keeps MPRemoteCommandCenter alive so CarPlay/lock-screen
   /// next/prev/play buttons still work and the user can recover.
@@ -998,6 +1061,7 @@ class AppAudioHandler extends BaseAudioHandler {
     AnalyticsService.instance.endListening();
     _disconnectTimer?.cancel();
     _bufferingStallTimer?.cancel();
+    _stopHlsPlaylistRefresh();
     _loadedStreamUrl = null;
     _loadedStreamType = null;
     await player.stop();
@@ -1242,6 +1306,15 @@ class AppAudioHandler extends BaseAudioHandler {
         return super.onTaskRemoved();
       }
     } catch (_) {}
+    // Stop Cast playback explicitly — the native stopCastingOnAppTerminated
+    // flag handles this too, but an explicit stop is more reliable when the
+    // OS kills the process abruptly.
+    try {
+      if (isCasting) {
+        _log('onTaskRemoved: stopping Cast playback');
+        GetIt.instance<CastService>().disconnect();
+      }
+    } catch (_) {}
     _cancelInFlightPlay();
     _disconnectTimer?.cancel();
     _loadedStreamUrl = null;
@@ -1331,7 +1404,8 @@ class AppAudioHandler extends BaseAudioHandler {
     if (!_hasBeenPlayed) return;
     // While casting, the local player is intentionally idle — Cast owns
     // playback. Don't treat its idle state as a "stall" and trigger a
-    // reconnect, which would cascade into play() and an unwanted LOAD.
+    // reconnect, which would cascade into play() and ultimately a Cast
+    // LOAD we didn't ask for.
     if (isCasting) return;
     final state = player.processingState;
     if (state == ProcessingState.idle ||

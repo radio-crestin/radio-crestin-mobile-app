@@ -6,7 +6,7 @@ enum SeekMode { instant, twoMinutes, fiveMinutes }
 class SeekModeManager {
   static const String _seekModeKey = 'seek_mode';
   static const String _unstableConnectionKey = 'unstable_connection';
-  static final _seekModeNotifier = ValueNotifier<SeekMode>(SeekMode.fiveMinutes);
+  static final _seekModeNotifier = ValueNotifier<SeekMode>(SeekMode.twoMinutes);
   static final _unstableConnectionNotifier = ValueNotifier<bool>(false);
   static final _carConnectedNotifier = ValueNotifier<bool>(false);
 
@@ -81,7 +81,7 @@ class SeekModeManager {
       case 'SeekMode.fiveMinutes':
         return SeekMode.fiveMinutes;
       default:
-        return SeekMode.fiveMinutes;
+        return SeekMode.twoMinutes;
     }
   }
 }
