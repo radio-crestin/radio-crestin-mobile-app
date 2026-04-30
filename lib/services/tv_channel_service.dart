@@ -20,27 +20,38 @@ class TvChannelService {
   final List<StreamSubscription> _subscriptions = [];
 
   Future<void> initialize() async {
-    if (!Platform.isAndroid || !TvPlatform.isTV) return;
+    if (!Platform.isAndroid || !TvPlatform.isTV) {
+      developer.log(
+          'Skipped: Platform.isAndroid=${Platform.isAndroid} '
+          'TvPlatform.isTV=${TvPlatform.isTV}',
+          name: 'TvChannelService');
+      return;
+    }
 
     // Handle native -> Dart calls (e.g. INITIALIZE_PROGRAMS broadcast)
     _channel.setMethodCallHandler((call) async {
       if (call.method == 'onInitializePrograms') {
         final stations = _stationDataService.stations.value;
+        developer.log(
+            'onInitializePrograms received, ${stations.length} stations',
+            name: 'TvChannelService');
         if (stations.isNotEmpty) await _syncChannel(stations);
       }
     });
 
     // Publish ALL stations to the TV home screen channel so users can
-    // pin any station they want. Use the BehaviorSubject directly (not
-    // .stream) so the current value replays immediately on subscribe.
+    // pin any station they want. Listen on `.stream` (replays the seed
+    // value to new subscribers) and skip empty seeds; debounce so we
+    // batch the GraphQL initial load + first poll into one sync.
     _subscriptions.add(
-      _stationDataService.stations
+      _stationDataService.stations.stream
           .where((stations) => stations.isNotEmpty)
           .debounceTime(const Duration(milliseconds: 1000))
           .listen((stations) => _syncChannel(stations)),
     );
 
-    developer.log('TvChannelService initialized', name: 'TvChannelService');
+    developer.log('initialized, awaiting non-empty stations',
+        name: 'TvChannelService');
   }
 
   Future<void> _syncChannel(List<Station> stations) async {
@@ -54,11 +65,13 @@ class TvChannelService {
               })
           .toList();
 
-      await _channel.invokeMethod('syncFavoriteChannel', data);
-      developer.log('TV channel synced: ${data.length} stations',
+      developer.log('syncFavoriteChannel → native (${data.length} stations)',
           name: 'TvChannelService');
-    } catch (e) {
-      developer.log('Failed to sync TV channel: $e',
+      final ok = await _channel.invokeMethod('syncFavoriteChannel', data);
+      developer.log('synced: native returned $ok',
+          name: 'TvChannelService');
+    } catch (e, st) {
+      developer.log('sync failed: $e\n$st',
           name: 'TvChannelService', level: 900);
     }
   }
