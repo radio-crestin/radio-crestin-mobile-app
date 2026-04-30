@@ -182,6 +182,22 @@ class _TvShellState extends State<TvShell> {
     // TV: D-pad navigable two-page layout
     return DpadNavigator(
       enabled: true,
+      regionNavigation: const RegionNavigationOptions(
+        enabled: true,
+        rules: [
+          // Now Playing: bridge top bar (back + heart) ↔ controls row.
+          // The vertical gap is too large for the geometric heuristic; an
+          // explicit rule keeps both regions reachable without dead-ends.
+          RegionNavigationRule(
+            fromRegion: 'np-top',
+            toRegion: 'np-controls',
+            direction: TraversalDirection.down,
+            strategy: RegionNavigationStrategy.fixedEntry,
+            bidirectional: true,
+            reverseStrategy: RegionNavigationStrategy.memory,
+          ),
+        ],
+      ),
       child: Scaffold(
         backgroundColor: TvColors.background,
         body: _browsing

@@ -56,7 +56,7 @@ class TvStationCard extends StatelessWidget {
                   ),
                 );
               }
-              // TV: border + scale for D-pad visibility
+              // TV: border + scale + glow for D-pad visibility from across the room.
               return AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 curve: Curves.easeOut,
@@ -64,12 +64,21 @@ class TvStationCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   border: Border.all(
                     color: isFocused ? TvColors.primary : Colors.transparent,
-                    width: 2.5,
+                    width: 3.5,
                   ),
                   borderRadius: BorderRadius.circular(14),
+                  boxShadow: isFocused
+                      ? [
+                          BoxShadow(
+                            color: TvColors.primary.withValues(alpha: 0.45),
+                            blurRadius: 18,
+                            spreadRadius: 1,
+                          ),
+                        ]
+                      : null,
                 ),
                 child: AnimatedScale(
-                  scale: isFocused ? 1.04 : 1.0,
+                  scale: isFocused ? 1.07 : 1.0,
                   duration: const Duration(milliseconds: 200),
                   curve: Curves.easeOut,
                   child: child,

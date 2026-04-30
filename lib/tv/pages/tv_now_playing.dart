@@ -136,14 +136,18 @@ class _TvNowPlayingState extends State<TvNowPlaying> {
     double iconSize = 24,
     bool autofocus = false,
     Color? bg,
+    String? region,
+    bool isEntryPoint = false,
   }) {
     return DpadFocusable(
       autofocus: autofocus,
       onSelect: onSelect,
+      region: region,
+      isEntryPoint: isEntryPoint,
       builder: FocusEffects.scaleWithBorder(
         scale: 1.1,
         borderColor: TvColors.primary,
-        borderWidth: 2,
+        borderWidth: 3,
         borderRadius: BorderRadius.circular(size / 2),
       ),
       child: Container(
@@ -169,7 +173,13 @@ class _TvNowPlayingState extends State<TvNowPlaying> {
 
     final prevSongs = _prevSongs;
 
-    return Focus(
+    return PopScope(
+      // System BACK on Now Playing returns to Browse, not exit.
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) widget.onBrowse();
+      },
+      child: Focus(
       onKeyEvent: _onKeyEvent,
       autofocus: true,
       child: Stack(
@@ -219,6 +229,7 @@ class _TvNowPlayingState extends State<TvNowPlaying> {
                         color: Colors.white,
                         bg: Colors.black.withValues(alpha: 0.4),
                         onSelect: widget.onBrowse,
+                        region: 'np-top',
                       ),
                       const Spacer(),
                       _btn(
@@ -231,6 +242,8 @@ class _TvNowPlayingState extends State<TvNowPlaying> {
                         bg: Colors.black.withValues(alpha: 0.4),
                         onSelect: () =>
                             _audioHandler.customAction('toggleFavorite'),
+                        region: 'np-top',
+                        isEntryPoint: true,
                       ),
                     ],
                   ),
@@ -353,6 +366,7 @@ class _TvNowPlayingState extends State<TvNowPlaying> {
                                         : Icons.thumb_up_alt_outlined,
                                     iconSize: 20,
                                     color: _liked ? TvColors.primary : null,
+                                    region: 'np-controls',
                                     onSelect: () {
                                       setState(() {
                                         _liked = !_liked;
@@ -367,18 +381,21 @@ class _TvNowPlayingState extends State<TvNowPlaying> {
                                     color: TvColors.textPrimary,
                                     iconSize: 28,
                                     size: 52,
+                                    region: 'np-controls',
                                     onSelect: () => _audioHandler.skipToPrevious(),
                                   ),
                                   const SizedBox(width: TvSpacing.md),
                                   DpadFocusable(
                                     autofocus: true,
+                                    region: 'np-controls',
+                                    isEntryPoint: true,
                                     onSelect: () => _isPlaying
                                         ? _audioHandler.pause()
                                         : _audioHandler.play(),
                                     builder: FocusEffects.scaleWithBorder(
-                                      scale: 1.1,
+                                      scale: 1.12,
                                       borderColor: Colors.white,
-                                      borderWidth: 2,
+                                      borderWidth: 4,
                                       borderRadius: BorderRadius.circular(36),
                                     ),
                                     child: Container(
@@ -407,6 +424,7 @@ class _TvNowPlayingState extends State<TvNowPlaying> {
                                     color: TvColors.textPrimary,
                                     iconSize: 28,
                                     size: 52,
+                                    region: 'np-controls',
                                     onSelect: () => _audioHandler.skipToNext(),
                                   ),
                                   const SizedBox(width: TvSpacing.md),
@@ -416,6 +434,7 @@ class _TvNowPlayingState extends State<TvNowPlaying> {
                                         : Icons.thumb_down_alt_outlined,
                                     iconSize: 20,
                                     color: _disliked ? TvColors.primary : null,
+                                    region: 'np-controls',
                                     onSelect: () {
                                       setState(() {
                                         _disliked = !_disliked;
@@ -437,6 +456,7 @@ class _TvNowPlayingState extends State<TvNowPlaying> {
             ),
           ),
         ],
+      ),
       ),
     );
   }
