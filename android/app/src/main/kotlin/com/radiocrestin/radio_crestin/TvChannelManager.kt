@@ -135,6 +135,11 @@ class TvChannelManager(private val context: Context) {
                 .setDescription("Stații radio creștine favorite")
                 .setInternalProviderId(CHANNEL_INTERNAL_ID)
                 .setLogo(Uri.fromFile(logoFile))
+                // The TV provider rejects channels without an app-link intent
+                // URI ("Need app link intent uri for channel"). Tapping the
+                // channel header opens the app at the launcher; individual
+                // programs override with their own per-station deeplink.
+                .setAppLinkIntentUri(Uri.parse("radiocrestin://"))
                 .build()
 
             val channelId = withContext(Dispatchers.IO) {

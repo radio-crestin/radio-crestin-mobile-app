@@ -105,13 +105,10 @@ class _TvBrowseState extends State<TvBrowse> {
     final playing = _currentStation;
     final stations = _sortedStations;
 
-    return PopScope(
-      // Block system back — we handle it ourselves
-      canPop: false,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) widget.onBack();
-      },
-      child: Focus(
+    // Note: BACK handling is owned by the parent TvHome, since TvBrowse
+    // is one of several IndexedStack children — having a PopScope here
+    // would intercept BACK even when this page is hidden.
+    return Focus(
         onKeyEvent: _onKeyEvent,
         child: ColoredBox(
           color: TvColors.background,
@@ -175,7 +172,10 @@ class _TvBrowseState extends State<TvBrowse> {
                                 station: s,
                                 isPlaying: _currentStation?.id == s.id,
                                 isFavorite: _favoriteSlugs.contains(s.slug),
-                                autofocus: i == 0,
+                                // The rail owns initial focus; the grid is
+                                // entered explicitly via DPAD_RIGHT.
+                                region: 'content',
+                                isEntryPoint: i == 0,
                                 onSelect: () => widget.onStationSelected(s),
                                 onFavoriteToggle: () {},
                               );
@@ -187,7 +187,6 @@ class _TvBrowseState extends State<TvBrowse> {
             ),
           ),
         ),
-      ),
     );
   }
 }
@@ -209,7 +208,9 @@ class _TvNowPlayingCard extends StatelessWidget {
         bottom: TvSpacing.sm,
       ),
       child: DpadFocusable(
-        autofocus: true,
+        // Rail owns autofocus on cold launch; this card is reachable via
+        // DPAD_RIGHT into the 'content' region.
+        region: 'content',
         onSelect: onTap,
         builder: FocusEffects.scaleWithBorder(
           scale: 1.02,

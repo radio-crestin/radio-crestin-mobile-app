@@ -2,6 +2,7 @@ import 'package:dpad/dpad.dart';
 import 'package:flutter/material.dart';
 
 import '../tv_theme.dart';
+import 'desktop_focusable.dart';
 
 /// Vertical navigation rail for the TV home shell.
 ///
@@ -105,7 +106,7 @@ class _TvLeftRailButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DpadFocusable(
+    return DesktopFocusable(
       // First item autofocuses so the rail is the entry point on cold launch.
       autofocus: isFirst,
       onSelect: onSelect,

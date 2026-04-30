@@ -15,6 +15,8 @@ class TvStationCard extends StatelessWidget {
   final VoidCallback onFavoriteToggle;
   final ValueChanged<Station>? onFocus;
   final bool autofocus;
+  final String? region;
+  final bool isEntryPoint;
 
   static const double cardSize = 160.0;
 
@@ -27,6 +29,8 @@ class TvStationCard extends StatelessWidget {
     required this.onFavoriteToggle,
     this.onFocus,
     this.autofocus = false,
+    this.region,
+    this.isEntryPoint = false,
   });
 
   @override
@@ -40,6 +44,8 @@ class TvStationCard extends StatelessWidget {
           // Thumbnail
           DesktopFocusable(
             autofocus: autofocus,
+            region: region,
+            isEntryPoint: isEntryPoint,
             onSelect: onSelect,
             onFocus: () => onFocus?.call(station),
             builder: (context, isFocused, child) {

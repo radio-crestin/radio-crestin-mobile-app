@@ -20,6 +20,8 @@ class DesktopFocusable extends StatefulWidget {
   final bool enabled;
   final FocusEffectBuilder? builder;
   final String? debugLabel;
+  final String? region;
+  final bool isEntryPoint;
 
   const DesktopFocusable({
     super.key,
@@ -31,6 +33,8 @@ class DesktopFocusable extends StatefulWidget {
     this.enabled = true,
     this.builder,
     this.debugLabel,
+    this.region,
+    this.isEntryPoint = false,
   });
 
   @override
@@ -52,6 +56,8 @@ class _DesktopFocusableState extends State<DesktopFocusable> {
         enabled: widget.enabled,
         builder: widget.builder,
         debugLabel: widget.debugLabel,
+        region: widget.region,
+        isEntryPoint: widget.isEntryPoint,
         child: widget.child,
       );
     }
@@ -76,6 +82,8 @@ class _DesktopFocusableState extends State<DesktopFocusable> {
           enabled: widget.enabled,
           builder: _desktopBuilder,
           debugLabel: widget.debugLabel,
+          region: widget.region,
+          isEntryPoint: widget.isEntryPoint,
           child: widget.child,
         ),
       ),

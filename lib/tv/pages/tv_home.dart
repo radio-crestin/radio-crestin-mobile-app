@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:get_it/get_it.dart';
 
+import '../../appAudioHandler.dart';
 import '../../types/Station.dart';
 import '../tv_theme.dart';
 import '../widgets/tv_left_rail.dart';
@@ -75,14 +77,21 @@ class _TvHomeState extends State<TvHome> {
 
   @override
   Widget build(BuildContext context) {
+    final hasStation =
+        GetIt.instance<AppAudioHandler>().currentStation.valueOrNull != null;
     return PopScope(
-      // BACK from a non-Stations tab → return to Stations.
-      // BACK from Stations falls through to TvBrowse's own PopScope, which
-      // routes to Now Playing.
-      canPop: _index == 0,
+      // BACK semantics:
+      //   non-Stations tab → return to Stations (single source of truth so
+      //     hidden IndexedStack children don't double-intercept)
+      //   Stations tab + a station is loaded → open Now Playing so the
+      //     user can resume listening; otherwise fall through and exit.
+      canPop: _index == 0 && !hasStation,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && _index != 0) {
+        if (didPop) return;
+        if (_index != 0) {
           setState(() => _index = 0);
+        } else if (hasStation) {
+          widget.onOpenNowPlaying();
         }
       },
       child: Focus(
