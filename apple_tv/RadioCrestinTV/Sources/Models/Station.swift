@@ -14,6 +14,7 @@ struct Station: Codable, Identifiable, Hashable {
     let stationStreams: [StationStream]
     let uptime: Uptime?
     let nowPlaying: NowPlaying?
+    let reviews: [Review]
 
     enum CodingKeys: String, CodingKey {
         case id, slug, title, order
@@ -22,6 +23,7 @@ struct Station: Codable, Identifiable, Hashable {
         case stationStreams = "station_streams"
         case uptime
         case nowPlaying = "now_playing"
+        case reviews
     }
 
     var isUp: Bool { uptime?.isUp ?? true }
@@ -34,6 +36,28 @@ struct Station: Codable, Identifiable, Hashable {
 
     var songTitle: String { nowPlaying?.song?.name ?? "" }
     var songArtist: String { nowPlaying?.song?.artist?.name ?? "" }
+    var songThumbnailUrl: String? {
+        nowPlaying?.song?.thumbnailUrl ?? nowPlaying?.song?.artist?.thumbnailUrl
+    }
+
+    /// Average review stars (0..5). 0 when no reviews.
+    var averageRating: Double {
+        guard !reviews.isEmpty else { return 0 }
+        let total = reviews.reduce(0) { $0 + $1.stars }
+        return Double(total) / Double(reviews.count)
+    }
+
+    /// Review-based score used by the recommended sort: average × count.
+    /// Stations with many high reviews float to the top.
+    var reviewScore: Double {
+        averageRating * Double(reviews.count)
+    }
+}
+
+struct Review: Codable, Hashable {
+    let id: Int
+    let stars: Int
+    let message: String?
 }
 
 struct StationStream: Codable, Hashable {

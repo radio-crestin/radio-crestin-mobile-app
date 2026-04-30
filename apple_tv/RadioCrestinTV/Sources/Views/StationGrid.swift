@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Reusable grid of station cards — used by the Stations, Favorite, and
 /// Recente tabs. Each tab passes a different filtered list and a title.
-struct StationGrid: View {
+struct StationGrid<TrailingHeader: View>: View {
     let title: String
     let subtitle: String?
     let stations: [Station]
@@ -14,18 +14,47 @@ struct StationGrid: View {
     let emptySystemImage: String
     let emptyMessage: String
 
+    /// Optional view shown to the right of the title (e.g. a sort picker).
+    let trailingHeader: () -> TrailingHeader
+
+    init(
+        title: String,
+        subtitle: String?,
+        stations: [Station],
+        appState: AppState,
+        onSelect: @escaping (Station) -> Void,
+        emptyTitle: String,
+        emptySystemImage: String,
+        emptyMessage: String,
+        @ViewBuilder trailingHeader: @escaping () -> TrailingHeader = { EmptyView() }
+    ) {
+        self.title = title
+        self.subtitle = subtitle
+        self.stations = stations
+        self.appState = appState
+        self.onSelect = onSelect
+        self.emptyTitle = emptyTitle
+        self.emptySystemImage = emptySystemImage
+        self.emptyMessage = emptyMessage
+        self.trailingHeader = trailingHeader
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(title)
-                        .font(.system(size: 56, weight: .heavy))
-                        .foregroundStyle(Theme.textPrimary)
-                    if let subtitle {
-                        Text(subtitle)
-                            .font(.system(size: 22))
-                            .foregroundStyle(Theme.textSecondary)
+                HStack(alignment: .lastTextBaseline) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(title)
+                            .font(.system(size: 56, weight: .heavy))
+                            .foregroundStyle(Theme.textPrimary)
+                        if let subtitle {
+                            Text(subtitle)
+                                .font(.system(size: 22))
+                                .foregroundStyle(Theme.textSecondary)
+                        }
                     }
+                    Spacer()
+                    trailingHeader()
                 }
                 .padding(.bottom, Theme.Spacing.md)
 

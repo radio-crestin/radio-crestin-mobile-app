@@ -36,11 +36,13 @@ struct RootView: View {
             // TabView). An overlay with onExitCommand on the inner view
             // gives us the same UX with predictable focus ownership.
             if let station = nowPlayingStation {
+                let live = appState.stations
+                    .first(where: { $0.id == station.id }) ?? station
                 NowPlayingView(
-                    station: appState.stations
-                        .first(where: { $0.id == station.id }) ?? station,
+                    station: live,
                     isFavorite: appState.isFavorite(station),
                     player: player,
+                    songHistory: appState.songHistory,
                     onBack: { nowPlayingStation = nil },
                     onToggleFavorite: { appState.toggleFavorite(station) }
                 )
@@ -97,14 +99,17 @@ struct RootView: View {
     private var tabbedShell: some View {
         TabView(selection: $selectedTab) {
             StationGrid(
-                title: "Posturi",
-                subtitle: "\(appState.stations.count) posturi disponibile",
-                stations: appState.stations,
+                title: appState.sortOption.label,
+                subtitle: "\(appState.stations.count) posturi",
+                stations: appState.sortedStations,
                 appState: appState,
                 onSelect: open,
                 emptyTitle: "Nu sunt posturi",
                 emptySystemImage: "radio",
-                emptyMessage: ""
+                emptyMessage: "",
+                trailingHeader: {
+                    SortPicker(selection: $appState.sortOption)
+                }
             )
             .tabItem { Label("Posturi", systemImage: "radio") }
             .tag(Tab.stations)

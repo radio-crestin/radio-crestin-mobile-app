@@ -32,6 +32,7 @@ final class StationRepository {
             artist { id name thumbnail_url }
           }
         }
+        reviews { id stars message }
       }
     }
     """

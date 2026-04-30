@@ -7,13 +7,18 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		01BFE1CC6F4D49D651A4A668 /* SortPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AE27E2F2F99A9C2738D8B60 /* SortPicker.swift */; };
 		26EB9DB4A133F5693FE7B8DC /* NowPlayingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4804A680D602D313E3B83192 /* NowPlayingView.swift */; };
+		2EA9FA0983EF4A5BB5818E37 /* StationSort.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7397F56295F5E766A046C54B /* StationSort.swift */; };
+		310B8F64C84C4D2F5E1A1826 /* SongHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 269B67C8908EFAF83BE1CE01 /* SongHistory.swift */; };
+		4BEC4D93814DC8F4CB9A71FC /* RatingStars.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91CB5D5C822ED753150F891A /* RatingStars.swift */; };
 		4E882EE44EBC593BCEB1F272 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0054B91C15491A977EC8F554 /* RootView.swift */; };
 		5A432BD6BE891CBE01788A61 /* StationGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12F5451DFA66A04B21CDAA01 /* StationGrid.swift */; };
 		5DBB1850674E6F2E53982783 /* RadioCrestinTVApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FFF5E066FAA15A3DDD23763 /* RadioCrestinTVApp.swift */; };
 		6E3ABB672123D5A369039938 /* AudioPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9D2628C7F33A9A1C03F2F07 /* AudioPlayer.swift */; };
 		77FFD0188532CF4A9FDFC780 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB674E14F4409CADBF502239 /* Theme.swift */; };
 		7F081E2384A840C5D0160341 /* StationRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2217B745B5247094D27CCEBD /* StationRepository.swift */; };
+		9B76A5E266B049A8A7F7EF4D /* ShareSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A628C76C5B881F09F5A607C /* ShareSheet.swift */; };
 		A123D8FDDF2FB37C3BE73157 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B0936A6AE22F15E63C9A0D1 /* SettingsView.swift */; };
 		B99A6D1E526523C8501E780B /* StationCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC4A7E03F25C3EDE274E2B29 /* StationCard.swift */; };
 		DD26FB0F72762D5A4D267DF3 /* Station.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F7A6A97B8B9C2A4B4A27F23 /* Station.swift */; };
@@ -26,11 +31,16 @@
 		0FFF5E066FAA15A3DDD23763 /* RadioCrestinTVApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RadioCrestinTVApp.swift; sourceTree = "<group>"; };
 		12F5451DFA66A04B21CDAA01 /* StationGrid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StationGrid.swift; sourceTree = "<group>"; };
 		2217B745B5247094D27CCEBD /* StationRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StationRepository.swift; sourceTree = "<group>"; };
+		269B67C8908EFAF83BE1CE01 /* SongHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SongHistory.swift; sourceTree = "<group>"; };
 		2B0936A6AE22F15E63C9A0D1 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		3A628C76C5B881F09F5A607C /* ShareSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareSheet.swift; sourceTree = "<group>"; };
 		4804A680D602D313E3B83192 /* NowPlayingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlayingView.swift; sourceTree = "<group>"; };
 		4F7A6A97B8B9C2A4B4A27F23 /* Station.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Station.swift; sourceTree = "<group>"; };
 		52AAEFA45204249EE060A620 /* RadioCrestinTV.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = RadioCrestinTV.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		58ABB1A505FBA87FD83C143E /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		7397F56295F5E766A046C54B /* StationSort.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StationSort.swift; sourceTree = "<group>"; };
+		7AE27E2F2F99A9C2738D8B60 /* SortPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SortPicker.swift; sourceTree = "<group>"; };
+		91CB5D5C822ED753150F891A /* RatingStars.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RatingStars.swift; sourceTree = "<group>"; };
 		BB674E14F4409CADBF502239 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		C9D2628C7F33A9A1C03F2F07 /* AudioPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioPlayer.swift; sourceTree = "<group>"; };
 		CC4A7E03F25C3EDE274E2B29 /* StationCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StationCard.swift; sourceTree = "<group>"; };
@@ -73,6 +83,8 @@
 			isa = PBXGroup;
 			children = (
 				58ABB1A505FBA87FD83C143E /* AppState.swift */,
+				269B67C8908EFAF83BE1CE01 /* SongHistory.swift */,
+				7397F56295F5E766A046C54B /* StationSort.swift */,
 			);
 			path = State;
 			sourceTree = "<group>";
@@ -129,8 +141,11 @@
 			isa = PBXGroup;
 			children = (
 				4804A680D602D313E3B83192 /* NowPlayingView.swift */,
+				91CB5D5C822ED753150F891A /* RatingStars.swift */,
 				0054B91C15491A977EC8F554 /* RootView.swift */,
 				2B0936A6AE22F15E63C9A0D1 /* SettingsView.swift */,
+				3A628C76C5B881F09F5A607C /* ShareSheet.swift */,
+				7AE27E2F2F99A9C2738D8B60 /* SortPicker.swift */,
 				CC4A7E03F25C3EDE274E2B29 /* StationCard.swift */,
 				12F5451DFA66A04B21CDAA01 /* StationGrid.swift */,
 			);
@@ -200,12 +215,17 @@
 				FE115CCE7C0A0F164C401DBE /* GraphQLClient.swift in Sources */,
 				26EB9DB4A133F5693FE7B8DC /* NowPlayingView.swift in Sources */,
 				5DBB1850674E6F2E53982783 /* RadioCrestinTVApp.swift in Sources */,
+				4BEC4D93814DC8F4CB9A71FC /* RatingStars.swift in Sources */,
 				4E882EE44EBC593BCEB1F272 /* RootView.swift in Sources */,
 				A123D8FDDF2FB37C3BE73157 /* SettingsView.swift in Sources */,
+				9B76A5E266B049A8A7F7EF4D /* ShareSheet.swift in Sources */,
+				310B8F64C84C4D2F5E1A1826 /* SongHistory.swift in Sources */,
+				01BFE1CC6F4D49D651A4A668 /* SortPicker.swift in Sources */,
 				DD26FB0F72762D5A4D267DF3 /* Station.swift in Sources */,
 				B99A6D1E526523C8501E780B /* StationCard.swift in Sources */,
 				5A432BD6BE891CBE01788A61 /* StationGrid.swift in Sources */,
 				7F081E2384A840C5D0160341 /* StationRepository.swift in Sources */,
+				2EA9FA0983EF4A5BB5818E37 /* StationSort.swift in Sources */,
 				77FFD0188532CF4A9FDFC780 /* Theme.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

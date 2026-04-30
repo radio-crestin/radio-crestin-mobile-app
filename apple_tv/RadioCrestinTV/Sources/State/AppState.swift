@@ -21,8 +21,13 @@ final class AppState: ObservableObject {
 
     @Published private(set) var favoriteSlugs: Set<String> = []
     @Published private(set) var recentSlugs: [String] = []
+    @Published private(set) var playCounts: [String: Int] = [:]
+    @Published var sortOption: StationSort = .recommended {
+        didSet { defaults.set(sortOption.rawValue, forKey: Keys.sort) }
+    }
 
     @Published var currentStation: Station?
+    let songHistory = SongHistoryStore()
 
     init(
         repository: StationRepository = StationRepository(),
@@ -32,6 +37,13 @@ final class AppState: ObservableObject {
         self.defaults = defaults
         self.favoriteSlugs = Set(defaults.stringArray(forKey: Keys.favorites) ?? [])
         self.recentSlugs = defaults.stringArray(forKey: Keys.recents) ?? []
+        if let saved = defaults.string(forKey: Keys.sort),
+           let opt = StationSort(rawValue: saved) {
+            self.sortOption = opt
+        }
+        if let raw = defaults.dictionary(forKey: Keys.playCounts) as? [String: Int] {
+            self.playCounts = raw
+        }
     }
 
     // MARK: - Loading
@@ -44,10 +56,21 @@ final class AppState: ObservableObject {
             stations = fresh
             loadError = nil
             // If the user already had a current station, refresh its
-            // metadata from the new list (slug is the stable identifier).
+            // metadata from the new list (slug is the stable identifier)
+            // and append the song change to history if it changed.
             if let current = currentStation,
                let updated = fresh.first(where: { $0.slug == current.slug }) {
                 currentStation = updated
+            }
+            // Always run history capture against the fresh list so the
+            // currently-playing station picks up new songs without us
+            // needing a separate metadata poller.
+            if let cur = currentStation {
+                songHistory.record(
+                    songTitle: cur.songTitle,
+                    artist: cur.songArtist,
+                    for: cur.slug
+                )
             }
         } catch {
             loadError = (error as? LocalizedError)?.errorDescription
@@ -62,6 +85,23 @@ final class AppState: ObservableObject {
     func selectStation(_ station: Station) {
         currentStation = station
         recordRecent(slug: station.slug)
+        incrementPlayCount(slug: station.slug)
+    }
+
+    /// Stations sorted using the user's saved preference. Favorites bubble
+    /// to the top of the recommended list (matches the Flutter behavior).
+    var sortedStations: [Station] {
+        StationSortService.sort(
+            stations,
+            by: sortOption,
+            playCounts: playCounts,
+            favoriteSlugs: favoriteSlugs
+        )
+    }
+
+    private func incrementPlayCount(slug: String) {
+        playCounts[slug, default: 0] += 1
+        defaults.set(playCounts, forKey: Keys.playCounts)
     }
 
     // MARK: - Favorites
@@ -103,5 +143,7 @@ final class AppState: ObservableObject {
     private enum Keys {
         static let favorites = "tv.favoriteSlugs"
         static let recents = "tv.recentSlugs"
+        static let sort = "tv.sortOption"
+        static let playCounts = "tv.playCounts"
     }
 }
