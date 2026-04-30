@@ -23,18 +23,10 @@ struct RootView: View {
         ZStack {
             Theme.background.ignoresSafeArea()
 
-            if appState.stations.isEmpty && appState.isLoading {
-                loadingState
-            } else if let error = appState.loadError, appState.stations.isEmpty {
-                errorState(error)
-            } else {
-                tabbedShell
-            }
-
-            // Now Playing as a full-bleed overlay — fullScreenCover behaves
-            // inconsistently on tvOS (often won't present from inside a
-            // TabView). An overlay with onExitCommand on the inner view
-            // gives us the same UX with predictable focus ownership.
+            // Swap the entire root view rather than overlaying. With an
+            // overlay, the underlying TabView remained in the focus
+            // hierarchy and captured Menu/Back at the tab bar, exiting the
+            // app before NowPlayingView's onExitCommand could fire.
             if let station = nowPlayingStation {
                 let live = appState.stations
                     .first(where: { $0.id == station.id }) ?? station
@@ -43,12 +35,22 @@ struct RootView: View {
                     isFavorite: appState.isFavorite(station),
                     player: player,
                     songHistory: appState.songHistory,
-                    onBack: { nowPlayingStation = nil },
+                    onBack: { close() },
                     onToggleFavorite: { appState.toggleFavorite(station) }
                 )
                 .transition(.opacity)
+            } else if appState.stations.isEmpty && appState.isLoading {
+                loadingState
+                    .transition(.opacity)
+            } else if let error = appState.loadError, appState.stations.isEmpty {
+                errorState(error)
+                    .transition(.opacity)
+            } else {
+                tabbedShell
+                    .transition(.opacity)
             }
         }
+        .animation(.easeInOut(duration: 0.22), value: nowPlayingStation?.id)
         .preferredColorScheme(.dark)
         .task {
             await appState.loadStations()
@@ -59,6 +61,10 @@ struct RootView: View {
                 player.play(station)
             }
         }
+    }
+
+    private func close() {
+        nowPlayingStation = nil
     }
 
     // MARK: - States

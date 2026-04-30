@@ -20,26 +20,35 @@ struct NowPlayingView: View {
     @State private var focusedAction: String?
 
     var body: some View {
-        ZStack(alignment: .topLeading) {
-            // Opaque base — without this the tab grid shows through the
-            // 65%-opacity background-artwork overlay.
-            Theme.background
-            backgroundArtwork
+        ZStack {
+            // Background blur ignores the safe area so it bleeds to the
+            // edges; everything else respects safe area so back button +
+            // controls don't disappear into the TV's overscan area.
+            ZStack {
+                Theme.background
+                backgroundArtwork
+            }
+            .ignoresSafeArea()
 
-            // Center the artwork + metadata pair both horizontally and
-            // vertically so the screen feels balanced regardless of how
-            // many recent songs the metadata column ends up showing.
+            // Main content — artwork + metadata centered.
             HStack(alignment: .center, spacing: Theme.Spacing.xxl) {
                 artwork
                 metadataAndControls
             }
             .padding(.horizontal, Theme.Spacing.xxl)
-            .padding(.vertical, Theme.Spacing.xxl)
+            .padding(.bottom, Theme.Spacing.xxl)
+            .padding(.top, 100)   // leave room for the back button row
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
 
-            // Visible back affordance — Siri Remote Menu also works (onExitCommand).
-            backButton
-                .padding(Theme.Spacing.xl)
+            // Persistent top bar with the back button, top-left aligned.
+            VStack {
+                HStack {
+                    backButton
+                    Spacer()
+                }
+                Spacer()
+            }
+            .padding(Theme.Spacing.lg)
 
             if isSharing, let url = shareURL {
                 ShareSheet(
@@ -50,7 +59,10 @@ struct NowPlayingView: View {
                 .transition(.opacity)
             }
         }
-        .ignoresSafeArea()
+        // Declarative default focus — runs after the focus graph is built,
+        // so the back button reliably owns focus on entry. Replaces the
+        // earlier DispatchQueue-based workaround which was racy.
+        .defaultFocus($backButtonFocused, true)
         .onExitCommand {
             if isSharing { isSharing = false } else { onBack() }
         }
@@ -71,34 +83,40 @@ struct NowPlayingView: View {
 
     private var backButton: some View {
         Button(action: onBack) {
-            HStack(spacing: 10) {
+            HStack(spacing: 12) {
                 Image(systemName: "chevron.left")
-                Text("Înapoi")
+                    .font(.system(size: 26, weight: .heavy))
+                Text("Înapoi la posturi")
+                    .font(.system(size: 26, weight: .semibold))
             }
-            .font(.system(size: 24, weight: .semibold))
-            .foregroundStyle(Theme.textPrimary)
-            .padding(.horizontal, 26)
-            .padding(.vertical, 16)
+            .foregroundStyle(.white)
+            .padding(.horizontal, 32)
+            .padding(.vertical, 20)
             .background(
                 Capsule().fill(
-                    backButtonFocused ? Theme.primary : Color.black.opacity(0.6)
+                    backButtonFocused ? Theme.primary : Color.black.opacity(0.7)
                 )
             )
-            .scaleEffect(backButtonFocused ? 1.08 : 1.0)
+            .overlay(
+                Capsule().stroke(
+                    backButtonFocused ? Color.white : Color.white.opacity(0.25),
+                    lineWidth: backButtonFocused ? 4 : 1.5
+                )
+            )
+            .scaleEffect(backButtonFocused ? 1.1 : 1.0)
             .shadow(
                 color: backButtonFocused
-                    ? Theme.primary.opacity(0.55)
-                    : .black.opacity(0.4),
-                radius: backButtonFocused ? 24 : 8, x: 0, y: 6
+                    ? Theme.primary.opacity(0.7)
+                    : .black.opacity(0.5),
+                radius: backButtonFocused ? 30 : 12, x: 0, y: 8
             )
             .animation(.spring(response: 0.28, dampingFraction: 0.72),
                        value: backButtonFocused)
         }
         .buttonStyle(.plain)
+        // Autofocus is set declaratively via `.defaultFocus` on the body
+        // so the back affordance reliably owns focus on entry.
         .focused($backButtonFocused)
-        .onChange(of: backButtonFocused) { _, focused in
-            setFocusedAction(focused ? "Înapoi la posturi" : nil)
-        }
     }
 
     private var artwork: some View {
