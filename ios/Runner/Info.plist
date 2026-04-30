@@ -121,13 +121,8 @@
 		<array>
 			<string>NSUserActivityTypeBrowsingWeb</string>
 		</array>
-		<key>com.posthog.posthog</key>
-		<dict>
-			<key>apiKey</key>
-			<string>phc_9lTquHDSyoFxkYq4VPd8cFiQ21VZd627Lv8jSV8S7Fi</string>
-			<key>host</key>
-			<string>https://k.radiocrestin.ro</string>
-		</dict>
+		<key>com.posthog.posthog.AUTO_INIT</key>
+		<false/>
 		<key>NSLocalNetworkUsageDescription</key>
 		<string>Radio Creștin folosește rețeaua locală pentru a găsi dispozitive Chromecast și AirPlay pe care poți asculta posturile de radio.</string>
 		<key>NSBonjourServices</key>

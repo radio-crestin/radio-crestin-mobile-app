@@ -25,9 +25,7 @@
         android:banner="@drawable/tv_banner"
         >
         <meta-data android:name="asset_statements" android:resource="@string/asset_statements" />
-        <meta-data android:name="com.posthog.posthog.API_KEY" android:value="phc_9lTquHDSyoFxkYq4VPd8cFiQ21VZd627Lv8jSV8S7Fi" />
-        <meta-data android:name="com.posthog.posthog.POSTHOG_HOST" android:value="https://k.radiocrestin.ro" />
-        <meta-data android:name="com.posthog.posthog.TRACK_APPLICATION_LIFECYCLE_EVENTS" android:value="true" />
+        <meta-data android:name="com.posthog.posthog.AUTO_INIT" android:value="false" />
 
         <activity
             android:name=".MainActivity"
