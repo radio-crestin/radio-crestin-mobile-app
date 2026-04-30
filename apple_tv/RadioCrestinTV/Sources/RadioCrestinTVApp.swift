@@ -4,7 +4,7 @@ import SwiftUI
 struct RadioCrestinTVApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            RootView()
         }
     }
 }
