@@ -1,105 +1,183 @@
 import SwiftUI
 
-/// Settings tab — version, platform, links. Mirrors the Android TV
-/// Setări page in scope; we add a single action (Reload stations) since
-/// tvOS users can't pull-to-refresh.
+/// Settings tab — version info and a couple of legal documents shown via
+/// QR codes so users can read them on their phone (Apple TV has no
+/// browser to open URLs into).
 struct SettingsView: View {
     @ObservedObject var appState: AppState
 
+    @State private var openLink: LegalLink?
+
+    private struct LegalLink: Identifiable {
+        let id: String
+        let title: String
+        let url: URL
+    }
+
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.xl) {
                 Text("Setări")
                     .font(.system(size: 56, weight: .heavy))
                     .foregroundStyle(Theme.textPrimary)
                     .padding(.bottom, Theme.Spacing.md)
 
-                section(title: "Despre", items: [
-                    Item(icon: "info.circle",
-                         title: "Versiune",
-                         subtitle: appVersionString),
-                    Item(icon: "tv",
-                         title: "Platformă",
-                         subtitle: "Apple TV"),
-                    Item(icon: "radio",
-                         title: "Radio Crestin",
-                         subtitle: "Ascultă radiouri creștine din România")
-                ])
-
-                actionButton
-
-                section(title: "Legal", items: [
-                    Item(icon: "doc.text",
-                         title: "Termeni și Condiții",
-                         subtitle: "radiocrestin.ro/terms"),
-                    Item(icon: "lock.shield",
-                         title: "Politica de Confidențialitate",
-                         subtitle: "radiocrestin.ro/privacy")
-                ])
+                aboutSection
+                statsSection
+                legalSection
             }
             .padding(.horizontal, Theme.Spacing.xxl)
             .padding(.top, Theme.Spacing.xl)
             .padding(.bottom, Theme.Spacing.xxl)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-    }
-
-    private var actionButton: some View {
-        Button {
-            Task { await appState.loadStations() }
-        } label: {
-            HStack(spacing: Theme.Spacing.md) {
-                Image(systemName: "arrow.clockwise")
-                Text("Reîncarcă posturile")
+        .overlay {
+            if let link = openLink {
+                ShareSheet(
+                    stationTitle: link.title,
+                    url: link.url,
+                    onDismiss: { openLink = nil }
+                )
+                .transition(.opacity)
             }
-            .font(.system(size: 24, weight: .semibold))
-            .padding(.horizontal, Theme.Spacing.lg)
-            .padding(.vertical, Theme.Spacing.md)
         }
-        .buttonStyle(.card)
-        .padding(.vertical, Theme.Spacing.md)
     }
 
-    private struct Item {
+    // MARK: - Sections
+
+    private var aboutSection: some View {
+        section(title: "Despre aplicație", rows: [
+            Row(icon: "radio", title: "Radio Crestin",
+                subtitle: "Ascultă radiouri creștine din România",
+                action: nil),
+            Row(icon: "tv", title: "Platformă",
+                subtitle: "Apple TV — tvOS",
+                action: nil),
+            Row(icon: "info.circle", title: "Versiune",
+                subtitle: appVersionString,
+                action: nil)
+        ])
+    }
+
+    private var statsSection: some View {
+        section(title: "Statistici", rows: [
+            Row(icon: "music.note.list",
+                title: "Posturi disponibile",
+                subtitle: "\(appState.stations.count)",
+                action: nil),
+            Row(icon: "heart.fill",
+                title: "Posturile tale favorite",
+                subtitle: "\(appState.favoriteSlugs.count)",
+                action: nil),
+            Row(icon: "play.circle",
+                title: "Posturi redate",
+                subtitle: "\(appState.playCounts.values.reduce(0, +))",
+                action: nil)
+        ])
+    }
+
+    private var legalSection: some View {
+        section(title: "Legal", rows: [
+            Row(icon: "doc.text",
+                title: "Termeni și condiții",
+                subtitle: "Apasă pentru a deschide pe telefon",
+                action: { openTerms() }),
+            Row(icon: "lock.shield",
+                title: "Politica de confidențialitate",
+                subtitle: "Apasă pentru a deschide pe telefon",
+                action: { openPrivacy() }),
+            Row(icon: "globe",
+                title: "Site web",
+                subtitle: "www.radiocrestin.ro",
+                action: { openWebsite() })
+        ])
+    }
+
+    // MARK: - Row plumbing
+
+    private struct Row: Identifiable {
+        let id = UUID()
         let icon: String
         let title: String
         let subtitle: String
+        let action: (() -> Void)?
     }
 
     @ViewBuilder
-    private func section(title: String, items: [Item]) -> some View {
+    private func section(title: String, rows: [Row]) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             Text(title)
                 .font(.system(size: 28, weight: .bold))
                 .foregroundStyle(Theme.textSecondary)
-                .padding(.top, Theme.Spacing.lg)
-            ForEach(items, id: \.title) { row in
-                HStack(spacing: Theme.Spacing.md) {
-                    Image(systemName: row.icon)
-                        .font(.system(size: 28))
-                        .foregroundStyle(Theme.textSecondary)
-                        .frame(width: 40)
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(row.title)
-                            .font(.system(size: 24, weight: .semibold))
-                            .foregroundStyle(Theme.textPrimary)
-                        Text(row.subtitle)
-                            .font(.system(size: 18))
-                            .foregroundStyle(Theme.textTertiary)
+                .padding(.bottom, Theme.Spacing.xs)
+            ForEach(rows) { row in
+                if let action = row.action {
+                    Button(action: action) {
+                        rowContent(row)
                     }
-                    Spacer()
+                    .buttonStyle(.card)
+                } else {
+                    rowContent(row)
+                        .opacity(0.85)
                 }
-                .padding(Theme.Spacing.md)
-                .background(Theme.surfaceVariant,
-                            in: RoundedRectangle(cornerRadius: Theme.Radius.md))
             }
         }
     }
 
+    private func rowContent(_ row: Row) -> some View {
+        HStack(spacing: Theme.Spacing.md) {
+            Image(systemName: row.icon)
+                .font(.system(size: 30))
+                .foregroundStyle(Theme.textSecondary)
+                .frame(width: 48)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(row.title)
+                    .font(.system(size: 26, weight: .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                Text(row.subtitle)
+                    .font(.system(size: 20))
+                    .foregroundStyle(Theme.textTertiary)
+            }
+            Spacer()
+            if row.action != nil {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 22))
+                    .foregroundStyle(Theme.textTertiary)
+            }
+        }
+        .padding(Theme.Spacing.lg)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.surfaceVariant,
+                    in: RoundedRectangle(cornerRadius: Theme.Radius.lg))
+    }
+
+    // MARK: - Actions
+
+    private func openTerms() {
+        guard let url = URL(string: "https://www.radiocrestin.ro/terms") else { return }
+        openLink = LegalLink(id: "terms",
+                             title: "Termeni și condiții",
+                             url: url)
+    }
+
+    private func openPrivacy() {
+        guard let url = URL(string: "https://www.radiocrestin.ro/privacy") else { return }
+        openLink = LegalLink(id: "privacy",
+                             title: "Politica de confidențialitate",
+                             url: url)
+    }
+
+    private func openWebsite() {
+        guard let url = URL(string: "https://www.radiocrestin.ro") else { return }
+        openLink = LegalLink(id: "site",
+                             title: "Radio Crestin",
+                             url: url)
+    }
+
     private var appVersionString: String {
         let bundle = Bundle.main
-        let version = bundle.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
-        let build = bundle.infoDictionary?["CFBundleVersion"] as? String ?? "?"
-        return "\(version) (\(build))"
+        let v = bundle.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
+        let b = bundle.infoDictionary?["CFBundleVersion"] as? String ?? "?"
+        return "\(v) (\(b))"
     }
 }

@@ -67,21 +67,38 @@ struct NowPlayingView: View {
 
     // MARK: - Artwork
 
+    @FocusState private var backButtonFocused: Bool
+
     private var backButton: some View {
         Button(action: onBack) {
             HStack(spacing: 10) {
                 Image(systemName: "chevron.left")
                 Text("Înapoi")
             }
-            .font(.system(size: 22, weight: .semibold))
+            .font(.system(size: 24, weight: .semibold))
             .foregroundStyle(Theme.textPrimary)
-            .padding(.horizontal, 22)
-            .padding(.vertical, 14)
+            .padding(.horizontal, 26)
+            .padding(.vertical, 16)
             .background(
-                Capsule().fill(Color.black.opacity(0.55))
+                Capsule().fill(
+                    backButtonFocused ? Theme.primary : Color.black.opacity(0.6)
+                )
             )
+            .scaleEffect(backButtonFocused ? 1.08 : 1.0)
+            .shadow(
+                color: backButtonFocused
+                    ? Theme.primary.opacity(0.55)
+                    : .black.opacity(0.4),
+                radius: backButtonFocused ? 24 : 8, x: 0, y: 6
+            )
+            .animation(.spring(response: 0.28, dampingFraction: 0.72),
+                       value: backButtonFocused)
         }
         .buttonStyle(.plain)
+        .focused($backButtonFocused)
+        .onChange(of: backButtonFocused) { _, focused in
+            setFocusedAction(focused ? "Înapoi la posturi" : nil)
+        }
     }
 
     private var artwork: some View {
