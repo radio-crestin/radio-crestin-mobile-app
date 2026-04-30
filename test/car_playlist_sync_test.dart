@@ -325,7 +325,7 @@ void main() {
       }
     });
 
-    test('recommended sort with most-played puts user favorites in positions 2-4', () {
+    test('recommended sort puts top-played stations into mostPlayedSlugs', () {
       final playCounts = {'radio-c': 50, 'radio-e': 30, 'radio-a': 20};
       final result = StationSortService.sort(
         stations: stations,
@@ -334,10 +334,16 @@ void main() {
         favoriteSlugs: [],
       );
 
-      // Positions 2-4 should be the most played (excluding station of day)
-      expect(result.mostPlayedSlugs, isNotEmpty);
-      // Most played should be radio-c (50), radio-e (30), radio-a (20)
-      expect(result.mostPlayedSlugs, containsAll(['radio-c', 'radio-e', 'radio-a']));
+      // _sortRecommended fills positions 2-4. Station of the day (position 1)
+      // rotates daily, so it may itself be one of the top-played slugs — in
+      // which case it's removed from mostPlayedSlugs and the slot is back-
+      // filled by score. The invariant: every top-played slug that ISN'T the
+      // station of the day must end up in mostPlayedSlugs.
+      expect(result.mostPlayedSlugs.length, 3);
+      final expectedFromPlayCounts = playCounts.keys
+          .where((slug) => slug != result.stationOfDaySlug)
+          .toSet();
+      expect(result.mostPlayedSlugs, containsAll(expectedFromPlayCounts));
     });
 
     test('full round-trip through recommended order returns to start', () {
