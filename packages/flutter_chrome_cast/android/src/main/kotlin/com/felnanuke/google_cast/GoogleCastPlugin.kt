@@ -164,11 +164,6 @@ class GoogleCastPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, Applic
         activity = binding.activity
     }
     
-    override fun onDetachedFromActivity() {
-        activity?.application?.unregisterActivityLifecycleCallbacks(this)
-        activity = null
-    }
-    
     // MARK: - Application.ActivityLifecycleCallbacks Implementation
     
     override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
@@ -184,34 +179,51 @@ class GoogleCastPlugin : FlutterPlugin, MethodCallHandler, ActivityAware, Applic
     override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
     
     /**
-     * Called when the activity is destroyed
-     * 
-     * When the activity is destroyed (app killed) and stopCastingOnAppTerminated is enabled,
-     * this method ends the cast session and stops casting on the receiver device.
-     * This ensures that casting stops when the user closes or kills the app.
+     * Called when the activity is destroyed.
      *
-     * @param activity The activity being destroyed
+     * Handles both normal finish (back button) and swipe-to-kill from task manager.
+     * Note: `activity.isFinishing` is false on swipe-to-kill, so we don't check it.
      */
     override fun onActivityDestroyed(activity: Activity) {
-        if (activity == this.activity && activity.isFinishing) {
-            // Only end the cast session if stopCastingOnAppTerminated option is enabled
-            if (!GoogleCastOptionsProvider.stopCastingOnAppTerminated) {
-                Log.d(TAG, "App destroyed - stopCastingOnAppTerminated is false, keeping cast session alive")
-                return
-            }
-            
-            // End the cast session and stop casting when app is killed
-            try {
-                val context = applicationContext ?: return
-                val castContext = CastContext.getSharedInstance(context)
-                val sessionManager = castContext?.sessionManager
-                if (sessionManager?.currentCastSession != null) {
-                    Log.d(TAG, "App destroyed - ending cast session and stopping casting (stopCastingOnAppTerminated=true)")
-                    sessionManager.endCurrentSession(true)
-                }
-            } catch (e: Exception) {
-                Log.w(TAG, "Failed to end cast session on app destroy", e)
-            }
+        if (activity != this.activity) return
+        if (!GoogleCastOptionsProvider.stopCastingOnAppTerminated) {
+            Log.d(TAG, "App destroyed - stopCastingOnAppTerminated is false, keeping cast session alive")
+            return
+        }
+        stopCastSessionIfNeeded("onActivityDestroyed")
+    }
+
+    override fun onDetachedFromActivity() {
+        // Also stop Cast here — onDetachedFromActivity fires when the Flutter engine
+        // is torn down, which can happen before onActivityDestroyed on some devices.
+        if (GoogleCastOptionsProvider.stopCastingOnAppTerminated) {
+            stopCastSessionIfNeeded("onDetachedFromActivity")
+        }
+        activity?.application?.unregisterActivityLifecycleCallbacks(this)
+        activity = null
+    }
+
+    /**
+     * Stops remote media playback and ends the Cast session.
+     * Called from multiple lifecycle hooks to ensure the stop command reaches
+     * the Cast device before the process is killed.
+     */
+    private fun stopCastSessionIfNeeded(caller: String) {
+        try {
+            val context = applicationContext ?: return
+            val castContext = CastContext.getSharedInstance(context)
+            val sessionManager = castContext?.sessionManager ?: return
+            val session = sessionManager.currentCastSession ?: return
+
+            // Stop media playback on the receiver directly
+            session.remoteMediaClient?.stop()
+            Log.d(TAG, "$caller - sent remoteMediaClient.stop()")
+
+            // End the session and stop the receiver application
+            sessionManager.endCurrentSession(true)
+            Log.d(TAG, "$caller - ended cast session (stopCasting=true)")
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to end cast session ($caller)", e)
         }
     }
 }

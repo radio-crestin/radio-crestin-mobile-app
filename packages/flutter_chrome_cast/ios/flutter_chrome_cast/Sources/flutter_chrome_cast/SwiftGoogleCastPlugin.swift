@@ -173,6 +173,50 @@ public class SwiftGoogleCastPlugin: NSObject, GCKLoggerDelegate, FlutterPlugin, 
         addLifecycleObserversIfNeeded()
     }
 
+    // MARK: - Cast session stop
+
+    /// Stops the Cast session and media playback if `stopCastingOnAppTerminated` is enabled.
+    /// Uses a background task to give iOS enough time for the TCP stop command to reach
+    /// the Cast device before the process is killed.
+    private func stopCastSessionIfNeeded(reason: String) {
+        guard stopCastingOnAppTerminated, sessionManager.hasConnectedSession() else { return }
+
+        if kDebugLoggingEnabled {
+            print("SwiftGoogleCastPlugin: \(reason) - stopping cast (stopCastingOnAppTerminated=true)")
+        }
+
+        // Request background execution time so the stop command can flush over TCP
+        // before iOS kills the process.
+        var bgTaskId: UIBackgroundTaskIdentifier = .invalid
+        bgTaskId = UIApplication.shared.beginBackgroundTask(withName: "CastStop") {
+            // Expiration handler — clean up if we ran out of time
+            if bgTaskId != .invalid {
+                UIApplication.shared.endBackgroundTask(bgTaskId)
+                bgTaskId = .invalid
+            }
+        }
+
+        // Stop media playback on the receiver directly from native code.
+        // Going through the Flutter MethodChannel is too slow during termination.
+        if let remoteMediaClient = sessionManager.currentCastSession?.remoteMediaClient {
+            remoteMediaClient.stop()
+            if kDebugLoggingEnabled {
+                print("SwiftGoogleCastPlugin: sent remoteMediaClient.stop()")
+            }
+        }
+
+        // End the session and stop the receiver application
+        sessionManager.endSessionAndStopCasting(true)
+
+        // Give the TCP write buffer a moment to flush, then release the background task.
+        DispatchQueue.global().asyncAfter(deadline: .now() + 1.0) {
+            if bgTaskId != .invalid {
+                UIApplication.shared.endBackgroundTask(bgTaskId)
+                bgTaskId = .invalid
+            }
+        }
+    }
+
     // MARK: - Teardown / Lifecycle handlers
 
     /// Cleanly stops discovery and removes registered listeners to avoid callbacks after deallocation.
@@ -194,12 +238,7 @@ public class SwiftGoogleCastPlugin: NSObject, GCKLoggerDelegate, FlutterPlugin, 
     @objc private func applicationWillTerminateNotification(_ notification: Notification) {
         // End the cast session and stop casting when app is terminated (if option is enabled)
         // This ensures the receiver stops casting when the app is killed
-        if stopCastingOnAppTerminated && sessionManager.hasConnectedSession() {
-            if kDebugLoggingEnabled {
-                print("SwiftGoogleCastPlugin: App terminating - ending cast session and stopping casting (stopCastingOnAppTerminated=true)")
-            }
-            sessionManager.endSessionAndStopCasting(true)
-        }
+        stopCastSessionIfNeeded(reason: "App terminating")
         tearDown()
     }
 
