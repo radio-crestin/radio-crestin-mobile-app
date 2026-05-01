@@ -993,7 +993,9 @@ class AppAudioHandler extends BaseAudioHandler {
           StreamEventKind.attempt,
           'Attempt ${attemptIndex + 1}/$totalStreams ${streamType ?? '?'}',
         );
-        AnalyticsService.instance.capture('stream_attempt', {
+        // Debug-only: high volume on healthy connections. Errors and switches
+        // still ship in production via capture() below.
+        AnalyticsService.instance.captureDebug('stream_attempt', {
           'station_slug': stationSlug,
           if (stationId != null) 'station_id': stationId,
           'stream_url': streamUrl,
@@ -1045,7 +1047,9 @@ class AppAudioHandler extends BaseAudioHandler {
             StreamEventKind.loaded,
             '${streamType ?? '?'} loaded in ${elapsedMs}ms',
           );
-          AnalyticsService.instance.capture('stream_loaded', {
+          // Debug-only: paired with stream_attempt; the listening_active
+          // heartbeat already carries the loaded URL/type for production.
+          AnalyticsService.instance.captureDebug('stream_loaded', {
             'station_slug': stationSlug,
             if (stationId != null) 'station_id': stationId,
             'stream_url': streamUrl,

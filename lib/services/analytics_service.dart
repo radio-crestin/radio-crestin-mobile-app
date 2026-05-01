@@ -152,6 +152,15 @@ class AnalyticsService {
     );
   }
 
+  /// Capture only in debug builds. For high-volume diagnostic events that
+  /// would create noise in production analytics — error events should still
+  /// use [capture]. The in-app event log (Settings → Diagnostic redare)
+  /// always sees every event regardless of build mode.
+  void captureDebug(String eventName, [Map<String, Object?>? properties]) {
+    if (!kDebugMode) return;
+    capture(eventName, properties);
+  }
+
   /// Set a user property without re-identifying.
   void setUserProperty(String name, String value) {
     if (_userId == null) return;
