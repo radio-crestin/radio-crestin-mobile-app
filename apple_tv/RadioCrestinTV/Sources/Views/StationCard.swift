@@ -43,8 +43,11 @@ struct StationCard: View {
                     }
                 }
                 // Horizontal inset so the labels don't bleed into the
-                // edge of the card / focus halo.
+                // edge of the card / focus halo. Extra bottom padding
+                // gives the song title room to breathe before the next
+                // grid row.
                 .padding(.horizontal, Theme.Spacing.sm)
+                .padding(.bottom, Theme.Spacing.md)
             }
             .frame(width: 280)
             .contentShape(Rectangle())
