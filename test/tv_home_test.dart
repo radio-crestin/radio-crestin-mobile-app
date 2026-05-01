@@ -1,4 +1,4 @@
-/// Widget tests for the Android TV home shell (TvHome): rail navigation,
+/// Widget tests for the Android TV home shell (TvHome): top-bar navigation,
 /// tab switching via 1-4 keys, BACK semantics across tabs.
 ///
 /// These tests render TvHome with stubbed page widgets so they run without
@@ -17,7 +17,7 @@ import 'package:radio_crestin/appAudioHandler.dart';
 import 'package:radio_crestin/services/station_data_service.dart';
 import 'package:radio_crestin/services/play_count_service.dart';
 import 'package:radio_crestin/types/Station.dart';
-import 'package:radio_crestin/tv/widgets/tv_left_rail.dart';
+import 'package:radio_crestin/tv/widgets/tv_top_tab_bar.dart';
 
 import 'helpers/station_factory.dart';
 
@@ -164,7 +164,7 @@ void main() {
     });
   });
 
-  group('TvLeftRail key shortcuts', () {
+  group('TvTopTabBar key shortcuts', () {
     setUp(() => _registerFakes());
 
     testWidgets('keys 1-4 invoke onSelect with the right index',
@@ -195,12 +195,12 @@ void main() {
               }
               return KeyEventResult.ignored;
             },
-            child: TvLeftRail(
+            child: TvTopTabBar(
               items: const [
-                TvLeftRailItem(icon: Icons.radio_rounded, label: 'a'),
-                TvLeftRailItem(icon: Icons.favorite, label: 'b'),
-                TvLeftRailItem(icon: Icons.history, label: 'c'),
-                TvLeftRailItem(icon: Icons.settings, label: 'd'),
+                TvTopTabItem(icon: Icons.radio_rounded, label: 'a'),
+                TvTopTabItem(icon: Icons.favorite, label: 'b'),
+                TvTopTabItem(icon: Icons.history, label: 'c'),
+                TvTopTabItem(icon: Icons.settings, label: 'd'),
               ],
               selectedIndex: 0,
               onSelect: (_) {},

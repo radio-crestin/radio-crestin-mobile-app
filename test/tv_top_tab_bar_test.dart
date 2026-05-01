@@ -2,27 +2,27 @@ import 'package:dpad/dpad.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:radio_crestin/tv/widgets/tv_left_rail.dart';
+import 'package:radio_crestin/tv/widgets/tv_top_tab_bar.dart';
 
 void main() {
-  group('TvLeftRail', () {
-    Widget _wrap(Widget child) {
+  group('TvTopTabBar', () {
+    Widget wrap(Widget child) {
       return DpadNavigator(
         enabled: true,
         child: MaterialApp(home: Scaffold(body: child)),
       );
     }
 
-    final railItems = const <TvLeftRailItem>[
-      TvLeftRailItem(icon: Icons.radio_rounded, label: 'Stații'),
-      TvLeftRailItem(icon: Icons.favorite_rounded, label: 'Favorite'),
-      TvLeftRailItem(icon: Icons.history_rounded, label: 'Recente'),
-      TvLeftRailItem(icon: Icons.settings_rounded, label: 'Setări'),
+    final tabItems = const <TvTopTabItem>[
+      TvTopTabItem(icon: Icons.radio_rounded, label: 'Stații'),
+      TvTopTabItem(icon: Icons.favorite_rounded, label: 'Favorite'),
+      TvTopTabItem(icon: Icons.history_rounded, label: 'Recente'),
+      TvTopTabItem(icon: Icons.settings_rounded, label: 'Setări'),
     ];
 
     testWidgets('renders all four items + brand wordmark', (tester) async {
-      await tester.pumpWidget(_wrap(
-        TvLeftRail(items: railItems, selectedIndex: 0, onSelect: (_) {}),
+      await tester.pumpWidget(wrap(
+        TvTopTabBar(items: tabItems, selectedIndex: 0, onSelect: (_) {}),
       ));
       await tester.pump();
 
@@ -35,23 +35,18 @@ void main() {
 
     testWidgets('renders the right number of focusable buttons',
         (tester) async {
-      await tester.pumpWidget(_wrap(
-        TvLeftRail(items: railItems, selectedIndex: 0, onSelect: (_) {}),
+      await tester.pumpWidget(wrap(
+        TvTopTabBar(items: tabItems, selectedIndex: 0, onSelect: (_) {}),
       ));
       await tester.pump();
-      // Each rail item wraps a DesktopFocusable that produces an internal
-      // Focus node — verify there is one focusable per item, regardless of
-      // whether the test environment is in "desktop" or "TV" mode.
       final focuses = find.byWidgetPredicate(
           (w) => w is Focus && (w.canRequestFocus));
-      expect(focuses.evaluate().length, greaterThanOrEqualTo(railItems.length));
+      expect(focuses.evaluate().length, greaterThanOrEqualTo(tabItems.length));
     });
 
     testWidgets('selected item shows distinct color/weight', (tester) async {
-      // We snapshot the same item twice — once when selectedIndex matches,
-      // once when it doesn't — and verify the Text widget's style differs.
-      Widget build(int sel) => _wrap(
-            TvLeftRail(items: railItems, selectedIndex: sel, onSelect: (_) {}),
+      Widget build(int sel) => wrap(
+            TvTopTabBar(items: tabItems, selectedIndex: sel, onSelect: (_) {}),
           );
 
       await tester.pumpWidget(build(1));

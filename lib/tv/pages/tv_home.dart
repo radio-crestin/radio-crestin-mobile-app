@@ -5,7 +5,7 @@ import 'package:get_it/get_it.dart';
 import '../../appAudioHandler.dart';
 import '../../types/Station.dart';
 import '../tv_theme.dart';
-import '../widgets/tv_left_rail.dart';
+import '../widgets/tv_top_tab_bar.dart';
 import 'tv_browse.dart';
 import 'tv_favorites_page.dart';
 import 'tv_recent_page.dart';
@@ -44,11 +44,11 @@ class _TvHomeState extends State<TvHome> {
     const TvSettingsPage(),
   ];
 
-  static const _railItems = <TvLeftRailItem>[
-    TvLeftRailItem(icon: Icons.radio_rounded, label: 'Stații'),
-    TvLeftRailItem(icon: Icons.favorite_rounded, label: 'Favorite'),
-    TvLeftRailItem(icon: Icons.history_rounded, label: 'Recente'),
-    TvLeftRailItem(icon: Icons.settings_rounded, label: 'Setări'),
+  static const _tabItems = <TvTopTabItem>[
+    TvTopTabItem(icon: Icons.radio_rounded, label: 'Stații'),
+    TvTopTabItem(icon: Icons.favorite_rounded, label: 'Favorite'),
+    TvTopTabItem(icon: Icons.history_rounded, label: 'Recente'),
+    TvTopTabItem(icon: Icons.settings_rounded, label: 'Setări'),
   ];
 
   KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
@@ -99,11 +99,11 @@ class _TvHomeState extends State<TvHome> {
         child: ColoredBox(
           color: TvColors.background,
           child: SafeArea(
-            child: Row(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                TvLeftRail(
-                  items: _railItems,
+                TvTopTabBar(
+                  items: _tabItems,
                   selectedIndex: _index,
                   onSelect: (i) => setState(() => _index = i),
                 ),

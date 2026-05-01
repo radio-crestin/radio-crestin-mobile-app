@@ -185,15 +185,13 @@ class _TvShellState extends State<TvShell> {
       regionNavigation: const RegionNavigationOptions(
         enabled: true,
         rules: [
-          // Home: rail ↔ content. The rail owns the leftmost 220px and the
-          // grid starts ~316px in, so the geometric heuristic doesn't bridge
-          // them on its own. RIGHT from rail enters the grid at its first
-          // card; LEFT from anywhere in the grid returns to the last-used
-          // rail item (memory).
+          // Home: top tab bar ↔ content. DOWN from a tab enters the grid
+          // at its first card; UP from anywhere in the grid returns to the
+          // last-used tab (memory).
           RegionNavigationRule(
-            fromRegion: 'rail',
+            fromRegion: 'top-bar',
             toRegion: 'content',
-            direction: TraversalDirection.right,
+            direction: TraversalDirection.down,
             strategy: RegionNavigationStrategy.fixedEntry,
             bidirectional: true,
             reverseStrategy: RegionNavigationStrategy.memory,
