@@ -56,3 +56,27 @@ targets:
         # tvOS Top Shelf placeholder; we'll fill the asset catalog later.
         TVTopShelfImagePath: ""
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.music
+
+  RadioCrestinTVTests:
+    type: bundle.unit-test
+    platform: tvOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: RadioCrestinTVTests
+    dependencies:
+      - target: RadioCrestinTV
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.radiocrestin.radio_crestin.tests
+        GENERATE_INFOPLIST_FILE: YES
+
+schemes:
+  RadioCrestinTV:
+    build:
+      targets:
+        RadioCrestinTV: all
+        RadioCrestinTVTests: [test]
+    test:
+      targets:
+        - RadioCrestinTVTests
+      gatherCoverageData: true
