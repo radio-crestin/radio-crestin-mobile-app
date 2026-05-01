@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:dpad/dpad.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get_it/get_it.dart';
@@ -11,12 +12,14 @@ import '../../services/station_sort_service.dart';
 import '../../services/play_count_service.dart';
 import '../../types/Station.dart';
 import '../tv_theme.dart';
-import '../widgets/tv_station_card.dart';
+import '../widgets/desktop_focusable.dart';
+import '../widgets/tv_station_row.dart';
 
-/// TV-only browse page.
+/// TV homepage — Android TV–style "rails" layout.
 ///
-/// Shows the "For You" sort selector + filter at top, then a grid of stations.
-/// ESC / Back → returns to the now-playing page (never exits the app).
+/// Header bar with brand mark + settings gear, a hero "Now Playing"
+/// card when something is playing, then a vertical list of horizontal
+/// rails (Favorites, Pentru tine, Cele mai ascultate, Toate stațiile).
 class TvBrowse extends StatefulWidget {
   final VoidCallback onBack;
   final ValueChanged<Station> onStationSelected;
@@ -40,14 +43,11 @@ class _TvBrowseState extends State<TvBrowse> {
   List<Station> _allStations = [];
   List<String> _favoriteSlugs = [];
 
-  StationSortOption _sortOption = StationSortOption.recommended;
-
   @override
   void initState() {
     super.initState();
     _audioHandler = GetIt.instance<AppAudioHandler>();
     _stationDataService = GetIt.instance<StationDataService>();
-    _sortOption = StationSortService.loadSavedSort();
 
     _subscriptions.add(
       Rx.combineLatest3(
@@ -76,20 +76,40 @@ class _TvBrowseState extends State<TvBrowse> {
     super.dispose();
   }
 
-  List<Station> get _sortedStations {
+  // ─── Rail content ───────────────────────────────────────────────
+
+  List<Station> _sortedBy(StationSortOption opt) {
     final playCounts = GetIt.instance<PlayCountService>().playCounts;
     return StationSortService.sort(
       stations: List<Station>.from(_allStations),
-      sortBy: _sortOption,
+      sortBy: opt,
       playCounts: playCounts,
       favoriteSlugs: _favoriteSlugs,
     ).sorted;
   }
 
+  List<Station> get _favorites {
+    final favSet = _favoriteSlugs.toSet();
+    return _allStations.where((s) => favSet.contains(s.slug)).toList()
+      ..sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+  }
+
+  List<Station> get _mostPlayed {
+    final counts = GetIt.instance<PlayCountService>().playCounts;
+    if (counts.isEmpty) return const [];
+    final playedSlugs = counts.entries.where((e) => e.value > 0).map((e) => e.key).toSet();
+    if (playedSlugs.isEmpty) return const [];
+    final sorted = _sortedBy(StationSortOption.mostPlayed);
+    return sorted.where((s) => playedSlugs.contains(s.slug)).toList();
+  }
+
+  // ─── Actions ────────────────────────────────────────────────────
+
+  void _openNowPlaying() => widget.onBack();
+
   KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
     final key = event.logicalKey;
-    // ESC / Back → go back to now-playing, never exit the app
     if (key == LogicalKeyboardKey.goBack ||
         key == LogicalKeyboardKey.browserBack ||
         key == LogicalKeyboardKey.escape) {
@@ -99,94 +119,261 @@ class _TvBrowseState extends State<TvBrowse> {
     return KeyEventResult.ignored;
   }
 
+  // ─── Build ──────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
-    final stations = _sortedStations;
-
-    // Note: BACK handling is owned by the parent TvHome, since TvBrowse
-    // is one of several IndexedStack children — having a PopScope here
-    // would intercept BACK even when this page is hidden.
     return Focus(
-        onKeyEvent: _onKeyEvent,
-        child: ColoredBox(
-          color: TvColors.background,
-          child: SafeArea(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Sort header pinned in a fixed-height band that matches the
-                // rail's brand mark, so the logo and the category selector
-                // share the same baseline regardless of playback state.
-                SizedBox(
-                  height: TvHeaderBar.height,
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: TvSpacing.marginHorizontal,
-                    ),
-                    child: Row(
+      onKeyEvent: _onKeyEvent,
+      child: ColoredBox(
+        color: TvColors.background,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const _Header(),
+            Expanded(child: _buildRails()),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRails() {
+    if (_allStations.isEmpty) {
+      return Center(
+        child: Text('Nu sunt posturi', style: TvTypography.body),
+      );
+    }
+
+    final favorites = _favorites;
+    final recommendations = _sortedBy(StationSortOption.recommended);
+    final mostPlayed = _mostPlayed;
+    final alphabetical = _sortedBy(StationSortOption.alphabetical);
+
+    final hero = _currentStation;
+    final rails = <Widget>[];
+    bool grabbedAutofocus = false;
+
+    if (hero != null) {
+      rails.add(_NowPlayingHero(
+        station: hero,
+        autofocus: !grabbedAutofocus,
+        onTap: _openNowPlaying,
+      ));
+      grabbedAutofocus = true;
+    }
+
+    void addRail(String title, List<Station> stations) {
+      if (stations.isEmpty) return;
+      rails.add(TvStationRow(
+        title: title,
+        stations: stations,
+        currentStation: _currentStation,
+        favoriteSlugs: _favoriteSlugs,
+        autofocusFirst: !grabbedAutofocus,
+        onStationSelected: widget.onStationSelected,
+      ));
+      grabbedAutofocus = true;
+    }
+
+    addRail('Favoritele tale', favorites);
+    addRail('Pentru tine', recommendations);
+    addRail('Cele mai ascultate', mostPlayed);
+    addRail('Toate stațiile', alphabetical);
+
+    return ListView(
+      padding: const EdgeInsets.only(top: TvSpacing.sm, bottom: TvSpacing.lg),
+      children: rails,
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Header: brand mark only.
+// ─────────────────────────────────────────────────────────────────────
+class _Header extends StatelessWidget {
+  const _Header();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: TvHeaderBar.height,
+      padding: EdgeInsets.symmetric(
+        horizontal: TvSpacing.marginHorizontal,
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: TvColors.primary,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.radio_rounded,
+                color: Colors.white, size: 22),
+          ),
+          const SizedBox(width: TvSpacing.sm),
+          const Text(
+            'Radio Crestin',
+            style: TextStyle(
+              color: TvColors.textPrimary,
+              fontWeight: FontWeight.w700,
+              fontSize: 18,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Now Playing hero card.
+// ─────────────────────────────────────────────────────────────────────
+class _NowPlayingHero extends StatelessWidget {
+  final Station station;
+  final bool autofocus;
+  final VoidCallback onTap;
+
+  const _NowPlayingHero({
+    required this.station,
+    required this.autofocus,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        TvSpacing.marginHorizontal,
+        TvSpacing.sm,
+        TvSpacing.marginHorizontal,
+        TvSpacing.lg,
+      ),
+      child: DesktopFocusable(
+        autofocus: autofocus,
+        onSelect: onTap,
+        builder: FocusEffects.scaleWithBorder(
+          scale: 1.02,
+          borderColor: TvColors.primary,
+          borderWidth: 3,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Container(
+          height: 160,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              colors: [
+                TvColors.primary.withValues(alpha: 0.18),
+                TvColors.surface,
+              ],
+            ),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.06),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.4),
+                blurRadius: 18,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.all(TvSpacing.md),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: SizedBox(
+                  width: 128,
+                  height: 128,
+                  child: station.displayThumbnail(cacheWidth: 256),
+                ),
+              ),
+              const SizedBox(width: TvSpacing.lg),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       children: [
-                        Icon(
-                          StationSortLabels.icons[_sortOption],
-                          size: 22,
-                          color: _sortOption == StationSortOption.recommended
-                              ? const Color(0xFFF59E0B)
-                              : TvColors.textPrimary,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            StationSortLabels.labels[_sortOption] ?? '',
-                            style: TvTypography.headline.copyWith(fontSize: 20),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                        const Icon(Icons.equalizer_rounded,
+                            color: TvColors.primary, size: 18),
+                        const SizedBox(width: 6),
+                        Text(
+                          'SE REDĂ ACUM',
+                          style: TvTypography.caption.copyWith(
+                            color: TvColors.primary,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1.2,
+                            fontSize: 12,
                           ),
                         ),
                       ],
                     ),
-                  ),
-                ),
-
-                // Station grid
-                Expanded(
-                  child: stations.isEmpty
-                      ? Center(
-                          child: Text('Nu sunt posturi', style: TvTypography.body),
-                        )
-                      : Padding(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: TvSpacing.marginHorizontal,
+                    const SizedBox(height: 6),
+                    Text(
+                      station.title,
+                      style: TvTypography.headline
+                          .copyWith(fontSize: 26, fontWeight: FontWeight.w800),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (station.songTitle.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        station.songArtist.isNotEmpty
+                            ? '${station.songTitle}  ·  ${station.songArtist}'
+                            : station.songTitle,
+                        style: TvTypography.body.copyWith(
+                          fontSize: 15,
+                          color: TvColors.textSecondary,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                    const Spacer(),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: TvColors.primary,
+                            borderRadius: BorderRadius.circular(20),
                           ),
-                          child: GridView.builder(
-                            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                              maxCrossAxisExtent: 220,
-                              crossAxisSpacing: 8,
-                              mainAxisSpacing: 8,
-                              childAspectRatio: 160 / 216,
-                            ),
-                            itemCount: stations.length,
-                            itemBuilder: (_, i) {
-                              final s = stations[i];
-                              return TvStationCard(
-                                station: s,
-                                isPlaying: _currentStation?.id == s.id,
-                                isFavorite: _favoriteSlugs.contains(s.slug),
-                                // No top-level navigation any more — the
-                                // first card is the entry point and grabs
-                                // focus on cold launch.
-                                region: 'content',
-                                isEntryPoint: i == 0,
-                                autofocus: i == 0,
-                                onSelect: () => widget.onStationSelected(s),
-                                onFavoriteToggle: () {},
-                              );
-                            },
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.play_arrow_rounded,
+                                  color: Colors.white, size: 18),
+                              SizedBox(width: 4),
+                              Text(
+                                'Deschide player-ul',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
+                      ],
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
+      ),
     );
   }
 }
