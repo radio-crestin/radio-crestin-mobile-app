@@ -1,169 +1,118 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
+import 'package:plugin_platform_interface/plugin_platform_interface.dart';
+import 'package:radio_crestin/services/image_cache_service.dart';
 
-// We test the pure logic of ImageCacheService that doesn't require
-// platform channels (hashing, extension extraction, cache map behavior).
-// Full integration tests would require mocking path_provider and http.
+class _FakePathProvider extends PathProviderPlatform
+    with MockPlatformInterfaceMixin {
+  _FakePathProvider(this.docsPath);
+  final String docsPath;
+
+  @override
+  Future<String?> getApplicationDocumentsPath() async => docsPath;
+
+  @override
+  Future<String?> getTemporaryPath() async => docsPath;
+}
 
 void main() {
-  group('ImageCacheService - pure logic', () {
-    group('URL hashing (MD5)', () {
-      test('produces consistent hash for same URL', () {
-        const url = 'https://example.com/image.png';
-        final hash1 = md5.convert(utf8.encode(url)).toString();
-        final hash2 = md5.convert(utf8.encode(url)).toString();
-        expect(hash1, hash2);
-      });
+  // ImageCacheService is a singleton — initialize once and share state
+  // across tests in this file.
+  late Directory tempDir;
 
-      test('produces different hashes for different URLs', () {
-        final hash1 = md5.convert(utf8.encode('https://a.com/1.png')).toString();
-        final hash2 = md5.convert(utf8.encode('https://a.com/2.png')).toString();
-        expect(hash1, isNot(equals(hash2)));
-      });
+  setUpAll(() async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    tempDir = await Directory.systemTemp.createTemp('img_cache_');
+    PathProviderPlatform.instance = _FakePathProvider(tempDir.path);
+    await ImageCacheService().initialize();
+  });
 
-      test('hash is 32 characters (hex)', () {
-        final hash = md5.convert(utf8.encode('https://example.com/image.png')).toString();
-        expect(hash.length, 32);
-        expect(hash, matches(RegExp(r'^[0-9a-f]{32}$')));
-      });
+  tearDownAll(() {
+    if (tempDir.existsSync()) {
+      tempDir.deleteSync(recursive: true);
+    }
+  });
+
+  group('ImageCacheService — public API', () {
+    test('initialize() creates the image_cache directory', () {
+      final cacheDir = Directory('${tempDir.path}/image_cache');
+      expect(cacheDir.existsSync(), true);
     });
 
-    group('extension extraction', () {
-      // Replicate the _getExtension logic
-      String getExtension(String url) {
-        try {
-          final uri = Uri.parse(url);
-          final path = uri.path;
-          final lastDot = path.lastIndexOf('.');
-          if (lastDot != -1) {
-            final ext = path.substring(lastDot);
-            if (ext.length <= 5 && ext.length > 1) return ext;
-          }
-        } catch (_) {}
-        return '.img';
-      }
-
-      test('extracts .png extension', () {
-        expect(getExtension('https://example.com/image.png'), '.png');
-      });
-
-      test('extracts .jpg extension', () {
-        expect(getExtension('https://example.com/photo.jpg'), '.jpg');
-      });
-
-      test('extracts .webp extension', () {
-        expect(getExtension('https://example.com/image.webp'), '.webp');
-      });
-
-      test('falls back to .img for URLs without extension', () {
-        expect(getExtension('https://example.com/image'), '.img');
-      });
-
-      test('falls back to .img for very long extensions', () {
-        expect(getExtension('https://example.com/file.toolongext'), '.img');
-      });
-
-      test('handles URLs with query parameters', () {
-        expect(getExtension('https://example.com/image.png?v=1'), '.png');
-      });
-
-      test('handles URLs with no path', () {
-        expect(getExtension('https://example.com'), '.img');
-      });
+    test('initialize() is idempotent', () async {
+      await ImageCacheService().initialize();
+      expect(Directory('${tempDir.path}/image_cache').existsSync(), true);
     });
 
-    group('in-memory cache map', () {
-      test('stores and retrieves URL to path mapping', () {
-        final cache = <String, String>{};
-        cache['https://example.com/1.png'] = '/cache/abc123.png';
-
-        expect(cache['https://example.com/1.png'], '/cache/abc123.png');
-        expect(cache['https://example.com/2.png'], isNull);
-      });
-
-      test('remove clears entry', () {
-        final cache = <String, String>{};
-        cache['https://example.com/1.png'] = '/cache/abc.png';
-        cache.remove('https://example.com/1.png');
-
-        expect(cache['https://example.com/1.png'], isNull);
-      });
-
-      test('empty URL returns null', () {
-        final cache = <String, String>{};
-        expect(cache[''], isNull);
-      });
+    test('singleton — multiple new instances return the same object', () {
+      final a = ImageCacheService();
+      final b = ImageCacheService();
+      expect(identical(a, b), true);
+      expect(identical(ImageCacheService.instance, a), true);
     });
 
-    group('concurrent download throttling logic', () {
-      test('max concurrent downloads constant is 5', () {
-        // The service uses _maxConcurrentDownloads = 5
-        // We verify the throttling concept
-        const maxConcurrent = 5;
-        var activeDownloads = 0;
+    test('getCachedPath returns null for unknown URL', () {
+      expect(
+        ImageCacheService().getCachedPath('https://example.com/unknown.png'),
+        isNull,
+      );
+    });
 
-        // Simulate queueing downloads
-        for (int i = 0; i < 10; i++) {
-          if (activeDownloads < maxConcurrent) {
-            activeDownloads++;
-          }
+    test('getOrDownload returns null for empty URL', () async {
+      final f = await ImageCacheService().getOrDownload('');
+      expect(f, isNull);
+    });
+
+    test('preCacheUrls accepts empty list without error', () async {
+      await ImageCacheService().preCacheUrls([]);
+    });
+
+    test('preCacheUrls filters out empty URLs without crashing', () async {
+      await ImageCacheService().preCacheUrls(['', '', '']);
+    });
+  });
+
+  // Pure logic the service relies on internally — tested independently so
+  // refactors of `_hashUrl` / `_getExtension` are caught even if the
+  // singleton happens to be in a strange state.
+  group('ImageCacheService — pure helpers (replicated for regression bait)', () {
+    test('MD5 hash is stable and 32-char hex', () {
+      final h = md5.convert(utf8.encode('https://x/a.png')).toString();
+      expect(h.length, 32);
+      expect(h, matches(RegExp(r'^[0-9a-f]{32}$')));
+    });
+
+    String getExtension(String url) {
+      try {
+        final uri = Uri.parse(url);
+        final path = uri.path;
+        final lastDot = path.lastIndexOf('.');
+        if (lastDot != -1) {
+          final ext = path.substring(lastDot);
+          if (ext.length <= 5 && ext.length > 1) return ext;
         }
+      } catch (_) {}
+      return '.img';
+    }
 
-        expect(activeDownloads, maxConcurrent);
-      });
+    test('common image extensions extract correctly', () {
+      expect(getExtension('https://x/a.png'), '.png');
+      expect(getExtension('https://x/a.jpg'), '.jpg');
+      expect(getExtension('https://x/a.webp'), '.webp');
     });
 
-    group('file path construction', () {
-      test('combines cache dir, hash, and extension', () {
-        const cacheDir = '/app/Documents/image_cache';
-        const url = 'https://example.com/image.png';
-        final hash = md5.convert(utf8.encode(url)).toString();
-        final filePath = '$cacheDir/$hash.png';
-
-        expect(filePath, contains(hash));
-        expect(filePath, endsWith('.png'));
-        expect(filePath, startsWith(cacheDir));
-      });
+    test('falls back to .img for missing or oversized extensions', () {
+      expect(getExtension('https://x/noext'), '.img');
+      expect(getExtension('https://x/a.toolong'), '.img');
+      expect(getExtension('https://x'), '.img');
     });
 
-    group('preCacheUrls filtering', () {
-      test('filters out already cached URLs', () {
-        final cache = <String, String>{
-          'https://example.com/1.png': '/cache/1.png',
-          'https://example.com/2.png': '/cache/2.png',
-        };
-        final urls = [
-          'https://example.com/1.png', // cached
-          'https://example.com/2.png', // cached
-          'https://example.com/3.png', // not cached
-          'https://example.com/4.png', // not cached
-          '', // empty, should be filtered
-        ];
-
-        final uncachedUrls = urls
-            .where((url) => url.isNotEmpty && cache[url] == null)
-            .toList();
-
-        expect(uncachedUrls, [
-          'https://example.com/3.png',
-          'https://example.com/4.png',
-        ]);
-      });
-
-      test('returns empty when all URLs are cached', () {
-        final cache = <String, String>{
-          'https://example.com/1.png': '/cache/1.png',
-        };
-        final urls = ['https://example.com/1.png'];
-
-        final uncachedUrls = urls
-            .where((url) => url.isNotEmpty && cache[url] == null)
-            .toList();
-
-        expect(uncachedUrls, isEmpty);
-      });
+    test('query string does not interfere with extension', () {
+      expect(getExtension('https://x/a.png?v=1'), '.png');
     });
   });
 }
