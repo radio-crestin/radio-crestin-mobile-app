@@ -93,6 +93,17 @@ struct RootView: View {
                   let station = appState.stations.first(where: { $0.id == newId })
             else { return }
             player.play(station)
+            // The first metadata poll after tune-in lands ~10s in. By
+            // then HLS has buffered a couple of segments and AVPlayer
+            // exposes `currentDate()` from EXT-X-PROGRAM-DATE-TIME, so
+            // an extra poll at ~5s pulls the offset-aligned now_playing
+            // before the user has finished reading the station name.
+            // Without this, the song shown can lag the audio for a
+            // full poll interval after switching stations.
+            Task { @MainActor [appState] in
+                try? await Task.sleep(nanoseconds: 5 * 1_000_000_000)
+                await appState.refreshMetadataNow()
+            }
         }
     }
 

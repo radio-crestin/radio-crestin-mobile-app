@@ -211,9 +211,10 @@ struct NowPlayingView: View {
         }
     }
 
-    /// Fixed-height status line below the controls. Shows the focused
-    /// button's label, the connection spinner, or an error message. The
-    /// height is constant so changing state never causes layout shift.
+    /// Fixed-height status line that surfaces the connection spinner or
+    /// stream error. Action labels are no longer rendered here — each
+    /// button shows its own label directly below it (see `controls`),
+    /// which puts the descriptor right under the user's focused target.
     private var statusLine: some View {
         HStack(spacing: 10) {
             switch player.state {
@@ -230,13 +231,10 @@ struct NowPlayingView: View {
                     .foregroundStyle(Color.red.opacity(0.9))
                     .lineLimit(1)
             case .idle, .playing, .paused:
-                if let action = focusedAction {
-                    Text(action)
-                        .foregroundStyle(Theme.textPrimary)
-                } else {
-                    // Reserve the row even when there's nothing to say.
-                    Text(" ")
-                }
+                // Reserve the row's vertical space even when idle so
+                // transitions to .connecting / .failed don't push the
+                // recent-songs list down.
+                Text(" ")
             }
         }
         .font(.system(size: 22, weight: .medium))
@@ -251,56 +249,94 @@ struct NowPlayingView: View {
     // MARK: - Controls
 
     private var controls: some View {
-        HStack(spacing: Theme.Spacing.lg) {
-            CircleControl(
-                icon: liked ? "hand.thumbsup.fill" : "hand.thumbsup",
-                tint: liked ? Theme.primary : Theme.textPrimary,
-                label: "Apreciază",
-                onFocusChange: setFocusedAction
-            ) {
-                liked.toggle()
-                if liked { disliked = false }
+        HStack(alignment: .top, spacing: Theme.Spacing.lg) {
+            labeled("Apreciază") {
+                CircleControl(
+                    icon: liked ? "hand.thumbsup.fill" : "hand.thumbsup",
+                    tint: liked ? Theme.primary : Theme.textPrimary,
+                    label: "Apreciază",
+                    onFocusChange: setFocusedAction
+                ) {
+                    liked.toggle()
+                    if liked { disliked = false }
+                }
             }
-            CircleControl(
-                icon: "backward.fill",
-                label: "Postul anterior",
-                onFocusChange: setFocusedAction,
-                action: onPrev
-            )
-            CircleControl(
-                icon: "play.fill",
-                isPrimary: true,
-                systemPause: player.isPlaying,
-                label: player.isPlaying ? "Pauză" : "Redă",
-                onFocusChange: setFocusedAction
-            ) {
-                player.togglePlayPause()
+            labeled("Postul anterior") {
+                CircleControl(
+                    icon: "backward.fill",
+                    label: "Postul anterior",
+                    onFocusChange: setFocusedAction,
+                    action: onPrev
+                )
             }
-            .prefersDefaultFocus(true, in: focusScope)
-            CircleControl(
-                icon: "forward.fill",
-                label: "Postul următor",
-                onFocusChange: setFocusedAction,
-                action: onNext
-            )
-            CircleControl(
-                icon: disliked ? "hand.thumbsdown.fill" : "hand.thumbsdown",
-                tint: disliked ? Theme.primary : Theme.textPrimary,
-                label: "Nu îmi place",
-                onFocusChange: setFocusedAction
-            ) {
-                disliked.toggle()
-                if disliked { liked = false }
+            labeled(player.isPlaying ? "Pauză" : "Redă") {
+                CircleControl(
+                    icon: "play.fill",
+                    isPrimary: true,
+                    systemPause: player.isPlaying,
+                    label: player.isPlaying ? "Pauză" : "Redă",
+                    onFocusChange: setFocusedAction
+                ) {
+                    player.togglePlayPause()
+                }
+                .prefersDefaultFocus(true, in: focusScope)
             }
-            CircleControl(
-                icon: isFavorite ? "heart.fill" : "heart",
-                tint: isFavorite ? Theme.primary : Theme.textPrimary,
-                label: isFavorite ? "Elimină din favorite" : "Adaugă la favorite",
-                onFocusChange: setFocusedAction
-            ) {
-                onToggleFavorite()
+            labeled("Postul următor") {
+                CircleControl(
+                    icon: "forward.fill",
+                    label: "Postul următor",
+                    onFocusChange: setFocusedAction,
+                    action: onNext
+                )
             }
-            shareButton
+            labeled("Nu îmi place") {
+                CircleControl(
+                    icon: disliked ? "hand.thumbsdown.fill" : "hand.thumbsdown",
+                    tint: disliked ? Theme.primary : Theme.textPrimary,
+                    label: "Nu îmi place",
+                    onFocusChange: setFocusedAction
+                ) {
+                    disliked.toggle()
+                    if disliked { liked = false }
+                }
+            }
+            labeled(isFavorite ? "Elimină din favorite" : "Adaugă la favorite") {
+                CircleControl(
+                    icon: isFavorite ? "heart.fill" : "heart",
+                    tint: isFavorite ? Theme.primary : Theme.textPrimary,
+                    label: isFavorite ? "Elimină din favorite" : "Adaugă la favorite",
+                    onFocusChange: setFocusedAction
+                ) {
+                    onToggleFavorite()
+                }
+            }
+            if shareURL != nil {
+                labeled("Distribuie") {
+                    shareButton
+                }
+            }
+        }
+    }
+
+    /// Stacks a `CircleControl` over a fixed-height label slot. The label
+    /// is rendered for every control but only revealed when that control
+    /// owns focus, so the row's vertical extent stays constant as focus
+    /// moves and the descriptor sits directly under the user's target.
+    @ViewBuilder
+    private func labeled<Content: View>(
+        _ label: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(spacing: 12) {
+            content()
+            Text(label)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(Theme.textPrimary)
+                .lineLimit(1)
+                .opacity(focusedAction == label ? 1 : 0)
+                .animation(.easeInOut(duration: 0.18), value: focusedAction)
+                .frame(height: 24, alignment: .top)
+                .frame(maxWidth: 140)
         }
     }
 

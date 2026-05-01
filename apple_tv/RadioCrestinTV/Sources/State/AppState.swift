@@ -149,6 +149,15 @@ final class AppState: ObservableObject {
         }
     }
 
+    /// Forces an out-of-cycle metadata poll. Used when something has just
+    /// changed — the user picked a station, the HLS timeline finished
+    /// establishing, app foregrounded — and we don't want to wait up to
+    /// 10s for the next scheduled tick before the now-playing line on
+    /// screen reflects the audio.
+    func refreshMetadataNow() async {
+        await pollOnce()
+    }
+
     /// Single poll iteration. Promotes to a full refresh after 30
     /// minutes, otherwise issues a differential metadata fetch and
     /// merges the result into `stations`.

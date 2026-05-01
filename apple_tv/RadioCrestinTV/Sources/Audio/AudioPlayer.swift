@@ -121,6 +121,15 @@ final class AudioPlayer: ObservableObject {
 
         currentStreamType = streams[attemptIndex].type
         let item = AVPlayerItem(url: url)
+        // Cap the forward buffer at 6s so the audio the user hears stays
+        // close to the live broadcast moment. The HLS playlists ship 6s
+        // segments with EXT-X-PROGRAM-DATE-TIME, so one segment of buffer
+        // is enough to keep stalls rare while keeping the now-playing
+        // metadata visibly in sync with the audio. AVPlayer's default
+        // stall-protection (`automaticallyWaitsToMinimizeStalling`) is
+        // intentionally left on — the user asked for "live without too
+        // much buffer, keep some defaults", not aggressive low-latency.
+        item.preferredForwardBufferDuration = 6
         observe(item: item)
         player.replaceCurrentItem(with: item)
     }
