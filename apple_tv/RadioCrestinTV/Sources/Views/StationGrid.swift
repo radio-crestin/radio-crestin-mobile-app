@@ -72,12 +72,13 @@ struct StationGrid<TrailingHeader: View>: View {
     }
 
     private var grid: some View {
-        // 4 columns on a 16:9 TV @ 280px card + 280px artwork is tight
-        // but legible. LazyVGrid handles offscreen cards efficiently.
-        let columns = [GridItem](
-            repeating: GridItem(.fixed(280), spacing: Theme.Spacing.lg),
-            count: 4
-        )
+        // Adaptive columns: SwiftUI fits as many cells as the available
+        // width allows, each at least 240pt wide and stretched to equal
+        // width — so the grid uses the entire screen width on any TV
+        // resolution rather than parking blank space on the right.
+        let columns = [
+            GridItem(.adaptive(minimum: 240), spacing: Theme.Spacing.lg)
+        ]
         return LazyVGrid(columns: columns, alignment: .leading,
                          spacing: Theme.Spacing.xl) {
             ForEach(stations) { station in

@@ -12,7 +12,10 @@ import SwiftUI
 struct StationArtwork: View {
     let station: Station
     let cornerRadius: CGFloat
-    let targetSize: CGSize
+    /// Optional fixed size. When nil, the artwork stretches to fill
+    /// whatever frame its parent gives it (e.g. an .aspectRatio(1)
+    /// modifier inside an adaptive grid cell).
+    var targetSize: CGSize? = nil
 
     @State private var attemptIndex = 0
 
@@ -41,7 +44,10 @@ struct StationArtwork: View {
                 .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
             }
         }
-        .frame(width: targetSize.width, height: targetSize.height)
+        // When targetSize is nil both dimensions are unspecified, so the
+        // ZStack stretches to whatever frame the parent provides (e.g.
+        // an .aspectRatio(1) inside a grid cell).
+        .frame(width: targetSize?.width, height: targetSize?.height)
         .onChange(of: candidateURLs) { _, _ in
             attemptIndex = 0
         }
@@ -68,8 +74,10 @@ struct StationArtwork: View {
                 colors: [Theme.surfaceVariant, Theme.surface],
                 startPoint: .topLeading, endPoint: .bottomTrailing
             )
+            // Falls back to a sensible icon size when the artwork is
+            // sized by its parent (no explicit targetSize).
             Image(systemName: "radio.fill")
-                .font(.system(size: targetSize.width * 0.35))
+                .font(.system(size: (targetSize?.width ?? 280) * 0.35))
                 .foregroundStyle(Theme.textTertiary)
         }
     }

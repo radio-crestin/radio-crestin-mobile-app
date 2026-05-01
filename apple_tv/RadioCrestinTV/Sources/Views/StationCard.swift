@@ -47,18 +47,21 @@ struct StationCard: View {
                 // or the artwork above.
                 .padding(Theme.Spacing.md)
             }
-            .frame(width: 280)
+            // Card width is owned by the parent grid so cells stretch
+            // equally to fill the screen at any TV resolution.
+            .frame(maxWidth: .infinity)
             .contentShape(Rectangle())
         }
         .buttonStyle(.card)
     }
 
     private var artwork: some View {
+        // Square artwork that follows the cell width.
         StationArtwork(
             station: station,
-            cornerRadius: Theme.Radius.lg,
-            targetSize: CGSize(width: 280, height: 280)
+            cornerRadius: Theme.Radius.lg
         )
+        .aspectRatio(1, contentMode: .fit)
     }
 
     private var playingBadge: some View {

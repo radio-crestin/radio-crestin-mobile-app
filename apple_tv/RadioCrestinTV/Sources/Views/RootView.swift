@@ -50,6 +50,24 @@ struct RootView: View {
             } else {
                 tabbedShell
                     .transition(.opacity)
+
+                // Brand mark — top-left, vertically aligned with the
+                // centered tab bar so the wordmark sits on the same
+                // baseline as "Posturi · Favorite · Recente · Setări".
+                // Non-focusable overlay; the focus engine ignores it
+                // and the underlying TabView keeps its standard D-pad
+                // navigation.
+                VStack {
+                    HStack {
+                        BrandMark()
+                            .padding(.leading, Theme.Spacing.xxl)
+                            .padding(.top, Theme.Spacing.lg)
+                        Spacer()
+                    }
+                    Spacer()
+                }
+                .allowsHitTesting(false)
+                .transition(.opacity)
             }
         }
         .animation(.easeInOut(duration: 0.22), value: nowPlayingStation?.id)
@@ -177,5 +195,23 @@ struct RootView: View {
     private func open(_ station: Station) {
         appState.selectStation(station)
         nowPlayingStation = station
+    }
+}
+
+/// Brand mark — the official logo asset (pink rounded square with the
+/// white fish from `logo_radio_crestin_com.svg`) plus the wordmark.
+/// Sized to read clearly at 10ft viewing distance without competing
+/// with the centered tab bar.
+struct BrandMark: View {
+    var body: some View {
+        HStack(spacing: 14) {
+            Image("BrandMark")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 48, height: 48)
+            Text("Radio Crestin")
+                .font(.system(size: 22, weight: .bold))
+                .foregroundStyle(Theme.textPrimary)
+        }
     }
 }

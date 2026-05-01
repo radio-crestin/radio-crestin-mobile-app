@@ -21,6 +21,11 @@ struct NowPlayingView: View {
     @State private var isSharing = false
     @State private var focusedAction: String?
 
+    /// Focus scope used to mark the play/pause button as the preferred
+    /// default focus target on entry. The user wants pause/resume to be
+    /// the canonical first action, not the back button.
+    @Namespace private var focusScope
+
     var body: some View {
         ZStack {
             // Background blur ignores the safe area so it bleeds to the
@@ -42,11 +47,14 @@ struct NowPlayingView: View {
             .padding(.top, 100)   // leave room for the back button row
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
 
-            // Persistent top bar with the back button, top-left aligned.
+            // Persistent top bar — back button on the left, brand mark
+            // on the right so the app identity stays visible from the
+            // station screen too.
             VStack {
-                HStack {
+                HStack(alignment: .center) {
                     backButton
                     Spacer()
+                    BrandMark()
                 }
                 Spacer()
             }
@@ -61,10 +69,11 @@ struct NowPlayingView: View {
                 .transition(.opacity)
             }
         }
-        // Declarative default focus — runs after the focus graph is built,
-        // so the back button reliably owns focus on entry. Replaces the
-        // earlier DispatchQueue-based workaround which was racy.
-        .defaultFocus($backButtonFocused, true)
+        // Default focus is owned by the play/pause button (see
+        // `.prefersDefaultFocus(true, in: focusScope)` on the play
+        // CircleControl) rather than the back button — the user wants
+        // pause/resume to be the canonical first action on entry.
+        .focusScope(focusScope)
         .onExitCommand {
             if isSharing { isSharing = false } else { onBack() }
         }
@@ -267,6 +276,7 @@ struct NowPlayingView: View {
             ) {
                 player.togglePlayPause()
             }
+            .prefersDefaultFocus(true, in: focusScope)
             CircleControl(
                 icon: "forward.fill",
                 label: "Postul următor",
