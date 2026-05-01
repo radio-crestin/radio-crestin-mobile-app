@@ -325,7 +325,7 @@ class _NowPlayingHero extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                     if (station.songTitle.isNotEmpty) ...[
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 4),
                       Text(
                         station.songArtist.isNotEmpty
                             ? '${station.songTitle}  ·  ${station.songArtist}'
@@ -338,35 +338,6 @@ class _NowPlayingHero extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
-                    const Spacer(),
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: TvColors.primary,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.play_arrow_rounded,
-                                  color: Colors.white, size: 18),
-                              SizedBox(width: 4),
-                              Text(
-                                'Deschide player-ul',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
                   ],
                 ),
               ),
