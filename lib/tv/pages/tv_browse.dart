@@ -97,7 +97,12 @@ class _TvBrowseState extends State<TvBrowse> {
 
   @override
   Widget build(BuildContext context) {
+    // canRequestFocus: false so this wrapper doesn't compete with the
+    // autofocused first card for initial focus — it only listens for
+    // ESC/back keys bubbling up from descendants.
     return Focus(
+      canRequestFocus: false,
+      skipTraversal: true,
       onKeyEvent: _onKeyEvent,
       child: ColoredBox(
         color: TvColors.background,
@@ -120,45 +125,48 @@ class _TvBrowseState extends State<TvBrowse> {
       );
     }
 
+    final marginH = TvSpacing.marginHorizontal;
     return Padding(
-      padding: EdgeInsets.fromLTRB(
-        TvSpacing.marginHorizontal,
-        TvSpacing.sm,
-        TvSpacing.marginHorizontal,
-        TvSpacing.lg,
-      ),
+      padding: const EdgeInsets.only(top: TvSpacing.sm),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.only(bottom: TvSpacing.md),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.auto_awesome,
-                  size: 22,
-                  color: Color(0xFFF59E0B),
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  'Pentru tine',
-                  style: TvTypography.headline.copyWith(fontSize: 22),
-                ),
-              ],
+            padding: EdgeInsets.symmetric(horizontal: marginH),
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: TvSpacing.sm),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.auto_awesome,
+                    size: 22,
+                    color: Color(0xFFF59E0B),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    'Pentru tine',
+                    style: TvTypography.headline.copyWith(fontSize: 22),
+                  ),
+                ],
+              ),
             ),
           ),
           Expanded(
             child: LayoutBuilder(
               builder: (context, constraints) {
-                // Aim for ~190px per column. Floor (not ceil) so cells stay
-                // a bit roomier than the target rather than getting squashed.
-                final columns = (constraints.maxWidth / 190).floor().clamp(2, 10);
+                // Cells fall back from the screen edge by `marginH` so the
+                // focused card's outer ring + glow has breathing room and
+                // doesn't get sliced off at the GridView's left/right edge.
+                final usable = constraints.maxWidth - marginH * 2;
+                final columns = (usable / 190).floor().clamp(2, 10);
                 return GridView.builder(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  padding: EdgeInsets.fromLTRB(
+                    marginH, 16, marginH, TvSpacing.lg,
+                  ),
                   gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: columns,
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 12,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 8,
                     childAspectRatio: 160 / 216,
                   ),
                   itemCount: stations.length,
