@@ -744,7 +744,18 @@ class AppAudioHandler extends BaseAudioHandler {
 
     while (item != null && myOpId == _playOperationId) {
       if (retry < maxRetries) {
-        final streams = item.extras?["station_streams"] as List<dynamic>?;
+        var streams = item.extras?["station_streams"] as List<dynamic>?;
+        // Desktop (Linux/Windows) uses just_audio_media_kit (libmpv ~2023-09) which
+        // has flaky support for HLS v9 with query params. Prefer direct streams there.
+        if (streams != null && (Platform.isWindows || Platform.isLinux)) {
+          final reordered = List<dynamic>.from(streams);
+          reordered.sort((a, b) {
+            final aHls = (a is Map && a["type"]?.toString() == 'HLS') ? 1 : 0;
+            final bHls = (b is Map && b["type"]?.toString() == 'HLS') ? 1 : 0;
+            return aHls - bHls;
+          });
+          streams = reordered;
+        }
         final streamEntry = streams?[retry % (streams?.length ?? 1)];
         final streamUrl = (streamEntry is Map ? streamEntry["url"] : streamEntry)?.toString() ?? item.id;
         final streamType = streamEntry is Map ? streamEntry["type"]?.toString() : null;
