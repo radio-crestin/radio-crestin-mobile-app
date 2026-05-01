@@ -48,17 +48,12 @@ void main() {
   group('SongLikeService', () {
     late SongLikeService service;
 
+    // The FFI factory persists the DB file across init() calls in the same
+    // test process — there is no public clear method on the service. Tests
+    // here use disjoint songId ranges (100001+, 200001+, ...) so they don't
+    // contaminate each other. Adding a test? Pick a fresh range.
     setUp(() async {
-      // Init creates a fresh DB at the platform default path; with the FFI
-      // factory the open path is in-process, so each test gets clean state
-      // by deleting the file before init.
       service = await SongLikeService.init();
-      // Wipe any persisted state from previous tests.
-      // We have no public clear method, so reset by re-deleting all rows.
-      // _db is private; round-trip through public APIs.
-      // Easiest: read every liked song id and overwrite to 0, then drop neutrals
-      // by refusing to test on persistent state instead. We force a fresh DB
-      // by relying on TempDir behavior of FFI default factory.
     });
 
     test('getLikeStatus returns 0 for invalid songId (<=0)', () {
