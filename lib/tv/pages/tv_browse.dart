@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:dpad/dpad.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get_it/get_it.dart';
@@ -12,14 +11,12 @@ import '../../services/station_sort_service.dart';
 import '../../services/play_count_service.dart';
 import '../../types/Station.dart';
 import '../tv_theme.dart';
-import '../widgets/desktop_focusable.dart';
-import '../widgets/tv_station_row.dart';
+import '../widgets/tv_station_card.dart';
 
-/// TV homepage — Android TV–style "rails" layout.
+/// TV homepage — single grid of all stations sorted "Pentru tine".
 ///
-/// Header bar with brand mark + settings gear, a hero "Now Playing"
-/// card when something is playing, then a vertical list of horizontal
-/// rails (Favorites, Pentru tine, Cele mai ascultate, Toate stațiile).
+/// Brand mark on top, "Pentru tine" section header, then a grid of
+/// station cards. ESC / BACK returns to Now Playing.
 class TvBrowse extends StatefulWidget {
   final VoidCallback onBack;
   final ValueChanged<Station> onStationSelected;
@@ -76,36 +73,15 @@ class _TvBrowseState extends State<TvBrowse> {
     super.dispose();
   }
 
-  // ─── Rail content ───────────────────────────────────────────────
-
-  List<Station> _sortedBy(StationSortOption opt) {
+  List<Station> get _sortedStations {
     final playCounts = GetIt.instance<PlayCountService>().playCounts;
     return StationSortService.sort(
       stations: List<Station>.from(_allStations),
-      sortBy: opt,
+      sortBy: StationSortOption.recommended,
       playCounts: playCounts,
       favoriteSlugs: _favoriteSlugs,
     ).sorted;
   }
-
-  List<Station> get _favorites {
-    final favSet = _favoriteSlugs.toSet();
-    return _allStations.where((s) => favSet.contains(s.slug)).toList()
-      ..sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
-  }
-
-  List<Station> get _mostPlayed {
-    final counts = GetIt.instance<PlayCountService>().playCounts;
-    if (counts.isEmpty) return const [];
-    final playedSlugs = counts.entries.where((e) => e.value > 0).map((e) => e.key).toSet();
-    if (playedSlugs.isEmpty) return const [];
-    final sorted = _sortedBy(StationSortOption.mostPlayed);
-    return sorted.where((s) => playedSlugs.contains(s.slug)).toList();
-  }
-
-  // ─── Actions ────────────────────────────────────────────────────
-
-  void _openNowPlaying() => widget.onBack();
 
   KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
@@ -119,8 +95,6 @@ class _TvBrowseState extends State<TvBrowse> {
     return KeyEventResult.ignored;
   }
 
-  // ─── Build ──────────────────────────────────────────────────────
-
   @override
   Widget build(BuildContext context) {
     return Focus(
@@ -131,62 +105,75 @@ class _TvBrowseState extends State<TvBrowse> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const _Header(),
-            Expanded(child: _buildRails()),
+            Expanded(child: _buildGrid()),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildRails() {
-    if (_allStations.isEmpty) {
+  Widget _buildGrid() {
+    final stations = _sortedStations;
+    if (stations.isEmpty) {
       return Center(
         child: Text('Nu sunt posturi', style: TvTypography.body),
       );
     }
 
-    final favorites = _favorites;
-    final recommendations = _sortedBy(StationSortOption.recommended);
-    final mostPlayed = _mostPlayed;
-    final alphabetical = _sortedBy(StationSortOption.alphabetical);
-
-    final hero = _currentStation;
-    final rails = <Widget>[];
-    bool grabbedAutofocus = false;
-
-    if (hero != null) {
-      rails.add(_NowPlayingHero(
-        station: hero,
-        autofocus: !grabbedAutofocus,
-        onTap: _openNowPlaying,
-      ));
-      grabbedAutofocus = true;
-    }
-
-    void addRail(String title, List<Station> stations) {
-      if (stations.isEmpty) return;
-      rails.add(TvStationRow(
-        title: title,
-        stations: stations,
-        currentStation: _currentStation,
-        favoriteSlugs: _favoriteSlugs,
-        autofocusFirst: !grabbedAutofocus,
-        onStationSelected: widget.onStationSelected,
-      ));
-      grabbedAutofocus = true;
-    }
-
-    addRail('Favoritele tale', favorites);
-    addRail('Pentru tine', recommendations);
-    addRail('Cele mai ascultate', mostPlayed);
-    addRail('Toate stațiile', alphabetical);
-
-    return ListView(
-      // Clip.none lets the focused card's outer glow render past the
-      // viewport edges instead of being sliced off mid-rail.
-      clipBehavior: Clip.none,
-      padding: const EdgeInsets.only(top: TvSpacing.sm, bottom: TvSpacing.lg),
-      children: rails,
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        TvSpacing.marginHorizontal,
+        TvSpacing.sm,
+        TvSpacing.marginHorizontal,
+        TvSpacing.lg,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: TvSpacing.md),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.auto_awesome,
+                  size: 22,
+                  color: Color(0xFFF59E0B),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  'Pentru tine',
+                  style: TvTypography.headline.copyWith(fontSize: 22),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: GridView.builder(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                maxCrossAxisExtent: 220,
+                crossAxisSpacing: 20,
+                mainAxisSpacing: 20,
+                childAspectRatio: 160 / 216,
+              ),
+              itemCount: stations.length,
+              itemBuilder: (_, i) {
+                final s = stations[i];
+                return TvStationCard(
+                  station: s,
+                  isPlaying: _currentStation?.id == s.id,
+                  isFavorite: _favoriteSlugs.contains(s.slug),
+                  region: 'content',
+                  isEntryPoint: i == 0,
+                  autofocus: i == 0,
+                  onSelect: () => widget.onStationSelected(s),
+                  onFavoriteToggle: () {},
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -226,127 +213,6 @@ class _Header extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// Now Playing hero card.
-// ─────────────────────────────────────────────────────────────────────
-class _NowPlayingHero extends StatelessWidget {
-  final Station station;
-  final bool autofocus;
-  final VoidCallback onTap;
-
-  const _NowPlayingHero({
-    required this.station,
-    required this.autofocus,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        TvSpacing.marginHorizontal,
-        TvSpacing.sm,
-        TvSpacing.marginHorizontal,
-        TvSpacing.lg,
-      ),
-      child: DesktopFocusable(
-        autofocus: autofocus,
-        onSelect: onTap,
-        builder: FocusEffects.scaleWithBorder(
-          scale: 1.02,
-          borderColor: TvColors.primary,
-          borderWidth: 3,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Container(
-          height: 160,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-              colors: [
-                TvColors.primary.withValues(alpha: 0.18),
-                TvColors.surface,
-              ],
-            ),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.06),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.4),
-                blurRadius: 18,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          padding: const EdgeInsets.all(TvSpacing.md),
-          child: Row(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: SizedBox(
-                  width: 128,
-                  height: 128,
-                  child: station.displayThumbnail(cacheWidth: 256),
-                ),
-              ),
-              const SizedBox(width: TvSpacing.lg),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.equalizer_rounded,
-                            color: TvColors.primary, size: 18),
-                        const SizedBox(width: 6),
-                        Text(
-                          'SE REDĂ ACUM',
-                          style: TvTypography.caption.copyWith(
-                            color: TvColors.primary,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 1.2,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      station.title,
-                      style: TvTypography.headline
-                          .copyWith(fontSize: 26, fontWeight: FontWeight.w800),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (station.songTitle.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        station.songArtist.isNotEmpty
-                            ? '${station.songTitle}  ·  ${station.songArtist}'
-                            : station.songTitle,
-                        style: TvTypography.body.copyWith(
-                          fontSize: 15,
-                          color: TvColors.textSecondary,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
