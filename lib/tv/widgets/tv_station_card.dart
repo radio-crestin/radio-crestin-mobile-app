@@ -7,7 +7,7 @@ import 'desktop_focusable.dart';
 
 /// Square station card for TV browse.
 /// Shows thumbnail (1:1), station title, and current song below.
-class TvStationCard extends StatelessWidget {
+class TvStationCard extends StatefulWidget {
   final Station station;
   final bool isPlaying;
   final bool isFavorite;
@@ -34,8 +34,29 @@ class TvStationCard extends StatelessWidget {
   });
 
   @override
+  State<TvStationCard> createState() => _TvStationCardState();
+}
+
+class _TvStationCardState extends State<TvStationCard> {
+  bool _hover = false;
+
+  @override
   Widget build(BuildContext context) {
-    return SizedBox(
+    final station = widget.station;
+    final isPlaying = widget.isPlaying;
+    final isFavorite = widget.isFavorite;
+    final autofocus = widget.autofocus;
+    final region = widget.region;
+    final isEntryPoint = widget.isEntryPoint;
+    final cardSize = TvStationCard.cardSize;
+    return MouseRegion(
+      onEnter: (_) {
+        if (TvPlatform.isDesktop && !_hover) setState(() => _hover = true);
+      },
+      onExit: (_) {
+        if (TvPlatform.isDesktop && _hover) setState(() => _hover = false);
+      },
+      child: SizedBox(
       width: cardSize + 14,
       height: cardSize + 56,
       child: Column(
@@ -46,8 +67,8 @@ class TvStationCard extends StatelessWidget {
             autofocus: autofocus,
             region: region,
             isEntryPoint: isEntryPoint,
-            onSelect: onSelect,
-            onFocus: () => onFocus?.call(station),
+            onSelect: widget.onSelect,
+            onFocus: () => widget.onFocus?.call(station),
             builder: (context, isFocused, child) {
               if (TvPlatform.isDesktop) {
                 // Desktop: scale only, no border
@@ -63,6 +84,9 @@ class TvStationCard extends StatelessWidget {
                 );
               }
               // TV: border + scale + glow for D-pad visibility from across the room.
+              // Outer radius = inner radius (10) + padding (3) so the border
+              // stays concentric with the thumbnail rounding — without this
+              // the corners look slightly off where the curves don't meet.
               return AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 curve: Curves.easeOut,
@@ -70,9 +94,9 @@ class TvStationCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   border: Border.all(
                     color: isFocused ? TvColors.primary : Colors.transparent,
-                    width: 3.5,
+                    width: 3,
                   ),
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(13),
                   boxShadow: isFocused
                       ? [
                           BoxShadow(
@@ -130,6 +154,19 @@ class TvStationCard extends StatelessWidget {
                         ),
                       ),
                     ),
+                  // Favorite heart overlay (desktop): always visible when
+                  // favorited, fades in on hover otherwise. On TV, only
+                  // shows when favorited (read-only state indicator).
+                  if (isFavorite || (TvPlatform.isDesktop && _hover))
+                    Positioned(
+                      top: 6,
+                      right: 6,
+                      child: _HeartButton(
+                        isFavorite: isFavorite,
+                        onTap: widget.onFavoriteToggle,
+                        interactive: TvPlatform.isDesktop,
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -176,6 +213,71 @@ class TvStationCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+      ),
+    );
+  }
+}
+
+class _HeartButton extends StatefulWidget {
+  final bool isFavorite;
+  final VoidCallback onTap;
+  final bool interactive;
+
+  const _HeartButton({
+    required this.isFavorite,
+    required this.onTap,
+    required this.interactive,
+  });
+
+  @override
+  State<_HeartButton> createState() => _HeartButtonState();
+}
+
+class _HeartButtonState extends State<_HeartButton> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final fav = widget.isFavorite;
+    final btn = AnimatedContainer(
+      duration: const Duration(milliseconds: 150),
+      width: 28,
+      height: 28,
+      decoration: BoxDecoration(
+        color: fav
+            ? Colors.black.withValues(alpha: 0.45)
+            : Colors.black.withValues(alpha: _hover ? 0.55 : 0.4),
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: fav
+              ? TvColors.primary.withValues(alpha: 0.6)
+              : Colors.white.withValues(alpha: _hover ? 0.35 : 0.2),
+          width: 1,
+        ),
+      ),
+      child: Icon(
+        fav ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+        size: 16,
+        color: fav ? TvColors.primary : Colors.white,
+      ),
+    );
+
+    if (!widget.interactive) return btn;
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: widget.onTap,
+        child: Tooltip(
+          message: fav
+              ? 'Elimină de la favorite'
+              : 'Adaugă la favorite',
+          child: btn,
+        ),
       ),
     );
   }

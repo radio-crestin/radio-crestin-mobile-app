@@ -63,6 +63,27 @@ class _TvBrowseState extends State<TvBrowse> {
         }
       }),
     );
+
+    // Returning to the homepage from Now Playing left primary focus
+    // pointed at the just-disposed play button: the first card *looked*
+    // focused but D-pad keys went nowhere because the focused node was
+    // a dead reference. Run two passes after the first frame:
+    //
+    //   1. drop the stale primary focus so the card's own autofocus
+    //      can claim it; and
+    //   2. on the *next* frame (post-card-mount), as a belt-and-braces
+    //      fallback, walk the scope and force focus onto the first
+    //      focusable if nobody picked it up.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      FocusManager.instance.primaryFocus?.unfocus();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final primary = FocusManager.instance.primaryFocus;
+        if (primary != null && primary.context != null) return;
+        FocusScope.of(context).focusInDirection(TraversalDirection.down);
+      });
+    });
   }
 
   @override
