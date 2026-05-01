@@ -23,7 +23,6 @@ struct SettingsView: View {
                     .padding(.bottom, Theme.Spacing.md)
 
                 aboutSection
-                statsSection
                 legalSection
             }
             .padding(.horizontal, Theme.Spacing.xxl)
@@ -55,23 +54,6 @@ struct SettingsView: View {
                 action: nil),
             Row(icon: "info.circle", title: "Versiune",
                 subtitle: appVersionString,
-                action: nil)
-        ])
-    }
-
-    private var statsSection: some View {
-        section(title: "Statistici", rows: [
-            Row(icon: "music.note.list",
-                title: "Posturi disponibile",
-                subtitle: "\(appState.stations.count)",
-                action: nil),
-            Row(icon: "heart.fill",
-                title: "Posturile tale favorite",
-                subtitle: "\(appState.favoriteSlugs.count)",
-                action: nil),
-            Row(icon: "play.circle",
-                title: "Posturi redate",
-                subtitle: "\(appState.playCounts.values.reduce(0, +))",
                 action: nil)
         ])
     }
@@ -111,15 +93,15 @@ struct SettingsView: View {
                 .foregroundStyle(Theme.textSecondary)
                 .padding(.bottom, Theme.Spacing.xs)
             ForEach(rows) { row in
-                if let action = row.action {
-                    Button(action: action) {
-                        rowContent(row)
-                    }
-                    .buttonStyle(.card)
-                } else {
+                // Every row is a focusable Button so the D-pad can move
+                // through the whole page. Informational rows (no
+                // `action`) still take focus — they just no-op on
+                // select. Without this, focus could only land on the
+                // Legal rows and the user couldn't traverse the page.
+                Button(action: row.action ?? {}) {
                     rowContent(row)
-                        .opacity(0.85)
                 }
+                .buttonStyle(.card)
             }
         }
     }
