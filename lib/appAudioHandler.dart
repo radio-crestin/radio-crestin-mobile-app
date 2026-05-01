@@ -56,6 +56,62 @@ class ConnectionError {
   });
 }
 
+/// Snapshot of the currently loaded stream. Drives the diagnostic UI in
+/// Settings and is included in PostHog `listening_*` heartbeats so sessions
+/// can be correlated with stream switches.
+class StreamInfo {
+  final String url;
+  final String? type;        // 'HLS', 'proxied_stream', etc. — from station_streams.type
+  final int attemptIndex;    // 0-based index into the station's stream list
+  final int totalStreams;
+  final String stationSlug;
+  final String stationTitle;
+  final DateTime loadedAt;
+
+  const StreamInfo({
+    required this.url,
+    required this.type,
+    required this.attemptIndex,
+    required this.totalStreams,
+    required this.stationSlug,
+    required this.stationTitle,
+    required this.loadedAt,
+  });
+
+  String get host {
+    try {
+      return Uri.parse(url).host;
+    } catch (_) {
+      return url;
+    }
+  }
+}
+
+enum StreamEventKind {
+  attempt,            // play() trying to load a stream
+  loaded,             // setAudioSource succeeded
+  failed,             // setAudioSource raised
+  switched,           // loaded URL differs from previous loaded URL
+  hlsCompleted,       // HLS reported processingState == completed
+  nonHlsCompleted,    // direct MP3 completed (treated as error)
+  lostIdle,           // processingState == idle while playing
+  bufferingStall,     // buffering exceeded threshold
+}
+
+/// Lightweight event record kept in a capped ring buffer for the in-app
+/// diagnostic view.
+class StreamEvent {
+  final DateTime timestamp;
+  final StreamEventKind kind;
+  final String message;
+
+  const StreamEvent({
+    required this.timestamp,
+    required this.kind,
+    required this.message,
+  });
+}
+
 Future<AppAudioHandler> initAudioService({required graphqlClient}) async {
   final AudioPlayer player = AudioPlayer(
     // TODO: enable userAgent to identify users
@@ -155,8 +211,39 @@ class AppAudioHandler extends BaseAudioHandler {
   final PublishSubject<ConnectionError> connectionError = PublishSubject<ConnectionError>();
   final BehaviorSubject<List<MediaItem>> stationsMediaItems = BehaviorSubject.seeded(<MediaItem>[]);
 
+  /// Currently loaded stream (null when stopped, paused-and-disconnected, or casting).
+  final BehaviorSubject<StreamInfo?> currentStreamInfo = BehaviorSubject.seeded(null);
+
+  /// Capped ring buffer of recent stream lifecycle events for in-app debugging.
+  /// Most recent first; `_maxStreamEvents` keeps memory bounded.
+  static const int _maxStreamEvents = 20;
+  final BehaviorSubject<List<StreamEvent>> recentStreamEvents =
+      BehaviorSubject.seeded(const <StreamEvent>[]);
+
+  void _recordStreamEvent(StreamEventKind kind, String message) {
+    final event = StreamEvent(
+      timestamp: DateTime.now(),
+      kind: kind,
+      message: message,
+    );
+    final next = <StreamEvent>[event, ...recentStreamEvents.value];
+    if (next.length > _maxStreamEvents) {
+      next.removeRange(_maxStreamEvents, next.length);
+    }
+    recentStreamEvents.add(next);
+  }
+
   _log(String message) {
     developer.log("AppAudioHandler: $message");
+  }
+
+  /// Compact error description for logs/PostHog (avoids dumping multi-line stack traces).
+  static String _shortErr(Object e) {
+    if (e is TimeoutException) return 'TimeoutException';
+    if (e is PlayerException) return 'PlayerException(${e.code}): ${e.message ?? ''}';
+    if (e is SocketException) return 'SocketException: ${e.message}';
+    final s = e.toString();
+    return s.length > 200 ? s.substring(0, 200) : s;
   }
 
   /// Classifies the last caught error into a [ConnectionError] with a reason.
@@ -414,11 +501,43 @@ class AppAudioHandler extends BaseAudioHandler {
         final isHls = _loadedStreamType == 'HLS';
         if (isHls) {
           _log("processingStateStream: HLS stream completed unexpectedly, reconnecting");
+          final lastInfo = currentStreamInfo.valueOrNull;
+          _recordStreamEvent(
+            StreamEventKind.hlsCompleted,
+            'HLS completed unexpectedly — reconnecting',
+          );
+          AnalyticsService.instance.capture('stream_unexpected_completion', {
+            'station_slug': lastInfo?.stationSlug ?? currentStation.valueOrNull?.slug ?? '',
+            'station_id': currentStation.valueOrNull?.id,
+            'stream_url': lastInfo?.url,
+            'stream_type': lastInfo?.type ?? 'HLS',
+            'stream_index': lastInfo?.attemptIndex,
+            'total_streams': lastInfo?.totalStreams,
+            'ms_since_loaded': lastInfo == null
+                ? null
+                : DateTime.now().difference(lastInfo.loadedAt).inMilliseconds,
+          });
           _loadedStreamUrl = null;
           _loadedStreamType = null;
           play();
         } else {
           _log("processingStateStream: non-HLS stream completed unexpectedly");
+          final lastInfo = currentStreamInfo.valueOrNull;
+          _recordStreamEvent(
+            StreamEventKind.nonHlsCompleted,
+            'Non-HLS stream completed — stopping',
+          );
+          AnalyticsService.instance.capture('stream_unexpected_completion', {
+            'station_slug': lastInfo?.stationSlug ?? currentStation.valueOrNull?.slug ?? '',
+            'station_id': currentStation.valueOrNull?.id,
+            'stream_url': lastInfo?.url,
+            'stream_type': lastInfo?.type,
+            'stream_index': lastInfo?.attemptIndex,
+            'total_streams': lastInfo?.totalStreams,
+            'ms_since_loaded': lastInfo == null
+                ? null
+                : DateTime.now().difference(lastInfo.loadedAt).inMilliseconds,
+          });
           final stationName = currentStation.valueOrNull?.title ?? '';
           connectionError.add(ConnectionError(
             stationName: stationName,
@@ -430,6 +549,22 @@ class AppAudioHandler extends BaseAudioHandler {
         _bufferingStallTimer?.cancel();
         if (_isConnecting) return;
         _log("processingStateStream: stream lost (idle while playing), reconnecting");
+        final lastInfo = currentStreamInfo.valueOrNull;
+        _recordStreamEvent(
+          StreamEventKind.lostIdle,
+          'Stream lost (idle while playing) — reconnecting',
+        );
+        AnalyticsService.instance.capture('stream_lost_idle', {
+          'station_slug': lastInfo?.stationSlug ?? currentStation.valueOrNull?.slug ?? '',
+          'station_id': currentStation.valueOrNull?.id,
+          'stream_url': lastInfo?.url,
+          'stream_type': lastInfo?.type,
+          'stream_index': lastInfo?.attemptIndex,
+          'total_streams': lastInfo?.totalStreams,
+          'ms_since_loaded': lastInfo == null
+              ? null
+              : DateTime.now().difference(lastInfo.loadedAt).inMilliseconds,
+        });
         _loadedStreamUrl = null;
         _loadedStreamType = null;
         play();
@@ -440,6 +575,20 @@ class AppAudioHandler extends BaseAudioHandler {
         _bufferingStallTimer = Timer(_bufferingStallTimeout, () {
           if (player.processingState == ProcessingState.buffering && player.playing) {
             _log("processingStateStream: buffering stalled for ${_bufferingStallTimeout.inSeconds}s, stopping");
+            final lastInfo = currentStreamInfo.valueOrNull;
+            _recordStreamEvent(
+              StreamEventKind.bufferingStall,
+              'Buffering stalled ${_bufferingStallTimeout.inSeconds}s — stopping',
+            );
+            AnalyticsService.instance.capture('stream_buffering_stall', {
+              'station_slug': lastInfo?.stationSlug ?? currentStation.valueOrNull?.slug ?? '',
+              'station_id': currentStation.valueOrNull?.id,
+              'stream_url': lastInfo?.url,
+              'stream_type': lastInfo?.type,
+              'stream_index': lastInfo?.attemptIndex,
+              'total_streams': lastInfo?.totalStreams,
+              'stall_seconds': _bufferingStallTimeout.inSeconds,
+            });
             final stationName = currentStation.valueOrNull?.title ?? '';
             connectionError.add(ConnectionError(
               stationName: stationName,
@@ -818,15 +967,38 @@ class AppAudioHandler extends BaseAudioHandler {
     Object? lastError;
     final canceller = Completer<void>();
     _sourceLoadCanceller = canceller;
+    final previousStreamInfo = currentStreamInfo.valueOrNull;
 
     while (item != null && myOpId == _playOperationId) {
       if (retry < maxRetries) {
         final streams = item.extras?["station_streams"] as List<dynamic>?;
-        final streamEntry = streams?[retry % (streams?.length ?? 1)];
+        final totalStreams = streams?.length ?? 0;
+        final streamEntry = streams?[retry % (totalStreams == 0 ? 1 : totalStreams)];
         final streamUrl = (streamEntry is Map ? streamEntry["url"] : streamEntry)?.toString() ?? item.id;
         final streamType = streamEntry is Map ? streamEntry["type"]?.toString() : null;
+        final attemptIndex = totalStreams == 0 ? 0 : retry % totalStreams;
         final isHls = streamType == 'HLS';
         _log("play: attempt $retry - $streamUrl (type: $streamType)");
+
+        final stationSlug = item.extras?["station_slug"]?.toString() ?? '';
+        final stationId = item.extras?["station_id"];
+        final stationTitle = item.extras?["station_title"]?.toString() ?? '';
+
+        _recordStreamEvent(
+          StreamEventKind.attempt,
+          'Attempt ${attemptIndex + 1}/$totalStreams ${streamType ?? '?'}',
+        );
+        AnalyticsService.instance.capture('stream_attempt', {
+          'station_slug': stationSlug,
+          if (stationId != null) 'station_id': stationId,
+          'stream_url': streamUrl,
+          'stream_type': streamType,
+          'stream_index': attemptIndex,
+          'total_streams': totalStreams,
+          'retry': retry,
+        });
+
+        final attemptStart = DateTime.now();
         try {
           if (retry > 0) {
             await player.stop();
@@ -844,10 +1016,71 @@ class AppAudioHandler extends BaseAudioHandler {
           await Future.any([loadFuture, canceller.future]).timeout(timeout);
           _loadedStreamUrl = streamUrl;
           _loadedStreamType = streamType;
+          final elapsedMs = DateTime.now().difference(attemptStart).inMilliseconds;
           _log("play: source loaded successfully ($trackedUrl)");
+
+          final newInfo = StreamInfo(
+            url: streamUrl,
+            type: streamType,
+            attemptIndex: attemptIndex,
+            totalStreams: totalStreams,
+            stationSlug: stationSlug,
+            stationTitle: stationTitle,
+            loadedAt: DateTime.now(),
+          );
+          currentStreamInfo.add(newInfo);
+          AnalyticsService.instance.setCurrentStream(
+            url: streamUrl,
+            type: streamType,
+            index: attemptIndex,
+            total: totalStreams,
+          );
+
+          _recordStreamEvent(
+            StreamEventKind.loaded,
+            '${streamType ?? '?'} loaded in ${elapsedMs}ms',
+          );
+          AnalyticsService.instance.capture('stream_loaded', {
+            'station_slug': stationSlug,
+            if (stationId != null) 'station_id': stationId,
+            'stream_url': streamUrl,
+            'stream_type': streamType,
+            'stream_index': attemptIndex,
+            'total_streams': totalStreams,
+            'elapsed_ms': elapsedMs,
+            'retry': retry,
+          });
+
+          // Fire stream_switched only when the loaded URL differs from the
+          // previously-loaded URL — distinguishes a true fallback switch from
+          // a same-stream reconnect.
+          if (previousStreamInfo != null && previousStreamInfo.url != streamUrl) {
+            final reason = previousStreamInfo.stationSlug != stationSlug
+                ? 'station_change'
+                : (retry > 0 ? 'load_failed_fallback' : 'reconnect_to_different');
+            _recordStreamEvent(
+              StreamEventKind.switched,
+              'Switched to ${streamType ?? '?'} #${attemptIndex + 1} ($reason)',
+            );
+            AnalyticsService.instance.capture('stream_switched', {
+              'station_slug': stationSlug,
+              if (stationId != null) 'station_id': stationId,
+              'reason': reason,
+              'previous_url': previousStreamInfo.url,
+              'new_url': streamUrl,
+              'previous_type': previousStreamInfo.type,
+              'new_type': streamType,
+              'previous_index': previousStreamInfo.attemptIndex,
+              'new_index': attemptIndex,
+              'retry_count': retry,
+              'ms_since_last_load':
+                  DateTime.now().difference(previousStreamInfo.loadedAt).inMilliseconds,
+            });
+          }
           break;
         } catch (e) {
           lastError = e;
+          final elapsedMs = DateTime.now().difference(attemptStart).inMilliseconds;
           _loadedStreamUrl = null;
           _loadedStreamType = null;
           // If superseded by a newer playStation(), exit immediately
@@ -856,6 +1089,21 @@ class AppAudioHandler extends BaseAudioHandler {
             break;
           }
           _log("play: attempt $retry failed - $e");
+          _recordStreamEvent(
+            StreamEventKind.failed,
+            'Attempt ${attemptIndex + 1}/$totalStreams failed (${elapsedMs}ms): ${_shortErr(e)}',
+          );
+          AnalyticsService.instance.capture('stream_failed', {
+            'station_slug': stationSlug,
+            if (stationId != null) 'station_id': stationId,
+            'stream_url': streamUrl,
+            'stream_type': streamType,
+            'stream_index': attemptIndex,
+            'total_streams': totalStreams,
+            'retry': retry,
+            'elapsed_ms': elapsedMs,
+            'error': _shortErr(e),
+          });
           retry++;
         }
       } else {
@@ -863,6 +1111,8 @@ class AppAudioHandler extends BaseAudioHandler {
         _isConnecting = false;
         _loadedStreamUrl = null;
         _loadedStreamType = null;
+        currentStreamInfo.add(null);
+        AnalyticsService.instance.setCurrentStream(url: null, type: null, index: null, total: null);
         PerformanceMonitor.endOperation('audio_play');
         final stationName = currentStation.valueOrNull?.title ?? '';
         final classifiedError = _classifyError(stationName, lastError);
@@ -918,6 +1168,8 @@ class AppAudioHandler extends BaseAudioHandler {
       _log("pause: disconnecting idle stream after ${_disconnectDelay.inSeconds}s");
       _loadedStreamUrl = null;
       _loadedStreamType = null;
+      currentStreamInfo.add(null);
+      AnalyticsService.instance.setCurrentStream(url: null, type: null, index: null, total: null);
       player.setAudioSource(
         AudioSource.uri(Uri.parse(CONSTANTS.STATIC_MP3_URL)),
         preload: false,
@@ -1043,6 +1295,8 @@ class AppAudioHandler extends BaseAudioHandler {
     _bufferingStallTimer?.cancel();
     _loadedStreamUrl = null;
     _loadedStreamType = null;
+    currentStreamInfo.add(null);
+    AnalyticsService.instance.setCurrentStream(url: null, type: null, index: null, total: null);
     await player.stop();
     // Broadcast stopped state with controls still available (no super.stop())
     _broadcastState(player.playbackEvent);
@@ -1064,6 +1318,8 @@ class AppAudioHandler extends BaseAudioHandler {
     _stopHlsPlaylistRefresh();
     _loadedStreamUrl = null;
     _loadedStreamType = null;
+    currentStreamInfo.add(null);
+    AnalyticsService.instance.setCurrentStream(url: null, type: null, index: null, total: null);
     await player.stop();
     return super.stop();
   }
