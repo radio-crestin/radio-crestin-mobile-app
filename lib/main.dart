@@ -23,7 +23,9 @@ import 'package:upgrader/upgrader.dart';
 import 'package:radio_crestin/theme.dart';
 import 'package:radio_crestin/theme_manager.dart';
 import 'package:radio_crestin/seek_mode_manager.dart';
+import 'package:just_audio_media_kit/just_audio_media_kit.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'appAudioHandler.dart';
 import 'constants.dart';
@@ -82,18 +84,41 @@ Future<void> initializeFirebaseMessaging() async {
   }
 }
 
+// Firebase plugins (messaging, app_installations, remote_config) don't support
+// Windows/Linux desktop. Skip Firebase entirely on those platforms.
+final bool _firebaseSupported =
+    kIsWeb || Platform.isAndroid || Platform.isIOS || Platform.isMacOS;
+
 void main() async {
   PerformanceMonitor.markAppStart();
 
   WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
 
+  // Initialize sqflite FFI for desktop platforms (Windows/Linux/macOS).
+  // The default sqflite plugin only ships native libs for Android/iOS.
+  if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+  }
+
+  // Register libmpv-backed just_audio implementation for Windows/Linux.
+  // Must run before any AudioPlayer is constructed (i.e. before AudioService.init).
+  if (!kIsWeb && (Platform.isWindows || Platform.isLinux)) {
+    JustAudioMediaKit.ensureInitialized(
+      windows: true,
+      linux: true,
+    );
+  }
+
   // Phase 1: Start ALL independent async operations in parallel.
   // Firebase, Hive, SharedPreferences, image cache, network, and PackageInfo
   // have no dependencies on each other — run them all concurrently.
-  final firebaseInitFuture = PerformanceMonitor.trackAsync('firebase_init', () =>
-    Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform),
-  );
+  final Future<void> firebaseInitFuture = _firebaseSupported
+      ? PerformanceMonitor.trackAsync('firebase_init', () =>
+          Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform),
+        )
+      : Future.value();
 
   final hiveStoreFuture = PerformanceMonitor.trackAsync<Store>('hive_store_init', () async {
     try {
@@ -245,7 +270,9 @@ void main() async {
     AnalyticsService.instance.setUserProperty('personalized_n', 'true');
   }
 
-  PerformanceMonitor.trackAsync('firebase_messaging_init', () => initializeFirebaseMessaging());
+  if (_firebaseSupported) {
+    PerformanceMonitor.trackAsync('firebase_messaging_init', () => initializeFirebaseMessaging());
+  }
 
   // Wait for audio + packageInfo
   final serviceResults = await Future.wait([audioHandlerFuture, packageInfoFuture]);

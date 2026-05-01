@@ -29,8 +29,11 @@ class StationsList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SliverFixedExtentList(
-      itemExtent: 105.0,
+    return SliverGrid(
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 700,
+        mainAxisExtent: 105,
+      ),
       delegate: SliverChildBuilderDelegate(
         (context, itemIdx) {
           final station = stations[itemIdx];

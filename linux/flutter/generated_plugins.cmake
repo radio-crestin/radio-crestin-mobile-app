@@ -4,6 +4,8 @@
 
 list(APPEND FLUTTER_PLUGIN_LIST
   gtk
+  media_kit_libs_linux
+  sqlite3_flutter_libs
   url_launcher_linux
 )
 
