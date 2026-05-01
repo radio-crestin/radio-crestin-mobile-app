@@ -56,7 +56,17 @@ struct ShareSheet: View {
         }
         // Autofocus the dismiss control — the QR is the entire payload,
         // so the only thing the user needs to do is close the sheet.
-        .defaultFocus($closeFocused, true)
+        // `.defaultFocus` alone wasn't reliable here because the sheet
+        // is conditionally inserted via the parent's `.overlay`; focus
+        // stayed on whatever row opened the modal. An explicit
+        // `.task` set on `closeFocused` reliably transfers focus and
+        // makes `onExitCommand` (which is scope-relative) actually
+        // fire when the user presses Menu / ESC.
+        .focusSection()
+        .task {
+            try? await Task.sleep(nanoseconds: 50_000_000)
+            closeFocused = true
+        }
         .onExitCommand(perform: onDismiss)
     }
 
