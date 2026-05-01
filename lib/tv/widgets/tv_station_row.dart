@@ -48,15 +48,24 @@ class TvStationRow extends StatelessWidget {
               ),
             ),
           ),
+          // Extra vertical room (24px top, 18px bottom) lets the focused
+          // card's scaled border and glow render outside the column's natural
+          // height. The horizontal ListView uses Clip.none so the glow on
+          // the leftmost / rightmost focused card isn't sliced off either.
           SizedBox(
-            height: TvStationCard.cardSize + 68,
+            height: TvStationCard.cardSize + 68 + 42,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              padding: EdgeInsets.symmetric(
-                  horizontal: TvSpacing.marginHorizontal),
+              clipBehavior: Clip.none,
+              padding: EdgeInsets.fromLTRB(
+                TvSpacing.marginHorizontal,
+                24,
+                TvSpacing.marginHorizontal,
+                18,
+              ),
               itemCount: stations.length,
               separatorBuilder: (_, __) =>
-                  const SizedBox(width: TvSpacing.sm),
+                  const SizedBox(width: TvSpacing.md),
               itemBuilder: (context, index) {
                 final station = stations[index];
                 final isPlaying = currentStation?.id == station.id;

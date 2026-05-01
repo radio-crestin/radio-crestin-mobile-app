@@ -182,6 +182,9 @@ class _TvBrowseState extends State<TvBrowse> {
     addRail('Toate stațiile', alphabetical);
 
     return ListView(
+      // Clip.none lets the focused card's outer glow render past the
+      // viewport edges instead of being sliced off mid-rail.
+      clipBehavior: Clip.none,
       padding: const EdgeInsets.only(top: TvSpacing.sm, bottom: TvSpacing.lg),
       children: rails,
     );
