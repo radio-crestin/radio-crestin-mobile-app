@@ -181,7 +181,9 @@ class _TvNowPlayingState extends State<TvNowPlaying> {
       },
       child: Focus(
       onKeyEvent: _onKeyEvent,
-      autofocus: true,
+      // No autofocus on the parent: it would steal focus from the play
+      // button below, which is the intended landing target so the user
+      // can pause/resume immediately when opening a station.
       child: Stack(
         fit: StackFit.expand,
         children: [

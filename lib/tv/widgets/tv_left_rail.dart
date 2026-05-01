@@ -24,10 +24,6 @@ class TvLeftRail extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: 220,
-      padding: const EdgeInsets.symmetric(
-        horizontal: TvSpacing.md,
-        vertical: TvSpacing.lg,
-      ),
       decoration: const BoxDecoration(
         color: TvColors.surface,
         border: Border(
@@ -37,48 +33,59 @@ class TvLeftRail extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Compact brand wordmark at the top
-          Padding(
-            padding: const EdgeInsets.only(
-              left: TvSpacing.sm,
-              bottom: TvSpacing.xl,
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: TvColors.primary,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(Icons.radio_rounded,
-                      color: Colors.white, size: 22),
-                ),
-                const SizedBox(width: TvSpacing.sm),
-                const Flexible(
-                  child: Text(
-                    'Radio Crestin',
-                    style: TextStyle(
-                      color: TvColors.textPrimary,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 16,
+          // Brand wordmark sits inside a fixed-height header band that
+          // mirrors the height of the sort header on the right pane, so
+          // the logo and the category selector share the same baseline.
+          SizedBox(
+            height: TvHeaderBar.height,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: TvSpacing.md),
+              child: Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: TvColors.primary,
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    overflow: TextOverflow.ellipsis,
+                    child: const Icon(Icons.radio_rounded,
+                        color: Colors.white, size: 22),
                   ),
-                ),
+                  const SizedBox(width: TvSpacing.sm),
+                  const Flexible(
+                    child: Text(
+                      'Radio Crestin',
+                      style: TextStyle(
+                        color: TvColors.textPrimary,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: TvSpacing.md),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: TvSpacing.md),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (int i = 0; i < items.length; i++) ...[
+                  _TvLeftRailButton(
+                    item: items[i],
+                    isSelected: i == selectedIndex,
+                    isFirst: i == 0,
+                    onSelect: () => onSelect(i),
+                  ),
+                  const SizedBox(height: TvSpacing.xs),
+                ],
               ],
             ),
           ),
-          for (int i = 0; i < items.length; i++) ...[
-            _TvLeftRailButton(
-              item: items[i],
-              isSelected: i == selectedIndex,
-              isFirst: i == 0,
-              onSelect: () => onSelect(i),
-            ),
-            const SizedBox(height: TvSpacing.xs),
-          ],
         ],
       ),
     );

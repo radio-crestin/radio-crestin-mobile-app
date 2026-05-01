@@ -75,6 +75,13 @@ class TvSpacing {
   static const double radiusLg = 16.0;
 }
 
+/// Shared header band used by both the left rail (brand mark) and the
+/// browse pane (category selector) so they sit on the same baseline and
+/// stay pinned at the top while the grid scrolls underneath.
+class TvHeaderBar {
+  static const double height = 64.0;
+}
+
 /// TV-specific typography - larger sizes for 10ft viewing distance.
 /// Uses Roboto (Material default) for legibility on TV.
 class TvTypography {

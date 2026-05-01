@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:dpad/dpad.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get_it/get_it.dart';
@@ -102,7 +101,6 @@ class _TvBrowseState extends State<TvBrowse> {
 
   @override
   Widget build(BuildContext context) {
-    final playing = _currentStation;
     final stations = _sortedStations;
 
     // Note: BACK handling is owned by the parent TvHome, since TvBrowse
@@ -116,35 +114,35 @@ class _TvBrowseState extends State<TvBrowse> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Now-playing card at top
-                if (playing != null)
-                  _TvNowPlayingCard(station: playing, onTap: widget.onBack),
-
-                // Sort + Filter header
-                Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: TvSpacing.marginHorizontal,
-                    vertical: TvSpacing.sm,
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        StationSortLabels.icons[_sortOption],
-                        size: 20,
-                        color: _sortOption == StationSortOption.recommended
-                            ? const Color(0xFFF59E0B)
-                            : TvColors.textPrimary,
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          StationSortLabels.labels[_sortOption] ?? '',
-                          style: TvTypography.headline.copyWith(fontSize: 20),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                // Sort header pinned in a fixed-height band that matches the
+                // rail's brand mark, so the logo and the category selector
+                // share the same baseline regardless of playback state.
+                SizedBox(
+                  height: TvHeaderBar.height,
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: TvSpacing.marginHorizontal,
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          StationSortLabels.icons[_sortOption],
+                          size: 22,
+                          color: _sortOption == StationSortOption.recommended
+                              ? const Color(0xFFF59E0B)
+                              : TvColors.textPrimary,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            StationSortLabels.labels[_sortOption] ?? '',
+                            style: TvTypography.headline.copyWith(fontSize: 20),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
 
@@ -187,122 +185,6 @@ class _TvBrowseState extends State<TvBrowse> {
             ),
           ),
         ),
-    );
-  }
-}
-
-/// Compact now-playing card at top of the TV browse page.
-class _TvNowPlayingCard extends StatelessWidget {
-  final Station station;
-  final VoidCallback onTap;
-
-  const _TvNowPlayingCard({required this.station, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-        left: TvSpacing.marginHorizontal,
-        right: TvSpacing.marginHorizontal,
-        top: TvSpacing.lg,
-        bottom: TvSpacing.sm,
-      ),
-      child: DpadFocusable(
-        // Rail owns autofocus on cold launch; this card is reachable via
-        // DPAD_RIGHT into the 'content' region.
-        region: 'content',
-        onSelect: onTap,
-        builder: FocusEffects.scaleWithBorder(
-          scale: 1.02,
-          borderColor: TvColors.primary,
-          borderWidth: 2.5,
-          borderRadius: BorderRadius.circular(TvSpacing.radiusLg),
-        ),
-        child: Container(
-          padding: const EdgeInsets.all(TvSpacing.md),
-          decoration: BoxDecoration(
-            color: TvColors.surface,
-            borderRadius: BorderRadius.circular(TvSpacing.radiusLg),
-          ),
-          child: Row(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(TvSpacing.radiusMd),
-                child: SizedBox(
-                  width: 80,
-                  height: 80,
-                  child: station.displayThumbnail(cacheWidth: 160),
-                ),
-              ),
-              const SizedBox(width: TvSpacing.lg),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.equalizer_rounded,
-                            color: TvColors.primary, size: 18),
-                        const SizedBox(width: TvSpacing.sm),
-                        Text(
-                          'Se redă acum',
-                          style: TvTypography.caption.copyWith(
-                            color: TvColors.primary,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
-                        ),
-                        const SizedBox(width: TvSpacing.md),
-                        Flexible(
-                          child: Text(
-                            station.title,
-                            style: TvTypography.label.copyWith(
-                              fontSize: 14,
-                              color: TvColors.textSecondary,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: TvSpacing.xs),
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 250),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          station.songTitle.isNotEmpty
-                              ? station.songTitle
-                              : station.title,
-                          key: ValueKey('np-${station.songId}'),
-                          style: TvTypography.headline.copyWith(fontSize: 20),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ),
-                    if (station.songArtist.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        station.songArtist,
-                        style: TvTypography.body.copyWith(
-                            fontSize: 14, color: TvColors.textSecondary),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              const SizedBox(width: TvSpacing.md),
-              const Icon(Icons.chevron_right_rounded,
-                  color: TvColors.textTertiary, size: 28),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }
