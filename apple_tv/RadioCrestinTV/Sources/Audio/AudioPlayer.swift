@@ -66,11 +66,23 @@ final class AudioPlayer: ObservableObject {
         guard let station = currentStation else { return }
         switch state {
         case .playing:
+            // Pause is a hard stop for live radio. Holding the buffered
+            // segments would let "resume" replay stale audio that is
+            // now seconds-to-minutes behind the broadcast — confusing
+            // for a station the user thinks is live. Drop the item to
+            // close the network connection and clear the buffer.
             player.pause()
+            player.replaceCurrentItem(with: nil)
+            statusObserver?.invalidate()
+            statusObserver = nil
+            currentStreamType = nil
             state = .paused(station.title)
         case .paused, .failed:
-            player.play()
-            state = .playing(station.title)
+            // Resume = re-tune at the live edge. Re-running play() walks
+            // the streams[] from index 0 again and AVPlayer fetches a
+            // fresh HLS playlist, dropping us back at the current
+            // segment instead of where pause left off.
+            play(station)
         case .connecting, .idle:
             break
         }
