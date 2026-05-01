@@ -14,7 +14,7 @@ struct StationCard: View {
 
     var body: some View {
         Button(action: onSelect) {
-            VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+            VStack(alignment: .leading, spacing: 0) {
                 ZStack(alignment: .topTrailing) {
                     artwork
                     if isFavorite {
@@ -42,12 +42,10 @@ struct StationCard: View {
                             .lineLimit(1)
                     }
                 }
-                // Horizontal inset so the labels don't bleed into the
-                // edge of the card / focus halo. Extra bottom padding
-                // gives the song title room to breathe before the next
-                // grid row.
-                .padding(.horizontal, Theme.Spacing.sm)
-                .padding(.bottom, Theme.Spacing.md)
+                // Uniform 16pt inset on every side so the labels feel
+                // framed inside the card rather than crowding the edge
+                // or the artwork above.
+                .padding(Theme.Spacing.md)
             }
             .frame(width: 280)
             .contentShape(Rectangle())
