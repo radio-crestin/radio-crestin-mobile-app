@@ -832,6 +832,11 @@ class AppAudioHandler extends BaseAudioHandler {
     }
     _loadedStreamUrl = null;
     _loadedStreamType = null;
+    // Clear stream context so listening_started for the new station and the
+    // Settings diagnostic don't carry the previous station's URL/type/index
+    // until play() loads the new source.
+    currentStreamInfo.add(null);
+    AnalyticsService.instance.setCurrentStream(url: null, type: null, index: null, total: null);
 
     await selectStation(station);
 
