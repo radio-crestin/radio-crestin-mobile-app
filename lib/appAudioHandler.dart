@@ -95,7 +95,9 @@ enum StreamEventKind {
   hlsCompleted,       // HLS reported processingState == completed
   nonHlsCompleted,    // direct MP3 completed (treated as error)
   lostIdle,           // processingState == idle while playing
-  bufferingStall,     // buffering exceeded threshold
+  bufferingStall,     // buffering exceeded long-stall threshold (15s)
+  bufferingDrop,      // brief rebuffer (>=250ms): the audible-glitch case
+  playerError,        // playbackEventStream raised (error not tied to load attempt)
 }
 
 /// Lightweight event record kept in a capped ring buffer for the in-app
@@ -192,6 +194,15 @@ class AppAudioHandler extends BaseAudioHandler {
   Timer? _hlsPlaylistRefreshTimer;
   Timer? _bufferingStallTimer;
   static const _bufferingStallTimeout = Duration(seconds: 15);
+  // Track every buffering enter/exit so short rebuffers (the audible-glitch
+  // case) get logged. _bufferingStallTimer above is the long-stall escalation.
+  static const _bufferingDropMinDuration = Duration(milliseconds: 250);
+  DateTime? _bufferingStartedAt;
+  Duration _bufferingStartPosition = Duration.zero;
+  Duration _bufferingStartBuffered = Duration.zero;
+  // Dedup playbackEventStream errors so a sticky error doesn't spam the log.
+  int? _lastPlayerErrorCode;
+  String? _lastPlayerErrorMessage;
   // Monotonically increasing ID to cancel stale play() operations.
   // Each playStation() increments this; play() checks it after every await
   // to bail out if a newer operation has superseded it.
@@ -231,6 +242,77 @@ class AppAudioHandler extends BaseAudioHandler {
       next.removeRange(_maxStreamEvents, next.length);
     }
     recentStreamEvents.add(next);
+  }
+
+  /// Called when processingState transitions out of [ProcessingState.buffering].
+  /// Records a `bufferingDrop` event when the rebuffer was perceptibly long
+  /// (≥250ms) — below that threshold transitions are sub-perceptual decoder
+  /// reseeding and would just add noise to the diagnostic log.
+  void _recordBufferingExit(ProcessingState endState) {
+    final startedAt = _bufferingStartedAt;
+    if (startedAt == null) return;
+    _bufferingStartedAt = null;
+    final duration = DateTime.now().difference(startedAt);
+    if (duration < _bufferingDropMinDuration) return;
+    final positionEnd = player.position;
+    final positionStart = _bufferingStartPosition;
+    final bufferedAheadAtStart = _bufferingStartBuffered - positionStart;
+    final lastInfo = currentStreamInfo.valueOrNull;
+    _recordStreamEvent(
+      StreamEventKind.bufferingDrop,
+      'Rebuffer ${duration.inMilliseconds}ms — buf ${bufferedAheadAtStart.inMilliseconds}ms ahead at start, end=${endState.name}',
+    );
+    AnalyticsService.instance.capture('stream_buffering_drop', {
+      'station_slug': lastInfo?.stationSlug ?? currentStation.valueOrNull?.slug ?? '',
+      'station_id': currentStation.valueOrNull?.id,
+      'stream_url': lastInfo?.url,
+      'stream_type': lastInfo?.type,
+      'stream_index': lastInfo?.attemptIndex,
+      'total_streams': lastInfo?.totalStreams,
+      'duration_ms': duration.inMilliseconds,
+      'position_start_ms': positionStart.inMilliseconds,
+      'position_end_ms': positionEnd.inMilliseconds,
+      'buffered_ahead_at_start_ms': bufferedAheadAtStart.inMilliseconds,
+      'end_state': endState.name,
+    });
+  }
+
+  /// Subscriber for `playbackEventStream.onError`. just_audio surfaces
+  /// transient errors here without changing processingState (e.g. iOS HLS
+  /// segment errors that the player recovers from). Dedup against the last
+  /// emitted code/message so a sticky error doesn't spam the log.
+  void _onPlayerStreamError(Object error, StackTrace stackTrace) {
+    _log('playbackEventStream error: $error');
+    int? code;
+    String? msg;
+    if (error is PlayerException) {
+      code = error.code;
+      msg = error.message;
+    } else {
+      msg = error.toString();
+    }
+    if (code == _lastPlayerErrorCode && msg == _lastPlayerErrorMessage) return;
+    _lastPlayerErrorCode = code;
+    _lastPlayerErrorMessage = msg;
+    final lastInfo = currentStreamInfo.valueOrNull;
+    final shortMsg = msg == null
+        ? ''
+        : (msg.length > 120 ? msg.substring(0, 120) : msg);
+    _recordStreamEvent(
+      StreamEventKind.playerError,
+      'Player error${code != null ? ' code=$code' : ''}${shortMsg.isNotEmpty ? ': $shortMsg' : ''}',
+    );
+    AnalyticsService.instance.capture('stream_player_error', {
+      'station_slug': lastInfo?.stationSlug ?? currentStation.valueOrNull?.slug ?? '',
+      'station_id': currentStation.valueOrNull?.id,
+      'stream_url': lastInfo?.url,
+      'stream_type': lastInfo?.type,
+      'stream_index': lastInfo?.attemptIndex,
+      'total_streams': lastInfo?.totalStreams,
+      'error_code': code,
+      'error_message': msg,
+      'error_runtime_type': error.runtimeType.toString(),
+    });
   }
 
   _log(String message) {
@@ -481,7 +563,14 @@ class AppAudioHandler extends BaseAudioHandler {
     });
 
     // Propagate all events from the audio player to AudioService clients.
-    player.playbackEventStream.listen(_broadcastState);
+    // Errors raised on this stream (PlayerException etc.) are surfaced through
+    // onError — these can fire without changing processingState (e.g., iOS
+    // AVAudio session resets, transient HLS segment errors) and without them
+    // a brief glitch leaves no trace in the diagnostic log.
+    player.playbackEventStream.listen(
+      _broadcastState,
+      onError: _onPlayerStreamError,
+    );
 
     // Ensure play/pause state changes are broadcast immediately.
     // playbackEventStream fires on position/buffer changes but may not fire
@@ -495,6 +584,12 @@ class AppAudioHandler extends BaseAudioHandler {
     // Guard: skip reconnection while loading a new source (_isConnecting),
     // as the idle/completed event is from the previous source being stopped.
     player.processingStateStream.listen((state) {
+      // Record any buffering exit before per-state handling — captures every
+      // brief rebuffer ≥250ms regardless of how the buffering ended.
+      if (_bufferingStartedAt != null && state != ProcessingState.buffering) {
+        _recordBufferingExit(state);
+      }
+
       if (state == ProcessingState.completed) {
         _bufferingStallTimer?.cancel();
         if (_isConnecting) return;
@@ -569,6 +664,15 @@ class AppAudioHandler extends BaseAudioHandler {
         _loadedStreamType = null;
         play();
       } else if (state == ProcessingState.buffering && player.playing && !_isConnecting) {
+        // Capture the moment buffering started, with position + buffered
+        // position. The gap (buffered - position) at start tells us whether
+        // the network drained ahead of time (small gap = network slow) or
+        // the decoder stalled on a buffered segment (large gap = server
+        // segment problem). This is the highest-signal data for short
+        // audible glitches.
+        _bufferingStartedAt ??= DateTime.now();
+        _bufferingStartPosition = player.position;
+        _bufferingStartBuffered = player.bufferedPosition;
         // Start a stall timer: if buffering doesn't resolve within 15s,
         // the connection is likely lost — stop and show error.
         _bufferingStallTimer?.cancel();
@@ -832,6 +936,9 @@ class AppAudioHandler extends BaseAudioHandler {
     }
     _loadedStreamUrl = null;
     _loadedStreamType = null;
+    _bufferingStartedAt = null;
+    _lastPlayerErrorCode = null;
+    _lastPlayerErrorMessage = null;
     // Clear stream context so listening_started for the new station and the
     // Settings diagnostic don't carry the previous station's URL/type/index
     // until play() loads the new source.
@@ -1302,6 +1409,9 @@ class AppAudioHandler extends BaseAudioHandler {
     _hasBeenPlayed = false;
     _disconnectTimer?.cancel();
     _bufferingStallTimer?.cancel();
+    _bufferingStartedAt = null;
+    _lastPlayerErrorCode = null;
+    _lastPlayerErrorMessage = null;
     _loadedStreamUrl = null;
     _loadedStreamType = null;
     currentStreamInfo.add(null);
@@ -1324,6 +1434,9 @@ class AppAudioHandler extends BaseAudioHandler {
     AnalyticsService.instance.endListening();
     _disconnectTimer?.cancel();
     _bufferingStallTimer?.cancel();
+    _bufferingStartedAt = null;
+    _lastPlayerErrorCode = null;
+    _lastPlayerErrorMessage = null;
     _stopHlsPlaylistRefresh();
     _loadedStreamUrl = null;
     _loadedStreamType = null;

@@ -312,9 +312,11 @@ class _SettingsPageState extends State<SettingsPage> {
       case StreamEventKind.failed:
       case StreamEventKind.bufferingStall:
       case StreamEventKind.nonHlsCompleted:
+      case StreamEventKind.playerError:
         return const Color(0xffff3b30);
       case StreamEventKind.hlsCompleted:
       case StreamEventKind.lostIdle:
+      case StreamEventKind.bufferingDrop:
         return const Color(0xffff9500);
     }
   }
