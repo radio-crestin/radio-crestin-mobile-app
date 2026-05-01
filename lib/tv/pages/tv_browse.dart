@@ -148,26 +148,33 @@ class _TvBrowseState extends State<TvBrowse> {
             ),
           ),
           Expanded(
-            child: GridView.builder(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                maxCrossAxisExtent: 220,
-                crossAxisSpacing: 20,
-                mainAxisSpacing: 20,
-                childAspectRatio: 160 / 216,
-              ),
-              itemCount: stations.length,
-              itemBuilder: (_, i) {
-                final s = stations[i];
-                return TvStationCard(
-                  station: s,
-                  isPlaying: _currentStation?.id == s.id,
-                  isFavorite: _favoriteSlugs.contains(s.slug),
-                  region: 'content',
-                  isEntryPoint: i == 0,
-                  autofocus: i == 0,
-                  onSelect: () => widget.onStationSelected(s),
-                  onFavoriteToggle: () {},
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                // Aim for ~190px per column. Floor (not ceil) so cells stay
+                // a bit roomier than the target rather than getting squashed.
+                final columns = (constraints.maxWidth / 190).floor().clamp(2, 10);
+                return GridView.builder(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: columns,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 160 / 216,
+                  ),
+                  itemCount: stations.length,
+                  itemBuilder: (_, i) {
+                    final s = stations[i];
+                    return TvStationCard(
+                      station: s,
+                      isPlaying: _currentStation?.id == s.id,
+                      isFavorite: _favoriteSlugs.contains(s.slug),
+                      region: 'content',
+                      isEntryPoint: i == 0,
+                      autofocus: i == 0,
+                      onSelect: () => widget.onStationSelected(s),
+                      onFavoriteToggle: () {},
+                    );
+                  },
                 );
               },
             ),
