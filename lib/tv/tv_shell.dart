@@ -185,17 +185,6 @@ class _TvShellState extends State<TvShell> {
       regionNavigation: const RegionNavigationOptions(
         enabled: true,
         rules: [
-          // Home: top tab bar ↔ content. DOWN from a tab enters the grid
-          // at its first card; UP from anywhere in the grid returns to the
-          // last-used tab (memory).
-          RegionNavigationRule(
-            fromRegion: 'top-bar',
-            toRegion: 'content',
-            direction: TraversalDirection.down,
-            strategy: RegionNavigationStrategy.fixedEntry,
-            bidirectional: true,
-            reverseStrategy: RegionNavigationStrategy.memory,
-          ),
           // Now Playing: bridge top bar (back + heart) ↔ controls row.
           // The vertical gap is too large for the geometric heuristic; an
           // explicit rule keeps both regions reachable without dead-ends.

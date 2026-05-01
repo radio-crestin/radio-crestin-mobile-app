@@ -170,10 +170,12 @@ class _TvBrowseState extends State<TvBrowse> {
                                 station: s,
                                 isPlaying: _currentStation?.id == s.id,
                                 isFavorite: _favoriteSlugs.contains(s.slug),
-                                // The rail owns initial focus; the grid is
-                                // entered explicitly via DPAD_RIGHT.
+                                // No top-level navigation any more — the
+                                // first card is the entry point and grabs
+                                // focus on cold launch.
                                 region: 'content',
                                 isEntryPoint: i == 0,
+                                autofocus: i == 0,
                                 onSelect: () => widget.onStationSelected(s),
                                 onFavoriteToggle: () {},
                               );
