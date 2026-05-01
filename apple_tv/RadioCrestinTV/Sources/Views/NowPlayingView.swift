@@ -12,6 +12,8 @@ struct NowPlayingView: View {
 
     let onBack: () -> Void
     let onToggleFavorite: () -> Void
+    let onPrev: () -> Void
+    let onNext: () -> Void
 
     @State private var liked = false
     @State private var disliked = false
@@ -240,7 +242,7 @@ struct NowPlayingView: View {
     // MARK: - Controls
 
     private var controls: some View {
-        HStack(spacing: Theme.Spacing.xl) {
+        HStack(spacing: Theme.Spacing.lg) {
             CircleControl(
                 icon: liked ? "hand.thumbsup.fill" : "hand.thumbsup",
                 tint: liked ? Theme.primary : Theme.textPrimary,
@@ -251,6 +253,12 @@ struct NowPlayingView: View {
                 if liked { disliked = false }
             }
             CircleControl(
+                icon: "backward.fill",
+                label: "Postul anterior",
+                onFocusChange: setFocusedAction,
+                action: onPrev
+            )
+            CircleControl(
                 icon: "play.fill",
                 isPrimary: true,
                 systemPause: player.isPlaying,
@@ -259,6 +267,12 @@ struct NowPlayingView: View {
             ) {
                 player.togglePlayPause()
             }
+            CircleControl(
+                icon: "forward.fill",
+                label: "Postul următor",
+                onFocusChange: setFocusedAction,
+                action: onNext
+            )
             CircleControl(
                 icon: disliked ? "hand.thumbsdown.fill" : "hand.thumbsdown",
                 tint: disliked ? Theme.primary : Theme.textPrimary,

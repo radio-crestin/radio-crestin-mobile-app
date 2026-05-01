@@ -36,7 +36,9 @@ struct RootView: View {
                     player: player,
                     songHistory: appState.songHistory,
                     onBack: { close() },
-                    onToggleFavorite: { appState.toggleFavorite(station) }
+                    onToggleFavorite: { appState.toggleFavorite(station) },
+                    onPrev: { go(to: appState.previousStation(before: live)) },
+                    onNext: { go(to: appState.nextStation(after: live)) }
                 )
                 .transition(.opacity)
             } else if appState.stations.isEmpty && appState.isLoading {
@@ -78,6 +80,15 @@ struct RootView: View {
 
     private func close() {
         nowPlayingStation = nil
+    }
+
+    /// Navigate to the given station from the prev/next controls in
+    /// Now Playing. Selecting it triggers AudioPlayer via the
+    /// `onChange(of: currentStation?.id)` hook below.
+    private func go(to station: Station?) {
+        guard let station else { return }
+        appState.selectStation(station)
+        nowPlayingStation = station
     }
 
     // MARK: - States

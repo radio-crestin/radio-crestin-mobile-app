@@ -329,6 +329,28 @@ final class AppState: ObservableObject {
         )
     }
 
+    /// Returns the next station in the current sort order, wrapping
+    /// around at the end. Used by the prev/next controls in Now Playing.
+    func nextStation(after station: Station) -> Station? {
+        let list = sortedStations
+        guard !list.isEmpty else { return nil }
+        guard let idx = list.firstIndex(where: { $0.id == station.id }) else {
+            return list.first
+        }
+        return list[(idx + 1) % list.count]
+    }
+
+    /// Returns the previous station in the current sort order, wrapping
+    /// around at the beginning.
+    func previousStation(before station: Station) -> Station? {
+        let list = sortedStations
+        guard !list.isEmpty else { return nil }
+        guard let idx = list.firstIndex(where: { $0.id == station.id }) else {
+            return list.last
+        }
+        return list[idx == 0 ? list.count - 1 : idx - 1]
+    }
+
     private func incrementPlayCount(slug: String) {
         playCounts[slug, default: 0] += 1
         defaults.set(playCounts, forKey: Keys.playCounts)
