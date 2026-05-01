@@ -70,7 +70,9 @@ class _Fakes {
 
 Future<_Fakes> _registerFakes() async {
   final getIt = GetIt.I;
-  getIt.reset();
+  // GetIt.reset() is async — must await or registrations land before the
+  // reset finishes and get wiped.
+  await getIt.reset();
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
   getIt.registerSingleton<SharedPreferences>(prefs);
@@ -91,7 +93,7 @@ void main() {
     fakes = await _registerFakes();
   });
 
-  tearDown(() => GetIt.I.reset());
+  tearDown(() async => await GetIt.I.reset());
 
   group('TvFavoritesPage — empty state', () {
     testWidgets('shows the "no favorites" hero copy when nothing is favorited',
