@@ -208,6 +208,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.1.2"
+  code_assets:
+    dependency: transitive
+    description:
+      name: code_assets
+      sha256: "83ccdaa064c980b5596c35dd64a8d3ecc68620174ab9b90b6343b753aa721687"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.0"
   code_builder:
     dependency: transitive
     description:
@@ -780,6 +788,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.19.3"
+  hooks:
+    dependency: transitive
+    description:
+      name: hooks
+      sha256: "025f060e86d2d4c3c47b56e33caf7f93bf9283340f26d23424ebcfccf34f621e"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.3"
   html:
     dependency: transitive
     description:
@@ -996,6 +1012,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "5.6.3"
+  native_toolchain_c:
+    dependency: transitive
+    description:
+      name: native_toolchain_c
+      sha256: "6ba77bb18063eebe9de401f5e6437e95e1438af0a87a3a39084fbd37c90df572"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.17.6"
   ndef:
     dependency: transitive
     description:
@@ -1292,6 +1316,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.1.0"
+  record_use:
+    dependency: transitive
+    description:
+      name: record_use
+      sha256: "2551bd8eecfe95d14ae75f6021ad0248be5c27f138c2ec12fcb52b500b3ba1ed"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.6.0"
   rxdart:
     dependency: "direct main"
     description:
@@ -1441,6 +1473,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.5.6"
+  sqflite_common_ffi:
+    dependency: "direct dev"
+    description:
+      name: sqflite_common_ffi
+      sha256: cd0c7f7de39a08f2d54ef144d9058c46eca8461879aaa648025643455c1e5a20
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.4.0+3"
   sqflite_darwin:
     dependency: transitive
     description:
@@ -1457,6 +1497,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.4.0"
+  sqlite3:
+    dependency: transitive
+    description:
+      name: sqlite3
+      sha256: "56da3e13ed7d28a66f930aa2b2b29db6736a233f08283326e96321dd812030f5"
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.3.1"
   stack_trace:
     dependency: transitive
     description:

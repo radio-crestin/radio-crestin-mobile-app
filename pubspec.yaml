@@ -91,6 +91,7 @@ dev_dependencies:
   dependency_validator: ^5.0.3
   flutter_test:
     sdk: flutter
+  sqflite_common_ffi: ^2.3.4
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
