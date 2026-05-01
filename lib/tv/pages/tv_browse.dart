@@ -36,6 +36,18 @@ class _TvBrowseState extends State<TvBrowse> {
   late final StationDataService _stationDataService;
   final List<StreamSubscription> _subscriptions = [];
 
+  // Owns initial focus on this page. When TvShell swaps the body from
+  // Now Playing back to TvBrowse, the previous screen's play button
+  // FocusNode is disposed but Flutter's FocusManager can keep primary
+  // focus pointed at it — the first card *looked* focused while D-pad
+  // keys went nowhere. By rooting TvBrowse in our own FocusScopeNode and
+  // explicitly requesting focus on it after mount, we force the focus
+  // chain into this subtree so the autofocused first card can claim it.
+  final FocusScopeNode _scopeNode = FocusScopeNode(debugLabel: 'TvBrowse');
+
+  // Cancellable so tests (and a quick exit) don't leak a pending timer.
+  Timer? _focusRestoreTimer;
+
   Station? _currentStation;
   List<Station> _allStations = [];
   List<String> _favoriteSlugs = [];
@@ -64,33 +76,40 @@ class _TvBrowseState extends State<TvBrowse> {
       }),
     );
 
-    // Returning to the homepage from Now Playing left primary focus
-    // pointed at the just-disposed play button: the first card *looked*
-    // focused but D-pad keys went nowhere because the focused node was
-    // a dead reference. Run two passes after the first frame:
-    //
-    //   1. drop the stale primary focus so the card's own autofocus
-    //      can claim it; and
-    //   2. on the *next* frame (post-card-mount), as a belt-and-braces
-    //      fallback, walk the scope and force focus onto the first
-    //      focusable if nobody picked it up.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    // GridView.builder lazily mounts the cards, so the first card's
+    // own autofocus postFrameCallback runs *later* than this initState
+    // callback would. Wait a beat, then if no card has claimed primary
+    // focus, walk this scope and focus the first focusable descendant.
+    // After a short delay (long enough for GridView.builder to mount the
+    // first row of cards), if no real focusable holds primary focus,
+    // walk this page's scope and force focus onto the first focusable.
+    // This recovers from the back-from-Now-Playing case where the
+    // disposed play button left primary focus stranded.
+    _focusRestoreTimer = Timer(const Duration(milliseconds: 250), () {
       if (!mounted) return;
-      FocusManager.instance.primaryFocus?.unfocus();
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        final primary = FocusManager.instance.primaryFocus;
-        if (primary != null && primary.context != null) return;
-        FocusScope.of(context).focusInDirection(TraversalDirection.down);
-      });
+      final primary = FocusManager.instance.primaryFocus;
+      final isFocusableLeaf = primary != null &&
+          primary.context != null &&
+          primary is! FocusScopeNode;
+      if (isFocusableLeaf) return;
+      for (final node in _scopeNode.descendants.toList()) {
+        if (node.canRequestFocus &&
+            !node.skipTraversal &&
+            node is! FocusScopeNode) {
+          node.requestFocus();
+          return;
+        }
+      }
     });
   }
 
   @override
   void dispose() {
+    _focusRestoreTimer?.cancel();
     for (final sub in _subscriptions) {
       sub.cancel();
     }
+    _scopeNode.dispose();
     super.dispose();
   }
 
@@ -118,21 +137,23 @@ class _TvBrowseState extends State<TvBrowse> {
 
   @override
   Widget build(BuildContext context) {
-    // canRequestFocus: false so this wrapper doesn't compete with the
-    // autofocused first card for initial focus — it only listens for
-    // ESC/back keys bubbling up from descendants.
-    return Focus(
-      canRequestFocus: false,
-      skipTraversal: true,
-      onKeyEvent: _onKeyEvent,
-      child: ColoredBox(
-        color: TvColors.background,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const _Header(),
-            Expanded(child: _buildGrid()),
-          ],
+    // FocusScope owns this page's focus; the inner Focus only listens
+    // for ESC/back keys bubbling up from cards.
+    return FocusScope(
+      node: _scopeNode,
+      child: Focus(
+        canRequestFocus: false,
+        skipTraversal: true,
+        onKeyEvent: _onKeyEvent,
+        child: ColoredBox(
+          color: TvColors.background,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const _Header(),
+              Expanded(child: _buildGrid()),
+            ],
+          ),
         ),
       ),
     );

@@ -178,7 +178,9 @@ void main() {
       // TvBrowse, not stay stranded on the disposed surrogate.
       await tester.pumpWidget(buildWith(showBrowse: true));
       await tester.pump(); // first frame mounts TvBrowse + cards
-      await tester.pump(); // post-frame: unfocus + autofocus
+      // Long enough for the post-mount focus-recovery delayed callback
+      // inside TvBrowse to fire and move focus onto the first card.
+      await tester.pump(const Duration(milliseconds: 400));
 
       final primary = FocusManager.instance.primaryFocus;
       expect(primary, isNotNull,
