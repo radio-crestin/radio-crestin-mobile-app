@@ -50,25 +50,15 @@ struct RootView: View {
             } else {
                 tabbedShell
                     .transition(.opacity)
-
-                // Brand mark — top-left, vertically aligned with the
-                // centered tab bar so the wordmark sits on the same
-                // baseline as "Posturi · Favorite · Recente · Setări".
-                // Non-focusable overlay; the focus engine ignores it
-                // and the underlying TabView keeps its standard D-pad
-                // navigation.
-                VStack {
-                    HStack {
-                        BrandMark()
-                            .padding(.leading, Theme.Spacing.xxl)
-                            .padding(.top, Theme.Spacing.lg)
-                        Spacer()
-                    }
-                    Spacer()
-                }
-                .allowsHitTesting(false)
-                .transition(.opacity)
             }
+            // The brand mark used to be overlaid here at top-left as an
+            // always-visible identity element. tvOS fades the system tab
+            // bar away once focus enters the content grid, but the
+            // overlay didn't fade with it — the wordmark ended up
+            // floating over scrolled-up station cards. Removed: the tab
+            // bar already provides app chrome at the top, and the brand
+            // mark still appears on Now Playing where the layout is
+            // static and there's nothing to scroll under it.
         }
         .animation(.easeInOut(duration: 0.22), value: nowPlayingStation?.id)
         .preferredColorScheme(.dark)

@@ -26,6 +26,16 @@ struct NowPlayingView: View {
     /// the canonical first action, not the back button.
     @Namespace private var focusScope
 
+    /// Programmatic focus binding used to seat focus on the play button
+    /// on entry. `prefersDefaultFocus(_:in:)` alone wasn't reliable when
+    /// each control sits inside a label-stack `VStack` — the focus
+    /// engine ended up on the leftmost focusable. An explicit
+    /// `FocusState` set in `.task` deterministically wins.
+    enum ControlFocus: Hashable {
+        case play
+    }
+    @FocusState private var controlFocus: ControlFocus?
+
     var body: some View {
         ZStack {
             // Background blur ignores the safe area so it bleeds to the
@@ -69,11 +79,19 @@ struct NowPlayingView: View {
                 .transition(.opacity)
             }
         }
-        // Default focus is owned by the play/pause button (see
-        // `.prefersDefaultFocus(true, in: focusScope)` on the play
-        // CircleControl) rather than the back button — the user wants
-        // pause/resume to be the canonical first action on entry.
+        // Default focus is owned by the play/pause button rather than the
+        // back button — the user wants pause/resume to be the canonical
+        // first action on entry. `prefersDefaultFocus(_:in:)` alone was
+        // unreliable once each control sat inside a label-stack VStack
+        // (focus engine kept landing on the leftmost focusable), so we
+        // also seat focus explicitly via `controlFocus` in `.task`.
         .focusScope(focusScope)
+        .task {
+            // Yield once so the focus engine has the focusable nodes
+            // registered before we ask one of them to take focus.
+            try? await Task.sleep(nanoseconds: 50_000_000)
+            controlFocus = .play
+        }
         .onExitCommand {
             if isSharing { isSharing = false } else { onBack() }
         }
@@ -249,7 +267,9 @@ struct NowPlayingView: View {
     // MARK: - Controls
 
     private var controls: some View {
-        HStack(alignment: .top, spacing: Theme.Spacing.lg) {
+        // Tighter spacing between the controls so the row reads as a
+        // single playback cluster rather than seven isolated buttons.
+        HStack(alignment: .top, spacing: Theme.Spacing.sm) {
             labeled("Apreciază") {
                 CircleControl(
                     icon: liked ? "hand.thumbsup.fill" : "hand.thumbsup",
@@ -280,6 +300,7 @@ struct NowPlayingView: View {
                     player.togglePlayPause()
                 }
                 .prefersDefaultFocus(true, in: focusScope)
+                .focused($controlFocus, equals: .play)
             }
             labeled("Postul următor") {
                 CircleControl(
@@ -318,10 +339,13 @@ struct NowPlayingView: View {
         }
     }
 
-    /// Stacks a `CircleControl` over a fixed-height label slot. The label
-    /// is rendered for every control but only revealed when that control
-    /// owns focus, so the row's vertical extent stays constant as focus
-    /// moves and the descriptor sits directly under the user's target.
+    /// Stacks a `CircleControl` over a fixed-height label slot. The
+    /// column's layout width is pinned to the button width so the
+    /// HStack stays a tight playback cluster, while `.fixedSize` lets
+    /// the label render at its full natural width — overflowing the
+    /// column into the spacing — so longer descriptors like "Elimină
+    /// din favorite" never truncate. Only one label is visible at a
+    /// time, so the visual overflow doesn't clash with neighbors.
     @ViewBuilder
     private func labeled<Content: View>(
         _ label: String,
@@ -333,11 +357,12 @@ struct NowPlayingView: View {
                 .font(.system(size: 18, weight: .semibold))
                 .foregroundStyle(Theme.textPrimary)
                 .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
                 .opacity(focusedAction == label ? 1 : 0)
                 .animation(.easeInOut(duration: 0.18), value: focusedAction)
                 .frame(height: 24, alignment: .top)
-                .frame(maxWidth: 140)
         }
+        .frame(width: 72)
     }
 
     private func setFocusedAction(_ label: String?) {
@@ -520,6 +545,15 @@ private struct CircleControl: View {
         .onTapGesture(perform: action)
         .onChange(of: isFocused) { _, focused in
             onFocusChange?(focused ? label : nil)
+        }
+        // Play/pause and favorite swap their `label` string mid-focus
+        // (Redă ↔ Pauză, Adaugă ↔ Elimină). Without this, the parent's
+        // `focusedAction` stays pinned to the *old* label and the
+        // tooltip below the button vanishes after the first state
+        // flip. Re-publish on every label change while focused so the
+        // descriptor follows the current action.
+        .onChange(of: label) { _, newLabel in
+            if isFocused { onFocusChange?(newLabel) }
         }
     }
 }
