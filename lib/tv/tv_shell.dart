@@ -179,8 +179,17 @@ class _TvShellState extends State<TvShell> {
       return DesktopShell(songHistory: songHistory);
     }
 
-    // TV: D-pad navigable two-page layout
-    return DpadNavigator(
+    // TV: D-pad navigable two-page layout.
+    //
+    // The DpadNavigator key is bound to the current page identity so that
+    // swapping between Browse and Now Playing fully recreates the navigator
+    // subtree (its region manager and focus history). Without this key the
+    // navigator persists across swaps, holding stale `np-controls` region
+    // entries from the disposed play button — which left the Browse home
+    // page with a card that *looked* focused but no D-pad routing.
+    return KeyedSubtree(
+      key: ValueKey(_browsing ? 'tv-browse' : 'tv-now-playing'),
+      child: DpadNavigator(
       enabled: true,
       regionNavigation: const RegionNavigationOptions(
         enabled: true,
@@ -209,6 +218,7 @@ class _TvShellState extends State<TvShell> {
                 onBrowse: _openBrowse,
                 songHistory: songHistory,
               ),
+      ),
       ),
     );
   }
