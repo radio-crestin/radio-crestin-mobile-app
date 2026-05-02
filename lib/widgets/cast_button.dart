@@ -163,10 +163,10 @@ class _CastButtonState extends State<CastButton> {
             width: 44,
             height: 44,
             child: Icon(
-              _airPlayActive
-                  ? Icons.airplay_rounded
-                  : _chromecastCasting
-                      ? Icons.cast_connected_rounded
+              _chromecastCasting
+                  ? Icons.cast_connected_rounded
+                  : Platform.isIOS
+                      ? Icons.airplay_rounded
                       : Icons.cast_rounded,
               size: 22,
               color: _casting
@@ -369,6 +369,14 @@ class _DeviceSheetState extends State<_DeviceSheet> {
               onTap: () => _showTvInstructions(context),
             ),
 
+            // Android Auto & Apple CarPlay
+            _DeviceRow(
+              icon: Icons.directions_car_rounded,
+              title: 'Android Auto și Apple CarPlay',
+              subtitle: 'Ascultă în mașină',
+              onTap: () => _showCarInstructions(context),
+            ),
+
           ],
         ),
       ),
@@ -410,6 +418,19 @@ class _DeviceSheetState extends State<_DeviceSheet> {
       ),
       isScrollControlled: true,
       builder: (_) => const _TvInstructionsSheet(),
+    );
+  }
+
+  void _showCarInstructions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Theme.of(context).brightness == Brightness.dark
+          ? const Color(0xFF1E1E1E) : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      isScrollControlled: true,
+      builder: (_) => const _CarInstructionsSheet(),
     );
   }
 
@@ -586,12 +607,13 @@ class _TvInstructionsSheet extends StatelessWidget {
 
             const Icon(Icons.tv_rounded, size: 48, color: AppColors.primary),
             const SizedBox(height: 16),
-            Text('Ascultă pe televizor',
+            Text('Ascultă Radio Creștin pe televizor',
+              textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 20, fontWeight: FontWeight.w700, color: onSurface)),
             const SizedBox(height: 8),
             Text(
-              'Instalează aplicația Radio Creștin direct pe televizor pentru cea mai bună experiență.',
+              'Instalează aplicația direct pe TV pentru cea mai bună experiență.',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 14, color: dim, height: 1.5)),
             const SizedBox(height: 24),
@@ -602,10 +624,10 @@ class _TvInstructionsSheet extends StatelessWidget {
               iconColor: Colors.green,
               title: 'Android TV',
               steps: const [
-                'Deschide Google Play Store pe TV',
+                'Deschide Google Play Store pe televizor',
                 'Caută „Radio Creștin"',
-                'Apasă Instalare',
-                'Lansează aplicația de pe ecranul principal',
+                'Apasă „Instalează"',
+                'Deschide aplicația și alege stația preferată',
               ],
             ),
             const SizedBox(height: 12),
@@ -618,10 +640,90 @@ class _TvInstructionsSheet extends StatelessWidget {
               steps: const [
                 'Deschide App Store pe Apple TV',
                 'Caută „Radio Creștin"',
-                'Apasă Obține',
-                'Lansează aplicația de pe ecranul principal',
+                'Apasă „Obține" și instalează aplicația',
+                'Deschide aplicația și alege stația preferată',
               ],
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Car instructions sheet
+// ═══════════════════════════════════════════════════════════════════
+
+class _CarInstructionsSheet extends StatelessWidget {
+  const _CarInstructionsSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    final dim = onSurface.withValues(alpha: 0.6);
+
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Drag handle
+            Container(
+              width: 36, height: 4,
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white24 : Colors.black12,
+                borderRadius: BorderRadius.circular(2)),
+            ),
+
+            const Icon(Icons.directions_car_rounded,
+                size: 48, color: AppColors.primary),
+            const SizedBox(height: 16),
+            Text('Ascultă Radio Creștin în mașină',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 20, fontWeight: FontWeight.w700, color: onSurface)),
+            const SizedBox(height: 8),
+            Text(
+              'Conectează telefonul la mașină pentru a folosi aplicația pe ecranul de bord.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 14, color: dim, height: 1.5)),
+            const SizedBox(height: 24),
+
+            // Android Auto
+            _InstructionCard(
+              icon: Icons.android_rounded,
+              iconColor: Colors.green,
+              title: 'Android Auto',
+              steps: const [
+                'Conectează telefonul la mașină prin USB sau wireless',
+                'Pornește Android Auto pe ecranul mașinii',
+                'Deschide secțiunea Audio',
+                'Apasă „Radio Creștin" și alege stația',
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // Apple CarPlay
+            _InstructionCard(
+              icon: Icons.apple_rounded,
+              iconColor: onSurface,
+              title: 'Apple CarPlay',
+              steps: const [
+                'Conectează iPhone-ul la mașină prin USB sau wireless',
+                'Pornește CarPlay pe ecranul mașinii',
+                'Apasă pictograma „Radio Creștin"',
+                'Alege stația și ascultă',
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Sfat: aplicația trebuie să fie instalată pe acest telefon, iar Android Auto sau CarPlay să fie activat în setările mașinii.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12, color: dim, height: 1.5)),
           ],
         ),
       ),

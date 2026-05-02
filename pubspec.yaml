@@ -40,6 +40,11 @@ dependencies:
   # Direct dep so we can subscribe to interruption + becoming-noisy events
   # for diagnostics; just_audio uses this transitively for session config.
   audio_session: ^0.2.0
+  # Local HTTP proxy server that pre-fetches HLS segments — see
+  # lib/services/hls_proxy/. AVPlayer hits 127.0.0.1; we keep ~60s of
+  # segments cached so a network blip doesn't surface as a hiccup.
+  shelf: ^1.4.1
+  shelf_router: ^1.1.4
   media_kit_libs_video: ^1.0.5
   graphql_flutter: ^5.2.0-beta.6
   provider: ^6.0.5

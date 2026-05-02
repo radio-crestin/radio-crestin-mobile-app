@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get_it/get_it.dart';
 import 'package:rxdart/rxdart.dart';
 
@@ -40,12 +41,6 @@ class _DesktopShellState extends State<DesktopShell> {
 
   StationSortOption _sortOption = StationSortOption.recommended;
   Query$GetStations$station_groups? _selectedGroup;
-
-  // Search
-  bool _searchOpen = false;
-  String _searchQuery = '';
-  final _searchController = TextEditingController();
-  final _searchFocus = FocusNode();
 
   @override
   void initState() {
@@ -87,8 +82,6 @@ class _DesktopShellState extends State<DesktopShell> {
     for (final sub in _subscriptions) {
       sub.cancel();
     }
-    _searchController.dispose();
-    _searchFocus.dispose();
     super.dispose();
   }
 
@@ -103,34 +96,25 @@ class _DesktopShellState extends State<DesktopShell> {
       base = List<Station>.from(_allStations);
     }
     final playCounts = GetIt.instance<PlayCountService>().playCounts;
-    var sorted = StationSortService.sort(
+    final sorted = StationSortService.sort(
       stations: base,
       sortBy: _sortOption,
       playCounts: playCounts,
       favoriteSlugs: _favoriteSlugs,
     ).sorted;
 
-    // Apply search filter
-    if (_searchQuery.isNotEmpty) {
-      final q = _searchQuery.toLowerCase();
-      sorted = sorted.where((s) =>
-          s.title.toLowerCase().contains(q) ||
-          s.songTitle.toLowerCase().contains(q) ||
-          s.songArtist.toLowerCase().contains(q)).toList();
+    // Always surface favorites at the top, preserving their relative
+    // order from the active sort. The "recommended" sort already weaves
+    // favorites in, but the explicit bubble keeps them visually anchored
+    // for any sort the user picks.
+    if (_favoriteSlugs.isEmpty) return sorted;
+    final favSet = _favoriteSlugs.toSet();
+    final favs = <Station>[];
+    final rest = <Station>[];
+    for (final s in sorted) {
+      (favSet.contains(s.slug) ? favs : rest).add(s);
     }
-    return sorted;
-  }
-
-  void _toggleSearch() {
-    setState(() {
-      _searchOpen = !_searchOpen;
-      if (!_searchOpen) {
-        _searchQuery = '';
-        _searchController.clear();
-      } else {
-        Future.microtask(() => _searchFocus.requestFocus());
-      }
-    });
+    return [...favs, ...rest];
   }
 
   void _playStation(Station station) {
@@ -139,16 +123,41 @@ class _DesktopShellState extends State<DesktopShell> {
 
   void _openNowPlaying() {
     if (_currentStation == null) return;
-    showModalBottomSheet(
+    final size = MediaQuery.of(context).size;
+    final maxWidth = (size.width - 48).clamp(640.0, 1100.0);
+    showDialog(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      barrierColor: Colors.black54,
-      builder: (_) => FractionallySizedBox(
-        heightFactor: 0.82,
-        child: DesktopNowPlayingSheet(songHistory: widget.songHistory),
+      barrierColor: Colors.black87,
+      barrierDismissible: true,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: maxWidth,
+            maxHeight: size.height - 48,
+          ),
+          child: DesktopNowPlayingSheet(songHistory: widget.songHistory),
+        ),
       ),
     );
+  }
+
+  Future<void> _openSearchDialog() async {
+    final picked = await showDialog<Station>(
+      context: context,
+      barrierDismissible: true,
+      barrierColor: Colors.black.withValues(alpha: 0.55),
+      builder: (_) => _DesktopSearchDialog(
+        stations: _allStations,
+        currentStationId: _currentStation?.id,
+        favoriteSlugs: _favoriteSlugs,
+      ),
+    );
+    if (picked != null) {
+      _playStation(picked);
+    }
   }
 
   // ─── Sort / Filter bottom sheets ───
@@ -329,7 +338,17 @@ class _DesktopShellState extends State<DesktopShell> {
     final stations = _sortedStations;
     final station = _currentStation;
 
-    return Scaffold(
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.keyK, control: true):
+            _openSearchDialog,
+        const SingleActivator(LogicalKeyboardKey.keyK, meta: true):
+            _openSearchDialog,
+        const SingleActivator(LogicalKeyboardKey.slash): _openSearchDialog,
+      },
+      child: Focus(
+        autofocus: true,
+        child: Scaffold(
       backgroundColor: TvColors.background,
       body: Column(
         children: [
@@ -360,10 +379,9 @@ class _DesktopShellState extends State<DesktopShell> {
                 const Spacer(),
                 // Search
                 _navBtn(
-                  icon: _searchOpen ? Icons.close_rounded : Icons.search_rounded,
-                  tooltip: 'Caută',
-                  active: _searchOpen,
-                  onTap: _toggleSearch,
+                  icon: Icons.search_rounded,
+                  tooltip: 'Caută (Ctrl+K)',
+                  onTap: _openSearchDialog,
                 ),
                 const SizedBox(width: 8),
                 // Settings
@@ -374,55 +392,6 @@ class _DesktopShellState extends State<DesktopShell> {
                 ),
               ],
             ),
-          ),
-
-          // ── Search bar (animated) ──
-          AnimatedSize(
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeOut,
-            child: _searchOpen
-                ? Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 10, 24, 2),
-                    child: Container(
-                      height: 42,
-                      decoration: BoxDecoration(
-                        color: TvColors.surfaceVariant,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: TextField(
-                        controller: _searchController,
-                        focusNode: _searchFocus,
-                        onChanged: (v) => setState(() => _searchQuery = v),
-                        style: const TextStyle(color: TvColors.textPrimary, fontSize: 14),
-                        decoration: InputDecoration(
-                          hintText: 'Caută o stație, melodie sau artist...',
-                          hintStyle: TextStyle(
-                            color: TvColors.textTertiary,
-                            fontSize: 14,
-                          ),
-                          prefixIcon: const Icon(Icons.search_rounded,
-                              color: TvColors.textTertiary, size: 20),
-                          suffixIcon: _searchQuery.isNotEmpty
-                              ? MouseRegion(
-                                  cursor: SystemMouseCursors.click,
-                                  child: GestureDetector(
-                                    onTap: () {
-                                      _searchController.clear();
-                                      setState(() => _searchQuery = '');
-                                    },
-                                    child: const Icon(Icons.clear_rounded,
-                                        color: TvColors.textTertiary, size: 18),
-                                  ),
-                                )
-                              : null,
-                          border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 11),
-                        ),
-                      ),
-                    ),
-                  )
-                : const SizedBox.shrink(),
           ),
 
           // ── Sort selector + filter ──
@@ -485,16 +454,14 @@ class _DesktopShellState extends State<DesktopShell> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
-                          _searchQuery.isNotEmpty ? Icons.search_off_rounded : Icons.radio_rounded,
+                        const Icon(
+                          Icons.radio_rounded,
                           size: 48,
                           color: TvColors.textTertiary,
                         ),
                         const SizedBox(height: 12),
                         Text(
-                          _searchQuery.isNotEmpty
-                              ? 'Nicio stație găsită pentru "$_searchQuery"'
-                              : 'Nu sunt posturi disponibile',
+                          'Nu sunt posturi disponibile',
                           style: TvTypography.body,
                         ),
                       ],
@@ -512,13 +479,16 @@ class _DesktopShellState extends State<DesktopShell> {
                       itemCount: stations.length,
                       itemBuilder: (_, i) {
                         final s = stations[i];
+                        final isFav = _favoriteSlugs.contains(s.slug);
                         return TvStationCard(
                           station: s,
                           isPlaying: _currentStation?.id == s.id,
-                          isFavorite: _favoriteSlugs.contains(s.slug),
+                          isFavorite: isFav,
                           autofocus: i == 0,
                           onSelect: () => _playStation(s),
-                          onFavoriteToggle: () {},
+                          onFavoriteToggle: () =>
+                              _stationDataService.setStationIsFavorite(
+                                  s, !isFav),
                         );
                       },
                     ),
@@ -535,6 +505,8 @@ class _DesktopShellState extends State<DesktopShell> {
             onNext: () => _audioHandler.skipToNext(),
           ),
         ],
+      ),
+        ),
       ),
     );
   }
@@ -752,6 +724,424 @@ class _DesktopMiniPlayer extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────
+// Search dialog: focused text input + live filtered station list.
+// ─────────────────────────────────────────────
+class _DesktopSearchDialog extends StatefulWidget {
+  final List<Station> stations;
+  final int? currentStationId;
+  final List<String> favoriteSlugs;
+
+  const _DesktopSearchDialog({
+    required this.stations,
+    required this.currentStationId,
+    required this.favoriteSlugs,
+  });
+
+  @override
+  State<_DesktopSearchDialog> createState() => _DesktopSearchDialogState();
+}
+
+class _DesktopSearchDialogState extends State<_DesktopSearchDialog> {
+  final _controller = TextEditingController();
+  final _focus = FocusNode();
+  String _query = '';
+  int _highlight = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _focus.requestFocus();
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _focus.dispose();
+    super.dispose();
+  }
+
+  List<Station> get _results {
+    if (_query.isEmpty) {
+      // Show favorites + current station first when no query.
+      final favs = widget.stations
+          .where((s) => widget.favoriteSlugs.contains(s.slug))
+          .toList();
+      final rest =
+          widget.stations.where((s) => !favs.contains(s)).toList();
+      return [...favs, ...rest];
+    }
+    final q = _query.toLowerCase();
+    return widget.stations.where((s) {
+      return s.title.toLowerCase().contains(q) ||
+          s.songTitle.toLowerCase().contains(q) ||
+          s.songArtist.toLowerCase().contains(q);
+    }).toList();
+  }
+
+  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    final results = _results;
+    final k = event.logicalKey;
+    if (k == LogicalKeyboardKey.escape) {
+      Navigator.of(context).pop();
+      return KeyEventResult.handled;
+    }
+    if (k == LogicalKeyboardKey.arrowDown && results.isNotEmpty) {
+      setState(() => _highlight = (_highlight + 1) % results.length);
+      return KeyEventResult.handled;
+    }
+    if (k == LogicalKeyboardKey.arrowUp && results.isNotEmpty) {
+      setState(
+          () => _highlight = (_highlight - 1 + results.length) % results.length);
+      return KeyEventResult.handled;
+    }
+    if (k == LogicalKeyboardKey.enter ||
+        k == LogicalKeyboardKey.numpadEnter) {
+      if (results.isNotEmpty &&
+          _highlight >= 0 &&
+          _highlight < results.length) {
+        Navigator.of(context).pop(results[_highlight]);
+        return KeyEventResult.handled;
+      }
+    }
+    return KeyEventResult.ignored;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final results = _results;
+    final size = MediaQuery.of(context).size;
+    final dialogWidth = size.width.clamp(420.0, 720.0);
+    final dialogMaxHeight = size.height * 0.7;
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 60),
+      child: Focus(
+        onKeyEvent: _onKey,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: dialogWidth,
+            maxHeight: dialogMaxHeight,
+          ),
+          child: Container(
+            decoration: BoxDecoration(
+              color: TvColors.surface,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.5),
+                  blurRadius: 30,
+                  spreadRadius: 4,
+                ),
+              ],
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.06),
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Search input
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: TvColors.surfaceVariant,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.08),
+                      ),
+                    ),
+                    child: TextField(
+                      controller: _controller,
+                      focusNode: _focus,
+                      autofocus: true,
+                      onChanged: (v) => setState(() {
+                        _query = v;
+                        _highlight = 0;
+                      }),
+                      onSubmitted: (_) {
+                        if (results.isNotEmpty) {
+                          Navigator.of(context).pop(results[_highlight.clamp(0, results.length - 1)]);
+                        }
+                      },
+                      style: const TextStyle(
+                          color: TvColors.textPrimary, fontSize: 15),
+                      decoration: InputDecoration(
+                        hintText: 'Caută o stație, melodie sau artist...',
+                        hintStyle: TextStyle(
+                          color: TvColors.textTertiary.withValues(alpha: 0.85),
+                          fontSize: 15,
+                        ),
+                        prefixIcon: const Icon(
+                          Icons.search_rounded,
+                          color: TvColors.textTertiary,
+                          size: 22,
+                        ),
+                        suffixIcon: _query.isNotEmpty
+                            ? MouseRegion(
+                                cursor: SystemMouseCursors.click,
+                                child: GestureDetector(
+                                  onTap: () {
+                                    _controller.clear();
+                                    setState(() {
+                                      _query = '';
+                                      _highlight = 0;
+                                    });
+                                    _focus.requestFocus();
+                                  },
+                                  child: const Padding(
+                                    padding: EdgeInsets.only(right: 8),
+                                    child: Icon(Icons.clear_rounded,
+                                        color: TvColors.textTertiary,
+                                        size: 20),
+                                  ),
+                                ),
+                              )
+                            : null,
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 14),
+                      ),
+                    ),
+                  ),
+                ),
+                const Divider(
+                    height: 1, thickness: 0.5, color: TvColors.divider),
+                // Results
+                Flexible(
+                  child: results.isEmpty
+                      ? Padding(
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 40, horizontal: 24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.search_off_rounded,
+                                  size: 36, color: TvColors.textTertiary),
+                              const SizedBox(height: 10),
+                              Text(
+                                _query.isEmpty
+                                    ? 'Nu sunt stații disponibile'
+                                    : 'Nicio stație găsită pentru „$_query"',
+                                style: TvTypography.body
+                                    .copyWith(color: TvColors.textSecondary),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          itemCount: results.length,
+                          itemBuilder: (_, i) {
+                            final s = results[i];
+                            return _SearchResultRow(
+                              station: s,
+                              highlighted: i == _highlight,
+                              isCurrent: s.id == widget.currentStationId,
+                              isFavorite:
+                                  widget.favoriteSlugs.contains(s.slug),
+                              onTap: () => Navigator.of(context).pop(s),
+                              onHover: () => setState(() => _highlight = i),
+                            );
+                          },
+                        ),
+                ),
+                // Footer with hints
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.18),
+                    borderRadius: const BorderRadius.vertical(
+                        bottom: Radius.circular(16)),
+                  ),
+                  child: Row(
+                    children: [
+                      _kbdHint('↑↓', 'navighează'),
+                      const SizedBox(width: 14),
+                      _kbdHint('↵', 'redă'),
+                      const Spacer(),
+                      _kbdHint('Esc', 'închide'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _kbdHint(String key, String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          ),
+          child: Text(
+            key,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: TvColors.textSecondary,
+            ),
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: TvTypography.caption
+              .copyWith(fontSize: 11, color: TvColors.textTertiary),
+        ),
+      ],
+    );
+  }
+}
+
+class _SearchResultRow extends StatelessWidget {
+  final Station station;
+  final bool highlighted;
+  final bool isCurrent;
+  final bool isFavorite;
+  final VoidCallback onTap;
+  final VoidCallback onHover;
+
+  const _SearchResultRow({
+    required this.station,
+    required this.highlighted,
+    required this.isCurrent,
+    required this.isFavorite,
+    required this.onTap,
+    required this.onHover,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => onHover(),
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            color: highlighted
+                ? TvColors.primary.withValues(alpha: 0.16)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: highlighted
+                  ? TvColors.primary.withValues(alpha: 0.4)
+                  : Colors.transparent,
+              width: 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: station.displayThumbnail(cacheWidth: 88),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            station.title,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: highlighted
+                                  ? Colors.white
+                                  : TvColors.textPrimary,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (isFavorite) ...[
+                          const SizedBox(width: 6),
+                          const Icon(Icons.favorite_rounded,
+                              size: 14, color: TvColors.primary),
+                        ],
+                        if (isCurrent) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: TvColors.primary.withValues(alpha: 0.18),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Text(
+                              'SE REDĂ',
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w800,
+                                color: TvColors.primary,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    if (station.songTitle.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          station.songArtist.isNotEmpty
+                              ? '${station.songTitle}  ·  ${station.songArtist}'
+                              : station.songTitle,
+                          style: TvTypography.caption
+                              .copyWith(fontSize: 12),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Icon(
+                Icons.play_arrow_rounded,
+                size: 22,
+                color: highlighted
+                    ? TvColors.primary
+                    : TvColors.textTertiary.withValues(alpha: 0.6),
+              ),
+            ],
           ),
         ),
       ),

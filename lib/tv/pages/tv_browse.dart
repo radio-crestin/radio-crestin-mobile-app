@@ -201,7 +201,13 @@ class _TvBrowseState extends State<TvBrowse> {
                 // doesn't get sliced off at the GridView's left/right edge.
                 final usable = constraints.maxWidth - marginH * 2;
                 final columns = (usable / 190).floor().clamp(2, 10);
-                return GridView.builder(
+                // Eager (non-builder) GridView so every card's DpadFocusable
+                // mounts and registers with the dpad region manager. With
+                // GridView.builder, off-viewport cards stay unmounted, so D-pad
+                // traversal can't find them as candidates and gets stuck at the
+                // last visible row (and gives jumpy L/R near the edges).
+                // Station list is small (<100), so eager mount is fine.
+                return GridView(
                   padding: EdgeInsets.fromLTRB(
                     marginH, 16, marginH, TvSpacing.lg,
                   ),
@@ -211,20 +217,22 @@ class _TvBrowseState extends State<TvBrowse> {
                     mainAxisSpacing: 8,
                     childAspectRatio: 160 / 216,
                   ),
-                  itemCount: stations.length,
-                  itemBuilder: (_, i) {
-                    final s = stations[i];
-                    return TvStationCard(
-                      station: s,
-                      isPlaying: _currentStation?.id == s.id,
-                      isFavorite: _favoriteSlugs.contains(s.slug),
-                      region: 'content',
-                      isEntryPoint: i == 0,
-                      autofocus: i == 0,
-                      onSelect: () => widget.onStationSelected(s),
-                      onFavoriteToggle: () {},
-                    );
-                  },
+                  children: [
+                    for (var i = 0; i < stations.length; i++)
+                      TvStationCard(
+                        key: ValueKey(stations[i].id),
+                        station: stations[i],
+                        isPlaying: _currentStation?.id == stations[i].id,
+                        isFavorite:
+                            _favoriteSlugs.contains(stations[i].slug),
+                        region: 'content',
+                        isEntryPoint: i == 0,
+                        autofocus: i == 0,
+                        onSelect: () =>
+                            widget.onStationSelected(stations[i]),
+                        onFavoriteToggle: () {},
+                      ),
+                  ],
                 );
               },
             ),

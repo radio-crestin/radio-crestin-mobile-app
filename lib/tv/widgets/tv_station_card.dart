@@ -84,33 +84,35 @@ class _TvStationCardState extends State<TvStationCard> {
                 );
               }
               // TV: border + scale + glow for D-pad visibility from across the room.
+              // Scale must wrap the bordered container (not its child), otherwise
+              // the inner thumbnail visually overflows the border at the corners
+              // — the same pattern dpad's FocusEffects.scaleWithBorder uses.
               // Outer radius = inner radius (10) + padding (3) so the border
-              // stays concentric with the thumbnail rounding — without this
-              // the corners look slightly off where the curves don't meet.
-              return AnimatedContainer(
+              // stays concentric with the thumbnail rounding.
+              return AnimatedScale(
+                scale: isFocused ? 1.07 : 1.0,
                 duration: const Duration(milliseconds: 200),
                 curve: Curves.easeOut,
-                padding: const EdgeInsets.all(3),
-                decoration: BoxDecoration(
-                  border: Border.all(
-                    color: isFocused ? TvColors.primary : Colors.transparent,
-                    width: 3,
-                  ),
-                  borderRadius: BorderRadius.circular(13),
-                  boxShadow: isFocused
-                      ? [
-                          BoxShadow(
-                            color: TvColors.primary.withValues(alpha: 0.45),
-                            blurRadius: 18,
-                            spreadRadius: 1,
-                          ),
-                        ]
-                      : null,
-                ),
-                child: AnimatedScale(
-                  scale: isFocused ? 1.07 : 1.0,
+                child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   curve: Curves.easeOut,
+                  padding: const EdgeInsets.all(3),
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: isFocused ? TvColors.primary : Colors.transparent,
+                      width: 3,
+                    ),
+                    borderRadius: BorderRadius.circular(13),
+                    boxShadow: isFocused
+                        ? [
+                            BoxShadow(
+                              color: TvColors.primary.withValues(alpha: 0.45),
+                              blurRadius: 18,
+                              spreadRadius: 1,
+                            ),
+                          ]
+                        : null,
+                  ),
                   child: child,
                 ),
               );
