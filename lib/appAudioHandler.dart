@@ -670,9 +670,15 @@ class AppAudioHandler extends BaseAudioHandler {
         // the decoder stalled on a buffered segment (large gap = server
         // segment problem). This is the highest-signal data for short
         // audible glitches.
-        _bufferingStartedAt ??= DateTime.now();
-        _bufferingStartPosition = player.position;
-        _bufferingStartBuffered = player.bufferedPosition;
+        // Capture position/buffered only on first entry per buffering episode,
+        // mirroring _bufferingStartedAt — otherwise a re-emission of the same
+        // state would silently advance the snapshot while the timer keeps
+        // counting from the original moment, skewing buf-ahead-at-start.
+        if (_bufferingStartedAt == null) {
+          _bufferingStartedAt = DateTime.now();
+          _bufferingStartPosition = player.position;
+          _bufferingStartBuffered = player.bufferedPosition;
+        }
         // Start a stall timer: if buffering doesn't resolve within 15s,
         // the connection is likely lost — stop and show error.
         _bufferingStallTimer?.cancel();
@@ -1874,18 +1880,15 @@ class AppAudioHandler extends BaseAudioHandler {
       });
     }
 
-    // When connectivity is restored: reconnect stalled audio if the app is in
-    // foreground OR CarPlay/Android Auto is connected (user may be driving with
-    // the phone screen off). Delay 2s so the network is actually usable.
+    // When connectivity is restored: always attempt reconnect. The earlier
+    // foreground-only gate prevented background recovery — but
+    // reconnectIfNeeded() already no-ops when there's no station, while
+    // connecting, casting, or not stalled, so the gate was redundant and
+    // actively harmful for the "audio that never stops" goal. Delay 2s so
+    // the network is actually usable.
     NetworkService.instance.isOffline.stream.listen((offline) {
       if (offline) return;
-      final lifecycle = WidgetsBinding.instance.lifecycleState;
-      final carPlayConnected = GetIt.instance.isRegistered<CarPlayService>() && GetIt.instance<CarPlayService>().isConnected;
-      if (lifecycle != AppLifecycleState.resumed && !carPlayConnected) {
-        _log("isOffline -> false: app not in foreground ($lifecycle) and CarPlay not connected, skipping reconnect");
-        return;
-      }
-      _log("isOffline -> false: will reconnect in 2s (foreground=${lifecycle == AppLifecycleState.resumed}, carPlay=$carPlayConnected)");
+      _log("isOffline -> false: will reconnect in 2s");
       Future.delayed(const Duration(seconds: 2), () {
         _log("isOffline -> false: checking if player needs reconnect");
         reconnectIfNeeded();
