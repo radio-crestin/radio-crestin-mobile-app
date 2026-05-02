@@ -98,9 +98,10 @@ release-help:
 	@echo "  make release-apple-tv      tvOS IPA         -> $(DIST)/  (Xcode signing)"
 	@echo "  make release-windows       EXE zip          -> $(DIST)/  (Windows host)"
 	@echo
-	@echo "  make release-mac-platforms android + ios + macos + apple-tv"
+	@echo "  make release-mac-platforms android + ios + macos  (no apple-tv)"
+	@echo "  make release-mac-platforms-with-tv   adds apple-tv  (needs ExportOptions.plist)"
 	@echo "  make publish               create GH release for $(TAG), upload $(DIST)/*"
-	@echo "  make release               bump-build + build + tag + publish (Mac one-shot)"
+	@echo "  make release               bump + commit + build + tag + publish (Mac one-shot)"
 	@echo "  make latest-links          print /releases/latest/download/* URLs"
 	@echo "  make clean-release         remove $(DIST)/ + flutter clean"
 
@@ -172,8 +173,14 @@ release-apple-tv: | $(DIST)
 	@ls -lh $(APPLE_TV_IPA)
 
 # ----- Aggregate (Mac host) --------------------------------------------------
-.PHONY: release-mac-platforms
-release-mac-platforms: release-android release-ios release-macos release-apple-tv
+# Default does not include apple-tv (needs apple_tv/ExportOptions.plist
+# and a different signing context). Run `make release-apple-tv` separately
+# when the tvOS app needs to ship.
+.PHONY: release-mac-platforms release-mac-platforms-with-tv
+release-mac-platforms: release-android release-ios release-macos
+	@ls -la $(DIST)
+
+release-mac-platforms-with-tv: release-mac-platforms release-apple-tv
 	@ls -la $(DIST)
 
 # ----- Release notes ---------------------------------------------------------
@@ -214,6 +221,7 @@ tag-release:
 .PHONY: publish
 publish: release-notes
 	@command -v gh >/dev/null || { echo "ERROR: gh CLI required (brew install gh)"; exit 1; }
+	@gh auth status >/dev/null 2>&1 || { echo "ERROR: gh not authenticated (run: gh auth login)"; exit 1; }
 	@if ! gh release view $(TAG) -R $(GH_REPO) >/dev/null 2>&1; then \
 	  gh release create $(TAG) -R $(GH_REPO) \
 	    --title "Radio Crestin $(TAG)" \
@@ -233,14 +241,28 @@ publish: release-notes
 	@echo "Published: https://github.com/$(GH_REPO)/releases/tag/$(TAG)"
 
 # ----- One-shot Mac release --------------------------------------------------
-# Each step re-runs make so PUBSPEC_VERSION re-evaluates after bump-build.
-.PHONY: release
+# Each step re-runs make so PUBSPEC_VERSION re-evaluates after bump-build,
+# and the version commit lands BEFORE tag-release so the tag points at the
+# right pubspec — otherwise the tag would still reference 1.5.0+77 while the
+# built APK is 1.5.0+78.
+.PHONY: release commit-version
 release:
 	$(MAKE) bump-build
+	$(MAKE) commit-version
 	$(MAKE) release-mac-platforms
 	$(MAKE) tag-release
 	$(MAKE) publish
-	@echo "✓ Release done"
+	@echo "Release done"
+
+commit-version:
+	@if git diff --quiet -- pubspec.yaml; then \
+	  echo "pubspec.yaml unchanged, skipping version commit"; \
+	else \
+	  cur="$(PUBSPEC_VERSION)"; \
+	  git add pubspec.yaml && \
+	  git commit -m "chore: release v$${cur%+*} ($$cur)" && \
+	  git push origin HEAD; \
+	fi
 
 # ----- Cleanup ---------------------------------------------------------------
 .PHONY: clean-dist clean-release
