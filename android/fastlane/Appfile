@@ -1,0 +1,2 @@
+json_key_file(ENV["PLAY_JSON_KEY_PATH"]) if ENV["PLAY_JSON_KEY_PATH"]
+package_name("com.radiocrestin.radio_crestin")

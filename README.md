@@ -95,6 +95,41 @@ The release artifacts use stable filenames so the GitHub
 
 `make latest-links` reprints these on demand.
 
+### Store uploads (TestFlight + Play internal)
+Once a release is built and verified, push the dev versions to TestFlight and
+Play Store's internal testing track via fastlane. Credentials stay in
+1Password (`radio-crestin-app` vault) — fastlane reads them at upload time
+through `op`, never from disk.
+
+```bash
+make release-ios-appstore   # builds an app-store IPA (TestFlight requires this, not ad-hoc)
+make upload-testflight      # uploads dist/radio-crestin-ios-appstore.ipa to TestFlight
+make upload-play-internal   # uploads dist/radio-crestin-android.aab to Play internal track
+make upload-stores          # both at once
+```
+
+**1Password items needed** (all in vault `radio-crestin-app`, secure note with
+the value pasted into the `notesPlain` field):
+
+| Item name | Source | Purpose |
+|---|---|---|
+| `appstore_connect_api_key.p8` | App Store Connect → Users and Access → Integrations → App Store Connect API → Generate API Key (download once) | TestFlight auth |
+| `appstore_connect_key_id` | Same page, the 10-char Key ID | TestFlight auth |
+| `appstore_connect_issuer_id` | Same page, the UUID at the top | TestFlight auth |
+| `play_service_account.json` | Play Console → Setup → API access → Create service account → Download JSON, then grant it "Release manager" or "Admin" on this app | Play upload |
+
+**One-time setup**:
+```bash
+brew install 1password-cli      # if you don't already have op
+cd ios     && bundle install    # installs fastlane gem
+cd android && bundle install    # installs fastlane gem
+```
+
+The Play service account also needs to be invited to the Play Console as a
+user with permission on the `com.radiocrestin.radio_crestin` app — Play
+Console → Users and permissions → Invite new users → paste the service
+account email from the JSON.
+
 ### Apple TV (`apple_tv/`)
 The tvOS app is a separate native SwiftUI Xcode project, not a Flutter target.
 `apple_tv/ExportOptions.plist` is committed with team `2KNY2RZVGC` and

@@ -75,13 +75,20 @@ BUILD_NUM       := $(word 2,$(subst +, ,$(PUBSPEC_VERSION)))
 TAG             ?= v$(VERSION)
 GH_REPO         ?= radio-crestin/radio-crestin-mobile-app
 
-ANDROID_APK     := $(DIST)/radio-crestin-android.apk
-ANDROID_AAB     := $(DIST)/radio-crestin-android.aab
-IOS_IPA         := $(DIST)/radio-crestin-ios.ipa
-MACOS_DMG       := $(DIST)/radio-crestin-macos.dmg
-WINDOWS_ZIP     := $(DIST)/radio-crestin-windows.zip
-APPLE_TV_IPA    := $(DIST)/radio-crestin-tvos.ipa
-RELEASE_NOTES   := $(DIST)/RELEASE_NOTES.md
+ANDROID_APK         := $(DIST)/radio-crestin-android.apk
+ANDROID_AAB         := $(DIST)/radio-crestin-android.aab
+IOS_IPA             := $(DIST)/radio-crestin-ios.ipa
+IOS_APPSTORE_IPA    := $(DIST)/radio-crestin-ios-appstore.ipa
+MACOS_DMG           := $(DIST)/radio-crestin-macos.dmg
+WINDOWS_ZIP         := $(DIST)/radio-crestin-windows.zip
+APPLE_TV_IPA        := $(DIST)/radio-crestin-tvos.ipa
+RELEASE_NOTES       := $(DIST)/RELEASE_NOTES.md
+
+# Store-upload credentials are read from 1Password (never committed).
+# See README "Store uploads" for setup.
+OP_VAULT            := radio-crestin-app
+APPSTORE_KEY_FILE   := /tmp/radio-crestin-appstore-key.p8
+PLAY_JSON_FILE      := /tmp/radio-crestin-play-key.json
 
 .PHONY: release-help print-version
 release-help:
@@ -98,10 +105,16 @@ release-help:
 	@echo "  make release-apple-tv      tvOS IPA         -> $(DIST)/  (Xcode signing)"
 	@echo "  make release-windows       EXE zip          -> $(DIST)/  (Windows host)"
 	@echo
+	@echo "  make release-ios-appstore  app-store IPA (for TestFlight) -> $(DIST)/"
 	@echo "  make release-mac-platforms android + ios + macos + apple-tv"
 	@echo "  make publish               create GH PRERELEASE for $(TAG), upload $(DIST)/*"
 	@echo "  make promote               flip $(TAG) from prerelease -> latest (public)"
 	@echo "  make release               bump + commit + build + tag + publish (prerelease)"
+	@echo
+	@echo "  make upload-testflight     send app-store IPA to App Store Connect/TestFlight"
+	@echo "  make upload-play-internal  send AAB to Play Store internal testing track"
+	@echo "  make upload-stores         both of the above (TestFlight + Play internal)"
+	@echo
 	@echo "  make latest-links          print /releases/latest/download/* URLs"
 	@echo "  make clean-release         remove $(DIST)/ + flutter clean"
 
@@ -128,6 +141,15 @@ release-ios: | $(DIST)
 	  [ -n "$$ipa" ] || { echo "ERROR: no IPA produced — check Xcode signing config"; exit 1; }; \
 	  cp "$$ipa" $(IOS_IPA); \
 	  ls -lh $(IOS_IPA)
+
+# ----- iOS (app-store IPA for TestFlight upload) -----------------------------
+.PHONY: release-ios-appstore
+release-ios-appstore: | $(DIST)
+	flutter build ipa --release --export-method=app-store --no-tree-shake-icons
+	@ipa="$$(ls -t build/ios/ipa/*.ipa 2>/dev/null | head -1)"; \
+	  [ -n "$$ipa" ] || { echo "ERROR: app-store IPA not produced — check Xcode signing"; exit 1; }; \
+	  cp "$$ipa" $(IOS_APPSTORE_IPA); \
+	  ls -lh $(IOS_APPSTORE_IPA)
 
 # ----- macOS DMG -------------------------------------------------------------
 # TODO: codesign + xcrun notarytool to avoid Gatekeeper warning on download.
@@ -164,11 +186,13 @@ release-apple-tv: | $(DIST)
 	  -scheme RadioCrestinTV -configuration Release \
 	  -destination "generic/platform=tvOS" \
 	  -archivePath build/apple_tv/RadioCrestinTV.xcarchive \
+	  -allowProvisioningUpdates \
 	  archive
 	xcodebuild -exportArchive \
 	  -archivePath build/apple_tv/RadioCrestinTV.xcarchive \
 	  -exportPath build/apple_tv/export \
-	  -exportOptionsPlist apple_tv/ExportOptions.plist
+	  -exportOptionsPlist apple_tv/ExportOptions.plist \
+	  -allowProvisioningUpdates
 	@cp build/apple_tv/export/*.ipa $(APPLE_TV_IPA)
 	@ls -lh $(APPLE_TV_IPA)
 
@@ -272,6 +296,51 @@ commit-version:
 	  git commit -m "chore: release v$${cur%+*} ($$cur)" && \
 	  git push origin HEAD; \
 	fi
+
+# ----- Store uploads (App Store TestFlight + Play Store internal) ----------
+# Credentials are pulled from 1Password at upload time, written to /tmp,
+# consumed by fastlane, and deleted on exit. Nothing lands in the repo.
+#
+# 1Password items expected in vault `$(OP_VAULT)`:
+#   - appstore_connect_api_key.p8     (secure note: paste the .p8 contents)
+#   - appstore_connect_key_id          (secure note: 10-char Key ID)
+#   - appstore_connect_issuer_id       (secure note: UUID Issuer ID)
+#   - play_service_account.json        (secure note: paste the JSON)
+#
+# See README "Store uploads" for how to generate these.
+.PHONY: upload-testflight upload-play-internal upload-stores
+
+upload-testflight: $(IOS_APPSTORE_IPA)
+	@command -v op >/dev/null || { echo "ERROR: 1Password CLI required (brew install 1password-cli)"; exit 1; }
+	@command -v bundle >/dev/null || { echo "ERROR: bundler required"; exit 1; }
+	@op read "op://$(OP_VAULT)/appstore_connect_api_key.p8/notesPlain" > $(APPSTORE_KEY_FILE) 2>/dev/null \
+	  || { echo "ERROR: 1Password item appstore_connect_api_key.p8 not found in $(OP_VAULT)"; exit 1; }
+	@key_id="$$(op read 'op://$(OP_VAULT)/appstore_connect_key_id/notesPlain' 2>/dev/null)"; \
+	 issuer="$$(op read 'op://$(OP_VAULT)/appstore_connect_issuer_id/notesPlain' 2>/dev/null)"; \
+	 [ -n "$$key_id" ] && [ -n "$$issuer" ] || { \
+	   echo "ERROR: missing appstore_connect_key_id or appstore_connect_issuer_id in $(OP_VAULT)"; \
+	   rm -f $(APPSTORE_KEY_FILE); exit 1; }; \
+	 trap "rm -f $(APPSTORE_KEY_FILE)" EXIT; \
+	 cd ios && APPSTORE_CONNECT_KEY_ID="$$key_id" \
+	   APPSTORE_CONNECT_ISSUER_ID="$$issuer" \
+	   APPSTORE_CONNECT_KEY_PATH="$(APPSTORE_KEY_FILE)" \
+	   bundle exec fastlane upload_testflight
+	@rm -f $(APPSTORE_KEY_FILE)
+	@echo "TestFlight: https://appstoreconnect.apple.com/teams/$(shell op read 'op://$(OP_VAULT)/appstore_connect_issuer_id/notesPlain' 2>/dev/null)/apps"
+
+upload-play-internal: $(ANDROID_AAB)
+	@command -v op >/dev/null || { echo "ERROR: 1Password CLI required"; exit 1; }
+	@command -v bundle >/dev/null || { echo "ERROR: bundler required"; exit 1; }
+	@op read "op://$(OP_VAULT)/play_service_account.json/notesPlain" > $(PLAY_JSON_FILE) 2>/dev/null \
+	  || { echo "ERROR: 1Password item play_service_account.json not found in $(OP_VAULT)"; exit 1; }
+	@trap "rm -f $(PLAY_JSON_FILE)" EXIT; \
+	 cd android && PLAY_JSON_KEY_PATH="$(PLAY_JSON_FILE)" \
+	   bundle exec fastlane upload_play_internal
+	@rm -f $(PLAY_JSON_FILE)
+	@echo "Play Console: https://play.google.com/console/u/0/developers/-/app-list"
+
+upload-stores: upload-testflight upload-play-internal
+	@echo "Both store uploads complete."
 
 # ----- Cleanup ---------------------------------------------------------------
 .PHONY: clean-dist clean-release

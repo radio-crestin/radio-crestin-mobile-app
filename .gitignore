@@ -80,6 +80,15 @@ coverage/
 # Local release artifacts (uploaded to GitHub Releases via Makefile)
 dist/
 
+# Fastlane (used by upload-testflight / upload-play-internal Makefile targets)
+**/fastlane/report.xml
+**/fastlane/Preview.html
+**/fastlane/screenshots/**
+**/fastlane/test_output/**
+**/fastlane/README.md
+**/.bundle/
+**/vendor/bundle/
+
 
 ### Intellij ###
 # Covers JetBrains IDEs: IntelliJ, RubyMine, PhpStorm, AppCode, PyCharm, CLion, Android Studio, WebStorm and Rider

@@ -1,0 +1,22 @@
+default_platform(:ios)
+
+platform :ios do
+  desc "Upload pre-built app-store IPA at dist/radio-crestin-ios-appstore.ipa to TestFlight"
+  desc "Auth: App Store Connect API key (.p8 + key_id + issuer_id) provided via env."
+  lane :upload_testflight do
+    api_key = app_store_connect_api_key(
+      key_id: ENV.fetch("APPSTORE_CONNECT_KEY_ID"),
+      issuer_id: ENV.fetch("APPSTORE_CONNECT_ISSUER_ID"),
+      key_filepath: ENV.fetch("APPSTORE_CONNECT_KEY_PATH"),
+      duration: 1200,
+      in_house: false,
+    )
+
+    upload_to_testflight(
+      api_key: api_key,
+      ipa: "../dist/radio-crestin-ios-appstore.ipa",
+      skip_submission: true,
+      skip_waiting_for_build_processing: true,
+    )
+  end
+end
