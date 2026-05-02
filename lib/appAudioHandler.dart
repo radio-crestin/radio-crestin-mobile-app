@@ -222,10 +222,10 @@ class AppAudioHandler extends BaseAudioHandler {
   static const _silenceKeepAliveAsset = 'assets/silence.m4a';
   // Track every buffering enter/exit so short rebuffers (the audible-glitch
   // case) get logged. _bufferingStallTimer above is the long-stall escalation.
-  // Threshold dropped from 250ms to 100ms — even short stalls are audible
-  // (clicks/pops) and we want them in the diagnostic for the screen-lock
-  // hiccup investigation.
-  static const _bufferingDropMinDuration = Duration(milliseconds: 100);
+  // 250ms threshold: tried 100ms during the screen-lock investigation but
+  // it surfaced sub-perceptual decoder reseeds the user wouldn't actually
+  // hear, bloating the ring with noise that pushed real events out.
+  static const _bufferingDropMinDuration = Duration(milliseconds: 250);
   DateTime? _bufferingStartedAt;
   Duration _bufferingStartPosition = Duration.zero;
   Duration _bufferingStartBuffered = Duration.zero;
@@ -1999,6 +1999,19 @@ class AppAudioHandler extends BaseAudioHandler {
     // reconnect, which would cascade into play() and ultimately a Cast
     // LOAD we didn't ask for.
     if (isCasting) return;
+    // Apply the same 8s debounce as the listener's terminal-state branches:
+    // a lifecycle.resumed firing within seconds of a successful load (e.g.
+    // a brief ⌥-tab away and back) shouldn't kick a fresh play() while
+    // AVPlayer is still settling. Without this, the "shouldBePlayingButIsnt"
+    // predicate below would re-issue play() during the 200–800ms PDT
+    // decoder-confusion window where player.playing transiently flips
+    // false, looping us right back into "Attempt → Loaded → Rebuffer".
+    final lastLoad = _lastSuccessfulLoadAt;
+    if (lastLoad != null &&
+        DateTime.now().difference(lastLoad) < _terminalStateReloadDebounce) {
+      _log("reconnectIfNeeded: within debounce window of last load — skipping");
+      return;
+    }
     final state = player.processingState;
     final stalled = state == ProcessingState.idle ||
         (state == ProcessingState.buffering && player.playing);
