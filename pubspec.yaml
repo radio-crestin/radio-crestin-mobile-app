@@ -138,6 +138,7 @@ flutter:
     - assets/icons/carplay_logo.svg
     - assets/icons/android_auto_logo.svg
     - assets/fallback-stations.json
+    - assets/silence.m4a
 
 flutter_launcher_icons:
   #  image_path: "assets/images/icon-128x128.png"

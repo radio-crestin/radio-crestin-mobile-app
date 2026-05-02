@@ -194,6 +194,23 @@ class AppAudioHandler extends BaseAudioHandler {
   Timer? _hlsPlaylistRefreshTimer;
   Timer? _bufferingStallTimer;
   static const _bufferingStallTimeout = Duration(seconds: 15);
+
+  // ── iOS background-suspension keep-alive ──────────────────────────
+  // When the main player enters `buffering` and audio output stops, iOS
+  // gives the app ~30–60s before suspending it (even with the `audio`
+  // background mode). Suspension freezes the entire Dart isolate, so
+  // every reconnect/retry path stops working — the user hears silence
+  // until they bring the app back to the foreground. To prevent that,
+  // we spin up a secondary player looping `assets/silence.m4a` whenever
+  // the main player is buffering for more than _silenceKeepAliveDelay.
+  // iOS sees continuous audio output and never suspends the engine, so
+  // the recovery code (idle-while-playing, isOffline-restored, the
+  // stall-timer reattempt) keeps running.
+  AudioPlayer? _silenceKeeper;
+  Timer? _silenceKeepAliveStartTimer;
+  bool _silenceKeeperPlaying = false;
+  static const _silenceKeepAliveDelay = Duration(seconds: 3);
+  static const _silenceKeepAliveAsset = 'assets/silence.m4a';
   // Track every buffering enter/exit so short rebuffers (the audible-glitch
   // case) get logged. _bufferingStallTimer above is the long-stall escalation.
   static const _bufferingDropMinDuration = Duration(milliseconds: 250);
@@ -678,17 +695,22 @@ class AppAudioHandler extends BaseAudioHandler {
           _bufferingStartedAt = DateTime.now();
           _bufferingStartPosition = player.position;
           _bufferingStartBuffered = player.bufferedPosition;
+          _scheduleSilenceKeepAlive();
         }
-        // Start a stall timer: if buffering doesn't resolve within 15s,
-        // the connection is likely lost — stop and show error.
+        // Stall timer: if buffering doesn't resolve within 15s, kick a
+        // fresh play() instead of giving up. play() has its own retry
+        // chain (maxRetries=4 across the station's stream URLs) and will
+        // surface a connectionError only after all of those fail. Goal:
+        // the stream auto-recovers without the user noticing — never
+        // stop on a transient network blip.
         _bufferingStallTimer?.cancel();
         _bufferingStallTimer = Timer(_bufferingStallTimeout, () {
           if (player.processingState == ProcessingState.buffering && player.playing) {
-            _log("processingStateStream: buffering stalled for ${_bufferingStallTimeout.inSeconds}s, stopping");
+            _log("processingStateStream: buffering stalled for ${_bufferingStallTimeout.inSeconds}s, reattempting play()");
             final lastInfo = currentStreamInfo.valueOrNull;
             _recordStreamEvent(
               StreamEventKind.bufferingStall,
-              'Buffering stalled ${_bufferingStallTimeout.inSeconds}s — stopping',
+              'Buffering stalled ${_bufferingStallTimeout.inSeconds}s — reattempting',
             );
             AnalyticsService.instance.capture('stream_buffering_stall', {
               'station_slug': lastInfo?.stationSlug ?? currentStation.valueOrNull?.slug ?? '',
@@ -698,17 +720,20 @@ class AppAudioHandler extends BaseAudioHandler {
               'stream_index': lastInfo?.attemptIndex,
               'total_streams': lastInfo?.totalStreams,
               'stall_seconds': _bufferingStallTimeout.inSeconds,
+              'action': 'reattempt',
             });
-            final stationName = currentStation.valueOrNull?.title ?? '';
-            connectionError.add(ConnectionError(
-              stationName: stationName,
-              reason: ConnectionErrorReason.network,
-            ));
-            _stopDueToError();
+            // Force play() to re-issue setAudioSource (rather than skip
+            // because the URL is "already loaded").
+            _loadedStreamUrl = null;
+            _loadedStreamType = null;
+            play();
           }
         });
       } else if (state == ProcessingState.ready) {
         _bufferingStallTimer?.cancel();
+        _stopSilenceKeepAlive();
+      } else {
+        _stopSilenceKeepAlive();
       }
     });
 
@@ -1417,6 +1442,58 @@ class AppAudioHandler extends BaseAudioHandler {
     _hlsFirstSegmentEpoch = null;
   }
 
+  // ── Silence keep-alive (iOS-only background-suspension prevention) ──
+
+  /// Schedule the silence keeper to start playing after
+  /// [_silenceKeepAliveDelay] of continuous buffering. No-op on Android
+  /// where audio_service runs as a foreground service and the engine is
+  /// not suspended on stall.
+  void _scheduleSilenceKeepAlive() {
+    if (!Platform.isIOS) return;
+    _silenceKeepAliveStartTimer?.cancel();
+    _silenceKeepAliveStartTimer = Timer(_silenceKeepAliveDelay, () async {
+      // Re-check the state — buffering may have ended during the delay.
+      if (player.processingState != ProcessingState.buffering) return;
+      if (!player.playing) return;
+      await _startSilenceKeepAlive();
+    });
+  }
+
+  Future<void> _startSilenceKeepAlive() async {
+    if (_silenceKeeperPlaying) return;
+    try {
+      _silenceKeeper ??= AudioPlayer(handleInterruptions: false);
+      // Lazily load the asset on first use. setAsset() is idempotent if the
+      // source is already loaded, but cheaper to skip on subsequent calls.
+      if (_silenceKeeper!.audioSource == null) {
+        await _silenceKeeper!.setAsset(_silenceKeepAliveAsset);
+        await _silenceKeeper!.setLoopMode(LoopMode.all);
+        // Volume just above zero so AVPlayer continues pushing samples to
+        // AVAudioSession (zero-amplitude or muted may be optimized out and
+        // defeat the purpose). 0.001 is below audible threshold.
+        await _silenceKeeper!.setVolume(0.001);
+      }
+      await _silenceKeeper!.play();
+      _silenceKeeperPlaying = true;
+      _log('silence keeper started — preventing iOS background suspension');
+    } catch (e) {
+      _log('silence keeper start failed: $e');
+    }
+  }
+
+  void _stopSilenceKeepAlive() {
+    _silenceKeepAliveStartTimer?.cancel();
+    _silenceKeepAliveStartTimer = null;
+    if (!_silenceKeeperPlaying) return;
+    _silenceKeeperPlaying = false;
+    final keeper = _silenceKeeper;
+    if (keeper == null) return;
+    keeper.stop().catchError((e) {
+      _log('silence keeper stop failed: $e');
+    });
+    _log('silence keeper stopped');
+  }
+
   /// Stops playback after an error WITHOUT calling super.stop().
   /// This keeps MPRemoteCommandCenter alive so CarPlay/lock-screen
   /// next/prev/play buttons still work and the user can recover.
@@ -1427,6 +1504,7 @@ class AppAudioHandler extends BaseAudioHandler {
     _disconnectTimer?.cancel();
     _bufferingStallTimer?.cancel();
     _bufferingStartedAt = null;
+    _stopSilenceKeepAlive();
     _lastPlayerErrorCode = null;
     _lastPlayerErrorMessage = null;
     _loadedStreamUrl = null;
@@ -1452,6 +1530,7 @@ class AppAudioHandler extends BaseAudioHandler {
     _disconnectTimer?.cancel();
     _bufferingStallTimer?.cancel();
     _bufferingStartedAt = null;
+    _stopSilenceKeepAlive();
     _lastPlayerErrorCode = null;
     _lastPlayerErrorMessage = null;
     _stopHlsPlaylistRefresh();
@@ -1726,10 +1805,17 @@ class AppAudioHandler extends BaseAudioHandler {
     _log('dispose()');
     _cancelInFlightPlay();
     _disconnectTimer?.cancel();
+    _bufferingStallTimer?.cancel();
+    _stopSilenceKeepAlive();
     _loadedStreamUrl = null;
     _loadedStreamType = null;
     await player.stop();
     await player.dispose();
+    final keeper = _silenceKeeper;
+    _silenceKeeper = null;
+    if (keeper != null) {
+      await keeper.dispose().catchError((e) => _log('silence keeper dispose failed: $e'));
+    }
     stationDataService.dispose();
     await super.stop();
   }
