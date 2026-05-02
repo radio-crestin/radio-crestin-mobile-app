@@ -306,6 +306,7 @@ class _SettingsPageState extends State<SettingsPage> {
     switch (e.kind) {
       case StreamEventKind.loaded:
       case StreamEventKind.attempt:
+      case StreamEventKind.lifecycle:
         return isDark ? const Color(0xff8e8e93) : const Color(0xff6b6b6b);
       case StreamEventKind.switched:
         return const Color(0xff34c759);
@@ -317,6 +318,8 @@ class _SettingsPageState extends State<SettingsPage> {
       case StreamEventKind.hlsCompleted:
       case StreamEventKind.lostIdle:
       case StreamEventKind.bufferingDrop:
+      case StreamEventKind.audioInterruption:
+      case StreamEventKind.microStall:
         return const Color(0xffff9500);
     }
   }

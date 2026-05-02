@@ -572,6 +572,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) async {
+    // Mirror every transition into the audio diagnostic ring buffer so a
+    // hiccup that lines up with a screen-lock / foreground-resume is visible
+    // to the user when they share the diagnostic.
+    _audioHandler.recordLifecycleTransition(state.name);
     if (state == AppLifecycleState.resumed) {
       // App returned to foreground — check if audio stream was lost in background
       _audioHandler.reconnectIfNeeded();
@@ -837,7 +841,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       child: RefreshIndicator(
                         onRefresh: _handleRefresh,
                         color: Theme.of(context).primaryColor,
-                        child: Scrollbar(
+                        child: RawScrollbar(
+                        padding: const EdgeInsets.only(top: 60),
+                        thumbColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.35),
+                        radius: const Radius.circular(8),
+                        thickness: 4,
                         child: CustomScrollView(
                           physics: const PositionRetainedScrollPhysics().applyTo(const AlwaysScrollableScrollPhysics()),
                           cacheExtent: 300.0,

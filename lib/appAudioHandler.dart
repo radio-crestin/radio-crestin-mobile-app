@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:ui';
 
 import 'package:audio_service/audio_service.dart';
+import 'package:audio_session/audio_session.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -96,8 +97,11 @@ enum StreamEventKind {
   nonHlsCompleted,    // direct MP3 completed (treated as error)
   lostIdle,           // processingState == idle while playing
   bufferingStall,     // buffering exceeded long-stall threshold (15s)
-  bufferingDrop,      // brief rebuffer (>=250ms): the audible-glitch case
+  bufferingDrop,      // brief rebuffer (>=100ms): the audible-glitch case
   playerError,        // playbackEventStream raised (error not tied to load attempt)
+  audioInterruption,  // AVAudioSession interruption begin/end (route change, call, lock)
+  lifecycle,          // app lifecycle transitions (resumed/inactive/paused/hidden)
+  microStall,         // position didn't advance while playing (sub-buffering glitch)
 }
 
 /// Lightweight event record kept in a capped ring buffer for the in-app
@@ -132,8 +136,18 @@ Future<AppAudioHandler> initAudioService({required graphqlClient}) async {
         fallbackMaxPlaybackSpeed: 1.0,
       ),
       darwinLoadControl: DarwinLoadControl(
+        // Keep fetching segments while the AVPlayer is paused so that resuming
+        // playback (e.g. after the user briefly switched apps) is instant.
         canUseNetworkResourcesForLiveStreamingWhilePaused: true,
-        automaticallyWaitsToMinimizeStalling: true,
+        // Counter-intuitive but deliberate: with this set to true, AVPlayer
+        // briefly *pauses* playback when it predicts a stall is imminent
+        // — that's the textbook origin of the "rebuffer with full buffer"
+        // hiccup users hear at screen-lock time. Setting false tells AVPlayer
+        // to push through transient buffer dips instead of pre-emptively
+        // pausing. We have our own stall detection (15s reattempt) for
+        // genuine stalls, and a chunky 60s preferred forward buffer to
+        // absorb network jitter before the decoder ever starves.
+        automaticallyWaitsToMinimizeStalling: false,
         preferredForwardBufferDuration: Duration(seconds: 60),
       ),
     ),
@@ -213,7 +227,10 @@ class AppAudioHandler extends BaseAudioHandler {
   static const _silenceKeepAliveAsset = 'assets/silence.m4a';
   // Track every buffering enter/exit so short rebuffers (the audible-glitch
   // case) get logged. _bufferingStallTimer above is the long-stall escalation.
-  static const _bufferingDropMinDuration = Duration(milliseconds: 250);
+  // Threshold dropped from 250ms to 100ms — even short stalls are audible
+  // (clicks/pops) and we want them in the diagnostic for the screen-lock
+  // hiccup investigation.
+  static const _bufferingDropMinDuration = Duration(milliseconds: 100);
   DateTime? _bufferingStartedAt;
   Duration _bufferingStartPosition = Duration.zero;
   Duration _bufferingStartBuffered = Duration.zero;
@@ -741,6 +758,56 @@ class AppAudioHandler extends BaseAudioHandler {
     // Note: just_audio handles audio session interruptions automatically via
     // handleInterruptions: true (default). It pauses on interruption begin and
     // resumes on interruption end when shouldResume=true.
+    //
+    // We additionally subscribe to AudioSession events for diagnostic purposes:
+    // when the user reports a "hiccup on screen lock", knowing whether iOS
+    // emitted an interruption (and its type) tells us whether the stall was
+    // a route change, a system interruption (call/timer/Siri), or neither.
+    _attachAudioSessionDiagnostics();
+  }
+
+  /// Subscribe to AudioSession interruption + becomingNoisy events and write
+  /// them to the diagnostic ring buffer. Cheap (event-driven, no polling)
+  /// and gives us ground truth on what iOS is signalling during transitions.
+  Future<void> _attachAudioSessionDiagnostics() async {
+    try {
+      final session = await AudioSession.instance;
+      session.interruptionEventStream.listen((event) {
+        final phase = event.begin ? 'begin' : 'end';
+        final type = event.type.name;
+        _recordStreamEvent(
+          StreamEventKind.audioInterruption,
+          'AudioSession interruption $phase ($type)',
+        );
+        AnalyticsService.instance.capture('audio_session_interruption', {
+          'phase': phase,
+          'type': type,
+          'player_processing_state': player.processingState.name,
+          'player_playing': player.playing,
+          'position_ms': player.position.inMilliseconds,
+          'buffered_ms': player.bufferedPosition.inMilliseconds,
+        });
+      });
+      session.becomingNoisyEventStream.listen((_) {
+        _recordStreamEvent(
+          StreamEventKind.audioInterruption,
+          'AudioSession becoming noisy (route disconnect)',
+        );
+        AnalyticsService.instance.capture('audio_session_becoming_noisy', const {});
+      });
+    } catch (e) {
+      _log('audio session diagnostics setup failed: $e');
+    }
+  }
+
+  /// Public hook called by HomePage's didChangeAppLifecycleState. Logs every
+  /// transition to the ring buffer so a screen-lock-triggered hiccup is
+  /// visually adjacent to the lifecycle change in the user's diagnostic copy.
+  void recordLifecycleTransition(String state) {
+    _recordStreamEvent(
+      StreamEventKind.lifecycle,
+      'App lifecycle: $state',
+    );
   }
 
   @override

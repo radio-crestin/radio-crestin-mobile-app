@@ -37,6 +37,9 @@ dependencies:
   cupertino_icons: ^1.0.2
   just_audio: ^0.10.5
   just_audio_media_kit: ^2.1.0
+  # Direct dep so we can subscribe to interruption + becoming-noisy events
+  # for diagnostics; just_audio uses this transitively for session config.
+  audio_session: ^0.2.0
   media_kit_libs_video: ^1.0.5
   graphql_flutter: ^5.2.0-beta.6
   provider: ^6.0.5
