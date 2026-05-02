@@ -74,6 +74,12 @@ class _CastButtonState extends State<CastButton> {
     AnalyticsService.instance.capture('cast_picker_opened', {
       'device_count': _devices.length,
     });
+    // Re-arm discovery on each tap. On iOS this re-issues the Bonjour
+    // browse request, which (re)triggers the Local Network permission
+    // prompt the very first time and is otherwise a cheap no-op. Lets
+    // a user who initially denied the prompt recover by tapping again
+    // (after toggling iOS Settings → Radio Creștin → Local Network ON).
+    _castService?.restartDiscovery();
     showModalBottomSheet(
       context: context,
       backgroundColor:
@@ -165,9 +171,7 @@ class _CastButtonState extends State<CastButton> {
             child: Icon(
               _chromecastCasting
                   ? Icons.cast_connected_rounded
-                  : Platform.isIOS
-                      ? Icons.airplay_rounded
-                      : Icons.cast_rounded,
+                  : Icons.cast_rounded,
               size: 22,
               color: _casting
                   ? AppColors.primary
