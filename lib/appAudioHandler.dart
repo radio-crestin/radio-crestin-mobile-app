@@ -136,18 +136,13 @@ Future<AppAudioHandler> initAudioService({required graphqlClient}) async {
         fallbackMaxPlaybackSpeed: 1.0,
       ),
       darwinLoadControl: DarwinLoadControl(
-        // Keep fetching segments while the AVPlayer is paused so that resuming
-        // playback (e.g. after the user briefly switched apps) is instant.
         canUseNetworkResourcesForLiveStreamingWhilePaused: true,
-        // Counter-intuitive but deliberate: with this set to true, AVPlayer
-        // briefly *pauses* playback when it predicts a stall is imminent
-        // — that's the textbook origin of the "rebuffer with full buffer"
-        // hiccup users hear at screen-lock time. Setting false tells AVPlayer
-        // to push through transient buffer dips instead of pre-emptively
-        // pausing. We have our own stall detection (15s reattempt) for
-        // genuine stalls, and a chunky 60s preferred forward buffer to
-        // absorb network jitter before the decoder ever starves.
-        automaticallyWaitsToMinimizeStalling: false,
+        // automaticallyWaitsToMinimizeStalling: tried false in c52d785 to
+        // skip AVPlayer's pre-emptive pause; users reported playback
+        // stopping permanently in background with no events fired (likely
+        // AVPlayer entering a silent ready-state). Reverted to true. The
+        // rebuffer-with-full-buffer hiccup needs a different approach.
+        automaticallyWaitsToMinimizeStalling: true,
         preferredForwardBufferDuration: Duration(seconds: 60),
       ),
     ),
