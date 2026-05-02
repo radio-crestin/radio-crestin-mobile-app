@@ -66,20 +66,19 @@ class SeekModeManager {
     _unstableConnectionNotifier.value = enabled;
   }
 
-  static const String _migratedKeyV1 = 'seek_mode_migrated_v1';
+  static const String _migratedKeyV2 = 'seek_mode_migrated_v2';
 
   static void initializeFromPrefs(SharedPreferences prefs) {
-    // One-time migration: prior versions had a bug where toggling
-    // "Conexiune instabilă" OFF didn't revert the saved seek mode from
-    // fiveMinutes back to twoMinutes, so anyone who'd ever enabled it
-    // ended up with a sticky 5-minute default. Reset that once.
-    if (!(prefs.getBool(_migratedKeyV1) ?? false)) {
-      final saved = prefs.getString(_seekModeKey);
-      final unstable = prefs.getBool(_unstableConnectionKey) ?? false;
-      if (saved == 'SeekMode.fiveMinutes' && !unstable) {
-        prefs.setString(_seekModeKey, 'SeekMode.twoMinutes');
-      }
-      prefs.setBool(_migratedKeyV1, true);
+    // One-time hard reset: earlier versions silently locked users into a
+    // 5-minute "Încărcare în avans" default — either via a sticky
+    // seek_mode after toggling unstable OFF, or via unstable_connection=true
+    // overriding currentOffset. The v1 migration only handled the first
+    // case. v2 wipes both back to the documented default (2 minutes,
+    // unstable=false) for every existing install, exactly once.
+    if (!(prefs.getBool(_migratedKeyV2) ?? false)) {
+      prefs.setString(_seekModeKey, 'SeekMode.twoMinutes');
+      prefs.setBool(_unstableConnectionKey, false);
+      prefs.setBool(_migratedKeyV2, true);
     }
 
     final seekModeString = prefs.getString(_seekModeKey);
