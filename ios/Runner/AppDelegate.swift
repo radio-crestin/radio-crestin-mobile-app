@@ -26,6 +26,24 @@ let flutterEngine = FlutterEngine(name: "SharedEngine", project: nil, allowHeadl
             }
         }
 
+        // Mirror Android's "com.radiocrestin.app" channel so Flutter has a
+        // single cross-platform interface. iOS cannot distinguish "launched
+        // from icon" vs "launched from app switcher card" (a fresh process
+        // is identical in both cases, and a suspended-app resume isn't a
+        // launch event), so we report "launcher" for every cold start.
+        let appChannel = FlutterMethodChannel(
+            name: "com.radiocrestin.app",
+            binaryMessenger: flutterEngine.binaryMessenger
+        )
+        appChannel.setMethodCallHandler { call, result in
+            switch call.method {
+            case "getLaunchSource":
+                result("launcher")
+            default:
+                result(FlutterMethodNotImplemented)
+            }
+        }
+
         // Push Notification
         UNUserNotificationCenter.current().delegate = self
 

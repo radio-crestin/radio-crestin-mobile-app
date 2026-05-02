@@ -2,6 +2,7 @@ package com.radiocrestin.radio_crestin
 
 import android.content.Intent
 import android.os.Build
+import android.os.Bundle
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.FlutterEngineCache
 import io.flutter.plugin.common.MethodChannel
@@ -16,6 +17,19 @@ import kotlinx.coroutines.launch
 class MainActivity : AudioServiceActivity() {
 
     private val tvChannelScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
+    // Snapshot of the launch intent flags taken in onCreate, BEFORE any
+    // onNewIntent or setIntent() can replace getIntent(). Used by the
+    // "getLaunchSource" method channel so Flutter can suppress autoplay
+    // when the cold start originated from the recents list rather than
+    // a launcher icon tap.
+    private var launchedFromHistory: Boolean = false
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        launchedFromHistory =
+            (intent?.flags ?: 0) and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY != 0
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -33,6 +47,9 @@ class MainActivity : AudioServiceActivity() {
                             startActivity(intent)
                         }
                         result.success(true)
+                    }
+                    "getLaunchSource" -> {
+                        result.success(if (launchedFromHistory) "recents" else "launcher")
                     }
                     else -> result.notImplemented()
                 }

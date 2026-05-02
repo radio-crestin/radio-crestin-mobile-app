@@ -24,6 +24,7 @@ import '../components/StationsList.dart';
 import '../globals.dart' as globals;
 import '../main.dart';
 import '../queries/getStations.graphql.dart';
+import '../services/launch_source_service.dart';
 import '../services/network_service.dart';
 import '../services/station_data_service.dart';
 import '../services/station_sort_service.dart';
@@ -1096,7 +1097,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       var station = await _audioHandler.getLastPlayedStation();
       if (station == null) return;
 
-      if (autoStart) {
+      // Suppress autoplay when the cold start came from the recents list
+      // (Android task switcher) — the user is just inspecting the app, not
+      // re-launching it. CarPlay/Android Auto override this: a connected car
+      // means the user wants playback regardless of how the phone UI started.
+      final source = await LaunchSourceService.get();
+      final carConnected = _audioHandler.isCarConnected;
+      final fromRecents =
+          source == LaunchSource.recents && !carConnected;
+
+      if (autoStart && !fromRecents) {
         _audioHandler.playStation(station);
       } else {
         _audioHandler.selectStation(station);
