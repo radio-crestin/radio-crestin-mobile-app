@@ -44,10 +44,18 @@ via the `gh` CLI.
 - `gh` CLI authenticated (`gh auth login`).
 - Optional: a Windows host with Flutter desktop enabled to produce the EXE.
 
-### One-shot Mac release
+### Two-stage flow: prerelease → promote
+Releases are created as **prereleases first** so the dev team can test before
+the build is exposed at `/releases/latest`. Once a prerelease has been
+verified, run `make promote` to flip it to public.
+
 ```bash
-make release            # bump build number, build all Mac platforms,
-                        # tag, push tag, create GitHub release, upload all artifacts
+make release            # bump + commit pubspec, build android+ios+macos+apple-tv,
+                        # tag v<version>, push tag, create GH prerelease, upload artifacts
+                        # (devs can pull via tag URL; not yet at /releases/latest)
+
+make promote            # once verified, flips prerelease=false on the current
+                        # tag so /releases/latest serves it to end users
 ```
 
 ### Step-by-step
@@ -55,12 +63,14 @@ make release            # bump build number, build all Mac platforms,
 make release-help       # list every release target
 
 make bump-build         # 1.5.0+77 → 1.5.0+78  (or bump-patch / bump-minor)
+make commit-version     # commits pubspec bump and pushes
 make release-android    # APK + AAB to dist/
 make release-ios        # ad-hoc IPA to dist/
 make release-macos      # unsigned DMG to dist/
-make release-apple-tv   # tvOS IPA to dist/  (needs apple_tv/ExportOptions.plist)
+make release-apple-tv   # tvOS IPA to dist/
 make tag-release        # creates v<version> tag and pushes it
-make publish            # creates GH release, uploads everything in dist/
+make publish            # creates GH prerelease, uploads everything in dist/
+make promote            # flips prerelease → latest
 ```
 
 ### Windows EXE (separate machine)
@@ -87,9 +97,10 @@ The release artifacts use stable filenames so the GitHub
 
 ### Apple TV (`apple_tv/`)
 The tvOS app is a separate native SwiftUI Xcode project, not a Flutter target.
-To build the IPA, create `apple_tv/ExportOptions.plist` once with your team
-and signing config (an `app-store` or `ad-hoc` template works). Then run
-`make release-apple-tv`.
+`apple_tv/ExportOptions.plist` is committed with team `2KNY2RZVGC` and
+`method=development` — adjust to `ad-hoc` or `app-store` when ready to
+distribute beyond registered dev devices. `make release-apple-tv` is included
+in `make release-mac-platforms` and `make release`.
 
 ### Disabling Xcode Cloud
 This repo does **not** use Xcode Cloud (no `ci_scripts/` or `.xcode-cloud/`).

@@ -98,10 +98,10 @@ release-help:
 	@echo "  make release-apple-tv      tvOS IPA         -> $(DIST)/  (Xcode signing)"
 	@echo "  make release-windows       EXE zip          -> $(DIST)/  (Windows host)"
 	@echo
-	@echo "  make release-mac-platforms android + ios + macos  (no apple-tv)"
-	@echo "  make release-mac-platforms-with-tv   adds apple-tv  (needs ExportOptions.plist)"
-	@echo "  make publish               create GH release for $(TAG), upload $(DIST)/*"
-	@echo "  make release               bump + commit + build + tag + publish (Mac one-shot)"
+	@echo "  make release-mac-platforms android + ios + macos + apple-tv"
+	@echo "  make publish               create GH PRERELEASE for $(TAG), upload $(DIST)/*"
+	@echo "  make promote               flip $(TAG) from prerelease -> latest (public)"
+	@echo "  make release               bump + commit + build + tag + publish (prerelease)"
 	@echo "  make latest-links          print /releases/latest/download/* URLs"
 	@echo "  make clean-release         remove $(DIST)/ + flutter clean"
 
@@ -173,14 +173,10 @@ release-apple-tv: | $(DIST)
 	@ls -lh $(APPLE_TV_IPA)
 
 # ----- Aggregate (Mac host) --------------------------------------------------
-# Default does not include apple-tv (needs apple_tv/ExportOptions.plist
-# and a different signing context). Run `make release-apple-tv` separately
-# when the tvOS app needs to ship.
-.PHONY: release-mac-platforms release-mac-platforms-with-tv
-release-mac-platforms: release-android release-ios release-macos
-	@ls -la $(DIST)
-
-release-mac-platforms-with-tv: release-mac-platforms release-apple-tv
+# Includes apple-tv. Requires apple_tv/ExportOptions.plist (committed to
+# the repo with the team ID — adjust there if you change export method).
+.PHONY: release-mac-platforms
+release-mac-platforms: release-android release-ios release-macos release-apple-tv
 	@ls -la $(DIST)
 
 # ----- Release notes ---------------------------------------------------------
@@ -218,6 +214,8 @@ tag-release:
 	fi
 
 # ----- Publish: create or reuse GH release, upload anything in $(DIST) ------
+# Created as a PRERELEASE by default — devs can pull it via the tag URL but
+# it's not exposed at /releases/latest until `make promote` is run.
 .PHONY: publish
 publish: release-notes
 	@command -v gh >/dev/null || { echo "ERROR: gh CLI required (brew install gh)"; exit 1; }
@@ -225,20 +223,31 @@ publish: release-notes
 	@if ! gh release view $(TAG) -R $(GH_REPO) >/dev/null 2>&1; then \
 	  gh release create $(TAG) -R $(GH_REPO) \
 	    --title "Radio Crestin $(TAG)" \
-	    --notes-file $(RELEASE_NOTES); \
+	    --notes-file $(RELEASE_NOTES) \
+	    --prerelease; \
 	else \
 	  echo "release $(TAG) already exists — uploading artifacts"; \
 	fi
 	@for f in $(ANDROID_APK) $(ANDROID_AAB) $(IOS_IPA) $(MACOS_DMG) $(WINDOWS_ZIP) $(APPLE_TV_IPA); do \
 	  if [ -f "$$f" ]; then \
-	    echo "↑ $$f"; \
+	    echo "uploading $$f"; \
 	    gh release upload $(TAG) -R $(GH_REPO) "$$f" --clobber; \
 	  else \
 	    echo "skip (missing): $$f"; \
 	  fi; \
 	done
 	@echo
-	@echo "Published: https://github.com/$(GH_REPO)/releases/tag/$(TAG)"
+	@echo "Prerelease (devs only): https://github.com/$(GH_REPO)/releases/tag/$(TAG)"
+	@echo "Run 'make promote' to publish to /releases/latest."
+
+# ----- Promote: flip prerelease off so /releases/latest serves this build ---
+.PHONY: promote
+promote:
+	@command -v gh >/dev/null || { echo "ERROR: gh CLI required"; exit 1; }
+	@gh release view $(TAG) -R $(GH_REPO) >/dev/null 2>&1 || { \
+	  echo "ERROR: release $(TAG) not found — run 'make publish' first"; exit 1; }
+	gh release edit $(TAG) -R $(GH_REPO) --prerelease=false --latest
+	@echo "Promoted to latest: https://github.com/$(GH_REPO)/releases/latest"
 
 # ----- One-shot Mac release --------------------------------------------------
 # Each step re-runs make so PUBSPEC_VERSION re-evaluates after bump-build,
@@ -290,21 +299,21 @@ latest-links:
 bump-build:
 	@cur="$(PUBSPEC_VERSION)"; \
 	  ver=$${cur%+*}; build=$${cur#*+}; new=$$((build+1)); \
-	  sed -i.bak -E "s/^version: $$cur$$/version: $$ver+$$new/" pubspec.yaml && rm -f pubspec.yaml.bak; \
-	  echo "version: $$ver+$$new"
+	  sed -i.bak "s/^version: .*/version: $$ver+$$new/" pubspec.yaml && rm -f pubspec.yaml.bak; \
+	  grep '^version:' pubspec.yaml
 
 bump-patch:
 	@cur="$(PUBSPEC_VERSION)"; \
 	  ver=$${cur%+*}; build=$${cur#*+}; \
 	  newver=$$(echo "$$ver" | awk -F. '{print $$1 "." $$2 "." $$3+1}'); \
 	  newbuild=$$((build+1)); \
-	  sed -i.bak -E "s/^version: $$cur$$/version: $$newver+$$newbuild/" pubspec.yaml && rm -f pubspec.yaml.bak; \
-	  echo "version: $$newver+$$newbuild"
+	  sed -i.bak "s/^version: .*/version: $$newver+$$newbuild/" pubspec.yaml && rm -f pubspec.yaml.bak; \
+	  grep '^version:' pubspec.yaml
 
 bump-minor:
 	@cur="$(PUBSPEC_VERSION)"; \
 	  ver=$${cur%+*}; build=$${cur#*+}; \
 	  newver=$$(echo "$$ver" | awk -F. '{print $$1 "." $$2+1 ".0"}'); \
 	  newbuild=$$((build+1)); \
-	  sed -i.bak -E "s/^version: $$cur$$/version: $$newver+$$newbuild/" pubspec.yaml && rm -f pubspec.yaml.bak; \
-	  echo "version: $$newver+$$newbuild"
+	  sed -i.bak "s/^version: .*/version: $$newver+$$newbuild/" pubspec.yaml && rm -f pubspec.yaml.bak; \
+	  grep '^version:' pubspec.yaml
