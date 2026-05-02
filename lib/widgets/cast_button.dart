@@ -36,12 +36,24 @@ class _CastButtonState extends State<CastButton> {
   @override
   void initState() {
     super.initState();
+    // Guard the AirPlay singleton access: on some app-store-signed builds the
+    // flutter_airplay platform channel can throw during static `instance`
+    // resolution before its iOS plugin handler is registered. An unhandled
+    // throw here aborts initState, build() never runs, and the whole widget
+    // renders as zero-size in release — looks exactly like "the cast button
+    // disappeared on TestFlight". The cast picker still opens fine without
+    // the live AirPlay state; we just lose the icon-swap when AirPlay is
+    // routing.
     if (Platform.isIOS) {
-      final ap = AirPlayRouteState.instance;
-      _airPlayActive = ap.isActive;
-      _subs.add(ap.isActiveStream.listen((v) {
-        if (mounted) setState(() => _airPlayActive = v);
-      }));
+      try {
+        final ap = AirPlayRouteState.instance;
+        _airPlayActive = ap.isActive;
+        _subs.add(ap.isActiveStream.listen((v) {
+          if (mounted) setState(() => _airPlayActive = v);
+        }));
+      } catch (e, st) {
+        debugPrint('CastButton: AirPlayRouteState init failed: $e\n$st');
+      }
     }
     _tryInit();
     if (!_ready) {
@@ -49,6 +61,12 @@ class _CastButtonState extends State<CastButton> {
         if (mounted) _tryInit();
       });
     }
+    AnalyticsService.instance.capture('cast_button_init', {
+      'platform': Platform.isIOS ? 'ios' : Platform.isAndroid ? 'android' : 'other',
+      'visible_initial': _visible,
+      'airplay_active': _airPlayActive,
+      'cast_service_ready': _ready,
+    });
   }
 
   void _tryInit() {
