@@ -5,7 +5,10 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:rxdart/rxdart.dart';
 
 class NetworkService {
-  static NetworkService get instance => _instance!;
+  // Lazy-init so callers (including tests that don't bootstrap main()) always
+  // get a usable instance. The default seeded BehaviorSubjects (false/false)
+  // give safe defaults until initialize() is called from main().
+  static NetworkService get instance => _instance ??= NetworkService();
   static NetworkService? _instance;
 
   final Connectivity _connectivity = Connectivity();

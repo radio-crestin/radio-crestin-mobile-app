@@ -29,6 +29,7 @@ import '../services/station_data_service.dart';
 import '../services/station_sort_service.dart';
 import '../widgets/connectivity_banner.dart';
 import '../widgets/bottom_toast.dart';
+import '../widgets/cast_button.dart';
 import '../widgets/promo_notification_card.dart';
 import '../services/promo_notification_service.dart';
 import '../services/analytics_service.dart';
@@ -571,6 +572,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) async {
+    // Mirror every transition into the audio diagnostic ring buffer so a
+    // hiccup that lines up with a screen-lock / foreground-resume is visible
+    // to the user when they share the diagnostic.
+    _audioHandler.recordLifecycleTransition(state.name);
     if (state == AppLifecycleState.resumed) {
       // App returned to foreground — check if audio stream was lost in background
       _audioHandler.reconnectIfNeeded();
@@ -581,10 +586,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       // Autoplay is handled exclusively in initState() (cold start).
       // Returning from background should NEVER trigger autoplay.
     } else if (state == AppLifecycleState.paused) {
-      // App went to background — keep polling if car is connected (user sees
-      // metadata on car screen). Otherwise pause to save data/battery.
+      // App went to background — keep polling if car or cast is connected
+      // (user sees metadata on car/cast screen). During casting, player.playing
+      // is false (playback is on Cast device), so we must check isCasting too.
       final carConnected = _audioHandler.isCarConnected;
-      if (!carConnected && (_networkService.isOnMobileData.value || !_audioHandler.player.playing)) {
+      final casting = _audioHandler.isCasting;
+      if (!carConnected && !casting && (_networkService.isOnMobileData.value || !_audioHandler.player.playing)) {
         _stationDataService.pausePolling();
       }
     } else if (state == AppLifecycleState.detached) {
@@ -742,6 +749,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             ),
                           ),
                           const SizedBox(width: 4),
+                          const CastButton(),
                           _buildRoundedIconButton(
                             context: context,
                             icon: Icons.search_rounded,
@@ -833,7 +841,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       child: RefreshIndicator(
                         onRefresh: _handleRefresh,
                         color: Theme.of(context).primaryColor,
-                        child: Scrollbar(
+                        child: RawScrollbar(
+                        padding: const EdgeInsets.only(top: 60),
+                        thumbColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.35),
+                        radius: const Radius.circular(8),
+                        thickness: 4,
                         child: CustomScrollView(
                           physics: const PositionRetainedScrollPhysics().applyTo(const AlwaysScrollableScrollPhysics()),
                           cacheExtent: 300.0,

@@ -1,7 +1,10 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_airplay/flutter_airplay.dart' as flutter_airplay;
 import 'package:radio_crestin/services/share_service.dart';
 import 'package:radio_crestin/widgets/share_handler.dart';
 import 'package:radio_crestin/utils/share_utils.dart';
@@ -51,6 +54,14 @@ class _SettingsPageState extends State<SettingsPage> {
   int? _visitCount;
   bool _isLoadingShareData = true;
 
+  // Stream diagnostics — re-rendered live so the user can watch fallbacks
+  // happen while listening.
+  StreamInfo? _streamInfo;
+  List<StreamEvent> _streamEvents = const [];
+  StreamSubscription<StreamInfo?>? _streamInfoSub;
+  StreamSubscription<List<StreamEvent>>? _streamEventsSub;
+  Timer? _diagnosticTicker;
+
 
   @override
   void initState() {
@@ -67,11 +78,28 @@ class _SettingsPageState extends State<SettingsPage> {
       _isLoadingShareData = false;
     }
     _loadShareData();
+
+    final audioHandler = getIt<AppAudioHandler>();
+    _streamInfo = audioHandler.currentStreamInfo.valueOrNull;
+    _streamEvents = audioHandler.recentStreamEvents.value;
+    _streamInfoSub = audioHandler.currentStreamInfo.listen((info) {
+      if (mounted) setState(() => _streamInfo = info);
+    });
+    _streamEventsSub = audioHandler.recentStreamEvents.listen((events) {
+      if (mounted) setState(() => _streamEvents = events);
+    });
+    // Re-render every 5s so the "playing for X" line stays current.
+    _diagnosticTicker = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
   void dispose() {
     SeekModeManager.carConnected.removeListener(_onCarConnectionChanged);
+    _streamInfoSub?.cancel();
+    _streamEventsSub?.cancel();
+    _diagnosticTicker?.cancel();
     super.dispose();
   }
 
@@ -230,6 +258,227 @@ class _SettingsPageState extends State<SettingsPage> {
       trailing: trailing ?? Icon(Icons.chevron_right, size: 20, color: isDark ? const Color(0xff5a5a5c) : const Color(0xffc7c7cc)),
       onTap: onTap,
     );
+  }
+
+  bool get _isCasting {
+    final h = getIt<AppAudioHandler>();
+    return h.isCasting;
+  }
+
+  bool get _isAirPlayActive =>
+      Platform.isIOS && flutter_airplay.AirPlayRouteState.instance.isActive;
+
+  String _formatDuration(Duration d) {
+    if (d.inHours > 0) {
+      return '${d.inHours}h ${d.inMinutes.remainder(60)}m';
+    }
+    if (d.inMinutes > 0) {
+      return '${d.inMinutes}m ${d.inSeconds.remainder(60)}s';
+    }
+    return '${d.inSeconds}s';
+  }
+
+  String _formatStreamType(String? type) {
+    if (type == null || type.isEmpty) return 'necunoscut';
+    switch (type.toUpperCase()) {
+      case 'HLS':
+        return 'HLS';
+      case 'PROXIED_STREAM':
+        return 'Stream direct (proxy)';
+      case 'DIRECT_STREAM':
+      case 'DIRECT_MP3':
+        return 'MP3 direct';
+      default:
+        return type;
+    }
+  }
+
+  String _formatEventTime(DateTime t) {
+    final hh = t.hour.toString().padLeft(2, '0');
+    final mm = t.minute.toString().padLeft(2, '0');
+    final ss = t.second.toString().padLeft(2, '0');
+    return '$hh:$mm:$ss';
+  }
+
+  String _streamEventLabel(StreamEvent e) => '${_formatEventTime(e.timestamp)} — ${e.message}';
+
+  Color _eventColor(StreamEvent e, bool isDark) {
+    switch (e.kind) {
+      case StreamEventKind.loaded:
+      case StreamEventKind.attempt:
+      case StreamEventKind.lifecycle:
+        return isDark ? const Color(0xff8e8e93) : const Color(0xff6b6b6b);
+      case StreamEventKind.switched:
+        return const Color(0xff34c759);
+      case StreamEventKind.failed:
+      case StreamEventKind.bufferingStall:
+      case StreamEventKind.nonHlsCompleted:
+      case StreamEventKind.playerError:
+        return const Color(0xffff3b30);
+      case StreamEventKind.hlsCompleted:
+      case StreamEventKind.lostIdle:
+      case StreamEventKind.bufferingDrop:
+      case StreamEventKind.audioInterruption:
+      case StreamEventKind.microStall:
+        return const Color(0xffff9500);
+    }
+  }
+
+  Widget _buildDiagnosticCard() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final info = _streamInfo;
+    final events = _streamEvents;
+
+    String? primaryLine;
+    String? secondaryLine;
+
+    if (_isCasting) {
+      primaryLine = 'Cast activ';
+      secondaryLine = 'Redarea este pe dispozitivul Cast — streamul local nu rulează.';
+    } else if (_isAirPlayActive) {
+      primaryLine = 'AirPlay activ';
+      secondaryLine = 'Audio rutat prin AirPlay.';
+    } else if (info == null) {
+      primaryLine = 'Niciun stream încărcat';
+      secondaryLine = 'Pornește o stație pentru a vedea detaliile.';
+    } else {
+      final indexLabel = info.totalStreams > 0
+          ? 'Stream ${info.attemptIndex + 1}/${info.totalStreams}'
+          : 'Stream curent';
+      primaryLine = '${_formatStreamType(info.type)} • $indexLabel';
+      final since = DateTime.now().difference(info.loadedAt);
+      secondaryLine = '${info.host} • redă de ${_formatDuration(since)}';
+    }
+
+    final children = <Widget>[];
+
+    children.add(_buildSettingsTile(
+      icon: Icons.podcasts,
+      title: primaryLine,
+      subtitle: secondaryLine,
+      trailing: info != null && !_isCasting && !_isAirPlayActive
+          ? IconButton(
+              icon: Icon(
+                Icons.copy,
+                size: 18,
+                color: isDark ? const Color(0xff8a8a8a) : const Color(0xff6b6b6b),
+              ),
+              tooltip: 'Copiază URL',
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(text: info.url));
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: const Text('URL copiat'),
+                      duration: const Duration(seconds: 2),
+                      backgroundColor: AppColors.primaryDark,
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  );
+                }
+              },
+            )
+          : const SizedBox(width: 0, height: 0),
+    ));
+
+    final visibleEvents = events.take(10).toList();
+    if (visibleEvents.isNotEmpty) {
+      children.add(Padding(
+        padding: const EdgeInsets.fromLTRB(56, 4, 16, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Evenimente recente',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: isDark ? const Color(0xff8a8a8a) : const Color(0xff6b6b6b),
+                  ),
+                ),
+                InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: () => _copyDiagnosticReport(events, info),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.content_copy_outlined,
+                          size: 12,
+                          color: isDark ? const Color(0xff8a8a8a) : const Color(0xff6b6b6b),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Copiază',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: isDark ? const Color(0xff8a8a8a) : const Color(0xff6b6b6b),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            for (final e in visibleEvents)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 1.5),
+                child: Text(
+                  _streamEventLabel(e),
+                  style: TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 11,
+                    color: _eventColor(e, isDark),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ));
+    }
+
+    return _buildSettingsCard(children: children);
+  }
+
+  Future<void> _copyDiagnosticReport(List<StreamEvent> events, StreamInfo? info) async {
+    final buf = StringBuffer();
+    buf.writeln('Radio Crestin diagnostic — v$_version ($_buildNumber)');
+    buf.writeln('Device: $_deviceId');
+    buf.writeln('Time: ${DateTime.now().toIso8601String()}');
+    if (_isCasting) buf.writeln('Output: Cast');
+    if (_isAirPlayActive) buf.writeln('Output: AirPlay');
+    if (info != null) {
+      buf.writeln('Station: ${info.stationTitle} (${info.stationSlug})');
+      buf.writeln('Stream: ${info.type ?? '?'} ${info.attemptIndex + 1}/${info.totalStreams}');
+      buf.writeln('URL: ${info.url}');
+      buf.writeln('Loaded at: ${info.loadedAt.toIso8601String()}');
+    } else {
+      buf.writeln('Stream: (none)');
+    }
+    buf.writeln('--- Events (most recent first) ---');
+    for (final e in events) {
+      buf.writeln(_streamEventLabel(e));
+    }
+    await Clipboard.setData(ClipboardData(text: buf.toString()));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Raport copiat în clipboard'),
+          duration: const Duration(seconds: 2),
+          backgroundColor: AppColors.primaryDark,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+    }
   }
 
   @override
@@ -510,6 +759,9 @@ class _SettingsPageState extends State<SettingsPage> {
                     },
                   ),
                 ]),
+
+                _buildSectionHeader('Diagnostic redare'),
+                _buildDiagnosticCard(),
 
                 if (kDebugMode) ...[
                   _buildSectionHeader('Debug'),

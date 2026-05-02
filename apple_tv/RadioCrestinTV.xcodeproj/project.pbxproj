@@ -1,0 +1,600 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		01BFE1CC6F4D49D651A4A668 /* SortPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AE27E2F2F99A9C2738D8B60 /* SortPicker.swift */; };
+		26EB9DB4A133F5693FE7B8DC /* NowPlayingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4804A680D602D313E3B83192 /* NowPlayingView.swift */; };
+		2B2901FED93DE3F3AB60C982 /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = C219CB93B743E3BFF8A388ED /* PostHog */; };
+		2EA9FA0983EF4A5BB5818E37 /* StationSort.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7397F56295F5E766A046C54B /* StationSort.swift */; };
+		310B8F64C84C4D2F5E1A1826 /* SongHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 269B67C8908EFAF83BE1CE01 /* SongHistory.swift */; };
+		4BEC4D93814DC8F4CB9A71FC /* RatingStars.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91CB5D5C822ED753150F891A /* RatingStars.swift */; };
+		4E882EE44EBC593BCEB1F272 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0054B91C15491A977EC8F554 /* RootView.swift */; };
+		5A432BD6BE891CBE01788A61 /* StationGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12F5451DFA66A04B21CDAA01 /* StationGrid.swift */; };
+		5DBB1850674E6F2E53982783 /* RadioCrestinTVApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FFF5E066FAA15A3DDD23763 /* RadioCrestinTVApp.swift */; };
+		6E3ABB672123D5A369039938 /* AudioPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9D2628C7F33A9A1C03F2F07 /* AudioPlayer.swift */; };
+		77FFD0188532CF4A9FDFC780 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB674E14F4409CADBF502239 /* Theme.swift */; };
+		79C4E22D3E36076AA18128BC /* SongHistoryStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A3E0F46A70C1F84A878B981 /* SongHistoryStoreTests.swift */; };
+		7F081E2384A840C5D0160341 /* StationRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2217B745B5247094D27CCEBD /* StationRepository.swift */; };
+		830BC62CD732CACDFC804EAF /* StationSortTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 850054D03F1079A3F9C2E876 /* StationSortTests.swift */; };
+		9B76A5E266B049A8A7F7EF4D /* ShareSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A628C76C5B881F09F5A607C /* ShareSheet.swift */; };
+		A123D8FDDF2FB37C3BE73157 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B0936A6AE22F15E63C9A0D1 /* SettingsView.swift */; };
+		A887B27A16256552E63F0B7A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1D2518EA14E13FD106A01010 /* Assets.xcassets */; };
+		AA9F7E15365C6186FDC543CC /* StationModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D365E2A44FBE4FBF9A648BFD /* StationModelTests.swift */; };
+		B99A6D1E526523C8501E780B /* StationCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC4A7E03F25C3EDE274E2B29 /* StationCard.swift */; };
+		CD31E5E9DE0C9D06EFF6C231 /* Analytics.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE42B02A6F27AD11E369F759 /* Analytics.swift */; };
+		DD26FB0F72762D5A4D267DF3 /* Station.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F7A6A97B8B9C2A4B4A27F23 /* Station.swift */; };
+		E1EB8CE1B17942A2C5248B73 /* StationArtwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = 654F66EB9F649E224E0EE5D5 /* StationArtwork.swift */; };
+		FC1B3C3049FA8E758439255F /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58ABB1A505FBA87FD83C143E /* AppState.swift */; };
+		FE115CCE7C0A0F164C401DBE /* GraphQLClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB38E18FC2231B31C88C1976 /* GraphQLClient.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		2188965E5067BFC56DF13C4C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 650E1A0F7CD00B08C1ABDD03 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 700F3CC466A2B36F67DB4A00;
+			remoteInfo = RadioCrestinTV;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		0054B91C15491A977EC8F554 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		0FFF5E066FAA15A3DDD23763 /* RadioCrestinTVApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RadioCrestinTVApp.swift; sourceTree = "<group>"; };
+		12F5451DFA66A04B21CDAA01 /* StationGrid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StationGrid.swift; sourceTree = "<group>"; };
+		1D2518EA14E13FD106A01010 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		2217B745B5247094D27CCEBD /* StationRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StationRepository.swift; sourceTree = "<group>"; };
+		269B67C8908EFAF83BE1CE01 /* SongHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SongHistory.swift; sourceTree = "<group>"; };
+		2B0936A6AE22F15E63C9A0D1 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		3A628C76C5B881F09F5A607C /* ShareSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareSheet.swift; sourceTree = "<group>"; };
+		4804A680D602D313E3B83192 /* NowPlayingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlayingView.swift; sourceTree = "<group>"; };
+		4F7A6A97B8B9C2A4B4A27F23 /* Station.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Station.swift; sourceTree = "<group>"; };
+		52AAEFA45204249EE060A620 /* RadioCrestinTV.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = RadioCrestinTV.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		58ABB1A505FBA87FD83C143E /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		654F66EB9F649E224E0EE5D5 /* StationArtwork.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StationArtwork.swift; sourceTree = "<group>"; };
+		6A3E0F46A70C1F84A878B981 /* SongHistoryStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SongHistoryStoreTests.swift; sourceTree = "<group>"; };
+		7397F56295F5E766A046C54B /* StationSort.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StationSort.swift; sourceTree = "<group>"; };
+		7AE27E2F2F99A9C2738D8B60 /* SortPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SortPicker.swift; sourceTree = "<group>"; };
+		850054D03F1079A3F9C2E876 /* StationSortTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StationSortTests.swift; sourceTree = "<group>"; };
+		91CB5D5C822ED753150F891A /* RatingStars.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RatingStars.swift; sourceTree = "<group>"; };
+		BB674E14F4409CADBF502239 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		BEA1B36A6C3613EAE1D90A72 /* RadioCrestinTVTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = RadioCrestinTVTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		C9D2628C7F33A9A1C03F2F07 /* AudioPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioPlayer.swift; sourceTree = "<group>"; };
+		CC4A7E03F25C3EDE274E2B29 /* StationCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StationCard.swift; sourceTree = "<group>"; };
+		D365E2A44FBE4FBF9A648BFD /* StationModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StationModelTests.swift; sourceTree = "<group>"; };
+		DB38E18FC2231B31C88C1976 /* GraphQLClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphQLClient.swift; sourceTree = "<group>"; };
+		DE42B02A6F27AD11E369F759 /* Analytics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Analytics.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		80EAB7C67140B29694E2A0BD /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2B2901FED93DE3F3AB60C982 /* PostHog in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		04EF11A87AB25EAEC852F55B /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				0FFF5E066FAA15A3DDD23763 /* RadioCrestinTVApp.swift */,
+				9FB83CAFF86A9E4B812364B7 /* Audio */,
+				1C66B428E82FDB0D63C154BF /* Models */,
+				A983CB1D1437E56CBCF92875 /* Network */,
+				404A80AD42042999391B9B1C /* State */,
+				6F428C25091134FAFDF66A54 /* Theme */,
+				C13B43C809396FC9F2395EAB /* Views */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		1C66B428E82FDB0D63C154BF /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				4F7A6A97B8B9C2A4B4A27F23 /* Station.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		2733718015293BD51E6CED2F /* RadioCrestinTV */ = {
+			isa = PBXGroup;
+			children = (
+				63C8E294DD954FB196B4EDF5 /* Resources */,
+				04EF11A87AB25EAEC852F55B /* Sources */,
+			);
+			path = RadioCrestinTV;
+			sourceTree = "<group>";
+		};
+		404A80AD42042999391B9B1C /* State */ = {
+			isa = PBXGroup;
+			children = (
+				58ABB1A505FBA87FD83C143E /* AppState.swift */,
+				269B67C8908EFAF83BE1CE01 /* SongHistory.swift */,
+				7397F56295F5E766A046C54B /* StationSort.swift */,
+			);
+			path = State;
+			sourceTree = "<group>";
+		};
+		63C8E294DD954FB196B4EDF5 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				1D2518EA14E13FD106A01010 /* Assets.xcassets */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		6BB8CFB322545BE1EEF860A2 = {
+			isa = PBXGroup;
+			children = (
+				2733718015293BD51E6CED2F /* RadioCrestinTV */,
+				85953715B98B360F993DEBD8 /* RadioCrestinTVTests */,
+				7D10900A5D3AA3D51388D628 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		6F428C25091134FAFDF66A54 /* Theme */ = {
+			isa = PBXGroup;
+			children = (
+				BB674E14F4409CADBF502239 /* Theme.swift */,
+			);
+			path = Theme;
+			sourceTree = "<group>";
+		};
+		7D10900A5D3AA3D51388D628 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				52AAEFA45204249EE060A620 /* RadioCrestinTV.app */,
+				BEA1B36A6C3613EAE1D90A72 /* RadioCrestinTVTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		85953715B98B360F993DEBD8 /* RadioCrestinTVTests */ = {
+			isa = PBXGroup;
+			children = (
+				6A3E0F46A70C1F84A878B981 /* SongHistoryStoreTests.swift */,
+				D365E2A44FBE4FBF9A648BFD /* StationModelTests.swift */,
+				850054D03F1079A3F9C2E876 /* StationSortTests.swift */,
+			);
+			path = RadioCrestinTVTests;
+			sourceTree = "<group>";
+		};
+		9FB83CAFF86A9E4B812364B7 /* Audio */ = {
+			isa = PBXGroup;
+			children = (
+				C9D2628C7F33A9A1C03F2F07 /* AudioPlayer.swift */,
+			);
+			path = Audio;
+			sourceTree = "<group>";
+		};
+		A983CB1D1437E56CBCF92875 /* Network */ = {
+			isa = PBXGroup;
+			children = (
+				DE42B02A6F27AD11E369F759 /* Analytics.swift */,
+				DB38E18FC2231B31C88C1976 /* GraphQLClient.swift */,
+				2217B745B5247094D27CCEBD /* StationRepository.swift */,
+			);
+			path = Network;
+			sourceTree = "<group>";
+		};
+		C13B43C809396FC9F2395EAB /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				4804A680D602D313E3B83192 /* NowPlayingView.swift */,
+				91CB5D5C822ED753150F891A /* RatingStars.swift */,
+				0054B91C15491A977EC8F554 /* RootView.swift */,
+				2B0936A6AE22F15E63C9A0D1 /* SettingsView.swift */,
+				3A628C76C5B881F09F5A607C /* ShareSheet.swift */,
+				7AE27E2F2F99A9C2738D8B60 /* SortPicker.swift */,
+				654F66EB9F649E224E0EE5D5 /* StationArtwork.swift */,
+				CC4A7E03F25C3EDE274E2B29 /* StationCard.swift */,
+				12F5451DFA66A04B21CDAA01 /* StationGrid.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		0597384740B29866D339E195 /* RadioCrestinTVTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 150A2E06715BE0740A8976EF /* Build configuration list for PBXNativeTarget "RadioCrestinTVTests" */;
+			buildPhases = (
+				BB58667559059E9B46695FB9 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				BB4C62761A4734568B8C1BEB /* PBXTargetDependency */,
+			);
+			name = RadioCrestinTVTests;
+			packageProductDependencies = (
+			);
+			productName = RadioCrestinTVTests;
+			productReference = BEA1B36A6C3613EAE1D90A72 /* RadioCrestinTVTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		700F3CC466A2B36F67DB4A00 /* RadioCrestinTV */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BB6B726D5B62754204A0DD7D /* Build configuration list for PBXNativeTarget "RadioCrestinTV" */;
+			buildPhases = (
+				6DB1A55C2DB75D729F4064D2 /* Sources */,
+				23162929237CD6B5CBF11C53 /* Resources */,
+				80EAB7C67140B29694E2A0BD /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = RadioCrestinTV;
+			packageProductDependencies = (
+				C219CB93B743E3BFF8A388ED /* PostHog */,
+			);
+			productName = RadioCrestinTV;
+			productReference = 52AAEFA45204249EE060A620 /* RadioCrestinTV.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		650E1A0F7CD00B08C1ABDD03 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					0597384740B29866D339E195 = {
+						DevelopmentTeam = "";
+					};
+					700F3CC466A2B36F67DB4A00 = {
+						DevelopmentTeam = "";
+					};
+				};
+			};
+			buildConfigurationList = B3B2820B14C079872C2E74A1 /* Build configuration list for PBXProject "RadioCrestinTV" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 6BB8CFB322545BE1EEF860A2;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				144AA9048C69F1CB9BA8C584 /* XCRemoteSwiftPackageReference "posthog-ios" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 7D10900A5D3AA3D51388D628 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				700F3CC466A2B36F67DB4A00 /* RadioCrestinTV */,
+				0597384740B29866D339E195 /* RadioCrestinTVTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		23162929237CD6B5CBF11C53 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A887B27A16256552E63F0B7A /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		6DB1A55C2DB75D729F4064D2 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CD31E5E9DE0C9D06EFF6C231 /* Analytics.swift in Sources */,
+				FC1B3C3049FA8E758439255F /* AppState.swift in Sources */,
+				6E3ABB672123D5A369039938 /* AudioPlayer.swift in Sources */,
+				FE115CCE7C0A0F164C401DBE /* GraphQLClient.swift in Sources */,
+				26EB9DB4A133F5693FE7B8DC /* NowPlayingView.swift in Sources */,
+				5DBB1850674E6F2E53982783 /* RadioCrestinTVApp.swift in Sources */,
+				4BEC4D93814DC8F4CB9A71FC /* RatingStars.swift in Sources */,
+				4E882EE44EBC593BCEB1F272 /* RootView.swift in Sources */,
+				A123D8FDDF2FB37C3BE73157 /* SettingsView.swift in Sources */,
+				9B76A5E266B049A8A7F7EF4D /* ShareSheet.swift in Sources */,
+				310B8F64C84C4D2F5E1A1826 /* SongHistory.swift in Sources */,
+				01BFE1CC6F4D49D651A4A668 /* SortPicker.swift in Sources */,
+				DD26FB0F72762D5A4D267DF3 /* Station.swift in Sources */,
+				E1EB8CE1B17942A2C5248B73 /* StationArtwork.swift in Sources */,
+				B99A6D1E526523C8501E780B /* StationCard.swift in Sources */,
+				5A432BD6BE891CBE01788A61 /* StationGrid.swift in Sources */,
+				7F081E2384A840C5D0160341 /* StationRepository.swift in Sources */,
+				2EA9FA0983EF4A5BB5818E37 /* StationSort.swift in Sources */,
+				77FFD0188532CF4A9FDFC780 /* Theme.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BB58667559059E9B46695FB9 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				79C4E22D3E36076AA18128BC /* SongHistoryStoreTests.swift in Sources */,
+				AA9F7E15365C6186FDC543CC /* StationModelTests.swift in Sources */,
+				830BC62CD732CACDFC804EAF /* StationSortTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		BB4C62761A4734568B8C1BEB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 700F3CC466A2B36F67DB4A00 /* RadioCrestinTV */;
+			targetProxy = 2188965E5067BFC56DF13C4C /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		335F787F21398E20A847E7EC /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME = LaunchImage;
+				INFOPLIST_FILE = RadioCrestinTV/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.music";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.radiocrestin.radio_crestin;
+				SDKROOT = appletvos;
+				TARGETED_DEVICE_FAMILY = 3;
+				TVOS_DEPLOYMENT_TARGET = 17.0;
+				TVTopShelfImagePath = "";
+			};
+			name = Release;
+		};
+		54CB01F2BA0C5A7FD684D708 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = "";
+				ENABLE_BITCODE = NO;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = appletvos;
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_TREAT_WARNINGS_AS_ERRORS = NO;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = 3;
+				TVOS_DEPLOYMENT_TARGET = 17.0;
+			};
+			name = Release;
+		};
+		6D729E3DF6C0ACAB0E658F0A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_BITCODE = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = appletvos;
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_TREAT_WARNINGS_AS_ERRORS = NO;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = 3;
+				TVOS_DEPLOYMENT_TARGET = 17.0;
+			};
+			name = Debug;
+		};
+		C9AECCDF808E91FCA467A2C6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.radiocrestin.radio_crestin.tests;
+				SDKROOT = appletvos;
+				TARGETED_DEVICE_FAMILY = 3;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/RadioCrestinTV.app/RadioCrestinTV";
+				TVOS_DEPLOYMENT_TARGET = 17.0;
+			};
+			name = Debug;
+		};
+		E8BDF436EDAB9E13DF14A0A3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME = LaunchImage;
+				INFOPLIST_FILE = RadioCrestinTV/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.music";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.radiocrestin.radio_crestin;
+				SDKROOT = appletvos;
+				TARGETED_DEVICE_FAMILY = 3;
+				TVOS_DEPLOYMENT_TARGET = 17.0;
+				TVTopShelfImagePath = "";
+			};
+			name = Debug;
+		};
+		F8888C84B12DADDA19F1CDF0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.radiocrestin.radio_crestin.tests;
+				SDKROOT = appletvos;
+				TARGETED_DEVICE_FAMILY = 3;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/RadioCrestinTV.app/RadioCrestinTV";
+				TVOS_DEPLOYMENT_TARGET = 17.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		150A2E06715BE0740A8976EF /* Build configuration list for PBXNativeTarget "RadioCrestinTVTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C9AECCDF808E91FCA467A2C6 /* Debug */,
+				F8888C84B12DADDA19F1CDF0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		B3B2820B14C079872C2E74A1 /* Build configuration list for PBXProject "RadioCrestinTV" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6D729E3DF6C0ACAB0E658F0A /* Debug */,
+				54CB01F2BA0C5A7FD684D708 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		BB6B726D5B62754204A0DD7D /* Build configuration list for PBXNativeTarget "RadioCrestinTV" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E8BDF436EDAB9E13DF14A0A3 /* Debug */,
+				335F787F21398E20A847E7EC /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		144AA9048C69F1CB9BA8C584 /* XCRemoteSwiftPackageReference "posthog-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/PostHog/posthog-ios";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 3.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		C219CB93B743E3BFF8A388ED /* PostHog */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 144AA9048C69F1CB9BA8C584 /* XCRemoteSwiftPackageReference "posthog-ios" */;
+			productName = PostHog;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 650E1A0F7CD00B08C1ABDD03 /* Project object */;
+}

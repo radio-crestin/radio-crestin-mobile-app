@@ -40,6 +40,8 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 node_modules
+# Cloudflare Workers / Wrangler cache
+**/.wrangler/
 # Gradle files
 .gradle/
 build/
@@ -71,6 +73,9 @@ google-services.json
 *.hprof
 
 flutter
+
+# Test coverage output
+coverage/
 
 
 ### Intellij ###

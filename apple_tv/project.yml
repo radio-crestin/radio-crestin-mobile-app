@@ -1,0 +1,82 @@
+# xcodegen spec for the Apple TV companion app.
+# Regenerate with: cd apple_tv && xcodegen generate
+#
+# Bundle ID matches the iOS app for Universal Purchase — App Store Connect
+# treats them as two SDK variants of the same record, so users get the
+# tvOS build at no extra cost when they own the iPhone app.
+
+name: RadioCrestinTV
+options:
+  bundleIdPrefix: com.radiocrestin
+  deploymentTarget:
+    tvOS: "17.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+
+settings:
+  base:
+    DEVELOPMENT_TEAM: ""             # Filled in via Xcode signing UI when needed
+    SWIFT_VERSION: "5.9"
+    TARGETED_DEVICE_FAMILY: "3"      # tvOS = 3
+    SUPPORTS_MACCATALYST: NO
+    ENABLE_BITCODE: NO
+    SWIFT_TREAT_WARNINGS_AS_ERRORS: NO
+
+packages:
+  PostHog:
+    url: https://github.com/PostHog/posthog-ios
+    from: "3.0.0"
+
+targets:
+  RadioCrestinTV:
+    type: application
+    platform: tvOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: RadioCrestinTV/Sources
+      - path: RadioCrestinTV/Resources
+    dependencies:
+      - package: PostHog
+        product: PostHog
+    info:
+      path: RadioCrestinTV/Info.plist
+      properties:
+        CFBundleDisplayName: Radio Crestin
+        CFBundleShortVersionString: "1.5.0"
+        CFBundleVersion: "1"
+        UILaunchScreen: {}
+        NSAppTransportSecurity:
+          # iOS app already ships with NSAllowsArbitraryLoads=true; tvOS
+          # needs the same so http:// Icecast streams play without TLS.
+          NSAllowsArbitraryLoads: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.radiocrestin.radio_crestin
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        # tvOS Top Shelf placeholder; we'll fill the asset catalog later.
+        TVTopShelfImagePath: ""
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.music
+
+  RadioCrestinTVTests:
+    type: bundle.unit-test
+    platform: tvOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: RadioCrestinTVTests
+    dependencies:
+      - target: RadioCrestinTV
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.radiocrestin.radio_crestin.tests
+        GENERATE_INFOPLIST_FILE: YES
+
+schemes:
+  RadioCrestinTV:
+    build:
+      targets:
+        RadioCrestinTV: all
+        RadioCrestinTVTests: [test]
+    test:
+      targets:
+        - RadioCrestinTVTests
+      gatherCoverageData: true

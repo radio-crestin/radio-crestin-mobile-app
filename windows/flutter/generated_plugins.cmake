@@ -7,6 +7,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   connectivity_plus
   firebase_core
   media_kit_libs_windows_video
+  permission_handler_windows
   share_plus
   sqlite3_flutter_libs
   url_launcher_windows

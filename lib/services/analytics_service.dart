@@ -27,8 +27,35 @@ class AnalyticsService {
   Timer? _heartbeatTimer;
   static const _heartbeatInterval = Duration(seconds: 60);
 
+  // Stream-level context, included on listening_started / listening_active so
+  // sessions can be filtered by stream switches without joining tables.
+  String? _currentStreamUrl;
+  String? _currentStreamType;
+  int? _currentStreamIndex;
+  int? _currentStreamTotal;
+
   String? get sessionId => _sessionId;
   bool get isListening => _isListening;
+
+  /// Set or clear the current stream context. Pass `url: null` to clear.
+  void setCurrentStream({
+    required String? url,
+    required String? type,
+    required int? index,
+    required int? total,
+  }) {
+    _currentStreamUrl = url;
+    _currentStreamType = type;
+    _currentStreamIndex = index;
+    _currentStreamTotal = total;
+  }
+
+  Map<String, Object> get _streamContext => {
+        if (_currentStreamUrl != null) 'stream_url': _currentStreamUrl!,
+        if (_currentStreamType != null) 'stream_type': _currentStreamType!,
+        if (_currentStreamIndex != null) 'stream_index': _currentStreamIndex!,
+        if (_currentStreamTotal != null) 'total_streams': _currentStreamTotal!,
+      };
 
   /// Initialize PostHog with manual setup for error tracking support.
   Future<void> initialize() async {
@@ -125,6 +152,15 @@ class AnalyticsService {
     );
   }
 
+  /// Capture only in debug builds. For high-volume diagnostic events that
+  /// would create noise in production analytics — error events should still
+  /// use [capture]. The in-app event log (Settings → Diagnostic redare)
+  /// always sees every event regardless of build mode.
+  void captureDebug(String eventName, [Map<String, Object?>? properties]) {
+    if (!kDebugMode) return;
+    capture(eventName, properties);
+  }
+
   /// Set a user property without re-identifying.
   void setUserProperty(String name, String value) {
     if (_userId == null) return;
@@ -153,6 +189,7 @@ class AnalyticsService {
         'station_name': _currentStationName ?? '',
         if (_currentStationId != null) 'station_id': _currentStationId!,
         'session_duration_seconds': durationSeconds,
+        ..._streamContext,
       });
     });
   }
@@ -178,6 +215,7 @@ class AnalyticsService {
       'station_slug': stationSlug,
       'station_name': stationName,
       if (stationId != null) 'station_id': stationId,
+      ..._streamContext,
     });
 
     _startHeartbeat();
@@ -194,6 +232,7 @@ class AnalyticsService {
       'station_slug': _currentStationSlug!,
       'station_name': _currentStationName ?? '',
       if (_currentStationId != null) 'station_id': _currentStationId!,
+      ..._streamContext,
     });
 
     _startHeartbeat();

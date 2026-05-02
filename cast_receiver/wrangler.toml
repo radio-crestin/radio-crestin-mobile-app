@@ -1,0 +1,6 @@
+name = "radio-crestin-cast-receiver"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+# Deploy: cd cast_receiver && CLOUDFLARE_ACCOUNT_ID=c53124cf4d8c039271e3d52917a56b96 npx wrangler deploy
+# Custom domain: cast.radiocrestin.ro (already configured)

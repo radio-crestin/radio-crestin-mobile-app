@@ -1,0 +1,19 @@
+name: flutter_airplay
+description: iOS AirPlay audio route picker. Wraps native AVRoutePickerView to show available AirPlay, Bluetooth, and speaker devices.
+version: 1.0.0
+
+homepage: https://github.com/niclas-niclas/radio-crestin-mobile-app
+
+environment:
+  sdk: ">=3.1.0 <4.0.0"
+  flutter: ">=3.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+flutter:
+  plugin:
+    platforms:
+      ios:
+        pluginClass: FlutterAirplayPlugin

@@ -32,6 +32,12 @@ import 'constants.dart';
 import 'firebase_options.dart';
 import 'globals.dart' as globals;
 import 'services/car_play_service.dart';
+import 'types/Station.dart';
+import 'services/cast_service.dart';
+import 'package:flutter_chrome_cast/flutter_chrome_cast.dart'
+    show CastMediaPlayerState;
+import 'services/tv_channel_service.dart';
+import 'package:flutter_airplay/flutter_airplay.dart' as flutter_airplay;
 import 'services/analytics_service.dart';
 import 'services/image_cache_service.dart';
 import 'services/quick_actions_service.dart';
@@ -39,6 +45,9 @@ import 'services/network_service.dart';
 import 'services/play_count_service.dart';
 import 'services/song_like_service.dart';
 import 'services/station_data_service.dart';
+import 'tv/tv_platform.dart';
+import 'tv/tv_shell.dart';
+import 'tv/tv_theme.dart';
 
 final getIt = GetIt.instance;
 
@@ -157,6 +166,9 @@ void main() async {
   }
   globals.deviceId = persistentDeviceId;
 
+  // Detect TV/desktop platform (Android TV, macOS, Windows, Linux)
+  await TvPlatform.initialize();
+
   if (prefs.getString('_reviewStatus') == null) {
     var defaultReviewStatus = {
       'review_completed': false, // is completed when the user clicks on "5 stele" to add a review.
@@ -251,7 +263,7 @@ void main() async {
   // deviceId is already set above; appVersion/buildNumber come later.
   await AnalyticsService.instance.identify(
     userId: globals.deviceId,
-    platform: Platform.isAndroid ? 'android' : Platform.isIOS ? 'ios' : 'other',
+    platform: Platform.isAndroid ? 'android' : Platform.isIOS ? 'ios' : Platform.isMacOS ? 'macos' : Platform.isWindows ? 'windows' : Platform.isLinux ? 'linux' : 'other',
   );
 
   if (prefs.getBool('_notificationsEnabled') ?? true) {
@@ -275,7 +287,7 @@ void main() async {
     userId: globals.deviceId,
     appVersion: packageInfo.version,
     buildNumber: packageInfo.buildNumber,
-    platform: Platform.isAndroid ? 'android' : Platform.isIOS ? 'ios' : 'other',
+    platform: Platform.isAndroid ? 'android' : Platform.isIOS ? 'ios' : Platform.isMacOS ? 'macos' : Platform.isWindows ? 'windows' : Platform.isLinux ? 'linux' : 'other',
   );
 
   // Initialize theme and seek mode synchronously using already-loaded prefs (no async overhead)
@@ -306,15 +318,189 @@ void main() async {
     QuickActionsService.initialize();
   });
 
-  // Defer CarPlay/Android Auto init to after first frame (not needed for initial render)
-  WidgetsBinding.instance.addPostFrameCallback((_) async {
-    final carPlayService = await PerformanceMonitor.trackAsync('carplay_service_init', () async {
-      final service = CarPlayService();
-      await service.initialize();
-      return service;
+  // Defer CarPlay/Android Auto init to after first frame (mobile only)
+  if (Platform.isIOS || Platform.isAndroid) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final carPlayService = await PerformanceMonitor.trackAsync('carplay_service_init', () async {
+        final service = CarPlayService();
+        await service.initialize();
+        return service;
+      });
+      getIt.registerSingleton<CarPlayService>(carPlayService);
     });
-    getIt.registerSingleton<CarPlayService>(carPlayService);
-  });
+  }
+
+  // Initialize Android TV home screen channels (favorites channel)
+  if (TvPlatform.isTV && Platform.isAndroid) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final tvChannelService = TvChannelService();
+      await tvChannelService.initialize();
+      getIt.registerSingleton<TvChannelService>(tvChannelService);
+    });
+  }
+
+  // Defer Chromecast/AirPlay discovery to after first frame
+  if (!TvPlatform.isTV) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final castService = CastService();
+      await castService.initialize();
+      getIt.registerSingleton<CastService>(castService);
+
+      // Chromecast session management — only one output at a time
+      final audioHandler = getIt<AppAudioHandler>();
+      bool hasEverCasted = false;
+
+      // ─── Cast session lifecycle ──────────────────────────────────
+      //
+      // On connect (user tap, or iOS auto-resuming a saved session at
+      // app startup — both routes emit `isCasting=true` through this
+      // same listener):
+      //   1. Stop the local player so iOS doesn't keep the audio
+      //      session active in parallel with the Cast output.
+      //   2. Inspect the receiver's current MediaStatus:
+      //      a) It's actively playing/paused/buffering one of our
+      //         stations → ADOPT. Sync local currentStation /
+      //         mediaItem, mark the session adopted so
+      //         updateCastMetadata no-ops, and if it's anything but
+      //         `playing`, send a play command — the user just picked
+      //         us, they want audio out of this device.
+      //      b) Otherwise (idle receiver, no match, or no session
+      //         media yet) → PUSH our current/last station with a
+      //         fresh loadMedia. `autoPlay` defaults to true in the
+      //         plugin, so this starts playback automatically.
+      //
+      // On disconnect:
+      //   - Explicitly stop the local player. iOS ends the Cast-side
+      //     audio-session interruption when the remote device goes
+      //     away, and without an explicit stop, just_audio can
+      //     auto-resume the previously-loaded stream as if the user
+      //     had tapped play (root cause of the "starts again after
+      //     stopping from the app" regression).
+      //   - Flip playbackState.playing=false via setCastPlaying so
+      //     the notification ends up with MediaControl.play.
+      castService.isCasting.distinct().listen((casting) async {
+        print('[CastMain] isCasting=$casting');
+        if (casting) {
+          hasEverCasted = true;
+          await audioHandler.player.stop();
+
+          final existingStatus =
+              await castService.waitForActiveMediaStatus();
+          // On startup the station list may still be loading when the
+          // iOS Cast SDK restores a saved session. Wait briefly for
+          // the first non-empty emission so matchStationFromCastMedia
+          // and getLastPlayedStation can do their jobs.
+          final stations = await _waitForStations(
+              getIt<StationDataService>());
+          final adopted = castService.matchStationFromCastMedia(
+              stations, existingStatus);
+          final receiverState = existingStatus?.playerState;
+          final receiverIsActive =
+              receiverState == CastMediaPlayerState.playing ||
+                  receiverState == CastMediaPlayerState.paused ||
+                  receiverState == CastMediaPlayerState.buffering;
+
+          if (adopted != null && receiverIsActive) {
+            print('[CastMain] Adopting session: station=${adopted.slug}, '
+                'playerState=$receiverState');
+            castService.lastCastSlug = adopted.slug;
+            castService.markSessionAdopted();
+            await audioHandler.selectStation(adopted);
+            // User just connected us: auto-play regardless of the
+            // upstream sender's pause. Sending PLAY to an existing
+            // media session doesn't reload it, so the adoption
+            // contract (don't clobber their LOAD) still holds.
+            if (receiverState != CastMediaPlayerState.playing) {
+              castService.play();
+            }
+            audioHandler.setCastPlaying(true);
+            return;
+          }
+
+          var station = audioHandler.currentStation.value;
+          if (station == null) {
+            station = await audioHandler.getLastPlayedStation();
+            if (station != null) await audioHandler.selectStation(station);
+          }
+          if (station != null) {
+            castService.lastCastSlug = station.slug;
+            castService.castStation(station);
+            audioHandler.setCastPlaying(true);
+          }
+        } else if (hasEverCasted) {
+          castService.lastCastSlug = null;
+          await audioHandler.player.stop();
+          audioHandler.setCastPlaying(false);
+        }
+      });
+
+      // Catch station changes not initiated by playStation (e.g. auto-start)
+      audioHandler.currentStation.listen((station) {
+        if (station != null && castService.isCasting.value &&
+            station.slug != castService.lastCastSlug) {
+          castService.lastCastSlug = station.slug;
+          castService.castStation(station);
+        }
+      });
+
+      // ─── Cast receiver → local notification state sync ───────────
+      //
+      // Receiver-initiated transitions (another sender toggled play,
+      // content ended, error) flow in via castPlayerState. Map every
+      // known state to the single boolean `playing`:
+      //   PLAYING                  → true
+      //   PAUSED / IDLE            → false (receiver isn't playing)
+      //   BUFFERING / LOADING /    → keep previous value — these are
+      //   UNKNOWN                    transient; the next concrete
+      //                              state will resolve.
+      castService.castPlayerState.distinct().listen((playerState) {
+        if (!castService.isCasting.value) return;
+        switch (playerState) {
+          case CastMediaPlayerState.playing:
+            audioHandler.setCastPlaying(true);
+            break;
+          case CastMediaPlayerState.paused:
+          case CastMediaPlayerState.idle:
+            audioHandler.setCastPlaying(false);
+            break;
+          case CastMediaPlayerState.buffering:
+          case CastMediaPlayerState.loading:
+          case CastMediaPlayerState.unknown:
+            // Transient — don't clobber the optimistic intent.
+            break;
+        }
+      });
+
+      // Auto-play on AirPlay connect (iOS only)
+      if (Platform.isIOS) {
+        final airplay = flutter_airplay.AirPlayRouteState.instance;
+        airplay.isActiveStream.listen((active) async {
+          if (active && audioHandler.currentStation.value == null) {
+            final station = await audioHandler.getLastPlayedStation();
+            if (station != null) audioHandler.playStation(station);
+          }
+        });
+      }
+    });
+  }
+}
+
+/// Returns the current list of stations, waiting up to [timeout] for the
+/// first non-empty emission. Used when the Cast-connect flow fires on
+/// startup before the station catalog has loaded from cache/network.
+Future<List<Station>> _waitForStations(
+  StationDataService service, {
+  Duration timeout = const Duration(seconds: 3),
+}) async {
+  final existing = service.stations.value;
+  if (existing.isNotEmpty) return existing;
+  try {
+    return await service.stations.stream
+        .firstWhere((s) => s.isNotEmpty)
+        .timeout(timeout);
+  } catch (_) {
+    return service.stations.value;
+  }
 }
 
 class RadioCrestinApp extends StatelessWidget {
@@ -323,6 +509,20 @@ class RadioCrestinApp extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
+    // TV gets a dedicated dark theme and TV-optimized UI shell
+    if (TvPlatform.isTV) {
+      return MaterialApp(
+        navigatorKey: globals.navigatorKey,
+        navigatorObservers: [PosthogObserver()],
+        title: 'Radio Crestin',
+        debugShowCheckedModeBanner: false,
+        theme: tvTheme,
+        darkTheme: tvTheme,
+        themeMode: ThemeMode.dark,
+        home: const TvShell(),
+      );
+    }
+
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: ThemeManager.themeMode,
       builder: (context, themeMode, child) {

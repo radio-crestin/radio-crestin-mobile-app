@@ -105,4 +105,7 @@ dependencies {
 
     // MediaBrowserServiceCompat for RadioAudioService subclass
     implementation "androidx.media:media:1.7.0"
+
+    // Android TV home screen channels (PreviewChannel / PreviewProgram)
+    implementation "androidx.tvprovider:tvprovider:1.0.0"
 }

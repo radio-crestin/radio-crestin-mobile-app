@@ -135,12 +135,18 @@ void main() {
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
     });
 
-    testWidgets('tapping spinner calls onStop', (tester) async {
+    testWidgets('tapping spinner cancels in-flight play via onPause', (tester) async {
+      // The widget intentionally routes spinner taps to onPause (not onStop)
+      // so a stuck buffering state doesn't kill the player and leave the
+      // button unresponsive after skip-next. See AnimatedPlayButton.build().
+      var pauseCalled = false;
       var stopCalled = false;
-      await tester.pumpWidget(buildWidget(onStop: () => stopCalled = true));
+      await tester.pumpWidget(buildWidget(
+        onPause: () => pauseCalled = true,
+        onStop: () => stopCalled = true,
+      ));
       await tester.pump();
 
-      // Emit loading state
       playbackController.add(PlaybackState(
         playing: true,
         processingState: AudioProcessingState.loading,
@@ -148,9 +154,9 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
 
-      // Tap the spinner
       await tester.tap(find.byType(InkWell));
-      expect(stopCalled, true);
+      expect(pauseCalled, true);
+      expect(stopCalled, false);
     });
 
     testWidgets('renders with background color when provided', (tester) async {

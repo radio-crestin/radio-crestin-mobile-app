@@ -1,0 +1,442 @@
+/**
+ * Cloudflare Worker for cast.radiocrestin.ro
+ * Deploy: wrangler deploy
+ */
+
+const RECEIVER_HTML = `<!DOCTYPE html>
+<html lang="ro">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Radio Cre\u0219tin</title>
+  <script src="//www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js"><\/script>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: #121212;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color: #fff;
+    }
+
+    cast-media-player {
+      --background-image: none;
+      --logo-image: none;
+      --watermark-image: none;
+      --background-color: #121212;
+      --playback-logo-image: none;
+      --theme-hue: 327;
+      --progress-color: #E91E63;
+      --splash-image: none;
+      --splash-size: 0;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 0;
+      opacity: 0;
+    }
+
+    .bg-artwork {
+      position: fixed;
+      inset: -40px;
+      background-size: cover;
+      background-position: center;
+      filter: blur(50px) saturate(1.3);
+      transform: scale(1.15);
+      transition: background-image 0.8s ease-in-out;
+      z-index: 1;
+    }
+
+    .bg-gradient {
+      position: fixed;
+      inset: 0;
+      background: linear-gradient(
+        180deg,
+        rgba(0,0,0,0.10) 0%,
+        rgba(0,0,0,0.30) 30%,
+        rgba(0,0,0,0.70) 65%,
+        rgba(0,0,0,0.88) 100%
+      );
+      z-index: 2;
+    }
+
+    .layout {
+      position: relative;
+      z-index: 3;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      padding: 50px 60px;
+      gap: 60px;
+    }
+
+    .now-playing {
+      display: flex;
+      align-items: center;
+      gap: 32px;
+      min-width: 0;
+      flex: 1;
+    }
+
+    .artwork-container {
+      flex-shrink: 0;
+      width: 180px;
+      height: 180px;
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+    }
+
+    .artwork-container img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .meta {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .station-name {
+      font-size: 38px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      line-height: 1.1;
+      text-shadow: 0 2px 16px rgba(0,0,0,0.5);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .song-title {
+      font-size: 22px;
+      font-weight: 500;
+      opacity: 0.85;
+      text-shadow: 0 1px 8px rgba(0,0,0,0.4);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .song-artist {
+      font-size: 17px;
+      font-weight: 400;
+      opacity: 0.6;
+      text-shadow: 0 1px 6px rgba(0,0,0,0.3);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .recent-panel {
+      flex-shrink: 0;
+      width: 320px;
+      max-height: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      overflow: hidden;
+    }
+
+    .recent-title {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      opacity: 0.4;
+      margin-bottom: 4px;
+    }
+
+    .recent-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 12px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.06);
+    }
+
+    .recent-item.active {
+      background: rgba(233,30,99,0.15);
+      border: 1px solid rgba(233,30,99,0.3);
+    }
+
+    .recent-thumb {
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
+      object-fit: cover;
+      flex-shrink: 0;
+    }
+
+    .recent-meta { min-width: 0; flex: 1; }
+
+    .recent-station {
+      font-size: 14px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .recent-song {
+      font-size: 12px;
+      opacity: 0.5;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .logo {
+      position: fixed;
+      top: 32px;
+      right: 48px;
+      z-index: 4;
+      opacity: 0.5;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+
+    .idle-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #1a0a10, #2d0e1e, #121212);
+      transition: opacity 0.6s ease;
+    }
+
+    .idle-screen.hidden { opacity: 0; pointer-events: none; }
+    .idle-title { font-size: 36px; font-weight: 800; }
+    .idle-subtitle { font-size: 18px; opacity: 0.5; margin-top: 8px; }
+
+    #debug {
+      position: fixed;
+      bottom: 8px;
+      left: 8px;
+      z-index: 100;
+      font-size: 10px;
+      color: rgba(255,255,255,0.3);
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+  <cast-media-player></cast-media-player>
+
+  <div id="idle-screen" class="idle-screen">
+    <div class="idle-title">Radio Cre\u0219tin</div>
+    <div class="idle-subtitle">Se conecteaz\u0103...</div>
+  </div>
+
+  <div id="bg-artwork" class="bg-artwork"></div>
+  <div class="bg-gradient"></div>
+
+  <div class="logo">Radio Cre\u0219tin</div>
+
+  <div class="layout">
+    <div class="now-playing">
+      <div class="artwork-container">
+        <img id="artwork" src="" alt="">
+      </div>
+      <div class="meta">
+        <div id="station-name" class="station-name"></div>
+        <div id="song-title" class="song-title"></div>
+        <div id="song-artist" class="song-artist"></div>
+      </div>
+    </div>
+
+    <div id="recent-panel" class="recent-panel">
+      <div class="recent-title">Melodii recente</div>
+    </div>
+  </div>
+
+  <div id="debug"></div>
+
+  <script>
+    var debugEl = document.getElementById('debug');
+    function dbg(msg) { console.log('[RC] ' + msg); if (debugEl) debugEl.textContent = msg; }
+
+    var context = cast.framework.CastReceiverContext.getInstance();
+    var playerManager = context.getPlayerManager();
+
+    var stationNameEl = document.getElementById('station-name');
+    var songTitleEl = document.getElementById('song-title');
+    var songArtistEl = document.getElementById('song-artist');
+    var artworkEl = document.getElementById('artwork');
+    var bgArtworkEl = document.getElementById('bg-artwork');
+    var idleScreen = document.getElementById('idle-screen');
+    var recentPanel = document.getElementById('recent-panel');
+
+    var currentStationTitle = '';
+
+    function updateUI(metadata, source) {
+      if (!metadata) return;
+
+      var title = metadata.title || '';
+      var artist = metadata.artist || '';
+      var imageUrl = '';
+      var images = metadata.images;
+      if (images && images.length > 0) {
+        var img = images[0];
+        imageUrl = (typeof img === 'string') ? img : (img.url || '');
+      }
+
+      dbg(source + ': ' + title + ' | ' + artist);
+
+      if (!title && !artist && !imageUrl) return;
+
+      stationNameEl.textContent = title;
+      songTitleEl.textContent = artist;
+
+      if (imageUrl && artworkEl.src !== imageUrl) {
+        artworkEl.src = imageUrl;
+        bgArtworkEl.style.backgroundImage = 'url(' + imageUrl + ')';
+      }
+
+      currentStationTitle = title;
+      idleScreen.classList.add('hidden');
+    }
+
+    function renderRecent(songs) {
+      if (!songs || !songs.length) return;
+
+      // Keep header, remove old items
+      while (recentPanel.children.length > 1) {
+        recentPanel.removeChild(recentPanel.lastChild);
+      }
+
+      for (var i = 0; i < songs.length; i++) {
+        var s = songs[i];
+        var item = document.createElement('div');
+        item.className = 'recent-item';
+
+        if (s.thumbnail) {
+          var thumb = document.createElement('img');
+          thumb.className = 'recent-thumb';
+          thumb.src = s.thumbnail;
+          thumb.alt = '';
+          item.appendChild(thumb);
+        }
+
+        var meta = document.createElement('div');
+        meta.className = 'recent-meta';
+
+        var name = document.createElement('div');
+        name.className = 'recent-station';
+        name.textContent = s.title || '';
+        meta.appendChild(name);
+
+        if (s.artist) {
+          var artist = document.createElement('div');
+          artist.className = 'recent-song';
+          artist.textContent = s.artist;
+          meta.appendChild(artist);
+        }
+
+        item.appendChild(meta);
+
+        if (s.time) {
+          var time = document.createElement('div');
+          time.className = 'recent-song';
+          time.style.flexShrink = '0';
+          time.textContent = s.time;
+          item.appendChild(time);
+        }
+
+        recentPanel.appendChild(item);
+      }
+    }
+
+    playerManager.setMessageInterceptor(
+      cast.framework.messages.MessageType.LOAD,
+      function(request) {
+        try {
+          dbg('LOAD: ' + (request.media ? request.media.contentId : 'none'));
+          if (request.media && request.media.metadata) {
+            updateUI(request.media.metadata, 'LOAD');
+          }
+          if (request.media && request.media.customData && request.media.customData.recentSongs) {
+            renderRecent(request.media.customData.recentSongs);
+          }
+        } catch(e) { dbg('LOAD err: ' + e.message); }
+        return request;
+      }
+    );
+
+    playerManager.addEventListener(
+      cast.framework.events.EventType.PLAYER_LOAD_COMPLETE,
+      function() {
+        dbg('LOAD_COMPLETE');
+        var mi = playerManager.getMediaInformation();
+        if (mi && mi.metadata) updateUI(mi.metadata, 'COMPLETE');
+      }
+    );
+
+    playerManager.addEventListener(
+      cast.framework.events.EventType.MEDIA_STATUS,
+      function() {
+        var s = playerManager.getPlayerState();
+        dbg('STATUS: ' + s);
+        var mi = playerManager.getMediaInformation();
+        if (mi && mi.metadata) updateUI(mi.metadata, 'STATUS');
+      }
+    );
+
+    playerManager.addEventListener(
+      cast.framework.events.EventType.ERROR,
+      function(event) { dbg('ERROR: ' + JSON.stringify(event)); }
+    );
+
+    playerManager.addEventListener(
+      cast.framework.events.EventType.MEDIA_FINISHED,
+      function() { dbg('FINISHED'); idleScreen.classList.remove('hidden'); }
+    );
+
+    // Configure supported commands for audio playback
+    playerManager.setSupportedMediaCommands(
+      cast.framework.messages.Command.PAUSE |
+      cast.framework.messages.Command.STREAM_VOLUME |
+      cast.framework.messages.Command.STREAM_MUTE
+    );
+
+    var options = new cast.framework.CastReceiverOptions();
+    options.disableIdleTimeout = true;
+    // Support both audio and video Cast devices (Google Home Mini, Chromecast)
+    options.playbackConfig = new cast.framework.PlaybackConfig();
+    options.playbackConfig.autoResumeDuration = 5;
+    context.start(options);
+    dbg('Started');
+  <\/script>
+</body>
+</html>
+`;
+
+export default {
+  async fetch(request) {
+    const url = new URL(request.url);
+    if (url.pathname === "/health") {
+      return new Response("ok", { status: 200 });
+    }
+    return new Response(RECEIVER_HTML, {
+      status: 200,
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+        "Cache-Control": "no-cache",
+        "Access-Control-Allow-Origin": "*",
+      },
+    });
+  },
+};
