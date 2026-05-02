@@ -1,7 +1,7 @@
 -  fallback-ul nu functioneaza cand cade HLS-ul
 - integreaza Alexa Music Skill API si SiriKit Media Intents si Media Session API  ca sa se poata apela "Reda statia X"
 
-
+- pe TV ar fi fain sa avem random backgrounds
 
 
 ----
