@@ -210,6 +210,7 @@
 				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
 				F2817E63C554C525FCC8C0D3 /* [CP] Embed Pods Frameworks */,
 				FE31935B2EA7A22FA6E556B5 /* [CP] Copy Pods Resources */,
+				AA25953DDC9A3AD5602E9F61 /* [radio-crestin] Generate dSYMs for vendored frameworks */,
 			);
 			buildRules = (
 			);
@@ -334,6 +335,25 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "/bin/sh \"$FLUTTER_ROOT/packages/flutter_tools/bin/xcode_backend.sh\" build";
+		};
+		AA25953DDC9A3AD5602E9F61 /* [radio-crestin] Generate dSYMs for vendored frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "[radio-crestin] Generate dSYMs for vendored frameworks";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Vendored binary frameworks (media_kit_libs_ios_video → mpv / ffmpeg /\n# ass / freetype / harfbuzz / mbedtls / png16 / uchardet / xml2 / dav1d /\n# fribidi / swresample / swscale) ship as precompiled .framework bundles\n# without dSYMs. App Store Connect emits \"Upload Symbols Failed\" warnings\n# for each on every TestFlight upload. dsymutil produces a stub dSYM with\n# the matching UUID, which silences the warnings (the binaries have no\n# debug info to recover, so no symbolication is gained either way).\nset -eu\n[ -z \"${DWARF_DSYM_FOLDER_PATH:-}\" ] && exit 0\n[ -z \"${TARGET_BUILD_DIR:-}\" ] && exit 0\nAPP_FW_DIR=\"${TARGET_BUILD_DIR}/${WRAPPER_NAME}/Frameworks\"\n[ -d \"$APP_FW_DIR\" ] || exit 0\nmkdir -p \"$DWARF_DSYM_FOLDER_PATH\"\nfor fw_path in \"$APP_FW_DIR\"/*.framework; do\n  [ -d \"$fw_path\" ] || continue\n  fw=$(basename \"$fw_path\" .framework)\n  bin=\"$fw_path/$fw\"\n  out=\"$DWARF_DSYM_FOLDER_PATH/${fw}.framework.dSYM\"\n  [ -d \"$out\" ] && continue\n  [ -f \"$bin\" ] || continue\n  /usr/bin/dsymutil \"$bin\" -o \"$out\" 2>/dev/null || true\ndone\n";
 		};
 		CAE397BD4D5549D88CEA6AB3 /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
