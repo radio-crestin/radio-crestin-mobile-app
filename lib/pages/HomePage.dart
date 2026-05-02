@@ -584,8 +584,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       _stationDataService.onAppResumed();
       // Check for pending song history action (from notification button tap)
       _checkPendingSongHistory();
-      // Autoplay is handled exclusively in initState() (cold start).
-      // Returning from background should NEVER trigger autoplay.
+      // iOS-only: warm resume mirrors cold start. The platform exposes no
+      // way to tell "user tapped icon" from "user tapped app-switcher card",
+      // so we treat every foreground as "user wants playback" when the
+      // setting is on. Android does not need this because the launcher-icon
+      // signal is available at process start (FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY).
+      if (Platform.isIOS) {
+        _resumeAutoplayIfNeeded();
+      }
     } else if (state == AppLifecycleState.paused) {
       // App went to background — keep polling if car or cast is connected
       // (user sees metadata on car/cast screen). During casting, player.playing
@@ -1115,6 +1121,29 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         _audioHandler.selectStation(station);
       }
     }
+  }
+
+  /// iOS-only: re-engage playback when the app comes back to the foreground
+  /// after the user paused. Mirrors the cold-start autoplay rule — if the
+  /// user has the "Pornește automat ultima stație" setting on, every
+  /// foreground is treated like an icon tap. CarPlay handles its own
+  /// autoplay-on-connect, and casting owns playback while active, so both
+  /// are skipped here. `playStation` short-circuits when the station is
+  /// already playing/loading, so a quick app-switch round-trip is a no-op.
+  Future<void> _resumeAutoplayIfNeeded() async {
+    if (_audioHandler.playbackState.value.playing) return;
+    if (_audioHandler.isCasting) return;
+    if (_audioHandler.isCarConnected) return;
+
+    final prefs = getIt<SharedPreferences>();
+    final autoStart = prefs.getBool('_autoStartStation') ?? true;
+    if (!autoStart) return;
+
+    final station = _audioHandler.currentStation.valueOrNull
+        ?? await _audioHandler.getLastPlayedStation();
+    if (station == null) return;
+
+    _audioHandler.playStation(station);
   }
 }
 
