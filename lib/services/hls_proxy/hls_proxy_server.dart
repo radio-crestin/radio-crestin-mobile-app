@@ -60,6 +60,7 @@ class HlsProxyServer {
     final originUri = Uri.parse(originUrl);
     final originBase = originUri.resolve('.');
 
+    final originUriCaptured = originUri;
     Future<shelf.Response> handler(shelf.Request req) async {
       final segments = req.url.pathSegments;
       if (segments.isEmpty) {
@@ -67,7 +68,11 @@ class HlsProxyServer {
       }
       final last = segments.last;
       if (last.endsWith('.m3u8')) {
-        return _serveM3u8(cache);
+        return _serveM3u8(
+          cache: cache,
+          originUri: originUriCaptured,
+          httpClient: httpClient,
+        );
       }
       if (last.endsWith('.ts')) {
         return _serveSegment(
@@ -97,6 +102,19 @@ class HlsProxyServer {
       httpClient: httpClient,
     );
     _current = proxy;
+    // Pre-warm: fetch the playlist + a few latest segments INLINE before
+    // returning. Without this AVPlayer hits the proxy while the cache is
+    // empty, our /index.m3u8 returns 503, and AVPlayer surfaces that as
+    // -1008 NSURLErrorResourceUnavailable rather than retrying — so HLS
+    // load fails on every cold start and we fall back to direct_stream.
+    // Best-effort with a 5s timeout: if origin is unreachable we still
+    // return so AVPlayer's own load attempt can produce a real error
+    // (rather than waiting here indefinitely).
+    try {
+      await prefetcher.warmup(timeout: const Duration(seconds: 5));
+    } catch (e) {
+      _log('warmup failed (continuing): $e');
+    }
     await prefetcher.start();
     return proxy;
   }
@@ -117,19 +135,66 @@ class HlsProxyServer {
     }
   }
 
-  static shelf.Response _serveM3u8(HlsCache cache) {
-    final body = cache.playlist;
-    if (body == null) {
-      // Cold-start: prefetcher hasn't populated yet. AVPlayer will retry.
-      return shelf.Response(503, body: 'playlist not ready');
+  static Future<shelf.Response> _serveM3u8({
+    required HlsCache cache,
+    required Uri originUri,
+    required http.Client httpClient,
+  }) async {
+    final cached = cache.playlist;
+    if (cached != null) {
+      return shelf.Response.ok(
+        cached,
+        headers: {
+          'Content-Type': 'application/vnd.apple.mpegurl',
+          'Cache-Control': 'no-store',
+        },
+      );
     }
-    return shelf.Response.ok(
-      body,
-      headers: {
-        'Content-Type': 'application/vnd.apple.mpegurl',
-        'Cache-Control': 'no-store',
-      },
-    );
+    // Cache miss → fetch from origin inline so AVPlayer never sees a 503
+    // (which it surfaces as -1008 and gives up on the HLS source). The
+    // prefetcher will populate the cache shortly after start(), but
+    // AVPlayer's first request can race the warmup; this is the safety
+    // net.
+    try {
+      final resp = await httpClient.get(originUri).timeout(
+            const Duration(seconds: 5),
+          );
+      if (resp.statusCode != 200) {
+        return shelf.Response(resp.statusCode, body: 'origin ${resp.statusCode}');
+      }
+      final rewritten = _rewritePlaylistInline(resp.body);
+      cache.putPlaylist(rewritten);
+      return shelf.Response.ok(
+        rewritten,
+        headers: {
+          'Content-Type': 'application/vnd.apple.mpegurl',
+          'Cache-Control': 'no-store',
+        },
+      );
+    } catch (e) {
+      _log('m3u8 passthrough failed: $e');
+      return shelf.Response(503, body: 'origin unreachable');
+    }
+  }
+
+  /// Inline copy of HlsPrefetcher's playlist rewrite. Kept duplicated so
+  /// the proxy can serve cold-start passthroughs without reaching into
+  /// the prefetcher's internals.
+  static String _rewritePlaylistInline(String body) {
+    final out = StringBuffer();
+    for (final line in body.split('\n')) {
+      final trimmed = line.trim();
+      if (trimmed.endsWith('.ts')) {
+        final uri = Uri.tryParse(trimmed);
+        final filename = uri?.pathSegments.isNotEmpty == true
+            ? uri!.pathSegments.last
+            : trimmed;
+        out.writeln(filename);
+      } else {
+        out.writeln(line);
+      }
+    }
+    return out.toString();
   }
 
   static Future<shelf.Response> _serveSegment({

@@ -49,6 +49,40 @@ class HlsPrefetcher {
     });
   }
 
+  /// Synchronous warmup — fetches the playlist and a couple of segments
+  /// inline so the cache is hot before the proxy serves its first AVPlayer
+  /// request. Returns true on success. Capped by [timeout]; if the origin
+  /// is slow, returns false and the caller can decide whether to proceed
+  /// with a cold cache (HlsProxyServer falls back to inline pass-through).
+  Future<bool> warmup({Duration timeout = const Duration(seconds: 5)}) async {
+    try {
+      return await _warmupImpl().timeout(timeout, onTimeout: () => false);
+    } catch (e) {
+      _log('warmup error: $e');
+      return false;
+    }
+  }
+
+  Future<bool> _warmupImpl() async {
+    final body = await _fetchOriginPlaylist();
+    if (body == null) return false;
+    final segments = _extractSegmentFilenames(body);
+    cache.putPlaylist(_rewritePlaylist(body));
+    if (segments.isEmpty) return true;
+    // Fetch only the latest 3 segments inline — enough for AVPlayer to
+    // start decoding. The periodic ticker will fill the rest in the
+    // background after start() returns.
+    final latest = segments.length > 3
+        ? segments.sublist(segments.length - 3)
+        : segments;
+    for (final filename in latest.reversed) {
+      if (_stopped) return true;
+      if (cache.hasSegment(filename)) continue;
+      await _fetchSegment(filename);
+    }
+    return true;
+  }
+
   void stop() {
     _stopped = true;
     _timer?.cancel();
