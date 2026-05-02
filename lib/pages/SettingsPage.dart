@@ -82,16 +82,18 @@ class _SettingsPageState extends State<SettingsPage> {
     final audioHandler = getIt<AppAudioHandler>();
     _streamInfo = audioHandler.currentStreamInfo.valueOrNull;
     _streamEvents = audioHandler.recentStreamEvents.value;
-    _streamInfoSub = audioHandler.currentStreamInfo.listen((info) {
-      if (mounted) setState(() => _streamInfo = info);
-    });
-    _streamEventsSub = audioHandler.recentStreamEvents.listen((events) {
-      if (mounted) setState(() => _streamEvents = events);
-    });
-    // Re-render every 5s so the "playing for X" line stays current.
-    _diagnosticTicker = Timer.periodic(const Duration(seconds: 5), (_) {
-      if (mounted) setState(() {});
-    });
+    if (!kReleaseMode) {
+      _streamInfoSub = audioHandler.currentStreamInfo.listen((info) {
+        if (mounted) setState(() => _streamInfo = info);
+      });
+      _streamEventsSub = audioHandler.recentStreamEvents.listen((events) {
+        if (mounted) setState(() => _streamEvents = events);
+      });
+      // Re-render every 5s so the "playing for X" line stays current.
+      _diagnosticTicker = Timer.periodic(const Duration(seconds: 5), (_) {
+        if (mounted) setState(() {});
+      });
+    }
   }
 
   @override
@@ -760,8 +762,10 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                 ]),
 
-                _buildSectionHeader('Diagnostic redare'),
-                _buildDiagnosticCard(),
+                if (!kReleaseMode) ...[
+                  _buildSectionHeader('Diagnostic redare'),
+                  _buildDiagnosticCard(),
+                ],
 
                 if (kDebugMode) ...[
                   _buildSectionHeader('Debug'),

@@ -15,7 +15,7 @@ options:
 
 settings:
   base:
-    DEVELOPMENT_TEAM: ""             # Filled in via Xcode signing UI when needed
+    DEVELOPMENT_TEAM: "2KNY2RZVGC"   # Same Apple Developer team as the iOS app
     SWIFT_VERSION: "5.9"
     TARGETED_DEVICE_FAMILY: "3"      # tvOS = 3
     SUPPORTS_MACCATALYST: NO
