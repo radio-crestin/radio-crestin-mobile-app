@@ -256,7 +256,17 @@ class AppAudioHandler extends BaseAudioHandler {
 
   /// Capped ring buffer of recent stream lifecycle events for in-app debugging.
   /// Most recent first; `_maxStreamEvents` keeps memory bounded.
-  static const int _maxStreamEvents = 20;
+  /// 60 entries: enough headroom to capture a full reload-loop investigation
+  /// (every cycle is ~3 events: attempt + loaded + rebuffer, plus lifecycle
+  /// + interruption noise) without truncating the trigger event.
+  static const int _maxStreamEvents = 60;
+  /// Suppresses spurious `completed` / `idle-while-playing` reloads that fire
+  /// within this window of a successful load. AVPlayer occasionally
+  /// mis-reports terminal state for live HLS during PDT-decoder confusion;
+  /// without this debounce we re-issue play() every ~3s and create a reload
+  /// loop visible to the user as repeated startup hiccups.
+  static const _terminalStateReloadDebounce = Duration(seconds: 8);
+  DateTime? _lastSuccessfulLoadAt;
   final BehaviorSubject<List<StreamEvent>> recentStreamEvents =
       BehaviorSubject.seeded(const <StreamEvent>[]);
 
@@ -624,6 +634,23 @@ class AppAudioHandler extends BaseAudioHandler {
         if (_isConnecting) return;
         final isHls = _loadedStreamType == 'HLS';
         if (isHls) {
+          // AVPlayer occasionally reports `completed` for live HLS streams
+          // during PDT-decoder confusion in the first few seconds after
+          // load. Without a debounce we re-issue play() and create a 3s
+          // reload loop visible to the user as repeated startup hiccups
+          // (5x "Attempt → Loaded → Rebuffer" within 10s, all with the
+          // textbook 132009ms buf-ahead). Suppress reload if we just
+          // loaded successfully.
+          final lastLoad = _lastSuccessfulLoadAt;
+          if (lastLoad != null &&
+              DateTime.now().difference(lastLoad) < _terminalStateReloadDebounce) {
+            _log("processingStateStream: HLS completed within debounce window — ignoring (likely PDT confusion, not real EOS)");
+            _recordStreamEvent(
+              StreamEventKind.hlsCompleted,
+              'HLS completed (debounced — recently loaded)',
+            );
+            return;
+          }
           _log("processingStateStream: HLS stream completed unexpectedly, reconnecting");
           final lastInfo = currentStreamInfo.valueOrNull;
           _recordStreamEvent(
@@ -672,6 +699,21 @@ class AppAudioHandler extends BaseAudioHandler {
       } else if (state == ProcessingState.idle && player.playing) {
         _bufferingStallTimer?.cancel();
         if (_isConnecting) return;
+        // Same debounce as the `completed` branch — AVPlayer briefly
+        // dipping into idle-while-playing within a few seconds of a
+        // successful load is a PDT/decoder edge case, not a real
+        // network drop. Don't re-issue play() while the source is
+        // still considered healthy.
+        final lastLoad = _lastSuccessfulLoadAt;
+        if (lastLoad != null &&
+            DateTime.now().difference(lastLoad) < _terminalStateReloadDebounce) {
+          _log("processingStateStream: idle-while-playing within debounce window — ignoring");
+          _recordStreamEvent(
+            StreamEventKind.lostIdle,
+            'Stream idle-while-playing (debounced — recently loaded)',
+          );
+          return;
+        }
         _log("processingStateStream: stream lost (idle while playing), reconnecting");
         final lastInfo = currentStreamInfo.valueOrNull;
         _recordStreamEvent(
@@ -1234,6 +1276,7 @@ class AppAudioHandler extends BaseAudioHandler {
           await Future.any([loadFuture, canceller.future]).timeout(timeout);
           _loadedStreamUrl = streamUrl;
           _loadedStreamType = streamType;
+          _lastSuccessfulLoadAt = DateTime.now();
           final elapsedMs = DateTime.now().difference(attemptStart).inMilliseconds;
           _log("play: source loaded successfully ($trackedUrl)");
 
@@ -1940,7 +1983,13 @@ class AppAudioHandler extends BaseAudioHandler {
   }
 
   /// Called on foreground resume or connectivity restore. Reconnects if the
-  /// stream was silently lost (idle) or stalled waiting for data (buffering).
+  /// stream was silently lost (idle) or stalled waiting for data (buffering)
+  /// — and importantly, when the user wants playback (`_hasBeenPlayed`) but
+  /// the player isn't actually playing for any reason. The last condition
+  /// covers airplane-mode → recovery: after maxRetries fail in play(), the
+  /// player can sit in `ready` with a stale source and `playing == false`
+  /// indefinitely; without forcing a reload here, the user-perceived
+  /// behaviour is "audio never came back".
   void reconnectIfNeeded() {
     if (currentStation.valueOrNull == null) return;
     if (_isConnecting) return;
@@ -1951,9 +2000,15 @@ class AppAudioHandler extends BaseAudioHandler {
     // LOAD we didn't ask for.
     if (isCasting) return;
     final state = player.processingState;
-    if (state == ProcessingState.idle ||
-        (state == ProcessingState.buffering && player.playing)) {
-      _log("reconnectIfNeeded: player stalled (state=$state), reconnecting");
+    final stalled = state == ProcessingState.idle ||
+        (state == ProcessingState.buffering && player.playing);
+    // User-wants-play-but-isn't-playing: covers the post-airplane-mode case
+    // where AVPlayer is `ready` with stale source / `completed` from a
+    // failed reload chain / paused due to a transient interruption that
+    // wasn't auto-resumed.
+    final shouldBePlayingButIsnt = !player.playing;
+    if (stalled || shouldBePlayingButIsnt) {
+      _log("reconnectIfNeeded: reconnecting (state=$state, playing=${player.playing}, stalled=$stalled)");
       _loadedStreamUrl = null;
       _loadedStreamType = null;
       play();
