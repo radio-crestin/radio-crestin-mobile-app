@@ -36,7 +36,6 @@ import '../services/promo_notification_service.dart';
 import '../services/analytics_service.dart';
 import '../types/Station.dart';
 import '../utils/PositionRetainedScrollPhysics.dart';
-import '../widgets/resume_playing_dialog.dart';
 import '../widgets/song_history_modal.dart';
 import 'SettingsPage.dart';
 
@@ -1102,60 +1101,19 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       // (Android task switcher) — the user is just inspecting the app, not
       // re-launching it. CarPlay/Android Auto override this: a connected car
       // means the user wants playback regardless of how the phone UI started.
+      // iOS always reports "launcher" because the platform can't distinguish
+      // icon-tap from switcher-tap, so iOS users always get the silent
+      // autoplay path.
       final source = await LaunchSourceService.get();
       final carConnected = _audioHandler.isCarConnected;
       final fromRecents =
           source == LaunchSource.recents && !carConnected;
-
-      // iOS cannot tell apart "from icon" and "from app switcher", so
-      // instead of guessing we ask the user explicitly on every cold
-      // launch. Once they tap "Don't ask again" the prompt is suppressed
-      // forever and the silent checkbox path takes over.
-      final promptDismissed = prefs.getBool('_autoplayPromptDismissed') ?? false;
-      if (Platform.isIOS && !promptDismissed && !carConnected) {
-        await _showResumePromptAndAct(station);
-        return;
-      }
 
       if (autoStart && !fromRecents) {
         _audioHandler.playStation(station);
       } else {
         _audioHandler.selectStation(station);
       }
-    }
-  }
-
-  Future<void> _showResumePromptAndAct(Station station) async {
-    // Always seed the mini-player with the last station while the prompt
-    // is on screen, so the user has visual context for the question and
-    // a sane state if they dismiss without choosing.
-    _audioHandler.selectStation(station);
-    if (!mounted) return;
-    final choice = await showResumePlayingDialog(
-      context,
-      stationName: station.title,
-    );
-    final prefs = getIt<SharedPreferences>();
-    switch (choice) {
-      case ResumePlayingChoice.play:
-        AnalyticsService.instance.capture('button_clicked',
-            {'button_name': 'resume_prompt', 'choice': 'play'});
-        _audioHandler.playStation(station);
-        break;
-      case ResumePlayingChoice.dontPlay:
-        AnalyticsService.instance.capture('button_clicked',
-            {'button_name': 'resume_prompt', 'choice': 'dont_play'});
-        // Already in selectStation state, nothing else to do.
-        break;
-      case ResumePlayingChoice.dontAskAgain:
-        AnalyticsService.instance.capture('button_clicked',
-            {'button_name': 'resume_prompt', 'choice': 'dont_ask_again'});
-        await prefs.setBool('_autoplayPromptDismissed', true);
-        await prefs.setBool('_autoStartStation', false);
-        break;
-      case null:
-        // Dismissed without choosing — treat as "Nu acum".
-        break;
     }
   }
 }

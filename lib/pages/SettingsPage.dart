@@ -43,7 +43,6 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   bool? _notificationsEnabled;
   bool? _autoStartStation;
-  bool _autoplayPromptDismissed = false;
   ThemeMode _themeMode = ThemeMode.system;
   SeekMode _seekMode = SeekMode.twoMinutes;
   bool _unstableConnection = false;
@@ -125,20 +124,6 @@ class _SettingsPageState extends State<SettingsPage> {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _autoStartStation = prefs.getBool('_autoStartStation') ?? true;
-      _autoplayPromptDismissed =
-          prefs.getBool('_autoplayPromptDismissed') ?? false;
-    });
-  }
-
-  Future<void> _resetAutoplayPrompt() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('_autoplayPromptDismissed', false);
-    await prefs.setBool('_autoStartStation', true);
-    AnalyticsService.instance.capture('button_clicked',
-        {'button_name': 'auto_start_station_reset'});
-    setState(() {
-      _autoplayPromptDismissed = false;
-      _autoStartStation = true;
     });
   }
 
@@ -665,52 +650,23 @@ class _SettingsPageState extends State<SettingsPage> {
                   _buildSettingsTile(
                     icon: Icons.radio,
                     title: 'Pornește automat ultima stație',
-                    subtitle: _autoplayPromptDismissed
-                        ? 'Dezactivat — ai ales „Nu mă mai întreba".'
-                        : 'La deschiderea aplicației',
+                    subtitle: 'La deschiderea aplicației',
                     trailing: Switch.adaptive(
                       activeColor: Colors.white,
                       activeTrackColor: isDark ? const Color(0xff48a868) : const Color(0xff34c759),
                       inactiveThumbColor: Colors.white,
                       inactiveTrackColor: isDark ? const Color(0xff39393d) : const Color(0xffe9e9ea),
-                      onChanged: _autoplayPromptDismissed
-                          ? null
-                          : (bool? value) async {
-                              AnalyticsService.instance.capture('button_clicked', {'button_name': 'auto_start_station', 'enabled': value});
-                              final prefs = await SharedPreferences.getInstance();
-                              await prefs.setBool('_autoStartStation', value!);
-                              setState(() {
-                                _autoStartStation = value;
-                              });
-                            },
-                      value: _autoplayPromptDismissed
-                          ? false
-                          : (_autoStartStation ?? true),
+                      onChanged: (bool? value) async {
+                        AnalyticsService.instance.capture('button_clicked', {'button_name': 'auto_start_station', 'enabled': value});
+                        final prefs = await SharedPreferences.getInstance();
+                        await prefs.setBool('_autoStartStation', value!);
+                        setState(() {
+                          _autoStartStation = value;
+                        });
+                      },
+                      value: _autoStartStation ?? true,
                     ),
                   ),
-                  if (_autoplayPromptDismissed)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(54, 0, 16, 12),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: TextButton(
-                          onPressed: _resetAutoplayPrompt,
-                          style: TextButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            minimumSize: Size.zero,
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            foregroundColor: AppColors.primary,
-                          ),
-                          child: const Text(
-                            'Reactivează',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
                   _buildSettingsTile(
                     icon: Icons.notification_important_rounded,
                     title: 'Notificări personalizate',
@@ -877,7 +833,6 @@ class _SettingsPageState extends State<SettingsPage> {
                                     setState(() {
                                       _notificationsEnabled = null;
                                       _autoStartStation = null;
-                                      _autoplayPromptDismissed = false;
                                     });
                                     _getNotificationsEnabled();
                                     _getAutoStartStation();
