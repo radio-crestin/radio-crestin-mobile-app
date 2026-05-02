@@ -66,7 +66,22 @@ class SeekModeManager {
     _unstableConnectionNotifier.value = enabled;
   }
 
+  static const String _migratedKeyV1 = 'seek_mode_migrated_v1';
+
   static void initializeFromPrefs(SharedPreferences prefs) {
+    // One-time migration: prior versions had a bug where toggling
+    // "Conexiune instabilă" OFF didn't revert the saved seek mode from
+    // fiveMinutes back to twoMinutes, so anyone who'd ever enabled it
+    // ended up with a sticky 5-minute default. Reset that once.
+    if (!(prefs.getBool(_migratedKeyV1) ?? false)) {
+      final saved = prefs.getString(_seekModeKey);
+      final unstable = prefs.getBool(_unstableConnectionKey) ?? false;
+      if (saved == 'SeekMode.fiveMinutes' && !unstable) {
+        prefs.setString(_seekModeKey, 'SeekMode.twoMinutes');
+      }
+      prefs.setBool(_migratedKeyV1, true);
+    }
+
     final seekModeString = prefs.getString(_seekModeKey);
     _seekModeNotifier.value = _parseSeekMode(seekModeString);
     _unstableConnectionNotifier.value = prefs.getBool(_unstableConnectionKey) ?? false;

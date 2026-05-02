@@ -560,16 +560,16 @@ class _SettingsPageState extends State<SettingsPage> {
                             AnalyticsService.instance.capture('button_clicked', {'button_name': 'unstable_connection', 'enabled': value});
                             setState(() {
                               _unstableConnection = value;
-                              if (value) {
-                                _seekMode = SeekMode.fiveMinutes;
-                              }
+                              _seekMode = value ? SeekMode.fiveMinutes : SeekMode.twoMinutes;
                             });
                             await SeekModeManager.saveUnstableConnection(value);
                             SeekModeManager.changeUnstableConnection(value);
-                            if (value) {
-                              await SeekModeManager.saveSeekMode(SeekMode.fiveMinutes);
-                              SeekModeManager.changeSeekMode(SeekMode.fiveMinutes);
-                            }
+                            // Always sync the saved seek mode with the toggle: ON forces 5,
+                            // OFF resets to 2 (the default). Without the OFF branch the
+                            // saved 5 sticks forever, so users see "5 minute" as default.
+                            final newMode = value ? SeekMode.fiveMinutes : SeekMode.twoMinutes;
+                            await SeekModeManager.saveSeekMode(newMode);
+                            SeekModeManager.changeSeekMode(newMode);
                             getIt<AppAudioHandler>().reapplySeekOffset();
                             getIt<AppAudioHandler>().refreshCurrentMetadata();
                             if (context.mounted) {
