@@ -31,17 +31,75 @@ brew install --cask flutter
 
 ```
 
-## Create an Android release
-1. Copy `radio_crestin_key.properties` from 1Password into `android/key.properties`
-2. Copy `radio-crestin-app-keystore.jks` from 1Password into `android/app/radio_crestin_key.jks`
-3. Run `flutter build appbundle --release` to build the APK
+## Releases
 
-## Create an iOS release
-For more information please check out https://docs.flutter.dev/deployment/ios
-1. Open the project in Xcode
-2. Select the target `Runner` and go to the `Signing & Capabilities` tab
-3. Select your team and make sure the `Automatically manage signing` is checked
-4. Run `flutter build ios --release` to build the iOS app
-5. Open Xcode and select the `Runner` scheme
-6. Select `Product` > `Archive` to create an archive of the app
-7. Once the archive is created, click on `Distribute App`
+All builds happen **locally** on the developer machine — no CI, no signing
+secrets stored in GitHub Actions. Artifacts are uploaded to a GitHub Release
+via the `gh` CLI.
+
+### Prerequisites
+- macOS host with Xcode + valid Apple Developer signing for iOS / macOS / tvOS.
+- `android/key.properties` and `android/app/radio-crestin-app-keystore.jks`
+  pulled from 1Password (gitignored).
+- `gh` CLI authenticated (`gh auth login`).
+- Optional: a Windows host with Flutter desktop enabled to produce the EXE.
+
+### One-shot Mac release
+```bash
+make release            # bump build number, build all Mac platforms,
+                        # tag, push tag, create GitHub release, upload all artifacts
+```
+
+### Step-by-step
+```bash
+make release-help       # list every release target
+
+make bump-build         # 1.5.0+77 → 1.5.0+78  (or bump-patch / bump-minor)
+make release-android    # APK + AAB to dist/
+make release-ios        # ad-hoc IPA to dist/
+make release-macos      # unsigned DMG to dist/
+make release-apple-tv   # tvOS IPA to dist/  (needs apple_tv/ExportOptions.plist)
+make tag-release        # creates v<version> tag and pushes it
+make publish            # creates GH release, uploads everything in dist/
+```
+
+### Windows EXE (separate machine)
+On a Windows host with Flutter desktop support enabled:
+```bash
+make release-windows    # produces dist/radio-crestin-windows.zip
+make publish            # uploads to the same release tag from earlier
+```
+
+### Latest-release download links (stable URLs)
+The release artifacts use stable filenames so the GitHub
+`/releases/latest/download/<file>` redirect works:
+
+| Platform | Download |
+|----------|----------|
+| Android APK | https://github.com/radio-crestin/radio-crestin-mobile-app/releases/latest/download/radio-crestin-android.apk |
+| Android AAB (Play upload) | https://github.com/radio-crestin/radio-crestin-mobile-app/releases/latest/download/radio-crestin-android.aab |
+| iOS IPA (ad-hoc) | https://github.com/radio-crestin/radio-crestin-mobile-app/releases/latest/download/radio-crestin-ios.ipa |
+| macOS DMG | https://github.com/radio-crestin/radio-crestin-mobile-app/releases/latest/download/radio-crestin-macos.dmg |
+| Windows zip | https://github.com/radio-crestin/radio-crestin-mobile-app/releases/latest/download/radio-crestin-windows.zip |
+| Apple TV IPA | https://github.com/radio-crestin/radio-crestin-mobile-app/releases/latest/download/radio-crestin-tvos.ipa |
+
+`make latest-links` reprints these on demand.
+
+### Apple TV (`apple_tv/`)
+The tvOS app is a separate native SwiftUI Xcode project, not a Flutter target.
+To build the IPA, create `apple_tv/ExportOptions.plist` once with your team
+and signing config (an `app-store` or `ad-hoc` template works). Then run
+`make release-apple-tv`.
+
+### Disabling Xcode Cloud
+This repo does **not** use Xcode Cloud (no `ci_scripts/` or `.xcode-cloud/`).
+If Xcode Cloud is enabled in App Store Connect for this app, disable it from
+the App Store Connect web UI — that setting lives outside the repo.
+
+### Phone-only details — legacy notes
+- Android signing config: `android/key.properties` (1Password →
+  `radio_crestin_key.properties`) plus the keystore at
+  `android/app/radio-crestin-app-keystore.jks`.
+- iOS signing: open `ios/Runner.xcworkspace`, select target `Runner`,
+  pick your team under **Signing & Capabilities** with **Automatically
+  manage signing** enabled. See https://docs.flutter.dev/deployment/ios.
