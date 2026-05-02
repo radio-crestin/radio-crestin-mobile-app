@@ -23,7 +23,6 @@ import 'package:flutter_chrome_cast/flutter_chrome_cast.dart' show CastMediaPlay
 import 'package:radio_crestin/tv/tv_platform.dart';
 import 'package:radio_crestin/services/play_count_service.dart';
 import 'package:radio_crestin/services/network_service.dart';
-import 'package:radio_crestin/services/hls_proxy/hls_proxy_server.dart';
 import 'package:radio_crestin/services/review_service.dart';
 import 'package:radio_crestin/services/song_history_service.dart';
 import 'package:radio_crestin/services/song_like_service.dart';
@@ -1265,15 +1264,7 @@ class AppAudioHandler extends BaseAudioHandler {
             await player.stop();
           }
           final trackedUrl = addTrackingParametersToUrl(streamUrl);
-          // For HLS, route playback through our in-app proxy so we control
-          // the buffer depth (network blips up to ~60s of cached audio
-          // become inaudible). The prefetcher fetches from `trackedUrl`
-          // so listening-session attribution at the origin still works.
-          // Non-HLS streams (continuous MP3 ICY) bypass the proxy — AVPlayer
-          // already buffers them well, and they have no segments to cache.
-          final loadUrl = isHls
-              ? (await HlsProxyServer.start(trackedUrl)).localUrl
-              : trackedUrl;
+          final loadUrl = trackedUrl;
           final timeout = isHls ? const Duration(seconds: 3) : const Duration(seconds: 10);
           // Race setAudioSource against the canceller so playStation() can
           // break this await immediately instead of waiting for the timeout.
@@ -1627,7 +1618,6 @@ class AppAudioHandler extends BaseAudioHandler {
     currentStreamInfo.add(null);
     AnalyticsService.instance.setCurrentStream(url: null, type: null, index: null, total: null);
     await player.stop();
-    await HlsProxyServer.stopCurrent();
     // Broadcast stopped state with controls still available (no super.stop())
     _broadcastState(player.playbackEvent);
   }
@@ -1655,7 +1645,6 @@ class AppAudioHandler extends BaseAudioHandler {
     currentStreamInfo.add(null);
     AnalyticsService.instance.setCurrentStream(url: null, type: null, index: null, total: null);
     await player.stop();
-    await HlsProxyServer.stopCurrent();
     return super.stop();
   }
 
@@ -1933,7 +1922,6 @@ class AppAudioHandler extends BaseAudioHandler {
     if (keeper != null) {
       await keeper.dispose().catchError((e) => _log('silence keeper dispose failed: $e'));
     }
-    await HlsProxyServer.stopCurrent();
     stationDataService.dispose();
     await super.stop();
   }
