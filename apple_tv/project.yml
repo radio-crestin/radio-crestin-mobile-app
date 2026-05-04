@@ -69,33 +69,23 @@ targets:
         Release:
           CODE_SIGN_STYLE: Automatic
 
-  RadioCrestinTVTests:
-    type: bundle.unit-test
-    platform: tvOS
-    deploymentTarget: "17.0"
-    sources:
-      - path: RadioCrestinTVTests
-    dependencies:
-      - target: RadioCrestinTV
-    settings:
-      base:
-        PRODUCT_BUNDLE_IDENTIFIER: ro.radiocrestin.radiocrestintv.tests
-        GENERATE_INFOPLIST_FILE: YES
-      configs:
-        Debug:
-          CODE_SIGN_STYLE: Manual
-          CODE_SIGN_IDENTITY: "-"
-          PROVISIONING_PROFILE_SPECIFIER: ""
-        Release:
-          CODE_SIGN_STYLE: Automatic
-
 schemes:
   RadioCrestinTV:
     build:
       targets:
         RadioCrestinTV: all
-        RadioCrestinTVTests: [test]
+    # Force every scheme action (Run, Test, Profile, Analyze, Archive) onto
+    # Release config so xcodebuild only ever provisions the App Store profile.
+    # Without this, xcodebuild's pre-build provisioning sweep also fetches
+    # the Debug/Development profile — which Apple refuses to issue because
+    # the team has no registered tvOS devices, blocking archive.
+    run:
+      config: Release
     test:
-      targets:
-        - RadioCrestinTVTests
-      gatherCoverageData: true
+      config: Release
+    profile:
+      config: Release
+    analyze:
+      config: Release
+    archive:
+      config: Release
