@@ -57,17 +57,25 @@ targets:
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.music
       configs:
         # No physical Apple TV is registered on the team, so Apple can't
-        # issue a Development profile. Manual signing for Debug + ad-hoc
-        # identity ("-") lets the simulator build run locally without
-        # requesting any profile. Release stays on automatic so Xcode
-        # fetches the App Store Distribution profile (which doesn't need
-        # devices) at archive time.
+        # issue a Development profile. Both configs use Manual signing:
+        # Debug uses ad-hoc identity ("-") so the simulator build runs
+        # locally without requesting any profile. Release uses the App
+        # Store Distribution cert + a manually-created App Store profile
+        # (the profile is created at developer.apple.com — App Store
+        # profiles do NOT need registered devices).
+        #
+        # Why not Automatic for Release? xcodebuild's pre-archive
+        # provisioning sweep tries to fetch BOTH a Development AND a
+        # Distribution profile from Apple, and the Development fetch
+        # fails (no registered tvOS devices), blocking archive.
         Debug:
           CODE_SIGN_STYLE: Manual
           CODE_SIGN_IDENTITY: "-"
           PROVISIONING_PROFILE_SPECIFIER: ""
         Release:
-          CODE_SIGN_STYLE: Automatic
+          CODE_SIGN_STYLE: Manual
+          CODE_SIGN_IDENTITY: "Apple Distribution"
+          PROVISIONING_PROFILE_SPECIFIER: "Radio Crestin TV App Store"
 
 schemes:
   RadioCrestinTV:

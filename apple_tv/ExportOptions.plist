@@ -7,7 +7,14 @@
     <key>teamID</key>
     <string>2KNY2RZVGC</string>
     <key>signingStyle</key>
-    <string>automatic</string>
+    <string>manual</string>
+    <key>signingCertificate</key>
+    <string>Apple Distribution</string>
+    <key>provisioningProfiles</key>
+    <dict>
+        <key>ro.radiocrestin.radiocrestintv</key>
+        <string>Radio Crestin TV App Store</string>
+    </dict>
     <key>compileBitcode</key>
     <false/>
     <key>destination</key>
