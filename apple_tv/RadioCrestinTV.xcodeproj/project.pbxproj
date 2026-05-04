@@ -353,7 +353,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.radiocrestin.radio_crestin;
+				PRODUCT_BUNDLE_IDENTIFIER = ro.radiocrestin.radiocrestintv;
 				SDKROOT = appletvos;
 				TARGETED_DEVICE_FAMILY = 3;
 				TVOS_DEPLOYMENT_TARGET = 17.0;
@@ -500,7 +500,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.radiocrestin.radio_crestin.tests;
+				PRODUCT_BUNDLE_IDENTIFIER = ro.radiocrestin.radiocrestintv.tests;
 				SDKROOT = appletvos;
 				TARGETED_DEVICE_FAMILY = 3;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/RadioCrestinTV.app/RadioCrestinTV";
@@ -519,7 +519,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.radiocrestin.radio_crestin;
+				PRODUCT_BUNDLE_IDENTIFIER = ro.radiocrestin.radiocrestintv;
 				SDKROOT = appletvos;
 				TARGETED_DEVICE_FAMILY = 3;
 				TVOS_DEPLOYMENT_TARGET = 17.0;
@@ -537,7 +537,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.radiocrestin.radio_crestin.tests;
+				PRODUCT_BUNDLE_IDENTIFIER = ro.radiocrestin.radiocrestintv.tests;
 				SDKROOT = appletvos;
 				TARGETED_DEVICE_FAMILY = 3;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/RadioCrestinTV.app/RadioCrestinTV";
