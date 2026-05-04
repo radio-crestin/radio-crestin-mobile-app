@@ -55,6 +55,19 @@ targets:
         # tvOS Top Shelf placeholder; we'll fill the asset catalog later.
         TVTopShelfImagePath: ""
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.music
+      configs:
+        # No physical Apple TV is registered on the team, so Apple can't
+        # issue a Development profile. Manual signing for Debug + ad-hoc
+        # identity ("-") lets the simulator build run locally without
+        # requesting any profile. Release stays on automatic so Xcode
+        # fetches the App Store Distribution profile (which doesn't need
+        # devices) at archive time.
+        Debug:
+          CODE_SIGN_STYLE: Manual
+          CODE_SIGN_IDENTITY: "-"
+          PROVISIONING_PROFILE_SPECIFIER: ""
+        Release:
+          CODE_SIGN_STYLE: Automatic
 
   RadioCrestinTVTests:
     type: bundle.unit-test
@@ -68,6 +81,13 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: ro.radiocrestin.radiocrestintv.tests
         GENERATE_INFOPLIST_FILE: YES
+      configs:
+        Debug:
+          CODE_SIGN_STYLE: Manual
+          CODE_SIGN_IDENTITY: "-"
+          PROVISIONING_PROFILE_SPECIFIER: ""
+        Release:
+          CODE_SIGN_STYLE: Automatic
 
 schemes:
   RadioCrestinTV:
