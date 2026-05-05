@@ -67,7 +67,13 @@ final class AppState: ObservableObject {
     /// re-fetch every 10 minutes so descriptions / streams stay current.
     private var lastFullRefresh: Date?
 
-    private static let pollInterval: TimeInterval = 10
+    /// Adaptive poll cadence: tight when the last tick saw changes,
+    /// relaxed when the catalog is idle. Mirrors the Flutter behaviour
+    /// in `station_data_service.dart`.
+    private static let pollIntervalActive: TimeInterval = 10
+    private static let pollIntervalIdle: TimeInterval = 60
+    private var lastPollHadChanges: Bool = true
+
     private static let fullRefreshInterval: TimeInterval = 10 * 60
 
     /// Maximum gap (seconds) between consecutive offset-fetch timestamps
@@ -155,11 +161,19 @@ final class AppState: ObservableObject {
         guard pollTask == nil else { return }
         pollTask = Task { [weak self] in
             while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: UInt64(Self.pollInterval * 1_000_000_000))
+                let interval = await self?.nextPollInterval ?? Self.pollIntervalIdle
+                try? await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
                 guard !Task.isCancelled else { break }
                 await self?.pollOnce()
             }
         }
+    }
+
+    /// Interval to wait before the next poll: active when the previous
+    /// tick reported changes, idle otherwise. Read on the main actor so
+    /// the loop sees the freshest value.
+    private var nextPollInterval: TimeInterval {
+        lastPollHadChanges ? Self.pollIntervalActive : Self.pollIntervalIdle
     }
 
     /// Forces an out-of-cycle metadata poll. Used when something has just
@@ -181,6 +195,8 @@ final class AppState: ObservableObject {
         if let last = lastFullRefresh,
            Date().timeIntervalSince(last) >= Self.fullRefreshInterval {
             await loadStations()
+            // Stay tight after a full refresh — assume something is interesting again.
+            lastPollHadChanges = true
             return
         }
 
@@ -226,6 +242,7 @@ final class AppState: ObservableObject {
 
             if live.isEmpty && (offset?.isEmpty ?? true) {
                 // Nothing changed — let the UI keep what it has.
+                lastPollHadChanges = false
                 return
             }
 
@@ -242,9 +259,13 @@ final class AppState: ObservableObject {
                         for: updated.slug
                     )
                 }
+                lastPollHadChanges = true
+            } else {
+                lastPollHadChanges = false
             }
         } catch {
-            // Polling failures are quiet by design — try again in 10s.
+            // Polling failures are quiet by design — retry on the active cadence.
+            lastPollHadChanges = true
             Analytics.captureError(error, context: "poll_metadata")
         }
     }

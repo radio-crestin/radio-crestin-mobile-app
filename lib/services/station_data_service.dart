@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:developer' as developer;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:get_it/get_it.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
@@ -27,7 +27,14 @@ class StationDataService {
   Timer? _pollTimer;
   bool _isPolling = false;
   bool _isPollInFlight = false;
-  static const _pollInterval = Duration(seconds: 10);
+
+  /// Adaptive poll cadence: tight when changes are flowing, relaxed when
+  /// the catalog is idle. Resets to active on every change so we react
+  /// quickly when something starts happening again.
+  static const _pollIntervalActive = Duration(seconds: 10);
+  static const _pollIntervalIdle = Duration(seconds: 60);
+  bool _lastPollHadChanges = true;
+
   static const _fullRefreshInterval = Duration(minutes: 10);
 
   /// Timestamp (Unix seconds, rounded to 10s) of the last successful metadata fetch.
@@ -118,7 +125,7 @@ class StationDataService {
   StationDataService({required this.graphqlClient});
 
   void _log(String message) {
-    developer.log("StationDataService: $message");
+    debugPrint("StationDataService: $message");
   }
 
   // ---------------------------------------------------------------------------
@@ -171,9 +178,23 @@ class StationDataService {
     if (!_isPolling) {
       _log("Resuming station polling");
       _isPolling = true;
-      _pollTimer?.cancel();
-      _pollTimer = Timer.periodic(_pollInterval, (_) => _pollMetadata());
+      _lastPollHadChanges = true; // wake up tight, back off only after a quiet poll
+      _scheduleNextPoll();
     }
+  }
+
+  /// Self-rescheduling poll loop. Picks the next interval based on whether
+  /// the previous tick observed any metadata changes — keeps the loop
+  /// responsive when stations are updating, quiet otherwise.
+  void _scheduleNextPoll() {
+    _pollTimer?.cancel();
+    if (!_isPolling) return;
+    final interval =
+        _lastPollHadChanges ? _pollIntervalActive : _pollIntervalIdle;
+    _pollTimer = Timer(interval, () async {
+      await _pollMetadata();
+      _scheduleNextPoll();
+    });
   }
 
   void dispose() {
@@ -236,7 +257,8 @@ class StationDataService {
       _lastFetchTimestamp = getRoundedTimestamp();
       _lastOffsetFetchTimestamp = 0;
       _isPolling = true;
-      _pollTimer = Timer.periodic(_pollInterval, (_) => _pollMetadata());
+      _lastPollHadChanges = true;
+      _scheduleNextPoll();
 
       // Background refresh — updates UI when ready, no-op if offline
       _fetchStationsWithMetadata().then((_) {
@@ -258,7 +280,8 @@ class StationDataService {
 
       // Phase 3: Start lightweight differential metadata polling (every 10s)
       _isPolling = true;
-      _pollTimer = Timer.periodic(_pollInterval, (_) => _pollMetadata());
+      _lastPollHadChanges = true;
+      _scheduleNextPoll();
     }
   }
 
@@ -408,6 +431,8 @@ class StationDataService {
         _lastFetchTimestamp = getRoundedTimestamp();
         _lastOffsetFetchTimestamp = 0;
         _preCacheStationThumbnails();
+        // Stay tight after a full refresh — assume the catalog is interesting again.
+        _lastPollHadChanges = true;
         return;
       }
 
@@ -478,6 +503,8 @@ class StationDataService {
 
       if (liveMetadata == null && offsetMetadata == null) {
         _log("Both metadata fetches failed, skipping update");
+        // Network failure — retry on the active cadence rather than backing off.
+        _lastPollHadChanges = true;
         return;
       }
       if (liveMetadata == null) _log("Live metadata fetch failed, using offset only");
@@ -489,6 +516,7 @@ class StationDataService {
 
       if (!hasLiveChanges && !hasOffsetChanges) {
         _log("No metadata changes detected, skipping update");
+        _lastPollHadChanges = false;
         return;
       }
 
@@ -510,6 +538,7 @@ class StationDataService {
       if (_hasStationsChanged(currentStations, updatedStations)) {
         stations.add(updatedStations);
         _log("Stations updated from differential metadata poll");
+        _lastPollHadChanges = true;
 
         // In unstable connection mode, pre-cache all song thumbnails permanently
         if (SeekModeManager.isUnstableConnection) {
@@ -517,9 +546,12 @@ class StationDataService {
         }
       } else {
         _log("Stations unchanged after merge, skipping update");
+        _lastPollHadChanges = false;
       }
     } catch (e) {
       _log("Error in metadata poll: $e");
+      // Retry on the active cadence after an error.
+      _lastPollHadChanges = true;
       // On metadata fetch failure, try a full refresh to recover
       try {
         _log("Attempting full refresh after poll failure");
@@ -546,8 +578,14 @@ class StationDataService {
     if (changesFromTimestamp != null && changesFromTimestamp > 0) {
       url += '&changes_from_timestamp=$changesFromTimestamp';
     }
+    final isDiff = changesFromTimestamp != null && changesFromTimestamp > 0;
+    final mode = isDiff ? 'diff' : 'full';
+    final stopwatch = Stopwatch()..start();
+    _log("→ metadata fetch [$mode] ts=$timestamp"
+        "${isDiff ? ' from=$changesFromTimestamp' : ''}");
     try {
       final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 8));
+      stopwatch.stop();
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body) as Map<String, dynamic>;
         final stationsMetadata = (jsonData['data']?['stations_metadata'] as List?) ?? [];
@@ -557,13 +595,18 @@ class StationDataService {
             map[item['id'] as int] = item;
           }
         }
+        _log("✓ metadata fetch [$mode] ts=$timestamp "
+            "→ ${map.length} stations in ${stopwatch.elapsedMilliseconds}ms");
         return map;
       } else {
-        _log("Metadata fetch failed: ${response.statusCode}");
+        _log("✗ metadata fetch [$mode] ts=$timestamp "
+            "→ HTTP ${response.statusCode} in ${stopwatch.elapsedMilliseconds}ms");
         return null;
       }
     } catch (e) {
-      _log("Error fetching metadata: $e");
+      stopwatch.stop();
+      _log("✗ metadata fetch [$mode] ts=$timestamp "
+          "→ error in ${stopwatch.elapsedMilliseconds}ms: $e");
       return null;
     }
   }
