@@ -20,69 +20,113 @@ import 'package:radio_crestin/utils/api_utils.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// Why a metadata sync was requested. Drives the choice between full refresh,
+/// audio-aligned offset diff, and live-timeline diff. Listed in priority
+/// order — when multiple reasons coalesce while a sync is in flight, the
+/// lower index (= higher priority) wins.
+enum SyncReason {
+  /// Initial bootstrap on app start.
+  startup,
+
+  /// App returned from background — distrust everything, refetch.
+  appResumed,
+
+  /// User picked a station to play.
+  stationPlayed,
+
+  /// User changed the "încărcare în avans" pre-buffer setting.
+  seekOffsetChanged,
+
+  /// HLS DATERANGE flipped, ICY tag changed, or ID3 metadata fired —
+  /// the audio just told us a new song is playing.
+  audioMetadataChanged,
+
+  /// 60s wall-clock tick — keep the visible station list reasonably fresh.
+  periodic,
+}
+
 class StationDataService {
   final GraphQLClient graphqlClient;
 
-  // Polling state
-  Timer? _pollTimer;
-  bool _isPolling = false;
-  bool _isPollInFlight = false;
+  // ---------------------------------------------------------------------------
+  // Sync engine state
+  // ---------------------------------------------------------------------------
 
-  /// Adaptive poll cadence: tight when changes are flowing, relaxed when
-  /// the catalog is idle. Resets to active on every change so we react
-  /// quickly when something starts happening again.
-  static const _pollIntervalActive = Duration(seconds: 10);
-  static const _pollIntervalIdle = Duration(seconds: 60);
-  bool _lastPollHadChanges = true;
+  /// Fixed cadence for the periodic safety-net poll. Audio events drive
+  /// the playing station's now-playing; this tick keeps the list itself
+  /// fresh for stations the user can see but isn't playing.
+  static const _periodicInterval = Duration(seconds: 60);
 
+  /// 10-min full refresh window. Inserted into the next sync (regardless
+  /// of reason) once elapsed, to pull GraphQL stations + reviews drift.
   static const _fullRefreshInterval = Duration(minutes: 10);
 
-  /// Timestamp (Unix seconds, rounded to 10s) of the last successful metadata fetch.
-  /// Used as `changes_from_timestamp` to only receive changed stations.
+  /// If the audio metadata channel hasn't said anything in this long, the
+  /// next periodic tick adds an offset fetch as a safety net so the
+  /// player UI doesn't sit on a stale audio-aligned now_playing.
+  static const _audioEventSafetyNet = Duration(minutes: 5);
+
+  /// Maximum gap (seconds) between consecutive offset-fetch timestamps
+  /// before the differential is dropped and a full payload is requested.
+  /// Guards against stale cursors after long pauses, app backgrounding, or
+  /// shifts between the synthetic offset and the precise PROGRAM-DATE-TIME.
+  static const int _maxOffsetDiffGapSeconds = 60;
+
+  Timer? _periodicTimer;
+
+  /// Mutex over the sync pipeline. All paths funnel through `enqueueSync`,
+  /// so a single in-flight call is enough — overlapping triggers coalesce
+  /// into [_pendingReason].
+  bool _isSyncing = false;
+
+  /// Highest-priority reason queued while a sync is in flight. Drained on
+  /// completion of the current sync. `null` means nothing pending.
+  SyncReason? _pendingReason;
+
+  /// Live-timeline cursor (Unix seconds, 10s-rounded). Sent as
+  /// `changes_from_timestamp` on the next live diff.
   int _lastFetchTimestamp = 0;
 
-  /// Timestamp (Unix seconds, rounded to 10s) of the last successful **offset**
-  /// metadata fetch — i.e. the value sent on the request, not wall-clock now.
-  /// The server's cache key is keyed off the request value, so the cursor must
-  /// be too. Reset to 0 whenever the offset frame of reference may have shifted
-  /// (full refresh, error recovery, init).
+  /// Offset-timeline cursor (Unix seconds, 10s-rounded). Stored as the
+  /// value sent on the request, not wall-clock now, so it matches the
+  /// server's cache key. Reset to 0 whenever the offset frame may have
+  /// shifted (full refresh, error recovery, init).
   int _lastOffsetFetchTimestamp = 0;
-
-  /// Maximum gap (seconds) between consecutive offset-fetch timestamps before
-  /// the differential is dropped and a full fetch is issued. Protects against
-  /// stale cursors after long pauses, app backgrounding, or shifts between
-  /// the synthetic offset and the precise PROGRAM-DATE-TIME source.
-  static const int _maxOffsetDiffGapSeconds = 60;
 
   /// When the last full refresh (GraphQL + REST) was performed.
   DateTime? _lastFullRefreshTime;
 
-  /// Returns the actual stream type ('HLS', 'direct_stream', etc.) if the given
-  /// station ID is currently playing, or null if it's not the active station.
-  /// Set by AppAudioHandler after init to avoid circular dependency.
+  /// Last time the audio layer reported a metadata change (DATERANGE
+  /// flip, ICY tag, ID3). Used by the periodic safety net.
+  DateTime? _lastAudioEventTime;
+
+  // ---------------------------------------------------------------------------
+  // Audio sync hooks (set by AppAudioHandler after init)
+  // ---------------------------------------------------------------------------
+
+  /// Returns the actual stream type ('HLS', 'direct_stream', etc.) if the
+  /// given station ID is currently playing, or null if it's not the
+  /// active station.
   String? Function(int stationId)? getPlayingStreamType;
 
-  /// Returns the actual offset from the live edge for the currently playing
-  /// HLS stream, derived from `player.duration - player.position`.
+  /// Returns the actual offset from the live edge for the currently
+  /// playing HLS stream, derived from `player.duration - player.position`.
   /// Returns null if not playing HLS or if duration/position is unavailable.
-  /// Set by AppAudioHandler after init to avoid circular dependency.
   Duration? Function()? getActualPlaybackOffset;
 
-  /// Returns the precise Unix timestamp (10s-aligned) of the audio currently
-  /// being played, derived from EXT-X-PROGRAM-DATE-TIME + player.position.
-  /// This is the most accurate source for metadata sync — preferred over
-  /// the offset-based approach. Returns null when not playing HLS or when
-  /// the playlist hasn't been parsed yet.
-  /// Set by AppAudioHandler after init to avoid circular dependency.
+  /// Returns the precise Unix timestamp (10s-aligned) of the audio
+  /// currently being played, derived from EXT-X-PROGRAM-DATE-TIME +
+  /// player.position. Returns null when not playing HLS or when the
+  /// playlist hasn't been parsed yet.
   int? Function()? getHlsPlaybackTimestamp;
 
-  /// Returns true when HLS is the active stream type. Used to decide whether
-  /// an offset timestamp is needed — non-HLS streams play live so their
-  /// metadata should always use the live timestamp.
-  /// Set by AppAudioHandler after init to avoid circular dependency.
+  /// Returns true when HLS is the active stream type.
   bool Function()? isPlayingHls;
 
+  // ---------------------------------------------------------------------------
   // Streams
+  // ---------------------------------------------------------------------------
+
   final BehaviorSubject<List<Station>> stations = BehaviorSubject.seeded(<Station>[]);
   final BehaviorSubject<List<Station>> filteredStations = BehaviorSubject.seeded(<Station>[]);
   final BehaviorSubject<List<String>> favoriteStationSlugs = BehaviorSubject.seeded([]);
@@ -129,78 +173,246 @@ class StationDataService {
   }
 
   // ---------------------------------------------------------------------------
-  // Public API
+  // Public API — every refresh path funnels through enqueueSync.
   // ---------------------------------------------------------------------------
 
   Future<void> initialize() async {
     _initFilteredStationsStream();
     await _initFavoriteStationSlugs();
-    _setupRefreshStations();
+    await _bootstrap();
   }
 
-  /// Full refresh: re-fetches stations from GraphQL + metadata from REST.
-  /// Called on init, every 30 minutes, and on app resume from background.
-  Future<void> refreshStations() async {
-    _log("Full refresh triggered");
-    invalidateSortCache();
-    await _fetchStationsWithMetadata();
-    _lastFullRefreshTime = DateTime.now();
-    _lastFetchTimestamp = getRoundedTimestamp();
-    _lastOffsetFetchTimestamp = 0;
-    _preCacheStationThumbnails();
-  }
-
-  /// Force an out-of-cycle lightweight metadata poll. Used when something
-  /// has just changed (DATERANGE flipped, app foregrounded) and we don't
-  /// want to wait up to the next scheduled tick. Cheaper than
-  /// `refreshStations` — skips the heavy GraphQL station-list reload and
-  /// only refreshes `now_playing` + listener counts. Safe to call while a
-  /// poll is already in flight (`_pollMetadata` has an `_isPollInFlight`
-  /// guard, so a near-simultaneous call is a no-op).
-  Future<void> refreshMetadataNow() async => _pollMetadata();
-
-  /// Called when app resumes from background.
-  /// Forces a full refresh to pick up any changes while backgrounded.
-  Future<void> onAppResumed() async {
-    _log("App resumed from background, triggering full refresh");
-    await refreshStations();
-    resumePolling();
-  }
-
-  void pausePolling() {
-    _log("Pausing station polling");
-    _pollTimer?.cancel();
-    _pollTimer = null;
-    _isPolling = false;
-  }
-
-  void resumePolling() {
-    if (!_isPolling) {
-      _log("Resuming station polling");
-      _isPolling = true;
-      _lastPollHadChanges = true; // wake up tight, back off only after a quiet poll
-      _scheduleNextPoll();
+  /// Single entry point for every refresh. Coalesces overlapping triggers
+  /// and runs them in priority order so concurrent callers can fire and
+  /// forget.
+  Future<void> enqueueSync(SyncReason reason) async {
+    if (_isSyncing) {
+      // Coalesce into the pending slot if this reason is higher priority
+      // (lower enum index) than what's already queued.
+      if (_pendingReason == null || reason.index < _pendingReason!.index) {
+        _pendingReason = reason;
+        _log("queue: $reason (pending after current sync)");
+      }
+      return;
+    }
+    _isSyncing = true;
+    try {
+      var current = reason;
+      while (true) {
+        await _executeSync(current);
+        final next = _pendingReason;
+        if (next == null) break;
+        _pendingReason = null;
+        current = next;
+      }
+    } finally {
+      _isSyncing = false;
     }
   }
 
-  /// Self-rescheduling poll loop. Picks the next interval based on whether
-  /// the previous tick observed any metadata changes — keeps the loop
-  /// responsive when stations are updating, quiet otherwise.
-  void _scheduleNextPoll() {
-    _pollTimer?.cancel();
-    if (!_isPolling) return;
-    final interval =
-        _lastPollHadChanges ? _pollIntervalActive : _pollIntervalIdle;
-    _pollTimer = Timer(interval, () async {
-      await _pollMetadata();
-      _scheduleNextPoll();
-    });
+  /// Convenience wrappers — keep call sites readable.
+  Future<void> refreshStations() => enqueueSync(SyncReason.seekOffsetChanged);
+  Future<void> refreshMetadataNow() => enqueueSync(SyncReason.audioMetadataChanged);
+
+  /// Called when the app resumes from background.
+  Future<void> onAppResumed() async {
+    _log("App resumed from background");
+    resumePeriodic();
+    await enqueueSync(SyncReason.appResumed);
+  }
+
+  /// Called by AppAudioHandler when a new station starts playing.
+  Future<void> onStationPlayed() => enqueueSync(SyncReason.stationPlayed);
+
+  void pausePeriodic() {
+    _log("Pausing periodic sync");
+    _periodicTimer?.cancel();
+    _periodicTimer = null;
+  }
+
+  void resumePeriodic() {
+    if (_periodicTimer != null) return;
+    _log("Resuming periodic sync (every ${_periodicInterval.inSeconds}s)");
+    _periodicTimer = Timer.periodic(
+      _periodicInterval,
+      (_) => enqueueSync(SyncReason.periodic),
+    );
   }
 
   void dispose() {
-    _pollTimer?.cancel();
-    _pollTimer = null;
-    _isPolling = false;
+    _periodicTimer?.cancel();
+    _periodicTimer = null;
+  }
+
+  // Backward-compatible aliases — older call sites used these names.
+  void pausePolling() => pausePeriodic();
+  void resumePolling() => resumePeriodic();
+
+  // ---------------------------------------------------------------------------
+  // Sync engine internals
+  // ---------------------------------------------------------------------------
+
+  /// One sync iteration. Promotes any reason to a full refresh when the
+  /// 10-min window has elapsed; otherwise dispatches by reason kind.
+  Future<void> _executeSync(SyncReason reason) async {
+    final fullDue = _lastFullRefreshTime == null ||
+        DateTime.now().difference(_lastFullRefreshTime!) >= _fullRefreshInterval;
+
+    final isFullReason = reason == SyncReason.startup ||
+        reason == SyncReason.appResumed ||
+        reason == SyncReason.stationPlayed ||
+        reason == SyncReason.seekOffsetChanged;
+
+    if (isFullReason || fullDue) {
+      await _doFullRefresh(reason, becausePromoted: !isFullReason);
+      return;
+    }
+    if (reason == SyncReason.audioMetadataChanged) {
+      await _doAudioDiff();
+      return;
+    }
+    await _doPeriodicDiff();
+  }
+
+  /// Full refresh: GraphQL stations + live metadata, merged in one shot.
+  /// Resets the offset cursor — the next audio event will repopulate it.
+  Future<void> _doFullRefresh(SyncReason reason, {required bool becausePromoted}) async {
+    _log("full refresh: $reason${becausePromoted ? ' (promoted: 10-min window)' : ''}");
+    invalidateSortCache();
+    try {
+      await _fetchStationsWithMetadata();
+      _lastFullRefreshTime = DateTime.now();
+      _lastFetchTimestamp = getRoundedTimestamp();
+      _lastOffsetFetchTimestamp = 0;
+      _preCacheStationThumbnails();
+    } catch (e) {
+      _log("full refresh failed: $e");
+    }
+  }
+
+  /// Audio-event diff: fetch metadata at the audio's timestamp so the
+  /// playing station's now_playing matches what the user actually hears.
+  /// Single request — no live fetch, no parallelism.
+  Future<void> _doAudioDiff() async {
+    if (stations.value.isEmpty) return;
+    _lastAudioEventTime = DateTime.now();
+
+    final hlsActive = isPlayingHls?.call() ?? false;
+    final hlsTimestamp = getHlsPlaybackTimestamp?.call();
+    final int audioTs;
+    if (hlsTimestamp != null) {
+      audioTs = hlsTimestamp;
+    } else if (hlsActive) {
+      final actualOffset = getActualPlaybackOffset?.call();
+      final configuredOffset = SeekModeManager.currentOffset;
+      audioTs = getRoundedTimestamp(offset: actualOffset ?? configuredOffset);
+    } else {
+      // Direct/MP3 stream — audio is "live", so use wall-clock.
+      audioTs = getRoundedTimestamp();
+    }
+
+    final canDiff = _lastOffsetFetchTimestamp > 0 &&
+        audioTs > _lastOffsetFetchTimestamp &&
+        (audioTs - _lastOffsetFetchTimestamp) <= _maxOffsetDiffGapSeconds;
+
+    final result = await _fetchMetadata(
+      audioTs,
+      changesFromTimestamp: canDiff ? _lastOffsetFetchTimestamp : null,
+    );
+    _lastOffsetFetchTimestamp = audioTs;
+    if (result == null || result.isEmpty) return;
+
+    _applyMerge(liveMetadata: null, offsetMetadata: result);
+  }
+
+  /// 60s safety-net diff: refreshes the visible station list at the live
+  /// timeline. When audio events have gone quiet for [_audioEventSafetyNet],
+  /// also includes an offset fetch so the player UI doesn't sit stale.
+  Future<void> _doPeriodicDiff() async {
+    if (stations.value.isEmpty) return;
+
+    final liveTs = getRoundedTimestamp();
+    final hlsActive = isPlayingHls?.call() ?? false;
+    final audioStale = _lastAudioEventTime == null ||
+        DateTime.now().difference(_lastAudioEventTime!) > _audioEventSafetyNet;
+    final wantOffsetSafetyNet = hlsActive && audioStale;
+
+    int offsetTs = liveTs;
+    if (wantOffsetSafetyNet) {
+      final hlsTimestamp = getHlsPlaybackTimestamp?.call();
+      offsetTs = hlsTimestamp ??
+          getRoundedTimestamp(
+            offset: getActualPlaybackOffset?.call() ?? SeekModeManager.currentOffset,
+          );
+    }
+    final fetchOffset = wantOffsetSafetyNet && offsetTs != liveTs;
+
+    final canDiffLive = _lastFetchTimestamp > 0;
+    final canDiffOffset = fetchOffset &&
+        _lastOffsetFetchTimestamp > 0 &&
+        offsetTs > _lastOffsetFetchTimestamp &&
+        (offsetTs - _lastOffsetFetchTimestamp) <= _maxOffsetDiffGapSeconds;
+
+    PerformanceMonitor.startOperation('periodic_sync');
+    Map<int, Map<String, dynamic>>? liveMeta;
+    Map<int, Map<String, dynamic>>? offsetMeta;
+    if (fetchOffset) {
+      final results = await Future.wait([
+        _fetchMetadata(liveTs, changesFromTimestamp: canDiffLive ? _lastFetchTimestamp : null),
+        _fetchMetadata(offsetTs, changesFromTimestamp: canDiffOffset ? _lastOffsetFetchTimestamp : null),
+      ]);
+      liveMeta = results[0];
+      offsetMeta = results[1];
+    } else {
+      liveMeta = await _fetchMetadata(
+        liveTs,
+        changesFromTimestamp: canDiffLive ? _lastFetchTimestamp : null,
+      );
+    }
+    PerformanceMonitor.endOperation('periodic_sync');
+
+    _lastFetchTimestamp = liveTs;
+    if (fetchOffset) _lastOffsetFetchTimestamp = offsetTs;
+
+    if (liveMeta == null && offsetMeta == null) {
+      _log("periodic: both fetches failed, skipping");
+      return;
+    }
+    _applyMerge(liveMetadata: liveMeta, offsetMetadata: offsetMeta);
+  }
+
+  /// Merges fetched metadata into the in-memory station list. Either map
+  /// may be null when only one source was fetched. Per-station, picks the
+  /// HLS-aligned (offset) source for the playing station and the live
+  /// source for everyone else, then publishes to the [stations] stream
+  /// only if a user-visible field actually changed.
+  void _applyMerge({
+    required Map<int, Map<String, dynamic>>? liveMetadata,
+    required Map<int, Map<String, dynamic>>? offsetMetadata,
+  }) {
+    if (liveMetadata == null && offsetMetadata == null) return;
+
+    final currentStations = stations.value;
+    final updatedStations = currentStations.map((station) {
+      final useOffset = _shouldUseOffsetMetadata(station);
+      final primarySource = useOffset ? offsetMetadata : liveMetadata;
+      final fallbackSource = useOffset ? liveMetadata : offsetMetadata;
+      final metadata = primarySource?[station.id] ?? fallbackSource?[station.id];
+      if (metadata == null) return station;
+      final liveNowPlaying = liveMetadata?[station.id]?['now_playing'];
+      final liveListeners = liveNowPlaying is Map<String, dynamic>
+          ? liveNowPlaying['listeners'] as int?
+          : null;
+      return _mergeStationWithMetadata(station, metadata, liveListeners: liveListeners);
+    }).toList();
+
+    if (_hasStationsChanged(currentStations, updatedStations)) {
+      stations.add(updatedStations);
+      _log("merge: stations updated");
+      if (SeekModeManager.isUnstableConnection) {
+        _preCacheSongThumbnails(updatedStations);
+      }
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -231,57 +443,32 @@ class StationDataService {
   // Initial data loading
   // ---------------------------------------------------------------------------
 
-  void _setupRefreshStations() async {
-    _log("Starting to fetch stations");
-
-    // Phase 1: Load cached data from previous session, or bundled fallback
+  Future<void> _bootstrap() async {
+    _log("bootstrap: loading cached/fallback stations");
     final cached = await _loadCachedStations();
     final hasCachedData = cached != null;
     if (hasCachedData) {
-      _log("Loaded ${cached.stations.length} stations from cache");
+      _log("bootstrap: ${cached.stations.length} stations from cache");
       _applyStationsData(cached);
     } else {
       final fallback = await _loadFallbackStations();
       if (fallback != null) {
-        _log("Loaded ${fallback.stations.length} stations from bundled fallback");
+        _log("bootstrap: ${fallback.stations.length} stations from bundled fallback");
         _applyStationsData(fallback);
       }
     }
 
-    // Phase 2: Fetch stations + metadata from network.
-    // If we have cached data, don't block — fetch in background for faster startup.
-    // If no cache, we must await to get initial data.
+    // Start the periodic timer + kick off a startup sync. With cached
+    // data we don't await, so the UI lights up immediately and the
+    // network refresh fills in over the next second or two. Without
+    // cache we have to wait — there's nothing to render yet.
+    resumePeriodic();
     if (hasCachedData) {
-      // Non-blocking: start network fetch and polling immediately
-      _lastFullRefreshTime = DateTime.now();
-      _lastFetchTimestamp = getRoundedTimestamp();
-      _lastOffsetFetchTimestamp = 0;
-      _isPolling = true;
-      _lastPollHadChanges = true;
-      _scheduleNextPoll();
-
-      // Background refresh — updates UI when ready, no-op if offline
-      _fetchStationsWithMetadata().then((_) {
-        _lastFullRefreshTime = DateTime.now();
-        _lastFetchTimestamp = getRoundedTimestamp();
-        _lastOffsetFetchTimestamp = 0;
-        _preCacheStationThumbnails();
-      });
+      unawaited(enqueueSync(SyncReason.startup));
     } else {
-      // No cache: must wait for network
       PerformanceMonitor.startOperation('initial_stations_fetch');
-      await _fetchStationsWithMetadata();
+      await enqueueSync(SyncReason.startup);
       PerformanceMonitor.endOperation('initial_stations_fetch');
-
-      _lastFullRefreshTime = DateTime.now();
-      _lastFetchTimestamp = getRoundedTimestamp();
-      _lastOffsetFetchTimestamp = 0;
-      _preCacheStationThumbnails();
-
-      // Phase 3: Start lightweight differential metadata polling (every 10s)
-      _isPolling = true;
-      _lastPollHadChanges = true;
-      _scheduleNextPoll();
     }
   }
 
@@ -349,227 +536,50 @@ class StationDataService {
     stationGroups.add(data.station_groups);
   }
 
-  /// Fetches stations + metadata in parallel, merges, and applies in a single UI update.
+  /// Fetches stations + live metadata, merges, applies in a single UI
+  /// update. Used by full-refresh paths only — periodic and audio-event
+  /// paths skip the heavy GraphQL hop.
   Future<void> _fetchStationsWithMetadata() async {
-    try {
-      // Same logic as _pollMetadata: offset only when HLS active + offset configured.
-      final hlsActive = isPlayingHls?.call() ?? false;
-      final configuredOffset = SeekModeManager.currentOffset;
-      final hlsTimestamp = getHlsPlaybackTimestamp?.call();
-      final int offsetTimestamp;
-      final bool hasOffset;
-      if (hlsTimestamp != null) {
-        offsetTimestamp = hlsTimestamp;
-        hasOffset = true;
-      } else if (hlsActive && configuredOffset != Duration.zero) {
-        final actualOffset = getActualPlaybackOffset?.call();
-        offsetTimestamp = getRoundedTimestamp(offset: actualOffset ?? configuredOffset);
-        hasOffset = true;
-      } else {
-        offsetTimestamp = getRoundedTimestamp();
-        hasOffset = false;
-      }
-      final liveTimestamp = getRoundedTimestamp();
+    final liveTs = getRoundedTimestamp();
+    final futures = <Future>[
+      graphqlClient.query(
+        Options$Query$GetStations(fetchPolicy: FetchPolicy.networkOnly),
+      ),
+      _fetchMetadata(liveTs),
+    ];
+    final results = await Future.wait(futures);
+    final stationsResult = results[0] as QueryResult<Query$GetStations>;
+    final liveMetadata = results[1] as Map<int, Map<String, dynamic>>?;
 
-      final futures = <Future>[
-        graphqlClient.query(
-          Options$Query$GetStations(fetchPolicy: FetchPolicy.networkOnly),
-        ),
-        _fetchMetadata(liveTimestamp),
-        if (hasOffset) _fetchMetadata(offsetTimestamp),
-      ];
-      final results = await Future.wait(futures);
-
-      final stationsResult = results[0] as QueryResult<Query$GetStations>;
-      final liveMetadata = results[1] as Map<int, Map<String, dynamic>>?;
-      final offsetMetadata = hasOffset
-          ? results[2] as Map<int, Map<String, dynamic>>?
-          : liveMetadata;
-
-      final parsedData = stationsResult.parsedData;
-      if (parsedData != null && parsedData.stations.length >= _minStationsForCache) {
-        final stationsWithMetadata = parsedData.stations.map((r) {
-          var station = _createStation(r);
-          final useOffset = _shouldUseOffsetMetadata(station);
-          final primarySource = useOffset ? offsetMetadata : liveMetadata;
-          final fallbackSource = useOffset ? liveMetadata : offsetMetadata;
-          final metadata = primarySource?[station.id] ?? fallbackSource?[station.id];
-          if (metadata != null) {
-            final liveNowPlaying = liveMetadata?[station.id]?['now_playing'];
-            final liveListeners = liveNowPlaying is Map<String, dynamic>
-                ? liveNowPlaying['listeners'] as int?
-                : null;
-            station = _mergeStationWithMetadata(station, metadata, liveListeners: liveListeners);
-          }
-          return station;
-        }).toList();
-
-        stations.add(stationsWithMetadata);
-        stationGroups.add(parsedData.station_groups);
-        _cacheStationsData(parsedData);
-      }
-    } catch (e) {
-      _log("Error fetching stations from API: $e");
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-  // Metadata polling (differential updates)
-  // ---------------------------------------------------------------------------
-
-  Future<void> _pollMetadata() async {
-    if (_isPollInFlight || stations.value.isEmpty) return;
-    _isPollInFlight = true;
-
-    try {
-      // Check if it's time for a full refresh
-      if (_lastFullRefreshTime != null &&
-          DateTime.now().difference(_lastFullRefreshTime!) >= _fullRefreshInterval) {
-        _log("Full refresh interval reached, performing full refresh");
-        await _fetchStationsWithMetadata();
-        _lastFullRefreshTime = DateTime.now();
-        _lastFetchTimestamp = getRoundedTimestamp();
-        _lastOffsetFetchTimestamp = 0;
-        _preCacheStationThumbnails();
-        // Stay tight after a full refresh — assume the catalog is interesting again.
-        _lastPollHadChanges = true;
-        return;
-      }
-
-      final liveTimestamp = getRoundedTimestamp();
-
-      // Offset metadata is only needed when BOTH conditions are true:
-      // 1. HLS is the active stream (non-HLS plays live, can't be delayed)
-      // 2. The configured "încărcare în avans" offset is non-zero (not instant mode)
-      // When either condition is false → live-only fetch for all stations.
-      final hlsActive = isPlayingHls?.call() ?? false;
-      final configuredOffset = SeekModeManager.currentOffset;
-      final hlsTimestamp = getHlsPlaybackTimestamp?.call();
-      final int offsetTimestamp;
-      final bool hasOffset;
-      if (hlsTimestamp != null) {
-        // Precise HLS timestamp from EXT-X-PROGRAM-DATE-TIME
-        offsetTimestamp = hlsTimestamp;
-        hasOffset = true;
-      } else if (hlsActive && configuredOffset != Duration.zero) {
-        // HLS active with configured offset, but precise timestamp not yet available
-        final actualOffset = getActualPlaybackOffset?.call();
-        offsetTimestamp = getRoundedTimestamp(offset: actualOffset ?? configuredOffset);
-        hasOffset = true;
-      } else {
-        // Not playing HLS, or instant mode → live only
-        offsetTimestamp = liveTimestamp;
-        hasOffset = false;
-      }
-
-      PerformanceMonitor.startOperation('poll_metadata');
-
-      Map<int, Map<String, dynamic>>? liveMetadata;
-      Map<int, Map<String, dynamic>>? offsetMetadata;
-
-      if (!hasOffset) {
-        // Single differential call when no seek offset is configured
-        liveMetadata = await _fetchMetadata(liveTimestamp, changesFromTimestamp: _lastFetchTimestamp);
-        offsetMetadata = liveMetadata;
-      } else {
-        // Differential offset only when the previous cursor is a sane reference:
-        // not first poll in HLS mode, not a backward seek, and not so stale
-        // that the saved value may belong to a different frame of reference
-        // (synthetic offset vs precise PROGRAM-DATE-TIME) or strain server caches.
-        final canDiffOffset = _lastOffsetFetchTimestamp > 0 &&
-            offsetTimestamp > _lastOffsetFetchTimestamp &&
-            (offsetTimestamp - _lastOffsetFetchTimestamp) <= _maxOffsetDiffGapSeconds;
-
-        // Parallel: live (differential) + offset (differential when safe)
-        final results = await Future.wait([
-          _fetchMetadata(liveTimestamp, changesFromTimestamp: _lastFetchTimestamp),
-          _fetchMetadata(
-            offsetTimestamp,
-            changesFromTimestamp: canDiffOffset ? _lastOffsetFetchTimestamp : null,
-          ),
-        ]);
-        liveMetadata = results[0];
-        offsetMetadata = results[1];
-      }
-
-      // Update last fetch timestamp for next differential query
-      _lastFetchTimestamp = getRoundedTimestamp();
-      if (hasOffset) {
-        // Cursor must match the value sent on the request (server cache key).
-        _lastOffsetFetchTimestamp = offsetTimestamp;
-      }
-
-      PerformanceMonitor.endOperation('poll_metadata');
-
-      if (liveMetadata == null && offsetMetadata == null) {
-        _log("Both metadata fetches failed, skipping update");
-        // Network failure — retry on the active cadence rather than backing off.
-        _lastPollHadChanges = true;
-        return;
-      }
-      if (liveMetadata == null) _log("Live metadata fetch failed, using offset only");
-      if (offsetMetadata == null) _log("Offset metadata fetch failed, using live only");
-
-      // If differential returned empty (no changes), skip update for non-offset stations
-      final hasLiveChanges = liveMetadata != null && liveMetadata.isNotEmpty;
-      final hasOffsetChanges = offsetMetadata != null && offsetMetadata.isNotEmpty;
-
-      if (!hasLiveChanges && !hasOffsetChanges) {
-        _log("No metadata changes detected, skipping update");
-        _lastPollHadChanges = false;
-        return;
-      }
-
-      final currentStations = stations.value;
-      final updatedStations = currentStations.map((station) {
-        final useOffset = _shouldUseOffsetMetadata(station);
-        // Primary source based on stream type; fall back to the other if missing
-        final primarySource = useOffset ? offsetMetadata : liveMetadata;
-        final fallbackSource = useOffset ? liveMetadata : offsetMetadata;
-        final metadata = primarySource?[station.id] ?? fallbackSource?[station.id];
-        if (metadata == null) return station;
-        final liveNowPlaying = liveMetadata?[station.id]?['now_playing'];
-        final liveListeners = liveNowPlaying is Map<String, dynamic>
-            ? liveNowPlaying['listeners'] as int?
-            : null;
-        return _mergeStationWithMetadata(station, metadata, liveListeners: liveListeners);
+    final parsedData = stationsResult.parsedData;
+    if (parsedData != null && parsedData.stations.length >= _minStationsForCache) {
+      final stationsWithMetadata = parsedData.stations.map((r) {
+        var station = _createStation(r);
+        final metadata = liveMetadata?[station.id];
+        if (metadata != null) {
+          final liveNowPlaying = metadata['now_playing'];
+          final liveListeners = liveNowPlaying is Map<String, dynamic>
+              ? liveNowPlaying['listeners'] as int?
+              : null;
+          station = _mergeStationWithMetadata(station, metadata, liveListeners: liveListeners);
+        }
+        return station;
       }).toList();
 
-      if (_hasStationsChanged(currentStations, updatedStations)) {
-        stations.add(updatedStations);
-        _log("Stations updated from differential metadata poll");
-        _lastPollHadChanges = true;
-
-        // In unstable connection mode, pre-cache all song thumbnails permanently
-        if (SeekModeManager.isUnstableConnection) {
-          _preCacheSongThumbnails(updatedStations);
-        }
-      } else {
-        _log("Stations unchanged after merge, skipping update");
-        _lastPollHadChanges = false;
-      }
-    } catch (e) {
-      _log("Error in metadata poll: $e");
-      // Retry on the active cadence after an error.
-      _lastPollHadChanges = true;
-      // On metadata fetch failure, try a full refresh to recover
-      try {
-        _log("Attempting full refresh after poll failure");
-        await _fetchStationsWithMetadata();
-        _lastFullRefreshTime = DateTime.now();
-        _lastFetchTimestamp = getRoundedTimestamp();
-        _lastOffsetFetchTimestamp = 0;
-      } catch (e2) {
-        _log("Full refresh recovery also failed: $e2");
-      }
-    } finally {
-      _isPollInFlight = false;
+      stations.add(stationsWithMetadata);
+      stationGroups.add(parsedData.station_groups);
+      _cacheStationsData(parsedData);
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // REST metadata fetch
+  // ---------------------------------------------------------------------------
+
   /// Fetches metadata from REST API.
-  /// When [changesFromTimestamp] is provided, only returns stations that changed
-  /// since that timestamp (differential update, like radiocrestin.ro web app).
+  /// When [changesFromTimestamp] is provided, only returns stations that
+  /// changed since that timestamp (differential update, like the
+  /// radiocrestin.ro web app).
   Future<Map<int, Map<String, dynamic>>?> _fetchMetadata(
     int timestamp, {
     int? changesFromTimestamp,
@@ -611,8 +621,9 @@ class StationDataService {
     }
   }
 
-  /// Merges lightweight metadata (uptime, now_playing, listeners) into an existing station.
-  /// Preserves all other fields (station_streams, posts, reviews, etc.).
+  /// Merges lightweight metadata (uptime, now_playing, listeners) into an
+  /// existing station. Preserves all other fields (station_streams,
+  /// posts, reviews, etc.).
   Station _mergeStationWithMetadata(Station station, Map<String, dynamic> metadata, {int? liveListeners}) {
     final stationJson = station.rawStationData.toJson();
 

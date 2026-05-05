@@ -205,6 +205,10 @@ class AppAudioHandler extends BaseAudioHandler {
   // Compared (not counted) so the same group seen across consecutive
   // playlist windows does not retrigger a refresh.
   String? _lastSeenDateRangeId;
+  // Most recent ICY (SHOUTcast) `StreamTitle` for direct/MP3 streams.
+  // Compared so the same title repeated by the player doesn't fire
+  // duplicate metadata refreshes mid-song.
+  String? _lastIcyTitle;
   Timer? _bufferingStallTimer;
   static const _bufferingStallTimeout = Duration(seconds: 15);
 
@@ -620,6 +624,20 @@ class AppAudioHandler extends BaseAudioHandler {
     // promptly on play()/pause() transitions. playingStream fires exactly
     // when the playing state flips, guaranteeing CarPlay/Android Auto sync.
     player.playingStream.listen((_) => _broadcastState(player.playbackEvent));
+
+    // ICY tag listener (direct/MP3 streams). just_audio surfaces SHOUTcast
+    // ICY metadata (`StreamTitle`) on this stream — when the title flips,
+    // the audio is announcing a new song. Trigger an offset diff so the
+    // station's now-playing line catches up immediately. HLS streams use
+    // EXT-X-DATERANGE (handled in `_refreshHlsPlaylistTimestamp`) instead.
+    player.icyMetadataStream.listen((icy) {
+      final title = icy?.info?.title;
+      if (title == null || title.isEmpty) return;
+      if (title == _lastIcyTitle) return;
+      _lastIcyTitle = title;
+      _log("icy metadata change: $title — refreshing");
+      unawaited(stationDataService.refreshMetadataNow());
+    });
 
     // Handle stream lifecycle events:
     // - completed: HLS reconnect, MP3 stop
@@ -1078,6 +1096,8 @@ class AppAudioHandler extends BaseAudioHandler {
     _bufferingStartedAt = null;
     _lastPlayerErrorCode = null;
     _lastPlayerErrorMessage = null;
+    // Reset the ICY-title dedupe so the next stream's first title fires a refresh.
+    _lastIcyTitle = null;
     // Clear stream context so listening_started for the new station and the
     // Settings diagnostic don't carry the previous station's URL/type/index
     // until play() loads the new source.
@@ -1085,6 +1105,11 @@ class AppAudioHandler extends BaseAudioHandler {
     AnalyticsService.instance.setCurrentStream(url: null, type: null, index: null, total: null);
 
     await selectStation(station);
+
+    // Tell the sync engine the user just picked this station — drives a
+    // full refresh so the playing-station UI sees the freshest now-playing
+    // and listener counts before audio starts.
+    unawaited(stationDataService.onStationPlayed());
 
     // When casting, send directly to Chromecast — don't start local audio.
     if (isCasting) {
