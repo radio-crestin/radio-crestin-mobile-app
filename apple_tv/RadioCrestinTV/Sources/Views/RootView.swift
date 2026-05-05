@@ -72,6 +72,14 @@ struct RootView: View {
             appState.isPlayingHlsProvider = { [weak player] in
                 player?.isPlayingHls ?? false
             }
+            // Additive over the 10s `/stations-metadata` poll: when the
+            // server announces a new DATERANGE on the HLS playlist, refresh
+            // immediately instead of waiting up to one full poll interval.
+            player.onDateRangeMetadataChange = { [weak appState] in
+                Task { @MainActor in
+                    await appState?.refreshMetadataNow()
+                }
+            }
             await appState.loadStations()
         }
         .onChange(of: appState.currentStation?.id) { _, newId in

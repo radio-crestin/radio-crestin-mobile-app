@@ -201,6 +201,10 @@ class AppAudioHandler extends BaseAudioHandler {
   // Unix timestamp of the audio the user is hearing, for metadata sync.
   int? _hlsFirstSegmentEpoch;
   Timer? _hlsPlaylistRefreshTimer;
+  // Most recent EXT-X-DATERANGE `ID` parsed from the active HLS playlist.
+  // Compared (not counted) so the same group seen across consecutive
+  // playlist windows does not retrigger a refresh.
+  String? _lastSeenDateRangeId;
   Timer? _bufferingStallTimer;
   static const _bufferingStallTimeout = Duration(seconds: 15);
 
@@ -1505,26 +1509,59 @@ class AppAudioHandler extends BaseAudioHandler {
     });
   }
 
-  /// Fetch the HLS playlist and extract the first EXT-X-PROGRAM-DATE-TIME epoch.
-  /// This is the authoritative timestamp for the first segment in the playlist
-  /// window — combined with player.position it gives the exact epoch of the
-  /// audio being played, used for metadata sync.
+  /// Fetch the HLS playlist and extract the first EXT-X-PROGRAM-DATE-TIME epoch
+  /// plus the latest EXT-X-DATERANGE entry. The PROGRAM-DATE-TIME is the
+  /// authoritative timestamp for the first segment — combined with
+  /// `player.position` it gives the exact epoch of the audio being played,
+  /// used for metadata sync. The DATERANGE block carries the song-change
+  /// signal: when the `ID` flips relative to the last fetch, fire an
+  /// out-of-cycle metadata poll. This is **additive** over the 10s
+  /// `/stations-metadata` REST poll — at 30s cadence it adds at most ~3
+  /// extra lightweight HTTP fetches per minute and only triggers
+  /// `refreshMetadataNow` when the song actually changes.
   Future<void> _refreshHlsPlaylistTimestamp() async {
     final url = _loadedStreamUrl;
     if (url == null || _loadedStreamType != 'HLS') return;
     try {
       final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 5));
       if (response.statusCode != 200) return;
+      bool epochResolved = false;
+      String? latestDateRangeId;
+      DateTime? latestDateRangeStart;
       for (final line in response.body.split('\n')) {
-        if (line.startsWith('#EXT-X-PROGRAM-DATE-TIME:')) {
+        if (!epochResolved && line.startsWith('#EXT-X-PROGRAM-DATE-TIME:')) {
           final dateStr = line.substring('#EXT-X-PROGRAM-DATE-TIME:'.length).trim();
           final dt = DateTime.tryParse(dateStr);
           if (dt != null) {
             _hlsFirstSegmentEpoch = dt.millisecondsSinceEpoch ~/ 1000;
             _log('_refreshHlsPlaylistTimestamp: first segment epoch=$_hlsFirstSegmentEpoch');
-            return;
+            epochResolved = true;
+          }
+        } else if (line.startsWith('#EXT-X-DATERANGE:')) {
+          // Server emits multiple DATERANGE entries (window covers ~5 min of
+          // segments) — pick the most recent by START-DATE so we react to the
+          // currently announced song, not a stale one from the playlist tail.
+          final match = RegExp(
+            r'ID="([^"]+)".*?START-DATE="([^"]+)"',
+          ).firstMatch(line);
+          if (match != null) {
+            final id = match.group(1)!;
+            final start = DateTime.tryParse(match.group(2)!);
+            if (start != null &&
+                (latestDateRangeStart == null ||
+                    start.isAfter(latestDateRangeStart))) {
+              latestDateRangeId = id;
+              latestDateRangeStart = start;
+            }
           }
         }
+      }
+      if (latestDateRangeId != null && latestDateRangeId != _lastSeenDateRangeId) {
+        _lastSeenDateRangeId = latestDateRangeId;
+        _log('_refreshHlsPlaylistTimestamp: new DATERANGE id=$latestDateRangeId, refreshing metadata');
+        // _pollMetadata() has its own _isPollInFlight guard, so a duplicate
+        // trigger from a near-simultaneous REST tick is a safe no-op.
+        unawaited(stationDataService.refreshMetadataNow());
       }
     } catch (e) {
       _log('_refreshHlsPlaylistTimestamp: $e');
@@ -1546,6 +1583,9 @@ class AppAudioHandler extends BaseAudioHandler {
     _hlsPlaylistRefreshTimer?.cancel();
     _hlsPlaylistRefreshTimer = null;
     _hlsFirstSegmentEpoch = null;
+    // Reset so the first DATERANGE seen on the next stream registers as a
+    // change rather than colliding with the previous stream's last ID.
+    _lastSeenDateRangeId = null;
   }
 
   // ── Silence keep-alive (iOS-only background-suspension prevention) ──

@@ -143,6 +143,15 @@ class StationDataService {
     _preCacheStationThumbnails();
   }
 
+  /// Force an out-of-cycle lightweight metadata poll. Used when something
+  /// has just changed (DATERANGE flipped, app foregrounded) and we don't
+  /// want to wait up to the next scheduled tick. Cheaper than
+  /// `refreshStations` — skips the heavy GraphQL station-list reload and
+  /// only refreshes `now_playing` + listener counts. Safe to call while a
+  /// poll is already in flight (`_pollMetadata` has an `_isPollInFlight`
+  /// guard, so a near-simultaneous call is a no-op).
+  Future<void> refreshMetadataNow() async => _pollMetadata();
+
   /// Called when app resumes from background.
   /// Forces a full refresh to pick up any changes while backgrounded.
   Future<void> onAppResumed() async {

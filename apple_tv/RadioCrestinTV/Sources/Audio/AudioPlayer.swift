@@ -42,6 +42,22 @@ final class AudioPlayer: ObservableObject {
     /// when no item is loaded. Public for metadata sync.
     private(set) var currentStreamType: String?
 
+    /// Most recent DATERANGE `ID` seen on the active HLS playlist.
+    /// Compared (not counted) so the same group emitted across consecutive
+    /// playlist windows does not retrigger a refresh. Reset on item swap.
+    private var lastSeenDateRangeID: String?
+
+    /// Bridge for `AVPlayerItemMetadataCollector` — the collector requires
+    /// an `NSObjectProtocol` delegate, which `AudioPlayer` is not.
+    private var dateRangeCollector: AVPlayerItemMetadataCollector?
+    private var dateRangeBridge: DateRangeBridge?
+
+    /// Fired when a new DATERANGE `ID` appears on the active HLS playlist —
+    /// signal that a song change was just announced. Wired up by `RootView`
+    /// to trigger an out-of-cycle metadata poll, additive to the regular
+    /// 10s `/stations-metadata` cadence.
+    var onDateRangeMetadataChange: (() -> Void)?
+
     init() {
         // Active audio session so the player keeps running when the
         // user backgrounds the app via Home button on the Siri Remote.
@@ -143,7 +159,30 @@ final class AudioPlayer: ObservableObject {
         // much buffer, keep some defaults", not aggressive low-latency.
         item.preferredForwardBufferDuration = 6
         observe(item: item)
+        attachDateRangeCollector(to: item)
         player.replaceCurrentItem(with: item)
+    }
+
+    /// Wire an `AVPlayerItemMetadataCollector` onto the new item so the
+    /// server's `EXT-X-DATERANGE` entries surface in-app. Additive to the
+    /// 10s metadata REST poll — early-trigger only, never replaces.
+    private func attachDateRangeCollector(to item: AVPlayerItem) {
+        // Reset so the first DATERANGE on the new stream registers as a
+        // change rather than colliding with the previous stream's ID.
+        lastSeenDateRangeID = nil
+        let bridge = DateRangeBridge { [weak self] newID in
+            Task { @MainActor in
+                guard let self else { return }
+                guard newID != self.lastSeenDateRangeID else { return }
+                self.lastSeenDateRangeID = newID
+                self.onDateRangeMetadataChange?()
+            }
+        }
+        let collector = AVPlayerItemMetadataCollector()
+        collector.setDelegate(bridge, queue: .main)
+        item.add(collector)
+        dateRangeBridge = bridge
+        dateRangeCollector = collector
     }
 
     // MARK: - Stream URL tracking
@@ -251,5 +290,65 @@ extension AudioPlayer {
     var isConnecting: Bool {
         if case .connecting = state { return true }
         return false
+    }
+}
+
+// MARK: - DATERANGE delegate bridge
+
+/// `NSObject`-conforming bridge for `AVPlayerItemMetadataCollector` —
+/// `AudioPlayer` itself is a plain `final class`, so it cannot adopt the
+/// `AVPlayerItemMetadataCollectorPushDelegate` protocol directly.
+/// Compares each new group's HLS `ID` attribute by suffix, not the full
+/// vendor-prefixed identifier (`com.apple.quicktime.HLS.id`), so the
+/// match stays stable across iOS releases.
+private final class DateRangeBridge: NSObject,
+    AVPlayerItemMetadataCollectorPushDelegate {
+    private let onNewID: (String) -> Void
+
+    init(onNewID: @escaping (String) -> Void) {
+        self.onNewID = onNewID
+        super.init()
+    }
+
+    func metadataCollector(
+        _ metadataCollector: AVPlayerItemMetadataCollector,
+        didCollect metadataGroups: [AVDateRangeMetadataGroup],
+        indexesOfNewGroups: IndexSet,
+        indexesOfModifiedGroups: IndexSet
+    ) {
+        // The "current song" is the most recently announced DATERANGE —
+        // pick the new group with the latest startDate.
+        var latest: (date: Date, id: String)?
+        for index in indexesOfNewGroups {
+            guard index < metadataGroups.count else { continue }
+            let group = metadataGroups[index]
+            guard let id = Self.dateRangeID(in: group.items) else { continue }
+            if latest == nil || group.startDate > latest!.date {
+                latest = (group.startDate, id)
+            }
+        }
+        guard let id = latest?.id else { return }
+        onNewID(id)
+    }
+
+    /// Pulls the DATERANGE `ID` attribute out of an `AVMetadataItem` array.
+    /// AVFoundation maps DATERANGE attributes to identifiers shaped like
+    /// `com.apple.quicktime.HLS.id` / `…HLS.x-title` — match by suffix so
+    /// the lookup survives identifier-domain churn.
+    private static func dateRangeID(in items: [AVMetadataItem]) -> String? {
+        for item in items {
+            guard let identifier = item.identifier?.rawValue.lowercased() else {
+                continue
+            }
+            // Suffix `.id` (e.g. `com.apple.quicktime.HLS.id`) — a whole-string
+            // `id` check would also match unrelated identifiers, so anchor on
+            // the dot separator.
+            if identifier.hasSuffix(".id") || identifier == "id" {
+                if let str = item.stringValue, !str.isEmpty {
+                    return str
+                }
+            }
+        }
+        return nil
     }
 }
