@@ -66,6 +66,13 @@ class StationDataService {
   /// player UI doesn't sit on a stale audio-aligned now_playing.
   static const _audioEventSafetyNet = Duration(minutes: 5);
 
+  /// Settle delay between detecting an audio metadata change locally
+  /// (HLS DATERANGE / ICY tag) and querying the backend. Gives the
+  /// `/stations-metadata` ingestion path a moment to pick up the new
+  /// song before we ask for it; without this we sometimes diff against
+  /// stale data and have to refetch on the next tick.
+  static const _audioEventSettleDelay = Duration(seconds: 2);
+
   /// Maximum gap (seconds) between consecutive offset-fetch timestamps
   /// before the differential is dropped and a full payload is requested.
   /// Guards against stale cursors after long pauses, app backgrounding, or
@@ -296,6 +303,12 @@ class StationDataService {
   Future<void> _doAudioDiff() async {
     if (stations.value.isEmpty) return;
     _lastAudioEventTime = DateTime.now();
+
+    // Brief settle so the backend ingestion has caught up with the
+    // song change the audio just announced. Coalesced ID3/DATERANGE
+    // bursts pay this once because the mutex holds the whole window.
+    _log("audio diff: settling ${_audioEventSettleDelay.inSeconds}s before fetch");
+    await Future.delayed(_audioEventSettleDelay);
 
     final hlsActive = isPlayingHls?.call() ?? false;
     final hlsTimestamp = getHlsPlaybackTimestamp?.call();

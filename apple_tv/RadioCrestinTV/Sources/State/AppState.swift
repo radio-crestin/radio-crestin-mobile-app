@@ -105,6 +105,12 @@ final class AppState: ObservableObject {
     /// adds an offset fetch as a safety net.
     private static let audioEventSafetyNet: TimeInterval = 5 * 60
 
+    /// Settle delay between detecting an audio metadata change locally
+    /// (HLS DATERANGE / ICY tag) and querying the backend. Gives the
+    /// `/stations-metadata` ingestion path a moment to pick up the new
+    /// song before we ask for it.
+    private static let audioEventSettleDelay: TimeInterval = 2
+
     /// Maximum gap (seconds) between consecutive offset-fetch timestamps
     /// before the differential is dropped. Guards against stale cursors after
     /// long pauses, app backgrounding, or shifts between the synthetic offset
@@ -265,6 +271,13 @@ final class AppState: ObservableObject {
     private func doAudioDiff() async {
         guard !stations.isEmpty else { return }
         lastAudioEventTime = Date()
+
+        // Brief settle so the backend ingestion has caught up with the
+        // song change the audio just announced.
+        logSync("audio diff: settling \(Int(Self.audioEventSettleDelay))s before fetch")
+        try? await Task.sleep(
+            nanoseconds: UInt64(Self.audioEventSettleDelay * 1_000_000_000)
+        )
 
         let hlsActive = isPlayingHlsProvider?() ?? false
         let hlsTs = hlsPlaybackTimestampProvider?()
