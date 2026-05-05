@@ -28,11 +28,24 @@ class StationDataService {
   bool _isPolling = false;
   bool _isPollInFlight = false;
   static const _pollInterval = Duration(seconds: 10);
-  static const _fullRefreshInterval = Duration(minutes: 30);
+  static const _fullRefreshInterval = Duration(minutes: 10);
 
   /// Timestamp (Unix seconds, rounded to 10s) of the last successful metadata fetch.
   /// Used as `changes_from_timestamp` to only receive changed stations.
   int _lastFetchTimestamp = 0;
+
+  /// Timestamp (Unix seconds, rounded to 10s) of the last successful **offset**
+  /// metadata fetch — i.e. the value sent on the request, not wall-clock now.
+  /// The server's cache key is keyed off the request value, so the cursor must
+  /// be too. Reset to 0 whenever the offset frame of reference may have shifted
+  /// (full refresh, error recovery, init).
+  int _lastOffsetFetchTimestamp = 0;
+
+  /// Maximum gap (seconds) between consecutive offset-fetch timestamps before
+  /// the differential is dropped and a full fetch is issued. Protects against
+  /// stale cursors after long pauses, app backgrounding, or shifts between
+  /// the synthetic offset and the precise PROGRAM-DATE-TIME source.
+  static const int _maxOffsetDiffGapSeconds = 60;
 
   /// When the last full refresh (GraphQL + REST) was performed.
   DateTime? _lastFullRefreshTime;
@@ -126,6 +139,7 @@ class StationDataService {
     await _fetchStationsWithMetadata();
     _lastFullRefreshTime = DateTime.now();
     _lastFetchTimestamp = getRoundedTimestamp();
+    _lastOffsetFetchTimestamp = 0;
     _preCacheStationThumbnails();
   }
 
@@ -211,6 +225,7 @@ class StationDataService {
       // Non-blocking: start network fetch and polling immediately
       _lastFullRefreshTime = DateTime.now();
       _lastFetchTimestamp = getRoundedTimestamp();
+      _lastOffsetFetchTimestamp = 0;
       _isPolling = true;
       _pollTimer = Timer.periodic(_pollInterval, (_) => _pollMetadata());
 
@@ -218,6 +233,7 @@ class StationDataService {
       _fetchStationsWithMetadata().then((_) {
         _lastFullRefreshTime = DateTime.now();
         _lastFetchTimestamp = getRoundedTimestamp();
+        _lastOffsetFetchTimestamp = 0;
         _preCacheStationThumbnails();
       });
     } else {
@@ -228,6 +244,7 @@ class StationDataService {
 
       _lastFullRefreshTime = DateTime.now();
       _lastFetchTimestamp = getRoundedTimestamp();
+      _lastOffsetFetchTimestamp = 0;
       _preCacheStationThumbnails();
 
       // Phase 3: Start lightweight differential metadata polling (every 10s)
@@ -373,13 +390,14 @@ class StationDataService {
     _isPollInFlight = true;
 
     try {
-      // Check if it's time for a full refresh (every 30 minutes)
+      // Check if it's time for a full refresh
       if (_lastFullRefreshTime != null &&
           DateTime.now().difference(_lastFullRefreshTime!) >= _fullRefreshInterval) {
         _log("Full refresh interval reached, performing full refresh");
         await _fetchStationsWithMetadata();
         _lastFullRefreshTime = DateTime.now();
         _lastFetchTimestamp = getRoundedTimestamp();
+        _lastOffsetFetchTimestamp = 0;
         _preCacheStationThumbnails();
         return;
       }
@@ -420,10 +438,21 @@ class StationDataService {
         liveMetadata = await _fetchMetadata(liveTimestamp, changesFromTimestamp: _lastFetchTimestamp);
         offsetMetadata = liveMetadata;
       } else {
-        // Parallel: live (differential) + offset timestamp for HLS
+        // Differential offset only when the previous cursor is a sane reference:
+        // not first poll in HLS mode, not a backward seek, and not so stale
+        // that the saved value may belong to a different frame of reference
+        // (synthetic offset vs precise PROGRAM-DATE-TIME) or strain server caches.
+        final canDiffOffset = _lastOffsetFetchTimestamp > 0 &&
+            offsetTimestamp > _lastOffsetFetchTimestamp &&
+            (offsetTimestamp - _lastOffsetFetchTimestamp) <= _maxOffsetDiffGapSeconds;
+
+        // Parallel: live (differential) + offset (differential when safe)
         final results = await Future.wait([
           _fetchMetadata(liveTimestamp, changesFromTimestamp: _lastFetchTimestamp),
-          _fetchMetadata(offsetTimestamp),
+          _fetchMetadata(
+            offsetTimestamp,
+            changesFromTimestamp: canDiffOffset ? _lastOffsetFetchTimestamp : null,
+          ),
         ]);
         liveMetadata = results[0];
         offsetMetadata = results[1];
@@ -431,6 +460,10 @@ class StationDataService {
 
       // Update last fetch timestamp for next differential query
       _lastFetchTimestamp = getRoundedTimestamp();
+      if (hasOffset) {
+        // Cursor must match the value sent on the request (server cache key).
+        _lastOffsetFetchTimestamp = offsetTimestamp;
+      }
 
       PerformanceMonitor.endOperation('poll_metadata');
 
@@ -484,6 +517,7 @@ class StationDataService {
         await _fetchStationsWithMetadata();
         _lastFullRefreshTime = DateTime.now();
         _lastFetchTimestamp = getRoundedTimestamp();
+        _lastOffsetFetchTimestamp = 0;
       } catch (e2) {
         _log("Full refresh recovery also failed: $e2");
       }

@@ -57,12 +57,24 @@ final class AppState: ObservableObject {
     /// poll so the server only sends rows that actually changed.
     private var lastFetchTimestamp: Int = 0
 
+    /// Cursor for the offset (HLS-aligned) differential fetch — stores the
+    /// timestamp value sent on the last request, not wall-clock now, so it
+    /// matches the server's cache key. Reset to 0 whenever the offset frame
+    /// of reference may have shifted (full refresh, error recovery, init).
+    private var lastOffsetFetchTimestamp: Int = 0
+
     /// When the last full refresh happened. Triggers a heavy `/stations`
-    /// re-fetch every 30 minutes so descriptions / streams stay current.
+    /// re-fetch every 10 minutes so descriptions / streams stay current.
     private var lastFullRefresh: Date?
 
     private static let pollInterval: TimeInterval = 10
-    private static let fullRefreshInterval: TimeInterval = 30 * 60
+    private static let fullRefreshInterval: TimeInterval = 10 * 60
+
+    /// Maximum gap (seconds) between consecutive offset-fetch timestamps
+    /// before the differential is dropped. Guards against stale cursors after
+    /// long pauses, app backgrounding, or shifts between the synthetic offset
+    /// and the precise PROGRAM-DATE-TIME source.
+    private static let maxOffsetDiffGapSeconds: Int = 60
 
     init(
         repository: StationRepository = StationRepository(),
@@ -113,6 +125,7 @@ final class AppState: ObservableObject {
 
             stations = mergeMetadata(into: fresh, live: live, offset: offset)
             lastFetchTimestamp = liveTs
+            lastOffsetFetchTimestamp = 0
             lastFullRefresh = Date()
             loadError = nil
 
@@ -175,6 +188,16 @@ final class AppState: ObservableObject {
         let hlsTs = hlsPlaybackTimestampProvider?()
         let hlsActive = isPlayingHlsProvider?() ?? false
         let needsOffset = hlsTs != nil || hlsActive
+        let offsetTs = hlsTs ?? liveTs
+
+        // Differential offset only when the previous cursor is a sane reference:
+        // not first poll in HLS mode, not a backward seek, and not so stale that
+        // the saved value may belong to a different frame of reference (synthetic
+        // offset vs precise PROGRAM-DATE-TIME) or strain server caches.
+        let canDiffOffset = lastOffsetFetchTimestamp > 0 &&
+            offsetTs > lastOffsetFetchTimestamp &&
+            (offsetTs - lastOffsetFetchTimestamp) <= Self.maxOffsetDiffGapSeconds
+        let offsetChangesFrom: Int? = canDiffOffset ? lastOffsetFetchTimestamp : nil
 
         do {
             // Live (differential) covers every station + listener counts.
@@ -187,7 +210,8 @@ final class AppState: ObservableObject {
             async let offsetResult: [Int: StationMetadata]? = {
                 guard needsOffset else { return nil }
                 return try? await repository.fetchMetadata(
-                    timestamp: hlsTs ?? liveTs
+                    timestamp: offsetTs,
+                    changesFromTimestamp: offsetChangesFrom
                 )
             }()
 
@@ -195,6 +219,10 @@ final class AppState: ObservableObject {
             let offset = await offsetResult
 
             lastFetchTimestamp = liveTs
+            if needsOffset {
+                // Cursor must match the value sent on the request (server cache key).
+                lastOffsetFetchTimestamp = offsetTs
+            }
 
             if live.isEmpty && (offset?.isEmpty ?? true) {
                 // Nothing changed — let the UI keep what it has.
