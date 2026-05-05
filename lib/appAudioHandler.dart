@@ -37,6 +37,161 @@ import 'globals.dart' as globals;
 
 enum PlayerState { started, stopped, playing, buffering, error }
 
+/// Why a [reconnectIfNeeded] call was issued. Controls whether the
+/// "just successfully loaded" debounce applies.
+///
+/// AVPlayer occasionally misreports `completed` / `idle-while-playing`
+/// in the first ~8s after a successful HLS load (PDT-decoder confusion).
+/// To avoid a reload loop, lifecycle/terminal-state triggers are debounced.
+/// True external events — a network drop+restore, or a sustained buffering
+/// stall — are not debounced: they're real reconnect signals, not flickers.
+enum ReconnectTrigger {
+  networkRestored,    // NetworkService.isOffline true → false (bypass debounce)
+  bufferingStall,     // _bufferingStallTimer fired (bypass debounce)
+  lifecycleResumed,   // App returned to foreground (honor debounce)
+  terminalState,      // processingState == completed/idle (honor debounce)
+}
+
+/// What to do when a new EXT-X-RC-METADATA-CHANGED epoch is seen on
+/// the HLS playlist. Returned by [MetadataChangeAlignment.decide].
+enum MetadataAlignmentAction {
+  /// Refresh metadata immediately. Either we have no playback timeline
+  /// anchor (so we can't align), or playback is already at/past the
+  /// change-epoch.
+  refreshNow,
+
+  /// Schedule a delayed refresh — playback is behind the change-epoch
+  /// (user is seeking behind live edge). [MetadataAlignmentDecision.delay]
+  /// carries the delay.
+  scheduleAfterDelay,
+
+  /// Skip — the lag is too large to be trustworthy (probably a stale
+  /// PDT anchor). The next playlist poll will retry.
+  skipUnsafe,
+}
+
+class MetadataAlignmentDecision {
+  final MetadataAlignmentAction action;
+  final Duration delay; // only meaningful for scheduleAfterDelay
+  const MetadataAlignmentDecision(this.action, [this.delay = Duration.zero]);
+}
+
+/// Pure alignment policy for the EXT-X-RC-METADATA-CHANGED signal. The
+/// signal carries the source-timeline epoch when the current song
+/// started; we must refresh metadata when *playback* reaches that
+/// epoch, not when we see the tag — because the user may be seeking
+/// behind live edge by 2-4 minutes. Refreshing immediately while audio
+/// still plays the previous song would flash "now playing X" before
+/// the user hears X.
+class MetadataChangeAlignment {
+  /// Treat lags within this window as "now". Smaller than the playlist
+  /// poll cadence so a poll landing on the song change doesn't get
+  /// spuriously deferred by 1s of clock skew.
+  static const Duration nowTolerance = Duration(seconds: 2);
+
+  /// Largest lag we'll arm a timer for. SeekModeManager allows up to
+  /// 4 min behind live edge; anything beyond ~5 min suggests our PDT
+  /// anchor is stale or the server emitted a future epoch. Falling
+  /// back to next-poll alignment is safer than firing a long-delayed
+  /// refresh that may be invalidated by user actions in the meantime.
+  static const Duration maxScheduleLag = Duration(minutes: 5);
+
+  /// Pure: compute what to do given the current playback position vs
+  /// the change-epoch. Caller does the I/O.
+  static MetadataAlignmentDecision decide({
+    required int? hlsFirstSegmentEpoch,
+    required Duration playerPosition,
+    required int changedAtEpoch,
+  }) {
+    if (hlsFirstSegmentEpoch == null) {
+      return const MetadataAlignmentDecision(MetadataAlignmentAction.refreshNow);
+    }
+    final playbackEpoch = hlsFirstSegmentEpoch + playerPosition.inSeconds;
+    final lagSeconds = changedAtEpoch - playbackEpoch;
+    if (lagSeconds <= nowTolerance.inSeconds) {
+      return const MetadataAlignmentDecision(MetadataAlignmentAction.refreshNow);
+    }
+    if (lagSeconds > maxScheduleLag.inSeconds) {
+      return const MetadataAlignmentDecision(MetadataAlignmentAction.skipUnsafe);
+    }
+    return MetadataAlignmentDecision(
+      MetadataAlignmentAction.scheduleAfterDelay,
+      Duration(seconds: lagSeconds),
+    );
+  }
+}
+
+/// Pure decision policy for whether to issue a reconnect attempt now.
+/// Extracted from [AppAudioHandler.reconnectIfNeeded] so the timing rules
+/// are unit-testable without spinning up a real [AudioPlayer].
+class ReconnectPolicy {
+  /// AVPlayer can transiently report terminal states (completed / idle)
+  /// during PDT-decoder confusion in the first few seconds after a
+  /// successful HLS load. Without this debounce we re-issue play() every
+  /// ~3s and create a visible reload loop ("Attempt → Loaded → Rebuffer").
+  ///
+  /// Only honored for [ReconnectTrigger.lifecycleResumed] and
+  /// [ReconnectTrigger.terminalState] — those are the triggers that
+  /// genuinely fire on AVPlayer noise. A real network drop+restore or a
+  /// sustained buffering stall is not noise; suppressing them was the
+  /// root cause of "audio doesn't come back after airplane mode" when
+  /// the toggle happened within 8s of a successful load.
+  static const Duration justLoadedDebounce = Duration(seconds: 8);
+
+  /// Delay between `connectivity_plus` reporting "online" and our
+  /// reconnect attempt. Was 2000ms; dropped to 500ms because: (a) the
+  /// previous value was the dominant contributor to "stream restart is
+  /// delayed" UX, and (b) play() retries failed loads anyway, so an
+  /// optimistic-and-wrong attempt costs only one extra HTTP round-trip.
+  static const Duration networkRestoreReconnectDelay =
+      Duration(milliseconds: 500);
+
+  /// Reattempt play() after this much continuous buffering. Was 15s;
+  /// dropped to 3s to match Spotify-tier perceived recovery. play() has
+  /// its own retry chain (maxRetries=4 across the station's stream URLs),
+  /// so a fast retry here just shortens the silence window — it does
+  /// not bypass any safety net.
+  static const Duration bufferingStallTimeout = Duration(seconds: 3);
+
+  /// Returns true when the player should be told to reconnect right now.
+  /// Pure function: no I/O, no clock side-effects (caller passes [now]).
+  static bool shouldReconnect({
+    required ReconnectTrigger trigger,
+    required DateTime now,
+    required DateTime? lastSuccessfulLoadAt,
+    required ProcessingState processingState,
+    required bool playing,
+    required bool hasStation,
+    required bool hasBeenPlayed,
+    required bool isConnecting,
+    required bool isCasting,
+  }) {
+    if (!hasStation) return false;
+    if (isConnecting) return false;
+    // No play() ever succeeded — recovery would just kick a fresh load
+    // for a station the user never asked to play.
+    if (!hasBeenPlayed) return false;
+    // Cast owns playback; the local player is intentionally idle.
+    if (isCasting) return false;
+
+    final honorsDebounce = trigger == ReconnectTrigger.lifecycleResumed ||
+        trigger == ReconnectTrigger.terminalState;
+    if (honorsDebounce && lastSuccessfulLoadAt != null) {
+      if (now.difference(lastSuccessfulLoadAt) < justLoadedDebounce) {
+        return false;
+      }
+    }
+
+    final stalled = processingState == ProcessingState.idle ||
+        (processingState == ProcessingState.buffering && playing);
+    // User intent says play but the player isn't — covers the
+    // post-airplane-mode case where AVPlayer sits in `ready` with a
+    // stale source after a failed reload chain.
+    final shouldBePlayingButIsnt = !playing;
+    return stalled || shouldBePlayingButIsnt;
+  }
+}
+
 /// Describes why a station connection failed.
 enum ConnectionErrorReason {
   timeout,    // Stream didn't load within the allowed time
@@ -129,7 +284,12 @@ Future<AppAudioHandler> initAudioService({required graphqlClient}) async {
         minBufferDuration: Duration(seconds: 50),
         maxBufferDuration: Duration(minutes: 10),
         bufferForPlaybackDuration: Duration(seconds: 3),
-        bufferForPlaybackAfterRebufferDuration: Duration(seconds: 5),
+        // 2s (was 5s): post-rebuffer is exactly when we need fast resume —
+        // every extra second here is silence the user hears after a
+        // network blip. ExoPlayer still re-fills minBufferDuration in the
+        // background; this only controls the "ok to start playing again"
+        // threshold.
+        bufferForPlaybackAfterRebufferDuration: Duration(seconds: 2),
       ),
       androidLivePlaybackSpeedControl: AndroidLivePlaybackSpeedControl(
         fallbackMinPlaybackSpeed: 1.0,
@@ -205,12 +365,25 @@ class AppAudioHandler extends BaseAudioHandler {
   // Compared (not counted) so the same group seen across consecutive
   // playlist windows does not retrigger a refresh.
   String? _lastSeenDateRangeId;
+  // Most recent EXT-X-RC-METADATA-CHANGED EPOCH value seen on the active
+  // HLS playlist. Server emits this when the current song's started_at
+  // flips — a real-time signal that fills the gap left by the
+  // (intentionally-suppressed) DATERANGE for the current song.
+  // Compared so we only react to actual transitions, not every poll.
+  int? _lastSeenMetadataChangedEpoch;
+  // Pending refresh scheduled because the metadata change is at a
+  // playback-future epoch (user is seeking behind live edge — refreshing
+  // now would show "now playing X" while the user is still hearing the
+  // previous song). Cancelled and rescheduled on every poll.
+  Timer? _alignedMetadataRefreshTimer;
   // Most recent ICY (SHOUTcast) `StreamTitle` for direct/MP3 streams.
   // Compared so the same title repeated by the player doesn't fire
   // duplicate metadata refreshes mid-song.
   String? _lastIcyTitle;
   Timer? _bufferingStallTimer;
-  static const _bufferingStallTimeout = Duration(seconds: 15);
+  // Aliased to the canonical value in ReconnectPolicy so the test suite
+  // can assert on a single source of truth.
+  static const _bufferingStallTimeout = ReconnectPolicy.bufferingStallTimeout;
 
   // ── iOS background-suspension keep-alive ──────────────────────────
   // When the main player enters `buffering` and audio output stops, iOS
@@ -268,12 +441,8 @@ class AppAudioHandler extends BaseAudioHandler {
   /// (every cycle is ~3 events: attempt + loaded + rebuffer, plus lifecycle
   /// + interruption noise) without truncating the trigger event.
   static const int _maxStreamEvents = 60;
-  /// Suppresses spurious `completed` / `idle-while-playing` reloads that fire
-  /// within this window of a successful load. AVPlayer occasionally
-  /// mis-reports terminal state for live HLS during PDT-decoder confusion;
-  /// without this debounce we re-issue play() every ~3s and create a reload
-  /// loop visible to the user as repeated startup hiccups.
-  static const _terminalStateReloadDebounce = Duration(seconds: 8);
+  /// Aliased to the canonical value in [ReconnectPolicy].
+  static const _terminalStateReloadDebounce = ReconnectPolicy.justLoadedDebounce;
   DateTime? _lastSuccessfulLoadAt;
   final BehaviorSubject<List<StreamEvent>> recentStreamEvents =
       BehaviorSubject.seeded(const <StreamEvent>[]);
@@ -1553,6 +1722,7 @@ class AppAudioHandler extends BaseAudioHandler {
       bool epochResolved = false;
       String? latestDateRangeId;
       DateTime? latestDateRangeStart;
+      int? metadataChangedEpoch;
       for (final line in response.body.split('\n')) {
         if (!epochResolved && line.startsWith('#EXT-X-PROGRAM-DATE-TIME:')) {
           final dateStr = line.substring('#EXT-X-PROGRAM-DATE-TIME:'.length).trim();
@@ -1561,6 +1731,15 @@ class AppAudioHandler extends BaseAudioHandler {
             _hlsFirstSegmentEpoch = dt.millisecondsSinceEpoch ~/ 1000;
             _log('_refreshHlsPlaylistTimestamp: first segment epoch=$_hlsFirstSegmentEpoch');
             epochResolved = true;
+          }
+        } else if (line.startsWith('#EXT-X-RC-METADATA-CHANGED:')) {
+          // Custom backend tag (per RFC 8216 §4.1, AVPlayer/ExoPlayer ignore
+          // unknown tags). EPOCH= carries the current song's started_at as
+          // Unix-seconds UTC — a numeric duplicate of STARTED-AT="…ISO…" so
+          // we can compare without ISO-decoding.
+          final match = RegExp(r'EPOCH=(\d+)').firstMatch(line);
+          if (match != null) {
+            metadataChangedEpoch = int.tryParse(match.group(1)!);
           }
         } else if (line.startsWith('#EXT-X-DATERANGE:')) {
           // Server emits multiple DATERANGE entries (window covers ~5 min of
@@ -1581,24 +1760,85 @@ class AppAudioHandler extends BaseAudioHandler {
           }
         }
       }
-      if (latestDateRangeId != null && latestDateRangeId != _lastSeenDateRangeId) {
+      // Refresh routing: METADATA-CHANGED supersedes DATERANGE when both
+      // are present. They fire on the same poll for the same song change
+      // (DATERANGE: previous song's tag just got published; METADATA-CHANGED:
+      // current song's started_at just flipped) — but only METADATA-CHANGED
+      // routes through MetadataChangeAlignment, which is critical for users
+      // seeking behind live edge by 2-4 min. An unaligned DATERANGE refresh
+      // would flash the new title while the previous song is still audible.
+      //
+      // DATERANGE is still PARSED so we can dedup the ID across polls, but
+      // the refresh trigger is skipped when METADATA-CHANGED is available.
+      // Old backends without METADATA-CHANGED keep working unchanged.
+      final hasMetadataChangedSignal = metadataChangedEpoch != null;
+      if (latestDateRangeId != null &&
+          latestDateRangeId != _lastSeenDateRangeId) {
         _lastSeenDateRangeId = latestDateRangeId;
-        _log('_refreshHlsPlaylistTimestamp: new DATERANGE id=$latestDateRangeId, refreshing metadata');
-        // _pollMetadata() has its own _isPollInFlight guard, so a duplicate
-        // trigger from a near-simultaneous REST tick is a safe no-op.
-        unawaited(stationDataService.refreshMetadataNow());
+        if (!hasMetadataChangedSignal) {
+          _log('_refreshHlsPlaylistTimestamp: new DATERANGE id=$latestDateRangeId, '
+              'refreshing metadata (no METADATA-CHANGED on this stream)');
+          // refreshMetadataNow has its own in-flight guard, so a duplicate
+          // trigger from a near-simultaneous REST tick is a safe no-op.
+          unawaited(stationDataService.refreshMetadataNow());
+        } else {
+          _log('_refreshHlsPlaylistTimestamp: new DATERANGE id=$latestDateRangeId, '
+              'deferring to METADATA-CHANGED for aligned refresh');
+        }
+      }
+      if (hasMetadataChangedSignal &&
+          metadataChangedEpoch != _lastSeenMetadataChangedEpoch) {
+        _lastSeenMetadataChangedEpoch = metadataChangedEpoch;
+        _onMetadataChangedSignal(metadataChangedEpoch);
       }
     } catch (e) {
       _log('_refreshHlsPlaylistTimestamp: $e');
     }
   }
 
+  /// Handle an EXT-X-RC-METADATA-CHANGED transition. Decision logic
+  /// lives in [MetadataChangeAlignment] for unit-testability.
+  void _onMetadataChangedSignal(int changedAtEpoch) {
+    _alignedMetadataRefreshTimer?.cancel();
+    final decision = MetadataChangeAlignment.decide(
+      hlsFirstSegmentEpoch: _hlsFirstSegmentEpoch,
+      playerPosition: player.position,
+      changedAtEpoch: changedAtEpoch,
+    );
+    switch (decision.action) {
+      case MetadataAlignmentAction.refreshNow:
+        _log('metadata-changed: refreshing now');
+        unawaited(stationDataService.refreshMetadataNow());
+      case MetadataAlignmentAction.scheduleAfterDelay:
+        _log('metadata-changed: scheduling refresh in '
+            '${decision.delay.inSeconds}s '
+            '(playback behind live edge)');
+        _alignedMetadataRefreshTimer = Timer(decision.delay, () {
+          _log('metadata-changed: aligned timer fired, refreshing');
+          unawaited(stationDataService.refreshMetadataNow());
+        });
+      case MetadataAlignmentAction.skipUnsafe:
+        _log('metadata-changed: lag exceeds cap, '
+            'will retry on next playlist poll');
+    }
+  }
+
   /// Start periodic refresh of HLS playlist timestamps.
+  ///
+  /// Cadence: 10s (was 30s). The playlist is served by nginx as a static
+  /// file (atomic rename in playlist_rewriter.py guarantees no torn
+  /// reads), so an extra HTTP fetch every 10s costs nothing on the
+  /// backend. The win is real-time metadata signaling — paired with the
+  /// EXT-X-RC-METADATA-CHANGED tag, song changes propagate within 0-10s
+  /// instead of 0-30s.
+  static const _hlsPlaylistRefreshInterval = Duration(seconds: 10);
+
   void _startHlsPlaylistRefresh() {
     _hlsPlaylistRefreshTimer?.cancel();
-    // Initial fetch, then refresh every 30s as the playlist window slides
+    // Initial fetch, then refresh on the cadence above as the playlist
+    // window slides and the metadata-changed marker flips.
     _refreshHlsPlaylistTimestamp();
-    _hlsPlaylistRefreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+    _hlsPlaylistRefreshTimer = Timer.periodic(_hlsPlaylistRefreshInterval, (_) {
       _refreshHlsPlaylistTimestamp();
     });
   }
@@ -1607,10 +1847,14 @@ class AppAudioHandler extends BaseAudioHandler {
   void _stopHlsPlaylistRefresh() {
     _hlsPlaylistRefreshTimer?.cancel();
     _hlsPlaylistRefreshTimer = null;
+    _alignedMetadataRefreshTimer?.cancel();
+    _alignedMetadataRefreshTimer = null;
     _hlsFirstSegmentEpoch = null;
-    // Reset so the first DATERANGE seen on the next stream registers as a
-    // change rather than colliding with the previous stream's last ID.
+    // Reset so the first DATERANGE / metadata-changed marker seen on the
+    // next stream registers as a change rather than colliding with the
+    // previous stream's last value.
     _lastSeenDateRangeId = null;
+    _lastSeenMetadataChangedEpoch = null;
   }
 
   // ── Silence keep-alive (iOS-only background-suspension prevention) ──
@@ -2048,50 +2292,38 @@ class AppAudioHandler extends BaseAudioHandler {
     return mediaItem.value?.id ?? "-";
   }
 
-  /// Called on foreground resume or connectivity restore. Reconnects if the
-  /// stream was silently lost (idle) or stalled waiting for data (buffering)
-  /// — and importantly, when the user wants playback (`_hasBeenPlayed`) but
-  /// the player isn't actually playing for any reason. The last condition
-  /// covers airplane-mode → recovery: after maxRetries fail in play(), the
-  /// player can sit in `ready` with a stale source and `playing == false`
-  /// indefinitely; without forcing a reload here, the user-perceived
-  /// behaviour is "audio never came back".
-  void reconnectIfNeeded() {
-    if (currentStation.valueOrNull == null) return;
-    if (_isConnecting) return;
-    if (!_hasBeenPlayed) return;
-    // While casting, the local player is intentionally idle — Cast owns
-    // playback. Don't treat its idle state as a "stall" and trigger a
-    // reconnect, which would cascade into play() and ultimately a Cast
-    // LOAD we didn't ask for.
-    if (isCasting) return;
-    // Apply the same 8s debounce as the listener's terminal-state branches:
-    // a lifecycle.resumed firing within seconds of a successful load (e.g.
-    // a brief ⌥-tab away and back) shouldn't kick a fresh play() while
-    // AVPlayer is still settling. Without this, the "shouldBePlayingButIsnt"
-    // predicate below would re-issue play() during the 200–800ms PDT
-    // decoder-confusion window where player.playing transiently flips
-    // false, looping us right back into "Attempt → Loaded → Rebuffer".
-    final lastLoad = _lastSuccessfulLoadAt;
-    if (lastLoad != null &&
-        DateTime.now().difference(lastLoad) < _terminalStateReloadDebounce) {
-      _log("reconnectIfNeeded: within debounce window of last load — skipping");
+  /// Reconnect if the stream was silently lost or the user-intent says
+  /// "play" but the player isn't. Decision delegated to [ReconnectPolicy]
+  /// so the timing rules (debounce, who bypasses it) live in one
+  /// unit-testable place.
+  ///
+  /// [trigger] determines whether the just-loaded debounce applies:
+  ///   - networkRestored / bufferingStall: bypass (real reconnect signals)
+  ///   - lifecycleResumed / terminalState: honor (AVPlayer noise)
+  void reconnectIfNeeded({
+    ReconnectTrigger trigger = ReconnectTrigger.lifecycleResumed,
+  }) {
+    final shouldReconnect = ReconnectPolicy.shouldReconnect(
+      trigger: trigger,
+      now: DateTime.now(),
+      lastSuccessfulLoadAt: _lastSuccessfulLoadAt,
+      processingState: player.processingState,
+      playing: player.playing,
+      hasStation: currentStation.valueOrNull != null,
+      hasBeenPlayed: _hasBeenPlayed,
+      isConnecting: _isConnecting,
+      isCasting: isCasting,
+    );
+    if (!shouldReconnect) {
+      _log("reconnectIfNeeded(${trigger.name}): no-op "
+          "(state=${player.processingState}, playing=${player.playing})");
       return;
     }
-    final state = player.processingState;
-    final stalled = state == ProcessingState.idle ||
-        (state == ProcessingState.buffering && player.playing);
-    // User-wants-play-but-isn't-playing: covers the post-airplane-mode case
-    // where AVPlayer is `ready` with stale source / `completed` from a
-    // failed reload chain / paused due to a transient interruption that
-    // wasn't auto-resumed.
-    final shouldBePlayingButIsnt = !player.playing;
-    if (stalled || shouldBePlayingButIsnt) {
-      _log("reconnectIfNeeded: reconnecting (state=$state, playing=${player.playing}, stalled=$stalled)");
-      _loadedStreamUrl = null;
-      _loadedStreamType = null;
-      play();
-    }
+    _log("reconnectIfNeeded(${trigger.name}): reconnecting "
+        "(state=${player.processingState}, playing=${player.playing})");
+    _loadedStreamUrl = null;
+    _loadedStreamType = null;
+    play();
   }
 
   // Last played station
@@ -2166,14 +2398,25 @@ class AppAudioHandler extends BaseAudioHandler {
     // foreground-only gate prevented background recovery — but
     // reconnectIfNeeded() already no-ops when there's no station, while
     // connecting, casting, or not stalled, so the gate was redundant and
-    // actively harmful for the "audio that never stops" goal. Delay 2s so
-    // the network is actually usable.
+    // actively harmful for the "audio that never stops" goal.
+    //
+    // Delay before reconnect: connectivity_plus fires when the interface
+    // comes up, but DNS/routing may need a beat to settle. 500ms is the
+    // empirical floor that survives flaky LTE handoffs while still
+    // feeling instant. Pre-fix this was 2s and was the dominant
+    // contributor to "stream is delayed when network returns".
+    //
+    // Trigger: networkRestored explicitly bypasses the just-loaded
+    // debounce in reconnectIfNeeded. Pre-fix the debounce silently
+    // suppressed recovery when airplane-mode toggled within 8s of a
+    // successful load — the user-perceived "audio never came back" bug.
     NetworkService.instance.isOffline.stream.listen((offline) {
       if (offline) return;
-      _log("isOffline -> false: will reconnect in 2s");
-      Future.delayed(const Duration(seconds: 2), () {
+      _log("isOffline -> false: will reconnect in "
+          "${ReconnectPolicy.networkRestoreReconnectDelay.inMilliseconds}ms");
+      Future.delayed(ReconnectPolicy.networkRestoreReconnectDelay, () {
         _log("isOffline -> false: checking if player needs reconnect");
-        reconnectIfNeeded();
+        reconnectIfNeeded(trigger: ReconnectTrigger.networkRestored);
       });
     });
 

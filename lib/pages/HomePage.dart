@@ -579,7 +579,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _audioHandler.recordLifecycleTransition(state.name);
     if (state == AppLifecycleState.resumed) {
       // App returned to foreground — check if audio stream was lost in background
-      _audioHandler.reconnectIfNeeded();
+      _audioHandler.reconnectIfNeeded(trigger: ReconnectTrigger.lifecycleResumed);
       // Full refresh + resume polling (picks up all changes while backgrounded)
       _stationDataService.onAppResumed();
       // Check for pending song history action (from notification button tap)

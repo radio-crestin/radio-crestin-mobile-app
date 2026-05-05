@@ -440,9 +440,13 @@ void main() {
       expect(disconnectDelay.inSeconds, 60);
     });
 
-    test('buffering stall timeout is 15 seconds', () {
-      const bufferingStallTimeout = Duration(seconds: 15);
-      expect(bufferingStallTimeout.inSeconds, 15);
+    test('buffering stall timeout is 3 seconds', () {
+      // Was 15s; reduced to 3s for Spotify-tier perceived recovery on
+      // network blips. play() has its own retry chain (maxRetries=4
+      // across the station's stream URLs) so a fast retry shortens the
+      // silence window without bypassing any safety net.
+      expect(ReconnectPolicy.bufferingStallTimeout,
+          equals(const Duration(seconds: 3)));
     });
   });
 
