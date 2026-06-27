@@ -38,12 +38,13 @@ import 'package:flutter_chrome_cast/flutter_chrome_cast.dart'
 import 'services/tv_channel_service.dart';
 import 'package:flutter_airplay/flutter_airplay.dart' as flutter_airplay;
 import 'services/analytics_service.dart';
+import 'services/device_registration_service.dart';
 import 'services/error_filter.dart';
 import 'services/image_cache_service.dart';
 import 'services/quick_actions_service.dart';
 import 'services/network_service.dart';
 import 'services/play_count_service.dart';
-import 'services/remote_config_service.dart';
+import 'services/session_recording_service.dart';
 import 'services/song_like_service.dart';
 import 'services/station_data_service.dart';
 import 'tv/tv_platform.dart';
@@ -69,6 +70,7 @@ Future<void> initializeFirebaseMessaging() async {
       await FirebaseMessaging.instance.setAutoInitEnabled(true);
       try {
         final fcmToken = await FirebaseMessaging.instance.getToken();
+        if (fcmToken != null) globals.fcmToken = fcmToken;
         developer.log("FCMToken $fcmToken");
       } catch (e) {
         developer.log("Failed to get FCM token: $e");
@@ -153,7 +155,7 @@ void main() async {
   await Future.wait([imageCacheInitFuture, networkInitFuture]);
 
   // Set persistent device ID (survives reinstalls) — used for ?s= tracking,
-  // reviews, share links, and Firebase Crashlytics user identifier.
+  // reviews, share links, and the PostHog user identifier.
   String? persistentDeviceId = prefs.getString('device_id');
   if (persistentDeviceId == null) {
     final deviceInfo = DeviceInfoPlugin();
@@ -257,22 +259,16 @@ void main() async {
   // Now await Firebase (likely already done since audio init takes longer)
   await firebaseInitFuture;
 
-  // Load backend-controlled config (session replay sampling) before PostHog —
-  // the sample rate must be set at setup time. Uses cached values, so this
-  // does not block on the network. Falls back to defaults off-Firebase.
-  bool sessionReplayEnabled = true;
-  double sessionReplaySampleRate = 1.0;
-  if (_firebaseSupported) {
-    await RemoteConfigService.instance.initialize();
-    final replay = RemoteConfigService.instance.sessionReplay;
-    sessionReplayEnabled = replay.enabled;
-    sessionReplaySampleRate = replay.sampleRate;
-  }
+  // Ask our backend whether this device should record its screen (session
+  // replay), before PostHog setup where the sample rate must be set. Uses the
+  // value cached from the previous launch, so it does not block on the network.
+  final replay = await SessionRecordingService.instance
+      .load(prefs, globals.deviceId);
 
   // Initialize PostHog analytics (error tracking is handled by PostHog config)
   await AnalyticsService.instance.initialize(
-    sessionReplayEnabled: sessionReplayEnabled,
-    sessionReplaySampleRate: sessionReplaySampleRate,
+    sessionReplayEnabled: replay.enabled,
+    sessionReplaySampleRate: replay.sampleRate,
   );
 
   // Suppress known-benign runtime/network/plugin errors so they neither crash
@@ -337,6 +333,14 @@ void main() async {
   // Initialize quick actions after runApp so the Android Activity is available
   WidgetsBinding.instance.addPostFrameCallback((_) {
     QuickActionsService.initialize();
+  });
+
+  // Upsert this device's details to our backend in the background. Fire-and-
+  // forget — never blocks startup; runs on every launch so the stored model,
+  // OS, app version, locale and FCM token stay current. The IP is recorded
+  // server-side. Deferred to post-frame so it never competes with first paint.
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    DeviceRegistrationService.instance.register();
   });
 
   // Defer CarPlay/Android Auto init to after first frame (mobile only)

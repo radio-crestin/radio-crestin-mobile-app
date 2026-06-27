@@ -84,12 +84,19 @@ class _FakePosthogPlatform extends PosthogFlutterPlatformInterface {
     flushCalls++;
   }
 
+  final List<({Object error, StackTrace? stackTrace, Map<String, Object>? properties})>
+      capturedExceptions = [];
+
   @override
   Future<void> captureException({
     required Object error,
     StackTrace? stackTrace,
     Map<String, Object>? properties,
-  }) async {}
+  }) async {
+    capturedExceptions.add(
+      (error: error, stackTrace: stackTrace, properties: properties),
+    );
+  }
 
   @override
   Future<void> screen({
@@ -255,27 +262,29 @@ void main() {
   });
 
   group('captureException', () {
-    test('records the exception when initialized', () async {
+    test('routes to the SDK exception capture with error, stack and context', () async {
       // Force initialized=true via initialize() — uses the fake under the hood.
       await analytics.initialize();
-      fake.events.clear();
+      fake.capturedExceptions.clear();
 
+      final stack = StackTrace.current;
       analytics.captureException(
         StateError('boom'),
-        StackTrace.current,
+        stack,
         context: 'in test',
       );
 
-      final ev = fake.events.singleWhere((e) => e.eventName == 'exception_caught');
-      expect(ev.properties?['error_type'], 'StateError');
-      expect(ev.properties?['error_message'], contains('boom'));
-      expect(ev.properties?['context'], 'in test');
-      expect(ev.properties?['stack_trace'], isA<String>());
+      expect(fake.capturedExceptions, hasLength(1));
+      final ex = fake.capturedExceptions.single;
+      expect(ex.error, isA<StateError>());
+      expect(ex.error.toString(), contains('boom'));
+      expect(ex.stackTrace, same(stack));
+      expect(ex.properties?['context'], 'in test');
     });
 
     test('skips Hive compaction PathNotFoundException (concurrent-engine noise)', () async {
       await analytics.initialize();
-      fake.events.clear();
+      fake.capturedExceptions.clear();
 
       final fakeStack = StackTrace.fromString(
         '#0 StorageBackendVm.compact (package:hive/...)\n#1 anonymous',
@@ -285,15 +294,12 @@ void main() {
         fakeStack,
       );
 
-      expect(
-        fake.events.where((e) => e.eventName == 'exception_caught'),
-        isEmpty,
-      );
+      expect(fake.capturedExceptions, isEmpty);
     });
 
     test('does NOT skip PathNotFoundException unrelated to Hive compaction', () async {
       await analytics.initialize();
-      fake.events.clear();
+      fake.capturedExceptions.clear();
 
       final unrelatedStack = StackTrace.fromString(
         '#0 some_other_function (package:foo/bar.dart)',
@@ -303,22 +309,18 @@ void main() {
         unrelatedStack,
       );
 
-      expect(
-        fake.events.any((e) => e.eventName == 'exception_caught'),
-        isTrue,
-      );
+      expect(fake.capturedExceptions, hasLength(1));
     });
 
-    test('truncates stack_trace at 2000 chars', () async {
+    test('forwards the full, untruncated stack trace so every frame resolves', () async {
       await analytics.initialize();
-      fake.events.clear();
+      fake.capturedExceptions.clear();
 
       final huge = StackTrace.fromString('x' * 5000);
       analytics.captureException(StateError('big'), huge);
 
-      final ev = fake.events.singleWhere((e) => e.eventName == 'exception_caught');
-      final trace = ev.properties!['stack_trace'] as String;
-      expect(trace.length, lessThanOrEqualTo(2000));
+      final ex = fake.capturedExceptions.single;
+      expect(ex.stackTrace.toString().length, 5000);
     });
   });
 

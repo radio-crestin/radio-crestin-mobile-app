@@ -60,10 +60,11 @@ class AnalyticsService {
   /// Initialize PostHog with manual setup for error tracking support.
   ///
   /// [sessionReplayEnabled] and [sessionReplaySampleRate] (a 0.0–1.0 fraction)
-  /// are supplied by the caller from backend config (Firebase Remote Config)
-  /// so screen recording can be tuned without a new app release.
+  /// are supplied by the caller from our backend (see SessionRecordingService)
+  /// so screen recording can be tuned per device without a new app release.
+  /// Defaults to off so nothing records unless the backend opts the device in.
   Future<void> initialize({
-    bool sessionReplayEnabled = true,
+    bool sessionReplayEnabled = false,
     double sessionReplaySampleRate = 1.0,
   }) async {
     final config = PostHogConfig('phc_9lTquHDSyoFxkYq4VPd8cFiQ21VZd627Lv8jSV8S7Fi');
@@ -81,9 +82,9 @@ class AnalyticsService {
 
     // Session replay (screen recording) — Android & iOS.
     // Requires "Record user sessions" enabled in PostHog Project Settings.
-    // The enabled flag and sample rate are backend-controlled via Firebase
-    // Remote Config (see RemoteConfigService), so they can change without a
-    // new app release.
+    // The enabled flag and sample rate are decided per device by our backend
+    // (see SessionRecordingService), so they can change without a new app
+    // release.
     config.sessionReplay = sessionReplayEnabled;
     // No sensitive data is shown (station names, song titles, artwork), so we
     // leave text and images unmasked to keep recordings useful. Wrap any
@@ -98,11 +99,16 @@ class AnalyticsService {
     // Person profiles
     config.personProfiles = PostHogPersonProfiles.identifiedOnly;
 
-    // Error tracking — catches FlutterError, PlatformDispatcher, and Isolate errors
+    // Error tracking — catches FlutterError, PlatformDispatcher, Isolate, and
+    // native (iOS/Android) crashes. Native capture replaces Firebase
+    // Crashlytics: Apple Mach exceptions / POSIX signals / NSExceptions and
+    // Android Java/Kotlin exceptions are persisted and sent as a fatal
+    // `$exception` on the next launch.
     config.errorTrackingConfig.captureFlutterErrors = true;
     config.errorTrackingConfig.capturePlatformDispatcherErrors = true;
     config.errorTrackingConfig.captureIsolateErrors = true;
     config.errorTrackingConfig.captureSilentFlutterErrors = true;
+    config.errorTrackingConfig.captureNativeExceptions = true;
     config.errorTrackingConfig.inAppIncludes.add('package:radio_crestin');
 
     await Posthog().setup(config);
@@ -112,25 +118,34 @@ class AnalyticsService {
   }
 
   /// Manually capture an exception with context.
-  /// Use for caught exceptions in try/catch blocks that shouldn't crash
-  /// the app but should still be tracked.
+  ///
+  /// Routes through the PostHog SDK's exception capture so the error lands in
+  /// Error Tracking as a proper `$exception` issue with a fully parsed,
+  /// symbolicated stack trace — the same rich, unminified view as auto-captured
+  /// Flutter errors — instead of a truncated string on a custom event. Use for
+  /// caught exceptions in try/catch blocks that shouldn't crash the app but
+  /// should still be tracked.
   void captureException(Object error, StackTrace? stackTrace, {String? context}) {
     if (!_initialized) {
-      developer.log('PostHog not initialized, buffering error: $error');
+      developer.log('PostHog not initialized, dropping error: $error');
       return;
     }
-    // Skip benign Hive compaction errors from concurrent Flutter engines
+    // Skip benign Hive compaction errors from concurrent Flutter engines.
     if (error is PathNotFoundException &&
         stackTrace != null &&
         stackTrace.toString().contains('StorageBackendVm.compact')) {
       return;
     }
-    capture('exception_caught', {
-      'error_type': error.runtimeType.toString(),
-      'error_message': error.toString(),
-      if (stackTrace != null) 'stack_trace': stackTrace.toString().substring(0, (stackTrace.toString().length).clamp(0, 2000)),
-      if (context != null) 'context': context,
-    });
+    // Fire-and-forget: the native capture is async but callers don't await.
+    // The full stack trace is sent untruncated so PostHog can resolve every
+    // frame to source.
+    unawaited(Posthog().captureException(
+      error: error,
+      stackTrace: stackTrace,
+      properties: {
+        if (context != null) 'context': context,
+      },
+    ));
   }
 
   /// Identify user with persistent device ID.
@@ -193,7 +208,7 @@ class AnalyticsService {
     );
   }
 
-  /// Log a message (replaces FirebaseCrashlytics.log).
+  /// Log a message as a PostHog `app_log` event.
   void log(String message) {
     capture('app_log', {'message': message});
   }

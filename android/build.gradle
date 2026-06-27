@@ -40,11 +40,19 @@ subprojects {
                     sourceCompatibility JavaVersion.VERSION_11
                     targetCompatibility JavaVersion.VERSION_11
                 }
-                if (project.hasProperty('kotlin')) {
-                    kotlinOptions {
-                        jvmTarget = '11'
-                    }
-                }
+            }
+        }
+        // Force every Kotlin compile task to JVM 11 so it matches the Java target
+        // above. Some plugins (e.g. posthog_flutter) pin jvmTarget '1.8' in their
+        // own build.gradle; once we bump Java to 11, Gradle/AGP rejects the
+        // Java-11 / Kotlin-1.8 mismatch. Configuring the tasks directly is the
+        // reliable path on Kotlin 2.x, where the android.kotlinOptions bridge set
+        // in afterEvaluate no longer reaches the compile task.
+        project.tasks.matching {
+            it.name.startsWith('compile') && it.name.endsWith('Kotlin')
+        }.configureEach {
+            kotlinOptions {
+                jvmTarget = '11'
             }
         }
     }
