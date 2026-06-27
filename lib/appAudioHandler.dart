@@ -775,6 +775,9 @@ class AppAudioHandler extends BaseAudioHandler {
     };
     stationDataService.isPlayingHls = () =>
         _loadedStreamType == 'HLS' && player.playing;
+    // TV shows live metadata (not the HLS-buffered song) — see
+    // [StationDataService.preferLiveMetadata].
+    stationDataService.preferLiveMetadata = TvPlatform.isAndroidTV;
     _initPlayer();
     _initUpdateCurrentStationMetadata();
   }
@@ -1816,6 +1819,13 @@ class AppAudioHandler extends BaseAudioHandler {
   /// lives in [MetadataChangeAlignment] for unit-testability.
   void _onMetadataChangedSignal(int changedAtEpoch) {
     _alignedMetadataRefreshTimer?.cancel();
+    // TV shows live metadata, so don't defer the refresh to the buffered
+    // playback position — update as soon as the change is detected.
+    if (TvPlatform.isAndroidTV) {
+      _log('metadata-changed: refreshing now (TV live metadata)');
+      unawaited(stationDataService.refreshMetadataNow());
+      return;
+    }
     final decision = MetadataChangeAlignment.decide(
       hlsFirstSegmentEpoch: _hlsFirstSegmentEpoch,
       playerPosition: player.position,

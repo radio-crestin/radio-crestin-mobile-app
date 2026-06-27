@@ -130,6 +130,12 @@ class StationDataService {
   /// Returns true when HLS is the active stream type.
   bool Function()? isPlayingHls;
 
+  /// When true, show LIVE now-playing metadata for the playing station instead
+  /// of the HLS-buffered (delayed) metadata. Set on Android TV: the buffered
+  /// audio lag is acceptable on a 10-foot UI, and the live song is what users
+  /// expect to see. Mobile leaves this false (delayed/aligned metadata).
+  bool preferLiveMetadata = false;
+
   // ---------------------------------------------------------------------------
   // Streams
   // ---------------------------------------------------------------------------
@@ -332,6 +338,22 @@ class StationDataService {
     // bursts pay this once because the mutex holds the whole window.
     _log("audio diff: settling ${_audioEventSettleDelay.inSeconds}s before fetch");
     await Future.delayed(_audioEventSettleDelay);
+
+    // TV: fetch the LIVE timeline so the displayed song matches the station's
+    // current song, not the HLS-buffered audio. Still real-time — it runs off
+    // the same stream metadata-change signal as the delayed path below.
+    if (preferLiveMetadata) {
+      final liveTs = getRoundedTimestamp();
+      final canDiffLive = _lastFetchTimestamp > 0;
+      final result = await _fetchMetadata(
+        liveTs,
+        changesFromTimestamp: canDiffLive ? _lastFetchTimestamp : null,
+      );
+      _lastFetchTimestamp = liveTs;
+      if (result == null || result.isEmpty) return;
+      _applyMerge(liveMetadata: result, offsetMetadata: null);
+      return;
+    }
 
     final hlsActive = isPlayingHls?.call() ?? false;
     final hlsTimestamp = getHlsPlaybackTimestamp?.call();
@@ -915,6 +937,8 @@ class StationDataService {
   /// For the currently playing station, check the actual stream type in use.
   /// For all other stations, fall back to the configured primary stream type.
   bool _shouldUseOffsetMetadata(Station station) {
+    // TV always shows the live song, never the HLS-buffered one.
+    if (preferLiveMetadata) return false;
     final playingType = getPlayingStreamType?.call(station.id);
     if (playingType != null) return playingType == 'HLS';
     return _isStationHls(station);
