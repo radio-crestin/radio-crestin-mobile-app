@@ -1632,10 +1632,16 @@ class AppAudioHandler extends BaseAudioHandler {
       _loadedStreamType = null;
       currentStreamInfo.add(null);
       AnalyticsService.instance.setCurrentStream(url: null, type: null, index: null, total: null);
-      player.setAudioSource(
-        AudioSource.uri(Uri.parse(CONSTANTS.STATIC_MP3_URL)),
-        preload: false,
-      );
+      // Fire-and-forget idle preload. A later play()/resume can supersede it,
+      // making just_audio throw PlayerInterruptedException("Loading
+      // interrupted") as an unhandled async error. ignore() absorbs it — the
+      // load result is irrelevant here. (PostHog 019d71a4…)
+      player
+          .setAudioSource(
+            AudioSource.uri(Uri.parse(CONSTANTS.STATIC_MP3_URL)),
+            preload: false,
+          )
+          .ignore();
       // Keep polling if car or cast is connected — user sees metadata on screen
       final carConnected = GetIt.instance.isRegistered<CarPlayService>() &&
           GetIt.instance<CarPlayService>().isConnected;
