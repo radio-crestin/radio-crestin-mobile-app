@@ -1,3 +1,4 @@
+import 'dart:developer' as developer;
 import 'dart:io';
 
 import 'package:quick_actions/quick_actions.dart';
@@ -10,12 +11,18 @@ class QuickActionsService {
   static const QuickActions _quickActions = QuickActions();
 
   static void initialize() {
+    // initialize() resolves getLaunchAction internally, which throws on Android
+    // when there's no foreground Activity (background launch / secondary engine)
+    // or the plugin isn't attached. Catch it at the source so it never escapes
+    // as an unhandled async error. (PostHog 019d73e1…, 019d8e4e…)
     _quickActions.initialize((String shortcutType) {
       if (shortcutType == 'action_feedback_delete') {
         _openDeleteFeedback();
       } else if (shortcutType == 'action_report_problem') {
         _openReportProblem();
       }
+    }).catchError((Object e) {
+      developer.log('quick_actions initialize failed: $e');
     });
 
     if (Platform.isAndroid) {
@@ -32,7 +39,9 @@ class QuickActionsService {
           localizedSubtitle: 'Spune-ne ce nu a mers.',
           icon: 'ic_quick_action_report',
         ),
-      ]);
+      ]).catchError((Object e) {
+        developer.log('quick_actions setShortcutItems failed: $e');
+      });
     }
   }
 
