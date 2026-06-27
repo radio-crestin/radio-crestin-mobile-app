@@ -98,8 +98,13 @@ void main() {
     });
 
     group('initializeFromPrefs', () {
-      test('loads saved mode from prefs', () async {
+      // The v2 migration (seek_mode_migrated_v2) performs a one-time hard reset
+      // for legacy installs that were stuck at 5 minutes. These steady-state
+      // tests set the flag so the migration is already done and saved values
+      // are respected; the migration itself is covered separately below.
+      test('loads saved mode from prefs (post-migration steady state)', () async {
         SharedPreferences.setMockInitialValues({
+          'seek_mode_migrated_v2': true,
           'seek_mode': 'SeekMode.fiveMinutes',
         });
         final prefs = await SharedPreferences.getInstance();
@@ -109,11 +114,39 @@ void main() {
       });
 
       test('defaults to twoMinutes when nothing saved', () async {
-        SharedPreferences.setMockInitialValues({});
+        SharedPreferences.setMockInitialValues({
+          'seek_mode_migrated_v2': true,
+        });
         final prefs = await SharedPreferences.getInstance();
 
         SeekModeManager.initializeFromPrefs(prefs);
         expect(SeekModeManager.seekMode.value, SeekMode.twoMinutes);
+      });
+
+      test('v2 migration hard-resets a legacy 5-minute install exactly once',
+          () async {
+        // Legacy install: stuck on 5 minutes via a sticky seek_mode AND an
+        // unstable_connection override, with the v2 flag absent.
+        SharedPreferences.setMockInitialValues({
+          'seek_mode': 'SeekMode.fiveMinutes',
+          'unstable_connection': true,
+        });
+        final prefs = await SharedPreferences.getInstance();
+
+        SeekModeManager.initializeFromPrefs(prefs);
+
+        // Reset to the documented defaults and the flag is now persisted.
+        expect(SeekModeManager.seekMode.value, SeekMode.twoMinutes);
+        expect(SeekModeManager.unstableConnection.value, isFalse);
+        expect(prefs.getString('seek_mode'), 'SeekMode.twoMinutes');
+        expect(prefs.getBool('unstable_connection'), isFalse);
+        expect(prefs.getBool('seek_mode_migrated_v2'), isTrue);
+
+        // The reset is one-time: a value the user picks afterwards survives the
+        // next initialize (the migration does not run again).
+        await prefs.setString('seek_mode', 'SeekMode.fiveMinutes');
+        SeekModeManager.initializeFromPrefs(prefs);
+        expect(SeekModeManager.seekMode.value, SeekMode.fiveMinutes);
       });
     });
   });
