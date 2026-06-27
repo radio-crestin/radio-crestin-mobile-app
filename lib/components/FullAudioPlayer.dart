@@ -25,6 +25,76 @@ import '../appAudioHandler.dart';
 import '../types/Station.dart';
 import '../widgets/animated_play_button.dart';
 
+/// Responsive sizing for the full-screen player, derived from the screen size.
+@immutable
+class PlayerLayoutMetrics {
+  /// Side length of the square station artwork.
+  final double thumbSize;
+
+  /// Diameter of the central play/pause control.
+  final double playIconSize;
+
+  /// Diameter of the skip-forward / skip-back controls.
+  final double skipIconSize;
+
+  /// Horizontal gap between the play control and the skip controls.
+  final double skipSpacing;
+
+  const PlayerLayoutMetrics({
+    required this.thumbSize,
+    required this.playIconSize,
+    required this.skipIconSize,
+    required this.skipSpacing,
+  });
+}
+
+/// Computes the responsive player layout from the current screen size.
+///
+/// Pure and side-effect free so the sizing math can be unit tested. The
+/// artwork grows with the available panel height but is bounded both by a
+/// fixed `[140, 300]` range and by the usable width.
+///
+/// Guards the degenerate case where the panel is laid out before the window
+/// has real dimensions (`MediaQuery.size == Size.zero`, common on iOS during
+/// launch / return-from-background). There `maxThumbWidth` becomes negative;
+/// previously `(...).clamp(140.0, maxThumbWidth)` threw
+/// `ArgumentError: Invalid argument(s): 140.0` whenever the upper limit fell
+/// below the 140 lower limit — the single highest-volume crash in production
+/// (PostHog issue 019d8f95…, 1100+ occurrences). Clamping the upper bound to a
+/// 140 floor keeps `clamp` well-formed.
+PlayerLayoutMetrics computePlayerLayout({
+  required double screenWidth,
+  required double screenHeight,
+  required double textScale,
+}) {
+  final scale = textScale.clamp(1.0, 1.5);
+  final panelHeight = screenHeight * 0.9;
+
+  // Fixed elements budget: drag handle(7) + title(~30) + song+artist(~50)
+  //   + chips(~50) + transport(~90) + bottom row(~75) + spacers(~110) + bottom(~24)
+  final fixedBudget = 420.0 * scale;
+
+  // The artwork must also fit horizontally with 32px padding on each side.
+  // The upper bound is floored at 140 so it can never drop below the lower
+  // bound and make num.clamp throw.
+  final maxThumbWidth = (screenWidth - 64.0).clamp(140.0, double.infinity);
+  final thumbSize = (panelHeight - fixedBudget)
+      .clamp(140.0, 300.0)
+      .clamp(140.0, maxThumbWidth)
+      .toDouble();
+
+  // Smoothly interpolate transport controls based on available thumb space.
+  // t=0 at thumbSize 140, t=1 at thumbSize 240+.
+  final t = ((thumbSize - 140.0) / 100.0).clamp(0.0, 1.0).toDouble();
+
+  return PlayerLayoutMetrics(
+    thumbSize: thumbSize,
+    playIconSize: 48.0 + 14.0 * t, // 48..62
+    skipIconSize: 36.0 + 10.0 * t, // 36..46
+    skipSpacing: 20.0 + 12.0 * t, // 20..32
+  );
+}
+
 class FullAudioPlayer extends StatefulWidget {
   final AppAudioHandler audioHandler;
   final CustomPanelController slidingUpPanelController;
@@ -95,25 +165,19 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bgColor = Theme.of(context).scaffoldBackgroundColor;
 
-    // Calculate responsive thumbnail size based on available panel height.
-    final screenHeight = MediaQuery.of(context).size.height;
-    final screenWidth = MediaQuery.of(context).size.width;
-    final panelHeight = screenHeight * 0.9;
-    final textScale = MediaQuery.textScalerOf(context).scale(1.0).clamp(1.0, 1.5);
-
-    // Fixed elements budget: drag handle(7) + title(~30) + song+artist(~50)
-    //   + chips(~50) + transport(~90) + bottom row(~75) + spacers(~110) + bottom(~24)
-    final fixedBudget = 420.0 * textScale;
-    // Thumb must also fit horizontally with padding (32px total)
-    final maxThumbWidth = screenWidth - 64.0;
-    final thumbSize = (panelHeight - fixedBudget).clamp(140.0, 300.0).clamp(140.0, maxThumbWidth);
-
-    // Smoothly interpolate transport controls based on available thumb space.
-    // t=0 at thumbSize 140, t=1 at thumbSize 240+
-    final t = ((thumbSize - 140.0) / 100.0).clamp(0.0, 1.0);
-    final playIconSize = 48.0 + (14.0 * t);  // 48..62
-    final skipIconSize = 36.0 + (10.0 * t);  // 36..46
-    final skipSpacing = 20.0 + (12.0 * t);   // 20..32
+    // Responsive layout derived from the available screen size. Extracted to a
+    // pure, unit-tested function so the sizing math — including the degenerate
+    // Size.zero case that used to throw ArgumentError from num.clamp — stays
+    // verifiable. See computePlayerLayout above.
+    final layout = computePlayerLayout(
+      screenWidth: MediaQuery.of(context).size.width,
+      screenHeight: MediaQuery.of(context).size.height,
+      textScale: MediaQuery.textScalerOf(context).scale(1.0),
+    );
+    final thumbSize = layout.thumbSize;
+    final playIconSize = layout.playIconSize;
+    final skipIconSize = layout.skipIconSize;
+    final skipSpacing = layout.skipSpacing;
 
     return Container(
       decoration: BoxDecoration(
