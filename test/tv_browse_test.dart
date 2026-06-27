@@ -11,6 +11,7 @@ import 'package:rxdart/rxdart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:radio_crestin/appAudioHandler.dart';
+import 'package:radio_crestin/queries/getStations.graphql.dart';
 import 'package:radio_crestin/services/play_count_service.dart';
 import 'package:radio_crestin/services/station_data_service.dart';
 import 'package:radio_crestin/tv/pages/tv_browse.dart';
@@ -32,14 +33,27 @@ class _FakeAudioHandler extends BaseAudioHandler implements AppAudioHandler {
 class _FakeStationDataService implements StationDataService {
   final BehaviorSubject<List<Station>> _stations =
       BehaviorSubject.seeded(<Station>[]);
+  final BehaviorSubject<List<Station>> _ordered =
+      BehaviorSubject.seeded(<Station>[]);
   final BehaviorSubject<List<String>> _favs =
       BehaviorSubject.seeded(<String>[]);
+  final BehaviorSubject<List<Query$GetStations$station_groups>> _groups =
+      BehaviorSubject.seeded(<Query$GetStations$station_groups>[]);
 
   @override
   BehaviorSubject<List<Station>> get stations => _stations;
 
+  /// The browse page reads the frozen order from here. Seed it directly in
+  /// tests (mirrors what StationDataService computes once on first load).
+  @override
+  BehaviorSubject<List<Station>> get orderedStations => _ordered;
+
   @override
   BehaviorSubject<List<String>> get favoriteStationSlugs => _favs;
+
+  @override
+  BehaviorSubject<List<Query$GetStations$station_groups>> get stationGroups =>
+      _groups;
 
   @override
   noSuchMethod(Invocation invocation) => null;
@@ -90,7 +104,7 @@ void main() {
   });
 
   group('TvBrowse — empty state', () {
-    testWidgets('shows "Nu sunt posturi" when station list is empty',
+    testWidgets('shows a loading spinner (not an empty-state) when no stations',
         (tester) async {
       await _registerFakes();
       await tester.pumpWidget(_wrap(TvBrowse(
@@ -99,16 +113,18 @@ void main() {
       )));
       await tester.pump();
 
-      expect(find.text('Nu sunt posturi'), findsOneWidget);
+      // No rows yet → a spinner, and definitely no "Pentru tine" row.
+      // (The old "Nu sunt posturi" flash is gone — we seed from memory.)
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
       expect(find.text('Pentru tine'), findsNothing);
     });
   });
 
-  group('TvBrowse — populated grid', () {
-    testWidgets('renders the "Pentru tine" header and station titles',
+  group('TvBrowse — populated rows', () {
+    testWidgets('renders the "Pentru tine" row header and station titles',
         (tester) async {
       final fakes = await _registerFakes();
-      fakes.data.stations.add([
+      fakes.data.orderedStations.add([
         StationFactory.createStation(id: 1, slug: 'a', title: 'A'),
         StationFactory.createStation(id: 2, slug: 'b', title: 'B'),
         StationFactory.createStation(id: 3, slug: 'c', title: 'C'),
@@ -121,10 +137,34 @@ void main() {
       await tester.pump();
 
       expect(find.text('Pentru tine'), findsOneWidget);
-      // Each station's title appears in the grid card.
+      // Each station's title appears in its row card.
       expect(find.text('A', skipOffstage: false), findsOneWidget);
       expect(find.text('B', skipOffstage: false), findsOneWidget);
       expect(find.text('C', skipOffstage: false), findsOneWidget);
+    });
+
+    testWidgets('favorites are listed first in a single "Pentru tine" section '
+        '(no separate "Favorite" row)', (tester) async {
+      final fakes = await _registerFakes();
+      fakes.data.orderedStations.add([
+        StationFactory.createStation(id: 1, slug: 'a', title: 'A'),
+        StationFactory.createStation(id: 2, slug: 'b', title: 'B'),
+        StationFactory.createStation(id: 3, slug: 'c', title: 'C'),
+      ]);
+      fakes.data.favoriteStationSlugs.add(['b']);
+
+      await tester.pumpWidget(_wrap(TvBrowse(
+        onBack: () {},
+        onStationSelected: (_) {},
+      )));
+      await tester.pump();
+
+      // Favorites no longer get their own section — one "Pentru tine" list,
+      // with favorites floated to the front.
+      expect(find.text('Favorite'), findsNothing);
+      expect(find.text('Pentru tine'), findsOneWidget);
+      // The favorited station still renders within the single list.
+      expect(find.text('B', skipOffstage: false), findsOneWidget);
     });
   });
 
@@ -138,7 +178,7 @@ void main() {
     testWidgets('the first card claims focus after a swap-in remount',
         (tester) async {
       final fakes = await _registerFakes();
-      fakes.data.stations.add([
+      fakes.data.orderedStations.add([
         StationFactory.createStation(id: 1, slug: 'a', title: 'Alpha'),
         StationFactory.createStation(id: 2, slug: 'b', title: 'Beta'),
       ]);

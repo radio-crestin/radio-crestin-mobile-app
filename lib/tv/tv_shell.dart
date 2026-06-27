@@ -15,6 +15,7 @@ import 'tv_platform.dart';
 import 'tv_theme.dart';
 import 'pages/tv_now_playing.dart';
 import 'pages/tv_home.dart';
+import 'pages/tv_settings.dart';
 
 /// Song history entry with real timestamp.
 class TvSongEntry {
@@ -36,7 +37,12 @@ class TvShell extends StatefulWidget {
 
 class _TvShellState extends State<TvShell> {
   late bool _browsing;
+  bool _showSettings = false;
   bool _autoPlayDone = false;
+
+  /// Remembers which browse card was focused so returning from the player
+  /// lands on the same card / scroll position (TvBrowse is recreated on swap).
+  String? _browseFocusKey;
 
   late final AppAudioHandler _audioHandler;
   late final StationDataService _stationDataService;
@@ -164,8 +170,17 @@ class _TvShellState extends State<TvShell> {
     }
   }
 
-  void _openBrowse() => setState(() => _browsing = true);
+  void _openBrowse() {
+    // Returning to the list (e.g. BACK from the player) — refresh station data
+    // so the browse content is current when it reappears.
+    _stationDataService.refreshStations();
+    setState(() => _browsing = true);
+  }
+
   void _closeBrowse() => setState(() => _browsing = false);
+
+  void _openSettings() => setState(() => _showSettings = true);
+  void _closeSettings() => setState(() => _showSettings = false);
 
   void _onStationSelected(Station station) {
     _audioHandler.playStation(station);
@@ -188,7 +203,9 @@ class _TvShellState extends State<TvShell> {
     // entries from the disposed play button — which left the Browse home
     // page with a card that *looked* focused but no D-pad routing.
     return KeyedSubtree(
-      key: ValueKey(_browsing ? 'tv-browse' : 'tv-now-playing'),
+      key: ValueKey(_showSettings
+          ? 'tv-settings'
+          : (_browsing ? 'tv-browse' : 'tv-now-playing')),
       child: DpadNavigator(
       enabled: true,
       regionNavigation: const RegionNavigationOptions(
@@ -209,14 +226,33 @@ class _TvShellState extends State<TvShell> {
       ),
       child: Scaffold(
         backgroundColor: TvColors.background,
-        body: _browsing
+        body: _showSettings ? TvSettings(onClose: _closeSettings) : _browsing
             ? TvHome(
                 onStationSelected: _onStationSelected,
                 onOpenNowPlaying: _closeBrowse,
+                onOpenSettings: _openSettings,
+                initialFocusKey: _browseFocusKey,
+                onCardFocused: (key) => _browseFocusKey = key,
               )
-            : TvNowPlaying(
-                onBrowse: _openBrowse,
-                songHistory: songHistory,
+            : TweenAnimationBuilder<double>(
+                // One-shot slide-up + fade so the player feels like it opens
+                // "on top of" the list. Purely visual (the page isn't a
+                // scrollable, so it doesn't affect D-pad focus/scroll).
+                key: const ValueKey('np-enter'),
+                tween: Tween(begin: 0.0, end: 1.0),
+                duration: const Duration(milliseconds: 240),
+                curve: Curves.easeOutCubic,
+                builder: (context, t, child) => Opacity(
+                  opacity: t.clamp(0.0, 1.0),
+                  child: Transform.translate(
+                    offset: Offset(0, (1 - t) * 48),
+                    child: child,
+                  ),
+                ),
+                child: TvNowPlaying(
+                  onBrowse: _openBrowse,
+                  songHistory: songHistory,
+                ),
               ),
       ),
       ),

@@ -49,10 +49,18 @@ class _DesktopShellState extends State<DesktopShell> {
     _stationDataService = GetIt.instance<StationDataService>();
     _sortOption = StationSortService.loadSavedSort();
 
+    // Seed synchronously from the in-memory streams so the first frame shows
+    // the (frozen-ordered) stations instead of an empty/flashing list.
+    _currentStation = _audioHandler.currentStation.valueOrNull;
+    _allStations = _stationDataService.orderedStations.value;
+    _favoriteSlugs = _stationDataService.favoriteStationSlugs.value;
+    _groups = _stationDataService.stationGroups.value;
+    _isPlaying = _audioHandler.playbackState.value.playing;
+
     _subscriptions.add(
       Rx.combineLatest4(
         _audioHandler.currentStation.stream,
-        _stationDataService.stations.stream,
+        _stationDataService.orderedStations.stream,
         _stationDataService.favoriteStationSlugs.stream,
         _stationDataService.stationGroups.stream,
         (Station? current, List<Station> all, List<String> favs,
@@ -95,13 +103,22 @@ class _DesktopShellState extends State<DesktopShell> {
     } else {
       base = List<Station>.from(_allStations);
     }
-    final playCounts = GetIt.instance<PlayCountService>().playCounts;
-    final sorted = StationSortService.sort(
-      stations: base,
-      sortBy: _sortOption,
-      playCounts: playCounts,
-      favoriteSlugs: _favoriteSlugs,
-    ).sorted;
+    // `_allStations` already arrives in the session-frozen recommended order
+    // (StationDataService.orderedStations), so the recommended view must NOT
+    // re-sort — re-sorting is what reshuffled positions as the user played.
+    // Other (user-picked) sorts still sort live.
+    final List<Station> sorted;
+    if (_sortOption == StationSortOption.recommended) {
+      sorted = base;
+    } else {
+      final playCounts = GetIt.instance<PlayCountService>().playCounts;
+      sorted = StationSortService.sort(
+        stations: base,
+        sortBy: _sortOption,
+        playCounts: playCounts,
+        favoriteSlugs: _favoriteSlugs,
+      ).sorted;
+    }
 
     // Always surface favorites at the top, preserving their relative
     // order from the active sort. The "recommended" sort already weaves

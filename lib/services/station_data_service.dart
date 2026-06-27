@@ -146,11 +146,27 @@ class StationDataService {
   /// then falls through to the full sorted list.
   bool startedFromFavorites = false;
 
-  /// Cached sort order (list of slugs). Keeps the station order stable
-  /// during the session. Only invalidated on manual refresh or sort change.
+  /// Cached sort order (list of slugs) for the user-chosen (non-recommended)
+  /// sort options. Keeps the order stable during the session. Only
+  /// invalidated when the user picks a different sort option.
   List<String>? _cachedSortOrder;
   StationSortOption? _cachedSortOption;
-  int _cachedStationCount = 0;
+
+  /// Frozen recommended ("Pentru tine") order as a slug list, computed
+  /// exactly once per session the first time a non-empty station set
+  /// arrives. Playing stations, favorite toggles, listener changes and the
+  /// 60s metadata poll never reshuffle it — only genuinely new stations are
+  /// appended at the end and removed ones drop out. This is THE source of
+  /// truth for recommended order across phone, TV, desktop, CarPlay and
+  /// Android Auto.
+  List<String>? _frozenRecommendedOrder;
+
+  /// The full station set in the frozen recommended order, carrying live
+  /// metadata, re-emitted on every [stations] change. Screens (TV/desktop)
+  /// subscribe to this instead of re-sorting in `build()`, so card positions
+  /// stay put and the D-pad focus tree stays stable.
+  final BehaviorSubject<List<Station>> orderedStations =
+      BehaviorSubject.seeded(<Station>[]);
 
   /// Emits whenever the sort cache is invalidated, so listeners (CarPlay,
   /// Android Auto) can rebuild their station lists with the new order.
@@ -173,7 +189,11 @@ class StationDataService {
     'station_to_station_groups': 'StationToStationGroupType',
   };
 
-  StationDataService({required this.graphqlClient});
+  StationDataService({required this.graphqlClient}) {
+    // Wire the frozen-order stream up front (not in initialize) so
+    // orderedStations tracks `stations` from the very first emission.
+    _initOrderedStationsStream();
+  }
 
   void _log(String message) {
     debugPrint("StationDataService: $message");
@@ -285,7 +305,10 @@ class StationDataService {
   /// Resets the offset cursor — the next audio event will repopulate it.
   Future<void> _doFullRefresh(SyncReason reason, {required bool becausePromoted}) async {
     _log("full refresh: $reason${becausePromoted ? ' (promoted: 10-min window)' : ''}");
-    invalidateSortCache();
+    // NOTE: deliberately does NOT invalidate the sort cache. The recommended
+    // order is frozen per-session (see [_frozenRecommendedOrder]); the other
+    // sort options stay stable within a session too. Only an explicit
+    // user-initiated sort-option change calls invalidateSortCache().
     try {
       await _fetchStationsWithMetadata();
       _lastFullRefreshTime = DateTime.now();
@@ -707,10 +730,17 @@ class StationDataService {
     if (allStations.isEmpty) return allStations;
     final sortOption = StationSortService.loadSavedSort();
 
-    // Check if the cached order is still valid
-    final cacheValid = _cachedSortOrder != null &&
-        _cachedSortOption == sortOption &&
-        _cachedStationCount == allStations.length;
+    // Recommended ("Pentru tine") is frozen once per session — the single
+    // source of truth shared by phone, TV, desktop, CarPlay and Android Auto.
+    if (sortOption == StationSortOption.recommended) {
+      return _applyFrozenRecommendedOrder(allStations);
+    }
+
+    // User-chosen sorts: cache the slug order so it stays stable during the
+    // session. Re-sort only when the user picks a different option (count
+    // changes append/drop instead of busting the cache).
+    final cacheValid =
+        _cachedSortOrder != null && _cachedSortOption == sortOption;
 
     if (cacheValid) {
       // Reorder current stations by the cached slug order, preserving
@@ -745,17 +775,64 @@ class StationDataService {
     // Cache the order
     _cachedSortOrder = sorted.map<String>((s) => s.slug).toList();
     _cachedSortOption = sortOption;
-    _cachedStationCount = allStations.length;
 
     return sorted;
   }
 
-  /// Invalidates the cached sort order, forcing a re-sort on the next call
-  /// to [getSortedStations]. Call this on manual refresh or sort option change.
+  /// Keeps [orderedStations] in sync with the frozen recommended order as
+  /// fresh metadata flows in. Registered before [_bootstrap] so the very
+  /// first `stations.add` is captured.
+  void _initOrderedStationsStream() {
+    stations.stream.listen(
+      (all) => orderedStations.add(_applyFrozenRecommendedOrder(all)),
+    );
+  }
+
+  /// Re-applies the frozen recommended slug order to [source].
+  ///
+  /// On first call with a non-empty station set, computes the recommended
+  /// order once over the FULL station set and freezes it as a slug list, so
+  /// the stream-driven and [getSortedStations] callers can never diverge.
+  /// Thereafter it just maps the frozen order onto whatever (possibly
+  /// group-filtered) [source] is passed in: removed stations drop out and
+  /// genuinely-new stations are appended at the end — positions never shift.
+  List<Station> _applyFrozenRecommendedOrder(List<Station> source) {
+    if (_frozenRecommendedOrder == null) {
+      final full = stations.value;
+      if (full.isEmpty) return source; // nothing to freeze yet
+      final playCountService = GetIt.instance.isRegistered<PlayCountService>()
+          ? GetIt.instance<PlayCountService>()
+          : null;
+      playCountService?.refresh();
+      final playCounts = playCountService?.playCounts ?? <String, int>{};
+      final sorted = StationSortService.sort(
+        stations: full,
+        sortBy: StationSortOption.recommended,
+        playCounts: playCounts,
+        favoriteSlugs: favoriteStationSlugs.value,
+      ).sorted;
+      _frozenRecommendedOrder = sorted.map<String>((s) => s.slug).toList();
+    }
+
+    final bySlug = {for (final s in source) s.slug: s};
+    final result = <Station>[];
+    for (final slug in _frozenRecommendedOrder!) {
+      final station = bySlug.remove(slug);
+      if (station != null) result.add(station);
+    }
+    // Genuinely-new stations (not in the frozen order) go at the end.
+    result.addAll(bySlug.values);
+    return result;
+  }
+
+  /// Invalidates the cached order for the user-chosen sort options, forcing a
+  /// re-sort on the next [getSortedStations]. Call this only on an explicit
+  /// user sort-option change. Deliberately does NOT touch
+  /// [_frozenRecommendedOrder] — the recommended order stays frozen for the
+  /// whole session even if the user toggles to another sort and back.
   void invalidateSortCache() {
     _cachedSortOrder = null;
     _cachedSortOption = null;
-    _cachedStationCount = 0;
     sortOrderChanged.add(null);
   }
 

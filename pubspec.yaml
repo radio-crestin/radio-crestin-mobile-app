@@ -49,6 +49,7 @@ dependencies:
     path: packages/audio_service
   get_it: ^9.2.0
   url_launcher: ^6.2.2
+  qr_flutter: ^4.1.0
   package_info_plus: ^9.0.0
   http: ^1.2.0
   path_provider: ^2.1.0
@@ -59,7 +60,6 @@ dependencies:
   font_awesome_flutter: ^10.7.0
   firebase_core: ^4.4.0
   posthog_flutter: ^5.24.0
-  firebase_remote_config: ^6.1.4
   flutter_launcher_icons: ^0.14.0
   rxdart: ^0.28.0
   fuzzywuzzy: ^1.1.6
@@ -88,7 +88,12 @@ dependencies:
   sqflite_common_ffi: ^2.3.6
   sqlite3_flutter_libs: ^0.5.27
   flutter_svg: ^2.0.17
-  dpad: ^2.0.2
+  # Vendored fork of dpad 2.0.2 — patched to guard geometric D-pad
+  # traversal against unmounted focus nodes (off-screen list cells the
+  # viewport recycled), which crashed with "Cannot get renderObject of
+  # inactive element". See packages/dpad/PATCH.md.
+  dpad:
+    path: packages/dpad
   flutter_chrome_cast:
     path: packages/flutter_chrome_cast
   flutter_airplay:

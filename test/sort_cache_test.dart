@@ -106,7 +106,7 @@ void main() {
       expect(secondOrder, ['gamma', 'alpha', 'beta']);
     });
 
-    test('adding a new station invalidates cache (station count changes)', () {
+    test('adding a new station appends it without reshuffling existing order', () {
       service.filteredStations.add(makeStations());
       service.favoriteStationSlugs.add([]);
 
@@ -120,9 +120,11 @@ void main() {
       service.filteredStations.add(moreStations);
 
       final sorted = service.getSortedStations();
-      // Cache invalidated due to count change — full re-sort
+      // Order is frozen for the session: existing stations keep their
+      // positions and the new station is appended at the END — it is NOT
+      // re-sorted into its alphabetical place (that would shuffle the list).
       expect(sorted.length, 4);
-      expect(sorted.map((s) => s.slug).toList(), ['alpha', 'beta', 'delta', 'gamma']);
+      expect(sorted.map((s) => s.slug).toList(), ['alpha', 'beta', 'gamma', 'delta']);
     });
 
     test('removing a station invalidates cache (station count changes)', () {
@@ -157,9 +159,11 @@ void main() {
       expect(emitted, true);
     });
 
-    test('refreshStations invalidates sort cache', () async {
-      // We can't fully test refreshStations (needs GraphQL),
-      // but we can verify the cache is cleared
+    test('refreshStations keeps the order frozen (no sortOrderChanged)', () async {
+      // The session order is frozen — a data refresh (pull-to-refresh, app
+      // resume, 10-min window) must NOT reshuffle it. So refreshStations no
+      // longer invalidates the cache or emits sortOrderChanged. Only an
+      // explicit user sort-option change does (see test above).
       service.filteredStations.add(makeStations());
       service.favoriteStationSlugs.add([]);
 
@@ -170,9 +174,6 @@ void main() {
         emitted = true;
       });
 
-      // refreshStations calls invalidateSortCache internally
-      // We can't await the full method (needs network), but
-      // the cache invalidation happens synchronously at the start
       try {
         await service.refreshStations().timeout(const Duration(milliseconds: 100));
       } catch (_) {
@@ -180,7 +181,59 @@ void main() {
       }
 
       await Future.delayed(Duration.zero);
-      expect(emitted, true, reason: 'refreshStations should emit sortOrderChanged');
+      expect(emitted, false,
+          reason: 'refreshStations must not reshuffle the frozen order');
+    });
+  });
+
+  group('Frozen recommended order', () {
+    test('recommended order is frozen on first load and survives metadata + '
+        'favorite changes', () async {
+      final prefs = GetIt.instance<SharedPreferences>();
+      await prefs.setString('station_sort_preference', 'recommended');
+
+      service.stations.add(makeStations());
+      service.filteredStations.add(makeStations());
+      service.favoriteStationSlugs.add([]);
+
+      final firstOrder =
+          service.getSortedStations().map((s) => s.slug).toList();
+
+      // Favoriting a station and big listener swings must NOT reshuffle.
+      service.favoriteStationSlugs.add(['gamma']);
+      final updated = [
+        StationFactory.createStation(
+            id: 1, slug: 'alpha', title: 'Alpha', totalListeners: 1),
+        StationFactory.createStation(
+            id: 2, slug: 'beta', title: 'Beta', totalListeners: 9999),
+        StationFactory.createStation(
+            id: 3, slug: 'gamma', title: 'Gamma', totalListeners: 1),
+      ];
+      service.stations.add(updated);
+      service.filteredStations.add(updated);
+
+      final secondOrder =
+          service.getSortedStations().map((s) => s.slug).toList();
+      expect(secondOrder, firstOrder,
+          reason: 'Recommended order is frozen for the whole session');
+    });
+
+    test('orderedStations exposes the same frozen recommended order', () async {
+      final prefs = GetIt.instance<SharedPreferences>();
+      await prefs.setString('station_sort_preference', 'recommended');
+
+      service.stations.add(makeStations());
+      service.filteredStations.add(makeStations());
+      service.favoriteStationSlugs.add([]);
+
+      final viaGetter =
+          service.getSortedStations().map((s) => s.slug).toList();
+      // orderedStations updates via a stream listener (microtask) — let it run.
+      await Future.delayed(Duration.zero);
+      final viaStream =
+          service.orderedStations.value.map((s) => s.slug).toList();
+      expect(viaStream, viaGetter,
+          reason: 'orderedStations and getSortedStations agree on the order');
     });
   });
 

@@ -307,20 +307,30 @@ Future<AppAudioHandler> initAudioService({required graphqlClient}) async {
       ),
     ),
   );
+  // On Android TV the ongoing media notification is undesirable. We can't drop
+  // the foreground service — it's what keeps audio playing continuously in the
+  // background — but we route TV to a dedicated notification channel that
+  // MainActivity pre-creates at IMPORTANCE_MIN, so the notification is
+  // suppressed from view while playback is unaffected. Phones keep the normal
+  // media notification on the default channel. (Channel importance can't be
+  // lowered after creation, so TV uses its own fresh channel id.)
+  final bool isAndroidTv = TvPlatform.isAndroidTV;
   return await AudioService.init(
     builder: () {
       return AppAudioHandler(player: player, graphqlClient: graphqlClient);
     },
-    config: const AudioServiceConfig(
-      // androidNotificationChannelId: 'com.radiocrestin.radiocrestin.channel.audio',
+    config: AudioServiceConfig(
+      androidNotificationChannelId: isAndroidTv
+          ? 'com.radiocrestin.radio_crestin.channel.tv'
+          : 'com.radiocrestin.radio_crestin.channel',
       androidNotificationChannelName: 'Radio Crestin',
       androidNotificationIcon: "drawable/ic_launcher_foreground",
       androidNotificationOngoing: true,
-      notificationColor: Color(0xffe91e63),
+      notificationColor: const Color(0xffe91e63),
       preloadArtwork: true,
       // androidShowNotificationBadge: true,
       androidStopForegroundOnPause: true,
-      androidBrowsableRootExtras: {
+      androidBrowsableRootExtras: const {
         'android.media.browse.CONTENT_STYLE_SUPPORTED': true,
         'android.media.browse.CONTENT_STYLE_BROWSABLE_HINT': 1, // list
         'android.media.browse.CONTENT_STYLE_PLAYABLE_HINT': 1, // list

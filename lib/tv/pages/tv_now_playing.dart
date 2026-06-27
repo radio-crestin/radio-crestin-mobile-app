@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui';
 
+import 'package:audio_service/audio_service.dart';
 import 'package:dpad/dpad.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -40,6 +41,11 @@ class _TvNowPlayingState extends State<TvNowPlaying> {
   bool _liked = false;
   bool _disliked = false;
   bool _isPlaying = false;
+  bool _isBuffering = false;
+  // Optimistic "user wants it playing" intent: set the instant the user taps
+  // play (or picks a station) so the button flips to pause immediately, before
+  // the stream confirms. Cleared once playback settles into a real paused state.
+  bool _pressedPlay = false;
   int _lastSongId = -1;
 
   @override
@@ -47,6 +53,17 @@ class _TvNowPlayingState extends State<TvNowPlaying> {
     super.initState();
     _audioHandler = GetIt.instance<AppAudioHandler>();
     _stationDataService = GetIt.instance<StationDataService>();
+
+    // Seed synchronously from the in-memory streams so the first frame shows
+    // the current station + correct play state instead of a spinner flash.
+    _station = _audioHandler.currentStation.valueOrNull;
+    _favoriteSlugs = _stationDataService.favoriteStationSlugs.value;
+    if (_station != null) _lastSongId = _station!.songId;
+    final pb = _audioHandler.playbackState.value;
+    _isPlaying = pb.playing;
+    _isBuffering = pb.processingState == AudioProcessingState.loading ||
+        pb.processingState == AudioProcessingState.buffering;
+    _pressedPlay = pb.playing;
 
     _subscriptions.add(
       Rx.combineLatest2(
@@ -71,9 +88,37 @@ class _TvNowPlayingState extends State<TvNowPlaying> {
 
     _subscriptions.add(
       _audioHandler.playbackState.stream.listen((state) {
-        if (mounted) setState(() => _isPlaying = state.playing);
+        if (!mounted) return;
+        final loading =
+            state.processingState == AudioProcessingState.loading ||
+                state.processingState == AudioProcessingState.buffering;
+        setState(() {
+          _isPlaying = state.playing;
+          _isBuffering = loading;
+          if (state.playing) _pressedPlay = true;
+          // Settled into a real paused state → drop the optimistic intent.
+          if (!loading && !state.playing) _pressedPlay = false;
+        });
       }),
     );
+  }
+
+  /// Show the pause icon whenever the user intends playback — actually
+  /// playing, buffering toward play, or just-tapped (optimistic) — so the
+  /// control never flickers back to "play" while a stream is connecting.
+  bool get _showPause => _isPlaying || _isBuffering || _pressedPlay;
+
+  /// Spinner while connecting/buffering toward playback.
+  bool get _showSpinner => _isBuffering || (_pressedPlay && !_isPlaying);
+
+  void _togglePlayback() {
+    if (_showPause) {
+      setState(() => _pressedPlay = false);
+      _audioHandler.pause();
+    } else {
+      setState(() => _pressedPlay = true);
+      _audioHandler.play();
+    }
   }
 
   @override
@@ -93,12 +138,10 @@ class _TvNowPlayingState extends State<TvNowPlaying> {
   KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
     final key = event.logicalKey;
-    if (key == LogicalKeyboardKey.goBack ||
-        key == LogicalKeyboardKey.browserBack ||
-        key == LogicalKeyboardKey.escape) {
-      widget.onBrowse();
-      return KeyEventResult.handled;
-    }
+    // BACK is intentionally NOT handled here. Android TV delivers one BACK
+    // press as both a raw goBack KeyEvent AND a route pop; handling it here
+    // too caused a double navigation (Now Playing → Browse → bounce back).
+    // It now flows through this page's PopScope only (see build).
     if (key == LogicalKeyboardKey.mediaTrackNext) {
       _audioHandler.skipToNext();
       return KeyEventResult.handled;
@@ -108,7 +151,7 @@ class _TvNowPlayingState extends State<TvNowPlaying> {
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.mediaPlayPause) {
-      _isPlaying ? _audioHandler.pause() : _audioHandler.play();
+      _togglePlayback();
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.keyF) {
@@ -391,32 +434,51 @@ class _TvNowPlayingState extends State<TvNowPlaying> {
                                     autofocus: true,
                                     region: 'np-controls',
                                     isEntryPoint: true,
-                                    onSelect: () => _isPlaying
-                                        ? _audioHandler.pause()
-                                        : _audioHandler.play(),
+                                    onSelect: _togglePlayback,
                                     builder: FocusEffects.scaleWithBorder(
                                       scale: 1.12,
                                       borderColor: Colors.white,
                                       borderWidth: 4,
                                       borderRadius: BorderRadius.circular(36),
                                     ),
-                                    child: Container(
+                                    child: SizedBox(
                                       width: 64,
                                       height: 64,
-                                      decoration: const BoxDecoration(
-                                        color: TvColors.primary,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: AnimatedSwitcher(
-                                        duration: const Duration(milliseconds: 150),
-                                        child: Icon(
-                                          _isPlaying
-                                              ? Icons.pause_rounded
-                                              : Icons.play_arrow_rounded,
-                                          key: ValueKey(_isPlaying),
-                                          color: Colors.white,
-                                          size: 36,
-                                        ),
+                                      child: Stack(
+                                        alignment: Alignment.center,
+                                        children: [
+                                          const DecoratedBox(
+                                            decoration: BoxDecoration(
+                                              color: TvColors.primary,
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: SizedBox.expand(),
+                                          ),
+                                          if (_showSpinner)
+                                            const Padding(
+                                              padding: EdgeInsets.all(3),
+                                              child: SizedBox.expand(
+                                                child: CircularProgressIndicator(
+                                                  strokeWidth: 2.5,
+                                                  valueColor:
+                                                      AlwaysStoppedAnimation(
+                                                          Colors.white),
+                                                ),
+                                              ),
+                                            ),
+                                          AnimatedSwitcher(
+                                            duration: const Duration(
+                                                milliseconds: 150),
+                                            child: Icon(
+                                              _showPause
+                                                  ? Icons.pause_rounded
+                                                  : Icons.play_arrow_rounded,
+                                              key: ValueKey(_showPause),
+                                              color: Colors.white,
+                                              size: 36,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   ),

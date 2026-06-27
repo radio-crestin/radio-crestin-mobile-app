@@ -23,6 +23,10 @@ class DesktopFocusable extends StatefulWidget {
   final String? region;
   final bool isEntryPoint;
 
+  /// When false, dpad won't auto-scroll this node into view on focus — the
+  /// caller drives scrolling itself (e.g. snap the focused row to the top).
+  final bool autoScroll;
+
   const DesktopFocusable({
     super.key,
     this.child,
@@ -35,6 +39,7 @@ class DesktopFocusable extends StatefulWidget {
     this.debugLabel,
     this.region,
     this.isEntryPoint = false,
+    this.autoScroll = true,
   });
 
   @override
@@ -54,6 +59,7 @@ class _DesktopFocusableState extends State<DesktopFocusable> {
         onBlur: widget.onBlur,
         onSelect: widget.onSelect,
         enabled: widget.enabled,
+        autoScroll: widget.autoScroll,
         builder: widget.builder,
         debugLabel: widget.debugLabel,
         region: widget.region,
@@ -80,6 +86,7 @@ class _DesktopFocusableState extends State<DesktopFocusable> {
           onBlur: widget.onBlur,
           onSelect: widget.onSelect,
           enabled: widget.enabled,
+          autoScroll: widget.autoScroll,
           builder: _desktopBuilder,
           debugLabel: widget.debugLabel,
           region: widget.region,

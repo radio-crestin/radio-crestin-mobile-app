@@ -130,9 +130,13 @@ void main() {
     });
 
     test('groups items in the same hour into one HistoryHourGroup', () {
+      // Anchor to the middle of the current hour so subtracting a few minutes
+      // can't cross an hour boundary (grouping is by clock hour). Without this
+      // the test flaked in the first 10 minutes of any hour.
       final now = DateTime.now().toUtc();
-      final t1 = now.subtract(const Duration(minutes: 5)).toIso8601String();
-      final t2 = now.subtract(const Duration(minutes: 10)).toIso8601String();
+      final anchor = DateTime.utc(now.year, now.month, now.day, now.hour, 30);
+      final t1 = anchor.subtract(const Duration(minutes: 5)).toIso8601String();
+      final t2 = anchor.subtract(const Duration(minutes: 10)).toIso8601String();
 
       final groups = SongHistoryService.groupByDateAndHour([
         item(t1, name: 'A'),

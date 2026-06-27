@@ -72,10 +72,34 @@ class Utils {
     return streams.map((e) => {"url": e.stream_url, "type": e.type}).toList();
   }
 
+  /// Branded placeholder shown when a station image is missing or fails to load
+  /// (offline / 404 / 403, e.g. Radio SOS). Renders the app logo centered on a
+  /// soft neutral background, padded so it sits nicely inside thumbnails of any
+  /// size — replaces the old broken-photo icon.
+  static Widget _logoPlaceholder() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final side = constraints.biggest.shortestSide;
+        final pad = side.isFinite && side > 0 ? side * 0.2 : 10.0;
+        return ColoredBox(
+          color: const Color(0xFFF2F2F2),
+          child: Padding(
+            padding: EdgeInsets.all(pad),
+            child: Image.asset(
+              'assets/icons/ic_logo_filled.png',
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.medium,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   static Widget displayImage(String url, {String? fallbackImageUrl, bool cache = false, String? cachedFilePath, int? cacheWidth, Duration? cacheMaxAge}) {
     cacheWidth ??= 210;
     if (url.isEmpty && cachedFilePath == null) {
-      return Icon(Icons.photo, color: Colors.red.shade100,);
+      return _logoPlaceholder();
     }
 
     // When URL is available, always use network with caching to avoid
@@ -98,19 +122,19 @@ class Utils {
             case LoadState.completed:
               return null;
             case LoadState.failed:
-              return Icon(Icons.photo, color: Colors.red.shade100,);
+              return _logoPlaceholder();
           }
         },
       );
     }
 
-    return Icon(Icons.photo, color: Colors.red.shade100,);
+    return _logoPlaceholder();
   }
 
   static Widget _networkImage(String url, {String? fallbackImageUrl, bool cache = false, int? cacheWidth, Duration? cacheMaxAge}) {
     cacheWidth ??= 210;
     if (url.isEmpty) {
-      return Icon(Icons.photo, color: Colors.red.shade100,);
+      return _logoPlaceholder();
     }
 
     return ExtendedImage.network(
@@ -136,7 +160,7 @@ class Utils {
                 cacheWidth: cacheWidth,
               );
             }
-            return Icon(Icons.photo, color: Colors.red.shade100,);
+            return _logoPlaceholder();
         }
       },
     );

@@ -388,6 +388,7 @@ class _DeviceSheetState extends State<_DeviceSheet> {
               icon: Icons.tv_rounded,
               title: 'Android TV și Apple TV',
               subtitle: 'Instalează aplicația pe TV',
+              beta: true,
               onTap: () => _showTvInstructions(context),
             ),
 
@@ -468,12 +469,14 @@ class _DeviceRow extends StatelessWidget {
   final String title;
   final String? subtitle;
   final VoidCallback? onTap;
+  final bool beta;
 
   const _DeviceRow({
     required this.icon,
     required this.title,
     this.subtitle,
     this.onTap,
+    this.beta = false,
   });
 
   @override
@@ -492,10 +495,20 @@ class _DeviceRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title,
-                    style: TextStyle(
-                      fontSize: 15, fontWeight: FontWeight.w500,
-                      color: Theme.of(context).colorScheme.onSurface)),
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(title,
+                          style: TextStyle(
+                            fontSize: 15, fontWeight: FontWeight.w500,
+                            color: Theme.of(context).colorScheme.onSurface)),
+                      ),
+                      if (beta) ...[
+                        const SizedBox(width: 8),
+                        const _BetaBadge(),
+                      ],
+                    ],
+                  ),
                   if (subtitle != null && subtitle!.isNotEmpty)
                     Text(subtitle!,
                       style: TextStyle(
@@ -506,6 +519,31 @@ class _DeviceRow extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Small on-brand "BETA" pill used to flag features still in testing.
+class _BetaBadge extends StatelessWidget {
+  const _BetaBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: const Text(
+        'BETA',
+        style: TextStyle(
+          fontSize: 9,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.6,
+          color: AppColors.primary,
         ),
       ),
     );
@@ -628,14 +666,17 @@ class _TvInstructionsSheet extends StatelessWidget {
             ),
 
             const Icon(Icons.tv_rounded, size: 48, color: AppColors.primary),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
+            const _BetaBadge(),
+            const SizedBox(height: 12),
             Text('Ascultă Radio Creștin pe televizor',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 20, fontWeight: FontWeight.w700, color: onSurface)),
             const SizedBox(height: 8),
             Text(
-              'Instalează aplicația direct pe TV pentru cea mai bună experiență.',
+              'Aplicația pentru TV este în versiune beta — instaleaz-o direct '
+              'pe televizor pentru cea mai bună experiență.',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 14, color: dim, height: 1.5)),
             const SizedBox(height: 24),

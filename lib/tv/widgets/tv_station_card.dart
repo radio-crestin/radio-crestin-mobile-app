@@ -17,6 +17,7 @@ class TvStationCard extends StatefulWidget {
   final bool autofocus;
   final String? region;
   final bool isEntryPoint;
+  final bool autoScroll;
 
   static const double cardSize = 160.0;
 
@@ -31,6 +32,7 @@ class TvStationCard extends StatefulWidget {
     this.autofocus = false,
     this.region,
     this.isEntryPoint = false,
+    this.autoScroll = true,
   });
 
   @override
@@ -67,6 +69,7 @@ class _TvStationCardState extends State<TvStationCard> {
             autofocus: autofocus,
             region: region,
             isEntryPoint: isEntryPoint,
+            autoScroll: widget.autoScroll,
             onSelect: widget.onSelect,
             onFocus: () => widget.onFocus?.call(station),
             builder: (context, isFocused, child) {

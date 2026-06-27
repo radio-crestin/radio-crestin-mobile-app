@@ -14,10 +14,22 @@ class TvHome extends StatefulWidget {
   final ValueChanged<Station> onStationSelected;
   final VoidCallback onOpenNowPlaying;
 
+  /// Opens the TV settings page (contact QR + app info).
+  final VoidCallback? onOpenSettings;
+
+  /// Card to focus on mount (so returning from the player keeps position).
+  final String? initialFocusKey;
+
+  /// Reports the focused card key up to the shell to remember it.
+  final ValueChanged<String>? onCardFocused;
+
   const TvHome({
     super.key,
     required this.onStationSelected,
     required this.onOpenNowPlaying,
+    this.onOpenSettings,
+    this.initialFocusKey,
+    this.onCardFocused,
   });
 
   @override
@@ -41,6 +53,9 @@ class _TvHomeState extends State<TvHome> {
           child: TvBrowse(
             onBack: widget.onOpenNowPlaying,
             onStationSelected: widget.onStationSelected,
+            onOpenSettings: widget.onOpenSettings,
+            initialFocusKey: widget.initialFocusKey,
+            onCardFocused: widget.onCardFocused,
           ),
         ),
       ),
