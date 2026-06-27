@@ -6,7 +6,6 @@ import 'package:device_info_plus/device_info_plus.dart';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:posthog_flutter/posthog_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -39,10 +38,12 @@ import 'package:flutter_chrome_cast/flutter_chrome_cast.dart'
 import 'services/tv_channel_service.dart';
 import 'package:flutter_airplay/flutter_airplay.dart' as flutter_airplay;
 import 'services/analytics_service.dart';
+import 'services/error_filter.dart';
 import 'services/image_cache_service.dart';
 import 'services/quick_actions_service.dart';
 import 'services/network_service.dart';
 import 'services/play_count_service.dart';
+import 'services/remote_config_service.dart';
 import 'services/song_like_service.dart';
 import 'services/station_data_service.dart';
 import 'tv/tv_platform.dart';
@@ -256,8 +257,28 @@ void main() async {
   // Now await Firebase (likely already done since audio init takes longer)
   await firebaseInitFuture;
 
+  // Load backend-controlled config (session replay sampling) before PostHog —
+  // the sample rate must be set at setup time. Uses cached values, so this
+  // does not block on the network. Falls back to defaults off-Firebase.
+  bool sessionReplayEnabled = true;
+  double sessionReplaySampleRate = 1.0;
+  if (_firebaseSupported) {
+    await RemoteConfigService.instance.initialize();
+    final replay = RemoteConfigService.instance.sessionReplay;
+    sessionReplayEnabled = replay.enabled;
+    sessionReplaySampleRate = replay.sampleRate;
+  }
+
   // Initialize PostHog analytics (error tracking is handled by PostHog config)
-  await AnalyticsService.instance.initialize();
+  await AnalyticsService.instance.initialize(
+    sessionReplayEnabled: sessionReplayEnabled,
+    sessionReplaySampleRate: sessionReplaySampleRate,
+  );
+
+  // Suppress known-benign runtime/network/plugin errors so they neither crash
+  // the app nor drown out real issues in PostHog. Must run AFTER PostHog setup —
+  // it wraps the FlutterError/PlatformDispatcher handlers PostHog just installed.
+  ErrorFilter.install();
 
   // Identify user immediately after PostHog init — before any events fire.
   // deviceId is already set above; appVersion/buildNumber come later.
@@ -509,40 +530,45 @@ class RadioCrestinApp extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    // TV gets a dedicated dark theme and TV-optimized UI shell
+    // TV gets a dedicated dark theme and TV-optimized UI shell.
+    // PostHogWidget wraps the app so session replay can capture the UI tree.
     if (TvPlatform.isTV) {
-      return MaterialApp(
-        navigatorKey: globals.navigatorKey,
-        navigatorObservers: [PosthogObserver()],
-        title: 'Radio Crestin',
-        debugShowCheckedModeBanner: false,
-        theme: tvTheme,
-        darkTheme: tvTheme,
-        themeMode: ThemeMode.dark,
-        home: const TvShell(),
-      );
-    }
-
-    return ValueListenableBuilder<ThemeMode>(
-      valueListenable: ThemeManager.themeMode,
-      builder: (context, themeMode, child) {
-        return MaterialApp(
+      return PostHogWidget(
+        child: MaterialApp(
           navigatorKey: globals.navigatorKey,
           navigatorObservers: [PosthogObserver()],
           title: 'Radio Crestin',
           debugShowCheckedModeBanner: false,
-          theme: lightTheme,
-          darkTheme: darkTheme,
-          themeMode: themeMode,
-          home: UpgradeAlert(
-            dialogStyle: Platform.isIOS
-                ? UpgradeDialogStyle.cupertino
-                : UpgradeDialogStyle.material,
-            upgrader: Upgrader(),
-            child: const HomePage(),
-          ),
-        );
-      },
+          theme: tvTheme,
+          darkTheme: tvTheme,
+          themeMode: ThemeMode.dark,
+          home: const TvShell(),
+        ),
+      );
+    }
+
+    return PostHogWidget(
+      child: ValueListenableBuilder<ThemeMode>(
+        valueListenable: ThemeManager.themeMode,
+        builder: (context, themeMode, child) {
+          return MaterialApp(
+            navigatorKey: globals.navigatorKey,
+            navigatorObservers: [PosthogObserver()],
+            title: 'Radio Crestin',
+            debugShowCheckedModeBanner: false,
+            theme: lightTheme,
+            darkTheme: darkTheme,
+            themeMode: themeMode,
+            home: UpgradeAlert(
+              dialogStyle: Platform.isIOS
+                  ? UpgradeDialogStyle.cupertino
+                  : UpgradeDialogStyle.material,
+              upgrader: Upgrader(),
+              child: const HomePage(),
+            ),
+          );
+        },
+      ),
     );
   }
 }

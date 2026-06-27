@@ -58,7 +58,14 @@ class AnalyticsService {
       };
 
   /// Initialize PostHog with manual setup for error tracking support.
-  Future<void> initialize() async {
+  ///
+  /// [sessionReplayEnabled] and [sessionReplaySampleRate] (a 0.0–1.0 fraction)
+  /// are supplied by the caller from backend config (Firebase Remote Config)
+  /// so screen recording can be tuned without a new app release.
+  Future<void> initialize({
+    bool sessionReplayEnabled = true,
+    double sessionReplaySampleRate = 1.0,
+  }) async {
     final config = PostHogConfig('phc_9lTquHDSyoFxkYq4VPd8cFiQ21VZd627Lv8jSV8S7Fi');
     config.host = 'https://k.radiocrestin.ro';
     config.debug = kDebugMode;
@@ -71,6 +78,22 @@ class AnalyticsService {
 
     // Lifecycle events
     config.captureApplicationLifecycleEvents = true;
+
+    // Session replay (screen recording) — Android & iOS.
+    // Requires "Record user sessions" enabled in PostHog Project Settings.
+    // The enabled flag and sample rate are backend-controlled via Firebase
+    // Remote Config (see RemoteConfigService), so they can change without a
+    // new app release.
+    config.sessionReplay = sessionReplayEnabled;
+    // No sensitive data is shown (station names, song titles, artwork), so we
+    // leave text and images unmasked to keep recordings useful. Wrap any
+    // sensitive widget with PostHogMaskWidget to mask it individually.
+    config.sessionReplayConfig.maskAllTexts = false;
+    config.sessionReplayConfig.maskAllImages = false;
+    // Snapshot throttle — lower = more frequent captures + higher overhead.
+    config.sessionReplayConfig.throttleDelay = const Duration(milliseconds: 1000);
+    // Fraction of sessions to record (0.0–1.0). PostHog rolls per session.
+    config.sessionReplayConfig.sampleRate = sessionReplaySampleRate;
 
     // Person profiles
     config.personProfiles = PostHogPersonProfiles.identifiedOnly;
