@@ -53,6 +53,15 @@ final class AudioPlayer: ObservableObject {
     /// YouTube — nothing tvOS can embed. The UI shows a friendly message.
     @Published private(set) var youTubeOnlyPlaylist: Bool = false
 
+    /// True when a live playlist sync removed every playable item while
+    /// the station was playing — the UI swaps to a friendly empty state.
+    /// Cleared automatically if a later sync brings items back.
+    @Published private(set) var playlistDepleted: Bool = false
+
+    /// Repository used by the live playlist sync poller. Injected so
+    /// tests can stub the network layer.
+    private let repository: StationRepository
+
     private let player = AVPlayer()
     private var currentStation: Station?
     private var streams: [StationStream] = []
@@ -78,6 +87,14 @@ final class AudioPlayer: ObservableObject {
     /// current playlist item — drives auto-advance / loop.
     private var itemEndObserver: NSObjectProtocol?
 
+    /// 5s poll loop that keeps the playlist in sync with the backend while
+    /// the player screen is open. Started/stopped by `NowPlayingView`
+    /// (appear/disappear + scenePhase).
+    private var playlistSyncTask: Task<Void, Never>?
+
+    /// Cadence of the live playlist sync poll.
+    private static let playlistSyncInterval: TimeInterval = 5
+
     /// Periodic time observer feeding `vodPosition` for playlist VOD items.
     private var timeObserver: Any?
 
@@ -101,7 +118,8 @@ final class AudioPlayer: ObservableObject {
     /// 10s `/stations-metadata` cadence.
     var onDateRangeMetadataChange: (() -> Void)?
 
-    init() {
+    init(repository: StationRepository = StationRepository()) {
+        self.repository = repository
         // Active audio session so the player keeps running when the
         // user backgrounds the app via Home button on the Siri Remote.
         try? AVAudioSession.sharedInstance().setCategory(
@@ -190,9 +208,146 @@ final class AudioPlayer: ObservableObject {
     func stop() {
         player.pause()
         player.replaceCurrentItem(with: nil)
+        stopPlaylistSync()
         resetPlaylistState()
         currentStreamType = nil
         isVideoContent = false
+        state = .idle
+    }
+
+    // MARK: - Live playlist sync
+
+    /// Begin the 5s playlist poll. Idempotent — a second call while the
+    /// loop is running is a no-op, and non-playlist stations never start.
+    /// Driven by `NowPlayingView` on appear / scene-active.
+    func startPlaylistSync() {
+        guard currentStation?.kind == .playlist else { return }
+        guard playlistSyncTask == nil else { return }
+        playlistSyncTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(
+                    nanoseconds:
+                        UInt64(Self.playlistSyncInterval * 1_000_000_000)
+                )
+                guard !Task.isCancelled else { break }
+                await self?.syncPlaylistOnce()
+            }
+        }
+    }
+
+    /// Stop the playlist poll. Driven by `NowPlayingView` on disappear /
+    /// scene-inactive, and by `stop()`.
+    func stopPlaylistSync() {
+        playlistSyncTask?.cancel()
+        playlistSyncTask = nil
+    }
+
+    /// One poll iteration: fetch the server's current playlist and
+    /// reconcile it into the playing list. Network errors and "station
+    /// not in response" are silently skipped — the next tick retries.
+    private func syncPlaylistOnce() async {
+        guard let station = currentStation, station.kind == .playlist else {
+            return
+        }
+        guard let items = try? await repository.fetchStationPlaylist(
+            stationSlug: station.slug
+        ) else { return }
+        applyPlaylistUpdate(items)
+    }
+
+    /// Reconciles a freshly fetched playlist against the playing one.
+    ///
+    /// Semantics (matched against item `id`):
+    /// * Current item still present → update list/count/index bookkeeping
+    ///   only; playback is NOT touched (the index may shift when items
+    ///   before it were removed).
+    /// * Current item removed → advance to the next surviving playable
+    ///   item, following the old order with wrap-around (loop rules).
+    /// * Nothing playable survives → stop and flag `playlistDepleted` so
+    ///   the UI shows the friendly empty state. A later sync with items
+    ///   recovers automatically.
+    ///
+    /// YouTube filtering is re-applied on every sync.
+    func applyPlaylistUpdate(_ rawItems: [PlaylistItem]) {
+        guard playbackMode == .playlist else { return }
+        let items = rawItems
+            .filter { !$0.isYouTube }
+            .sorted { $0.order < $1.order }
+        guard items != playlistItems else { return }
+
+        if items.isEmpty {
+            depletePlaylist()
+            return
+        }
+        playlistDepleted = false
+        youTubeOnlyPlaylist = false
+
+        let previousItems = playlistItems
+        let currentId = currentPlaylistItem?.id
+        playlistItems = items
+        playlistCount = items.count
+
+        if let currentId,
+           let newIndex = items.firstIndex(where: { $0.id == currentId }) {
+            // Current item survived — refresh bookkeeping (index shifts if
+            // earlier items were removed; title/thumbnail may have been
+            // edited) without interrupting the AVPlayer item.
+            playlistIndex = newIndex
+            currentPlaylistItem = items[newIndex]
+            return
+        }
+
+        // Current item removed (or nothing was playing — e.g. the list
+        // was previously depleted / YouTube-only): start the next
+        // surviving item.
+        consecutivePlaylistErrors = 0
+        let target = nextSurvivingIndex(
+            afterRemoved: currentId, oldItems: previousItems, newItems: items
+        )
+        loadPlaylistItem(at: target)
+        player.play()
+    }
+
+    /// Index (in `newItems`) of the first item that follows the removed
+    /// current item in the *old* order and survived the sync, wrapping
+    /// around the end. Falls back to 0 when there is no reference point.
+    private func nextSurvivingIndex(
+        afterRemoved removedId: Int?,
+        oldItems: [PlaylistItem],
+        newItems: [PlaylistItem]
+    ) -> Int {
+        guard let removedId,
+              let oldIdx = oldItems.firstIndex(where: { $0.id == removedId })
+        else { return 0 }
+        let survivors = Set(newItems.map(\.id))
+        for offset in 1..<max(oldItems.count, 1) {
+            let candidate = oldItems[(oldIdx + offset) % oldItems.count]
+            if survivors.contains(candidate.id),
+               let idx = newItems.firstIndex(where: { $0.id == candidate.id }) {
+                return idx
+            }
+        }
+        return 0
+    }
+
+    /// Every playable item was removed server-side while playing: tear
+    /// down playback and flag the empty state. Keeps `playbackMode` and
+    /// `currentStation` so a later sync can recover.
+    private func depletePlaylist() {
+        removeEndObserver()
+        removeTimeObserver()
+        statusObserver?.invalidate()
+        statusObserver = nil
+        player.pause()
+        player.replaceCurrentItem(with: nil)
+        playlistItems = []
+        playlistCount = 0
+        playlistIndex = 0
+        currentPlaylistItem = nil
+        isVideoContent = false
+        vodPosition = 0
+        vodDuration = 0
+        playlistDepleted = true
         state = .idle
     }
 
@@ -411,6 +566,7 @@ final class AudioPlayer: ObservableObject {
         vodPosition = 0
         vodDuration = 0
         youTubeOnlyPlaylist = false
+        playlistDepleted = false
     }
 
     /// Wire an `AVPlayerItemMetadataCollector` onto the new item so the

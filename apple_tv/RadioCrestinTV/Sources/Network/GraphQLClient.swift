@@ -27,12 +27,17 @@ enum APIError: Error, LocalizedError {
     }
 }
 
-/// Returns a Unix timestamp (seconds) rounded to the nearest 10 seconds.
-/// Matches `getRoundedTimestamp` in `lib/utils/api_utils.dart` so the
-/// server-side cache used by the radiocrestin.ro web client stays warm.
-func roundedTimestamp(at date: Date = Date(), offset: TimeInterval = 0) -> Int {
+/// Returns a Unix timestamp (seconds) rounded DOWN to a multiple of
+/// `step` (default 10s, matching `getRoundedTimestamp` in
+/// `lib/utils/api_utils.dart`) so the server-side cache keyed by the
+/// timestamp stays warm. The playlist sync endpoint uses a 5s step.
+func roundedTimestamp(
+    at date: Date = Date(),
+    offset: TimeInterval = 0,
+    step: Int = 10
+) -> Int {
     let epoch = Int(date.timeIntervalSince1970 - offset)
-    return (epoch / 10) * 10
+    return (epoch / step) * step
 }
 
 /// Thin REST wrapper that decodes a `Decodable` payload from a URL.

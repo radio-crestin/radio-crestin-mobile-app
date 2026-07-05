@@ -58,6 +58,40 @@ final class StationRepository {
         return envelope.data.stations_metadata_history.history.reversed()
     }
 
+    // MARK: - Live playlist sync
+
+    /// Fetches the current playlist for one station. Polled every 5s while
+    /// a playlist station's player screen is open so server-side edits
+    /// (items added / removed / reordered) reach the player quickly.
+    ///
+    /// Returns nil when the response contains no entry for the station
+    /// (treat as "no data" and keep the current list); returns an empty
+    /// array when the entry exists but has no items (everything removed).
+    func fetchStationPlaylist(
+        stationSlug: String
+    ) async throws -> [PlaylistItem]? {
+        guard !stationSlug.isEmpty else { return nil }
+        guard var components = URLComponents(
+            string: "\(API.base)/station-playlist"
+        ) else {
+            throw APIError.invalidURL
+        }
+        components.queryItems = [
+            URLQueryItem(name: "station_slug", value: stationSlug),
+            URLQueryItem(name: "timestamp",
+                         value: "\(roundedTimestamp(step: 5))")
+        ]
+        guard let url = components.url else { throw APIError.invalidURL }
+        let envelope = try await client.get(
+            url, as: StationPlaylistEnvelope.self
+        )
+        guard let entry = envelope.data.stations
+            .first(where: { $0.slug == stationSlug })
+            ?? envelope.data.stations.first
+        else { return nil }
+        return entry.playlist_items ?? []
+    }
+
     // MARK: - Lightweight metadata
 
     /// Fetches `now_playing` + `uptime` for every station.
@@ -101,6 +135,20 @@ private struct StationsEnvelope: Decodable {
     let data: StationsPayload
     struct StationsPayload: Decodable {
         let stations: [Station]
+    }
+}
+
+private struct StationPlaylistEnvelope: Decodable {
+    let data: StationPlaylistPayload
+    // swiftlint:disable:next nesting
+    struct StationPlaylistPayload: Decodable {
+        let stations: [StationPlaylistEntry]
+    }
+    // swiftlint:disable:next nesting
+    struct StationPlaylistEntry: Decodable {
+        let id: Int
+        let slug: String
+        let playlist_items: [PlaylistItem]?
     }
 }
 

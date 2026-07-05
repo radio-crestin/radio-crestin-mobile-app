@@ -36,12 +36,28 @@ struct NowPlayingView: View {
     }
     @FocusState private var controlFocus: ControlFocus?
 
+    /// Drives the live playlist sync: poll only while this screen is
+    /// visible AND the scene is active.
+    @Environment(\.scenePhase) private var scenePhase
+
     var body: some View {
         ZStack {
-            if station.hasOnlyYouTubeItems {
+            if player.playlistDepleted {
+                // A live sync removed every playable item mid-session.
+                unavailableLayout(
+                    icon: "rectangle.on.rectangle.slash",
+                    message: "Playlistul nu mai conține nimic de redat. Conținutul a fost actualizat între timp — încearcă din nou mai târziu."
+                )
+            } else if station.hasOnlyYouTubeItems
+                        && player.currentPlaylistItem == nil {
                 // Playlist with only YouTube entries — nothing tvOS can
                 // embed. Explain rather than showing a broken player.
-                youTubeOnlyLayout
+                // (Cleared automatically if a live sync brings playable
+                // items and playback starts.)
+                unavailableLayout(
+                    icon: "play.rectangle.on.rectangle",
+                    message: "Acest playlist conține doar clipuri YouTube, care nu pot fi redate pe Apple TV. Deschide aplicația Radio Creștin pe telefon pentru a le viziona."
+                )
             } else if player.isVideoContent {
                 // TV station or a playlist video item — full-bleed video
                 // with a self-managing auto-hiding control overlay.
@@ -70,6 +86,31 @@ struct NowPlayingView: View {
                 lastTrackedSongId = key
             }
         }
+        // Live playlist sync lifecycle: poll every 5s while this screen
+        // shows a playlist station and the scene is active; stop on
+        // disappear, backgrounding, or navigating to another station.
+        .onAppear { startPlaylistSyncIfNeeded() }
+        .onDisappear { player.stopPlaylistSync() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                startPlaylistSyncIfNeeded()
+            } else {
+                player.stopPlaylistSync()
+            }
+        }
+        .onChange(of: station.id) { _, _ in
+            // Prev/next can swap the station under this mounted view —
+            // restart (or stop) the poller to match the new kind.
+            player.stopPlaylistSync()
+            startPlaylistSyncIfNeeded()
+        }
+    }
+
+    /// Start polling only when the visible station is a playlist and the
+    /// scene is active. `startPlaylistSync` itself is double-start safe.
+    private func startPlaylistSyncIfNeeded() {
+        guard station.kind == .playlist, scenePhase == .active else { return }
+        player.startPlaylistSync()
     }
 
     // MARK: - Audio layout (radio + playlist audio items)
@@ -134,19 +175,22 @@ struct NowPlayingView: View {
 
     private var isPlaylist: Bool { station.kind == .playlist }
 
-    // MARK: - YouTube-only fallback
+    // MARK: - Unavailable fallback (YouTube-only / emptied playlist)
 
-    private var youTubeOnlyLayout: some View {
+    private func unavailableLayout(
+        icon: String,
+        message: String
+    ) -> some View {
         ZStack {
             Theme.background.ignoresSafeArea()
             VStack(spacing: Theme.Spacing.lg) {
-                Image(systemName: "play.rectangle.on.rectangle")
+                Image(systemName: icon)
                     .font(.system(size: 90))
                     .foregroundStyle(Theme.textTertiary)
                 Text(station.title)
                     .font(.system(size: 34, weight: .bold))
                     .foregroundStyle(Theme.textPrimary)
-                Text("Acest playlist conține doar clipuri YouTube, care nu pot fi redate pe Apple TV. Deschide aplicația Radio Creștin pe telefon pentru a le viziona.")
+                Text(message)
                     .font(.system(size: 24))
                     .foregroundStyle(Theme.textSecondary)
                     .multilineTextAlignment(.center)
