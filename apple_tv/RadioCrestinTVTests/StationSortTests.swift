@@ -8,10 +8,11 @@ final class StationSortTests: XCTestCase {
         title: String,
         listeners: Int? = 0,
         avgRating: Double = 0,
-        reviewCount: Int = 0
+        reviewCount: Int = 0,
+        id: Int? = nil
     ) -> Station {
         Station(
-            id: abs(slug.hashValue),
+            id: id ?? abs(slug.hashValue),
             slug: slug,
             title: title,
             order: 0,
@@ -26,7 +27,9 @@ final class StationSortTests: XCTestCase {
             reviewsStats: ReviewsStats(
                 averageRating: avgRating,
                 numberOfReviews: reviewCount
-            )
+            ),
+            stationType: nil,
+            playlistItems: nil
         )
     }
 
@@ -169,6 +172,56 @@ final class StationSortTests: XCTestCase {
         )
         let top3 = Array(sorted[1...3]).map(\.slug)
         XCTAssertFalse(top3.contains("s7"))
+    }
+
+    // MARK: - Private stations pinned first
+
+    func test_private_stations_pin_first_in_alphabetical() {
+        let stations = [
+            station(slug: "a", title: "Alpha", id: 1),
+            station(slug: "z", title: "Zulu (privat)", id: 100),
+            station(slug: "b", title: "Beta", id: 2),
+            station(slug: "m", title: "Mike (privat)", id: 101),
+        ]
+        let sorted = StationSortService.sort(
+            stations, by: .alphabetical,
+            playCounts: [:], favoriteSlugs: [],
+            privateIds: [100, 101]
+        )
+        // Private block first (alphabetical among themselves), then the
+        // public stations alphabetically.
+        XCTAssertEqual(sorted.map(\.id), [101, 100, 1, 2])
+    }
+
+    func test_private_stations_pin_first_in_listeners_sort() {
+        let stations = [
+            station(slug: "pub-big", title: "P", listeners: 500, id: 1),
+            station(slug: "priv-small", title: "S", listeners: 1, id: 100),
+        ]
+        let sorted = StationSortService.sort(
+            stations, by: .listeners,
+            playCounts: [:], favoriteSlugs: [],
+            privateIds: [100]
+        )
+        // Even with far fewer listeners, the private station pins first.
+        XCTAssertEqual(sorted.map(\.id), [100, 1])
+    }
+
+    func test_no_private_ids_leaves_order_unchanged() {
+        let stations = [
+            station(slug: "b", title: "Beta"),
+            station(slug: "a", title: "Alpha"),
+        ]
+        let withDefault = StationSortService.sort(
+            stations, by: .alphabetical,
+            playCounts: [:], favoriteSlugs: []
+        )
+        let withEmpty = StationSortService.sort(
+            stations, by: .alphabetical,
+            playCounts: [:], favoriteSlugs: [],
+            privateIds: []
+        )
+        XCTAssertEqual(withDefault.map(\.slug), withEmpty.map(\.slug))
     }
 
     // MARK: - Score snapshot

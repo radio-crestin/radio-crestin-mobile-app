@@ -34,7 +34,34 @@ enum StationSort: String, CaseIterable, Identifiable {
 /// Pure sort helpers. Inputs are the station list + per-user signals
 /// (play counts, favorites). Output is a deterministic ordering.
 enum StationSortService {
+    /// Sorts the station list. Stations whose id is in `privateIds`
+    /// (device-allowlisted private stations) are pinned FIRST in every
+    /// sort mode — sorted among themselves by the same criteria — with
+    /// the sorted public stations following.
     static func sort(
+        _ stations: [Station],
+        by option: StationSort,
+        playCounts: [String: Int],
+        favoriteSlugs: Set<String>,
+        privateIds: Set<Int> = []
+    ) -> [Station] {
+        guard !privateIds.isEmpty else {
+            return sortCore(stations, by: option,
+                            playCounts: playCounts,
+                            favoriteSlugs: favoriteSlugs)
+        }
+        let privatePart = stations.filter { privateIds.contains($0.id) }
+        let publicPart = stations.filter { !privateIds.contains($0.id) }
+        return sortCore(privatePart, by: option,
+                        playCounts: playCounts,
+                        favoriteSlugs: favoriteSlugs)
+            + sortCore(publicPart, by: option,
+                       playCounts: playCounts,
+                       favoriteSlugs: favoriteSlugs)
+    }
+
+    /// Applies one sort strategy to a homogeneous partition.
+    private static func sortCore(
         _ stations: [Station],
         by option: StationSort,
         playCounts: [String: Int],
