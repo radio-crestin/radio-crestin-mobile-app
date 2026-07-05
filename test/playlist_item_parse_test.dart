@@ -25,11 +25,11 @@ void main() {
       expect(item.durationSeconds, 1800);
     });
 
-    test('applies safe defaults for missing/unknown fields', () {
+    test('applies safe defaults for missing fields', () {
       final item = PlaylistItem.fromJson({'id': 1});
       expect(item.id, 1);
       expect(item.order, 0);
-      expect(item.type, PlaylistItemType.audio); // unknown/missing → audio
+      expect(item.type, PlaylistItemType.audio); // missing type → audio (legacy)
       expect(item.url, '');
       expect(item.title, '');
       expect(item.thumbnailUrl, isNull);
@@ -39,6 +39,16 @@ void main() {
     test('parses youtube type', () {
       final item = PlaylistItem.fromJson({'id': 2, 'type': 'youtube'});
       expect(item.type, PlaylistItemType.youtube);
+    });
+
+    test('parses youtube_playlist type', () {
+      final item = PlaylistItem.fromJson({'id': 3, 'type': 'youtube_playlist'});
+      expect(item.type, PlaylistItemType.youtubePlaylist);
+    });
+
+    test('maps an unrecognized future type to unknown (never audio)', () {
+      final item = PlaylistItem.fromJson({'id': 4, 'type': 'hologram'});
+      expect(item.type, PlaylistItemType.unknown);
     });
   });
 

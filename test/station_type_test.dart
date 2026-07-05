@@ -26,15 +26,36 @@ void main() {
   });
 
   group('PlaylistItemType.parse', () {
-    test('defaults to audio when null or unknown', () {
+    test('defaults to audio only when null or empty (legacy items)', () {
       expect(PlaylistItemType.parse(null), PlaylistItemType.audio);
-      expect(PlaylistItemType.parse('whatever'), PlaylistItemType.audio);
+      expect(PlaylistItemType.parse(''), PlaylistItemType.audio);
+      expect(PlaylistItemType.parse('   '), PlaylistItemType.audio);
+    });
+
+    test('maps an unrecognized non-empty value to unknown (not audio)', () {
+      expect(PlaylistItemType.parse('whatever'), PlaylistItemType.unknown);
+      expect(PlaylistItemType.parse('podcast'), PlaylistItemType.unknown);
+      expect(PlaylistItemType.parse('livestream'), PlaylistItemType.unknown);
     });
 
     test('parses case-insensitively', () {
       expect(PlaylistItemType.parse('audio'), PlaylistItemType.audio);
       expect(PlaylistItemType.parse('Video'), PlaylistItemType.video);
       expect(PlaylistItemType.parse('YOUTUBE'), PlaylistItemType.youtube);
+      expect(PlaylistItemType.parse('youtube_playlist'),
+          PlaylistItemType.youtubePlaylist);
+      expect(PlaylistItemType.parse('YouTube_Playlist'),
+          PlaylistItemType.youtubePlaylist);
+      expect(PlaylistItemType.parse('  youtube_playlist '),
+          PlaylistItemType.youtubePlaylist);
+    });
+
+    test('isYoutube covers single videos and whole playlists only', () {
+      expect(PlaylistItemType.youtube.isYoutube, isTrue);
+      expect(PlaylistItemType.youtubePlaylist.isYoutube, isTrue);
+      expect(PlaylistItemType.audio.isYoutube, isFalse);
+      expect(PlaylistItemType.video.isYoutube, isFalse);
+      expect(PlaylistItemType.unknown.isYoutube, isFalse);
     });
   });
 

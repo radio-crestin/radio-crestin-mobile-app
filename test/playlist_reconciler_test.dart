@@ -210,6 +210,90 @@ void main() {
       );
     });
 
+    test('skips youtube_playlist items too when skipYoutube (car/cast)', () {
+      final items = [
+        item(1, type: PlaylistItemType.audio),
+        item(2, type: PlaylistItemType.youtubePlaylist),
+        item(3, type: PlaylistItemType.audio),
+      ];
+      expect(
+        PlaylistNavigator.nextPlayableIndex(
+          items: items,
+          fromIndex: 0,
+          skipYoutube: true,
+          loop: true,
+        ),
+        2, // youtube_playlist at index 1 stepped over
+      );
+    });
+
+    test('plays youtube_playlist items when not skipping (phone/TV)', () {
+      final items = [
+        item(1, type: PlaylistItemType.audio),
+        item(2, type: PlaylistItemType.youtubePlaylist),
+        item(3, type: PlaylistItemType.audio),
+      ];
+      expect(
+        PlaylistNavigator.nextPlayableIndex(
+          items: items,
+          fromIndex: 0,
+          skipYoutube: false,
+          loop: true,
+        ),
+        1,
+      );
+    });
+
+    test('always skips unknown items, even when not skipping youtube', () {
+      final items = [
+        item(1, type: PlaylistItemType.audio),
+        item(2, type: PlaylistItemType.unknown),
+        item(3, type: PlaylistItemType.audio),
+      ];
+      expect(
+        PlaylistNavigator.nextPlayableIndex(
+          items: items,
+          fromIndex: 0,
+          skipYoutube: false,
+          loop: true,
+        ),
+        2, // unknown at index 1 is never playable
+      );
+    });
+
+    test('skips a leading unknown when picking the first playable item', () {
+      final items = [
+        item(1, type: PlaylistItemType.unknown),
+        item(2, type: PlaylistItemType.youtube),
+        item(3, type: PlaylistItemType.audio),
+      ];
+      expect(
+        PlaylistNavigator.nextPlayableIndex(
+          items: items,
+          fromIndex: -1,
+          skipYoutube: false,
+          loop: false,
+        ),
+        1, // unknown skipped, youtube is playable off-car
+      );
+    });
+
+    test('returns -1 when every item is unknown', () {
+      final items = [
+        item(1, type: PlaylistItemType.unknown),
+        item(2, type: PlaylistItemType.unknown),
+      ];
+      expect(
+        PlaylistNavigator.nextPlayableIndex(
+          items: items,
+          fromIndex: -1,
+          skipYoutube: false,
+          loop: true,
+        ),
+        -1,
+      );
+    });
+
     test('returns -1 when every item is youtube and skipping (car)', () {
       final items = [
         item(1, type: PlaylistItemType.youtube),
