@@ -51,6 +51,26 @@ class HomePage extends StatefulWidget {
 class CustomPanelController extends PanelController {
   final BehaviorSubject<bool> isDraggableSubject = BehaviorSubject.seeded(true);
 
+  /// Whether the panel is expanded enough to show video / YouTube surfaces.
+  /// Driven by the panel slide/open/close callbacks; the full player uses it to
+  /// hide the inline YouTube iframe while collapsed (the webview stays mounted
+  /// and playing — only its inline surface is hidden).
+  final BehaviorSubject<bool> isExpandedSubject = BehaviorSubject.seeded(false);
+
+  /// Threshold (0..1) above which the panel counts as expanded. Just below 1 so
+  /// the video only appears at the very end of opening and hides the instant a
+  /// close starts — no surface bleeds over the mini player during the slide.
+  static const double expandedThreshold = 0.92;
+
+  /// Updates [isExpandedSubject] from a panel position, deduping so a slide
+  /// doesn't spam identical values every frame.
+  void updateExpandedFromPosition(double position) {
+    final expanded = position >= expandedThreshold;
+    if (isExpandedSubject.value != expanded) {
+      isExpandedSubject.add(expanded);
+    }
+  }
+
   setIsDraggable(bool isDraggable) {
     assert(isAttached, "PanelController must be attached to a SlidingUpPanel");
     isDraggableSubject.add(isDraggable);
@@ -717,8 +737,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               controller: slidingUpPanelController,
               onPanelSlide: (position) {
                 _panelSlide.value = position;
+                // Drive the YouTube inline-surface visibility off the live
+                // position so it hides the instant a close starts (no bleed
+                // over the mini player during the slide).
+                slidingUpPanelController.updateExpandedFromPosition(position);
               },
               onPanelOpened: () {
+                slidingUpPanelController.isExpandedSubject.add(true);
                 // The playlist track list is only visible while the full player
                 // is open — start the 5s live reconcile so item add/remove is
                 // reflected, but only for playlist stations.
@@ -728,6 +753,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 }
               },
               onPanelClosed: () {
+                slidingUpPanelController.isExpandedSubject.add(false);
                 // Panel hidden — stop the playlist live reconcile (playback
                 // continues; the list just isn't on screen). Harmless no-op for
                 // non-playlist stations.
@@ -917,7 +943,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                     stations: favoriteStations,
                                     currentStation: currentStation,
                                     audioHandler: _audioHandler,
-                                    panelController: null,
+                                    panelController: slidingUpPanelController,
                                     favoriteSlugs: favoriteSlugs,
                                     isFavoritesList: true,
                                   )),
@@ -989,7 +1015,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                 stations: nonFavoriteStations,
                                 currentStation: currentStation,
                                 audioHandler: _audioHandler,
-                                panelController: null,
+                                panelController: slidingUpPanelController,
                                 favoriteSlugs: favoriteSlugs,
                               ),
                             ),
