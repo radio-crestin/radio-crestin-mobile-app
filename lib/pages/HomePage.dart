@@ -32,6 +32,7 @@ import '../services/station_sort_service.dart';
 import '../widgets/connectivity_banner.dart';
 import '../widgets/bottom_toast.dart';
 import '../widgets/cast_button.dart';
+import '../widgets/mini_player_bottom_inset.dart';
 import '../widgets/promo_notification_card.dart';
 import '../services/promo_notification_service.dart';
 import '../services/analytics_service.dart';
@@ -709,7 +710,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               children: [
               SlidingUpPanel(
               maxHeight: panelMaxHeight - (Platform.isIOS ? 12 : bottomPadding),
-              minHeight: 96,
+              minHeight: kMiniPlayerCollapsedHeight,
               backdropEnabled: true,
               backdropTapClosesPanel: true,
               boxShadow: const [],
@@ -984,16 +985,21 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                   ],
                                 ),
                               ),
-                              sliver: SliverPadding(
-                                  padding: EdgeInsets.only(bottom: Platform.isIOS ? 80.0 : 110.0),
-                                  sliver: StationsList(
-                                    stations: nonFavoriteStations,
-                                    currentStation: currentStation,
-                                    audioHandler: _audioHandler,
-                                    panelController: null,
-                                    favoriteSlugs: favoriteSlugs,
-                                  )),
+                              sliver: StationsList(
+                                stations: nonFavoriteStations,
+                                currentStation: currentStation,
+                                audioHandler: _audioHandler,
+                                panelController: null,
+                                favoriteSlugs: favoriteSlugs,
+                              ),
                             ),
+                          // Bottom inset so the last rows clear the collapsed
+                          // mini player. Once, at the very end of the scroll
+                          // view — not per section. Animates 0 <-> mini player
+                          // height as the player appears/disappears. The safe
+                          // area is already consumed by the outer Container
+                          // padding, so this is exactly the collapsed height.
+                          MiniPlayerBottomInset(visible: currentStation != null),
                         ],
                         ),
                         ),
