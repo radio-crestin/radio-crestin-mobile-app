@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:radio_crestin/theme.dart';
+import 'package:sliding_up_panel2/sliding_up_panel2.dart';
 
 import '../appAudioHandler.dart';
 import '../services/playlist_controller.dart';
@@ -43,10 +44,16 @@ class PlaylistPlayerSection extends StatefulWidget {
     super.key,
     required this.audioHandler,
     required this.station,
+    this.panelExpanded = true,
   });
 
   final AppAudioHandler audioHandler;
   final Station station;
+
+  /// Whether the sliding panel is expanded. When false (collapsed to the mini
+  /// player) the inline YouTube surface is hidden — the iframe stays mounted and
+  /// keeps playing, only its visible surface is suppressed.
+  final bool panelExpanded;
 
   @override
   State<PlaylistPlayerSection> createState() => _PlaylistPlayerSectionState();
@@ -124,10 +131,6 @@ class _PlaylistPlayerSectionState extends State<PlaylistPlayerSection> {
 
   @override
   Widget build(BuildContext context) {
-    final count = _items.length;
-    final counterLabel =
-        count > 0 && _currentIndex >= 0 ? '${_currentIndex + 1} / $count' : '';
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -140,43 +143,30 @@ class _PlaylistPlayerSectionState extends State<PlaylistPlayerSection> {
             item: _currentItem,
             isVideoContent: _isVideoContent,
             isYoutubeContent: _isYoutubeContent,
+            panelExpanded: widget.panelExpanded,
           ),
         ),
         const SizedBox(height: 14),
-        // Counter + current item title.
+        // Current item title. The old "n / total" counter row was removed to
+        // give the track list more vertical room; the highlighted current row
+        // in the list below already conveys position.
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              if (counterLabel.isNotEmpty)
-                Text(
-                  counterLabel,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.4,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              const SizedBox(height: 4),
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 250),
-                transitionBuilder: (child, animation) =>
-                    FadeTransition(opacity: animation, child: child),
-                child: Text(
-                  _currentItem?.title ?? 'Element indisponibil',
-                  key: ValueKey('pl-title-${_currentItem?.id}'),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 19,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 250),
+            transitionBuilder: (child, animation) =>
+                FadeTransition(opacity: animation, child: child),
+            child: Text(
+              _currentItem?.title ?? 'Element indisponibil',
+              key: ValueKey('pl-title-${_currentItem?.id}'),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 19,
+                fontWeight: FontWeight.w700,
               ),
-            ],
+            ),
           ),
         ),
         const SizedBox(height: 10),
@@ -199,14 +189,19 @@ class _PlaylistPlayerSectionState extends State<PlaylistPlayerSection> {
         ),
         const SizedBox(height: 12),
         // Track list — live-reconciling, current item highlighted.
+        // Wrapped in [IgnoreDraggableWidget] so touches that start on the list
+        // scroll it instead of dragging the sliding panel; the drag handle and
+        // the non-list areas above keep dragging the panel as usual.
         Expanded(
-          child: _TrackList(
-            controller: _listController,
-            items: _items,
-            currentIndex: _currentIndex,
-            rowExtent: _rowExtent,
-            stationThumbnailUrl: widget.station.thumbnailUrl,
-            onTap: (index) => _controller.playItemAt(index),
+          child: IgnoreDraggableWidget(
+            child: _TrackList(
+              controller: _listController,
+              items: _items,
+              currentIndex: _currentIndex,
+              rowExtent: _rowExtent,
+              stationThumbnailUrl: widget.station.thumbnailUrl,
+              onTap: (index) => _controller.playItemAt(index),
+            ),
           ),
         ),
       ],
@@ -224,6 +219,7 @@ class _MediaSurface extends StatelessWidget {
     required this.item,
     required this.isVideoContent,
     required this.isYoutubeContent,
+    required this.panelExpanded,
   });
 
   final AppAudioHandler audioHandler;
@@ -232,6 +228,7 @@ class _MediaSurface extends StatelessWidget {
   final PlaylistItem? item;
   final bool isVideoContent;
   final bool isYoutubeContent;
+  final bool panelExpanded;
 
   @override
   Widget build(BuildContext context) {
@@ -239,9 +236,16 @@ class _MediaSurface extends StatelessWidget {
     final String kind;
     if (isYoutubeContent && item != null) {
       kind = 'yt-${item!.id}';
-      child = YoutubeIframePlayer(
-        item: item!,
-        controller: controller,
+      // The webview lives in the app overlay and follows an inline placeholder;
+      // Offstage stops the placeholder compositing so the overlay unlinks and
+      // hides while collapsed, WITHOUT unmounting the iframe — audio keeps
+      // playing (the play/pause command channel is unaffected).
+      child = Offstage(
+        offstage: !panelExpanded,
+        child: YoutubeIframePlayer(
+          item: item!,
+          controller: controller,
+        ),
       );
     } else if (isVideoContent) {
       kind = 'video-${item?.id}';

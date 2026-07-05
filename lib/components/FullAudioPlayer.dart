@@ -116,6 +116,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   bool isTimerActive = false;
   Station? currentStation;
   bool _isVideoMode = false;
+  bool _panelExpanded = false;
   final List _subscriptions = [];
   List<String> _favoriteSlugs = [];
   final _playButtonKey = GlobalKey<AnimatedPlayButtonState>();
@@ -128,6 +129,17 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     if (artist.isNotEmpty) return '$title - $artist';
     if (title.isNotEmpty) return title;
     return currentStation?.title ?? '';
+  }
+
+  /// Primary line under the artwork for radio/TV stations: the song title when
+  /// one is playing, a "Transmisiune live" label for an idle TV channel, or the
+  /// generic idle placeholder (so a station without metadata never looks blank).
+  String _primaryLine() {
+    final s = currentStation;
+    if (s == null) return "Metadate indisponibile";
+    if (s.songTitle.isNotEmpty) return s.songTitle;
+    if (s.isTv) return "Transmisiune live";
+    return "Metadate indisponibile";
   }
 
   @override
@@ -155,6 +167,18 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
       if (mounted) {
         setState(() {
           _isVideoMode = value;
+        });
+      }
+    }));
+
+    // Whether the panel is expanded — gates the inline YouTube surface so it is
+    // hidden (but still mounted + playing) while collapsed to the mini player.
+    _panelExpanded = widget.slidingUpPanelController.isExpandedSubject.value;
+    _subscriptions.add(
+        widget.slidingUpPanelController.isExpandedSubject.stream.listen((value) {
+      if (mounted) {
+        setState(() {
+          _panelExpanded = value;
         });
       }
     }));
@@ -248,7 +272,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                 key: ValueKey('song-${currentStation?.songTitle}-${currentStation?.id}'),
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 child: Text(
-                  currentStation?.songTitle ?? "Metadate indisponibile",
+                  _primaryLine(),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
@@ -608,6 +632,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
               child: PlaylistPlayerSection(
                 audioHandler: widget.audioHandler,
                 station: station,
+                panelExpanded: _panelExpanded,
               ),
             ),
             // Slim action row: favorite | share | sleep.
