@@ -3,6 +3,7 @@ import 'dart:developer' as developer;
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:audio_service/audio_service.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_carplay/flutter_carplay.dart';
 import 'package:get_it/get_it.dart';
@@ -188,6 +189,88 @@ class CarPlayService {
   static String get _pleaseWait => _isRomanian ? 'Vă rugăm așteptați' : 'Please wait';
   static String get _noFavorites => _isRomanian ? 'Nicio stație favorită' : 'No favorite stations';
   static String get _addFavoritesHint => _isRomanian ? 'Adaugă stații la favorite din aplicație' : 'Add favorite stations from the app';
+
+  // ---------------------------------------------------------------------------
+  // Row / player display helpers (new station types: radio / tv / playlist)
+  // ---------------------------------------------------------------------------
+
+  /// Pure core for a station row's detail/subtitle text in the car lists.
+  ///
+  /// Radio/TV stations show their now-playing song line ([displaySubtitle],
+  /// empty when idle). A "playlist" station has no now-playing song, so its
+  /// [displaySubtitle] is always empty — fall back to a localized "Playlist"
+  /// label so the row isn't blank and the station kind reads clearly in the car.
+  static String? computeStationListSubtitle({
+    required String displaySubtitle,
+    required bool isPlaylist,
+    required bool isRomanian,
+  }) {
+    if (displaySubtitle.isNotEmpty) return displaySubtitle;
+    if (isPlaylist) return isRomanian ? 'Listă de redare' : 'Playlist';
+    return null;
+  }
+
+  String? _stationListSubtitle(Station station) => computeStationListSubtitle(
+        displaySubtitle: station.displaySubtitle,
+        isPlaylist: station.isPlaylist,
+        isRomanian: _isRomanian,
+      );
+
+  /// Pure core for the Android Auto player screen's "now playing" fields.
+  ///
+  /// In playlist mode the "song" line is the current playlist ITEM title (with
+  /// the station/playlist name as the secondary line), because a playlist
+  /// station's own now-playing song is always empty. Radio/TV keep their
+  /// now-playing song. [imageUrlSource] is a raw URL the caller resolves to a
+  /// cached file:// path when available.
+  static ({String songTitle, String songArtist, String? imageUrlSource})
+      computePlayerFields({
+    required bool inPlaylistMode,
+    required String? playlistItemTitle,
+    required String? playlistItemImageUrl,
+    required String stationTitle,
+    required String stationSongTitle,
+    required String stationSongArtist,
+    required String? stationThumbnailUrl,
+  }) {
+    if (inPlaylistMode) {
+      return (
+        songTitle: playlistItemTitle ?? '',
+        songArtist: stationTitle,
+        imageUrlSource: playlistItemImageUrl ?? stationThumbnailUrl,
+      );
+    }
+    return (
+      songTitle: stationSongTitle,
+      songArtist: stationSongArtist,
+      imageUrlSource: stationThumbnailUrl,
+    );
+  }
+
+  /// Android Auto player fields for [station], playlist-aware. Reads the
+  /// broadcast [MediaItem] (item title/artwork) when [station] is the active
+  /// playlist station, then resolves the image to a cached path if present.
+  ({String songTitle, String songArtist, String? imageUrl}) _playerFields(
+    Station station,
+  ) {
+    final inPlaylist = _audioHandler.isPlaylistMode &&
+        _audioHandler.currentStation.value?.id == station.id;
+    final MediaItem? mi = inPlaylist ? _audioHandler.mediaItem.valueOrNull : null;
+    final core = computePlayerFields(
+      inPlaylistMode: inPlaylist,
+      playlistItemTitle: mi?.displayTitle ?? mi?.title,
+      playlistItemImageUrl: mi?.artUri?.toString(),
+      stationTitle: station.title,
+      stationSongTitle: station.songTitle,
+      stationSongArtist: station.artist,
+      stationThumbnailUrl: station.thumbnailUrl,
+    );
+    return (
+      songTitle: core.songTitle,
+      songArtist: core.songArtist,
+      imageUrl: _cachedOrNetworkUrl(core.imageUrlSource),
+    );
+  }
 
   Future<void> initialize() async {
     _log("Initializing CarPlay/Android Auto service");
@@ -580,7 +663,7 @@ class CarPlayService {
     for (final station in sortedStations) {
       final item = CPListItem(
         text: station.title,
-        detailText: station.displaySubtitle.isNotEmpty ? station.displaySubtitle : null,
+        detailText: _stationListSubtitle(station),
         image: _cachedOrNetworkUrl(station.thumbnailUrl),
         isPlaying: station.slug == currentSlug && isCurrentlyPlaying,
         onPress: (complete, item) async {
@@ -612,7 +695,7 @@ class CarPlayService {
       final isFavorite = favoriteSlugs.contains(station.slug);
       final item = CPListItem(
         text: isFavorite ? "★ ${station.title}" : station.title,
-        detailText: station.displaySubtitle.isNotEmpty ? station.displaySubtitle : null,
+        detailText: _stationListSubtitle(station),
         image: _cachedOrNetworkUrl(station.thumbnailUrl),
         isPlaying: station.slug == currentSlug && isCurrentlyPlaying,
         onPress: (complete, item) async {
@@ -674,15 +757,13 @@ class CarPlayService {
     for (final slug in _favoriteListItems.keys) {
       final station = stationMap[slug];
       if (station == null) continue;
-      final subtitle = station.displaySubtitle;
-      _favoriteListItems[slug]!.setDetailText(subtitle);
+      _favoriteListItems[slug]!.setDetailText(_stationListSubtitle(station) ?? '');
     }
 
     for (final slug in _allStationsListItems.keys) {
       final station = stationMap[slug];
       if (station == null) continue;
-      final subtitle = station.displaySubtitle;
-      _allStationsListItems[slug]!.setDetailText(subtitle);
+      _allStationsListItems[slug]!.setDetailText(_stationListSubtitle(station) ?? '');
     }
 
     _flutterCarplay?.forceUpdateRootTemplate();
@@ -888,13 +969,16 @@ class CarPlayService {
   Future<void> _pushAndroidAutoPlayer(Station station) async {
     final isFav = _isFavorite(station.slug);
     final isPlaying = _audioHandler.playbackState.value.playing;
+    // Playlist-aware: for a playlist station the "song" line is the current
+    // item title/artwork (station now-playing is empty for playlists).
+    final fields = _playerFields(station);
 
     try {
       await FlutterAndroidAuto.pushPlayer(
         stationTitle: station.title,
-        songTitle: station.songTitle,
-        songArtist: station.artist,
-        imageUrl: _cachedOrNetworkUrl(station.thumbnailUrl),
+        songTitle: fields.songTitle,
+        songArtist: fields.songArtist,
+        imageUrl: fields.imageUrl,
         isPlaying: isPlaying,
         isFavorite: isFav,
       );
@@ -918,8 +1002,12 @@ class CarPlayService {
 
     final isFav = _isFavorite(station.slug);
     final isPlaying = _audioHandler.playbackState.value.playing;
-    final songTitle = latestStation.songTitle;
-    final artist = latestStation.artist;
+    // Playlist-aware fields: item title/artwork in playlist mode, else the
+    // station's now-playing song. Advancing a playlist item changes the
+    // broadcast mediaItem, which flips the dedup keys below and refreshes.
+    final fields = _playerFields(latestStation);
+    final songTitle = fields.songTitle;
+    final artist = fields.songArtist;
 
     // Skip update if nothing changed (prevents flickering on periodic polls)
     if (_lastPlayerStationSlug == station.slug &&
@@ -941,7 +1029,7 @@ class CarPlayService {
         stationTitle: latestStation.title,
         songTitle: songTitle,
         songArtist: artist,
-        imageUrl: _cachedOrNetworkUrl(latestStation.thumbnailUrl),
+        imageUrl: fields.imageUrl,
         isPlaying: isPlaying,
         isFavorite: isFav,
       );
@@ -1035,6 +1123,10 @@ class CarPlayService {
         _audioHandler.playbackState.stream.map((_) => 'playback'),
         _stationDataService.stations.stream.map((_) => 'metadata'),
         _stationDataService.sortOrderChanged.stream.map((_) => 'sort'),
+        // Playlist item advances change the broadcast mediaItem (not the
+        // station), so the player screen must refresh off it too. Only updates
+        // the player (dedup-guarded); never triggers a list rebuild.
+        _audioHandler.mediaItem.stream.map((_) => 'mediaitem'),
       ]).listen((source) {
         // Refresh sorted stations from single source of truth
         _updateSortedAndroidAutoStations();
@@ -1107,9 +1199,7 @@ class CarPlayService {
             // Mark the active station regardless of play/pause state.
             // The play/pause state is shown on the player screen, not the list.
             final isActive = station.slug == currentSlug;
-            final subtitle = station.displaySubtitle.isNotEmpty
-                ? station.displaySubtitle
-                : null;
+            final subtitle = _stationListSubtitle(station);
             return AAListItem(
               title: isActive ? "▶ ${station.title}" : station.title,
               subtitle: subtitle,
