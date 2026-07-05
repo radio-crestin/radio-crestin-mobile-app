@@ -26,6 +26,7 @@ import '../types/Station.dart';
 import '../widgets/animated_play_button.dart';
 import '../widgets/player_video_surface.dart';
 import '../widgets/playlist_player_section.dart';
+import '../widgets/video_overlay_controls.dart';
 
 /// Responsive sizing for the full-screen player, derived from the screen size.
 @immutable
@@ -268,7 +269,11 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                 textAlign: TextAlign.center,
               ),
             ),
-            const Spacer(flex: 1),
+            // Video mode pulls the media high on the screen ("video dominates
+            // the top"); the audio layout keeps the artwork vertically centered.
+            _isVideoMode
+                ? const SizedBox(height: 12)
+                : const Spacer(flex: 1),
             // Artwork — crossfades between the station thumbnail and the live
             // video surface (TV stations) when video mode engages.
             _buildArtwork(context, thumbSize),
@@ -547,21 +552,28 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   /// surface (for TV stations in video mode).
   Widget _buildArtwork(BuildContext context, double thumbSize) {
     if (_isVideoMode) {
-      final screenWidth = MediaQuery.of(context).size.width;
-      final videoWidth =
-          (screenWidth - 48).clamp(0.0, thumbSize * 16 / 9).toDouble();
-      final videoHeight = videoWidth * 9 / 16;
+      // Big, edge-to-edge (minus a ~12px margin) 16:9 video with the
+      // YouTube-style overlay controls. TV channels are live, so the overlay
+      // shows the LIVE pill and no scrubber.
+      final isLive = currentStation?.isTv ?? false;
       return AnimatedSwitcher(
         duration: const Duration(milliseconds: 300),
         transitionBuilder: (child, animation) =>
             FadeTransition(opacity: animation, child: child),
-        child: SizedBox(
+        child: Padding(
           key: const ValueKey('player-video-surface'),
-          width: videoWidth,
-          height: videoHeight,
-          child: PlayerVideoSurface(
-            videoService: widget.audioHandler.videoService,
-            showLivePill: currentStation?.isTv ?? false,
+          padding: const EdgeInsets.symmetric(horizontal: 12.0),
+          child: AspectRatio(
+            aspectRatio: 16 / 9,
+            child: VideoPlayerStage(
+              videoService: widget.audioHandler.videoService,
+              title: currentStation?.displayTitle ?? '',
+              isLive: isLive,
+              showTransport: false,
+              onPlay: widget.audioHandler.play,
+              onPause: widget.audioHandler.pause,
+              onSeek: isLive ? null : widget.audioHandler.seek,
+            ),
           ),
         ),
       );

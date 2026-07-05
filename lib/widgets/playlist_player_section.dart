@@ -13,6 +13,7 @@ import '../utils.dart';
 import 'animated_play_button.dart';
 import 'bottom_toast.dart';
 import 'player_video_surface.dart';
+import 'video_overlay_controls.dart';
 import 'youtube_iframe_player.dart';
 
 /// Formats a duration as `m:ss` (or `h:mm:ss` past an hour) for the VOD
@@ -78,10 +79,11 @@ class _PlaylistPlayerSectionState extends State<PlaylistPlayerSection> {
   Set<int> _failedIds = const {};
   OverlayEntry? _skipToast;
 
-  /// A whole-playlist YouTube item — the item-level scrubber is meaningless, so
-  /// it stays hidden (single youtube videos keep a working, seekable scrubber).
-  bool get _isYoutubePlaylist =>
-      _currentItem?.type == PlaylistItemType.youtubePlaylist;
+  /// The persistent below-video scrubber is shown only for audio items: video
+  /// items carry their scrubber on the video overlay, and YouTube items use the
+  /// native iframe controls (both would otherwise be a confusing duplicate).
+  bool get _showBelowScrubber =>
+      _currentItem?.type == PlaylistItemType.audio;
 
   @override
   void initState() {
@@ -159,8 +161,9 @@ class _PlaylistPlayerSectionState extends State<PlaylistPlayerSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // Edge-to-edge (minus a ~12px margin) 16:9 media area.
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20.0),
+          padding: const EdgeInsets.symmetric(horizontal: 12.0),
           child: _MediaSurface(
             audioHandler: widget.audioHandler,
             controller: _controller,
@@ -196,9 +199,9 @@ class _PlaylistPlayerSectionState extends State<PlaylistPlayerSection> {
           ),
         ),
         const SizedBox(height: 10),
-        // Scrubber: audio/video VOD and single YouTube videos are seekable; a
-        // whole YouTube playlist has no item-level timeline, so it's hidden.
-        if (!_isYoutubePlaylist)
+        // Persistent scrubber for audio items only (video → overlay scrubber,
+        // YouTube → native controls). Same styling as the overlay seek bar.
+        if (_showBelowScrubber)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: _VodProgressBar(
@@ -207,8 +210,9 @@ class _PlaylistPlayerSectionState extends State<PlaylistPlayerSection> {
             ),
           ),
         const SizedBox(height: 6),
-        // Transport: prev | play/pause | next. Play/pause routes through the
-        // handler for every item type (YouTube included).
+        // Transport: prev | play/pause | next. Duplicates the video overlay for
+        // accessibility (always visible even when the overlay auto-hides).
+        // Play/pause routes through the handler for every item type.
         _Transport(
           audioHandler: widget.audioHandler,
           playButtonKey: _playButtonKey,
@@ -271,17 +275,33 @@ class _MediaSurface extends StatelessWidget {
       // The webview lives in the app overlay and follows an inline placeholder;
       // Offstage stops the placeholder compositing so the overlay unlinks and
       // hides while collapsed, WITHOUT unmounting the iframe — audio keeps
-      // playing (the play/pause command channel is unaffected).
-      child = Offstage(
-        offstage: !panelExpanded,
-        child: YoutubeIframePlayer(
-          item: item!,
-          controller: controller,
+      // playing (the play/pause command channel is unaffected). The rounded
+      // clip matches the media_kit video frame for a consistent maximized look.
+      child = ClipRRect(
+        borderRadius: const BorderRadius.all(Radius.circular(16)),
+        child: Offstage(
+          offstage: !panelExpanded,
+          child: YoutubeIframePlayer(
+            item: item!,
+            controller: controller,
+          ),
         ),
       );
     } else if (isVideoContent) {
       kind = 'video-${item?.id}';
-      child = PlayerVideoSurface(videoService: audioHandler.videoService);
+      // Big video with the YouTube-style overlay: draggable seek bar, prev/next,
+      // double-tap ±10s and fullscreen. VOD (playlist items are not live).
+      child = VideoPlayerStage(
+        videoService: audioHandler.videoService,
+        title: item?.title ?? station.displayTitle,
+        isLive: false,
+        showTransport: true,
+        onPlay: audioHandler.play,
+        onPause: audioHandler.pause,
+        onSkipNext: audioHandler.skipToNext,
+        onSkipPrevious: audioHandler.skipToPrevious,
+        onSeek: (d) => controller.seek(d),
+      );
     } else {
       kind = 'audio-${item?.id}';
       child = _AudioArtwork(
@@ -323,7 +343,7 @@ class _AudioArtwork extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: const BorderRadius.all(Radius.circular(12)),
+      borderRadius: const BorderRadius.all(Radius.circular(16)),
       child: ColoredBox(
         color: Colors.black,
         child: Center(
@@ -483,14 +503,14 @@ class _Transport extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.all(10.0),
             child: Icon(Icons.skip_previous_rounded,
-                size: 40, color: Theme.of(context).colorScheme.onSurface),
+                size: 30, color: Theme.of(context).colorScheme.onSurface),
           ),
         ),
         const SizedBox(width: 24),
         AnimatedPlayButton(
           key: playButtonKey,
           playbackStateStream: audioHandler.playbackState,
-          iconSize: 52,
+          iconSize: 48,
           iconColor: Theme.of(context).colorScheme.onPrimary,
           backgroundColor: Theme.of(context).bottomAppBarTheme.color,
           onPlay: audioHandler.play,
@@ -507,7 +527,7 @@ class _Transport extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.all(10.0),
             child: Icon(Icons.skip_next_rounded,
-                size: 40, color: Theme.of(context).colorScheme.onSurface),
+                size: 30, color: Theme.of(context).colorScheme.onSurface),
           ),
         ),
       ],
