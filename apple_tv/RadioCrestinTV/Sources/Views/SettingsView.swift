@@ -7,6 +7,7 @@ struct SettingsView: View {
     @ObservedObject var appState: AppState
 
     @State private var openLink: LegalLink?
+    @State private var showContact = false
 
     private struct LegalLink: Identifiable {
         let id: String
@@ -23,6 +24,7 @@ struct SettingsView: View {
                     .padding(.bottom, Theme.Spacing.md)
 
                 aboutSection
+                contactSection
                 legalSection
             }
             .padding(.horizontal, Theme.Spacing.xxl)
@@ -40,6 +42,12 @@ struct SettingsView: View {
                 .transition(.opacity)
             }
         }
+        .overlay {
+            if showContact {
+                ContactSheet(onDismiss: { showContact = false })
+                    .transition(.opacity)
+            }
+        }
     }
 
     // MARK: - Sections
@@ -55,6 +63,15 @@ struct SettingsView: View {
             Row(icon: "info.circle", title: "Versiune",
                 subtitle: appVersionString,
                 action: nil)
+        ])
+    }
+
+    private var contactSection: some View {
+        section(title: "Contact", rows: [
+            Row(icon: "message.fill",
+                title: "Contactează-ne pe WhatsApp",
+                subtitle: "Scanează codul QR cu telefonul pentru a ne scrie",
+                action: { openContact() })
         ])
     }
 
@@ -134,6 +151,12 @@ struct SettingsView: View {
     }
 
     // MARK: - Actions
+
+    private func openContact() {
+        // Same event name the iPhone app fires (`SettingsPage.dart`).
+        Analytics.capture("whatsapp_contact", properties: ["platform": "apple_tv"])
+        showContact = true
+    }
 
     private func openTerms() {
         guard let url = URL(string: "https://www.radiocrestin.ro/terms") else { return }

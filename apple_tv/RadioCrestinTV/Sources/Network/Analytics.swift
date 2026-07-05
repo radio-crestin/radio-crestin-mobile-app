@@ -38,6 +38,13 @@ enum Analytics {
         PostHogSDK.shared.screen(name, properties: properties)
     }
 
+    /// Anonymous PostHog identity for this device. Embedded in the WhatsApp
+    /// contact message so support can correlate a report with analytics —
+    /// mirrors `globals.deviceId` in the Flutter apps.
+    static var distinctId: String {
+        PostHogSDK.shared.getDistinctId()
+    }
+
     static func captureError(
         _ error: Error,
         context: String,
