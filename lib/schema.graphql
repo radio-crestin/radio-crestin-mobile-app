@@ -279,6 +279,18 @@ type StationType {
   posts(limit: Int = null, order_by: PostOrderBy = null): [PostType!]!
   total_listeners: Int
   reviews: [ReviewType!]!
+  station_type: String
+  playlist_items: [StationPlaylistItemType!]
+}
+
+type StationPlaylistItemType {
+  id: Int!
+  order: Int
+  type: String
+  url: String
+  title: String
+  thumbnail_url: String
+  duration_seconds: Int
 }
 
 type StationUptimeType {

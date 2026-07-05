@@ -17,12 +17,18 @@ class Query$GetStations {
     final l$$__typename = json['__typename'];
     return Query$GetStations(
       stations: (l$stations as List<dynamic>)
-          .map((e) =>
-              Query$GetStations$stations.fromJson((e as Map<String, dynamic>)))
+          .map(
+            (e) => Query$GetStations$stations.fromJson(
+              (e as Map<String, dynamic>),
+            ),
+          )
           .toList(),
       station_groups: (l$station_groups as List<dynamic>)
-          .map((e) => Query$GetStations$station_groups.fromJson(
-              (e as Map<String, dynamic>)))
+          .map(
+            (e) => Query$GetStations$station_groups.fromJson(
+              (e as Map<String, dynamic>),
+            ),
+          )
           .toList(),
       $__typename: (l$$__typename as String),
     );
@@ -39,8 +45,9 @@ class Query$GetStations {
     final l$stations = stations;
     _resultData['stations'] = l$stations.map((e) => e.toJson()).toList();
     final l$station_groups = station_groups;
-    _resultData['station_groups'] =
-        l$station_groups.map((e) => e.toJson()).toList();
+    _resultData['station_groups'] = l$station_groups
+        .map((e) => e.toJson())
+        .toList();
     final l$$__typename = $__typename;
     _resultData['__typename'] = l$$__typename;
     return _resultData;
@@ -63,7 +70,7 @@ class Query$GetStations {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Query$GetStations) || runtimeType != other.runtimeType) {
+    if (other is! Query$GetStations || runtimeType != other.runtimeType) {
       return false;
     }
     final l$stations = stations;
@@ -101,10 +108,7 @@ class Query$GetStations {
 
 extension UtilityExtension$Query$GetStations on Query$GetStations {
   CopyWith$Query$GetStations<Query$GetStations> get copyWith =>
-      CopyWith$Query$GetStations(
-        this,
-        (i) => i,
-      );
+      CopyWith$Query$GetStations(this, (i) => i);
 }
 
 abstract class CopyWith$Query$GetStations<TRes> {
@@ -122,25 +126,26 @@ abstract class CopyWith$Query$GetStations<TRes> {
     String? $__typename,
   });
   TRes stations(
-      Iterable<Query$GetStations$stations> Function(
-              Iterable<
-                  CopyWith$Query$GetStations$stations<
-                      Query$GetStations$stations>>)
-          _fn);
+    Iterable<Query$GetStations$stations> Function(
+      Iterable<CopyWith$Query$GetStations$stations<Query$GetStations$stations>>,
+    )
+    _fn,
+  );
   TRes station_groups(
-      Iterable<Query$GetStations$station_groups> Function(
-              Iterable<
-                  CopyWith$Query$GetStations$station_groups<
-                      Query$GetStations$station_groups>>)
-          _fn);
+    Iterable<Query$GetStations$station_groups> Function(
+      Iterable<
+        CopyWith$Query$GetStations$station_groups<
+          Query$GetStations$station_groups
+        >
+      >,
+    )
+    _fn,
+  );
 }
 
 class _CopyWithImpl$Query$GetStations<TRes>
     implements CopyWith$Query$GetStations<TRes> {
-  _CopyWithImpl$Query$GetStations(
-    this._instance,
-    this._then,
-  );
+  _CopyWithImpl$Query$GetStations(this._instance, this._then);
 
   final Query$GetStations _instance;
 
@@ -152,44 +157,49 @@ class _CopyWithImpl$Query$GetStations<TRes>
     Object? stations = _undefined,
     Object? station_groups = _undefined,
     Object? $__typename = _undefined,
-  }) =>
-      _then(Query$GetStations(
-        stations: stations == _undefined || stations == null
-            ? _instance.stations
-            : (stations as List<Query$GetStations$stations>),
-        station_groups: station_groups == _undefined || station_groups == null
-            ? _instance.station_groups
-            : (station_groups as List<Query$GetStations$station_groups>),
-        $__typename: $__typename == _undefined || $__typename == null
-            ? _instance.$__typename
-            : ($__typename as String),
-      ));
+  }) => _then(
+    Query$GetStations(
+      stations: stations == _undefined || stations == null
+          ? _instance.stations
+          : (stations as List<Query$GetStations$stations>),
+      station_groups: station_groups == _undefined || station_groups == null
+          ? _instance.station_groups
+          : (station_groups as List<Query$GetStations$station_groups>),
+      $__typename: $__typename == _undefined || $__typename == null
+          ? _instance.$__typename
+          : ($__typename as String),
+    ),
+  );
 
   TRes stations(
-          Iterable<Query$GetStations$stations> Function(
-                  Iterable<
-                      CopyWith$Query$GetStations$stations<
-                          Query$GetStations$stations>>)
-              _fn) =>
-      call(
-          stations: _fn(
-              _instance.stations.map((e) => CopyWith$Query$GetStations$stations(
-                    e,
-                    (i) => i,
-                  ))).toList());
+    Iterable<Query$GetStations$stations> Function(
+      Iterable<CopyWith$Query$GetStations$stations<Query$GetStations$stations>>,
+    )
+    _fn,
+  ) => call(
+    stations: _fn(
+      _instance.stations.map(
+        (e) => CopyWith$Query$GetStations$stations(e, (i) => i),
+      ),
+    ).toList(),
+  );
 
   TRes station_groups(
-          Iterable<Query$GetStations$station_groups> Function(
-                  Iterable<
-                      CopyWith$Query$GetStations$station_groups<
-                          Query$GetStations$station_groups>>)
-              _fn) =>
-      call(
-          station_groups: _fn(_instance.station_groups
-              .map((e) => CopyWith$Query$GetStations$station_groups(
-                    e,
-                    (i) => i,
-                  ))).toList());
+    Iterable<Query$GetStations$station_groups> Function(
+      Iterable<
+        CopyWith$Query$GetStations$station_groups<
+          Query$GetStations$station_groups
+        >
+      >,
+    )
+    _fn,
+  ) => call(
+    station_groups: _fn(
+      _instance.station_groups.map(
+        (e) => CopyWith$Query$GetStations$station_groups(e, (i) => i),
+      ),
+    ).toList(),
+  );
 }
 
 class _CopyWithStubImpl$Query$GetStations<TRes>
@@ -202,321 +212,188 @@ class _CopyWithStubImpl$Query$GetStations<TRes>
     List<Query$GetStations$stations>? stations,
     List<Query$GetStations$station_groups>? station_groups,
     String? $__typename,
-  }) =>
-      _res;
+  }) => _res;
 
   stations(_fn) => _res;
 
   station_groups(_fn) => _res;
 }
 
-const documentNodeQueryGetStations = DocumentNode(definitions: [
-  OperationDefinitionNode(
-    type: OperationType.query,
-    name: NameNode(value: 'GetStations'),
-    variableDefinitions: [],
-    directives: [],
-    selectionSet: SelectionSetNode(selections: [
-      FieldNode(
-        name: NameNode(value: 'stations'),
-        alias: null,
-        arguments: [
-          ArgumentNode(
-            name: NameNode(value: 'order_by'),
-            value: ObjectValueNode(fields: [
-              ObjectFieldNode(
-                name: NameNode(value: 'order'),
-                value: EnumValueNode(name: NameNode(value: 'asc')),
-              ),
-              ObjectFieldNode(
-                name: NameNode(value: 'title'),
-                value: EnumValueNode(name: NameNode(value: 'asc')),
-              ),
-            ]),
-          )
-        ],
-        directives: [],
-        selectionSet: SelectionSetNode(selections: [
+const documentNodeQueryGetStations = DocumentNode(
+  definitions: [
+    OperationDefinitionNode(
+      type: OperationType.query,
+      name: NameNode(value: 'GetStations'),
+      variableDefinitions: [],
+      directives: [],
+      selectionSet: SelectionSetNode(
+        selections: [
           FieldNode(
-            name: NameNode(value: 'id'),
-            alias: null,
-            arguments: [],
-            directives: [],
-            selectionSet: null,
-          ),
-          FieldNode(
-            name: NameNode(value: 'slug'),
-            alias: null,
-            arguments: [],
-            directives: [],
-            selectionSet: null,
-          ),
-          FieldNode(
-            name: NameNode(value: 'order'),
-            alias: null,
-            arguments: [],
-            directives: [],
-            selectionSet: null,
-          ),
-          FieldNode(
-            name: NameNode(value: 'title'),
-            alias: null,
-            arguments: [],
-            directives: [],
-            selectionSet: null,
-          ),
-          FieldNode(
-            name: NameNode(value: 'website'),
-            alias: null,
-            arguments: [],
-            directives: [],
-            selectionSet: null,
-          ),
-          FieldNode(
-            name: NameNode(value: 'email'),
-            alias: null,
-            arguments: [],
-            directives: [],
-            selectionSet: null,
-          ),
-          FieldNode(
-            name: NameNode(value: 'thumbnail_url'),
-            alias: null,
-            arguments: [],
-            directives: [],
-            selectionSet: null,
-          ),
-          FieldNode(
-            name: NameNode(value: 'total_listeners'),
-            alias: null,
-            arguments: [],
-            directives: [],
-            selectionSet: null,
-          ),
-          FieldNode(
-            name: NameNode(value: 'description'),
-            alias: null,
-            arguments: [],
-            directives: [],
-            selectionSet: null,
-          ),
-          FieldNode(
-            name: NameNode(value: 'description_action_title'),
-            alias: null,
-            arguments: [],
-            directives: [],
-            selectionSet: null,
-          ),
-          FieldNode(
-            name: NameNode(value: 'description_link'),
-            alias: null,
-            arguments: [],
-            directives: [],
-            selectionSet: null,
-          ),
-          FieldNode(
-            name: NameNode(value: 'feature_latest_post'),
-            alias: null,
-            arguments: [],
-            directives: [],
-            selectionSet: null,
-          ),
-          FieldNode(
-            name: NameNode(value: 'facebook_page_id'),
-            alias: null,
-            arguments: [],
-            directives: [],
-            selectionSet: null,
-          ),
-          FieldNode(
-            name: NameNode(value: 'station_streams'),
-            alias: null,
-            arguments: [],
-            directives: [],
-            selectionSet: SelectionSetNode(selections: [
-              FieldNode(
-                name: NameNode(value: 'order'),
-                alias: null,
-                arguments: [],
-                directives: [],
-                selectionSet: null,
-              ),
-              FieldNode(
-                name: NameNode(value: 'type'),
-                alias: null,
-                arguments: [],
-                directives: [],
-                selectionSet: null,
-              ),
-              FieldNode(
-                name: NameNode(value: 'stream_url'),
-                alias: null,
-                arguments: [],
-                directives: [],
-                selectionSet: null,
-              ),
-              FieldNode(
-                name: NameNode(value: '__typename'),
-                alias: null,
-                arguments: [],
-                directives: [],
-                selectionSet: null,
-              ),
-            ]),
-          ),
-          FieldNode(
-            name: NameNode(value: 'posts'),
+            name: NameNode(value: 'stations'),
             alias: null,
             arguments: [
               ArgumentNode(
-                name: NameNode(value: 'limit'),
-                value: IntValueNode(value: '1'),
-              ),
-              ArgumentNode(
                 name: NameNode(value: 'order_by'),
-                value: ObjectValueNode(fields: [
-                  ObjectFieldNode(
-                    name: NameNode(value: 'published'),
-                    value: EnumValueNode(name: NameNode(value: 'desc')),
-                  )
-                ]),
+                value: ObjectValueNode(
+                  fields: [
+                    ObjectFieldNode(
+                      name: NameNode(value: 'order'),
+                      value: EnumValueNode(name: NameNode(value: 'asc')),
+                    ),
+                    ObjectFieldNode(
+                      name: NameNode(value: 'title'),
+                      value: EnumValueNode(name: NameNode(value: 'asc')),
+                    ),
+                  ],
+                ),
               ),
             ],
             directives: [],
-            selectionSet: SelectionSetNode(selections: [
-              FieldNode(
-                name: NameNode(value: 'id'),
-                alias: null,
-                arguments: [],
-                directives: [],
-                selectionSet: null,
-              ),
-              FieldNode(
-                name: NameNode(value: 'title'),
-                alias: null,
-                arguments: [],
-                directives: [],
-                selectionSet: null,
-              ),
-              FieldNode(
-                name: NameNode(value: 'description'),
-                alias: null,
-                arguments: [],
-                directives: [],
-                selectionSet: null,
-              ),
-              FieldNode(
-                name: NameNode(value: 'link'),
-                alias: null,
-                arguments: [],
-                directives: [],
-                selectionSet: null,
-              ),
-              FieldNode(
-                name: NameNode(value: 'published'),
-                alias: null,
-                arguments: [],
-                directives: [],
-                selectionSet: null,
-              ),
-              FieldNode(
-                name: NameNode(value: '__typename'),
-                alias: null,
-                arguments: [],
-                directives: [],
-                selectionSet: null,
-              ),
-            ]),
-          ),
-          FieldNode(
-            name: NameNode(value: 'uptime'),
-            alias: null,
-            arguments: [],
-            directives: [],
-            selectionSet: SelectionSetNode(selections: [
-              FieldNode(
-                name: NameNode(value: 'is_up'),
-                alias: null,
-                arguments: [],
-                directives: [],
-                selectionSet: null,
-              ),
-              FieldNode(
-                name: NameNode(value: 'latency_ms'),
-                alias: null,
-                arguments: [],
-                directives: [],
-                selectionSet: null,
-              ),
-              FieldNode(
-                name: NameNode(value: 'timestamp'),
-                alias: null,
-                arguments: [],
-                directives: [],
-                selectionSet: null,
-              ),
-              FieldNode(
-                name: NameNode(value: '__typename'),
-                alias: null,
-                arguments: [],
-                directives: [],
-                selectionSet: null,
-              ),
-            ]),
-          ),
-          FieldNode(
-            name: NameNode(value: 'now_playing'),
-            alias: null,
-            arguments: [],
-            directives: [],
-            selectionSet: SelectionSetNode(selections: [
-              FieldNode(
-                name: NameNode(value: 'id'),
-                alias: null,
-                arguments: [],
-                directives: [],
-                selectionSet: null,
-              ),
-              FieldNode(
-                name: NameNode(value: 'timestamp'),
-                alias: null,
-                arguments: [],
-                directives: [],
-                selectionSet: null,
-              ),
-              FieldNode(
-                name: NameNode(value: 'song'),
-                alias: null,
-                arguments: [],
-                directives: [],
-                selectionSet: SelectionSetNode(selections: [
-                  FieldNode(
-                    name: NameNode(value: 'id'),
-                    alias: null,
-                    arguments: [],
-                    directives: [],
-                    selectionSet: null,
+            selectionSet: SelectionSetNode(
+              selections: [
+                FieldNode(
+                  name: NameNode(value: 'id'),
+                  alias: null,
+                  arguments: [],
+                  directives: [],
+                  selectionSet: null,
+                ),
+                FieldNode(
+                  name: NameNode(value: 'slug'),
+                  alias: null,
+                  arguments: [],
+                  directives: [],
+                  selectionSet: null,
+                ),
+                FieldNode(
+                  name: NameNode(value: 'order'),
+                  alias: null,
+                  arguments: [],
+                  directives: [],
+                  selectionSet: null,
+                ),
+                FieldNode(
+                  name: NameNode(value: 'title'),
+                  alias: null,
+                  arguments: [],
+                  directives: [],
+                  selectionSet: null,
+                ),
+                FieldNode(
+                  name: NameNode(value: 'website'),
+                  alias: null,
+                  arguments: [],
+                  directives: [],
+                  selectionSet: null,
+                ),
+                FieldNode(
+                  name: NameNode(value: 'email'),
+                  alias: null,
+                  arguments: [],
+                  directives: [],
+                  selectionSet: null,
+                ),
+                FieldNode(
+                  name: NameNode(value: 'thumbnail_url'),
+                  alias: null,
+                  arguments: [],
+                  directives: [],
+                  selectionSet: null,
+                ),
+                FieldNode(
+                  name: NameNode(value: 'total_listeners'),
+                  alias: null,
+                  arguments: [],
+                  directives: [],
+                  selectionSet: null,
+                ),
+                FieldNode(
+                  name: NameNode(value: 'description'),
+                  alias: null,
+                  arguments: [],
+                  directives: [],
+                  selectionSet: null,
+                ),
+                FieldNode(
+                  name: NameNode(value: 'description_action_title'),
+                  alias: null,
+                  arguments: [],
+                  directives: [],
+                  selectionSet: null,
+                ),
+                FieldNode(
+                  name: NameNode(value: 'description_link'),
+                  alias: null,
+                  arguments: [],
+                  directives: [],
+                  selectionSet: null,
+                ),
+                FieldNode(
+                  name: NameNode(value: 'feature_latest_post'),
+                  alias: null,
+                  arguments: [],
+                  directives: [],
+                  selectionSet: null,
+                ),
+                FieldNode(
+                  name: NameNode(value: 'facebook_page_id'),
+                  alias: null,
+                  arguments: [],
+                  directives: [],
+                  selectionSet: null,
+                ),
+                FieldNode(
+                  name: NameNode(value: 'station_streams'),
+                  alias: null,
+                  arguments: [],
+                  directives: [],
+                  selectionSet: SelectionSetNode(
+                    selections: [
+                      FieldNode(
+                        name: NameNode(value: 'order'),
+                        alias: null,
+                        arguments: [],
+                        directives: [],
+                        selectionSet: null,
+                      ),
+                      FieldNode(
+                        name: NameNode(value: 'type'),
+                        alias: null,
+                        arguments: [],
+                        directives: [],
+                        selectionSet: null,
+                      ),
+                      FieldNode(
+                        name: NameNode(value: 'stream_url'),
+                        alias: null,
+                        arguments: [],
+                        directives: [],
+                        selectionSet: null,
+                      ),
+                      FieldNode(
+                        name: NameNode(value: '__typename'),
+                        alias: null,
+                        arguments: [],
+                        directives: [],
+                        selectionSet: null,
+                      ),
+                    ],
                   ),
-                  FieldNode(
-                    name: NameNode(value: 'name'),
-                    alias: null,
-                    arguments: [],
-                    directives: [],
-                    selectionSet: null,
-                  ),
-                  FieldNode(
-                    name: NameNode(value: 'thumbnail_url'),
-                    alias: null,
-                    arguments: [],
-                    directives: [],
-                    selectionSet: null,
-                  ),
-                  FieldNode(
-                    name: NameNode(value: 'artist'),
-                    alias: null,
-                    arguments: [],
-                    directives: [],
-                    selectionSet: SelectionSetNode(selections: [
+                ),
+                FieldNode(
+                  name: NameNode(value: 'station_type'),
+                  alias: null,
+                  arguments: [],
+                  directives: [],
+                  selectionSet: null,
+                ),
+                FieldNode(
+                  name: NameNode(value: 'playlist_items'),
+                  alias: null,
+                  arguments: [],
+                  directives: [],
+                  selectionSet: SelectionSetNode(
+                    selections: [
                       FieldNode(
                         name: NameNode(value: 'id'),
                         alias: null,
@@ -525,7 +402,28 @@ const documentNodeQueryGetStations = DocumentNode(definitions: [
                         selectionSet: null,
                       ),
                       FieldNode(
-                        name: NameNode(value: 'name'),
+                        name: NameNode(value: 'order'),
+                        alias: null,
+                        arguments: [],
+                        directives: [],
+                        selectionSet: null,
+                      ),
+                      FieldNode(
+                        name: NameNode(value: 'type'),
+                        alias: null,
+                        arguments: [],
+                        directives: [],
+                        selectionSet: null,
+                      ),
+                      FieldNode(
+                        name: NameNode(value: 'url'),
+                        alias: null,
+                        arguments: [],
+                        directives: [],
+                        selectionSet: null,
+                      ),
+                      FieldNode(
+                        name: NameNode(value: 'title'),
                         alias: null,
                         arguments: [],
                         directives: [],
@@ -539,67 +437,358 @@ const documentNodeQueryGetStations = DocumentNode(definitions: [
                         selectionSet: null,
                       ),
                       FieldNode(
+                        name: NameNode(value: 'duration_seconds'),
+                        alias: null,
+                        arguments: [],
+                        directives: [],
+                        selectionSet: null,
+                      ),
+                      FieldNode(
                         name: NameNode(value: '__typename'),
                         alias: null,
                         arguments: [],
                         directives: [],
                         selectionSet: null,
                       ),
-                    ]),
+                    ],
                   ),
-                  FieldNode(
-                    name: NameNode(value: '__typename'),
-                    alias: null,
-                    arguments: [],
-                    directives: [],
-                    selectionSet: null,
+                ),
+                FieldNode(
+                  name: NameNode(value: 'posts'),
+                  alias: null,
+                  arguments: [
+                    ArgumentNode(
+                      name: NameNode(value: 'limit'),
+                      value: IntValueNode(value: '1'),
+                    ),
+                    ArgumentNode(
+                      name: NameNode(value: 'order_by'),
+                      value: ObjectValueNode(
+                        fields: [
+                          ObjectFieldNode(
+                            name: NameNode(value: 'published'),
+                            value: EnumValueNode(name: NameNode(value: 'desc')),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  directives: [],
+                  selectionSet: SelectionSetNode(
+                    selections: [
+                      FieldNode(
+                        name: NameNode(value: 'id'),
+                        alias: null,
+                        arguments: [],
+                        directives: [],
+                        selectionSet: null,
+                      ),
+                      FieldNode(
+                        name: NameNode(value: 'title'),
+                        alias: null,
+                        arguments: [],
+                        directives: [],
+                        selectionSet: null,
+                      ),
+                      FieldNode(
+                        name: NameNode(value: 'description'),
+                        alias: null,
+                        arguments: [],
+                        directives: [],
+                        selectionSet: null,
+                      ),
+                      FieldNode(
+                        name: NameNode(value: 'link'),
+                        alias: null,
+                        arguments: [],
+                        directives: [],
+                        selectionSet: null,
+                      ),
+                      FieldNode(
+                        name: NameNode(value: 'published'),
+                        alias: null,
+                        arguments: [],
+                        directives: [],
+                        selectionSet: null,
+                      ),
+                      FieldNode(
+                        name: NameNode(value: '__typename'),
+                        alias: null,
+                        arguments: [],
+                        directives: [],
+                        selectionSet: null,
+                      ),
+                    ],
                   ),
-                ]),
-              ),
-              FieldNode(
-                name: NameNode(value: '__typename'),
-                alias: null,
-                arguments: [],
-                directives: [],
-                selectionSet: null,
-              ),
-            ]),
+                ),
+                FieldNode(
+                  name: NameNode(value: 'uptime'),
+                  alias: null,
+                  arguments: [],
+                  directives: [],
+                  selectionSet: SelectionSetNode(
+                    selections: [
+                      FieldNode(
+                        name: NameNode(value: 'is_up'),
+                        alias: null,
+                        arguments: [],
+                        directives: [],
+                        selectionSet: null,
+                      ),
+                      FieldNode(
+                        name: NameNode(value: 'latency_ms'),
+                        alias: null,
+                        arguments: [],
+                        directives: [],
+                        selectionSet: null,
+                      ),
+                      FieldNode(
+                        name: NameNode(value: 'timestamp'),
+                        alias: null,
+                        arguments: [],
+                        directives: [],
+                        selectionSet: null,
+                      ),
+                      FieldNode(
+                        name: NameNode(value: '__typename'),
+                        alias: null,
+                        arguments: [],
+                        directives: [],
+                        selectionSet: null,
+                      ),
+                    ],
+                  ),
+                ),
+                FieldNode(
+                  name: NameNode(value: 'now_playing'),
+                  alias: null,
+                  arguments: [],
+                  directives: [],
+                  selectionSet: SelectionSetNode(
+                    selections: [
+                      FieldNode(
+                        name: NameNode(value: 'id'),
+                        alias: null,
+                        arguments: [],
+                        directives: [],
+                        selectionSet: null,
+                      ),
+                      FieldNode(
+                        name: NameNode(value: 'timestamp'),
+                        alias: null,
+                        arguments: [],
+                        directives: [],
+                        selectionSet: null,
+                      ),
+                      FieldNode(
+                        name: NameNode(value: 'song'),
+                        alias: null,
+                        arguments: [],
+                        directives: [],
+                        selectionSet: SelectionSetNode(
+                          selections: [
+                            FieldNode(
+                              name: NameNode(value: 'id'),
+                              alias: null,
+                              arguments: [],
+                              directives: [],
+                              selectionSet: null,
+                            ),
+                            FieldNode(
+                              name: NameNode(value: 'name'),
+                              alias: null,
+                              arguments: [],
+                              directives: [],
+                              selectionSet: null,
+                            ),
+                            FieldNode(
+                              name: NameNode(value: 'thumbnail_url'),
+                              alias: null,
+                              arguments: [],
+                              directives: [],
+                              selectionSet: null,
+                            ),
+                            FieldNode(
+                              name: NameNode(value: 'artist'),
+                              alias: null,
+                              arguments: [],
+                              directives: [],
+                              selectionSet: SelectionSetNode(
+                                selections: [
+                                  FieldNode(
+                                    name: NameNode(value: 'id'),
+                                    alias: null,
+                                    arguments: [],
+                                    directives: [],
+                                    selectionSet: null,
+                                  ),
+                                  FieldNode(
+                                    name: NameNode(value: 'name'),
+                                    alias: null,
+                                    arguments: [],
+                                    directives: [],
+                                    selectionSet: null,
+                                  ),
+                                  FieldNode(
+                                    name: NameNode(value: 'thumbnail_url'),
+                                    alias: null,
+                                    arguments: [],
+                                    directives: [],
+                                    selectionSet: null,
+                                  ),
+                                  FieldNode(
+                                    name: NameNode(value: '__typename'),
+                                    alias: null,
+                                    arguments: [],
+                                    directives: [],
+                                    selectionSet: null,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            FieldNode(
+                              name: NameNode(value: '__typename'),
+                              alias: null,
+                              arguments: [],
+                              directives: [],
+                              selectionSet: null,
+                            ),
+                          ],
+                        ),
+                      ),
+                      FieldNode(
+                        name: NameNode(value: '__typename'),
+                        alias: null,
+                        arguments: [],
+                        directives: [],
+                        selectionSet: null,
+                      ),
+                    ],
+                  ),
+                ),
+                FieldNode(
+                  name: NameNode(value: 'reviews'),
+                  alias: null,
+                  arguments: [],
+                  directives: [],
+                  selectionSet: SelectionSetNode(
+                    selections: [
+                      FieldNode(
+                        name: NameNode(value: 'id'),
+                        alias: null,
+                        arguments: [],
+                        directives: [],
+                        selectionSet: null,
+                      ),
+                      FieldNode(
+                        name: NameNode(value: 'stars'),
+                        alias: null,
+                        arguments: [],
+                        directives: [],
+                        selectionSet: null,
+                      ),
+                      FieldNode(
+                        name: NameNode(value: 'message'),
+                        alias: null,
+                        arguments: [],
+                        directives: [],
+                        selectionSet: null,
+                      ),
+                      FieldNode(
+                        name: NameNode(value: '__typename'),
+                        alias: null,
+                        arguments: [],
+                        directives: [],
+                        selectionSet: null,
+                      ),
+                    ],
+                  ),
+                ),
+                FieldNode(
+                  name: NameNode(value: '__typename'),
+                  alias: null,
+                  arguments: [],
+                  directives: [],
+                  selectionSet: null,
+                ),
+              ],
+            ),
           ),
           FieldNode(
-            name: NameNode(value: 'reviews'),
+            name: NameNode(value: 'station_groups'),
             alias: null,
             arguments: [],
             directives: [],
-            selectionSet: SelectionSetNode(selections: [
-              FieldNode(
-                name: NameNode(value: 'id'),
-                alias: null,
-                arguments: [],
-                directives: [],
-                selectionSet: null,
-              ),
-              FieldNode(
-                name: NameNode(value: 'stars'),
-                alias: null,
-                arguments: [],
-                directives: [],
-                selectionSet: null,
-              ),
-              FieldNode(
-                name: NameNode(value: 'message'),
-                alias: null,
-                arguments: [],
-                directives: [],
-                selectionSet: null,
-              ),
-              FieldNode(
-                name: NameNode(value: '__typename'),
-                alias: null,
-                arguments: [],
-                directives: [],
-                selectionSet: null,
-              ),
-            ]),
+            selectionSet: SelectionSetNode(
+              selections: [
+                FieldNode(
+                  name: NameNode(value: 'id'),
+                  alias: null,
+                  arguments: [],
+                  directives: [],
+                  selectionSet: null,
+                ),
+                FieldNode(
+                  name: NameNode(value: 'name'),
+                  alias: null,
+                  arguments: [],
+                  directives: [],
+                  selectionSet: null,
+                ),
+                FieldNode(
+                  name: NameNode(value: 'order'),
+                  alias: null,
+                  arguments: [],
+                  directives: [],
+                  selectionSet: null,
+                ),
+                FieldNode(
+                  name: NameNode(value: 'slug'),
+                  alias: null,
+                  arguments: [],
+                  directives: [],
+                  selectionSet: null,
+                ),
+                FieldNode(
+                  name: NameNode(value: 'station_to_station_groups'),
+                  alias: null,
+                  arguments: [],
+                  directives: [],
+                  selectionSet: SelectionSetNode(
+                    selections: [
+                      FieldNode(
+                        name: NameNode(value: 'station_id'),
+                        alias: null,
+                        arguments: [],
+                        directives: [],
+                        selectionSet: null,
+                      ),
+                      FieldNode(
+                        name: NameNode(value: 'order'),
+                        alias: null,
+                        arguments: [],
+                        directives: [],
+                        selectionSet: null,
+                      ),
+                      FieldNode(
+                        name: NameNode(value: '__typename'),
+                        alias: null,
+                        arguments: [],
+                        directives: [],
+                        selectionSet: null,
+                      ),
+                    ],
+                  ),
+                ),
+                FieldNode(
+                  name: NameNode(value: '__typename'),
+                  alias: null,
+                  arguments: [],
+                  directives: [],
+                  selectionSet: null,
+                ),
+              ],
+            ),
           ),
           FieldNode(
             name: NameNode(value: '__typename'),
@@ -608,96 +797,15 @@ const documentNodeQueryGetStations = DocumentNode(definitions: [
             directives: [],
             selectionSet: null,
           ),
-        ]),
+        ],
       ),
-      FieldNode(
-        name: NameNode(value: 'station_groups'),
-        alias: null,
-        arguments: [],
-        directives: [],
-        selectionSet: SelectionSetNode(selections: [
-          FieldNode(
-            name: NameNode(value: 'id'),
-            alias: null,
-            arguments: [],
-            directives: [],
-            selectionSet: null,
-          ),
-          FieldNode(
-            name: NameNode(value: 'name'),
-            alias: null,
-            arguments: [],
-            directives: [],
-            selectionSet: null,
-          ),
-          FieldNode(
-            name: NameNode(value: 'order'),
-            alias: null,
-            arguments: [],
-            directives: [],
-            selectionSet: null,
-          ),
-          FieldNode(
-            name: NameNode(value: 'slug'),
-            alias: null,
-            arguments: [],
-            directives: [],
-            selectionSet: null,
-          ),
-          FieldNode(
-            name: NameNode(value: 'station_to_station_groups'),
-            alias: null,
-            arguments: [],
-            directives: [],
-            selectionSet: SelectionSetNode(selections: [
-              FieldNode(
-                name: NameNode(value: 'station_id'),
-                alias: null,
-                arguments: [],
-                directives: [],
-                selectionSet: null,
-              ),
-              FieldNode(
-                name: NameNode(value: 'order'),
-                alias: null,
-                arguments: [],
-                directives: [],
-                selectionSet: null,
-              ),
-              FieldNode(
-                name: NameNode(value: '__typename'),
-                alias: null,
-                arguments: [],
-                directives: [],
-                selectionSet: null,
-              ),
-            ]),
-          ),
-          FieldNode(
-            name: NameNode(value: '__typename'),
-            alias: null,
-            arguments: [],
-            directives: [],
-            selectionSet: null,
-          ),
-        ]),
-      ),
-      FieldNode(
-        name: NameNode(value: '__typename'),
-        alias: null,
-        arguments: [],
-        directives: [],
-        selectionSet: null,
-      ),
-    ]),
-  ),
-]);
+    ),
+  ],
+);
 Query$GetStations _parserFn$Query$GetStations(Map<String, dynamic> data) =>
     Query$GetStations.fromJson(data);
-typedef OnQueryComplete$Query$GetStations = FutureOr<void> Function(
-  Map<String, dynamic>?,
-  Query$GetStations?,
-);
+typedef OnQueryComplete$Query$GetStations =
+    FutureOr<void> Function(Map<String, dynamic>?, Query$GetStations?);
 
 class Options$Query$GetStations
     extends graphql.QueryOptions<Query$GetStations> {
@@ -712,35 +820,35 @@ class Options$Query$GetStations
     graphql.Context? context,
     OnQueryComplete$Query$GetStations? onComplete,
     graphql.OnQueryError? onError,
-  })  : onCompleteWithParsed = onComplete,
-        super(
-          operationName: operationName,
-          fetchPolicy: fetchPolicy,
-          errorPolicy: errorPolicy,
-          cacheRereadPolicy: cacheRereadPolicy,
-          optimisticResult: optimisticResult ?? typedOptimisticResult?.toJson(),
-          pollInterval: pollInterval,
-          context: context,
-          onComplete: onComplete == null
-              ? null
-              : (data) => onComplete(
-                    data,
-                    data == null ? null : _parserFn$Query$GetStations(data),
-                  ),
-          onError: onError,
-          document: documentNodeQueryGetStations,
-          parserFn: _parserFn$Query$GetStations,
-        );
+  }) : onCompleteWithParsed = onComplete,
+       super(
+         operationName: operationName,
+         fetchPolicy: fetchPolicy,
+         errorPolicy: errorPolicy,
+         cacheRereadPolicy: cacheRereadPolicy,
+         optimisticResult: optimisticResult ?? typedOptimisticResult?.toJson(),
+         pollInterval: pollInterval,
+         context: context,
+         onComplete: onComplete == null
+             ? null
+             : (data) => onComplete(
+                 data,
+                 data == null ? null : _parserFn$Query$GetStations(data),
+               ),
+         onError: onError,
+         document: documentNodeQueryGetStations,
+         parserFn: _parserFn$Query$GetStations,
+       );
 
   final OnQueryComplete$Query$GetStations? onCompleteWithParsed;
 
   @override
   List<Object?> get properties => [
-        ...super.onComplete == null
-            ? super.properties
-            : super.properties.where((property) => property != onComplete),
-        onCompleteWithParsed,
-      ];
+    ...super.onComplete == null
+        ? super.properties
+        : super.properties.where((property) => property != onComplete),
+    onCompleteWithParsed,
+  ];
 }
 
 class WatchOptions$Query$GetStations
@@ -758,62 +866,63 @@ class WatchOptions$Query$GetStations
     bool carryForwardDataOnException = true,
     bool fetchResults = false,
   }) : super(
-          operationName: operationName,
-          fetchPolicy: fetchPolicy,
-          errorPolicy: errorPolicy,
-          cacheRereadPolicy: cacheRereadPolicy,
-          optimisticResult: optimisticResult ?? typedOptimisticResult?.toJson(),
-          context: context,
-          document: documentNodeQueryGetStations,
-          pollInterval: pollInterval,
-          eagerlyFetchResults: eagerlyFetchResults,
-          carryForwardDataOnException: carryForwardDataOnException,
-          fetchResults: fetchResults,
-          parserFn: _parserFn$Query$GetStations,
-        );
+         operationName: operationName,
+         fetchPolicy: fetchPolicy,
+         errorPolicy: errorPolicy,
+         cacheRereadPolicy: cacheRereadPolicy,
+         optimisticResult: optimisticResult ?? typedOptimisticResult?.toJson(),
+         context: context,
+         document: documentNodeQueryGetStations,
+         pollInterval: pollInterval,
+         eagerlyFetchResults: eagerlyFetchResults,
+         carryForwardDataOnException: carryForwardDataOnException,
+         fetchResults: fetchResults,
+         parserFn: _parserFn$Query$GetStations,
+       );
 }
 
 class FetchMoreOptions$Query$GetStations extends graphql.FetchMoreOptions {
   FetchMoreOptions$Query$GetStations({required graphql.UpdateQuery updateQuery})
-      : super(
-          updateQuery: updateQuery,
-          document: documentNodeQueryGetStations,
-        );
+    : super(updateQuery: updateQuery, document: documentNodeQueryGetStations);
 }
 
 extension ClientExtension$Query$GetStations on graphql.GraphQLClient {
-  Future<graphql.QueryResult<Query$GetStations>> query$GetStations(
-          [Options$Query$GetStations? options]) async =>
-      await this.query(options ?? Options$Query$GetStations());
-  graphql.ObservableQuery<Query$GetStations> watchQuery$GetStations(
-          [WatchOptions$Query$GetStations? options]) =>
-      this.watchQuery(options ?? WatchOptions$Query$GetStations());
+  Future<graphql.QueryResult<Query$GetStations>> query$GetStations([
+    Options$Query$GetStations? options,
+  ]) async => await this.query(options ?? Options$Query$GetStations());
+
+  graphql.ObservableQuery<Query$GetStations> watchQuery$GetStations([
+    WatchOptions$Query$GetStations? options,
+  ]) => this.watchQuery(options ?? WatchOptions$Query$GetStations());
+
   void writeQuery$GetStations({
     required Query$GetStations data,
     bool broadcast = true,
-  }) =>
-      this.writeQuery(
-        graphql.Request(
-            operation:
-                graphql.Operation(document: documentNodeQueryGetStations)),
-        data: data.toJson(),
-        broadcast: broadcast,
-      );
+  }) => this.writeQuery(
+    graphql.Request(
+      operation: graphql.Operation(document: documentNodeQueryGetStations),
+    ),
+    data: data.toJson(),
+    broadcast: broadcast,
+  );
+
   Query$GetStations? readQuery$GetStations({bool optimistic = true}) {
     final result = this.readQuery(
       graphql.Request(
-          operation: graphql.Operation(document: documentNodeQueryGetStations)),
+        operation: graphql.Operation(document: documentNodeQueryGetStations),
+      ),
       optimistic: optimistic,
     );
     return result == null ? null : Query$GetStations.fromJson(result);
   }
 }
 
-graphql_flutter.QueryHookResult<Query$GetStations> useQuery$GetStations(
-        [Options$Query$GetStations? options]) =>
-    graphql_flutter.useQuery(options ?? Options$Query$GetStations());
-graphql.ObservableQuery<Query$GetStations> useWatchQuery$GetStations(
-        [WatchOptions$Query$GetStations? options]) =>
+graphql_flutter.QueryHookResult<Query$GetStations> useQuery$GetStations([
+  Options$Query$GetStations? options,
+]) => graphql_flutter.useQuery(options ?? Options$Query$GetStations());
+graphql.ObservableQuery<Query$GetStations> useWatchQuery$GetStations([
+  WatchOptions$Query$GetStations? options,
+]) =>
     graphql_flutter.useWatchQuery(options ?? WatchOptions$Query$GetStations());
 
 class Query$GetStations$Widget
@@ -823,10 +932,10 @@ class Query$GetStations$Widget
     Options$Query$GetStations? options,
     required graphql_flutter.QueryBuilder<Query$GetStations> builder,
   }) : super(
-          key: key,
-          options: options ?? Options$Query$GetStations(),
-          builder: builder,
-        );
+         key: key,
+         options: options ?? Options$Query$GetStations(),
+         builder: builder,
+       );
 }
 
 class Query$GetStations$stations {
@@ -845,6 +954,8 @@ class Query$GetStations$stations {
     required this.feature_latest_post,
     this.facebook_page_id,
     required this.station_streams,
+    this.station_type,
+    this.playlist_items,
     required this.posts,
     this.uptime,
     this.now_playing,
@@ -867,6 +978,8 @@ class Query$GetStations$stations {
     final l$feature_latest_post = json['feature_latest_post'];
     final l$facebook_page_id = json['facebook_page_id'];
     final l$station_streams = json['station_streams'];
+    final l$station_type = json['station_type'];
+    final l$playlist_items = json['playlist_items'];
     final l$posts = json['posts'];
     final l$uptime = json['uptime'];
     final l$now_playing = json['now_playing'];
@@ -887,24 +1000,43 @@ class Query$GetStations$stations {
       feature_latest_post: (l$feature_latest_post as bool),
       facebook_page_id: (l$facebook_page_id as String?),
       station_streams: (l$station_streams as List<dynamic>)
-          .map((e) => Query$GetStations$stations$station_streams.fromJson(
-              (e as Map<String, dynamic>)))
+          .map(
+            (e) => Query$GetStations$stations$station_streams.fromJson(
+              (e as Map<String, dynamic>),
+            ),
+          )
+          .toList(),
+      station_type: (l$station_type as String?),
+      playlist_items: (l$playlist_items as List<dynamic>?)
+          ?.map(
+            (e) => Query$GetStations$stations$playlist_items.fromJson(
+              (e as Map<String, dynamic>),
+            ),
+          )
           .toList(),
       posts: (l$posts as List<dynamic>)
-          .map((e) => Query$GetStations$stations$posts.fromJson(
-              (e as Map<String, dynamic>)))
+          .map(
+            (e) => Query$GetStations$stations$posts.fromJson(
+              (e as Map<String, dynamic>),
+            ),
+          )
           .toList(),
       uptime: l$uptime == null
           ? null
           : Query$GetStations$stations$uptime.fromJson(
-              (l$uptime as Map<String, dynamic>)),
+              (l$uptime as Map<String, dynamic>),
+            ),
       now_playing: l$now_playing == null
           ? null
           : Query$GetStations$stations$now_playing.fromJson(
-              (l$now_playing as Map<String, dynamic>)),
+              (l$now_playing as Map<String, dynamic>),
+            ),
       reviews: (l$reviews as List<dynamic>)
-          .map((e) => Query$GetStations$stations$reviews.fromJson(
-              (e as Map<String, dynamic>)))
+          .map(
+            (e) => Query$GetStations$stations$reviews.fromJson(
+              (e as Map<String, dynamic>),
+            ),
+          )
           .toList(),
       $__typename: (l$$__typename as String),
     );
@@ -937,6 +1069,10 @@ class Query$GetStations$stations {
   final String? facebook_page_id;
 
   final List<Query$GetStations$stations$station_streams> station_streams;
+
+  final String? station_type;
+
+  final List<Query$GetStations$stations$playlist_items>? playlist_items;
 
   final List<Query$GetStations$stations$posts> posts;
 
@@ -977,8 +1113,15 @@ class Query$GetStations$stations {
     final l$facebook_page_id = facebook_page_id;
     _resultData['facebook_page_id'] = l$facebook_page_id;
     final l$station_streams = station_streams;
-    _resultData['station_streams'] =
-        l$station_streams.map((e) => e.toJson()).toList();
+    _resultData['station_streams'] = l$station_streams
+        .map((e) => e.toJson())
+        .toList();
+    final l$station_type = station_type;
+    _resultData['station_type'] = l$station_type;
+    final l$playlist_items = playlist_items;
+    _resultData['playlist_items'] = l$playlist_items
+        ?.map((e) => e.toJson())
+        .toList();
     final l$posts = posts;
     _resultData['posts'] = l$posts.map((e) => e.toJson()).toList();
     final l$uptime = uptime;
@@ -1008,6 +1151,8 @@ class Query$GetStations$stations {
     final l$feature_latest_post = feature_latest_post;
     final l$facebook_page_id = facebook_page_id;
     final l$station_streams = station_streams;
+    final l$station_type = station_type;
+    final l$playlist_items = playlist_items;
     final l$posts = posts;
     final l$uptime = uptime;
     final l$now_playing = now_playing;
@@ -1028,6 +1173,10 @@ class Query$GetStations$stations {
       l$feature_latest_post,
       l$facebook_page_id,
       Object.hashAll(l$station_streams.map((v) => v)),
+      l$station_type,
+      l$playlist_items == null
+          ? null
+          : Object.hashAll(l$playlist_items.map((v) => v)),
       Object.hashAll(l$posts.map((v) => v)),
       l$uptime,
       l$now_playing,
@@ -1041,7 +1190,7 @@ class Query$GetStations$stations {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Query$GetStations$stations) ||
+    if (other is! Query$GetStations$stations ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -1122,6 +1271,27 @@ class Query$GetStations$stations {
         return false;
       }
     }
+    final l$station_type = station_type;
+    final lOther$station_type = other.station_type;
+    if (l$station_type != lOther$station_type) {
+      return false;
+    }
+    final l$playlist_items = playlist_items;
+    final lOther$playlist_items = other.playlist_items;
+    if (l$playlist_items != null && lOther$playlist_items != null) {
+      if (l$playlist_items.length != lOther$playlist_items.length) {
+        return false;
+      }
+      for (int i = 0; i < l$playlist_items.length; i++) {
+        final l$playlist_items$entry = l$playlist_items[i];
+        final lOther$playlist_items$entry = lOther$playlist_items[i];
+        if (l$playlist_items$entry != lOther$playlist_items$entry) {
+          return false;
+        }
+      }
+    } else if (l$playlist_items != lOther$playlist_items) {
+      return false;
+    }
     final l$posts = posts;
     final lOther$posts = other.posts;
     if (l$posts.length != lOther$posts.length) {
@@ -1168,10 +1338,7 @@ class Query$GetStations$stations {
 extension UtilityExtension$Query$GetStations$stations
     on Query$GetStations$stations {
   CopyWith$Query$GetStations$stations<Query$GetStations$stations>
-      get copyWith => CopyWith$Query$GetStations$stations(
-            this,
-            (i) => i,
-          );
+  get copyWith => CopyWith$Query$GetStations$stations(this, (i) => i);
 }
 
 abstract class CopyWith$Query$GetStations$stations<TRes> {
@@ -1198,6 +1365,8 @@ abstract class CopyWith$Query$GetStations$stations<TRes> {
     bool? feature_latest_post,
     String? facebook_page_id,
     List<Query$GetStations$stations$station_streams>? station_streams,
+    String? station_type,
+    List<Query$GetStations$stations$playlist_items>? playlist_items,
     List<Query$GetStations$stations$posts>? posts,
     Query$GetStations$stations$uptime? uptime,
     Query$GetStations$stations$now_playing? now_playing,
@@ -1205,33 +1374,52 @@ abstract class CopyWith$Query$GetStations$stations<TRes> {
     String? $__typename,
   });
   TRes station_streams(
-      Iterable<Query$GetStations$stations$station_streams> Function(
-              Iterable<
-                  CopyWith$Query$GetStations$stations$station_streams<
-                      Query$GetStations$stations$station_streams>>)
-          _fn);
+    Iterable<Query$GetStations$stations$station_streams> Function(
+      Iterable<
+        CopyWith$Query$GetStations$stations$station_streams<
+          Query$GetStations$stations$station_streams
+        >
+      >,
+    )
+    _fn,
+  );
+  TRes playlist_items(
+    Iterable<Query$GetStations$stations$playlist_items>? Function(
+      Iterable<
+        CopyWith$Query$GetStations$stations$playlist_items<
+          Query$GetStations$stations$playlist_items
+        >
+      >?,
+    )
+    _fn,
+  );
   TRes posts(
-      Iterable<Query$GetStations$stations$posts> Function(
-              Iterable<
-                  CopyWith$Query$GetStations$stations$posts<
-                      Query$GetStations$stations$posts>>)
-          _fn);
+    Iterable<Query$GetStations$stations$posts> Function(
+      Iterable<
+        CopyWith$Query$GetStations$stations$posts<
+          Query$GetStations$stations$posts
+        >
+      >,
+    )
+    _fn,
+  );
   CopyWith$Query$GetStations$stations$uptime<TRes> get uptime;
   CopyWith$Query$GetStations$stations$now_playing<TRes> get now_playing;
   TRes reviews(
-      Iterable<Query$GetStations$stations$reviews> Function(
-              Iterable<
-                  CopyWith$Query$GetStations$stations$reviews<
-                      Query$GetStations$stations$reviews>>)
-          _fn);
+    Iterable<Query$GetStations$stations$reviews> Function(
+      Iterable<
+        CopyWith$Query$GetStations$stations$reviews<
+          Query$GetStations$stations$reviews
+        >
+      >,
+    )
+    _fn,
+  );
 }
 
 class _CopyWithImpl$Query$GetStations$stations<TRes>
     implements CopyWith$Query$GetStations$stations<TRes> {
-  _CopyWithImpl$Query$GetStations$stations(
-    this._instance,
-    this._then,
-  );
+  _CopyWithImpl$Query$GetStations$stations(this._instance, this._then);
 
   final Query$GetStations$stations _instance;
 
@@ -1254,105 +1442,141 @@ class _CopyWithImpl$Query$GetStations$stations<TRes>
     Object? feature_latest_post = _undefined,
     Object? facebook_page_id = _undefined,
     Object? station_streams = _undefined,
+    Object? station_type = _undefined,
+    Object? playlist_items = _undefined,
     Object? posts = _undefined,
     Object? uptime = _undefined,
     Object? now_playing = _undefined,
     Object? reviews = _undefined,
     Object? $__typename = _undefined,
-  }) =>
-      _then(Query$GetStations$stations(
-        id: id == _undefined || id == null ? _instance.id : (id as int),
-        slug: slug == _undefined || slug == null
-            ? _instance.slug
-            : (slug as String),
-        order: order == _undefined || order == null
-            ? _instance.order
-            : (order as int),
-        title: title == _undefined || title == null
-            ? _instance.title
-            : (title as String),
-        website: website == _undefined || website == null
-            ? _instance.website
-            : (website as String),
-        email: email == _undefined || email == null
-            ? _instance.email
-            : (email as String),
-        thumbnail_url: thumbnail_url == _undefined
-            ? _instance.thumbnail_url
-            : (thumbnail_url as String?),
-        total_listeners: total_listeners == _undefined
-            ? _instance.total_listeners
-            : (total_listeners as int?),
-        description: description == _undefined
-            ? _instance.description
-            : (description as String?),
-        description_action_title: description_action_title == _undefined
-            ? _instance.description_action_title
-            : (description_action_title as String?),
-        description_link: description_link == _undefined
-            ? _instance.description_link
-            : (description_link as String?),
-        feature_latest_post:
-            feature_latest_post == _undefined || feature_latest_post == null
-                ? _instance.feature_latest_post
-                : (feature_latest_post as bool),
-        facebook_page_id: facebook_page_id == _undefined
-            ? _instance.facebook_page_id
-            : (facebook_page_id as String?),
-        station_streams:
-            station_streams == _undefined || station_streams == null
-                ? _instance.station_streams
-                : (station_streams
-                    as List<Query$GetStations$stations$station_streams>),
-        posts: posts == _undefined || posts == null
-            ? _instance.posts
-            : (posts as List<Query$GetStations$stations$posts>),
-        uptime: uptime == _undefined
-            ? _instance.uptime
-            : (uptime as Query$GetStations$stations$uptime?),
-        now_playing: now_playing == _undefined
-            ? _instance.now_playing
-            : (now_playing as Query$GetStations$stations$now_playing?),
-        reviews: reviews == _undefined || reviews == null
-            ? _instance.reviews
-            : (reviews as List<Query$GetStations$stations$reviews>),
-        $__typename: $__typename == _undefined || $__typename == null
-            ? _instance.$__typename
-            : ($__typename as String),
-      ));
+  }) => _then(
+    Query$GetStations$stations(
+      id: id == _undefined || id == null ? _instance.id : (id as int),
+      slug: slug == _undefined || slug == null
+          ? _instance.slug
+          : (slug as String),
+      order: order == _undefined || order == null
+          ? _instance.order
+          : (order as int),
+      title: title == _undefined || title == null
+          ? _instance.title
+          : (title as String),
+      website: website == _undefined || website == null
+          ? _instance.website
+          : (website as String),
+      email: email == _undefined || email == null
+          ? _instance.email
+          : (email as String),
+      thumbnail_url: thumbnail_url == _undefined
+          ? _instance.thumbnail_url
+          : (thumbnail_url as String?),
+      total_listeners: total_listeners == _undefined
+          ? _instance.total_listeners
+          : (total_listeners as int?),
+      description: description == _undefined
+          ? _instance.description
+          : (description as String?),
+      description_action_title: description_action_title == _undefined
+          ? _instance.description_action_title
+          : (description_action_title as String?),
+      description_link: description_link == _undefined
+          ? _instance.description_link
+          : (description_link as String?),
+      feature_latest_post:
+          feature_latest_post == _undefined || feature_latest_post == null
+          ? _instance.feature_latest_post
+          : (feature_latest_post as bool),
+      facebook_page_id: facebook_page_id == _undefined
+          ? _instance.facebook_page_id
+          : (facebook_page_id as String?),
+      station_streams: station_streams == _undefined || station_streams == null
+          ? _instance.station_streams
+          : (station_streams
+                as List<Query$GetStations$stations$station_streams>),
+      station_type: station_type == _undefined
+          ? _instance.station_type
+          : (station_type as String?),
+      playlist_items: playlist_items == _undefined
+          ? _instance.playlist_items
+          : (playlist_items
+                as List<Query$GetStations$stations$playlist_items>?),
+      posts: posts == _undefined || posts == null
+          ? _instance.posts
+          : (posts as List<Query$GetStations$stations$posts>),
+      uptime: uptime == _undefined
+          ? _instance.uptime
+          : (uptime as Query$GetStations$stations$uptime?),
+      now_playing: now_playing == _undefined
+          ? _instance.now_playing
+          : (now_playing as Query$GetStations$stations$now_playing?),
+      reviews: reviews == _undefined || reviews == null
+          ? _instance.reviews
+          : (reviews as List<Query$GetStations$stations$reviews>),
+      $__typename: $__typename == _undefined || $__typename == null
+          ? _instance.$__typename
+          : ($__typename as String),
+    ),
+  );
 
   TRes station_streams(
-          Iterable<Query$GetStations$stations$station_streams> Function(
-                  Iterable<
-                      CopyWith$Query$GetStations$stations$station_streams<
-                          Query$GetStations$stations$station_streams>>)
-              _fn) =>
-      call(
-          station_streams: _fn(_instance.station_streams
-              .map((e) => CopyWith$Query$GetStations$stations$station_streams(
-                    e,
-                    (i) => i,
-                  ))).toList());
+    Iterable<Query$GetStations$stations$station_streams> Function(
+      Iterable<
+        CopyWith$Query$GetStations$stations$station_streams<
+          Query$GetStations$stations$station_streams
+        >
+      >,
+    )
+    _fn,
+  ) => call(
+    station_streams: _fn(
+      _instance.station_streams.map(
+        (e) => CopyWith$Query$GetStations$stations$station_streams(e, (i) => i),
+      ),
+    ).toList(),
+  );
+
+  TRes playlist_items(
+    Iterable<Query$GetStations$stations$playlist_items>? Function(
+      Iterable<
+        CopyWith$Query$GetStations$stations$playlist_items<
+          Query$GetStations$stations$playlist_items
+        >
+      >?,
+    )
+    _fn,
+  ) => call(
+    playlist_items: _fn(
+      _instance.playlist_items?.map(
+        (e) => CopyWith$Query$GetStations$stations$playlist_items(e, (i) => i),
+      ),
+    )?.toList(),
+  );
 
   TRes posts(
-          Iterable<Query$GetStations$stations$posts> Function(
-                  Iterable<
-                      CopyWith$Query$GetStations$stations$posts<
-                          Query$GetStations$stations$posts>>)
-              _fn) =>
-      call(
-          posts: _fn(_instance.posts
-              .map((e) => CopyWith$Query$GetStations$stations$posts(
-                    e,
-                    (i) => i,
-                  ))).toList());
+    Iterable<Query$GetStations$stations$posts> Function(
+      Iterable<
+        CopyWith$Query$GetStations$stations$posts<
+          Query$GetStations$stations$posts
+        >
+      >,
+    )
+    _fn,
+  ) => call(
+    posts: _fn(
+      _instance.posts.map(
+        (e) => CopyWith$Query$GetStations$stations$posts(e, (i) => i),
+      ),
+    ).toList(),
+  );
 
   CopyWith$Query$GetStations$stations$uptime<TRes> get uptime {
     final local$uptime = _instance.uptime;
     return local$uptime == null
         ? CopyWith$Query$GetStations$stations$uptime.stub(_then(_instance))
         : CopyWith$Query$GetStations$stations$uptime(
-            local$uptime, (e) => call(uptime: e));
+            local$uptime,
+            (e) => call(uptime: e),
+          );
   }
 
   CopyWith$Query$GetStations$stations$now_playing<TRes> get now_playing {
@@ -1360,21 +1584,27 @@ class _CopyWithImpl$Query$GetStations$stations<TRes>
     return local$now_playing == null
         ? CopyWith$Query$GetStations$stations$now_playing.stub(_then(_instance))
         : CopyWith$Query$GetStations$stations$now_playing(
-            local$now_playing, (e) => call(now_playing: e));
+            local$now_playing,
+            (e) => call(now_playing: e),
+          );
   }
 
   TRes reviews(
-          Iterable<Query$GetStations$stations$reviews> Function(
-                  Iterable<
-                      CopyWith$Query$GetStations$stations$reviews<
-                          Query$GetStations$stations$reviews>>)
-              _fn) =>
-      call(
-          reviews: _fn(_instance.reviews
-              .map((e) => CopyWith$Query$GetStations$stations$reviews(
-                    e,
-                    (i) => i,
-                  ))).toList());
+    Iterable<Query$GetStations$stations$reviews> Function(
+      Iterable<
+        CopyWith$Query$GetStations$stations$reviews<
+          Query$GetStations$stations$reviews
+        >
+      >,
+    )
+    _fn,
+  ) => call(
+    reviews: _fn(
+      _instance.reviews.map(
+        (e) => CopyWith$Query$GetStations$stations$reviews(e, (i) => i),
+      ),
+    ).toList(),
+  );
 }
 
 class _CopyWithStubImpl$Query$GetStations$stations<TRes>
@@ -1398,15 +1628,18 @@ class _CopyWithStubImpl$Query$GetStations$stations<TRes>
     bool? feature_latest_post,
     String? facebook_page_id,
     List<Query$GetStations$stations$station_streams>? station_streams,
+    String? station_type,
+    List<Query$GetStations$stations$playlist_items>? playlist_items,
     List<Query$GetStations$stations$posts>? posts,
     Query$GetStations$stations$uptime? uptime,
     Query$GetStations$stations$now_playing? now_playing,
     List<Query$GetStations$stations$reviews>? reviews,
     String? $__typename,
-  }) =>
-      _res;
+  }) => _res;
 
   station_streams(_fn) => _res;
+
+  playlist_items(_fn) => _res;
 
   posts(_fn) => _res;
 
@@ -1428,7 +1661,8 @@ class Query$GetStations$stations$station_streams {
   });
 
   factory Query$GetStations$stations$station_streams.fromJson(
-      Map<String, dynamic> json) {
+    Map<String, dynamic> json,
+  ) {
     final l$order = json['order'];
     final l$type = json['type'];
     final l$stream_url = json['stream_url'];
@@ -1468,12 +1702,7 @@ class Query$GetStations$stations$station_streams {
     final l$type = type;
     final l$stream_url = stream_url;
     final l$$__typename = $__typename;
-    return Object.hashAll([
-      l$order,
-      l$type,
-      l$stream_url,
-      l$$__typename,
-    ]);
+    return Object.hashAll([l$order, l$type, l$stream_url, l$$__typename]);
   }
 
   @override
@@ -1481,7 +1710,7 @@ class Query$GetStations$stations$station_streams {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Query$GetStations$stations$station_streams) ||
+    if (other is! Query$GetStations$stations$station_streams ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -1512,11 +1741,10 @@ class Query$GetStations$stations$station_streams {
 extension UtilityExtension$Query$GetStations$stations$station_streams
     on Query$GetStations$stations$station_streams {
   CopyWith$Query$GetStations$stations$station_streams<
-          Query$GetStations$stations$station_streams>
-      get copyWith => CopyWith$Query$GetStations$stations$station_streams(
-            this,
-            (i) => i,
-          );
+    Query$GetStations$stations$station_streams
+  >
+  get copyWith =>
+      CopyWith$Query$GetStations$stations$station_streams(this, (i) => i);
 }
 
 abstract class CopyWith$Query$GetStations$stations$station_streams<TRes> {
@@ -1554,21 +1782,22 @@ class _CopyWithImpl$Query$GetStations$stations$station_streams<TRes>
     Object? type = _undefined,
     Object? stream_url = _undefined,
     Object? $__typename = _undefined,
-  }) =>
-      _then(Query$GetStations$stations$station_streams(
-        order: order == _undefined || order == null
-            ? _instance.order
-            : (order as int),
-        type: type == _undefined || type == null
-            ? _instance.type
-            : (type as String),
-        stream_url: stream_url == _undefined || stream_url == null
-            ? _instance.stream_url
-            : (stream_url as String),
-        $__typename: $__typename == _undefined || $__typename == null
-            ? _instance.$__typename
-            : ($__typename as String),
-      ));
+  }) => _then(
+    Query$GetStations$stations$station_streams(
+      order: order == _undefined || order == null
+          ? _instance.order
+          : (order as int),
+      type: type == _undefined || type == null
+          ? _instance.type
+          : (type as String),
+      stream_url: stream_url == _undefined || stream_url == null
+          ? _instance.stream_url
+          : (stream_url as String),
+      $__typename: $__typename == _undefined || $__typename == null
+          ? _instance.$__typename
+          : ($__typename as String),
+    ),
+  );
 }
 
 class _CopyWithStubImpl$Query$GetStations$stations$station_streams<TRes>
@@ -1577,13 +1806,245 @@ class _CopyWithStubImpl$Query$GetStations$stations$station_streams<TRes>
 
   TRes _res;
 
-  call({
+  call({int? order, String? type, String? stream_url, String? $__typename}) =>
+      _res;
+}
+
+class Query$GetStations$stations$playlist_items {
+  Query$GetStations$stations$playlist_items({
+    required this.id,
+    this.order,
+    this.type,
+    this.url,
+    this.title,
+    this.thumbnail_url,
+    this.duration_seconds,
+    this.$__typename = 'StationPlaylistItemType',
+  });
+
+  factory Query$GetStations$stations$playlist_items.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    final l$id = json['id'];
+    final l$order = json['order'];
+    final l$type = json['type'];
+    final l$url = json['url'];
+    final l$title = json['title'];
+    final l$thumbnail_url = json['thumbnail_url'];
+    final l$duration_seconds = json['duration_seconds'];
+    final l$$__typename = json['__typename'];
+    return Query$GetStations$stations$playlist_items(
+      id: (l$id as int),
+      order: (l$order as int?),
+      type: (l$type as String?),
+      url: (l$url as String?),
+      title: (l$title as String?),
+      thumbnail_url: (l$thumbnail_url as String?),
+      duration_seconds: (l$duration_seconds as int?),
+      $__typename: (l$$__typename as String),
+    );
+  }
+
+  final int id;
+
+  final int? order;
+
+  final String? type;
+
+  final String? url;
+
+  final String? title;
+
+  final String? thumbnail_url;
+
+  final int? duration_seconds;
+
+  final String $__typename;
+
+  Map<String, dynamic> toJson() {
+    final _resultData = <String, dynamic>{};
+    final l$id = id;
+    _resultData['id'] = l$id;
+    final l$order = order;
+    _resultData['order'] = l$order;
+    final l$type = type;
+    _resultData['type'] = l$type;
+    final l$url = url;
+    _resultData['url'] = l$url;
+    final l$title = title;
+    _resultData['title'] = l$title;
+    final l$thumbnail_url = thumbnail_url;
+    _resultData['thumbnail_url'] = l$thumbnail_url;
+    final l$duration_seconds = duration_seconds;
+    _resultData['duration_seconds'] = l$duration_seconds;
+    final l$$__typename = $__typename;
+    _resultData['__typename'] = l$$__typename;
+    return _resultData;
+  }
+
+  @override
+  int get hashCode {
+    final l$id = id;
+    final l$order = order;
+    final l$type = type;
+    final l$url = url;
+    final l$title = title;
+    final l$thumbnail_url = thumbnail_url;
+    final l$duration_seconds = duration_seconds;
+    final l$$__typename = $__typename;
+    return Object.hashAll([
+      l$id,
+      l$order,
+      l$type,
+      l$url,
+      l$title,
+      l$thumbnail_url,
+      l$duration_seconds,
+      l$$__typename,
+    ]);
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) {
+      return true;
+    }
+    if (other is! Query$GetStations$stations$playlist_items ||
+        runtimeType != other.runtimeType) {
+      return false;
+    }
+    final l$id = id;
+    final lOther$id = other.id;
+    if (l$id != lOther$id) {
+      return false;
+    }
+    final l$order = order;
+    final lOther$order = other.order;
+    if (l$order != lOther$order) {
+      return false;
+    }
+    final l$type = type;
+    final lOther$type = other.type;
+    if (l$type != lOther$type) {
+      return false;
+    }
+    final l$url = url;
+    final lOther$url = other.url;
+    if (l$url != lOther$url) {
+      return false;
+    }
+    final l$title = title;
+    final lOther$title = other.title;
+    if (l$title != lOther$title) {
+      return false;
+    }
+    final l$thumbnail_url = thumbnail_url;
+    final lOther$thumbnail_url = other.thumbnail_url;
+    if (l$thumbnail_url != lOther$thumbnail_url) {
+      return false;
+    }
+    final l$duration_seconds = duration_seconds;
+    final lOther$duration_seconds = other.duration_seconds;
+    if (l$duration_seconds != lOther$duration_seconds) {
+      return false;
+    }
+    final l$$__typename = $__typename;
+    final lOther$$__typename = other.$__typename;
+    if (l$$__typename != lOther$$__typename) {
+      return false;
+    }
+    return true;
+  }
+}
+
+extension UtilityExtension$Query$GetStations$stations$playlist_items
+    on Query$GetStations$stations$playlist_items {
+  CopyWith$Query$GetStations$stations$playlist_items<
+    Query$GetStations$stations$playlist_items
+  >
+  get copyWith =>
+      CopyWith$Query$GetStations$stations$playlist_items(this, (i) => i);
+}
+
+abstract class CopyWith$Query$GetStations$stations$playlist_items<TRes> {
+  factory CopyWith$Query$GetStations$stations$playlist_items(
+    Query$GetStations$stations$playlist_items instance,
+    TRes Function(Query$GetStations$stations$playlist_items) then,
+  ) = _CopyWithImpl$Query$GetStations$stations$playlist_items;
+
+  factory CopyWith$Query$GetStations$stations$playlist_items.stub(TRes res) =
+      _CopyWithStubImpl$Query$GetStations$stations$playlist_items;
+
+  TRes call({
+    int? id,
     int? order,
     String? type,
-    String? stream_url,
+    String? url,
+    String? title,
+    String? thumbnail_url,
+    int? duration_seconds,
     String? $__typename,
-  }) =>
-      _res;
+  });
+}
+
+class _CopyWithImpl$Query$GetStations$stations$playlist_items<TRes>
+    implements CopyWith$Query$GetStations$stations$playlist_items<TRes> {
+  _CopyWithImpl$Query$GetStations$stations$playlist_items(
+    this._instance,
+    this._then,
+  );
+
+  final Query$GetStations$stations$playlist_items _instance;
+
+  final TRes Function(Query$GetStations$stations$playlist_items) _then;
+
+  static const _undefined = <dynamic, dynamic>{};
+
+  TRes call({
+    Object? id = _undefined,
+    Object? order = _undefined,
+    Object? type = _undefined,
+    Object? url = _undefined,
+    Object? title = _undefined,
+    Object? thumbnail_url = _undefined,
+    Object? duration_seconds = _undefined,
+    Object? $__typename = _undefined,
+  }) => _then(
+    Query$GetStations$stations$playlist_items(
+      id: id == _undefined || id == null ? _instance.id : (id as int),
+      order: order == _undefined ? _instance.order : (order as int?),
+      type: type == _undefined ? _instance.type : (type as String?),
+      url: url == _undefined ? _instance.url : (url as String?),
+      title: title == _undefined ? _instance.title : (title as String?),
+      thumbnail_url: thumbnail_url == _undefined
+          ? _instance.thumbnail_url
+          : (thumbnail_url as String?),
+      duration_seconds: duration_seconds == _undefined
+          ? _instance.duration_seconds
+          : (duration_seconds as int?),
+      $__typename: $__typename == _undefined || $__typename == null
+          ? _instance.$__typename
+          : ($__typename as String),
+    ),
+  );
+}
+
+class _CopyWithStubImpl$Query$GetStations$stations$playlist_items<TRes>
+    implements CopyWith$Query$GetStations$stations$playlist_items<TRes> {
+  _CopyWithStubImpl$Query$GetStations$stations$playlist_items(this._res);
+
+  TRes _res;
+
+  call({
+    int? id,
+    int? order,
+    String? type,
+    String? url,
+    String? title,
+    String? thumbnail_url,
+    int? duration_seconds,
+    String? $__typename,
+  }) => _res;
 }
 
 class Query$GetStations$stations$posts {
@@ -1665,7 +2126,7 @@ class Query$GetStations$stations$posts {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Query$GetStations$stations$posts) ||
+    if (other is! Query$GetStations$stations$posts ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -1706,10 +2167,7 @@ class Query$GetStations$stations$posts {
 extension UtilityExtension$Query$GetStations$stations$posts
     on Query$GetStations$stations$posts {
   CopyWith$Query$GetStations$stations$posts<Query$GetStations$stations$posts>
-      get copyWith => CopyWith$Query$GetStations$stations$posts(
-            this,
-            (i) => i,
-          );
+  get copyWith => CopyWith$Query$GetStations$stations$posts(this, (i) => i);
 }
 
 abstract class CopyWith$Query$GetStations$stations$posts<TRes> {
@@ -1733,10 +2191,7 @@ abstract class CopyWith$Query$GetStations$stations$posts<TRes> {
 
 class _CopyWithImpl$Query$GetStations$stations$posts<TRes>
     implements CopyWith$Query$GetStations$stations$posts<TRes> {
-  _CopyWithImpl$Query$GetStations$stations$posts(
-    this._instance,
-    this._then,
-  );
+  _CopyWithImpl$Query$GetStations$stations$posts(this._instance, this._then);
 
   final Query$GetStations$stations$posts _instance;
 
@@ -1751,25 +2206,26 @@ class _CopyWithImpl$Query$GetStations$stations$posts<TRes>
     Object? link = _undefined,
     Object? published = _undefined,
     Object? $__typename = _undefined,
-  }) =>
-      _then(Query$GetStations$stations$posts(
-        id: id == _undefined || id == null ? _instance.id : (id as int),
-        title: title == _undefined || title == null
-            ? _instance.title
-            : (title as String),
-        description: description == _undefined
-            ? _instance.description
-            : (description as String?),
-        link: link == _undefined || link == null
-            ? _instance.link
-            : (link as String),
-        published: published == _undefined || published == null
-            ? _instance.published
-            : (published as String),
-        $__typename: $__typename == _undefined || $__typename == null
-            ? _instance.$__typename
-            : ($__typename as String),
-      ));
+  }) => _then(
+    Query$GetStations$stations$posts(
+      id: id == _undefined || id == null ? _instance.id : (id as int),
+      title: title == _undefined || title == null
+          ? _instance.title
+          : (title as String),
+      description: description == _undefined
+          ? _instance.description
+          : (description as String?),
+      link: link == _undefined || link == null
+          ? _instance.link
+          : (link as String),
+      published: published == _undefined || published == null
+          ? _instance.published
+          : (published as String),
+      $__typename: $__typename == _undefined || $__typename == null
+          ? _instance.$__typename
+          : ($__typename as String),
+    ),
+  );
 }
 
 class _CopyWithStubImpl$Query$GetStations$stations$posts<TRes>
@@ -1785,8 +2241,7 @@ class _CopyWithStubImpl$Query$GetStations$stations$posts<TRes>
     String? link,
     String? published,
     String? $__typename,
-  }) =>
-      _res;
+  }) => _res;
 }
 
 class Query$GetStations$stations$uptime {
@@ -1798,7 +2253,8 @@ class Query$GetStations$stations$uptime {
   });
 
   factory Query$GetStations$stations$uptime.fromJson(
-      Map<String, dynamic> json) {
+    Map<String, dynamic> json,
+  ) {
     final l$is_up = json['is_up'];
     final l$latency_ms = json['latency_ms'];
     final l$timestamp = json['timestamp'];
@@ -1838,12 +2294,7 @@ class Query$GetStations$stations$uptime {
     final l$latency_ms = latency_ms;
     final l$timestamp = timestamp;
     final l$$__typename = $__typename;
-    return Object.hashAll([
-      l$is_up,
-      l$latency_ms,
-      l$timestamp,
-      l$$__typename,
-    ]);
+    return Object.hashAll([l$is_up, l$latency_ms, l$timestamp, l$$__typename]);
   }
 
   @override
@@ -1851,7 +2302,7 @@ class Query$GetStations$stations$uptime {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Query$GetStations$stations$uptime) ||
+    if (other is! Query$GetStations$stations$uptime ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -1882,10 +2333,7 @@ class Query$GetStations$stations$uptime {
 extension UtilityExtension$Query$GetStations$stations$uptime
     on Query$GetStations$stations$uptime {
   CopyWith$Query$GetStations$stations$uptime<Query$GetStations$stations$uptime>
-      get copyWith => CopyWith$Query$GetStations$stations$uptime(
-            this,
-            (i) => i,
-          );
+  get copyWith => CopyWith$Query$GetStations$stations$uptime(this, (i) => i);
 }
 
 abstract class CopyWith$Query$GetStations$stations$uptime<TRes> {
@@ -1907,10 +2355,7 @@ abstract class CopyWith$Query$GetStations$stations$uptime<TRes> {
 
 class _CopyWithImpl$Query$GetStations$stations$uptime<TRes>
     implements CopyWith$Query$GetStations$stations$uptime<TRes> {
-  _CopyWithImpl$Query$GetStations$stations$uptime(
-    this._instance,
-    this._then,
-  );
+  _CopyWithImpl$Query$GetStations$stations$uptime(this._instance, this._then);
 
   final Query$GetStations$stations$uptime _instance;
 
@@ -1923,21 +2368,22 @@ class _CopyWithImpl$Query$GetStations$stations$uptime<TRes>
     Object? latency_ms = _undefined,
     Object? timestamp = _undefined,
     Object? $__typename = _undefined,
-  }) =>
-      _then(Query$GetStations$stations$uptime(
-        is_up: is_up == _undefined || is_up == null
-            ? _instance.is_up
-            : (is_up as bool),
-        latency_ms: latency_ms == _undefined
-            ? _instance.latency_ms
-            : (latency_ms as int?),
-        timestamp: timestamp == _undefined || timestamp == null
-            ? _instance.timestamp
-            : (timestamp as String),
-        $__typename: $__typename == _undefined || $__typename == null
-            ? _instance.$__typename
-            : ($__typename as String),
-      ));
+  }) => _then(
+    Query$GetStations$stations$uptime(
+      is_up: is_up == _undefined || is_up == null
+          ? _instance.is_up
+          : (is_up as bool),
+      latency_ms: latency_ms == _undefined
+          ? _instance.latency_ms
+          : (latency_ms as int?),
+      timestamp: timestamp == _undefined || timestamp == null
+          ? _instance.timestamp
+          : (timestamp as String),
+      $__typename: $__typename == _undefined || $__typename == null
+          ? _instance.$__typename
+          : ($__typename as String),
+    ),
+  );
 }
 
 class _CopyWithStubImpl$Query$GetStations$stations$uptime<TRes>
@@ -1951,8 +2397,7 @@ class _CopyWithStubImpl$Query$GetStations$stations$uptime<TRes>
     int? latency_ms,
     String? timestamp,
     String? $__typename,
-  }) =>
-      _res;
+  }) => _res;
 }
 
 class Query$GetStations$stations$now_playing {
@@ -1964,7 +2409,8 @@ class Query$GetStations$stations$now_playing {
   });
 
   factory Query$GetStations$stations$now_playing.fromJson(
-      Map<String, dynamic> json) {
+    Map<String, dynamic> json,
+  ) {
     final l$id = json['id'];
     final l$timestamp = json['timestamp'];
     final l$song = json['song'];
@@ -1975,7 +2421,8 @@ class Query$GetStations$stations$now_playing {
       song: l$song == null
           ? null
           : Query$GetStations$stations$now_playing$song.fromJson(
-              (l$song as Map<String, dynamic>)),
+              (l$song as Map<String, dynamic>),
+            ),
       $__typename: (l$$__typename as String),
     );
   }
@@ -2007,12 +2454,7 @@ class Query$GetStations$stations$now_playing {
     final l$timestamp = timestamp;
     final l$song = song;
     final l$$__typename = $__typename;
-    return Object.hashAll([
-      l$id,
-      l$timestamp,
-      l$song,
-      l$$__typename,
-    ]);
+    return Object.hashAll([l$id, l$timestamp, l$song, l$$__typename]);
   }
 
   @override
@@ -2020,7 +2462,7 @@ class Query$GetStations$stations$now_playing {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Query$GetStations$stations$now_playing) ||
+    if (other is! Query$GetStations$stations$now_playing ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -2051,11 +2493,10 @@ class Query$GetStations$stations$now_playing {
 extension UtilityExtension$Query$GetStations$stations$now_playing
     on Query$GetStations$stations$now_playing {
   CopyWith$Query$GetStations$stations$now_playing<
-          Query$GetStations$stations$now_playing>
-      get copyWith => CopyWith$Query$GetStations$stations$now_playing(
-            this,
-            (i) => i,
-          );
+    Query$GetStations$stations$now_playing
+  >
+  get copyWith =>
+      CopyWith$Query$GetStations$stations$now_playing(this, (i) => i);
 }
 
 abstract class CopyWith$Query$GetStations$stations$now_playing<TRes> {
@@ -2094,27 +2535,31 @@ class _CopyWithImpl$Query$GetStations$stations$now_playing<TRes>
     Object? timestamp = _undefined,
     Object? song = _undefined,
     Object? $__typename = _undefined,
-  }) =>
-      _then(Query$GetStations$stations$now_playing(
-        id: id == _undefined || id == null ? _instance.id : (id as int),
-        timestamp: timestamp == _undefined || timestamp == null
-            ? _instance.timestamp
-            : (timestamp as String),
-        song: song == _undefined
-            ? _instance.song
-            : (song as Query$GetStations$stations$now_playing$song?),
-        $__typename: $__typename == _undefined || $__typename == null
-            ? _instance.$__typename
-            : ($__typename as String),
-      ));
+  }) => _then(
+    Query$GetStations$stations$now_playing(
+      id: id == _undefined || id == null ? _instance.id : (id as int),
+      timestamp: timestamp == _undefined || timestamp == null
+          ? _instance.timestamp
+          : (timestamp as String),
+      song: song == _undefined
+          ? _instance.song
+          : (song as Query$GetStations$stations$now_playing$song?),
+      $__typename: $__typename == _undefined || $__typename == null
+          ? _instance.$__typename
+          : ($__typename as String),
+    ),
+  );
 
   CopyWith$Query$GetStations$stations$now_playing$song<TRes> get song {
     final local$song = _instance.song;
     return local$song == null
         ? CopyWith$Query$GetStations$stations$now_playing$song.stub(
-            _then(_instance))
+            _then(_instance),
+          )
         : CopyWith$Query$GetStations$stations$now_playing$song(
-            local$song, (e) => call(song: e));
+            local$song,
+            (e) => call(song: e),
+          );
   }
 }
 
@@ -2129,8 +2574,7 @@ class _CopyWithStubImpl$Query$GetStations$stations$now_playing<TRes>
     String? timestamp,
     Query$GetStations$stations$now_playing$song? song,
     String? $__typename,
-  }) =>
-      _res;
+  }) => _res;
 
   CopyWith$Query$GetStations$stations$now_playing$song<TRes> get song =>
       CopyWith$Query$GetStations$stations$now_playing$song.stub(_res);
@@ -2146,7 +2590,8 @@ class Query$GetStations$stations$now_playing$song {
   });
 
   factory Query$GetStations$stations$now_playing$song.fromJson(
-      Map<String, dynamic> json) {
+    Map<String, dynamic> json,
+  ) {
     final l$id = json['id'];
     final l$name = json['name'];
     final l$thumbnail_url = json['thumbnail_url'];
@@ -2159,7 +2604,8 @@ class Query$GetStations$stations$now_playing$song {
       artist: l$artist == null
           ? null
           : Query$GetStations$stations$now_playing$song$artist.fromJson(
-              (l$artist as Map<String, dynamic>)),
+              (l$artist as Map<String, dynamic>),
+            ),
       $__typename: (l$$__typename as String),
     );
   }
@@ -2210,7 +2656,7 @@ class Query$GetStations$stations$now_playing$song {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Query$GetStations$stations$now_playing$song) ||
+    if (other is! Query$GetStations$stations$now_playing$song ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -2246,11 +2692,10 @@ class Query$GetStations$stations$now_playing$song {
 extension UtilityExtension$Query$GetStations$stations$now_playing$song
     on Query$GetStations$stations$now_playing$song {
   CopyWith$Query$GetStations$stations$now_playing$song<
-          Query$GetStations$stations$now_playing$song>
-      get copyWith => CopyWith$Query$GetStations$stations$now_playing$song(
-            this,
-            (i) => i,
-          );
+    Query$GetStations$stations$now_playing$song
+  >
+  get copyWith =>
+      CopyWith$Query$GetStations$stations$now_playing$song(this, (i) => i);
 }
 
 abstract class CopyWith$Query$GetStations$stations$now_playing$song<TRes> {
@@ -2291,30 +2736,34 @@ class _CopyWithImpl$Query$GetStations$stations$now_playing$song<TRes>
     Object? thumbnail_url = _undefined,
     Object? artist = _undefined,
     Object? $__typename = _undefined,
-  }) =>
-      _then(Query$GetStations$stations$now_playing$song(
-        id: id == _undefined || id == null ? _instance.id : (id as int),
-        name: name == _undefined || name == null
-            ? _instance.name
-            : (name as String),
-        thumbnail_url: thumbnail_url == _undefined
-            ? _instance.thumbnail_url
-            : (thumbnail_url as String?),
-        artist: artist == _undefined
-            ? _instance.artist
-            : (artist as Query$GetStations$stations$now_playing$song$artist?),
-        $__typename: $__typename == _undefined || $__typename == null
-            ? _instance.$__typename
-            : ($__typename as String),
-      ));
+  }) => _then(
+    Query$GetStations$stations$now_playing$song(
+      id: id == _undefined || id == null ? _instance.id : (id as int),
+      name: name == _undefined || name == null
+          ? _instance.name
+          : (name as String),
+      thumbnail_url: thumbnail_url == _undefined
+          ? _instance.thumbnail_url
+          : (thumbnail_url as String?),
+      artist: artist == _undefined
+          ? _instance.artist
+          : (artist as Query$GetStations$stations$now_playing$song$artist?),
+      $__typename: $__typename == _undefined || $__typename == null
+          ? _instance.$__typename
+          : ($__typename as String),
+    ),
+  );
 
   CopyWith$Query$GetStations$stations$now_playing$song$artist<TRes> get artist {
     final local$artist = _instance.artist;
     return local$artist == null
         ? CopyWith$Query$GetStations$stations$now_playing$song$artist.stub(
-            _then(_instance))
+            _then(_instance),
+          )
         : CopyWith$Query$GetStations$stations$now_playing$song$artist(
-            local$artist, (e) => call(artist: e));
+            local$artist,
+            (e) => call(artist: e),
+          );
   }
 }
 
@@ -2330,13 +2779,11 @@ class _CopyWithStubImpl$Query$GetStations$stations$now_playing$song<TRes>
     String? thumbnail_url,
     Query$GetStations$stations$now_playing$song$artist? artist,
     String? $__typename,
-  }) =>
-      _res;
+  }) => _res;
 
   CopyWith$Query$GetStations$stations$now_playing$song$artist<TRes>
-      get artist =>
-          CopyWith$Query$GetStations$stations$now_playing$song$artist.stub(
-              _res);
+  get artist =>
+      CopyWith$Query$GetStations$stations$now_playing$song$artist.stub(_res);
 }
 
 class Query$GetStations$stations$now_playing$song$artist {
@@ -2348,7 +2795,8 @@ class Query$GetStations$stations$now_playing$song$artist {
   });
 
   factory Query$GetStations$stations$now_playing$song$artist.fromJson(
-      Map<String, dynamic> json) {
+    Map<String, dynamic> json,
+  ) {
     final l$id = json['id'];
     final l$name = json['name'];
     final l$thumbnail_url = json['thumbnail_url'];
@@ -2388,12 +2836,7 @@ class Query$GetStations$stations$now_playing$song$artist {
     final l$name = name;
     final l$thumbnail_url = thumbnail_url;
     final l$$__typename = $__typename;
-    return Object.hashAll([
-      l$id,
-      l$name,
-      l$thumbnail_url,
-      l$$__typename,
-    ]);
+    return Object.hashAll([l$id, l$name, l$thumbnail_url, l$$__typename]);
   }
 
   @override
@@ -2401,7 +2844,7 @@ class Query$GetStations$stations$now_playing$song$artist {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Query$GetStations$stations$now_playing$song$artist) ||
+    if (other is! Query$GetStations$stations$now_playing$song$artist ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -2432,24 +2875,25 @@ class Query$GetStations$stations$now_playing$song$artist {
 extension UtilityExtension$Query$GetStations$stations$now_playing$song$artist
     on Query$GetStations$stations$now_playing$song$artist {
   CopyWith$Query$GetStations$stations$now_playing$song$artist<
-          Query$GetStations$stations$now_playing$song$artist>
-      get copyWith =>
-          CopyWith$Query$GetStations$stations$now_playing$song$artist(
-            this,
-            (i) => i,
-          );
+    Query$GetStations$stations$now_playing$song$artist
+  >
+  get copyWith => CopyWith$Query$GetStations$stations$now_playing$song$artist(
+    this,
+    (i) => i,
+  );
 }
 
 abstract class CopyWith$Query$GetStations$stations$now_playing$song$artist<
-    TRes> {
+  TRes
+> {
   factory CopyWith$Query$GetStations$stations$now_playing$song$artist(
     Query$GetStations$stations$now_playing$song$artist instance,
     TRes Function(Query$GetStations$stations$now_playing$song$artist) then,
   ) = _CopyWithImpl$Query$GetStations$stations$now_playing$song$artist;
 
   factory CopyWith$Query$GetStations$stations$now_playing$song$artist.stub(
-          TRes res) =
-      _CopyWithStubImpl$Query$GetStations$stations$now_playing$song$artist;
+    TRes res,
+  ) = _CopyWithStubImpl$Query$GetStations$stations$now_playing$song$artist;
 
   TRes call({
     int? id,
@@ -2478,35 +2922,32 @@ class _CopyWithImpl$Query$GetStations$stations$now_playing$song$artist<TRes>
     Object? name = _undefined,
     Object? thumbnail_url = _undefined,
     Object? $__typename = _undefined,
-  }) =>
-      _then(Query$GetStations$stations$now_playing$song$artist(
-        id: id == _undefined || id == null ? _instance.id : (id as int),
-        name: name == _undefined || name == null
-            ? _instance.name
-            : (name as String),
-        thumbnail_url: thumbnail_url == _undefined
-            ? _instance.thumbnail_url
-            : (thumbnail_url as String?),
-        $__typename: $__typename == _undefined || $__typename == null
-            ? _instance.$__typename
-            : ($__typename as String),
-      ));
+  }) => _then(
+    Query$GetStations$stations$now_playing$song$artist(
+      id: id == _undefined || id == null ? _instance.id : (id as int),
+      name: name == _undefined || name == null
+          ? _instance.name
+          : (name as String),
+      thumbnail_url: thumbnail_url == _undefined
+          ? _instance.thumbnail_url
+          : (thumbnail_url as String?),
+      $__typename: $__typename == _undefined || $__typename == null
+          ? _instance.$__typename
+          : ($__typename as String),
+    ),
+  );
 }
 
 class _CopyWithStubImpl$Query$GetStations$stations$now_playing$song$artist<TRes>
     implements
         CopyWith$Query$GetStations$stations$now_playing$song$artist<TRes> {
   _CopyWithStubImpl$Query$GetStations$stations$now_playing$song$artist(
-      this._res);
+    this._res,
+  );
 
   TRes _res;
 
-  call({
-    int? id,
-    String? name,
-    String? thumbnail_url,
-    String? $__typename,
-  }) =>
+  call({int? id, String? name, String? thumbnail_url, String? $__typename}) =>
       _res;
 }
 
@@ -2519,7 +2960,8 @@ class Query$GetStations$stations$reviews {
   });
 
   factory Query$GetStations$stations$reviews.fromJson(
-      Map<String, dynamic> json) {
+    Map<String, dynamic> json,
+  ) {
     final l$id = json['id'];
     final l$stars = json['stars'];
     final l$message = json['message'];
@@ -2559,12 +3001,7 @@ class Query$GetStations$stations$reviews {
     final l$stars = stars;
     final l$message = message;
     final l$$__typename = $__typename;
-    return Object.hashAll([
-      l$id,
-      l$stars,
-      l$message,
-      l$$__typename,
-    ]);
+    return Object.hashAll([l$id, l$stars, l$message, l$$__typename]);
   }
 
   @override
@@ -2572,7 +3009,7 @@ class Query$GetStations$stations$reviews {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Query$GetStations$stations$reviews) ||
+    if (other is! Query$GetStations$stations$reviews ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -2603,11 +3040,9 @@ class Query$GetStations$stations$reviews {
 extension UtilityExtension$Query$GetStations$stations$reviews
     on Query$GetStations$stations$reviews {
   CopyWith$Query$GetStations$stations$reviews<
-          Query$GetStations$stations$reviews>
-      get copyWith => CopyWith$Query$GetStations$stations$reviews(
-            this,
-            (i) => i,
-          );
+    Query$GetStations$stations$reviews
+  >
+  get copyWith => CopyWith$Query$GetStations$stations$reviews(this, (i) => i);
 }
 
 abstract class CopyWith$Query$GetStations$stations$reviews<TRes> {
@@ -2619,20 +3054,12 @@ abstract class CopyWith$Query$GetStations$stations$reviews<TRes> {
   factory CopyWith$Query$GetStations$stations$reviews.stub(TRes res) =
       _CopyWithStubImpl$Query$GetStations$stations$reviews;
 
-  TRes call({
-    int? id,
-    int? stars,
-    String? message,
-    String? $__typename,
-  });
+  TRes call({int? id, int? stars, String? message, String? $__typename});
 }
 
 class _CopyWithImpl$Query$GetStations$stations$reviews<TRes>
     implements CopyWith$Query$GetStations$stations$reviews<TRes> {
-  _CopyWithImpl$Query$GetStations$stations$reviews(
-    this._instance,
-    this._then,
-  );
+  _CopyWithImpl$Query$GetStations$stations$reviews(this._instance, this._then);
 
   final Query$GetStations$stations$reviews _instance;
 
@@ -2645,19 +3072,20 @@ class _CopyWithImpl$Query$GetStations$stations$reviews<TRes>
     Object? stars = _undefined,
     Object? message = _undefined,
     Object? $__typename = _undefined,
-  }) =>
-      _then(Query$GetStations$stations$reviews(
-        id: id == _undefined || id == null ? _instance.id : (id as int),
-        stars: stars == _undefined || stars == null
-            ? _instance.stars
-            : (stars as int),
-        message: message == _undefined || message == null
-            ? _instance.message
-            : (message as String),
-        $__typename: $__typename == _undefined || $__typename == null
-            ? _instance.$__typename
-            : ($__typename as String),
-      ));
+  }) => _then(
+    Query$GetStations$stations$reviews(
+      id: id == _undefined || id == null ? _instance.id : (id as int),
+      stars: stars == _undefined || stars == null
+          ? _instance.stars
+          : (stars as int),
+      message: message == _undefined || message == null
+          ? _instance.message
+          : (message as String),
+      $__typename: $__typename == _undefined || $__typename == null
+          ? _instance.$__typename
+          : ($__typename as String),
+    ),
+  );
 }
 
 class _CopyWithStubImpl$Query$GetStations$stations$reviews<TRes>
@@ -2666,13 +3094,7 @@ class _CopyWithStubImpl$Query$GetStations$stations$reviews<TRes>
 
   TRes _res;
 
-  call({
-    int? id,
-    int? stars,
-    String? message,
-    String? $__typename,
-  }) =>
-      _res;
+  call({int? id, int? stars, String? message, String? $__typename}) => _res;
 }
 
 class Query$GetStations$station_groups {
@@ -2698,8 +3120,12 @@ class Query$GetStations$station_groups {
       order: (l$order as int),
       slug: (l$slug as String),
       station_to_station_groups: (l$station_to_station_groups as List<dynamic>)
-          .map((e) => Query$GetStations$station_groups$station_to_station_groups
-              .fromJson((e as Map<String, dynamic>)))
+          .map(
+            (e) =>
+                Query$GetStations$station_groups$station_to_station_groups.fromJson(
+                  (e as Map<String, dynamic>),
+                ),
+          )
           .toList(),
       $__typename: (l$$__typename as String),
     );
@@ -2714,7 +3140,7 @@ class Query$GetStations$station_groups {
   final String slug;
 
   final List<Query$GetStations$station_groups$station_to_station_groups>
-      station_to_station_groups;
+  station_to_station_groups;
 
   final String $__typename;
 
@@ -2729,8 +3155,9 @@ class Query$GetStations$station_groups {
     final l$slug = slug;
     _resultData['slug'] = l$slug;
     final l$station_to_station_groups = station_to_station_groups;
-    _resultData['station_to_station_groups'] =
-        l$station_to_station_groups.map((e) => e.toJson()).toList();
+    _resultData['station_to_station_groups'] = l$station_to_station_groups
+        .map((e) => e.toJson())
+        .toList();
     final l$$__typename = $__typename;
     _resultData['__typename'] = l$$__typename;
     return _resultData;
@@ -2759,7 +3186,7 @@ class Query$GetStations$station_groups {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other is Query$GetStations$station_groups) ||
+    if (other is! Query$GetStations$station_groups ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -2810,10 +3237,7 @@ class Query$GetStations$station_groups {
 extension UtilityExtension$Query$GetStations$station_groups
     on Query$GetStations$station_groups {
   CopyWith$Query$GetStations$station_groups<Query$GetStations$station_groups>
-      get copyWith => CopyWith$Query$GetStations$station_groups(
-            this,
-            (i) => i,
-          );
+  get copyWith => CopyWith$Query$GetStations$station_groups(this, (i) => i);
 }
 
 abstract class CopyWith$Query$GetStations$station_groups<TRes> {
@@ -2831,23 +3255,25 @@ abstract class CopyWith$Query$GetStations$station_groups<TRes> {
     int? order,
     String? slug,
     List<Query$GetStations$station_groups$station_to_station_groups>?
-        station_to_station_groups,
+    station_to_station_groups,
     String? $__typename,
   });
   TRes station_to_station_groups(
-      Iterable<Query$GetStations$station_groups$station_to_station_groups> Function(
-              Iterable<
-                  CopyWith$Query$GetStations$station_groups$station_to_station_groups<
-                      Query$GetStations$station_groups$station_to_station_groups>>)
-          _fn);
+    Iterable<Query$GetStations$station_groups$station_to_station_groups>
+    Function(
+      Iterable<
+        CopyWith$Query$GetStations$station_groups$station_to_station_groups<
+          Query$GetStations$station_groups$station_to_station_groups
+        >
+      >,
+    )
+    _fn,
+  );
 }
 
 class _CopyWithImpl$Query$GetStations$station_groups<TRes>
     implements CopyWith$Query$GetStations$station_groups<TRes> {
-  _CopyWithImpl$Query$GetStations$station_groups(
-    this._instance,
-    this._then,
-  );
+  _CopyWithImpl$Query$GetStations$station_groups(this._instance, this._then);
 
   final Query$GetStations$station_groups _instance;
 
@@ -2862,41 +3288,53 @@ class _CopyWithImpl$Query$GetStations$station_groups<TRes>
     Object? slug = _undefined,
     Object? station_to_station_groups = _undefined,
     Object? $__typename = _undefined,
-  }) =>
-      _then(Query$GetStations$station_groups(
-        id: id == _undefined || id == null ? _instance.id : (id as int),
-        name: name == _undefined || name == null
-            ? _instance.name
-            : (name as String),
-        order: order == _undefined || order == null
-            ? _instance.order
-            : (order as int),
-        slug: slug == _undefined || slug == null
-            ? _instance.slug
-            : (slug as String),
-        station_to_station_groups: station_to_station_groups == _undefined ||
-                station_to_station_groups == null
-            ? _instance.station_to_station_groups
-            : (station_to_station_groups as List<
-                Query$GetStations$station_groups$station_to_station_groups>),
-        $__typename: $__typename == _undefined || $__typename == null
-            ? _instance.$__typename
-            : ($__typename as String),
-      ));
+  }) => _then(
+    Query$GetStations$station_groups(
+      id: id == _undefined || id == null ? _instance.id : (id as int),
+      name: name == _undefined || name == null
+          ? _instance.name
+          : (name as String),
+      order: order == _undefined || order == null
+          ? _instance.order
+          : (order as int),
+      slug: slug == _undefined || slug == null
+          ? _instance.slug
+          : (slug as String),
+      station_to_station_groups:
+          station_to_station_groups == _undefined ||
+              station_to_station_groups == null
+          ? _instance.station_to_station_groups
+          : (station_to_station_groups
+                as List<
+                  Query$GetStations$station_groups$station_to_station_groups
+                >),
+      $__typename: $__typename == _undefined || $__typename == null
+          ? _instance.$__typename
+          : ($__typename as String),
+    ),
+  );
 
   TRes station_to_station_groups(
-          Iterable<Query$GetStations$station_groups$station_to_station_groups> Function(
-                  Iterable<
-                      CopyWith$Query$GetStations$station_groups$station_to_station_groups<
-                          Query$GetStations$station_groups$station_to_station_groups>>)
-              _fn) =>
-      call(
-          station_to_station_groups: _fn(_instance.station_to_station_groups
-              .map((e) =>
-                  CopyWith$Query$GetStations$station_groups$station_to_station_groups(
-                    e,
-                    (i) => i,
-                  ))).toList());
+    Iterable<Query$GetStations$station_groups$station_to_station_groups>
+    Function(
+      Iterable<
+        CopyWith$Query$GetStations$station_groups$station_to_station_groups<
+          Query$GetStations$station_groups$station_to_station_groups
+        >
+      >,
+    )
+    _fn,
+  ) => call(
+    station_to_station_groups: _fn(
+      _instance.station_to_station_groups.map(
+        (e) =>
+            CopyWith$Query$GetStations$station_groups$station_to_station_groups(
+              e,
+              (i) => i,
+            ),
+      ),
+    ).toList(),
+  );
 }
 
 class _CopyWithStubImpl$Query$GetStations$station_groups<TRes>
@@ -2911,10 +3349,9 @@ class _CopyWithStubImpl$Query$GetStations$station_groups<TRes>
     int? order,
     String? slug,
     List<Query$GetStations$station_groups$station_to_station_groups>?
-        station_to_station_groups,
+    station_to_station_groups,
     String? $__typename,
-  }) =>
-      _res;
+  }) => _res;
 
   station_to_station_groups(_fn) => _res;
 }
@@ -2927,7 +3364,8 @@ class Query$GetStations$station_groups$station_to_station_groups {
   });
 
   factory Query$GetStations$station_groups$station_to_station_groups.fromJson(
-      Map<String, dynamic> json) {
+    Map<String, dynamic> json,
+  ) {
     final l$station_id = json['station_id'];
     final l$order = json['order'];
     final l$$__typename = json['__typename'];
@@ -2960,11 +3398,7 @@ class Query$GetStations$station_groups$station_to_station_groups {
     final l$station_id = station_id;
     final l$order = order;
     final l$$__typename = $__typename;
-    return Object.hashAll([
-      l$station_id,
-      l$order,
-      l$$__typename,
-    ]);
+    return Object.hashAll([l$station_id, l$order, l$$__typename]);
   }
 
   @override
@@ -2972,8 +3406,7 @@ class Query$GetStations$station_groups$station_to_station_groups {
     if (identical(this, other)) {
       return true;
     }
-    if (!(other
-            is Query$GetStations$station_groups$station_to_station_groups) ||
+    if (other is! Query$GetStations$station_groups$station_to_station_groups ||
         runtimeType != other.runtimeType) {
       return false;
     }
@@ -2999,38 +3432,38 @@ class Query$GetStations$station_groups$station_to_station_groups {
 extension UtilityExtension$Query$GetStations$station_groups$station_to_station_groups
     on Query$GetStations$station_groups$station_to_station_groups {
   CopyWith$Query$GetStations$station_groups$station_to_station_groups<
-          Query$GetStations$station_groups$station_to_station_groups>
-      get copyWith =>
-          CopyWith$Query$GetStations$station_groups$station_to_station_groups(
-            this,
-            (i) => i,
-          );
+    Query$GetStations$station_groups$station_to_station_groups
+  >
+  get copyWith =>
+      CopyWith$Query$GetStations$station_groups$station_to_station_groups(
+        this,
+        (i) => i,
+      );
 }
 
 abstract class CopyWith$Query$GetStations$station_groups$station_to_station_groups<
-    TRes> {
+  TRes
+> {
   factory CopyWith$Query$GetStations$station_groups$station_to_station_groups(
     Query$GetStations$station_groups$station_to_station_groups instance,
     TRes Function(Query$GetStations$station_groups$station_to_station_groups)
-        then,
+    then,
   ) = _CopyWithImpl$Query$GetStations$station_groups$station_to_station_groups;
 
   factory CopyWith$Query$GetStations$station_groups$station_to_station_groups.stub(
-          TRes res) =
-      _CopyWithStubImpl$Query$GetStations$station_groups$station_to_station_groups;
+    TRes res,
+  ) = _CopyWithStubImpl$Query$GetStations$station_groups$station_to_station_groups;
 
-  TRes call({
-    int? station_id,
-    int? order,
-    String? $__typename,
-  });
+  TRes call({int? station_id, int? order, String? $__typename});
 }
 
 class _CopyWithImpl$Query$GetStations$station_groups$station_to_station_groups<
-        TRes>
+  TRes
+>
     implements
         CopyWith$Query$GetStations$station_groups$station_to_station_groups<
-            TRes> {
+          TRes
+        > {
   _CopyWithImpl$Query$GetStations$station_groups$station_to_station_groups(
     this._instance,
     this._then,
@@ -3039,7 +3472,9 @@ class _CopyWithImpl$Query$GetStations$station_groups$station_to_station_groups<
   final Query$GetStations$station_groups$station_to_station_groups _instance;
 
   final TRes Function(
-      Query$GetStations$station_groups$station_to_station_groups) _then;
+    Query$GetStations$station_groups$station_to_station_groups,
+  )
+  _then;
 
   static const _undefined = <dynamic, dynamic>{};
 
@@ -3047,34 +3482,33 @@ class _CopyWithImpl$Query$GetStations$station_groups$station_to_station_groups<
     Object? station_id = _undefined,
     Object? order = _undefined,
     Object? $__typename = _undefined,
-  }) =>
-      _then(Query$GetStations$station_groups$station_to_station_groups(
-        station_id: station_id == _undefined || station_id == null
-            ? _instance.station_id
-            : (station_id as int),
-        order: order == _undefined || order == null
-            ? _instance.order
-            : (order as int),
-        $__typename: $__typename == _undefined || $__typename == null
-            ? _instance.$__typename
-            : ($__typename as String),
-      ));
+  }) => _then(
+    Query$GetStations$station_groups$station_to_station_groups(
+      station_id: station_id == _undefined || station_id == null
+          ? _instance.station_id
+          : (station_id as int),
+      order: order == _undefined || order == null
+          ? _instance.order
+          : (order as int),
+      $__typename: $__typename == _undefined || $__typename == null
+          ? _instance.$__typename
+          : ($__typename as String),
+    ),
+  );
 }
 
 class _CopyWithStubImpl$Query$GetStations$station_groups$station_to_station_groups<
-        TRes>
+  TRes
+>
     implements
         CopyWith$Query$GetStations$station_groups$station_to_station_groups<
-            TRes> {
+          TRes
+        > {
   _CopyWithStubImpl$Query$GetStations$station_groups$station_to_station_groups(
-      this._res);
+    this._res,
+  );
 
   TRes _res;
 
-  call({
-    int? station_id,
-    int? order,
-    String? $__typename,
-  }) =>
-      _res;
+  call({int? station_id, int? order, String? $__typename}) => _res;
 }

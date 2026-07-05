@@ -18,6 +18,16 @@ query GetStations {
       type
       stream_url
     }
+    station_type
+    playlist_items {
+      id
+      order
+      type
+      url
+      title
+      thumbnail_url
+      duration_seconds
+    }
     posts(limit: 1, order_by: {published: desc}) {
       id
       title
