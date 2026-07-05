@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(UIKit)
+import UIKit
+#endif
 
 /// REST client + timestamp helpers shared with the Flutter app.
 ///
@@ -75,4 +78,29 @@ enum API {
     static let base = "https://api.radiocrestin.ro/api/v1"
     static let stationsURL = "\(base)/stations"
     static let stationsMetadataURL = "\(base)/stations-metadata"
+}
+
+/// Per-install device identity. Used as the `s=` query parameter on
+/// stream URLs (listening-session attribution) and as the `device_id`
+/// for the private-stations allowlist. Persisted in UserDefaults so it
+/// stays stable across launches — matches the Flutter `globals.deviceId`
+/// contract. Moved here from `AudioPlayer` so network and playback code
+/// share one identity.
+enum DeviceIdentity {
+    static let deviceId: String = {
+        let key = "tv.streamDeviceId"
+        let defaults = UserDefaults.standard
+        if let saved = defaults.string(forKey: key), !saved.isEmpty {
+            return saved
+        }
+        #if canImport(UIKit)
+        if let vendorId = UIDevice.current.identifierForVendor?.uuidString {
+            defaults.set(vendorId, forKey: key)
+            return vendorId
+        }
+        #endif
+        let fresh = UUID().uuidString
+        defaults.set(fresh, forKey: key)
+        return fresh
+    }()
 }

@@ -51,6 +51,28 @@ final class AppState: ObservableObject {
     @Published var currentStation: Station?
     let songHistory = SongHistoryStore()
 
+    // MARK: - Private stations
+
+    /// Last successfully fetched private stations for this device. The
+    /// public `/stations` and `/stations-metadata` endpoints do not cover
+    /// them, so this payload is both their catalog entry AND their only
+    /// `now_playing`/`uptime`/listeners source. Kept across transient
+    /// fetch failures so private stations never flicker out of the list,
+    /// and persisted to UserDefaults so the next launch renders them
+    /// instantly before any network round-trip.
+    private var privateStations: [Station] = []
+
+    /// Ids of catalog entries that came from the private endpoint. There
+    /// is no wire flag — membership is tracked by fetch source. Drives
+    /// the pinned-first ordering in `sortedStations`.
+    private(set) var privateStationIds: Set<Int> = []
+
+    /// True once this session learned the device has no private stations
+    /// (confirmed-empty response) or the endpoint isn't deployed (404) —
+    /// periodic ticks then skip the fetch so we don't reload a known-empty
+    /// answer all session. Launch and app-resume always recheck.
+    private var privateFetchDisabled = false
+
     // MARK: - Audio sync hooks (set by RootView after AudioPlayer init)
 
     /// Returns the 10s-aligned PROGRAM-DATE-TIME of the audio currently
@@ -131,6 +153,15 @@ final class AppState: ObservableObject {
         }
         if let raw = defaults.dictionary(forKey: Keys.playCounts) as? [String: Int] {
             self.playCounts = raw
+        }
+        // Bootstrap private stations from the persisted copy so an
+        // allowlisted device sees them immediately, before any network.
+        // The startup full refresh replaces them with the live answer.
+        if let data = defaults.data(forKey: Keys.privateStations),
+           let cached = try? JSONDecoder().decode([Station].self, from: data),
+           !cached.isEmpty {
+            self.privateStations = cached
+            self.stations = withPrivate([])
         }
     }
 
@@ -236,11 +267,17 @@ final class AppState: ObservableObject {
             let liveTs = roundedTimestamp()
             async let stationsResult = repository.fetchStations(timestamp: liveTs)
             async let liveMetaResult = repository.fetchMetadata(timestamp: liveTs)
+            async let privateRefresh: Void = refreshPrivateStations(
+                reason: reason
+            )
 
             let fresh = try await stationsResult
             let live = (try? await liveMetaResult) ?? [:]
+            await privateRefresh
 
-            stations = mergeMetadata(into: fresh, live: live, offset: nil)
+            stations = mergeMetadata(
+                into: withPrivate(fresh), live: live, offset: nil
+            )
             lastFetchTimestamp = liveTs
             lastOffsetFetchTimestamp = 0
             lastFullRefresh = Date()
@@ -343,9 +380,17 @@ final class AppState: ObservableObject {
                     changesFromTimestamp: canDiffOffset ? lastOffsetFetchTimestamp : nil
                 )
             }()
+            // Private stations aren't in /stations-metadata — their
+            // now_playing/uptime/listeners ride on the private payload,
+            // so the 60s tick doubles as their metadata refresh (skipped
+            // for the session once the device is known to have none).
+            async let privateRefresh: Void = refreshPrivateStations(
+                reason: .periodic
+            )
 
             let live = try await liveResult
             let offset = await offsetResult
+            await privateRefresh
 
             lastFetchTimestamp = liveTs
             if fetchOffset { lastOffsetFetchTimestamp = offsetTs }
@@ -361,10 +406,18 @@ final class AppState: ObservableObject {
     /// picks the HLS-aligned (offset) source for the playing station and
     /// the live source for everyone else, then publishes only if a
     /// user-visible field actually changed.
+    ///
+    /// The catalog is first rebuilt against the current private-station
+    /// cache: `/stations-metadata` never covers private stations, so
+    /// their fresh `now_playing`/`uptime`/listeners arrive on the private
+    /// payload itself. Runs even when both metadata maps are empty —
+    /// a private-only change must still land.
     private func applyMerge(live: [Int: StationMetadata]?, offset: [Int: StationMetadata]?) {
-        if (live?.isEmpty ?? true) && (offset?.isEmpty ?? true) { return }
+        let oldPrivateIds = privateStationIds
+        let publicPart = stations.filter { !oldPrivateIds.contains($0.id) }
+        let base = withPrivate(publicPart)
 
-        let merged = mergeMetadata(into: stations, live: live ?? [:], offset: offset)
+        let merged = mergeMetadata(into: base, live: live ?? [:], offset: offset)
         guard hasMeaningfulChanges(old: stations, new: merged) else { return }
         stations = merged
         if let current = currentStation,
@@ -382,6 +435,55 @@ final class AppState: ObservableObject {
         #if DEBUG
         print("AppState: \(message)")
         #endif
+    }
+
+    /// Single entry point for the private-stations fetch policy:
+    ///
+    /// * Launch (`.startup`) and `.appResumed` always fetch — they also
+    ///   re-arm polling that a confirmed-empty answer disabled.
+    /// * Other reasons (periodic 60s tick, promoted refreshes) fetch only
+    ///   while polling is enabled.
+    /// * Confirmed EMPTY → remember, disable polling for the session,
+    ///   clear the persisted copy (the device was de-allowlisted).
+    /// * Non-empty → cache in memory + UserDefaults (instant next-launch
+    ///   render) and keep the 60s cadence — this payload is the private
+    ///   stations' only metadata source.
+    /// * 404 (endpoint not deployed yet) → keep the last known list but
+    ///   stop polling this session so we don't hammer a dead endpoint.
+    /// * Any other failure → keep the last known list, keep the cache,
+    ///   keep polling; the next cycle retries.
+    private func refreshPrivateStations(reason: SyncReason) async {
+        let isLaunchOrResume = reason == .startup || reason == .appResumed
+        guard isLaunchOrResume || !privateFetchDisabled else { return }
+        do {
+            let fetched = try await repository.fetchPrivateStations(
+                deviceId: DeviceIdentity.deviceId
+            )
+            privateStations = fetched
+            privateFetchDisabled = fetched.isEmpty
+            if fetched.isEmpty {
+                defaults.removeObject(forKey: Keys.privateStations)
+            } else if let data = try? JSONEncoder().encode(fetched) {
+                defaults.set(data, forKey: Keys.privateStations)
+            }
+        } catch APIError.http(404) {
+            logSync("private stations: endpoint 404 — polling off this session")
+            privateFetchDisabled = true
+        } catch {
+            logSync("private stations: fetch failed (kept last known list)")
+        }
+    }
+
+    /// Appends the cached private stations to a public catalog, deduped
+    /// by id — a station present in both is public and the public entry
+    /// wins (its metadata flows through `/stations-metadata` normally).
+    /// Recomputes `privateStationIds` as a side effect so the pinned
+    /// ordering always matches the catalog it was derived from.
+    private func withPrivate(_ publicStations: [Station]) -> [Station] {
+        let publicIds = Set(publicStations.map(\.id))
+        let exclusives = privateStations.filter { !publicIds.contains($0.id) }
+        privateStationIds = Set(exclusives.map(\.id))
+        return publicStations + exclusives
     }
 
     /// Picks the right metadata source per station and merges it in.
@@ -426,7 +528,10 @@ final class AppState: ObservableObject {
                 o.songTitle != n.songTitle ||
                 o.songArtist != n.songArtist ||
                 o.totalListeners != n.totalListeners ||
-                o.isUp != n.isUp {
+                o.isUp != n.isUp ||
+                // Private stations refresh wholesale from the private
+                // payload — playlist edits must reach the UI too.
+                o.playlistItems != n.playlistItems {
                 return true
             }
         }
@@ -504,14 +609,16 @@ final class AppState: ObservableObject {
         songHistory.seed(entries, for: slug)
     }
 
-    /// Stations sorted using the user's saved preference. Favorites bubble
+    /// Stations sorted using the user's saved preference. Private
+    /// stations pin to the very top in every sort mode; favorites bubble
     /// to the top of the recommended list (matches the Flutter behavior).
     var sortedStations: [Station] {
         StationSortService.sort(
             stations,
             by: sortOption,
             playCounts: playCounts,
-            favoriteSlugs: favoriteSlugs
+            favoriteSlugs: favoriteSlugs,
+            privateIds: privateStationIds
         )
     }
 
@@ -590,5 +697,6 @@ final class AppState: ObservableObject {
         static let recents = "tv.recentSlugs"
         static let sort = "tv.sortOption"
         static let playCounts = "tv.playCounts"
+        static let privateStations = "tv.privateStations"
     }
 }

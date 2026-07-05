@@ -37,6 +37,31 @@ final class StationRepository {
         return envelope.data.stations
     }
 
+    // MARK: - Private stations
+
+    /// Fetches the private stations allowlisted for this device — the
+    /// public `/stations` endpoint returns only public stations. Same
+    /// envelope and full `Station` shape (incl. `station_type` /
+    /// `playlist_items`). An unknown device yields an empty list, never
+    /// an error. The 60s-rounded timestamp matches the endpoint's cache
+    /// window (and the 60s periodic sync cadence).
+    func fetchPrivateStations(deviceId: String) async throws -> [Station] {
+        guard !deviceId.isEmpty else { return [] }
+        guard var components = URLComponents(
+            string: "\(API.base)/private-stations"
+        ) else {
+            throw APIError.invalidURL
+        }
+        components.queryItems = [
+            URLQueryItem(name: "device_id", value: deviceId),
+            URLQueryItem(name: "timestamp",
+                         value: "\(roundedTimestamp(step: 60))")
+        ]
+        guard let url = components.url else { throw APIError.invalidURL }
+        let envelope = try await client.get(url, as: StationsEnvelope.self)
+        return envelope.data.stations
+    }
+
     // MARK: - Per-station song history
 
     /// Fetches the recent song history for one station — used to seed

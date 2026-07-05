@@ -593,26 +593,6 @@ final class AudioPlayer: ObservableObject {
 
     // MARK: - Stream URL tracking
 
-    /// Per-install device id used as the `s` query parameter on every
-    /// stream URL. Persisted in UserDefaults so it stays stable across
-    /// launches (matches the Flutter `globals.deviceId` contract).
-    private static let deviceId: String = {
-        let key = "tv.streamDeviceId"
-        let defaults = UserDefaults.standard
-        if let saved = defaults.string(forKey: key), !saved.isEmpty {
-            return saved
-        }
-        #if canImport(UIKit)
-        if let vendorId = UIDevice.current.identifierForVendor?.uuidString {
-            defaults.set(vendorId, forKey: key)
-            return vendorId
-        }
-        #endif
-        let fresh = UUID().uuidString
-        defaults.set(fresh, forKey: key)
-        return fresh
-    }()
-
     /// Adds `ref=radio-crestin-apple-tv&s=<deviceId>` to a stream URL so
     /// the streaming server can attribute listening sessions per-platform
     /// and per-device. Mirrors `AppAudioHandler.addTrackingParametersToUrl`
@@ -630,7 +610,7 @@ final class AudioPlayer: ObservableObject {
         // a stream URL is re-played in the same session.
         items.removeAll { $0.name == "ref" || $0.name == "s" }
         items.append(URLQueryItem(name: "ref", value: "radio-crestin-apple-tv"))
-        items.append(URLQueryItem(name: "s", value: deviceId))
+        items.append(URLQueryItem(name: "s", value: DeviceIdentity.deviceId))
         components.queryItems = items
         return components.url ?? baseURL
     }
