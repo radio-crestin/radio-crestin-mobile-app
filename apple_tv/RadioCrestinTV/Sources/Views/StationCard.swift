@@ -17,6 +17,13 @@ struct StationCard: View {
             VStack(alignment: .leading, spacing: 0) {
                 ZStack(alignment: .topTrailing) {
                     artwork
+                    // Kind badge in the top-left corner so TV and playlist
+                    // stations are distinguishable at a glance in the grid.
+                    // Radio (the default) renders nothing.
+                    kindBadge
+                        .padding(8)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity,
+                               alignment: .topLeading)
                     if isFavorite {
                         Image(systemName: "heart.fill")
                             .font(.system(size: 18))
@@ -62,6 +69,33 @@ struct StationCard: View {
             cornerRadius: Theme.Radius.lg
         )
         .aspectRatio(1, contentMode: .fit)
+    }
+
+    /// Small corner badge marking TV / playlist stations. Radio stations
+    /// (the default) get none, keeping the common case visually clean.
+    @ViewBuilder
+    private var kindBadge: some View {
+        switch station.kind {
+        case .tv:
+            HStack(spacing: 5) {
+                Image(systemName: "tv")
+                    .font(.system(size: 13, weight: .bold))
+                Text("TV")
+                    .font(.system(size: 13, weight: .heavy))
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(Theme.primary, in: Capsule())
+        case .playlist:
+            Image(systemName: "list.and.film")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(.white)
+                .padding(7)
+                .background(.black.opacity(0.6), in: Circle())
+        case .radio:
+            EmptyView()
+        }
     }
 
     private var playingBadge: some View {

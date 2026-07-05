@@ -472,7 +472,8 @@ final class AppState: ObservableObject {
         Analytics.listeningStarted(
             stationSlug: station.slug,
             stationTitle: station.title,
-            stationId: station.id
+            stationId: station.id,
+            stationType: station.kindAnalyticsValue
         )
     }
 

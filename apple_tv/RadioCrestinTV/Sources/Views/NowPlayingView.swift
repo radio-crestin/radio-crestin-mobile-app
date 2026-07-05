@@ -38,6 +38,44 @@ struct NowPlayingView: View {
 
     var body: some View {
         ZStack {
+            if station.hasOnlyYouTubeItems {
+                // Playlist with only YouTube entries — nothing tvOS can
+                // embed. Explain rather than showing a broken player.
+                youTubeOnlyLayout
+            } else if player.isVideoContent {
+                // TV station or a playlist video item — full-bleed video
+                // with a self-managing auto-hiding control overlay.
+                VideoNowPlaying(
+                    station: station,
+                    player: player,
+                    isFavorite: isFavorite,
+                    onBack: onBack,
+                    onToggleFavorite: onToggleFavorite,
+                    onPrevStation: onPrev,
+                    onNextStation: onNext
+                )
+            } else {
+                audioLayout
+            }
+        }
+        .onExitCommand {
+            if isSharing { isSharing = false } else { onBack() }
+        }
+        .onChange(of: station.songTitle) { _, _ in
+            // Reset like/dislike on song change — they're per-song.
+            let key = "\(station.slug):\(station.songTitle)"
+            if key != lastTrackedSongId {
+                liked = false
+                disliked = false
+                lastTrackedSongId = key
+            }
+        }
+    }
+
+    // MARK: - Audio layout (radio + playlist audio items)
+
+    private var audioLayout: some View {
+        ZStack {
             // Background blur ignores the safe area so it bleeds to the
             // edges; everything else respects safe area so back button +
             // controls don't disappear into the TV's overscan area.
@@ -92,17 +130,33 @@ struct NowPlayingView: View {
             try? await Task.sleep(nanoseconds: 50_000_000)
             controlFocus = .play
         }
-        .onExitCommand {
-            if isSharing { isSharing = false } else { onBack() }
-        }
-        .onChange(of: station.songTitle) { _, _ in
-            // Reset like/dislike on song change — they're per-song.
-            let key = "\(station.slug):\(station.songTitle)"
-            if key != lastTrackedSongId {
-                liked = false
-                disliked = false
-                lastTrackedSongId = key
+    }
+
+    private var isPlaylist: Bool { station.kind == .playlist }
+
+    // MARK: - YouTube-only fallback
+
+    private var youTubeOnlyLayout: some View {
+        ZStack {
+            Theme.background.ignoresSafeArea()
+            VStack(spacing: Theme.Spacing.lg) {
+                Image(systemName: "play.rectangle.on.rectangle")
+                    .font(.system(size: 90))
+                    .foregroundStyle(Theme.textTertiary)
+                Text(station.title)
+                    .font(.system(size: 34, weight: .bold))
+                    .foregroundStyle(Theme.textPrimary)
+                Text("Acest playlist conține doar clipuri YouTube, care nu pot fi redate pe Apple TV. Deschide aplicația Radio Creștin pe telefon pentru a le viziona.")
+                    .font(.system(size: 24))
+                    .foregroundStyle(Theme.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 900)
+                    .lineSpacing(6)
+                Button("Înapoi la posturi", action: onBack)
+                    .buttonStyle(.card)
+                    .padding(.top, Theme.Spacing.md)
             }
+            .padding(Theme.Spacing.xxl)
         }
     }
 
@@ -148,12 +202,31 @@ struct NowPlayingView: View {
         .focused($backButtonFocused)
     }
 
+    @ViewBuilder
     private var artwork: some View {
-        StationArtwork(
-            station: station,
-            cornerRadius: 28,
-            targetSize: CGSize(width: 460, height: 460)
-        )
+        Group {
+            if isPlaylist,
+               let thumb = player.currentPlaylistItem?.thumbnailUrl,
+               let url = URL(string: thumb) {
+                // Prefer the playlist item's own artwork (e.g. episode
+                // cover) over the station logo.
+                AsyncImage(url: url, transaction: Transaction(animation: .easeInOut)) { phase in
+                    if let image = phase.image {
+                        image.resizable().aspectRatio(contentMode: .fill)
+                    } else {
+                        StationArtwork(station: station, cornerRadius: 28)
+                    }
+                }
+                .frame(width: 460, height: 460)
+                .clipShape(RoundedRectangle(cornerRadius: 28))
+            } else {
+                StationArtwork(
+                    station: station,
+                    cornerRadius: 28,
+                    targetSize: CGSize(width: 460, height: 460)
+                )
+            }
+        }
         .shadow(color: .black.opacity(0.6), radius: 32, x: 0, y: 12)
     }
 
@@ -178,7 +251,16 @@ struct NowPlayingView: View {
 
     // MARK: - Right column
 
+    @ViewBuilder
     private var metadataAndControls: some View {
+        if isPlaylist {
+            playlistMetadataAndControls
+        } else {
+            radioMetadataAndControls
+        }
+    }
+
+    private var radioMetadataAndControls: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
             stationLine
             VStack(alignment: .leading, spacing: 8) {
@@ -203,6 +285,98 @@ struct NowPlayingView: View {
         // Cap the column so giant station logos / song titles don't push
         // the controls off screen.
         .frame(maxWidth: 900, alignment: .leading)
+    }
+
+    // MARK: - Playlist audio column
+
+    private var playlistMetadataAndControls: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
+            HStack(spacing: Theme.Spacing.md) {
+                Text(station.title.uppercased())
+                    .font(.system(size: 20, weight: .bold))
+                    .tracking(2)
+                    .foregroundStyle(Theme.textSecondary)
+                if player.playlistCount > 0 {
+                    Text("\(player.playlistIndex + 1) / \(player.playlistCount)")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 4)
+                        .background(Theme.primary, in: Capsule())
+                }
+            }
+
+            Text(player.currentPlaylistItem?.title ?? station.title)
+                .font(.system(size: 52, weight: .heavy))
+                .foregroundStyle(Theme.textPrimary)
+                .lineLimit(3)
+
+            if player.vodDuration > 0 {
+                VodProgressBar(
+                    position: player.vodPosition,
+                    duration: player.vodDuration
+                )
+                .padding(.top, Theme.Spacing.xs)
+            }
+
+            playlistControls
+                .padding(.top, Theme.Spacing.sm)
+
+            statusLine
+        }
+        .frame(maxWidth: 900, alignment: .leading)
+    }
+
+    private var playlistControls: some View {
+        HStack(alignment: .top, spacing: Theme.Spacing.sm) {
+            labeled("Înapoi 10s") {
+                CircleControl(
+                    icon: "gobackward.10",
+                    label: "Înapoi 10s",
+                    onFocusChange: setFocusedAction
+                ) { player.seek(by: -10) }
+            }
+            labeled("Anterior") {
+                CircleControl(
+                    icon: "backward.fill",
+                    label: "Anterior",
+                    onFocusChange: setFocusedAction
+                ) { player.previousItem() }
+            }
+            labeled(player.isPlaying ? "Pauză" : "Redă") {
+                CircleControl(
+                    icon: "play.fill",
+                    isPrimary: true,
+                    systemPause: player.isPlaying,
+                    label: player.isPlaying ? "Pauză" : "Redă",
+                    onFocusChange: setFocusedAction
+                ) { player.togglePlayPause() }
+                .prefersDefaultFocus(true, in: focusScope)
+                .focused($controlFocus, equals: .play)
+            }
+            labeled("Următor") {
+                CircleControl(
+                    icon: "forward.fill",
+                    label: "Următor",
+                    onFocusChange: setFocusedAction
+                ) { player.nextItem() }
+            }
+            labeled("Înainte 10s") {
+                CircleControl(
+                    icon: "goforward.10",
+                    label: "Înainte 10s",
+                    onFocusChange: setFocusedAction
+                ) { player.seek(by: 10) }
+            }
+            labeled(isFavorite ? "Elimină din favorite" : "Adaugă la favorite") {
+                CircleControl(
+                    icon: isFavorite ? "heart.fill" : "heart",
+                    tint: isFavorite ? Theme.primary : Theme.textPrimary,
+                    label: isFavorite ? "Elimină din favorite" : "Adaugă la favorite",
+                    onFocusChange: setFocusedAction
+                ) { onToggleFavorite() }
+            }
+        }
     }
 
     private var stationLine: some View {
@@ -554,6 +728,322 @@ private struct CircleControl: View {
         // descriptor follows the current action.
         .onChange(of: label) { _, newLabel in
             if isFocused { onFocusChange?(newLabel) }
+        }
+    }
+}
+
+// MARK: - VOD progress
+
+/// Slim progress track with elapsed / total labels. Shared by the playlist
+/// audio column and the video overlay for on-demand items.
+struct VodProgressBar: View {
+    let position: Double
+    let duration: Double
+
+    private var fraction: Double {
+        guard duration > 0 else { return 0 }
+        return min(1, max(0, position / duration))
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color.white.opacity(0.22))
+                    Capsule()
+                        .fill(Theme.primary)
+                        .frame(width: max(6, geo.size.width * fraction))
+                }
+            }
+            .frame(height: 8)
+            HStack {
+                Text(PlaybackTime.format(position))
+                Spacer()
+                Text(PlaybackTime.format(duration))
+            }
+            .font(.system(size: 18, weight: .medium))
+            .foregroundStyle(Theme.textSecondary)
+            .monospacedDigit()
+        }
+        .frame(maxWidth: 640)
+    }
+}
+
+/// Formats a duration in seconds as `m:ss` (or `h:mm:ss` past an hour).
+enum PlaybackTime {
+    static func format(_ seconds: Double) -> String {
+        guard seconds.isFinite, seconds >= 0 else { return "0:00" }
+        let total = Int(seconds.rounded())
+        let hours = total / 3600
+        let minutes = (total % 3600) / 60
+        let secs = total % 60
+        if hours > 0 {
+            return String(format: "%d:%02d:%02d", hours, minutes, secs)
+        }
+        return String(format: "%d:%02d", minutes, secs)
+    }
+}
+
+// MARK: - Video Now Playing
+
+/// Full-bleed video surface with a self-managing, auto-hiding control
+/// overlay — the standard tvOS video idiom. Used for TV stations (live
+/// video) and playlist video items (VOD). The overlay fades out after ~4s
+/// of inactivity and reappears on any remote interaction.
+private struct VideoNowPlaying: View {
+    let station: Station
+    @ObservedObject var player: AudioPlayer
+    let isFavorite: Bool
+    let onBack: () -> Void
+    let onToggleFavorite: () -> Void
+    let onPrevStation: () -> Void
+    let onNextStation: () -> Void
+
+    @State private var overlayVisible = true
+    @State private var hideTask: Task<Void, Never>?
+
+    /// The two targets we seat focus on programmatically. Other controls
+    /// take focus through normal D-pad navigation.
+    private enum Focusable: Hashable { case catcher, back, play }
+    @FocusState private var focus: Focusable?
+
+    private var isPlaylist: Bool { station.kind == .playlist }
+    private var isVOD: Bool { player.vodDuration > 0 }
+
+    var body: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+            VideoSurfaceView(player: player.avPlayer)
+                .ignoresSafeArea()
+
+            if player.isConnecting {
+                connectingOverlay
+            }
+
+            if overlayVisible {
+                overlay
+                    .transition(.opacity)
+            } else {
+                // Invisible focusable catcher: the first remote interaction
+                // while controls are hidden simply brings them back.
+                Color.clear
+                    .contentShape(Rectangle())
+                    .focusable(true)
+                    .focused($focus, equals: .catcher)
+                    .onMoveCommand { _ in reveal() }
+                    .onTapGesture { reveal() }
+            }
+        }
+        .animation(.easeInOut(duration: 0.3), value: overlayVisible)
+        .onPlayPauseCommand {
+            player.togglePlayPause()
+            reveal()
+        }
+        .onExitCommand(perform: onBack)
+        .onAppear {
+            seatPlayFocus()
+            scheduleHide()
+        }
+        .onChange(of: overlayVisible) { _, visible in
+            if visible {
+                seatPlayFocus()
+                scheduleHide()
+            } else {
+                hideTask?.cancel()
+                focus = .catcher
+            }
+        }
+        // Any focus move onto a `focus`-bound target (back / play) resets
+        // the idle countdown; the icon controls do the same via their own
+        // `onFocusChange` closures.
+        .onChange(of: focus) { _, newValue in
+            if overlayVisible, newValue != nil { scheduleHide() }
+        }
+        .onDisappear { hideTask?.cancel() }
+    }
+
+    // MARK: overlay chrome
+
+    private var overlay: some View {
+        VStack {
+            HStack(alignment: .center) {
+                backButton
+                Spacer()
+                if station.kind == .tv {
+                    livePill
+                } else if player.playlistCount > 0 {
+                    countPill
+                }
+            }
+            .padding(Theme.Spacing.lg)
+
+            Spacer()
+
+            VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+                Text(station.title.uppercased())
+                    .font(.system(size: 20, weight: .bold))
+                    .tracking(2)
+                    .foregroundStyle(Theme.textSecondary)
+                Text(currentTitle)
+                    .font(.system(size: 40, weight: .heavy))
+                    .foregroundStyle(.white)
+                    .lineLimit(2)
+                if isVOD {
+                    VodProgressBar(
+                        position: player.vodPosition,
+                        duration: player.vodDuration
+                    )
+                }
+                controls
+                    .padding(.top, Theme.Spacing.sm)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, Theme.Spacing.xxl)
+            .padding(.bottom, Theme.Spacing.xl)
+            .padding(.top, Theme.Spacing.xxl)
+            .background(
+                LinearGradient(
+                    colors: [.clear, .black.opacity(0.85)],
+                    startPoint: .top, endPoint: .bottom
+                )
+                .ignoresSafeArea()
+            )
+        }
+    }
+
+    private var currentTitle: String {
+        if isPlaylist { return player.currentPlaylistItem?.title ?? station.title }
+        return station.title
+    }
+
+    private var controls: some View {
+        HStack(spacing: Theme.Spacing.md) {
+            if isPlaylist {
+                iconControl("gobackward.10") { player.seek(by: -10) }
+                iconControl("backward.fill") { player.previousItem() }
+            } else {
+                iconControl("backward.fill") { onPrevStation() }
+            }
+
+            playControl
+
+            if isPlaylist {
+                iconControl("forward.fill") { player.nextItem() }
+                iconControl("goforward.10") { player.seek(by: 10) }
+            } else {
+                iconControl("forward.fill") { onNextStation() }
+            }
+
+            iconControl(
+                isFavorite ? "heart.fill" : "heart",
+                tint: isFavorite ? Theme.primary : Theme.textPrimary
+            ) { onToggleFavorite() }
+        }
+    }
+
+    private func iconControl(
+        _ icon: String,
+        tint: Color = Theme.textPrimary,
+        action: @escaping () -> Void
+    ) -> some View {
+        CircleControl(
+            icon: icon,
+            tint: tint,
+            onFocusChange: { _ in scheduleHide() },
+            action: action
+        )
+    }
+
+    private var playControl: some View {
+        CircleControl(
+            icon: "play.fill",
+            isPrimary: true,
+            systemPause: player.isPlaying,
+            onFocusChange: { _ in scheduleHide() }
+        ) {
+            player.togglePlayPause()
+            scheduleHide()
+        }
+        .focused($focus, equals: .play)
+    }
+
+    private var backButton: some View {
+        Button(action: onBack) {
+            HStack(spacing: 10) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 24, weight: .heavy))
+                Text("Înapoi")
+                    .font(.system(size: 24, weight: .semibold))
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 26)
+            .padding(.vertical, 16)
+        }
+        .buttonStyle(.card)
+        .focused($focus, equals: .back)
+    }
+
+    private var livePill: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "dot.radiowaves.left.and.right")
+            Text("LIVE")
+        }
+        .font(.system(size: 18, weight: .heavy))
+        .foregroundStyle(.white)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .background(Theme.primary, in: Capsule())
+    }
+
+    private var countPill: some View {
+        Text("\(player.playlistIndex + 1) / \(player.playlistCount)")
+            .font(.system(size: 18, weight: .semibold))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(.black.opacity(0.6), in: Capsule())
+    }
+
+    private var connectingOverlay: some View {
+        VStack(spacing: Theme.Spacing.md) {
+            ProgressView()
+                .controlSize(.large)
+                .tint(.white)
+            Text("Se conectează…")
+                .font(.system(size: 22))
+                .foregroundStyle(.white)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.black.opacity(0.3).ignoresSafeArea())
+    }
+
+    // MARK: overlay timing
+
+    /// Bring the overlay back (or, if already showing, just restart the
+    /// idle countdown).
+    private func reveal() {
+        if overlayVisible {
+            scheduleHide()
+        } else {
+            overlayVisible = true   // onChange seats focus + reschedules hide
+        }
+    }
+
+    /// Seat focus on the play/pause control after a short yield so the
+    /// focus engine has registered the freshly-shown nodes.
+    private func seatPlayFocus() {
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 40_000_000)
+            focus = .play
+        }
+    }
+
+    private func scheduleHide() {
+        hideTask?.cancel()
+        hideTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 4_000_000_000)
+            guard !Task.isCancelled else { return }
+            overlayVisible = false
         }
     }
 }

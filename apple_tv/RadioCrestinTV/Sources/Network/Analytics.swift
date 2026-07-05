@@ -61,11 +61,17 @@ enum Analytics {
 
     // MARK: - Domain events
 
-    static func listeningStarted(stationSlug: String, stationTitle: String, stationId: Int) {
+    static func listeningStarted(
+        stationSlug: String,
+        stationTitle: String,
+        stationId: Int,
+        stationType: String = "radio"
+    ) {
         capture("listening_started", properties: [
             "station_slug": stationSlug,
             "station_name": stationTitle,
-            "station_id": stationId
+            "station_id": stationId,
+            "station_type": stationType
         ])
     }
 
