@@ -31,12 +31,55 @@ final class AudioPlayer: ObservableObject {
 
     @Published private(set) var state: PlaybackState = .idle
 
+    /// True when the current source renders picture, not just audio:
+    /// a TV station (always), or a playlist item of type `video`.
+    /// Drives the full-bleed video layout in `NowPlayingView`.
+    @Published private(set) var isVideoContent: Bool = false
+
+    /// The playlist entry currently playing, or nil for radio/TV stations.
+    @Published private(set) var currentPlaylistItem: PlaylistItem?
+
+    /// 1-based index of the current playlist item and the total count —
+    /// surfaced as "x / y" in the UI. Both 0 when not a playlist.
+    @Published private(set) var playlistIndex: Int = 0
+    @Published private(set) var playlistCount: Int = 0
+
+    /// Playback position / duration (seconds) of the current VOD playlist
+    /// item. `0` for live radio/TV. `duration` is 0 until known.
+    @Published private(set) var vodPosition: Double = 0
+    @Published private(set) var vodDuration: Double = 0
+
+    /// True when the selected playlist station has entries but every one is
+    /// YouTube — nothing tvOS can embed. The UI shows a friendly message.
+    @Published private(set) var youTubeOnlyPlaylist: Bool = false
+
     private let player = AVPlayer()
     private var currentStation: Station?
     private var streams: [StationStream] = []
     private var attemptIndex = 0
     private var statusObserver: NSKeyValueObservation?
     private var playerItemObserver: AnyCancellable?
+
+    /// Distinguishes the two playback engines sharing the single AVPlayer:
+    /// sequential *stream* fallback (radio/TV) versus sequential *playlist*
+    /// item advance (playlist stations).
+    private enum PlaybackMode { case stream, playlist }
+    private var playbackMode: PlaybackMode = .stream
+
+    /// Ordered, playable (non-YouTube) items for the active playlist station.
+    private var playlistItems: [PlaylistItem] = []
+
+    /// Consecutive playlist-item load failures. Reset on any successful
+    /// item start; when it reaches the item count we stop instead of
+    /// spinning forever through a fully-broken playlist.
+    private var consecutivePlaylistErrors = 0
+
+    /// NotificationCenter token for `AVPlayerItemDidPlayToEndTime` on the
+    /// current playlist item — drives auto-advance / loop.
+    private var itemEndObserver: NSObjectProtocol?
+
+    /// Periodic time observer feeding `vodPosition` for playlist VOD items.
+    private var timeObserver: Any?
 
     /// Stream type the engine is currently feeding to AVPlayer. `nil`
     /// when no item is loaded. Public for metadata sync.
@@ -67,37 +110,77 @@ final class AudioPlayer: ObservableObject {
         try? AVAudioSession.sharedInstance().setActive(true)
     }
 
+    /// The shared AVPlayer, exposed so `VideoSurfaceView` can attach an
+    /// `AVPlayerLayer`. Read-only; all control still flows through this type.
+    var avPlayer: AVPlayer { player }
+
     // MARK: - Public API
 
     func play(_ station: Station) {
         currentStation = station
-        streams = station.orderedStreams
-        attemptIndex = 0
-        state = .connecting(station.title)
-        loadCurrentAttempt()
-        player.play()
+        resetPlaylistState()
+
+        switch station.kind {
+        case .radio, .tv:
+            // Live audio (radio) or live video (TV) — same sequential
+            // stream fallback walk; TV just happens to carry picture.
+            playbackMode = .stream
+            isVideoContent = (station.kind == .tv)
+            streams = station.orderedStreams
+            attemptIndex = 0
+            state = .connecting(station.title)
+            loadCurrentAttempt()
+            player.play()
+
+        case .playlist:
+            playbackMode = .playlist
+            let items = station.playableItems
+            guard !items.isEmpty else {
+                // Nothing playable — surface the friendly YouTube-only
+                // state rather than a spinning, broken player.
+                youTubeOnlyPlaylist = station.hasOnlyYouTubeItems
+                isVideoContent = false
+                state = .idle
+                return
+            }
+            playlistItems = items
+            playlistCount = items.count
+            loadPlaylistItem(at: 0)
+            player.play()
+        }
     }
 
     func togglePlayPause() {
         guard let station = currentStation else { return }
         switch state {
         case .playing:
-            // Pause is a hard stop for live radio. Holding the buffered
-            // segments would let "resume" replay stale audio that is
-            // now seconds-to-minutes behind the broadcast — confusing
-            // for a station the user thinks is live. Drop the item to
-            // close the network connection and clear the buffer.
-            player.pause()
-            player.replaceCurrentItem(with: nil)
-            statusObserver?.invalidate()
-            statusObserver = nil
-            currentStreamType = nil
-            state = .paused(station.title)
-        case .paused, .failed:
-            // Resume = re-tune at the live edge. Re-running play() walks
-            // the streams[] from index 0 again and AVPlayer fetches a
-            // fresh HLS playlist, dropping us back at the current
-            // segment instead of where pause left off.
+            if playbackMode == .playlist {
+                // Playlist items are on-demand files — a soft pause keeps
+                // the buffered position so resume continues seamlessly.
+                player.pause()
+                state = .paused(station.title)
+            } else {
+                // Pause is a hard stop for live radio/TV. Holding the
+                // buffered segments would let "resume" replay stale content
+                // now seconds-to-minutes behind the live edge. Drop the
+                // item to close the connection and clear the buffer.
+                player.pause()
+                player.replaceCurrentItem(with: nil)
+                statusObserver?.invalidate()
+                statusObserver = nil
+                currentStreamType = nil
+                state = .paused(station.title)
+            }
+        case .paused:
+            if playbackMode == .playlist, player.currentItem != nil {
+                // Resume the same on-demand item where it left off.
+                player.play()
+                state = .playing(station.title)
+            } else {
+                // Resume live = re-tune at the live edge (fresh playlist).
+                play(station)
+            }
+        case .failed:
             play(station)
         case .connecting, .idle:
             break
@@ -107,8 +190,50 @@ final class AudioPlayer: ObservableObject {
     func stop() {
         player.pause()
         player.replaceCurrentItem(with: nil)
+        resetPlaylistState()
         currentStreamType = nil
+        isVideoContent = false
         state = .idle
+    }
+
+    // MARK: - Playlist controls
+
+    /// Advance to the next playlist item (wraps to the first). Manual —
+    /// does not count against the broken-playlist error budget.
+    func nextItem() {
+        guard playbackMode == .playlist, !playlistItems.isEmpty else { return }
+        consecutivePlaylistErrors = 0
+        let next = (playlistIndex + 1) % playlistItems.count
+        loadPlaylistItem(at: next)
+        player.play()
+    }
+
+    /// Go to the previous playlist item (wraps to the last).
+    func previousItem() {
+        guard playbackMode == .playlist, !playlistItems.isEmpty else { return }
+        consecutivePlaylistErrors = 0
+        let prev = playlistIndex == 0 ? playlistItems.count - 1 : playlistIndex - 1
+        loadPlaylistItem(at: prev)
+        player.play()
+    }
+
+    /// Seek the current VOD item by `seconds` (negative = backward),
+    /// clamped to the item bounds. No-op for live streams.
+    func seek(by seconds: Double) {
+        guard playbackMode == .playlist, let item = player.currentItem else { return }
+        let current = player.currentTime().seconds
+        guard current.isFinite else { return }
+        var target = max(0, current + seconds)
+        let duration = item.duration.seconds
+        if duration.isFinite, duration > 0 {
+            target = min(target, max(0, duration - 0.5))
+        }
+        player.seek(
+            to: CMTime(seconds: target, preferredTimescale: 600),
+            toleranceBefore: .zero,
+            toleranceAfter: .zero
+        )
+        vodPosition = target
     }
 
     // MARK: - Stream-time accessors (for metadata sync)
@@ -124,15 +249,25 @@ final class AudioPlayer: ObservableObject {
     /// the active HLS stream, suitable as the `?timestamp=` parameter on
     /// `/api/v1/stations-metadata`. Returns nil for non-HLS streams or
     /// before the playlist has been parsed.
+    ///
+    /// Gated to radio stations: TV video streams may also be HLS, but their
+    /// now-playing song metadata isn't offset-synced, so they must not drive
+    /// the audio-aligned metadata fetch.
     var hlsPlaybackTimestamp: Int? {
-        guard currentStreamType == "HLS", let date = hlsPlaybackDate else {
+        guard currentStation?.kind == .radio,
+              currentStreamType == "HLS",
+              let date = hlsPlaybackDate else {
             return nil
         }
         return roundedTimestamp(at: date)
     }
 
-    /// True when the currently loaded item is an HLS stream.
-    var isPlayingHls: Bool { currentStreamType == "HLS" }
+    /// True when the currently loaded item is a radio HLS stream — the only
+    /// case where offset-aligned song metadata applies. TV/playlist return
+    /// false even when their underlying stream happens to be HLS.
+    var isPlayingHls: Bool {
+        currentStation?.kind == .radio && currentStreamType == "HLS"
+    }
 
     // MARK: - Internals
 
@@ -159,8 +294,123 @@ final class AudioPlayer: ObservableObject {
         // much buffer, keep some defaults", not aggressive low-latency.
         item.preferredForwardBufferDuration = 6
         observe(item: item)
-        attachDateRangeCollector(to: item)
+        // Only radio streams carry EXT-X-DATERANGE song announcements that
+        // should drive an out-of-cycle metadata poll. TV video streams may
+        // be HLS too, but their now-playing isn't song-synced.
+        if currentStation?.kind == .radio {
+            attachDateRangeCollector(to: item)
+        }
         player.replaceCurrentItem(with: item)
+    }
+
+    // MARK: - Playlist playback
+
+    /// Load and observe the playlist item at `index`. Sets up the VOD time
+    /// observer and the end-of-item auto-advance hook.
+    private func loadPlaylistItem(at index: Int) {
+        guard index >= 0, index < playlistItems.count else { return }
+        playlistIndex = index
+        let playlistItem = playlistItems[index]
+        currentPlaylistItem = playlistItem
+        isVideoContent = playlistItem.isVideo
+        currentStreamType = nil          // playlist items aren't HLS-synced
+        vodPosition = 0
+        vodDuration = playlistItem.durationSeconds.map(Double.init) ?? 0
+
+        guard let url = Self.trackedURL(for: playlistItem.url) else {
+            advancePlaylistItem(dueToError: true)
+            return
+        }
+        if let title = currentStation?.title { state = .connecting(title) }
+
+        let item = AVPlayerItem(url: url)
+        // VOD: let AVPlayer choose the buffer (0 = automatic). The 6s live
+        // cap used for radio/TV would starve on-demand playback.
+        item.preferredForwardBufferDuration = 0
+        observe(item: item)
+        player.replaceCurrentItem(with: item)
+        addEndObserver(for: item)
+        addTimeObserver()
+    }
+
+    /// Advance to the next item, looping at the end. When `dueToError` and
+    /// every item has failed in a row, stop instead of looping forever.
+    private func advancePlaylistItem(dueToError: Bool) {
+        guard !playlistItems.isEmpty else { return }
+        if dueToError {
+            consecutivePlaylistErrors += 1
+            if consecutivePlaylistErrors >= playlistItems.count {
+                state = .failed("Nu am putut reda playlistul")
+                removeEndObserver()
+                removeTimeObserver()
+                return
+            }
+        }
+        let next = playlistIndex + 1
+        loadPlaylistItem(at: next < playlistItems.count ? next : 0)
+        player.play()
+    }
+
+    /// Register the end-of-item notification that drives auto-advance/loop.
+    private func addEndObserver(for item: AVPlayerItem) {
+        removeEndObserver()
+        itemEndObserver = NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemDidPlayToEndTime,
+            object: item,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.advancePlaylistItem(dueToError: false)
+            }
+        }
+    }
+
+    private func removeEndObserver() {
+        if let itemEndObserver {
+            NotificationCenter.default.removeObserver(itemEndObserver)
+        }
+        itemEndObserver = nil
+    }
+
+    /// Periodic (0.5s) observer that publishes the current VOD position and
+    /// keeps `vodDuration` in sync once AVPlayer resolves the item length.
+    private func addTimeObserver() {
+        removeTimeObserver()
+        let interval = CMTime(seconds: 0.5, preferredTimescale: 600)
+        timeObserver = player.addPeriodicTimeObserver(
+            forInterval: interval, queue: .main
+        ) { [weak self] time in
+            Task { @MainActor in
+                guard let self else { return }
+                self.vodPosition = time.seconds.isFinite ? time.seconds : 0
+                if let duration = self.player.currentItem?.duration.seconds,
+                   duration.isFinite, duration > 0 {
+                    self.vodDuration = duration
+                }
+            }
+        }
+    }
+
+    private func removeTimeObserver() {
+        if let timeObserver {
+            player.removeTimeObserver(timeObserver)
+        }
+        timeObserver = nil
+    }
+
+    /// Tear down all playlist bookkeeping. Called before every `play(_:)`
+    /// and on `stop()` so a switch between station kinds starts clean.
+    private func resetPlaylistState() {
+        removeEndObserver()
+        removeTimeObserver()
+        playlistItems = []
+        playlistIndex = 0
+        playlistCount = 0
+        currentPlaylistItem = nil
+        consecutivePlaylistErrors = 0
+        vodPosition = 0
+        vodDuration = 0
+        youTubeOnlyPlaylist = false
     }
 
     /// Wire an `AVPlayerItemMetadataCollector` onto the new item so the
@@ -242,8 +492,27 @@ final class AudioPlayer: ObservableObject {
                     if let station = self.currentStation {
                         self.state = .playing(station.title)
                     }
+                    // A clean start clears the broken-playlist error budget.
+                    if self.playbackMode == .playlist {
+                        self.consecutivePlaylistErrors = 0
+                    }
                 case .failed:
-                    self.advanceOrFail(error: item.error)
+                    switch self.playbackMode {
+                    case .stream:
+                        self.advanceOrFail(error: item.error)
+                    case .playlist:
+                        if let error = item.error {
+                            Analytics.captureError(
+                                error,
+                                context: "avplayer_playlist_item_failed",
+                                extra: [
+                                    "station_slug": self.currentStation?.slug ?? "?",
+                                    "item_index": self.playlistIndex
+                                ]
+                            )
+                        }
+                        self.advancePlaylistItem(dueToError: true)
+                    }
                 case .unknown:
                     break
                 @unknown default:

@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		01BFE1CC6F4D49D651A4A668 /* SortPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AE27E2F2F99A9C2738D8B60 /* SortPicker.swift */; };
+		1063214FE9C8CF6CCBA756EA /* VideoSurfaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 897F5FA3EAF65D4BBACA9ED7 /* VideoSurfaceView.swift */; };
 		19041A779B1D9300E486A247 /* QRCodeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3C89071A1406162E69A5794 /* QRCodeView.swift */; };
 		26EB9DB4A133F5693FE7B8DC /* NowPlayingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4804A680D602D313E3B83192 /* NowPlayingView.swift */; };
 		2B2901FED93DE3F3AB60C982 /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = C219CB93B743E3BFF8A388ED /* PostHog */; };
@@ -48,6 +49,7 @@
 		654F66EB9F649E224E0EE5D5 /* StationArtwork.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StationArtwork.swift; sourceTree = "<group>"; };
 		7397F56295F5E766A046C54B /* StationSort.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StationSort.swift; sourceTree = "<group>"; };
 		7AE27E2F2F99A9C2738D8B60 /* SortPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SortPicker.swift; sourceTree = "<group>"; };
+		897F5FA3EAF65D4BBACA9ED7 /* VideoSurfaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoSurfaceView.swift; sourceTree = "<group>"; };
 		91CB5D5C822ED753150F891A /* RatingStars.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RatingStars.swift; sourceTree = "<group>"; };
 		B3C89071A1406162E69A5794 /* QRCodeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRCodeView.swift; sourceTree = "<group>"; };
 		BB674E14F4409CADBF502239 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
@@ -175,6 +177,7 @@
 				654F66EB9F649E224E0EE5D5 /* StationArtwork.swift */,
 				CC4A7E03F25C3EDE274E2B29 /* StationCard.swift */,
 				12F5451DFA66A04B21CDAA01 /* StationGrid.swift */,
+				897F5FA3EAF65D4BBACA9ED7 /* VideoSurfaceView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -276,6 +279,7 @@
 				7F081E2384A840C5D0160341 /* StationRepository.swift in Sources */,
 				2EA9FA0983EF4A5BB5818E37 /* StationSort.swift in Sources */,
 				77FFD0188532CF4A9FDFC780 /* Theme.swift in Sources */,
+				1063214FE9C8CF6CCBA756EA /* VideoSurfaceView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
