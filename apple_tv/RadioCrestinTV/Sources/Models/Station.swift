@@ -25,6 +25,17 @@ struct Station: Codable, Identifiable, Hashable {
     /// Optional and defensively decoded — radio/TV stations omit it.
     let playlistItems: [PlaylistItem]?
 
+    /// DVR (timeshift) variant of the live HLS stream — a 1-hour sliding
+    /// window that carries the same `EXT-X-PROGRAM-DATE-TIME` + `DATERANGE`
+    /// tags as the short-window live index. Nullable and often absent
+    /// (absent entirely in production today).
+    ///
+    /// Decoded only to future-proof the model against the backend contract;
+    /// **DVR/timeshift playback is intentionally NOT implemented on tvOS
+    /// yet**, so nothing currently reads this field. Kept so a later feature
+    /// can wire up live rewind without another model migration.
+    let hlsDvrStreamUrl: String?
+
     enum CodingKeys: String, CodingKey {
         case id, slug, title, order
         case thumbnailUrl = "thumbnail_url"
@@ -35,6 +46,7 @@ struct Station: Codable, Identifiable, Hashable {
         case reviewsStats = "reviews_stats"
         case stationType = "station_type"
         case playlistItems = "playlist_items"
+        case hlsDvrStreamUrl = "hls_dvr_stream_url"
     }
 
     /// Whether the station is currently reachable. A **missing** `uptime`

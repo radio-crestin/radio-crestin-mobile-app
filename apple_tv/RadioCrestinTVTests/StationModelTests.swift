@@ -17,7 +17,8 @@ final class StationModelTests: XCTestCase {
         nowPlaying: NowPlaying? = nil,
         reviewsStats: ReviewsStats? = nil,
         stationType: String? = nil,
-        playlistItems: [PlaylistItem]? = nil
+        playlistItems: [PlaylistItem]? = nil,
+        hlsDvrStreamUrl: String? = nil
     ) -> Station {
         Station(
             id: id, slug: slug, title: title, order: order,
@@ -28,7 +29,8 @@ final class StationModelTests: XCTestCase {
             nowPlaying: nowPlaying,
             reviewsStats: reviewsStats,
             stationType: stationType,
-            playlistItems: playlistItems
+            playlistItems: playlistItems,
+            hlsDvrStreamUrl: hlsDvrStreamUrl
         )
     }
 
@@ -57,6 +59,50 @@ final class StationModelTests: XCTestCase {
         XCTAssertEqual(s.uptime?.isUp, true)
         XCTAssertEqual(s.reviewCount, 12)
         XCTAssertEqual(s.averageRating, 4.5, accuracy: 0.001)
+    }
+
+    // MARK: - DVR field (hls_dvr_stream_url) decoding
+    //
+    // The field is decoded purely to future-proof the model — DVR/timeshift
+    // playback is intentionally NOT implemented on tvOS yet, so nothing
+    // reads it. These tests only pin the wire mapping so a future feature
+    // can rely on it without a migration.
+
+    func test_dvr_url_decodes_when_present() throws {
+        let json = """
+        {
+          "id": 1, "slug": "r", "title": "R", "order": 0,
+          "station_streams": [],
+          "hls_dvr_stream_url": "https://live.radiocrestin.ro/hls/r/dvr.m3u8"
+        }
+        """.data(using: .utf8)!
+        let s = try JSONDecoder().decode(Station.self, from: json)
+        XCTAssertEqual(s.hlsDvrStreamUrl,
+                       "https://live.radiocrestin.ro/hls/r/dvr.m3u8")
+    }
+
+    func test_dvr_url_absent_is_nil() throws {
+        // Production omits the field entirely today.
+        let json = """
+        {
+          "id": 1, "slug": "r", "title": "R", "order": 0,
+          "station_streams": []
+        }
+        """.data(using: .utf8)!
+        let s = try JSONDecoder().decode(Station.self, from: json)
+        XCTAssertNil(s.hlsDvrStreamUrl)
+    }
+
+    func test_dvr_url_explicit_null_is_nil() throws {
+        let json = """
+        {
+          "id": 1, "slug": "r", "title": "R", "order": 0,
+          "station_streams": [],
+          "hls_dvr_stream_url": null
+        }
+        """.data(using: .utf8)!
+        let s = try JSONDecoder().decode(Station.self, from: json)
+        XCTAssertNil(s.hlsDvrStreamUrl)
     }
 
     // MARK: - Station kind + playlist decoding
