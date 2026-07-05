@@ -6,6 +6,33 @@ import 'package:get_it/get_it.dart';
 import '../queries/getStations.graphql.dart';
 import '../services/image_cache_service.dart';
 import '../utils.dart';
+import 'playlist_item.dart';
+
+/// The playback kind of a station.
+///
+/// Mirrors the backend `station_type` wire value. Old cached payloads may omit
+/// it entirely, in which case the station is treated as a [radio] stream.
+enum StationMediaType {
+  radio,
+  tv,
+  playlist;
+
+  /// Parses a raw wire value case-insensitively, defaulting to [radio].
+  ///
+  /// Missing, null or unknown values fall back to [radio] so legacy caches and
+  /// the bundled fallback asset keep working.
+  static StationMediaType parse(String? value) {
+    switch (value?.trim().toLowerCase()) {
+      case 'tv':
+        return StationMediaType.tv;
+      case 'playlist':
+        return StationMediaType.playlist;
+      case 'radio':
+      default:
+        return StationMediaType.radio;
+    }
+  }
+}
 
 class Station {
   Query$GetStations$stations rawStationData;
@@ -37,6 +64,27 @@ class Station {
   int get songId => rawStationData.now_playing?.song?.id ?? -1;
   String get songTitle => rawStationData.now_playing?.song?.name ?? "";
   String get songArtist => rawStationData.now_playing?.song?.artist?.name ?? "";
+
+  /// Playback kind of the station, defaulting to [StationMediaType.radio] when
+  /// the backend omits `station_type` (old caches / fallback asset).
+  StationMediaType get stationType =>
+      StationMediaType.parse(rawStationData.station_type);
+
+  /// Whether this station is a live TV channel.
+  bool get isTv => stationType == StationMediaType.tv;
+
+  /// Whether this station is an on-demand playlist.
+  bool get isPlaylist => stationType == StationMediaType.playlist;
+
+  /// Ordered playlist entries for this station.
+  ///
+  /// Returns an empty list when the station has no playlist (or the field is
+  /// absent). Order is preserved exactly as returned by the API.
+  List<PlaylistItem> get playlistItems {
+    final items = rawStationData.playlist_items;
+    if (items == null || items.isEmpty) return const [];
+    return items.map(PlaylistItem.fromRaw).toList(growable: false);
+  }
 
   ImageCacheService? get _imageCacheService {
     try {
@@ -113,6 +161,7 @@ class Station {
         "station_id": rawStationData.id,
         "station_slug": rawStationData.slug,
         "station_title": rawStationData.title,
+        "station_type": stationType.name,
         "song_id": songId,
         "song_title": songTitle,
         "song_artist": songArtist,

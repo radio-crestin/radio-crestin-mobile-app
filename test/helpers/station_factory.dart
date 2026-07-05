@@ -16,6 +16,8 @@ class StationFactory {
     List<Query$GetStations$stations$station_streams>? stationStreams,
     Query$GetStations$stations$uptime? uptime,
     Query$GetStations$stations$now_playing? nowPlaying,
+    String? stationType,
+    List<Query$GetStations$stations$playlist_items>? playlistItems,
   }) {
     return Query$GetStations$stations(
       id: id,
@@ -27,6 +29,8 @@ class StationFactory {
       thumbnail_url: thumbnailUrl,
       total_listeners: totalListeners,
       feature_latest_post: featureLatestPost,
+      station_type: stationType,
+      playlist_items: playlistItems,
       station_streams: stationStreams ??
           [
             Query$GetStations$stations$station_streams(
@@ -56,6 +60,8 @@ class StationFactory {
     List<Query$GetStations$stations$station_streams>? stationStreams,
     Query$GetStations$stations$uptime? uptime,
     Query$GetStations$stations$now_playing? nowPlaying,
+    String? stationType,
+    List<Query$GetStations$stations$playlist_items>? playlistItems,
   }) {
     return Station(
       rawStationData: createRawStation(
@@ -68,7 +74,30 @@ class StationFactory {
         stationStreams: stationStreams,
         uptime: uptime,
         nowPlaying: nowPlaying,
+        stationType: stationType,
+        playlistItems: playlistItems,
       ),
+    );
+  }
+
+  /// Creates a raw playlist entry for playlist-station tests.
+  static Query$GetStations$stations$playlist_items createPlaylistItem({
+    required int id,
+    int? order = 0,
+    String? type = 'audio',
+    String? url = 'https://example.com/track.mp3',
+    String? title = 'Track',
+    String? thumbnailUrl,
+    int? durationSeconds,
+  }) {
+    return Query$GetStations$stations$playlist_items(
+      id: id,
+      order: order,
+      type: type,
+      url: url,
+      title: title,
+      thumbnail_url: thumbnailUrl,
+      duration_seconds: durationSeconds,
     );
   }
 

@@ -185,6 +185,7 @@ class StationDataService {
   static const _fieldTypenames = {
     'stations': 'StationType',
     'station_streams': 'StationStreamType',
+    'playlist_items': 'StationPlaylistItemType',
     'posts': 'PostType',
     'uptime': 'StationUptimeType',
     'now_playing': 'StationNowPlayingType',
