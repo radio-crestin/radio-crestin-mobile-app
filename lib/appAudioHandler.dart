@@ -454,6 +454,33 @@ class AppAudioHandler extends BaseAudioHandler {
   StreamSubscription<bool>? _carRouteSub;
   StreamSubscription<bool>? _castRouteSub;
 
+  // ── Video→audio fallback watchdog ──────────────────────────────────────
+  // When video mode is engaged but the decoder never renders a first frame
+  // (e.g. libmpv can't decode the codec on the iOS simulator → perpetual
+  // buffering) or errors repeatedly, we hand off to the just_audio audio-only
+  // pipeline for the same content and surface a "Doar audio" chip.
+  Timer? _videoFallbackTimer;
+  final List<StreamSubscription<dynamic>> _videoFallbackSubs = [];
+  int _videoFallbackErrorCount = 0;
+  // The URL we've fallen back to audio for. While set, video mode is NOT
+  // re-attempted for it (so a foreground/resume handoff doesn't fight the
+  // fallback), until different content starts.
+  String? _fallenBackUrl;
+
+  /// How long video mode may buffer without a first frame before we fall back
+  /// to audio-only. Sits in the task's 8-10s window.
+  static const Duration _videoFallbackTimeout = Duration(seconds: 9);
+
+  /// Number of media_kit errors (before a first frame) that trips an immediate
+  /// fallback rather than waiting out [_videoFallbackTimeout].
+  static const int _videoFallbackMaxErrors = 2;
+
+  /// Emits true when the current video content is playing audio-only because
+  /// video rendering failed and we fell back. The UI shows a subtle "Doar
+  /// audio" chip. Cleared when new/working video content starts.
+  final BehaviorSubject<bool> audioOnlyFallback =
+      BehaviorSubject<bool>.seeded(false);
+
   /// True while media_kit is the active source (UI shows the `Video` widget).
   bool get isVideoModeActive => _videoMode;
 
@@ -1344,6 +1371,10 @@ class AppAudioHandler extends BaseAudioHandler {
     // Cancel any in-flight play() from a previous playStation() call
     _cancelInFlightPlay();
 
+    // New station selection — forget any prior video→audio fallback so this
+    // station gets a fresh video attempt and the chip starts hidden.
+    resetVideoFallback();
+
     // Tearing down the previous station: leave any active playlist and stop
     // video mode so the new station starts from a clean slate.
     if (_playlistMode && !station.isPlaylist) {
@@ -1423,9 +1454,14 @@ class AppAudioHandler extends BaseAudioHandler {
           isCasting: isCasting,
         )) {
       final url = _primaryStreamUrl(station);
-      if (url != null) {
+      if (url != null && _fallenBackUrl != url) {
         _isConnecting = false;
         return _enterVideoMode(url, live: true);
+      }
+      if (url != null && _fallenBackUrl == url) {
+        // Known-bad video stream for this station — go straight to audio-only
+        // with the chip, skipping the doomed video attempt.
+        audioOnlyFallback.add(true);
       }
     }
 
@@ -2151,20 +2187,123 @@ class AppAudioHandler extends BaseAudioHandler {
     _loadedStreamType = null;
     _videoMode = true;
     isVideoMode.add(true);
+    // Fresh video content — clear any prior fallback state and re-arm the
+    // watchdog so this attempt gets a clean chance to render.
+    audioOnlyFallback.add(false);
     _ensureVideoSubscriptions();
     _attachRouteHandoffListeners();
+    _startVideoFallbackWatchdog(url, live: live, startPosition: startPosition);
     try {
       await videoService.open(url, live: live, startPosition: startPosition);
     } catch (e) {
       _log('enterVideoMode: open failed: $e');
+      // A synchronous open failure is a hard failure — fall back immediately.
+      unawaited(_triggerVideoFallback(url,
+          live: live, startPosition: startPosition, reason: 'open_failed'));
     }
     _stopSilenceKeepAlive();
     _broadcastState(player.playbackEvent);
   }
 
+  /// Arms the video→audio fallback for the media just opened in video mode.
+  ///
+  /// Falls back when the decoder produces no first frame within
+  /// [_videoFallbackTimeout], or after [_videoFallbackMaxErrors] player errors
+  /// (whichever comes first). Cancels itself the moment a first frame renders
+  /// (success) or video mode is left (e.g. a legitimate background handoff), so
+  /// it never fights the existing handoff logic.
+  void _startVideoFallbackWatchdog(
+    String url, {
+    required bool live,
+    Duration? startPosition,
+  }) {
+    _cancelVideoFallbackWatchdog();
+    _videoFallbackErrorCount = 0;
+    final vs = videoService;
+    if (vs.hasRenderedFrame) return; // already good (reused warm texture)
+
+    _videoFallbackSubs.add(vs.hasFrameStream.listen((has) {
+      if (has) {
+        _log('video first frame rendered → cancel fallback watchdog');
+        _cancelVideoFallbackWatchdog();
+      }
+    }));
+    _videoFallbackSubs.add(vs.errorStream.listen((e) {
+      if (!_videoMode) return;
+      _videoFallbackErrorCount++;
+      _log('video error #$_videoFallbackErrorCount (hasFrame=${vs.hasRenderedFrame}): $e');
+      if (!vs.hasRenderedFrame) {
+        // Errored before ever showing a picture — the pipeline can't start on
+        // this device/codec. Fall back to audio immediately (don't wait out
+        // the timeout).
+        unawaited(_triggerVideoFallback(url,
+            live: live, startPosition: startPosition, reason: 'error_pre_frame'));
+      } else if (_videoFallbackErrorCount >= _videoFallbackMaxErrors) {
+        // Repeated errors after playback had started — tolerate one blip, then
+        // fall back rather than stutter forever.
+        unawaited(_triggerVideoFallback(url,
+            live: live, startPosition: startPosition, reason: 'repeated_errors'));
+      }
+    }));
+    _videoFallbackTimer = Timer(_videoFallbackTimeout, () {
+      if (_videoMode && !vs.hasRenderedFrame) {
+        unawaited(_triggerVideoFallback(url,
+            live: live, startPosition: startPosition, reason: 'timeout'));
+      }
+    });
+  }
+
+  void _cancelVideoFallbackWatchdog() {
+    _videoFallbackTimer?.cancel();
+    _videoFallbackTimer = null;
+    for (final s in _videoFallbackSubs) {
+      s.cancel();
+    }
+    _videoFallbackSubs.clear();
+  }
+
+  /// Hands the current (failing) video content off to the just_audio audio-only
+  /// pipeline and surfaces the "Doar audio" chip. Reuses the same audio path as
+  /// the background→audio handoff so the two never conflict. Records [url] as
+  /// fallen-back so a later foreground/resume doesn't re-attempt video for it.
+  Future<void> _triggerVideoFallback(
+    String url, {
+    required bool live,
+    Duration? startPosition,
+    required String reason,
+  }) async {
+    if (!_videoMode) return; // already left video mode (handoff/stop won)
+    if (_fallenBackUrl == url) return; // already fell back for this content
+    _cancelVideoFallbackWatchdog();
+    _log('video→audio fallback ($reason) for $url');
+    _fallenBackUrl = url;
+    AnalyticsService.instance.capture('video_fallback_to_audio', {
+      'reason': reason,
+      'url': url,
+      'live': live,
+      'is_playlist': _playlistMode,
+      'station_slug': currentStation.valueOrNull?.slug,
+    });
+    // Carry the current picture position into the audio pipeline for VOD.
+    final pos = live ? null : (startPosition ?? videoService.position);
+    audioOnlyFallback.add(true);
+    if (_playlistMode) {
+      await _playlistController.fallbackCurrentVideoToAudio(startPosition: pos);
+    } else {
+      // TV station: exit video and play audio-only via the standard path.
+      await _exitVideoMode(stopVideo: true);
+      _loadedStreamUrl = null;
+      _loadedStreamType = null;
+      await play();
+    }
+  }
+
   /// Leaves video mode. When [stopVideo] is true the media_kit player is
   /// stopped (keeps the texture alive for reuse).
   Future<void> _exitVideoMode({required bool stopVideo}) async {
+    // Leaving video mode (for any reason) disarms the fallback watchdog so it
+    // can never fire against content we're no longer showing.
+    _cancelVideoFallbackWatchdog();
     if (!_videoMode) {
       if (stopVideo && videoService.isInitialized) {
         await videoService.stop();
@@ -2243,8 +2382,22 @@ class AppAudioHandler extends BaseAudioHandler {
     if (station == null || !station.isTv) return;
     final url = _primaryStreamUrl(station);
     if (url == null) return;
+    // This stream already failed to render video — stay audio-only rather than
+    // re-attempting video and fighting the fallback on every resume.
+    if (_fallenBackUrl == url) {
+      _log('handoffTvAudioToVideo: skipped (fell back to audio for this url)');
+      return;
+    }
     _log('handoffTvAudioToVideo');
     await _enterVideoMode(url, live: true);
+  }
+
+  /// Clears the video→audio fallback state so genuinely new content gets a
+  /// fresh video attempt (and the "Doar audio" chip is hidden). Called when a
+  /// new station or a new playlist item starts.
+  void resetVideoFallback() {
+    _fallenBackUrl = null;
+    if (audioOnlyFallback.value) audioOnlyFallback.add(false);
   }
 
   // ── Playlist item playback (driven by PlaylistController) ───────────────
@@ -2338,14 +2491,18 @@ class AppAudioHandler extends BaseAudioHandler {
     _playlistMode = true;
     _playlistYoutubeActive = false; // an engine-owned source is taking over
     final useVideo = VideoModeDecision.shouldUseVideoMode(
-      isVideoContent: true,
-      isForeground: isForeground,
-      isCarConnected: isCarConnected,
-      isCasting: isCasting,
-    );
+          isVideoContent: true,
+          isForeground: isForeground,
+          isCarConnected: isCarConnected,
+          isCasting: isCasting,
+        ) &&
+        _fallenBackUrl != url; // this url already failed to render — audio-only
     if (useVideo) {
       await _enterVideoMode(url, live: live, startPosition: startPosition);
     } else {
+      // Audio-only: car/cast/background OR a video that fell back. Keep the
+      // "Doar audio" chip visible across a resume for a fallen-back item.
+      if (_fallenBackUrl == url) audioOnlyFallback.add(true);
       await playPlaylistAudioItem(
         url,
         startPosition: live ? null : startPosition,
@@ -2780,6 +2937,8 @@ class AppAudioHandler extends BaseAudioHandler {
       await s.cancel();
     }
     _videoSubs.clear();
+    _cancelVideoFallbackWatchdog();
+    await audioOnlyFallback.close();
     await _carRouteSub?.cancel();
     await _castRouteSub?.cancel();
     await _exitVideoMode(stopVideo: true);

@@ -94,6 +94,23 @@ class PlaylistController {
   /// iframe subscribes and calls `controller.seekTo`.
   final PublishSubject<Duration> youtubeSeek = PublishSubject<Duration>();
 
+  /// Ids of items that failed to play (dead url, decode error, unavailable
+  /// YouTube video). The track list dims these rows and shows an error icon.
+  /// An id is cleared when that item later plays successfully.
+  final BehaviorSubject<Set<int>> failedItemIds =
+      BehaviorSubject<Set<int>>.seeded(const {});
+
+  /// Brief, user-facing messages for the UI to surface as a toast — e.g. when
+  /// an unavailable item is auto-skipped. The full-cycle-failure case instead
+  /// surfaces the handler's connection-error layout (see [_onItemError]).
+  final PublishSubject<String> transientMessages = PublishSubject<String>();
+
+  /// Consecutive item failures since the last item that actually played. When
+  /// this reaches the item count, an entire cycle has failed, so we stop with
+  /// the connection-error surface instead of skipping forever. Reset the moment
+  /// any item makes real playback progress (see [_markPlaybackProgress]).
+  int _consecutiveFailures = 0;
+
   Station? _activeStation;
 
   /// The playlist station currently being played, or null when inactive.
@@ -117,28 +134,33 @@ class PlaylistController {
     _handler.onPlaylistItemCompleted = _onItemCompleted;
     _handler.onPlaylistItemError = (e) => _onItemError(e);
 
-    // Video item completion / error (media_kit).
+    // Video item completion (media_kit). Errors are NOT advanced here: the
+    // handler's video-fallback watchdog first hands the SAME content to the
+    // audio-only pipeline (video error → audio), and only if THAT also fails
+    // does `playPlaylistAudioItem` route back through [onPlaylistItemError] to
+    // advance. This keeps a single "try audio before skipping" policy.
     _subs.add(_video.completedStream.listen((completed) {
       if (!completed) return;
       if (currentItem.value?.type != PlaylistItemType.video) return;
       if (!_handler.isVideoModeActive) return; // audio-only handles its own EOS
       _onItemCompleted();
     }));
-    _subs.add(_video.errorStream.listen((e) {
-      if (currentItem.value?.type != PlaylistItemType.video) return;
-      if (!_handler.isVideoModeActive) return;
-      _onItemError(e);
-    }));
 
     // Position / duration: forward whichever backend is active for the item.
     _subs.add(_video.positionStream.listen((p) {
-      if (_handler.isVideoModeActive) position.add(p);
+      if (_handler.isVideoModeActive) {
+        position.add(p);
+        if (p > _progressThreshold) _markPlaybackProgress();
+      }
     }));
     _subs.add(_video.durationStream.listen((d) {
       if (_handler.isVideoModeActive) duration.add(d);
     }));
     _subs.add(_handler.player.positionStream.listen((p) {
-      if (!_handler.isVideoModeActive && !isYoutubeContent.value) position.add(p);
+      if (!_handler.isVideoModeActive && !isYoutubeContent.value) {
+        position.add(p);
+        if (p > _progressThreshold) _markPlaybackProgress();
+      }
     }));
     _subs.add(_handler.player.durationStream.listen((d) {
       if (!_handler.isVideoModeActive && !isYoutubeContent.value) {
@@ -159,6 +181,8 @@ class PlaylistController {
     _log('startPlaylist(${station.slug}, startIndex=$startIndex)');
     _ensureWired();
     _activeStation = station;
+    _consecutiveFailures = 0;
+    failedItemIds.add(const {});
     _handler.enterPlaylistMode();
     items.add(station.playlistItems);
 
@@ -196,6 +220,8 @@ class PlaylistController {
     _log('stop');
     stopLiveSync();
     _activeStation = null;
+    _consecutiveFailures = 0;
+    failedItemIds.add(const {});
     await _stopPlayback();
     _handler.exitPlaylistMode();
     items.add(const []);
@@ -222,6 +248,10 @@ class PlaylistController {
     if (index < 0 || index >= list.length) return;
     final item = list[index];
     _log('playItemAt($index): ${item.type.name} ${item.title}');
+
+    // New item — give video a fresh attempt (drops the "Doar audio" chip and
+    // any fallen-back-url guard for the previous item).
+    _handler.resetVideoFallback();
 
     currentIndex.add(index);
     currentItem.add(item);
@@ -332,14 +362,21 @@ class PlaylistController {
 
   // ── Auto-advance / error ────────────────────────────────────────────────
 
+  /// A position past which we treat the current item as genuinely playing (not
+  /// a false-start), used to clear its failed flag and reset the loop guard.
+  static const Duration _progressThreshold = Duration(milliseconds: 1200);
+
   void _onItemCompleted() {
     _log('item completed → advance');
+    // Reaching the end is unambiguous success — clear the guard and any stale
+    // failed flag on this item.
+    _markPlaybackProgress();
     unawaited(_advance(direction: 1));
   }
 
   void _onItemError(Object error) {
-    _log('item error ($error) → advance');
     final item = currentItem.value;
+    _log('item error ($error) on ${item?.id} → advance (fail #${_consecutiveFailures + 1})');
     AnalyticsService.instance.capture('playlist_item_error', {
       'station_slug': _activeStation?.slug,
       'item_id': item?.id,
@@ -347,40 +384,133 @@ class PlaylistController {
       'item_url': item?.url,
       'error': error.toString(),
     });
+    if (item != null) _markItemFailed(item.id);
+    _consecutiveFailures++;
+
+    // Loop guard: if every item has failed once in a row, stop instead of
+    // skipping forever. The bounded navigator already guarantees a single
+    // advance terminates; this bounds the *cascade* of advances across items.
+    final count = itemCount;
+    if (count > 0 && _consecutiveFailures >= count) {
+      _log('all $count item(s) failed in a row → stopping with error surface');
+      AnalyticsService.instance.capture('playlist_all_items_failed', {
+        'station_slug': _activeStation?.slug,
+        'item_count': count,
+      });
+      _surfacePlaylistError();
+      unawaited(_stopPlayback());
+      return;
+    }
+
+    // Intermediate failure — tell the user we're moving on, then advance. The
+    // UI pairs this with an "Element indisponibil" title for the full sentence
+    // "Element indisponibil — se trece la următorul".
+    transientMessages.add('Se trece la următorul');
     unawaited(_advance(direction: 1));
+  }
+
+  /// Emits the handler's connection-error so the app shows its standard error
+  /// layout when a whole playlist cycle fails.
+  void _surfacePlaylistError() {
+    _handler.connectionError.add(ConnectionError(
+      stationName: _activeStation?.title ?? 'Listă de redare',
+      reason: ConnectionErrorReason.unknown,
+      details: 'Niciun element din listă nu a putut fi redat',
+    ));
+  }
+
+  /// Records that the current item is playing (real progress or completion):
+  /// resets the failure loop guard and clears this item's failed flag so its
+  /// row un-dims.
+  void _markPlaybackProgress() {
+    if (_consecutiveFailures != 0) _consecutiveFailures = 0;
+    final id = currentItem.value?.id;
+    if (id != null) _clearItemFailed(id);
+  }
+
+  void _markItemFailed(int id) {
+    final next = Set<int>.of(failedItemIds.value)..add(id);
+    failedItemIds.add(next);
+  }
+
+  void _clearItemFailed(int id) {
+    if (!failedItemIds.value.contains(id)) return;
+    final next = Set<int>.of(failedItemIds.value)..remove(id);
+    failedItemIds.add(next);
+  }
+
+  /// Hands the current (failing) VIDEO item off to audio-only playback. Called
+  /// by [AppAudioHandler] when its video-fallback watchdog trips; the handler
+  /// has already surfaced the "Doar audio" chip and recorded the fallen-back
+  /// url. This is NOT a failure — the content still plays (audio), so the loop
+  /// guard and failed flag are untouched.
+  Future<void> fallbackCurrentVideoToAudio({Duration? startPosition}) async {
+    final item = currentItem.value;
+    if (item == null || item.type != PlaylistItemType.video) return;
+    _log('fallbackCurrentVideoToAudio: ${item.id}');
+    isVideoContent.add(false);
+    isYoutubeContent.add(false);
+    await _handler.playPlaylistAudioItem(item.url, startPosition: startPosition);
   }
 
   // ── YouTube contract (UI → engine) ───────────────────────────────────────
 
+  /// Whether a callback from an inline YouTube player is still relevant, i.e.
+  /// the current item is a youtube item AND the reporting player belongs to it.
+  ///
+  /// [reportingItemId] is the id of the item the calling iframe was rendering.
+  /// The full player keeps two iframes briefly mounted during the 250ms
+  /// crossfade between youtube items, so the OUTGOING iframe can fire a late
+  /// error/ended after we've already advanced. Without this id check the stale
+  /// event would drive a SECOND advance — skipping the freshly-started youtube
+  /// row (the reported "jumps two items / skips the iframe item" bug). A null id
+  /// keeps the legacy behavior (relevant whenever the current item is youtube).
+  bool _isCurrentYoutube(int? reportingItemId) {
+    final current = currentItem.value;
+    if (current == null || !current.type.isYoutube) return false;
+    if (reportingItemId != null && reportingItemId != current.id) {
+      _log('ignoring stale youtube callback from item $reportingItemId '
+          '(current is ${current.id})');
+      return false;
+    }
+    return true;
+  }
+
   /// The UI calls this when the inline YouTube video (or the WHOLE playlist for
   /// a youtube_playlist item) ends → auto-advance. Inner-video transitions
-  /// within a youtube_playlist must NOT trigger this.
-  void notifyYoutubeItemEnded() {
-    if (!(currentItem.value?.type.isYoutube ?? false)) return;
+  /// within a youtube_playlist must NOT trigger this. [itemId] scopes the event
+  /// to the reporting iframe (see [_isCurrentYoutube]).
+  void notifyYoutubeItemEnded({int? itemId}) {
+    if (!_isCurrentYoutube(itemId)) return;
     _log('youtube ended → advance');
+    _markPlaybackProgress(); // a played-through item is a success
     unawaited(_advance(direction: 1));
   }
 
   /// The UI calls this when the inline YouTube player errors → advance.
-  void notifyYoutubeItemError() {
-    if (!(currentItem.value?.type.isYoutube ?? false)) return;
+  void notifyYoutubeItemError({int? itemId}) {
+    if (!_isCurrentYoutube(itemId)) return;
     _onItemError('youtube_player_error');
   }
 
   /// Optional position report from the inline YouTube player, for the scrubber
   /// and the lock-screen/notification.
-  void notifyYoutubePosition(Duration pos, Duration dur) {
-    if (!(currentItem.value?.type.isYoutube ?? false)) return;
+  void notifyYoutubePosition(Duration pos, Duration dur, {int? itemId}) {
+    if (!_isCurrentYoutube(itemId)) return;
     position.add(pos);
     if (dur > Duration.zero) duration.add(dur);
+    if (pos > _progressThreshold) _markPlaybackProgress();
     _handler.updateYoutubePlaybackState(position: pos);
   }
 
   /// The inline YouTube player reports its real playing/paused state → mirror
   /// it into the handler so the mini player, notification and lock screen stay
   /// in sync (the single source of truth is [AppAudioHandler.playbackState]).
-  void notifyYoutubePlaying(bool playing) {
-    if (!(currentItem.value?.type.isYoutube ?? false)) return;
+  void notifyYoutubePlaying(bool playing, {int? itemId}) {
+    if (!_isCurrentYoutube(itemId)) return;
+    // A YouTube item that reaches the playing state has loaded successfully —
+    // clear its failed flag and reset the loop guard.
+    if (playing) _markPlaybackProgress();
     _handler.updateYoutubePlaybackState(playing: playing);
   }
 
@@ -454,11 +584,15 @@ class PlaylistController {
         return;
       }
       if (item.type == PlaylistItemType.video && !_handler.isVideoModeActive) {
-        // Hand back audio-only → video mode, carrying position.
+        // Hand back audio-only → video mode, carrying position. If this item
+        // previously fell back to audio, the handler keeps it audio-only, so
+        // reflect whatever mode it actually settled into.
         final pos = _handler.player.position;
-        unawaited(_handler.playPlaylistVideoItem(item.url,
-            live: false, startPosition: pos));
-        isVideoContent.add(true);
+        () async {
+          await _handler.playPlaylistVideoItem(item.url,
+              live: false, startPosition: pos);
+          isVideoContent.add(_handler.isVideoModeActive);
+        }();
       }
     }
   }
@@ -498,6 +632,8 @@ class PlaylistController {
     youtubeRequest.close();
     youtubeShouldPlay.close();
     youtubeSeek.close();
+    failedItemIds.close();
+    transientMessages.close();
   }
 
   void _log(String message) => debugPrint('PlaylistController: $message');

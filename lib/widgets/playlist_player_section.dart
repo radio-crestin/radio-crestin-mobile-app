@@ -11,6 +11,7 @@ import '../types/Station.dart';
 import '../types/playlist_item.dart';
 import '../utils.dart';
 import 'animated_play_button.dart';
+import 'bottom_toast.dart';
 import 'player_video_surface.dart';
 import 'youtube_iframe_player.dart';
 
@@ -73,6 +74,9 @@ class _PlaylistPlayerSectionState extends State<PlaylistPlayerSection> {
   PlaylistItem? _currentItem;
   bool _isVideoContent = false;
   bool _isYoutubeContent = false;
+  bool _audioOnlyFallback = false;
+  Set<int> _failedIds = const {};
+  OverlayEntry? _skipToast;
 
   /// A whole-playlist YouTube item — the item-level scrubber is meaningless, so
   /// it stays hidden (single youtube videos keep a working, seekable scrubber).
@@ -88,9 +92,29 @@ class _PlaylistPlayerSectionState extends State<PlaylistPlayerSection> {
     _currentItem = c.currentItem.value;
     _isVideoContent = c.isVideoContent.value;
     _isYoutubeContent = c.isYoutubeContent.value;
+    _audioOnlyFallback = widget.audioHandler.audioOnlyFallback.value;
+    _failedIds = c.failedItemIds.value;
 
     _subs.add(c.items.stream.listen((v) {
       if (mounted) setState(() => _items = v);
+    }));
+    _subs.add(widget.audioHandler.audioOnlyFallback.stream.listen((v) {
+      if (mounted) setState(() => _audioOnlyFallback = v);
+    }));
+    _subs.add(c.failedItemIds.stream.listen((v) {
+      if (mounted) setState(() => _failedIds = v);
+    }));
+    _subs.add(c.transientMessages.stream.listen((message) {
+      if (!mounted) return;
+      removeBottomToast(_skipToast);
+      _skipToast = showBottomToast(
+        context,
+        title: 'Element indisponibil',
+        message: message,
+        icon: Icons.skip_next_rounded,
+        duration: const Duration(seconds: 2),
+        onDismissed: () => _skipToast = null,
+      );
     }));
     _subs.add(c.currentIndex.stream.listen((v) {
       if (mounted) {
@@ -114,6 +138,7 @@ class _PlaylistPlayerSectionState extends State<PlaylistPlayerSection> {
     for (final s in _subs) {
       s.cancel();
     }
+    removeBottomToast(_skipToast);
     _listController.dispose();
     super.dispose();
   }
@@ -143,6 +168,7 @@ class _PlaylistPlayerSectionState extends State<PlaylistPlayerSection> {
             item: _currentItem,
             isVideoContent: _isVideoContent,
             isYoutubeContent: _isYoutubeContent,
+            audioOnlyFallback: _audioOnlyFallback,
             panelExpanded: widget.panelExpanded,
           ),
         ),
@@ -198,6 +224,7 @@ class _PlaylistPlayerSectionState extends State<PlaylistPlayerSection> {
               controller: _listController,
               items: _items,
               currentIndex: _currentIndex,
+              failedIds: _failedIds,
               rowExtent: _rowExtent,
               stationThumbnailUrl: widget.station.thumbnailUrl,
               onTap: (index) => _controller.playItemAt(index),
@@ -219,6 +246,7 @@ class _MediaSurface extends StatelessWidget {
     required this.item,
     required this.isVideoContent,
     required this.isYoutubeContent,
+    required this.audioOnlyFallback,
     required this.panelExpanded,
   });
 
@@ -228,6 +256,10 @@ class _MediaSurface extends StatelessWidget {
   final PlaylistItem? item;
   final bool isVideoContent;
   final bool isYoutubeContent;
+
+  /// True when this (video) item is playing audio-only because video rendering
+  /// failed — overlays a subtle "Doar audio" chip on the artwork.
+  final bool audioOnlyFallback;
   final bool panelExpanded;
 
   @override
@@ -259,10 +291,23 @@ class _MediaSurface extends StatelessWidget {
 
     return AspectRatio(
       aspectRatio: 16 / 9,
-      child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 250),
-        transitionBuilder: (c, a) => FadeTransition(opacity: a, child: c),
-        child: KeyedSubtree(key: ValueKey(kind), child: child),
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 250),
+              transitionBuilder: (c, a) => FadeTransition(opacity: a, child: c),
+              child: KeyedSubtree(key: ValueKey(kind), child: child),
+            ),
+          ),
+          // "Doar audio" chip when video content fell back to audio-only.
+          if (audioOnlyFallback && !isYoutubeContent)
+            const Positioned(
+              top: 8,
+              left: 8,
+              child: AudioOnlyChip(),
+            ),
+        ],
       ),
     );
   }
@@ -477,6 +522,7 @@ class _TrackList extends StatelessWidget {
     required this.controller,
     required this.items,
     required this.currentIndex,
+    required this.failedIds,
     required this.rowExtent,
     required this.stationThumbnailUrl,
     required this.onTap,
@@ -485,6 +531,7 @@ class _TrackList extends StatelessWidget {
   final ScrollController controller;
   final List<PlaylistItem> items;
   final int currentIndex;
+  final Set<int> failedIds;
   final double rowExtent;
   final String? stationThumbnailUrl;
   final ValueChanged<int> onTap;
@@ -512,6 +559,7 @@ class _TrackList extends StatelessWidget {
           key: ValueKey('pl-row-${item.id}'),
           item: item,
           isCurrent: index == currentIndex,
+          hasFailed: failedIds.contains(item.id),
           fallbackThumbnailUrl: stationThumbnailUrl,
           onTap: () => onTap(index),
         );
@@ -525,12 +573,16 @@ class _TrackRow extends StatelessWidget {
     super.key,
     required this.item,
     required this.isCurrent,
+    required this.hasFailed,
     required this.fallbackThumbnailUrl,
     required this.onTap,
   });
 
   final PlaylistItem item;
   final bool isCurrent;
+
+  /// True when this item failed to play — dims the row and shows an error icon.
+  final bool hasFailed;
   final String? fallbackThumbnailUrl;
   final VoidCallback onTap;
 
@@ -560,7 +612,11 @@ class _TrackRow extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
-      child: Material(
+      child: Opacity(
+        // Failed items dim so they read as unavailable but remain tappable
+        // (a later tap can retry). The current row never dims.
+        opacity: hasFailed && !isCurrent ? 0.45 : 1.0,
+        child: Material(
         color: isCurrent
             ? Theme.of(context).cardColorSelected
             : Colors.transparent,
@@ -614,12 +670,15 @@ class _TrackRow extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Icon(_typeIcon,
+                // Failed items show an error glyph in place of the type icon.
+                Icon(hasFailed ? Icons.error_outline_rounded : _typeIcon,
                     size: 16,
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurfaceVariant
-                        .withValues(alpha: 0.7)),
+                    color: hasFailed
+                        ? AppColors.error
+                        : Theme.of(context)
+                            .colorScheme
+                            .onSurfaceVariant
+                            .withValues(alpha: 0.7)),
                 if (duration != null) ...[
                   const SizedBox(width: 8),
                   Text(
@@ -635,6 +694,7 @@ class _TrackRow extends StatelessWidget {
             ),
           ),
         ),
+      ),
       ),
     );
   }

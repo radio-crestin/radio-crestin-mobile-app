@@ -137,7 +137,7 @@ class _YoutubeIframePlayerState extends State<YoutubeIframePlayer> {
     if (item.type == PlaylistItemType.youtubePlaylist) {
       final listId = youtubePlaylistIdFromUrl(item.url);
       if (listId == null || listId.isEmpty) {
-        widget.controller.notifyYoutubeItemError();
+        widget.controller.notifyYoutubeItemError(itemId: item.id);
         return;
       }
       _yt.loadPlaylist(list: [listId], listType: ListType.playlist);
@@ -147,7 +147,7 @@ class _YoutubeIframePlayerState extends State<YoutubeIframePlayer> {
     final videoId =
         YoutubePlayerController.convertUrlToId(item.url) ?? item.url;
     if (videoId.isEmpty) {
-      widget.controller.notifyYoutubeItemError();
+      widget.controller.notifyYoutubeItemError(itemId: item.id);
       return;
     }
     _yt.loadVideoById(videoId: videoId);
@@ -159,11 +159,11 @@ class _YoutubeIframePlayerState extends State<YoutubeIframePlayer> {
 
     switch (value.playerState) {
       case PlayerState.playing:
-        widget.controller.notifyYoutubePlaying(true);
+        widget.controller.notifyYoutubePlaying(true, itemId: widget.item.id);
         break;
       case PlayerState.paused:
       case PlayerState.cued:
-        widget.controller.notifyYoutubePlaying(false);
+        widget.controller.notifyYoutubePlaying(false, itemId: widget.item.id);
         break;
       case PlayerState.ended:
         _onEnded();
@@ -175,7 +175,7 @@ class _YoutubeIframePlayerState extends State<YoutubeIframePlayer> {
     }
 
     if (value.error != YoutubeError.none) {
-      widget.controller.notifyYoutubeItemError();
+      widget.controller.notifyYoutubeItemError(itemId: widget.item.id);
     }
   }
 
@@ -186,7 +186,7 @@ class _YoutubeIframePlayerState extends State<YoutubeIframePlayer> {
     if (_endedReported) return;
     if (!_isPlaylist) {
       _endedReported = true;
-      widget.controller.notifyYoutubeItemEnded();
+      widget.controller.notifyYoutubeItemEnded(itemId: widget.item.id);
       return;
     }
     unawaited(_maybeFinishPlaylist());
@@ -201,19 +201,20 @@ class _YoutubeIframePlayerState extends State<YoutubeIframePlayer> {
       if (total <= 0 || index >= total - 1) {
         if (_endedReported) return;
         _endedReported = true;
-        widget.controller.notifyYoutubeItemEnded();
+        widget.controller.notifyYoutubeItemEnded(itemId: widget.item.id);
       }
       // Otherwise an inner video ended — the iframe auto-advances; ignore.
     } catch (_) {
       // Couldn't determine playlist position — advance rather than get stuck.
       if (_endedReported) return;
       _endedReported = true;
-      widget.controller.notifyYoutubeItemEnded();
+      widget.controller.notifyYoutubeItemEnded(itemId: widget.item.id);
     }
   }
 
   void _onPosition(YoutubeVideoState state) {
-    widget.controller.notifyYoutubePosition(state.position, _duration);
+    widget.controller
+        .notifyYoutubePosition(state.position, _duration, itemId: widget.item.id);
   }
 
   void _onShouldPlay(bool shouldPlay) {

@@ -49,6 +49,47 @@ class LivePill extends StatelessWidget {
   }
 }
 
+/// Subtle "🎧 Doar audio" pill shown when video content fell back to audio-only
+/// playback (the decoder couldn't render a picture). Mirrors [LivePill]'s dark
+/// translucent styling so it reads as an unobtrusive status badge.
+class AudioOnlyChip extends StatelessWidget {
+  const AudioOnlyChip({super.key, this.compact = false});
+
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 7 : 9,
+        vertical: compact ? 3 : 4,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.headphones_rounded,
+              size: compact ? 11 : 13, color: Colors.white),
+          SizedBox(width: compact ? 4 : 5),
+          Text(
+            'Doar audio',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+              fontSize: compact ? 10 : 11,
+              letterSpacing: 0.3,
+              height: 1.0,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// The media_kit video output for the current source, with a buffering overlay
 /// and an optional LIVE pill for live TV.
 ///

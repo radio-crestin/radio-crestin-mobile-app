@@ -41,6 +41,16 @@ class VideoPlaybackService {
   final BehaviorSubject<bool> _completed = BehaviorSubject<bool>.seeded(false);
   final PublishSubject<String> _error = PublishSubject<String>();
 
+  /// True once the decoder has produced a first video frame for the CURRENT
+  /// media (reset on every [open]). Drives the video→audio fallback watchdog:
+  /// on a platform that can't decode the codec (e.g. libmpv on the iOS
+  /// simulator) this stays false while the picture buffers forever, so the
+  /// handler can hand off to audio-only. Derived from the player's width/height
+  /// streams — non-null positive dimensions mean a frame was decoded.
+  final BehaviorSubject<bool> _hasFrame = BehaviorSubject<bool>.seeded(false);
+  int? _lastWidth;
+  int? _lastHeight;
+
   /// Demuxer cache size (bytes). 64 MB — double media_kit's 32 MB default so a
   /// live TV stream keeps several seconds of video buffered against jitter.
   static const int _bufferSizeBytes = 64 * 1024 * 1024;
@@ -85,6 +95,13 @@ class VideoPlaybackService {
   /// Emits a libmpv error string when playback fails.
   Stream<String> get errorStream => _error.stream;
 
+  /// Emits `true` once the CURRENT media renders a first video frame (reset to
+  /// `false` on every [open]). See [_hasFrame].
+  Stream<bool> get hasFrameStream => _hasFrame.stream;
+
+  /// Whether the current media has rendered a first video frame yet.
+  bool get hasRenderedFrame => _hasFrame.value;
+
   // ── Lifecycle ───────────────────────────────────────────────────────────
 
   /// Lazily creates the [Player] + [VideoController] and wires its streams.
@@ -94,9 +111,14 @@ class VideoPlaybackService {
     if (existing != null) return existing;
 
     // media_kit must be initialized once before any Player is constructed.
-    // Idempotent, so calling here keeps the service self-contained even if
-    // main() forgot to (it doesn't — see main.dart).
+    // This is the single init point (main.dart defers to here), so it runs on
+    // first video use rather than at startup. Timed so the deferred cost is
+    // visible in logs.
+    final initSw = Stopwatch()..start();
     MediaKit.ensureInitialized();
+    initSw.stop();
+    debugPrint('VideoPlaybackService: MediaKit.ensureInitialized() took '
+        '${initSw.elapsedMilliseconds}ms (deferred to first video)');
 
     final player = Player(
       configuration: const PlayerConfiguration(
@@ -120,8 +142,25 @@ class VideoPlaybackService {
       debugPrint('VideoPlaybackService: player error: $e');
       _error.add(e);
     }));
+    // First-frame detection: the decoder reports the video's pixel dimensions
+    // only once it has actually decoded a frame. Track both and flip [_hasFrame]
+    // when they are known & positive. On the iOS simulator libmpv never decodes
+    // the frame, so these never arrive and the fallback watchdog fires.
+    _subs.add(player.stream.width.listen((w) {
+      _lastWidth = w;
+      _recomputeHasFrame();
+    }));
+    _subs.add(player.stream.height.listen((h) {
+      _lastHeight = h;
+      _recomputeHasFrame();
+    }));
 
     return controller;
+  }
+
+  void _recomputeHasFrame() {
+    final has = (_lastWidth ?? 0) > 0 && (_lastHeight ?? 0) > 0;
+    if (has && !_hasFrame.value) _hasFrame.add(true);
   }
 
   /// Applies generous forward/back cache via libmpv, mirroring the just_audio
@@ -157,6 +196,10 @@ class VideoPlaybackService {
     final player = _player!;
     _live = live;
     _completed.add(false);
+    // Reset first-frame tracking for the new media so the watchdog re-arms.
+    _lastWidth = null;
+    _lastHeight = null;
+    _hasFrame.add(false);
     await player.open(Media(url), play: autoPlay);
     // Re-apply volume/mute across media changes (libmpv keeps them, but be safe).
     await player.setVolume(_muted ? 0.0 : _volume * 100.0);
@@ -209,5 +252,6 @@ class VideoPlaybackService {
     await _playing.close();
     await _completed.close();
     await _error.close();
+    await _hasFrame.close();
   }
 }

@@ -116,6 +116,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   bool isTimerActive = false;
   Station? currentStation;
   bool _isVideoMode = false;
+  bool _audioOnlyFallback = false;
   bool _panelExpanded = false;
   final List _subscriptions = [];
   List<String> _favoriteSlugs = [];
@@ -167,6 +168,16 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
       if (mounted) {
         setState(() {
           _isVideoMode = value;
+        });
+      }
+    }));
+
+    _audioOnlyFallback = widget.audioHandler.audioOnlyFallback.value;
+    _subscriptions.add(
+        widget.audioHandler.audioOnlyFallback.stream.listen((value) {
+      if (mounted) {
+        setState(() {
+          _audioOnlyFallback = value;
         });
       }
     }));
@@ -579,9 +590,24 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
         ),
         child: ClipRRect(
           borderRadius: const BorderRadius.all(Radius.circular(8)),
-          child: currentStation?.displayThumbnail(
-            cacheWidth:
-                (thumbSize * MediaQuery.devicePixelRatioOf(context)).ceil(),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (currentStation != null)
+                currentStation!.displayThumbnail(
+                  cacheWidth:
+                      (thumbSize * MediaQuery.devicePixelRatioOf(context))
+                          .ceil(),
+                ),
+              // "Doar audio" chip when a TV channel's video couldn't render and
+              // playback fell back to audio-only.
+              if (_audioOnlyFallback)
+                const Positioned(
+                  top: 8,
+                  left: 8,
+                  child: AudioOnlyChip(),
+                ),
+            ],
           ),
         ),
       ),

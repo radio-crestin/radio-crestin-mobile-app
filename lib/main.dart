@@ -23,7 +23,6 @@ import 'package:radio_crestin/theme.dart';
 import 'package:radio_crestin/theme_manager.dart';
 import 'package:radio_crestin/seek_mode_manager.dart';
 import 'package:just_audio_media_kit/just_audio_media_kit.dart';
-import 'package:media_kit/media_kit.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -118,10 +117,11 @@ void main() async {
     );
   }
 
-  // Initialize media_kit for the video-playback engine (TV channels + video
-  // playlist items). Idempotent and cheap; must run before any media_kit
-  // Player is constructed by VideoPlaybackService.
-  MediaKit.ensureInitialized();
+  // media_kit (the video-playback engine for TV channels + video playlist
+  // items) is initialized LAZILY on first video use — VideoPlaybackService
+  // .ensureInitialized() calls MediaKit.ensureInitialized() before it builds a
+  // Player. Deferring it keeps its native-library registration off the startup
+  // path for the common audio-only launch (measured on first video instead).
 
   // Phase 1: Start ALL independent async operations in parallel.
   // Firebase, Hive, SharedPreferences, image cache, network, and PackageInfo
