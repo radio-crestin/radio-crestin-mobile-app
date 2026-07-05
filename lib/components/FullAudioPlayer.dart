@@ -24,6 +24,8 @@ import 'package:radio_crestin/services/station_data_service.dart';
 import '../appAudioHandler.dart';
 import '../types/Station.dart';
 import '../widgets/animated_play_button.dart';
+import '../widgets/player_video_surface.dart';
+import '../widgets/playlist_player_section.dart';
 
 /// Responsive sizing for the full-screen player, derived from the screen size.
 @immutable
@@ -113,6 +115,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   Timer? sleepTimer;
   bool isTimerActive = false;
   Station? currentStation;
+  bool _isVideoMode = false;
   final List _subscriptions = [];
   List<String> _favoriteSlugs = [];
   final _playButtonKey = GlobalKey<AnimatedPlayButtonState>();
@@ -146,6 +149,15 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
         });
       }
     }));
+
+    _isVideoMode = widget.audioHandler.isVideoMode.value;
+    _subscriptions.add(widget.audioHandler.isVideoMode.stream.listen((value) {
+      if (mounted) {
+        setState(() {
+          _isVideoMode = value;
+        });
+      }
+    }));
   }
 
   @override
@@ -165,6 +177,12 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bgColor = Theme.of(context).scaffoldBackgroundColor;
 
+    // Playlist stations get a dedicated layout (per-item transport + track
+    // list) instead of the single-artwork radio layout.
+    if (currentStation?.isPlaylist ?? false) {
+      return _buildPlaylistPlayer(context, isDark, bgColor);
+    }
+
     // Responsive layout derived from the available screen size. Extracted to a
     // pure, unit-tested function so the sizing math — including the degenerate
     // Size.zero case that used to throw ArgumentError from num.clamp — stays
@@ -180,28 +198,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     final skipSpacing = layout.skipSpacing;
 
     return Container(
-      decoration: BoxDecoration(
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(16.0),
-          topRight: Radius.circular(16.0),
-        ),
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: isDark
-              ? [
-                  const Color(0xFF2C1018),
-                  const Color(0xFF1A0A0F),
-                  bgColor,
-                ]
-              : [
-                  const Color(0xFFFCE4EC),
-                  const Color(0xFFF8BBD0).withValues(alpha: 0.3),
-                  bgColor,
-                ],
-          stops: const [0.0, 0.35, 0.7],
-        ),
-      ),
+      decoration: _panelDecoration(isDark, bgColor),
       child: MediaQuery.removePadding(
         context: context,
         removeTop: true,
@@ -237,36 +234,9 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
               ),
             ),
             const Spacer(flex: 1),
-            // Thumbnail
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
-              transitionBuilder: (Widget child, Animation<double> animation) {
-                return FadeTransition(opacity: animation, child: child);
-              },
-              child: Container(
-                key: ValueKey('thumb-${currentStation?.id}-${currentStation?.songId}'),
-                width: thumbSize,
-                height: thumbSize,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surface,
-                  borderRadius: const BorderRadius.all(Radius.circular(8)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.35),
-                      spreadRadius: 0,
-                      blurRadius: 4,
-                      offset: const Offset(2, 3),
-                    ),
-                  ],
-                ),
-                child: ClipRRect(
-                  borderRadius: const BorderRadius.all(Radius.circular(8)),
-                  child: currentStation?.displayThumbnail(
-                    cacheWidth: (thumbSize * MediaQuery.devicePixelRatioOf(context)).ceil(),
-                  ),
-                ),
-              ),
-            ),
+            // Artwork — crossfades between the station thumbnail and the live
+            // video surface (TV stations) when video mode engages.
+            _buildArtwork(context, thumbSize),
             const SizedBox(height: 16),
             // Song title
             AnimatedSwitcher(
@@ -501,6 +471,212 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                     final encodedQuery = Uri.encodeQueryComponent(query);
                     final searchUrl = 'https://www.youtube.com/results?q=$encodedQuery';
                     await launchUrl(Uri.parse(searchUrl), mode: LaunchMode.externalApplication);
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 24.0),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// The shared sliding-panel background (rounded top + brand gradient).
+  BoxDecoration _panelDecoration(bool isDark, Color bgColor) {
+    return BoxDecoration(
+      borderRadius: const BorderRadius.only(
+        topLeft: Radius.circular(16.0),
+        topRight: Radius.circular(16.0),
+      ),
+      gradient: LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: isDark
+            ? [
+                const Color(0xFF2C1018),
+                const Color(0xFF1A0A0F),
+                bgColor,
+              ]
+            : [
+                const Color(0xFFFCE4EC),
+                const Color(0xFFF8BBD0).withValues(alpha: 0.3),
+                bgColor,
+              ],
+        stops: const [0.0, 0.35, 0.7],
+      ),
+    );
+  }
+
+  /// Crossfades between the square station thumbnail and a 16:9 live video
+  /// surface (for TV stations in video mode).
+  Widget _buildArtwork(BuildContext context, double thumbSize) {
+    if (_isVideoMode) {
+      final screenWidth = MediaQuery.of(context).size.width;
+      final videoWidth =
+          (screenWidth - 48).clamp(0.0, thumbSize * 16 / 9).toDouble();
+      final videoHeight = videoWidth * 9 / 16;
+      return AnimatedSwitcher(
+        duration: const Duration(milliseconds: 300),
+        transitionBuilder: (child, animation) =>
+            FadeTransition(opacity: animation, child: child),
+        child: SizedBox(
+          key: const ValueKey('player-video-surface'),
+          width: videoWidth,
+          height: videoHeight,
+          child: PlayerVideoSurface(
+            videoService: widget.audioHandler.videoService,
+            showLivePill: currentStation?.isTv ?? false,
+          ),
+        ),
+      );
+    }
+
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 300),
+      transitionBuilder: (Widget child, Animation<double> animation) {
+        return FadeTransition(opacity: animation, child: child);
+      },
+      child: Container(
+        key: ValueKey('thumb-${currentStation?.id}-${currentStation?.songId}'),
+        width: thumbSize,
+        height: thumbSize,
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: const BorderRadius.all(Radius.circular(8)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.35),
+              spreadRadius: 0,
+              blurRadius: 4,
+              offset: const Offset(2, 3),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: const BorderRadius.all(Radius.circular(8)),
+          child: currentStation?.displayThumbnail(
+            cacheWidth:
+                (thumbSize * MediaQuery.devicePixelRatioOf(context)).ceil(),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Full player layout for playlist stations: header + [PlaylistPlayerSection]
+  /// (media surface, scrubber, transport, track list) + a slim action row.
+  Widget _buildPlaylistPlayer(
+      BuildContext context, bool isDark, Color bgColor) {
+    final station = currentStation!;
+    final isFavorite = _favoriteSlugs.contains(station.slug);
+    return Container(
+      decoration: _panelDecoration(isDark, bgColor),
+      child: MediaQuery.removePadding(
+        context: context,
+        removeTop: true,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              margin: const EdgeInsets.only(top: 3.0),
+              child: Container(
+                width: 32,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  borderRadius: const BorderRadius.all(Radius.circular(12.0)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10.0),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: Text(
+                station.displayTitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 20,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: PlaylistPlayerSection(
+                audioHandler: widget.audioHandler,
+                station: station,
+              ),
+            ),
+            // Slim action row: favorite | share | sleep.
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: () {
+                    AnalyticsService.instance.capture('button_clicked', {
+                      'button_name': 'favorite',
+                      'station_id': station.id,
+                      'station_slug': station.slug,
+                    });
+                    widget.audioHandler
+                        .setStationIsFavorite(station, !isFavorite);
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.all(10.0),
+                    child: Column(
+                      children: [
+                        Icon(
+                          isFavorite
+                              ? Icons.favorite_sharp
+                              : Icons.favorite_border_sharp,
+                          size: 23,
+                          color: isFavorite
+                              ? Theme.of(context).primaryColor
+                              : Theme.of(context).colorScheme.onSurface,
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8.0),
+                          child: Text('favorit',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant,
+                              )),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                _buildActionButton(
+                  context,
+                  icon: Icons.share_outlined,
+                  label: 'trimite',
+                  onTap: () {
+                    AnalyticsService.instance.capture('button_clicked', {
+                      'button_name': 'share',
+                      'station_id': station.id,
+                      'station_slug': station.slug,
+                    });
+                    _showShareDialog(context);
+                  },
+                ),
+                _buildActionButton(
+                  context,
+                  icon: Icons.nights_stay_sharp,
+                  label: 'somn',
+                  isActive: isTimerActive,
+                  onTap: () {
+                    AnalyticsService.instance.capture('button_clicked', {
+                      'button_name': 'sleep_timer',
+                      'station_id': station.id,
+                      'station_slug': station.slug,
+                    });
+                    showSleepTimerDialog(context);
                   },
                 ),
               ],

@@ -26,6 +26,7 @@ import '../main.dart';
 import '../queries/getStations.graphql.dart';
 import '../services/launch_source_service.dart';
 import '../services/network_service.dart';
+import '../services/playlist_controller.dart';
 import '../services/station_data_service.dart';
 import '../services/station_sort_service.dart';
 import '../widgets/connectivity_banner.dart';
@@ -82,6 +83,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   final AppAudioHandler _audioHandler = getIt<AppAudioHandler>();
   final StationDataService _stationDataService = getIt<StationDataService>();
   final NetworkService _networkService = getIt<NetworkService>();
+  final PlaylistController _playlistController = getIt<PlaylistController>();
   final AppLinks _appLinks = AppLinks();
 
   var autoPlayProcessed = false;
@@ -715,7 +717,20 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               onPanelSlide: (position) {
                 _panelSlide.value = position;
               },
+              onPanelOpened: () {
+                // The playlist track list is only visible while the full player
+                // is open — start the 5s live reconcile so item add/remove is
+                // reflected, but only for playlist stations.
+                if (_audioHandler.currentStation.valueOrNull?.isPlaylist ??
+                    false) {
+                  _playlistController.startLiveSync();
+                }
+              },
               onPanelClosed: () {
+                // Panel hidden — stop the playlist live reconcile (playback
+                // continues; the list just isn't on screen). Harmless no-op for
+                // non-playlist stations.
+                _playlistController.stopLiveSync();
                 // SlidingUpPanel2 wraps the collapsed widget in IgnorePointer
                 // inside an AnimatedBuilder child, which is only rebuilt on
                 // parent rebuilds — not during animation frames. If the widget
