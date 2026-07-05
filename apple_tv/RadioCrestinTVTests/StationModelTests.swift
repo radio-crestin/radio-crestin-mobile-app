@@ -15,7 +15,9 @@ final class StationModelTests: XCTestCase {
         ],
         uptime: Uptime? = Uptime(isUp: true, timestamp: nil),
         nowPlaying: NowPlaying? = nil,
-        reviewsStats: ReviewsStats? = nil
+        reviewsStats: ReviewsStats? = nil,
+        stationType: String? = nil,
+        playlistItems: [PlaylistItem]? = nil
     ) -> Station {
         Station(
             id: id, slug: slug, title: title, order: order,
@@ -24,7 +26,9 @@ final class StationModelTests: XCTestCase {
             stationStreams: streams,
             uptime: uptime,
             nowPlaying: nowPlaying,
-            reviewsStats: reviewsStats
+            reviewsStats: reviewsStats,
+            stationType: stationType,
+            playlistItems: playlistItems
         )
     }
 
@@ -53,6 +57,101 @@ final class StationModelTests: XCTestCase {
         XCTAssertEqual(s.uptime?.isUp, true)
         XCTAssertEqual(s.reviewCount, 12)
         XCTAssertEqual(s.averageRating, 4.5, accuracy: 0.001)
+    }
+
+    // MARK: - Station kind + playlist decoding
+
+    func test_stationType_missing_defaults_to_radio() throws {
+        let json = """
+        {
+          "id": 1, "slug": "r", "title": "R", "order": 0,
+          "station_streams": []
+        }
+        """.data(using: .utf8)!
+        let s = try JSONDecoder().decode(Station.self, from: json)
+        XCTAssertNil(s.stationType)
+        XCTAssertEqual(s.kind, .radio)
+        XCTAssertFalse(s.hasOnlyYouTubeItems)
+        XCTAssertTrue(s.playableItems.isEmpty)
+    }
+
+    func test_stationType_null_defaults_to_radio() {
+        XCTAssertEqual(makeStation(stationType: nil).kind, .radio)
+    }
+
+    func test_stationType_parsed_case_insensitively() {
+        XCTAssertEqual(makeStation(stationType: "TV").kind, .tv)
+        XCTAssertEqual(makeStation(stationType: "Tv").kind, .tv)
+        XCTAssertEqual(makeStation(stationType: "PLAYLIST").kind, .playlist)
+        XCTAssertEqual(makeStation(stationType: "radio").kind, .radio)
+        XCTAssertEqual(makeStation(stationType: "wat").kind, .radio)
+    }
+
+    func test_playlist_items_decode_and_sort_by_order() throws {
+        let json = """
+        {
+          "id": 7, "slug": "p", "title": "P", "order": 0,
+          "station_streams": [],
+          "station_type": "playlist",
+          "playlist_items": [
+            { "id": 2, "order": 1, "type": "video",
+              "url": "https://x/b.mp4", "title": "B",
+              "thumbnail_url": "https://x/b.png", "duration_seconds": 120 },
+            { "id": 1, "order": 0, "type": "audio",
+              "url": "https://x/a.mp3", "title": "A" }
+          ]
+        }
+        """.data(using: .utf8)!
+        let s = try JSONDecoder().decode(Station.self, from: json)
+        XCTAssertEqual(s.kind, .playlist)
+        XCTAssertEqual(s.playlistItems?.count, 2)
+        // Sorted by order in playableItems.
+        XCTAssertEqual(s.playableItems.map(\.id), [1, 2])
+        let first = s.playableItems[0]
+        XCTAssertEqual(first.title, "A")
+        XCTAssertTrue(first.isAudio)
+        XCTAssertNil(first.durationSeconds)
+        let second = s.playableItems[1]
+        XCTAssertTrue(second.isVideo)
+        XCTAssertEqual(second.durationSeconds, 120)
+        XCTAssertEqual(second.thumbnailUrl, "https://x/b.png")
+    }
+
+    func test_playableItems_excludes_youtube() {
+        let items = [
+            PlaylistItem(id: 1, order: 0, type: "audio", url: "a",
+                         title: "A", thumbnailUrl: nil, durationSeconds: nil),
+            PlaylistItem(id: 2, order: 1, type: "youtube", url: "yt",
+                         title: "YT", thumbnailUrl: nil, durationSeconds: nil),
+            PlaylistItem(id: 3, order: 2, type: "video", url: "v",
+                         title: "V", thumbnailUrl: nil, durationSeconds: nil),
+        ]
+        let s = makeStation(stationType: "playlist", playlistItems: items)
+        XCTAssertEqual(s.playableItems.map(\.id), [1, 3])
+        XCTAssertFalse(s.hasOnlyYouTubeItems)
+    }
+
+    func test_hasOnlyYouTubeItems_true_when_all_youtube() {
+        let items = [
+            PlaylistItem(id: 1, order: 0, type: "youtube", url: "y1",
+                         title: "1", thumbnailUrl: nil, durationSeconds: nil),
+            PlaylistItem(id: 2, order: 1, type: "YouTube", url: "y2",
+                         title: "2", thumbnailUrl: nil, durationSeconds: nil),
+        ]
+        let s = makeStation(stationType: "playlist", playlistItems: items)
+        XCTAssertTrue(s.hasOnlyYouTubeItems)
+        XCTAssertTrue(s.playableItems.isEmpty)
+    }
+
+    func test_hasOnlyYouTubeItems_false_for_non_playlist() {
+        let items = [
+            PlaylistItem(id: 1, order: 0, type: "youtube", url: "y1",
+                         title: "1", thumbnailUrl: nil, durationSeconds: nil),
+        ]
+        // Even if items are all youtube, a radio-kind station never shows
+        // the playlist "only youtube" message.
+        let s = makeStation(stationType: "radio", playlistItems: items)
+        XCTAssertFalse(s.hasOnlyYouTubeItems)
     }
 
     // MARK: - Computed properties

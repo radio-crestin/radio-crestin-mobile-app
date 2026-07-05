@@ -17,6 +17,14 @@ struct Station: Codable, Identifiable, Hashable {
     var nowPlaying: NowPlaying?
     let reviewsStats: ReviewsStats?
 
+    /// Backend-provided station kind. Optional so older API responses that
+    /// predate the field still decode — a missing/null value means radio.
+    let stationType: String?
+
+    /// Ordered, enabled playlist entries for `station_type == "playlist"`.
+    /// Optional and defensively decoded — radio/TV stations omit it.
+    let playlistItems: [PlaylistItem]?
+
     enum CodingKeys: String, CodingKey {
         case id, slug, title, order
         case thumbnailUrl = "thumbnail_url"
@@ -25,9 +33,37 @@ struct Station: Codable, Identifiable, Hashable {
         case uptime
         case nowPlaying = "now_playing"
         case reviewsStats = "reviews_stats"
+        case stationType = "station_type"
+        case playlistItems = "playlist_items"
     }
 
     var isUp: Bool { uptime?.isUp ?? true }
+
+    /// How this station should be played. Parsed case-insensitively;
+    /// anything unrecognized (or absent) falls back to `.radio`.
+    var kind: StationKind { StationKind(rawWireValue: stationType) }
+
+    /// Playlist entries the tvOS player can actually render, in order.
+    /// YouTube items are excluded — tvOS has no embeddable YouTube surface,
+    /// so they'd only produce a broken player.
+    var playableItems: [PlaylistItem] {
+        (playlistItems ?? [])
+            .filter { !$0.isYouTube }
+            .sorted { $0.order < $1.order }
+    }
+
+    /// True when this is a playlist station whose only entries are YouTube
+    /// (nothing playable). The UI shows a friendly explanation instead of a
+    /// dead player.
+    var hasOnlyYouTubeItems: Bool {
+        guard kind == .playlist else { return false }
+        let items = playlistItems ?? []
+        return !items.isEmpty && items.allSatisfy { $0.isYouTube }
+    }
+
+    /// Value reported to analytics for the station kind ("radio"/"tv"/
+    /// "playlist"). Never nil so dashboards can group cleanly.
+    var kindAnalyticsValue: String { kind.rawValue }
 
     /// Streams in API order (the audio handler tries them sequentially on
     /// playback failure — the same fallback contract Android implements).
@@ -92,6 +128,46 @@ struct Station: Codable, Identifiable, Hashable {
         }
         return copy
     }
+}
+
+/// The three playback experiences a station can offer.
+enum StationKind: String, Hashable {
+    case radio
+    case tv
+    case playlist
+
+    /// Maps the raw `station_type` wire string (any casing) to a kind.
+    /// Unknown / missing / null all collapse to `.radio`.
+    init(rawWireValue: String?) {
+        switch rawWireValue?.lowercased() {
+        case "tv": self = .tv
+        case "playlist": self = .playlist
+        default: self = .radio
+        }
+    }
+}
+
+/// One entry in a playlist station. Pre-sorted and enabled-only on the
+/// wire; we still sort defensively on read. `type` is `audio`, `video`,
+/// or `youtube` (the last is unplayable on tvOS).
+struct PlaylistItem: Codable, Hashable, Identifiable {
+    let id: Int
+    let order: Int
+    let type: String
+    let url: String
+    let title: String
+    let thumbnailUrl: String?
+    let durationSeconds: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case id, order, type, url, title
+        case thumbnailUrl = "thumbnail_url"
+        case durationSeconds = "duration_seconds"
+    }
+
+    var isYouTube: Bool { type.lowercased() == "youtube" }
+    var isVideo: Bool { type.lowercased() == "video" }
+    var isAudio: Bool { type.lowercased() == "audio" }
 }
 
 struct ReviewsStats: Codable, Hashable {
