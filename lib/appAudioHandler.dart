@@ -27,6 +27,10 @@ import 'package:radio_crestin/services/review_service.dart';
 import 'package:radio_crestin/services/song_history_service.dart';
 import 'package:radio_crestin/services/song_like_service.dart';
 import 'package:radio_crestin/services/station_data_service.dart';
+import 'package:radio_crestin/services/video_playback_service.dart';
+import 'package:radio_crestin/services/video_mode_decision.dart';
+import 'package:radio_crestin/services/playlist_controller.dart';
+import 'package:radio_crestin/types/playlist_item.dart';
 import 'package:radio_crestin/seek_mode_manager.dart';
 import 'package:radio_crestin/utils.dart';
 import 'package:rxdart/rxdart.dart';
@@ -432,6 +436,47 @@ class AppAudioHandler extends BaseAudioHandler {
   Completer<void>? _sourceLoadCanceller;
   static const _disconnectDelay = Duration(seconds: 60);
 
+  // ── Video mode & playlist state ───────────────────────────────────────
+  // Video mode: media_kit (libmpv) is the single audio+video source for TV
+  // channels and video playlist items, replacing just_audio while it runs.
+  // See [VideoModeDecision] for when it engages. Playlist mode: a "playlist"
+  // station is active and [PlaylistController] drives per-item playback.
+  bool _videoMode = false;
+  bool _playlistMode = false;
+  AppLifecycleState _lifecycleState = AppLifecycleState.resumed;
+  final List<StreamSubscription<dynamic>> _videoSubs = [];
+  StreamSubscription<bool>? _carRouteSub;
+  StreamSubscription<bool>? _castRouteSub;
+
+  /// True while media_kit is the active source (UI shows the `Video` widget).
+  bool get isVideoModeActive => _videoMode;
+
+  /// True while a "playlist" station is active.
+  bool get isPlaylistMode => _playlistMode;
+
+  /// True while the app is foregrounded (drives the video-mode decision and
+  /// the background→audio handoff). Updated by [onAppLifecycleChanged].
+  bool get isForeground => _lifecycleState == AppLifecycleState.resumed;
+
+  /// Emits true when playback is in video mode. The UI subscribes to know when
+  /// to mount `Video(controller: videoService.controller)`.
+  final BehaviorSubject<bool> isVideoMode = BehaviorSubject<bool>.seeded(false);
+
+  /// The media_kit video service (audio+video). Exposed so the UI can read the
+  /// `VideoController` for TV playback.
+  VideoPlaybackService get videoService => GetIt.instance<VideoPlaybackService>();
+
+  PlaylistController get _playlistController =>
+      GetIt.instance<PlaylistController>();
+
+  /// Invoked by [PlaylistController] when the current playlist AUDIO item (or a
+  /// video item playing audio-only) reaches end-of-stream, so it can advance.
+  VoidCallback? onPlaylistItemCompleted;
+
+  /// Invoked by [PlaylistController] when the current playlist audio item fails
+  /// to load, so it can advance to the next item.
+  void Function(Object error)? onPlaylistItemError;
+
   // Track last emitted mediaItem fields to avoid redundant Android notification updates
   int? _lastEmittedSongId;
   String? _lastEmittedArtUriString;
@@ -831,6 +876,29 @@ class AppAudioHandler extends BaseAudioHandler {
       // brief rebuffer ≥250ms regardless of how the buffering ended.
       if (_bufferingStartedAt != null && state != ProcessingState.buffering) {
         _recordBufferingExit(state);
+      }
+
+      // Playlist mode: just_audio plays a single VOD item. `completed` means
+      // end-of-item → advance (the station-stream reconnect / reload logic
+      // below is wrong here because it re-issues play() over station_streams).
+      if (_playlistMode) {
+        if (state == ProcessingState.completed) {
+          _bufferingStallTimer?.cancel();
+          if (_isConnecting) return;
+          _log('processingStateStream: playlist item completed → advance');
+          onPlaylistItemCompleted?.call();
+        } else if (state == ProcessingState.buffering && player.playing) {
+          if (_bufferingStartedAt == null) {
+            _bufferingStartedAt = DateTime.now();
+            _scheduleSilenceKeepAlive();
+          }
+        } else if (state == ProcessingState.ready) {
+          _bufferingStallTimer?.cancel();
+          _stopSilenceKeepAlive();
+        } else {
+          _stopSilenceKeepAlive();
+        }
+        return;
       }
 
       if (state == ProcessingState.completed) {
@@ -1250,14 +1318,34 @@ class AppAudioHandler extends BaseAudioHandler {
     // Track play count for recommendation algorithm
     GetIt.instance<PlayCountService>().incrementPlayCount(station.slug);
 
+    // Avoid stop-restart if already playing this exact playlist station.
+    if (station.isPlaylist &&
+        _playlistMode &&
+        _playlistController.activeStation?.id == station.id) {
+      _log('playStation: playlist ${station.slug} already active, skipping');
+      return;
+    }
+
     // Avoid stop-restart if already playing/loading this exact station
-    if (currentStation.valueOrNull?.id == station.id && isPlayingOrConnecting) {
+    // (audio/TV path only — playlist is handled above).
+    if (!station.isPlaylist &&
+        currentStation.valueOrNull?.id == station.id &&
+        isPlayingOrConnecting) {
       _log('playStation: already playing/loading station ${station.slug}, skipping');
       return;
     }
 
     // Cancel any in-flight play() from a previous playStation() call
     _cancelInFlightPlay();
+
+    // Tearing down the previous station: leave any active playlist and stop
+    // video mode so the new station starts from a clean slate.
+    if (_playlistMode && !station.isPlaylist) {
+      await _playlistController.stop();
+    }
+    if (_videoMode) {
+      await _exitVideoMode(stopVideo: true);
+    }
 
     // Enter "connecting" state BEFORE stopping the player so that
     // _broadcastState emits processingState=loading (not ready).
@@ -1308,11 +1396,42 @@ class AppAudioHandler extends BaseAudioHandler {
     // Track listening session in PostHog
     AnalyticsService.instance.startListening(station.slug, station.title, stationId: station.id);
 
+    // Playlist station: hand off per-item sequencing to the controller.
+    if (station.isPlaylist) {
+      _isConnecting = false;
+      return _playlistController.startPlaylist(station);
+    }
+
     if (Platform.isAndroid) {
       await Future.delayed(const Duration(milliseconds: 100));
     }
 
+    // TV station: play video via media_kit when eligible (foreground, no
+    // car/cast); otherwise fall through to the just_audio path, which plays
+    // the audio track of the HLS/MP4 stream with all existing behavior.
+    if (station.isTv &&
+        VideoModeDecision.shouldUseVideoMode(
+          isVideoContent: true,
+          isForeground: isForeground,
+          isCarConnected: isCarConnected,
+          isCasting: isCasting,
+        )) {
+      final url = _primaryStreamUrl(station);
+      if (url != null) {
+        _isConnecting = false;
+        return _enterVideoMode(url, live: true);
+      }
+    }
+
     return play();
+  }
+
+  /// The primary (lowest-order) stream URL for [station], used to feed
+  /// media_kit for TV video mode. Returns null when the station has no streams.
+  String? _primaryStreamUrl(Station station) {
+    final streams = Utils.getStationStreamObjects(station.rawStationData);
+    if (streams.isEmpty) return null;
+    return streams.first['url'];
   }
 
   /// Returns stations sorted by the user's saved sort preference.
@@ -1322,8 +1441,23 @@ class AppAudioHandler extends BaseAudioHandler {
   }
 
   @override
+  Future<void> seek(Duration position) async {
+    // VOD seeking: media_kit in video mode, else just_audio (playlist items).
+    // Radio/TV-audio HLS has no scrubber (isLive), so this is a no-op there in
+    // practice, but forwarding player.seek is harmless.
+    if (_videoMode) {
+      await videoService.seek(position);
+      _broadcastState(player.playbackEvent);
+      return;
+    }
+    await player.seek(position);
+  }
+
+  @override
   Future<void> skipToNext() {
     _log('skipToNext() startedFromFavorites=${stationDataService.startedFromFavorites}');
+    // Playlist active: steering-wheel / lock-screen next skips to the next item.
+    if (_playlistMode) return _playlistController.skipToNext();
     if (currentStation.value == null) return super.skipToNext();
     final next = stationDataService.getNextStation(currentStation.value!.slug);
     _log('skipToNext: current=${currentStation.value!.slug}, next=${next?.slug}');
@@ -1335,6 +1469,7 @@ class AppAudioHandler extends BaseAudioHandler {
   @override
   Future<void> skipToPrevious() {
     _log('skipToPrevious() startedFromFavorites=${stationDataService.startedFromFavorites}');
+    if (_playlistMode) return _playlistController.skipToPrevious();
     if (currentStation.value == null) return super.skipToPrevious();
     final prev = stationDataService.getPreviousStation(currentStation.value!.slug);
     _log('skipToPrevious: current=${currentStation.value!.slug}, prev=${prev?.slug}');
@@ -1398,6 +1533,24 @@ class AppAudioHandler extends BaseAudioHandler {
       setCastPlaying(true);
       _disconnectTimer?.cancel();
       stationDataService.resumePolling();
+      return;
+    }
+    // Video mode: media_kit owns playback — resume it, not just_audio.
+    if (_videoMode) {
+      _log('play: resuming video mode');
+      _disconnectTimer?.cancel();
+      stationDataService.resumePolling();
+      await videoService.play();
+      _broadcastState(player.playbackEvent);
+      return;
+    }
+    // Playlist audio item: resume the just_audio VOD source directly (the
+    // station-stream retry loop below does not apply to playlist items).
+    if (_playlistMode) {
+      _log('play: resuming playlist audio item');
+      _disconnectTimer?.cancel();
+      stationDataService.resumePolling();
+      await player.play();
       return;
     }
     final myOpId = _playOperationId;
@@ -1630,6 +1783,19 @@ class AppAudioHandler extends BaseAudioHandler {
       GetIt.instance<CastService>().pause();
       setCastPlaying(false);
       return;
+    }
+    // Video mode: pause media_kit (no disconnect timer — the source stays warm).
+    if (_videoMode) {
+      await videoService.pause();
+      _broadcastState(player.playbackEvent);
+      return;
+    }
+    // Playlist audio item: pause just_audio directly, skipping the 60s
+    // station-stream disconnect timer (there is no station stream to drop).
+    if (_playlistMode) {
+      await player.pause();
+      _broadcastState(player.playbackEvent);
+      return super.pause();
     }
     _cancelInFlightPlay();
     _hasBeenPlayed = false;
@@ -1935,6 +2101,285 @@ class AppAudioHandler extends BaseAudioHandler {
     _log('silence keeper stopped');
   }
 
+  // ── Video mode (media_kit) ────────────────────────────────────────────
+
+  /// Switches playback to media_kit video mode: stops just_audio and opens
+  /// [url] on the video player, which becomes the single audio+video source.
+  /// [live] marks a TV stream (no VOD timeline); [startPosition] carries a VOD
+  /// position across a background handoff. The iOS silence keep-alive covers
+  /// the swap so the app isn't suspended mid-handoff.
+  Future<void> _enterVideoMode(
+    String url, {
+    required bool live,
+    Duration? startPosition,
+  }) async {
+    _log('enterVideoMode($url, live=$live)');
+    if (Platform.isIOS) {
+      await _startSilenceKeepAlive();
+    }
+    _disconnectTimer?.cancel();
+    _bufferingStallTimer?.cancel();
+    _stopHlsPlaylistRefresh();
+    if (player.playing || player.processingState != ProcessingState.idle) {
+      await player.stop();
+    }
+    _loadedStreamUrl = null;
+    _loadedStreamType = null;
+    _videoMode = true;
+    isVideoMode.add(true);
+    _ensureVideoSubscriptions();
+    _attachRouteHandoffListeners();
+    try {
+      await videoService.open(url, live: live, startPosition: startPosition);
+    } catch (e) {
+      _log('enterVideoMode: open failed: $e');
+    }
+    _stopSilenceKeepAlive();
+    _broadcastState(player.playbackEvent);
+  }
+
+  /// Leaves video mode. When [stopVideo] is true the media_kit player is
+  /// stopped (keeps the texture alive for reuse).
+  Future<void> _exitVideoMode({required bool stopVideo}) async {
+    if (!_videoMode) {
+      if (stopVideo && videoService.isInitialized) {
+        await videoService.stop();
+      }
+      return;
+    }
+    _log('exitVideoMode(stopVideo=$stopVideo)');
+    _videoMode = false;
+    isVideoMode.add(false);
+    if (stopVideo) {
+      await videoService.stop();
+    }
+  }
+
+  /// Subscribes once to the media_kit player's streams so its playing/buffering
+  /// /position changes re-broadcast the notification & lock-screen state.
+  void _ensureVideoSubscriptions() {
+    if (_videoSubs.isNotEmpty) return;
+    final vs = videoService;
+    _videoSubs.add(
+        vs.playingStream.listen((_) => _broadcastState(player.playbackEvent)));
+    _videoSubs.add(
+        vs.bufferingStream.listen((_) => _broadcastState(player.playbackEvent)));
+    _videoSubs.add(vs.positionStream.listen((_) {
+      if (_videoMode) _broadcastState(player.playbackEvent);
+    }));
+  }
+
+  /// Attaches (once) listeners that force a video→audio handoff when a car or
+  /// Cast route connects mid-video-mode (they can't render inline video).
+  void _attachRouteHandoffListeners() {
+    if (_carRouteSub == null && GetIt.instance.isRegistered<CarPlayService>()) {
+      _carRouteSub = GetIt.instance<CarPlayService>()
+          .isCarConnected
+          .stream
+          .listen((connected) {
+        if (connected && _videoMode) _handleRouteRequiresAudio();
+      });
+    }
+    if (_castRouteSub == null && GetIt.instance.isRegistered<CastService>()) {
+      _castRouteSub =
+          GetIt.instance<CastService>().isCasting.stream.listen((casting) {
+        if (casting && _videoMode) _handleRouteRequiresAudio();
+      });
+    }
+  }
+
+  /// Car/Cast connected while in video mode — hand off to audio-only.
+  void _handleRouteRequiresAudio() {
+    _log('route requires audio (car/cast connected) → handing off');
+    if (_playlistMode) {
+      unawaited(_playlistController.handleRouteChangeToAudio());
+    } else {
+      unawaited(_handoffTvVideoToAudio());
+    }
+  }
+
+  /// TV station: hand off from media_kit video to just_audio audio-only, using
+  /// the standard station play() path (live-edge re-tune + metadata).
+  Future<void> _handoffTvVideoToAudio() async {
+    if (!_videoMode) return;
+    _log('handoffTvVideoToAudio');
+    if (Platform.isIOS) {
+      await _startSilenceKeepAlive();
+    }
+    await _exitVideoMode(stopVideo: true);
+    _loadedStreamUrl = null;
+    _loadedStreamType = null;
+    await play();
+    _stopSilenceKeepAlive();
+  }
+
+  /// TV station: hand back from just_audio audio-only to media_kit video mode.
+  Future<void> _handoffTvAudioToVideo() async {
+    final station = currentStation.valueOrNull;
+    if (station == null || !station.isTv) return;
+    final url = _primaryStreamUrl(station);
+    if (url == null) return;
+    _log('handoffTvAudioToVideo');
+    await _enterVideoMode(url, live: true);
+  }
+
+  // ── Playlist item playback (driven by PlaylistController) ───────────────
+
+  /// Marks a "playlist" station active. See [PlaylistController].
+  void enterPlaylistMode() => _playlistMode = true;
+
+  /// Leaves playlist mode.
+  void exitPlaylistMode() => _playlistMode = false;
+
+  /// Plays a single audio playlist item (VOD) via just_audio. On completion,
+  /// [onPlaylistItemCompleted] fires so the controller can advance.
+  Future<void> playPlaylistAudioItem(
+    String url, {
+    Duration? startPosition,
+  }) async {
+    _log('playPlaylistAudioItem($url)');
+    await _exitVideoMode(stopVideo: true);
+    _playlistMode = true;
+    final myOpId = ++_playOperationId;
+    _disconnectTimer?.cancel();
+    _bufferingStallTimer?.cancel();
+    _stopHlsPlaylistRefresh();
+    _loadedStreamUrl = null;
+    _loadedStreamType = null;
+    _isConnecting = true;
+    _broadcastState(player.playbackEvent);
+    try {
+      if (player.playing || player.processingState != ProcessingState.idle) {
+        await player.stop();
+      }
+      await player.setAudioSource(
+        AudioSource.uri(Uri.parse(url)),
+        preload: true,
+      );
+      if (myOpId != _playOperationId) return;
+      if (startPosition != null && startPosition > Duration.zero) {
+        await player.seek(startPosition);
+      }
+      _isConnecting = false;
+      _broadcastState(player.playbackEvent);
+      await player.play();
+    } catch (e) {
+      _isConnecting = false;
+      _log('playPlaylistAudioItem failed: $e');
+      onPlaylistItemError?.call(e);
+    }
+  }
+
+  /// Plays a video playlist item. Uses media_kit video mode when eligible
+  /// (foreground, no car/cast), otherwise plays the audio track via just_audio.
+  Future<void> playPlaylistVideoItem(
+    String url, {
+    bool live = false,
+    Duration? startPosition,
+  }) async {
+    _log('playPlaylistVideoItem($url, live=$live)');
+    _playlistMode = true;
+    final useVideo = VideoModeDecision.shouldUseVideoMode(
+      isVideoContent: true,
+      isForeground: isForeground,
+      isCarConnected: isCarConnected,
+      isCasting: isCasting,
+    );
+    if (useVideo) {
+      await _enterVideoMode(url, live: live, startPosition: startPosition);
+    } else {
+      await playPlaylistAudioItem(
+        url,
+        startPosition: live ? null : startPosition,
+      );
+    }
+  }
+
+  /// Stops both backends without leaving playlist mode (used between items and
+  /// for youtube items, which have no engine-owned player).
+  Future<void> stopPlaylistPlayback() async {
+    _log('stopPlaylistPlayback');
+    _disconnectTimer?.cancel();
+    _bufferingStallTimer?.cancel();
+    await _exitVideoMode(stopVideo: true);
+    if (player.playing || player.processingState != ProcessingState.idle) {
+      await player.stop();
+    }
+    _loadedStreamUrl = null;
+    _loadedStreamType = null;
+    _broadcastState(player.playbackEvent);
+  }
+
+  /// Updates the notification/lock-screen for a playlist [item] (title,
+  /// thumbnail, duration for VOD, `isLive: false`).
+  void updatePlaylistMediaItem(
+    PlaylistItem item, {
+    required int index,
+    required int count,
+  }) {
+    final station = currentStation.valueOrNull;
+    Uri? artUri;
+    if (item.thumbnailUrl != null && item.thumbnailUrl!.isNotEmpty) {
+      artUri = Uri.parse(item.thumbnailUrl!);
+    } else {
+      final t = station?.rawStationData.thumbnail_url;
+      if (t != null && t.isNotEmpty) artUri = Uri.parse(t);
+    }
+    final dur = (item.durationSeconds != null && item.durationSeconds! > 0)
+        ? Duration(seconds: item.durationSeconds!)
+        : null;
+    mediaItem.add(MediaItem(
+      id: item.url,
+      title: item.title.isNotEmpty ? item.title : (station?.title ?? ''),
+      album: station?.title,
+      artist: station?.title,
+      displayTitle: item.title,
+      displaySubtitle: station?.title,
+      artUri: artUri,
+      duration: dur,
+      isLive: false,
+      extras: {
+        'station_id': station?.id,
+        'station_slug': station?.slug,
+        'station_type': 'playlist',
+        'playlist_index': index,
+        'playlist_count': count,
+        'playlist_item_id': item.id,
+        'playlist_item_type': item.type.name,
+      },
+    ));
+    _broadcastState(player.playbackEvent);
+  }
+
+  /// Public app-lifecycle entry point (wired from HomePage). Updates the
+  /// foreground flag and performs the video↔audio handoff for TV stations, or
+  /// delegates to [PlaylistController] for playlist stations.
+  void onAppLifecycleChanged(AppLifecycleState state) {
+    _lifecycleState = state;
+    if (_playlistMode) {
+      _playlistController.onAppLifecycleChanged(state);
+      return;
+    }
+    final backgrounded = state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden;
+    if (backgrounded) {
+      if (_videoMode) unawaited(_handoffTvVideoToAudio());
+    } else if (state == AppLifecycleState.resumed) {
+      final station = currentStation.valueOrNull;
+      if (!_videoMode &&
+          station != null &&
+          station.isTv &&
+          VideoModeDecision.shouldUseVideoMode(
+            isVideoContent: true,
+            isForeground: true,
+            isCarConnected: isCarConnected,
+            isCasting: isCasting,
+          )) {
+        unawaited(_handoffTvAudioToVideo());
+      }
+    }
+  }
+
   /// Stops playback after an error WITHOUT calling super.stop().
   /// This keeps MPRemoteCommandCenter alive so CarPlay/lock-screen
   /// next/prev/play buttons still work and the user can recover.
@@ -1965,6 +2410,11 @@ class AppAudioHandler extends BaseAudioHandler {
       setCastPlaying(false);
       return;
     }
+    // Tear down playlist / video mode before the shared cleanup below.
+    if (_playlistMode) {
+      await _playlistController.stop();
+    }
+    await _exitVideoMode(stopVideo: true);
     _cancelInFlightPlay();
     _hasBeenPlayed = false;
     AnalyticsService.instance.endListening();
@@ -2103,8 +2553,11 @@ class AppAudioHandler extends BaseAudioHandler {
   }
 
   void _broadcastState(PlaybackEvent event) {
-    // When casting, use the last-known playback state (not the local player)
-    final playing = isCasting ? (playbackState.value.playing) : player.playing;
+    // Source of truth for `playing`: media_kit in video mode, the cast-side
+    // flag while casting, else the just_audio player.
+    final playing = _videoMode
+        ? videoService.isPlaying
+        : isCasting ? (playbackState.value.playing) : player.playing;
     final station = currentStation.valueOrNull;
     final isFav = station != null &&
         stationDataService.favoriteStationSlugs.value.contains(station.slug);
@@ -2165,19 +2618,24 @@ class AppAudioHandler extends BaseAudioHandler {
       androidCompactActionIndices: const [3, 4, 5],
       processingState: _isConnecting
         ? AudioProcessingState.loading
-        : isCasting
-          ? _castProcessingState()
-          : const {
-              // We're using ready here to not interupt Android Auto playback when going to next/previous station
-              ProcessingState.idle: AudioProcessingState.ready,
-              ProcessingState.loading: AudioProcessingState.loading,
-              ProcessingState.buffering: AudioProcessingState.buffering,
-              ProcessingState.ready: AudioProcessingState.ready,
-              ProcessingState.completed: AudioProcessingState.completed,
-            }[player.processingState] ?? AudioProcessingState.idle,
+        : _videoMode
+          ? (videoService.isBuffering
+              ? AudioProcessingState.buffering
+              : AudioProcessingState.ready)
+          : isCasting
+            ? _castProcessingState()
+            : const {
+                // We're using ready here to not interupt Android Auto playback when going to next/previous station
+                ProcessingState.idle: AudioProcessingState.ready,
+                ProcessingState.loading: AudioProcessingState.loading,
+                ProcessingState.buffering: AudioProcessingState.buffering,
+                ProcessingState.ready: AudioProcessingState.ready,
+                ProcessingState.completed: AudioProcessingState.completed,
+              }[player.processingState] ?? AudioProcessingState.idle,
       playing: playing,
-      updatePosition: player.position,
-      bufferedPosition: player.bufferedPosition,
+      updatePosition: _videoMode ? videoService.position : player.position,
+      bufferedPosition:
+          _videoMode ? videoService.position : player.bufferedPosition,
       speed: player.speed,
       queueIndex: playerIndex,
     ));
@@ -2248,6 +2706,13 @@ class AppAudioHandler extends BaseAudioHandler {
     _disconnectTimer?.cancel();
     _bufferingStallTimer?.cancel();
     _stopSilenceKeepAlive();
+    for (final s in _videoSubs) {
+      await s.cancel();
+    }
+    _videoSubs.clear();
+    await _carRouteSub?.cancel();
+    await _castRouteSub?.cancel();
+    await _exitVideoMode(stopVideo: true);
     _loadedStreamUrl = null;
     _loadedStreamType = null;
     await player.stop();

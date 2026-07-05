@@ -577,6 +577,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     // hiccup that lines up with a screen-lock / foreground-resume is visible
     // to the user when they share the diagnostic.
     _audioHandler.recordLifecycleTransition(state.name);
+    // Drive the video↔audio handoff and playlist-sync suspend/resume.
+    _audioHandler.onAppLifecycleChanged(state);
     if (state == AppLifecycleState.resumed) {
       // App returned to foreground — check if audio stream was lost in background
       _audioHandler.reconnectIfNeeded(trigger: ReconnectTrigger.lifecycleResumed);

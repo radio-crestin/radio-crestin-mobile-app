@@ -23,6 +23,7 @@ import 'package:radio_crestin/theme.dart';
 import 'package:radio_crestin/theme_manager.dart';
 import 'package:radio_crestin/seek_mode_manager.dart';
 import 'package:just_audio_media_kit/just_audio_media_kit.dart';
+import 'package:media_kit/media_kit.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -47,6 +48,9 @@ import 'services/play_count_service.dart';
 import 'services/session_recording_service.dart';
 import 'services/song_like_service.dart';
 import 'services/station_data_service.dart';
+import 'services/video_playback_service.dart';
+import 'services/playlist_sync_service.dart';
+import 'services/playlist_controller.dart';
 import 'tv/tv_platform.dart';
 import 'tv/tv_shell.dart';
 import 'tv/tv_theme.dart';
@@ -113,6 +117,11 @@ void main() async {
       linux: true,
     );
   }
+
+  // Initialize media_kit for the video-playback engine (TV channels + video
+  // playlist items). Idempotent and cheap; must run before any media_kit
+  // Player is constructed by VideoPlaybackService.
+  MediaKit.ensureInitialized();
 
   // Phase 1: Start ALL independent async operations in parallel.
   // Firebase, Hive, SharedPreferences, image cache, network, and PackageInfo
@@ -245,6 +254,19 @@ void main() async {
 
   final songLikeService = await SongLikeService.init();
   getIt.registerSingleton<SongLikeService>(songLikeService);
+
+  // Video-playback engine + playlist orchestration. Registered before
+  // AudioService.init so AppAudioHandler can resolve them lazily; the handler
+  // and controller reference each other via GetIt (no constructor cycle).
+  final videoPlaybackService = VideoPlaybackService();
+  getIt.registerSingleton<VideoPlaybackService>(videoPlaybackService);
+  final playlistSyncService = PlaylistSyncService();
+  getIt.registerSingleton<PlaylistSyncService>(playlistSyncService);
+  final playlistController = PlaylistController(
+    videoService: videoPlaybackService,
+    syncService: playlistSyncService,
+  );
+  getIt.registerSingleton<PlaylistController>(playlistController);
 
   // Phase 4: Start AudioService.init() — the biggest remaining blocker.
   // Network and image cache are already initialized (awaited above).
