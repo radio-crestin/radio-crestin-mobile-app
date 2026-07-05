@@ -221,10 +221,17 @@ class _TvYoutubeUpNextCardState extends State<TvYoutubeUpNextCard> {
                       children: [
                         Row(
                           children: [
-                            const Icon(Icons.smart_display_rounded,
-                                color: TvColors.primary, size: 16),
+                            Icon(
+                                item.type == PlaylistItemType.youtubePlaylist
+                                    ? Icons.playlist_play_rounded
+                                    : Icons.smart_display_rounded,
+                                color: TvColors.primary,
+                                size: 16),
                             const SizedBox(width: 6),
-                            Text('Element YouTube',
+                            Text(
+                                item.type == PlaylistItemType.youtubePlaylist
+                                    ? 'Playlist YouTube'
+                                    : 'Element YouTube',
                                 style: TvTypography.caption.copyWith(
                                   color: TvColors.primary,
                                   fontWeight: FontWeight.w800,

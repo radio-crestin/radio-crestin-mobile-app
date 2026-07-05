@@ -8,23 +8,66 @@ import '../queries/getStations.graphql.dart';
 enum PlaylistItemType {
   audio,
   video,
-  youtube;
+  youtube,
 
-  /// Parses a raw wire value case-insensitively, defaulting to [audio].
+  /// A whole YouTube playlist rendered as a single entry — `url` is a
+  /// `.../playlist?list=<ID>` link. Orchestrated exactly like [youtube]
+  /// (UI-owned iframe, skipped in car/cast, never video mode).
+  youtubePlaylist,
+
+  /// An unrecognized (e.g. future) backend kind. Treated as unplayable so it
+  /// is never fed to just_audio — the engine and UI auto-advance past it.
+  unknown;
+
+  /// Parses a raw wire value case-insensitively.
   ///
-  /// Old or partial payloads may omit the field or send an unknown value; in
-  /// both cases the item is treated as [audio].
+  /// A missing/empty type is treated as [audio] (legacy items predate the
+  /// field). A non-empty *unrecognized* value maps to [unknown] rather than
+  /// [audio], so a future backend kind is never handed to just_audio (which
+  /// would fail) — it is skipped instead.
   static PlaylistItemType parse(String? value) {
-    switch (value?.trim().toLowerCase()) {
+    final v = value?.trim().toLowerCase();
+    if (v == null || v.isEmpty) return PlaylistItemType.audio;
+    switch (v) {
+      case 'audio':
+        return PlaylistItemType.audio;
       case 'video':
         return PlaylistItemType.video;
       case 'youtube':
         return PlaylistItemType.youtube;
-      case 'audio':
+      case 'youtube_playlist':
+        return PlaylistItemType.youtubePlaylist;
       default:
-        return PlaylistItemType.audio;
+        return PlaylistItemType.unknown;
     }
   }
+
+  /// True for any YouTube-backed entry (single video or whole playlist).
+  ///
+  /// These are rendered by the UI's inline iframe (never an engine-owned
+  /// player), skipped when a car/cast route is connected, and paused while the
+  /// app is backgrounded.
+  bool get isYoutube =>
+      this == PlaylistItemType.youtube ||
+      this == PlaylistItemType.youtubePlaylist;
+}
+
+/// Extracts the playlist id (`list=` query param) from a YouTube playlist URL.
+///
+/// Handles `youtube.com/playlist?list=<ID>`, a `watch?v=..&list=<ID>` URL, and
+/// a bare id. Returns null when no playlist id can be found.
+String? youtubePlaylistIdFromUrl(String url) {
+  final trimmed = url.trim();
+  if (trimmed.isEmpty) return null;
+  final uri = Uri.tryParse(trimmed);
+  final list = uri?.queryParameters['list'];
+  if (list != null && list.isNotEmpty) return list;
+  // Bare id fallback (no scheme / path / query) — assume it is the list id.
+  if (!trimmed.contains('/') && !trimmed.contains('?') &&
+      !trimmed.contains('&')) {
+    return trimmed;
+  }
+  return null;
 }
 
 /// Immutable view over a single backend playlist entry.
@@ -86,7 +129,8 @@ class PlaylistItem {
   /// Sort position within the playlist (ascending). Defaults to 0 when absent.
   final int order;
 
-  /// Media kind of the entry (audio, video or youtube).
+  /// Media kind of the entry (audio, video, youtube, youtube_playlist or an
+  /// [PlaylistItemType.unknown] future kind).
   final PlaylistItemType type;
 
   /// Playable/streamable URL for the entry.

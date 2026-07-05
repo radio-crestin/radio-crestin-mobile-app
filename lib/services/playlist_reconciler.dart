@@ -117,11 +117,12 @@ class PlaylistNavigator {
   /// Returns the index of the next playable item relative to [fromIndex].
   ///
   /// [direction] is `+1` for next / auto-advance and `-1` for previous.
+  /// [PlaylistItemType.unknown] items are always stepped over (unplayable).
   /// When [skipYoutube] is true (a car or Cast session is connected, where the
-  /// inline YouTube player can't run), youtube items are stepped over. When
-  /// [loop] is true the search wraps around the ends. Returns `-1` when no
-  /// playable item exists (e.g. every remaining item is youtube in car, or the
-  /// end was reached without looping).
+  /// inline YouTube player can't run), youtube / youtube_playlist items are
+  /// stepped over too. When [loop] is true the search wraps around the ends.
+  /// Returns `-1` when no playable item exists (e.g. every remaining item is
+  /// youtube in car, or the end was reached without looping).
   ///
   /// Pass [fromIndex] `-1` with `direction: 1, loop: false` to get the first
   /// playable item in the list.
@@ -150,7 +151,10 @@ class PlaylistNavigator {
 
   /// Whether [item] can be played given the current skip-youtube constraint.
   static bool _isPlayable(PlaylistItem item, {required bool skipYoutube}) {
-    if (skipYoutube && item.type == PlaylistItemType.youtube) return false;
+    // Unrecognized future kinds are never playable — always skip them.
+    if (item.type == PlaylistItemType.unknown) return false;
+    // YouTube (single or whole playlist) can't run on a car/cast route.
+    if (skipYoutube && item.type.isYoutube) return false;
     return true;
   }
 }
