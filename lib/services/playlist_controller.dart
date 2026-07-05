@@ -21,11 +21,16 @@ import 'video_playback_service.dart';
 ///   - `audio` items  → just_audio (VOD) via [AppAudioHandler.playPlaylistAudioItem]
 ///   - `video` items  → media_kit video mode (or audio-only when backgrounded /
 ///                       car / cast) via [AppAudioHandler.playPlaylistVideoItem]
-///   - `youtube` items → the engine does NOT own a player; it emits the item on
-///                       [youtubeRequest] and the UI renders an inline iframe,
-///                       reporting back via [notifyYoutubeItemEnded] /
-///                       [notifyYoutubeItemError]. In car/cast youtube items are
-///                       skipped automatically; in background they pause.
+///   - `youtube` / `youtube_playlist` items → the engine does NOT own a
+///                       player; it emits the item on [youtubeRequest] and the
+///                       UI renders an inline iframe, reporting back via
+///                       [notifyYoutubeItemEnded] / [notifyYoutubeItemError] /
+///                       [notifyYoutubePlaying]. play/pause/seek are routed
+///                       through the handler + [youtubeShouldPlay]/[youtubeSeek]
+///                       so playbackState reflects the iframe. In car/cast these
+///                       are skipped; in background they pause.
+///   - `unknown` items → an unrecognized future kind. Unplayable — the engine
+///                       auto-advances past it (never handed to a player).
 ///
 /// Pure decisions live in [PlaylistReconciler] / [PlaylistNavigator] so they can
 /// be unit-tested without any real player.
@@ -77,11 +82,17 @@ class PlaylistController {
   final BehaviorSubject<PlaylistItem?> youtubeRequest =
       BehaviorSubject<PlaylistItem?>.seeded(null);
 
-  /// Whether the inline YouTube player should be playing. Set to false while
-  /// the app is backgrounded (YouTube can't play backgrounded). The UI binds
-  /// its iframe play/pause to this.
+  /// Whether the inline YouTube player should be playing. This is the single
+  /// play/pause command channel for youtube items: toggled false while the app
+  /// is backgrounded (YouTube can't play backgrounded) and by the handler when
+  /// the user pauses/resumes from the mini player / lock screen. The iframe
+  /// binds its play/pause to it.
   final BehaviorSubject<bool> youtubeShouldPlay =
       BehaviorSubject<bool>.seeded(true);
+
+  /// Seek requests for the inline YouTube player (single video only). The
+  /// iframe subscribes and calls `controller.seekTo`.
+  final PublishSubject<Duration> youtubeSeek = PublishSubject<Duration>();
 
   Station? _activeStation;
 
@@ -225,13 +236,28 @@ class PlaylistController {
         isVideoContent.add(_handler.isVideoModeActive);
         break;
       case PlaylistItemType.youtube:
+      case PlaylistItemType.youtubePlaylist:
         isVideoContent.add(false);
         isYoutubeContent.add(true);
         _handler.updatePlaylistMediaItem(item, index: index, count: list.length);
         // No engine-owned player — stop local backends and delegate to the UI.
         await _handler.stopPlaylistPlayback();
-        youtubeShouldPlay.add(_handler.isForeground);
+        final shouldPlay = _handler.isForeground;
+        youtubeShouldPlay.add(shouldPlay);
+        // Broadcast a synthetic playing state so the mini player / notification
+        // reflect + control the iframe (one source of truth via the handler).
+        _handler.setPlaylistYoutubeActive(true, playing: shouldPlay);
         youtubeRequest.add(item);
+        break;
+      case PlaylistItemType.unknown:
+        // Unrecognized future kind — unplayable. Auto-advance past it.
+        _log('playItemAt: unknown item type → skip');
+        isVideoContent.add(false);
+        isYoutubeContent.add(false);
+        youtubeRequest.add(null);
+        _handler.setPlaylistYoutubeActive(false);
+        await _handler.stopPlaylistPlayback();
+        unawaited(_advance(direction: 1));
         break;
     }
   }
@@ -258,15 +284,40 @@ class PlaylistController {
     await playItemAt(next);
   }
 
-  /// Seeks the current VOD item.
+  /// Seeks the current item.
+  ///
+  /// A single `youtube` video seeks its inline iframe via [youtubeSeek]. A
+  /// `youtube_playlist` has no meaningful item-level timeline, so seeking is a
+  /// no-op there. Everything else (audio / video VOD) seeks the routed player.
   Future<void> seek(Duration to) async {
     final item = currentItem.value;
-    if (item == null || item.type == PlaylistItemType.youtube) return;
+    if (item == null) return;
+    if (item.type == PlaylistItemType.youtube) {
+      youtubeSeek.add(to);
+      position.add(to); // optimistic — the iframe confirms shortly
+      return;
+    }
+    if (item.type.isYoutube) return; // youtube_playlist: item-level seek N/A
     await _handler.seek(to);
   }
 
   Future<void> pause() async => _handler.pause();
   Future<void> resume() async => _handler.play();
+
+  /// Resumes the inline YouTube player. Routed here by [AppAudioHandler.play]
+  /// so the mini player / lock screen and the in-player button share one path.
+  void resumeYoutube() {
+    if (!(currentItem.value?.type.isYoutube ?? false)) return;
+    youtubeShouldPlay.add(true);
+    _handler.updateYoutubePlaybackState(playing: true);
+  }
+
+  /// Pauses the inline YouTube player. Routed here by [AppAudioHandler.pause].
+  void pauseYoutube() {
+    if (!(currentItem.value?.type.isYoutube ?? false)) return;
+    youtubeShouldPlay.add(false);
+    _handler.updateYoutubePlaybackState(playing: false);
+  }
 
   // ── Auto-advance / error ────────────────────────────────────────────────
 
@@ -290,24 +341,36 @@ class PlaylistController {
 
   // ── YouTube contract (UI → engine) ───────────────────────────────────────
 
-  /// The UI calls this when the inline YouTube video ends → auto-advance.
+  /// The UI calls this when the inline YouTube video (or the WHOLE playlist for
+  /// a youtube_playlist item) ends → auto-advance. Inner-video transitions
+  /// within a youtube_playlist must NOT trigger this.
   void notifyYoutubeItemEnded() {
-    if (currentItem.value?.type != PlaylistItemType.youtube) return;
+    if (!(currentItem.value?.type.isYoutube ?? false)) return;
     _log('youtube ended → advance');
     unawaited(_advance(direction: 1));
   }
 
   /// The UI calls this when the inline YouTube player errors → advance.
   void notifyYoutubeItemError() {
-    if (currentItem.value?.type != PlaylistItemType.youtube) return;
+    if (!(currentItem.value?.type.isYoutube ?? false)) return;
     _onItemError('youtube_player_error');
   }
 
-  /// Optional position report from the inline YouTube player, for the scrubber.
+  /// Optional position report from the inline YouTube player, for the scrubber
+  /// and the lock-screen/notification.
   void notifyYoutubePosition(Duration pos, Duration dur) {
-    if (currentItem.value?.type != PlaylistItemType.youtube) return;
+    if (!(currentItem.value?.type.isYoutube ?? false)) return;
     position.add(pos);
     if (dur > Duration.zero) duration.add(dur);
+    _handler.updateYoutubePlaybackState(position: pos);
+  }
+
+  /// The inline YouTube player reports its real playing/paused state → mirror
+  /// it into the handler so the mini player, notification and lock screen stay
+  /// in sync (the single source of truth is [AppAudioHandler.playbackState]).
+  void notifyYoutubePlaying(bool playing) {
+    if (!(currentItem.value?.type.isYoutube ?? false)) return;
+    _handler.updateYoutubePlaybackState(playing: playing);
   }
 
   // ── Live sync ────────────────────────────────────────────────────────────
@@ -359,8 +422,9 @@ class PlaylistController {
     if (backgrounded) {
       _sync.pause();
       if (item == null) return;
-      if (item.type == PlaylistItemType.youtube) {
+      if (item.type.isYoutube) {
         youtubeShouldPlay.add(false); // YouTube can't play backgrounded
+        _handler.updateYoutubePlaybackState(playing: false);
         return;
       }
       if (item.type == PlaylistItemType.video && _handler.isVideoModeActive) {
@@ -373,8 +437,9 @@ class PlaylistController {
     } else if (state == AppLifecycleState.resumed) {
       _sync.resume();
       if (item == null) return;
-      if (item.type == PlaylistItemType.youtube) {
+      if (item.type.isYoutube) {
         youtubeShouldPlay.add(true);
+        _handler.updateYoutubePlaybackState(playing: true);
         return;
       }
       if (item.type == PlaylistItemType.video && !_handler.isVideoModeActive) {
@@ -398,7 +463,7 @@ class PlaylistController {
       await _handler.playPlaylistVideoItem(item.url,
           live: false, startPosition: pos);
       isVideoContent.add(_handler.isVideoModeActive);
-    } else if (item.type == PlaylistItemType.youtube) {
+    } else if (item.type.isYoutube) {
       // A youtube item can't play in car/cast — skip to the next playable.
       await _advance(direction: 1);
     }
@@ -421,6 +486,7 @@ class PlaylistController {
     isYoutubeContent.close();
     youtubeRequest.close();
     youtubeShouldPlay.close();
+    youtubeSeek.close();
   }
 
   void _log(String message) => debugPrint('PlaylistController: $message');

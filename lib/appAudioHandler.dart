@@ -443,6 +443,12 @@ class AppAudioHandler extends BaseAudioHandler {
   // station is active and [PlaylistController] drives per-item playback.
   bool _videoMode = false;
   bool _playlistMode = false;
+  // True while the active playlist item is a UI-owned YouTube entry (single
+  // video or whole playlist). While set, `playbackState` reflects the inline
+  // iframe (not the stopped just_audio player) and play/pause route to it.
+  bool _playlistYoutubeActive = false;
+  bool _youtubePlaying = false;
+  Duration _youtubePosition = Duration.zero;
   AppLifecycleState _lifecycleState = AppLifecycleState.resumed;
   final List<StreamSubscription<dynamic>> _videoSubs = [];
   StreamSubscription<bool>? _carRouteSub;
@@ -1450,6 +1456,12 @@ class AppAudioHandler extends BaseAudioHandler {
       _broadcastState(player.playbackEvent);
       return;
     }
+    // UI-owned YouTube item: route to the inline iframe (single video only;
+    // youtube_playlist is a no-op inside the controller).
+    if (_playlistYoutubeActive) {
+      await _playlistController.seek(position);
+      return;
+    }
     await player.seek(position);
   }
 
@@ -1544,12 +1556,18 @@ class AppAudioHandler extends BaseAudioHandler {
       _broadcastState(player.playbackEvent);
       return;
     }
-    // Playlist audio item: resume the just_audio VOD source directly (the
+    // Playlist mode: youtube items are UI-owned (route to the inline iframe);
+    // audio/video VOD items resume the just_audio player directly (the
     // station-stream retry loop below does not apply to playlist items).
     if (_playlistMode) {
-      _log('play: resuming playlist audio item');
       _disconnectTimer?.cancel();
       stationDataService.resumePolling();
+      if (_playlistYoutubeActive) {
+        _log('play: resuming youtube item');
+        _playlistController.resumeYoutube();
+        return;
+      }
+      _log('play: resuming playlist audio item');
       await player.play();
       return;
     }
@@ -1790,9 +1808,15 @@ class AppAudioHandler extends BaseAudioHandler {
       _broadcastState(player.playbackEvent);
       return;
     }
-    // Playlist audio item: pause just_audio directly, skipping the 60s
+    // Playlist mode: youtube items are UI-owned (pause the inline iframe);
+    // audio/video items pause just_audio directly, skipping the 60s
     // station-stream disconnect timer (there is no station stream to drop).
     if (_playlistMode) {
+      if (_playlistYoutubeActive) {
+        _log('pause: pausing youtube item');
+        _playlistController.pauseYoutube();
+        return super.pause();
+      }
       await player.pause();
       _broadcastState(player.playbackEvent);
       return super.pause();
@@ -2229,7 +2253,39 @@ class AppAudioHandler extends BaseAudioHandler {
   void enterPlaylistMode() => _playlistMode = true;
 
   /// Leaves playlist mode.
-  void exitPlaylistMode() => _playlistMode = false;
+  void exitPlaylistMode() {
+    _playlistMode = false;
+    _playlistYoutubeActive = false;
+    _youtubePlaying = false;
+    _youtubePosition = Duration.zero;
+  }
+
+  /// Marks (or clears) that a UI-owned YouTube playlist item is the active
+  /// source. While active, [play]/[pause] route to the inline iframe and
+  /// `playbackState` reflects it rather than the stopped just_audio player.
+  /// Called by [PlaylistController] when a youtube/youtube_playlist item starts.
+  void setPlaylistYoutubeActive(bool active, {bool playing = false}) {
+    _playlistYoutubeActive = active;
+    _youtubePlaying = active && playing;
+    if (!active) _youtubePosition = Duration.zero;
+    _isConnecting = false;
+    _broadcastState(player.playbackEvent);
+  }
+
+  /// Feeds the inline YouTube player's real state into `playbackState` so the
+  /// mini player, notification and lock screen reflect it. Only broadcasts when
+  /// the play/paused flag actually flips (position is stored for the next
+  /// broadcast, so a per-tick position report doesn't spam the notification).
+  void updateYoutubePlaybackState({bool? playing, Duration? position}) {
+    if (!_playlistYoutubeActive) return;
+    var changed = false;
+    if (playing != null && playing != _youtubePlaying) {
+      _youtubePlaying = playing;
+      changed = true;
+    }
+    if (position != null) _youtubePosition = position;
+    if (changed) _broadcastState(player.playbackEvent);
+  }
 
   /// Plays a single audio playlist item (VOD) via just_audio. On completion,
   /// [onPlaylistItemCompleted] fires so the controller can advance.
@@ -2240,6 +2296,7 @@ class AppAudioHandler extends BaseAudioHandler {
     _log('playPlaylistAudioItem($url)');
     await _exitVideoMode(stopVideo: true);
     _playlistMode = true;
+    _playlistYoutubeActive = false; // an engine-owned source is taking over
     final myOpId = ++_playOperationId;
     _disconnectTimer?.cancel();
     _bufferingStallTimer?.cancel();
@@ -2279,6 +2336,7 @@ class AppAudioHandler extends BaseAudioHandler {
   }) async {
     _log('playPlaylistVideoItem($url, live=$live)');
     _playlistMode = true;
+    _playlistYoutubeActive = false; // an engine-owned source is taking over
     final useVideo = VideoModeDecision.shouldUseVideoMode(
       isVideoContent: true,
       isForeground: isForeground,
@@ -2553,11 +2611,14 @@ class AppAudioHandler extends BaseAudioHandler {
   }
 
   void _broadcastState(PlaybackEvent event) {
-    // Source of truth for `playing`: media_kit in video mode, the cast-side
-    // flag while casting, else the just_audio player.
+    // Source of truth for `playing`: media_kit in video mode, the inline
+    // YouTube iframe for a UI-owned youtube playlist item, the cast-side flag
+    // while casting, else the just_audio player.
     final playing = _videoMode
         ? videoService.isPlaying
-        : isCasting ? (playbackState.value.playing) : player.playing;
+        : _playlistYoutubeActive
+            ? _youtubePlaying
+            : isCasting ? (playbackState.value.playing) : player.playing;
     final station = currentStation.valueOrNull;
     final isFav = station != null &&
         stationDataService.favoriteStationSlugs.value.contains(station.slug);
@@ -2622,7 +2683,9 @@ class AppAudioHandler extends BaseAudioHandler {
           ? (videoService.isBuffering
               ? AudioProcessingState.buffering
               : AudioProcessingState.ready)
-          : isCasting
+          : _playlistYoutubeActive
+            ? AudioProcessingState.ready
+            : isCasting
             ? _castProcessingState()
             : const {
                 // We're using ready here to not interupt Android Auto playback when going to next/previous station
@@ -2633,9 +2696,16 @@ class AppAudioHandler extends BaseAudioHandler {
                 ProcessingState.completed: AudioProcessingState.completed,
               }[player.processingState] ?? AudioProcessingState.idle,
       playing: playing,
-      updatePosition: _videoMode ? videoService.position : player.position,
-      bufferedPosition:
-          _videoMode ? videoService.position : player.bufferedPosition,
+      updatePosition: _videoMode
+          ? videoService.position
+          : _playlistYoutubeActive
+              ? _youtubePosition
+              : player.position,
+      bufferedPosition: _videoMode
+          ? videoService.position
+          : _playlistYoutubeActive
+              ? _youtubePosition
+              : player.bufferedPosition,
       speed: player.speed,
       queueIndex: playerIndex,
     ));

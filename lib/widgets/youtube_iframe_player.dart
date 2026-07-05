@@ -6,35 +6,19 @@ import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 import '../services/playlist_controller.dart';
 import '../types/playlist_item.dart';
 
-/// Lightweight handle the transport row uses to drive the inline YouTube
-/// player without reaching into its internal controller.
-///
-/// The [YoutubeIframePlayer] binds its play/pause callbacks here and keeps
-/// [isPlaying] up to date from the real player state, so the parent can render
-/// a correct play/pause button and toggle playback.
-class YoutubePlaybackHandle {
-  final ValueNotifier<bool> isPlaying = ValueNotifier<bool>(true);
-  VoidCallback? _play;
-  VoidCallback? _pause;
-
-  void bind({required VoidCallback play, required VoidCallback pause}) {
-    _play = play;
-    _pause = pause;
-  }
-
-  void play() => _play?.call();
-  void pause() => _pause?.call();
-
-  void dispose() => isPlaying.dispose();
-}
-
 /// Renders a playlist YouTube item inline via `youtube_player_iframe` and wires
 /// it back to the [PlaylistController] contract:
-///   - end-of-video  → [PlaylistController.notifyYoutubeItemEnded]
-///   - player error  → [PlaylistController.notifyYoutubeItemError]
-///   - position tick → [PlaylistController.notifyYoutubePosition]
-///   - honors [PlaylistController.youtubeShouldPlay] (pauses when false, e.g.
-///     the app is backgrounded — YouTube cannot play in the background).
+///   - end-of-video / end-of-playlist → [PlaylistController.notifyYoutubeItemEnded]
+///   - player error   → [PlaylistController.notifyYoutubeItemError]
+///   - position tick  → [PlaylistController.notifyYoutubePosition]
+///   - play/paused    → [PlaylistController.notifyYoutubePlaying] (so the mini
+///     player / notification reflect it)
+///   - honors [PlaylistController.youtubeShouldPlay] (the single play/pause
+///     command channel, driven by the handler) and [PlaylistController.youtubeSeek].
+///
+/// A [PlaylistItemType.youtubePlaylist] item loads the WHOLE YouTube playlist
+/// (`loadPlaylist`); inner-video transitions do NOT advance the app playlist —
+/// only the last video finishing does.
 ///
 /// The widget must stay mounted while the mini player is collapsed so the
 /// iframe keeps playing; the full player keeps it in the tree for exactly that
@@ -44,18 +28,14 @@ class YoutubeIframePlayer extends StatefulWidget {
     super.key,
     required this.item,
     required this.controller,
-    required this.handle,
     this.aspectRatio = 16 / 9,
   });
 
-  /// The YouTube playlist item to render.
+  /// The YouTube (video or playlist) item to render.
   final PlaylistItem item;
 
-  /// The engine's playlist controller (contract callbacks + should-play flag).
+  /// The engine's playlist controller (contract callbacks + command streams).
   final PlaylistController controller;
-
-  /// Handle the transport row uses to play/pause and read playing state.
-  final YoutubePlaybackHandle handle;
 
   final double aspectRatio;
 
@@ -68,10 +48,14 @@ class _YoutubeIframePlayerState extends State<YoutubeIframePlayer> {
   StreamSubscription<YoutubePlayerValue>? _stateSub;
   StreamSubscription<YoutubeVideoState>? _positionSub;
   StreamSubscription<bool>? _shouldPlaySub;
+  StreamSubscription<Duration>? _seekSub;
 
   int? _loadedItemId;
   bool _endedReported = false;
   Duration _duration = Duration.zero;
+
+  bool get _isPlaylist =>
+      widget.item.type == PlaylistItemType.youtubePlaylist;
 
   @override
   void initState() {
@@ -91,12 +75,11 @@ class _YoutubeIframePlayerState extends State<YoutubeIframePlayer> {
       ),
     );
 
-    widget.handle.bind(play: _yt.playVideo, pause: _yt.pauseVideo);
-
     _stateSub = _yt.stream.listen(_onValue);
     _positionSub = _yt.videoStateStream.listen(_onPosition);
     _shouldPlaySub =
         widget.controller.youtubeShouldPlay.stream.listen(_onShouldPlay);
+    _seekSub = widget.controller.youtubeSeek.stream.listen(_onSeek);
 
     _loadItem(widget.item);
   }
@@ -114,6 +97,17 @@ class _YoutubeIframePlayerState extends State<YoutubeIframePlayer> {
     _loadedItemId = item.id;
     _endedReported = false;
     _duration = Duration.zero;
+
+    if (item.type == PlaylistItemType.youtubePlaylist) {
+      final listId = youtubePlaylistIdFromUrl(item.url);
+      if (listId == null || listId.isEmpty) {
+        widget.controller.notifyYoutubeItemError();
+        return;
+      }
+      _yt.loadPlaylist(list: [listId], listType: ListType.playlist);
+      return;
+    }
+
     final videoId =
         YoutubePlayerController.convertUrlToId(item.url) ?? item.url;
     if (videoId.isEmpty) {
@@ -129,17 +123,14 @@ class _YoutubeIframePlayerState extends State<YoutubeIframePlayer> {
 
     switch (value.playerState) {
       case PlayerState.playing:
-        widget.handle.isPlaying.value = true;
+        widget.controller.notifyYoutubePlaying(true);
         break;
       case PlayerState.paused:
       case PlayerState.cued:
-        widget.handle.isPlaying.value = false;
+        widget.controller.notifyYoutubePlaying(false);
         break;
       case PlayerState.ended:
-        if (!_endedReported) {
-          _endedReported = true;
-          widget.controller.notifyYoutubeItemEnded();
-        }
+        _onEnded();
         break;
       case PlayerState.unStarted:
       case PlayerState.buffering:
@@ -149,6 +140,39 @@ class _YoutubeIframePlayerState extends State<YoutubeIframePlayer> {
 
     if (value.error != YoutubeError.none) {
       widget.controller.notifyYoutubeItemError();
+    }
+  }
+
+  /// End-of-media handling. For a single video, any `ended` finishes the item.
+  /// For a whole playlist, `ended` fires after EVERY inner video — only the
+  /// last one finishing the playlist should advance the app playlist.
+  void _onEnded() {
+    if (_endedReported) return;
+    if (!_isPlaylist) {
+      _endedReported = true;
+      widget.controller.notifyYoutubeItemEnded();
+      return;
+    }
+    unawaited(_maybeFinishPlaylist());
+  }
+
+  Future<void> _maybeFinishPlaylist() async {
+    try {
+      final index = await _yt.playlistIndex;
+      final videos = await _yt.playlist;
+      final total = videos.length;
+      // Last (or unknown-length) video ended → the whole playlist is done.
+      if (total <= 0 || index >= total - 1) {
+        if (_endedReported) return;
+        _endedReported = true;
+        widget.controller.notifyYoutubeItemEnded();
+      }
+      // Otherwise an inner video ended — the iframe auto-advances; ignore.
+    } catch (_) {
+      // Couldn't determine playlist position — advance rather than get stuck.
+      if (_endedReported) return;
+      _endedReported = true;
+      widget.controller.notifyYoutubeItemEnded();
     }
   }
 
@@ -164,11 +188,16 @@ class _YoutubeIframePlayerState extends State<YoutubeIframePlayer> {
     }
   }
 
+  void _onSeek(Duration to) {
+    _yt.seekTo(seconds: to.inMilliseconds / 1000.0, allowSeekAhead: true);
+  }
+
   @override
   void dispose() {
     _stateSub?.cancel();
     _positionSub?.cancel();
     _shouldPlaySub?.cancel();
+    _seekSub?.cancel();
     _yt.close();
     super.dispose();
   }

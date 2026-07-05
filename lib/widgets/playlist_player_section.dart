@@ -34,9 +34,10 @@ String formatPlaylistDuration(Duration d) {
 /// and a live-reconciling track list.
 ///
 /// Subscribes to [PlaylistController] streams and drives playback through it
-/// (and the routed [AppAudioHandler] transport). Owns the inline YouTube
-/// controller lifecycle via a [YoutubePlaybackHandle]; kept mounted by the full
-/// player so YouTube audio survives collapsing to the mini player.
+/// (and the routed [AppAudioHandler] transport). The inline YouTube player is
+/// kept mounted by the full player so YouTube audio survives collapsing to the
+/// mini player. Play/pause for every item type (including YouTube) goes through
+/// [AppAudioHandler], so `playbackState` is the single source of truth.
 class PlaylistPlayerSection extends StatefulWidget {
   const PlaylistPlayerSection({
     super.key,
@@ -54,7 +55,6 @@ class PlaylistPlayerSection extends StatefulWidget {
 class _PlaylistPlayerSectionState extends State<PlaylistPlayerSection> {
   final List<StreamSubscription<dynamic>> _subs = [];
   final _playButtonKey = GlobalKey<AnimatedPlayButtonState>();
-  final YoutubePlaybackHandle _ytHandle = YoutubePlaybackHandle();
   final ScrollController _listController = ScrollController();
 
   static const double _rowExtent = 64.0;
@@ -66,6 +66,11 @@ class _PlaylistPlayerSectionState extends State<PlaylistPlayerSection> {
   PlaylistItem? _currentItem;
   bool _isVideoContent = false;
   bool _isYoutubeContent = false;
+
+  /// A whole-playlist YouTube item — the item-level scrubber is meaningless, so
+  /// it stays hidden (single youtube videos keep a working, seekable scrubber).
+  bool get _isYoutubePlaylist =>
+      _currentItem?.type == PlaylistItemType.youtubePlaylist;
 
   @override
   void initState() {
@@ -102,7 +107,6 @@ class _PlaylistPlayerSectionState extends State<PlaylistPlayerSection> {
     for (final s in _subs) {
       s.cancel();
     }
-    _ytHandle.dispose();
     _listController.dispose();
     super.dispose();
   }
@@ -136,7 +140,6 @@ class _PlaylistPlayerSectionState extends State<PlaylistPlayerSection> {
             item: _currentItem,
             isVideoContent: _isVideoContent,
             isYoutubeContent: _isYoutubeContent,
-            ytHandle: _ytHandle,
           ),
         ),
         const SizedBox(height: 14),
@@ -177,20 +180,21 @@ class _PlaylistPlayerSectionState extends State<PlaylistPlayerSection> {
           ),
         ),
         const SizedBox(height: 10),
-        // VOD scrubber (hidden for YouTube — seeking there is not supported).
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: _VodProgressBar(
-            controller: _controller,
-            seekable: !_isYoutubeContent,
+        // Scrubber: audio/video VOD and single YouTube videos are seekable; a
+        // whole YouTube playlist has no item-level timeline, so it's hidden.
+        if (!_isYoutubePlaylist)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: _VodProgressBar(
+              controller: _controller,
+              seekable: true,
+            ),
           ),
-        ),
         const SizedBox(height: 6),
-        // Transport: prev | play/pause | next.
+        // Transport: prev | play/pause | next. Play/pause routes through the
+        // handler for every item type (YouTube included).
         _Transport(
           audioHandler: widget.audioHandler,
-          isYoutube: _isYoutubeContent,
-          ytHandle: _ytHandle,
           playButtonKey: _playButtonKey,
         ),
         const SizedBox(height: 12),
@@ -220,7 +224,6 @@ class _MediaSurface extends StatelessWidget {
     required this.item,
     required this.isVideoContent,
     required this.isYoutubeContent,
-    required this.ytHandle,
   });
 
   final AppAudioHandler audioHandler;
@@ -229,7 +232,6 @@ class _MediaSurface extends StatelessWidget {
   final PlaylistItem? item;
   final bool isVideoContent;
   final bool isYoutubeContent;
-  final YoutubePlaybackHandle ytHandle;
 
   @override
   Widget build(BuildContext context) {
@@ -240,7 +242,6 @@ class _MediaSurface extends StatelessWidget {
       child = YoutubeIframePlayer(
         item: item!,
         controller: controller,
-        handle: ytHandle,
       );
     } else if (isVideoContent) {
       kind = 'video-${item?.id}';
@@ -406,20 +407,17 @@ class _VodProgressBarState extends State<_VodProgressBar> {
       );
 }
 
-/// Transport row shared by playlist items. For audio/video the play/pause is
-/// the standard [AnimatedPlayButton] (routes through the handler). For YouTube
-/// it toggles the inline iframe via [YoutubePlaybackHandle].
+/// Transport row shared by every playlist item type. Play/pause is the standard
+/// [AnimatedPlayButton] routed through [AppAudioHandler] — for YouTube items the
+/// handler forwards to the inline iframe, so `playbackState` is the one source
+/// of truth for the icon and the action.
 class _Transport extends StatelessWidget {
   const _Transport({
     required this.audioHandler,
-    required this.isYoutube,
-    required this.ytHandle,
     required this.playButtonKey,
   });
 
   final AppAudioHandler audioHandler;
-  final bool isYoutube;
-  final YoutubePlaybackHandle ytHandle;
   final GlobalKey<AnimatedPlayButtonState> playButtonKey;
 
   @override
@@ -430,7 +428,7 @@ class _Transport extends StatelessWidget {
         InkWell(
           customBorder: const CircleBorder(),
           onTap: () {
-            if (!isYoutube) playButtonKey.currentState?.notifyWillPlay();
+            playButtonKey.currentState?.notifyWillPlay();
             audioHandler.skipToPrevious();
           },
           child: Padding(
@@ -440,24 +438,21 @@ class _Transport extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 24),
-        if (isYoutube)
-          _YoutubePlayPauseButton(handle: ytHandle)
-        else
-          AnimatedPlayButton(
-            key: playButtonKey,
-            playbackStateStream: audioHandler.playbackState,
-            iconSize: 52,
-            iconColor: Theme.of(context).colorScheme.onPrimary,
-            backgroundColor: Theme.of(context).bottomAppBarTheme.color,
-            onPlay: audioHandler.play,
-            onPause: audioHandler.pause,
-            onStop: audioHandler.stop,
-          ),
+        AnimatedPlayButton(
+          key: playButtonKey,
+          playbackStateStream: audioHandler.playbackState,
+          iconSize: 52,
+          iconColor: Theme.of(context).colorScheme.onPrimary,
+          backgroundColor: Theme.of(context).bottomAppBarTheme.color,
+          onPlay: audioHandler.play,
+          onPause: audioHandler.pause,
+          onStop: audioHandler.stop,
+        ),
         const SizedBox(width: 24),
         InkWell(
           customBorder: const CircleBorder(),
           onTap: () {
-            if (!isYoutube) playButtonKey.currentState?.notifyWillPlay();
+            playButtonKey.currentState?.notifyWillPlay();
             audioHandler.skipToNext();
           },
           child: Padding(
@@ -467,42 +462,6 @@ class _Transport extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _YoutubePlayPauseButton extends StatelessWidget {
-  const _YoutubePlayPauseButton({required this.handle});
-
-  final YoutubePlaybackHandle handle;
-
-  @override
-  Widget build(BuildContext context) {
-    return ValueListenableBuilder<bool>(
-      valueListenable: handle.isPlaying,
-      builder: (context, isPlaying, _) {
-        return InkWell(
-          customBorder: const CircleBorder(),
-          onTap: () => isPlaying ? handle.pause() : handle.play(),
-          child: Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              color: Theme.of(context).bottomAppBarTheme.color,
-              shape: BoxShape.circle,
-            ),
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 150),
-              child: Icon(
-                isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                key: ValueKey(isPlaying),
-                color: Theme.of(context).colorScheme.onPrimary,
-                size: 32,
-              ),
-            ),
-          ),
-        );
-      },
     );
   }
 }
@@ -577,8 +536,12 @@ class _TrackRow extends StatelessWidget {
         return Icons.movie_outlined;
       case PlaylistItemType.youtube:
         return Icons.smart_display_outlined;
+      case PlaylistItemType.youtubePlaylist:
+        return Icons.playlist_play_rounded;
       case PlaylistItemType.audio:
         return Icons.music_note_rounded;
+      case PlaylistItemType.unknown:
+        return Icons.help_outline_rounded;
     }
   }
 
