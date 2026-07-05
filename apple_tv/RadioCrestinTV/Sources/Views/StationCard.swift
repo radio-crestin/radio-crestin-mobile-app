@@ -101,16 +101,30 @@ struct StationCard: View {
         }
     }
 
+    /// "Currently playing" marker. Only TV stations — which really are a
+    /// live broadcast — carry the word "LIVE". Radio and playlist stations
+    /// get a wordless waveform badge (radio isn't labelled LIVE; playlists
+    /// are on-demand), so the badge still marks the active tile without
+    /// mislabeling it.
+    @ViewBuilder
     private var playingBadge: some View {
-        HStack(spacing: 4) {
+        if station.kind == .tv {
+            HStack(spacing: 4) {
+                Image(systemName: "waveform")
+                    .font(.system(size: 14, weight: .bold))
+                Text("LIVE")
+                    .font(.system(size: 14, weight: .heavy))
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(Theme.primary, in: Capsule())
+        } else {
             Image(systemName: "waveform")
                 .font(.system(size: 14, weight: .bold))
-            Text("LIVE")
-                .font(.system(size: 14, weight: .heavy))
+                .foregroundStyle(.white)
+                .padding(7)
+                .background(Theme.primary, in: Circle())
         }
-        .foregroundStyle(.white)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(Theme.primary, in: Capsule())
     }
 }
