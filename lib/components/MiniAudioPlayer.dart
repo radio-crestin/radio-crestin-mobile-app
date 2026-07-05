@@ -92,7 +92,8 @@ class MiniAudioPlayer extends StatelessWidget {
                                 type: currentStation!.stationType,
                                 color: Colors.white,
                                 contentColor:
-                                    Theme.of(context).bottomAppBarTheme.color,
+                                    Theme.of(context).bottomAppBarTheme.color ??
+                                        Theme.of(context).primaryColor,
                                 compact: true,
                               ),
                               const SizedBox(width: 6),
