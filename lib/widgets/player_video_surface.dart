@@ -1,8 +1,30 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:radio_crestin/theme.dart';
 
 import '../services/video_playback_service.dart';
+
+/// Enters landscape immersive chrome for media_kit fullscreen — mirrors the
+/// inline YouTube fullscreen pattern so both video kinds behave identically.
+Future<void> enterVideoFullscreenChrome() async {
+  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  await SystemChrome.setPreferredOrientations(const [
+    DeviceOrientation.landscapeLeft,
+    DeviceOrientation.landscapeRight,
+  ]);
+}
+
+/// Restores portrait + edge-to-edge chrome when leaving media_kit fullscreen.
+Future<void> exitVideoFullscreenChrome() async {
+  await SystemChrome.setEnabledSystemUIMode(
+    SystemUiMode.edgeToEdge,
+    overlays: SystemUiOverlay.values,
+  );
+  await SystemChrome.setPreferredOrientations(const [
+    DeviceOrientation.portraitUp,
+  ]);
+}
 
 /// Small "● LIVE" pill shown over live TV video.
 class LivePill extends StatelessWidget {
@@ -104,6 +126,7 @@ class PlayerVideoSurface extends StatelessWidget {
     this.showLivePill = false,
     this.fit = BoxFit.contain,
     this.borderRadius = const BorderRadius.all(Radius.circular(12)),
+    this.controls,
   });
 
   final VideoPlaybackService videoService;
@@ -111,8 +134,15 @@ class PlayerVideoSurface extends StatelessWidget {
   final BoxFit fit;
   final BorderRadius borderRadius;
 
+  /// Optional custom controls builder (e.g. [VideoOverlayControls]). When
+  /// provided, the surface hands buffering and the LIVE pill to the overlay and
+  /// wires the media_kit fullscreen chrome; the built-in spinner/pill are only
+  /// used for the bare (`controls == null`) surface.
+  final VideoControlsBuilder? controls;
+
   @override
   Widget build(BuildContext context) {
+    final hasOverlay = controls != null;
     return ClipRRect(
       borderRadius: borderRadius,
       child: ColoredBox(
@@ -129,23 +159,26 @@ class PlayerVideoSurface extends StatelessWidget {
                 }
                 return Video(
                   controller: controller,
-                  controls: NoVideoControls,
+                  controls: controls ?? NoVideoControls,
                   fit: fit,
                   fill: Colors.black,
+                  onEnterFullscreen: enterVideoFullscreenChrome,
+                  onExitFullscreen: exitVideoFullscreenChrome,
                 );
               },
             ),
-            // Buffering overlay — brand spinner over the video while the
-            // decoder waits on data.
-            StreamBuilder<bool>(
-              stream: videoService.bufferingStream,
-              initialData: videoService.isBuffering,
-              builder: (context, snapshot) {
-                if (snapshot.data != true) return const SizedBox.shrink();
-                return const _SurfaceSpinner();
-              },
-            ),
-            if (showLivePill)
+            // Bare surface only: buffering spinner + LIVE pill. With an overlay
+            // present these are owned by the overlay (avoids double-rendering).
+            if (!hasOverlay)
+              StreamBuilder<bool>(
+                stream: videoService.bufferingStream,
+                initialData: videoService.isBuffering,
+                builder: (context, snapshot) {
+                  if (snapshot.data != true) return const SizedBox.shrink();
+                  return const _SurfaceSpinner();
+                },
+              ),
+            if (!hasOverlay && showLivePill)
               const Positioned(
                 top: 8,
                 left: 8,
