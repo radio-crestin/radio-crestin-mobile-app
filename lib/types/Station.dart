@@ -84,6 +84,19 @@ class Station {
   StationMediaType get stationType =>
       StationMediaType.parse(rawStationData.station_type);
 
+  /// The 1-hour DVR (timeshift) HLS playlist URL, or null when the station has
+  /// no DVR variant.
+  ///
+  /// Data-layer only: DVR/timeshift playback is intentionally NOT implemented
+  /// client-side yet, so nothing consumes this today — it is decoded and kept
+  /// for a future feature. The value is trusted verbatim (never derived from
+  /// [rawStationData.hls_stream_url]); old caches omit the field and yield null.
+  String? get dvrStreamUrl {
+    final url = rawStationData.hls_dvr_stream_url;
+    if (url == null || url.isEmpty) return null;
+    return url;
+  }
+
   /// Whether this station is a live TV channel.
   bool get isTv => stationType == StationMediaType.tv;
 

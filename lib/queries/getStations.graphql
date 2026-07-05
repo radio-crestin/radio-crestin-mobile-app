@@ -19,6 +19,7 @@ query GetStations {
       stream_url
     }
     station_type
+    hls_dvr_stream_url
     playlist_items {
       id
       order

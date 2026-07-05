@@ -17,6 +17,7 @@ class StationFactory {
     Query$GetStations$stations$uptime? uptime,
     Query$GetStations$stations$now_playing? nowPlaying,
     String? stationType,
+    String? hlsDvrStreamUrl,
     List<Query$GetStations$stations$playlist_items>? playlistItems,
   }) {
     return Query$GetStations$stations(
@@ -30,6 +31,7 @@ class StationFactory {
       total_listeners: totalListeners,
       feature_latest_post: featureLatestPost,
       station_type: stationType,
+      hls_dvr_stream_url: hlsDvrStreamUrl,
       playlist_items: playlistItems,
       station_streams: stationStreams ??
           [
@@ -61,6 +63,7 @@ class StationFactory {
     Query$GetStations$stations$uptime? uptime,
     Query$GetStations$stations$now_playing? nowPlaying,
     String? stationType,
+    String? hlsDvrStreamUrl,
     List<Query$GetStations$stations$playlist_items>? playlistItems,
   }) {
     return Station(
@@ -75,6 +78,7 @@ class StationFactory {
         uptime: uptime,
         nowPlaying: nowPlaying,
         stationType: stationType,
+        hlsDvrStreamUrl: hlsDvrStreamUrl,
         playlistItems: playlistItems,
       ),
     );

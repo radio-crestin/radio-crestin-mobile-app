@@ -274,6 +274,7 @@ type StationType {
   latest_station_uptime: DjangoModelType
   latest_station_now_playing: DjangoModelType
   hls_stream_url: String
+  hls_dvr_stream_url: String
   proxy_stream_url: String
   radio_crestin_listeners: Int
   posts(limit: Int = null, order_by: PostOrderBy = null): [PostType!]!

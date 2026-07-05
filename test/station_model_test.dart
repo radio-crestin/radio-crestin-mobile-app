@@ -313,4 +313,32 @@ void main() {
       expect(station.mediaItem.id, 'https://stream.radioeman.ro/live');
     });
   });
+
+  group('Station.dvrStreamUrl (data-layer field decode)', () {
+    test('decodes hls_dvr_stream_url when present', () {
+      final station = StationFactory.createStation(
+        id: 1,
+        slug: 'radio-calea',
+        title: 'Radio Calea',
+        hlsDvrStreamUrl:
+            'https://live.radiocrestin.ro/hls/radio-calea/dvr.m3u8',
+      );
+      expect(station.dvrStreamUrl,
+          'https://live.radiocrestin.ro/hls/radio-calea/dvr.m3u8');
+    });
+
+    test('is null when the field is absent or empty (old caches)', () {
+      expect(
+        StationFactory.createStation(id: 2, slug: 's2', title: 'S2')
+            .dvrStreamUrl,
+        isNull,
+      );
+      expect(
+        StationFactory.createStation(
+                id: 3, slug: 's3', title: 'S3', hlsDvrStreamUrl: '')
+            .dvrStreamUrl,
+        isNull,
+      );
+    });
+  });
 }

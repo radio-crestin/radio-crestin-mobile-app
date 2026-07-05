@@ -388,6 +388,13 @@ const documentNodeQueryGetStations = DocumentNode(
                   selectionSet: null,
                 ),
                 FieldNode(
+                  name: NameNode(value: 'hls_dvr_stream_url'),
+                  alias: null,
+                  arguments: [],
+                  directives: [],
+                  selectionSet: null,
+                ),
+                FieldNode(
                   name: NameNode(value: 'playlist_items'),
                   alias: null,
                   arguments: [],
@@ -955,6 +962,7 @@ class Query$GetStations$stations {
     this.facebook_page_id,
     required this.station_streams,
     this.station_type,
+    this.hls_dvr_stream_url,
     this.playlist_items,
     required this.posts,
     this.uptime,
@@ -979,6 +987,7 @@ class Query$GetStations$stations {
     final l$facebook_page_id = json['facebook_page_id'];
     final l$station_streams = json['station_streams'];
     final l$station_type = json['station_type'];
+    final l$hls_dvr_stream_url = json['hls_dvr_stream_url'];
     final l$playlist_items = json['playlist_items'];
     final l$posts = json['posts'];
     final l$uptime = json['uptime'];
@@ -1007,6 +1016,7 @@ class Query$GetStations$stations {
           )
           .toList(),
       station_type: (l$station_type as String?),
+      hls_dvr_stream_url: (l$hls_dvr_stream_url as String?),
       playlist_items: (l$playlist_items as List<dynamic>?)
           ?.map(
             (e) => Query$GetStations$stations$playlist_items.fromJson(
@@ -1072,6 +1082,8 @@ class Query$GetStations$stations {
 
   final String? station_type;
 
+  final String? hls_dvr_stream_url;
+
   final List<Query$GetStations$stations$playlist_items>? playlist_items;
 
   final List<Query$GetStations$stations$posts> posts;
@@ -1118,6 +1130,8 @@ class Query$GetStations$stations {
         .toList();
     final l$station_type = station_type;
     _resultData['station_type'] = l$station_type;
+    final l$hls_dvr_stream_url = hls_dvr_stream_url;
+    _resultData['hls_dvr_stream_url'] = l$hls_dvr_stream_url;
     final l$playlist_items = playlist_items;
     _resultData['playlist_items'] = l$playlist_items
         ?.map((e) => e.toJson())
@@ -1152,6 +1166,7 @@ class Query$GetStations$stations {
     final l$facebook_page_id = facebook_page_id;
     final l$station_streams = station_streams;
     final l$station_type = station_type;
+    final l$hls_dvr_stream_url = hls_dvr_stream_url;
     final l$playlist_items = playlist_items;
     final l$posts = posts;
     final l$uptime = uptime;
@@ -1174,6 +1189,7 @@ class Query$GetStations$stations {
       l$facebook_page_id,
       Object.hashAll(l$station_streams.map((v) => v)),
       l$station_type,
+      l$hls_dvr_stream_url,
       l$playlist_items == null
           ? null
           : Object.hashAll(l$playlist_items.map((v) => v)),
@@ -1276,6 +1292,11 @@ class Query$GetStations$stations {
     if (l$station_type != lOther$station_type) {
       return false;
     }
+    final l$hls_dvr_stream_url = hls_dvr_stream_url;
+    final lOther$hls_dvr_stream_url = other.hls_dvr_stream_url;
+    if (l$hls_dvr_stream_url != lOther$hls_dvr_stream_url) {
+      return false;
+    }
     final l$playlist_items = playlist_items;
     final lOther$playlist_items = other.playlist_items;
     if (l$playlist_items != null && lOther$playlist_items != null) {
@@ -1366,6 +1387,7 @@ abstract class CopyWith$Query$GetStations$stations<TRes> {
     String? facebook_page_id,
     List<Query$GetStations$stations$station_streams>? station_streams,
     String? station_type,
+    String? hls_dvr_stream_url,
     List<Query$GetStations$stations$playlist_items>? playlist_items,
     List<Query$GetStations$stations$posts>? posts,
     Query$GetStations$stations$uptime? uptime,
@@ -1443,6 +1465,7 @@ class _CopyWithImpl$Query$GetStations$stations<TRes>
     Object? facebook_page_id = _undefined,
     Object? station_streams = _undefined,
     Object? station_type = _undefined,
+    Object? hls_dvr_stream_url = _undefined,
     Object? playlist_items = _undefined,
     Object? posts = _undefined,
     Object? uptime = _undefined,
@@ -1496,6 +1519,9 @@ class _CopyWithImpl$Query$GetStations$stations<TRes>
       station_type: station_type == _undefined
           ? _instance.station_type
           : (station_type as String?),
+      hls_dvr_stream_url: hls_dvr_stream_url == _undefined
+          ? _instance.hls_dvr_stream_url
+          : (hls_dvr_stream_url as String?),
       playlist_items: playlist_items == _undefined
           ? _instance.playlist_items
           : (playlist_items
@@ -1629,6 +1655,7 @@ class _CopyWithStubImpl$Query$GetStations$stations<TRes>
     String? facebook_page_id,
     List<Query$GetStations$stations$station_streams>? station_streams,
     String? station_type,
+    String? hls_dvr_stream_url,
     List<Query$GetStations$stations$playlist_items>? playlist_items,
     List<Query$GetStations$stations$posts>? posts,
     Query$GetStations$stations$uptime? uptime,
