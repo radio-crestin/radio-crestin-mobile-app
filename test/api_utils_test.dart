@@ -66,5 +66,28 @@ void main() {
         expect(diff, lessThanOrEqualTo(310));
       });
     });
+
+    group('getRoundedTimestamp5s', () {
+      test('returns an integer', () {
+        expect(getRoundedTimestamp5s(), isA<int>());
+      });
+
+      test('is floored to a 5-second boundary', () {
+        expect(getRoundedTimestamp5s() % 5, 0);
+      });
+
+      test('never runs ahead of wall-clock (floors down)', () {
+        final nowSeconds = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+        expect(getRoundedTimestamp5s(), lessThanOrEqualTo(nowSeconds));
+      });
+
+      test('offset shifts the timestamp backwards', () {
+        final now = getRoundedTimestamp5s();
+        final offset = getRoundedTimestamp5s(offset: const Duration(minutes: 2));
+        final diff = now - offset;
+        expect(diff, greaterThanOrEqualTo(115));
+        expect(diff, lessThanOrEqualTo(125));
+      });
+    });
   });
 }
