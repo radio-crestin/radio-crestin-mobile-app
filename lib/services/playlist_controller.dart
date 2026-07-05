@@ -173,7 +173,18 @@ class PlaylistController {
     // additionally toggle this on page visibility.
     startLiveSync();
     if (firstPlayable < 0) {
-      _log('startPlaylist: no playable item');
+      // Nothing playable — e.g. a youtube-only playlist opened on a car/cast
+      // route (youtube items can't run there). Stop gracefully (no crash, no
+      // skip loop; the bounded navigator already guarantees termination) and
+      // leave a telemetry breadcrumb, mirroring the item-error path.
+      _log('startPlaylist: no playable item (skipYoutube=$_skipYoutube)');
+      AnalyticsService.instance.capture('playlist_no_playable_item', {
+        'station_slug': station.slug,
+        'item_count': items.value.length,
+        'skip_youtube': _skipYoutube,
+        'is_car_connected': _handler.isCarConnected,
+        'is_casting': _handler.isCasting,
+      });
       await _stopPlayback();
       return;
     }
