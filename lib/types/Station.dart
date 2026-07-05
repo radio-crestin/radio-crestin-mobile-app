@@ -60,7 +60,21 @@ class Station {
   String get displayTitle => rawStationData.title;
   String get displaySubtitle => Utils.getCurrentPlayedSongTitle(rawStationData);
   String get artist => Utils.getCurrentPlayedSongTitle(rawStationData);
-  bool get isUp => rawStationData.uptime?.is_up ?? false;
+  /// Raw availability signal, tri-state: `true` = confirmed up, `false` =
+  /// confirmed down, `null` = unknown (backend omitted `uptime` — old cache,
+  /// bundled fallback asset, or the stream was never probed).
+  bool? get isUpOrNull => rawStationData.uptime?.is_up;
+
+  /// Whether the station should be treated as available.
+  ///
+  /// Unknown availability counts as available: a missing `uptime` means "not
+  /// probed yet", not "down", so we never warn or dim on absence — only an
+  /// explicit `is_up == false` marks a station as down (see [isDown]).
+  bool get isUp => isUpOrNull ?? true;
+
+  /// Whether the backend explicitly reports the stream as down. Drives the
+  /// "possibly unavailable" warning; unknown and up both return false.
+  bool get isDown => isUpOrNull == false;
   int get songId => rawStationData.now_playing?.song?.id ?? -1;
   String get songTitle => rawStationData.now_playing?.song?.name ?? "";
   String get songArtist => rawStationData.now_playing?.song?.artist?.name ?? "";

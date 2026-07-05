@@ -15,6 +15,7 @@ import 'package:radio_crestin/services/song_history_service.dart';
 import 'package:radio_crestin/services/song_like_service.dart';
 import 'package:radio_crestin/services/station_data_service.dart';
 import 'package:radio_crestin/types/Station.dart';
+import 'package:radio_crestin/utils/station_ui.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -200,14 +201,20 @@ class CarPlayService {
   /// empty when idle). A "playlist" station has no now-playing song, so its
   /// [displaySubtitle] is always empty — fall back to a localized "Playlist"
   /// label so the row isn't blank and the station kind reads clearly in the car.
+  ///
+  /// Thin wrapper over the shared [computeStationSubtitle] so the car and the
+  /// app share one implementation; the car keeps its historical behavior (no
+  /// TV "live" fallback, no playlist item title/count).
   static String? computeStationListSubtitle({
     required String displaySubtitle,
     required bool isPlaylist,
     required bool isRomanian,
   }) {
-    if (displaySubtitle.isNotEmpty) return displaySubtitle;
-    if (isPlaylist) return isRomanian ? 'Listă de redare' : 'Playlist';
-    return null;
+    return computeStationSubtitle(
+      type: isPlaylist ? StationMediaType.playlist : StationMediaType.radio,
+      songLine: displaySubtitle,
+      isRomanian: isRomanian,
+    );
   }
 
   String? _stationListSubtitle(Station station) => computeStationListSubtitle(

@@ -13,9 +13,10 @@ import '../utils/api_utils.dart';
 ///
 /// GETs `/station-playlist?station_slug=<slug>&timestamp=<ts>` where `ts` is
 /// unix-now floored to 5s (see [getRoundedTimestamp5s]) — the endpoint caches
-/// on that 5s key. Each successful poll emits the freshly-parsed, order-sorted
-/// item list on [updates]; [PlaylistController] reconciles it against what's
-/// playing (see [PlaylistReconciler]).
+/// on that 5s key. Each successful poll emits the freshly-parsed item list on
+/// [updates] in the server's order (newest-first, preserved as-is);
+/// [PlaylistController] reconciles it against what's playing (see
+/// [PlaylistReconciler]).
 ///
 /// Suspends itself while the app is backgrounded ([pause]) and resumes on
 /// foreground ([resume]) so a hidden playlist page isn't hammering the network.
@@ -114,7 +115,8 @@ class PlaylistSyncService {
     }
   }
 
-  /// Parses a `/station-playlist` response body into an ordered item list.
+  /// Parses a `/station-playlist` response body into an item list, preserving
+  /// the server's order (newest-first) exactly.
   ///
   /// Response shape: `{"data":{"stations":[{...,"playlist_items":[...]}]}}`.
   /// Returns an empty list when the station has no items, and `null` when the
@@ -158,7 +160,10 @@ class PlaylistSyncService {
           items.add(PlaylistItem.fromJson(Map<String, dynamic>.from(raw)));
         }
       }
-      items.sort((a, b) => a.order.compareTo(b.order));
+      // Preserve the server's order exactly (it serves items newest-first) so
+      // the live-sync list matches the initial GraphQL load, which also keeps
+      // the wire order. Re-sorting by `order` here would reshuffle the list on
+      // the first poll.
       return items;
     } catch (_) {
       return null;

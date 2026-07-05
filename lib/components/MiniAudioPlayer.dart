@@ -10,6 +10,7 @@ import 'package:sliding_up_panel2/sliding_up_panel2.dart';
 
 import '../services/playlist_controller.dart';
 import '../types/playlist_item.dart';
+import '../utils/station_ui.dart';
 
 class MiniAudioPlayer extends StatelessWidget {
   final Station? currentStation;
@@ -161,17 +162,32 @@ class _MiniSubtitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (station?.isPlaylist ?? false) {
+    final st = station;
+    if (st == null) return _text(fallback);
+    if (st.isPlaylist) {
+      final label = computeStationSubtitle(
+            type: StationMediaType.playlist,
+            songLine: '',
+            isRomanian: true,
+          ) ??
+          '';
       final controller = GetIt.instance<PlaylistController>();
       return StreamBuilder<PlaylistItem?>(
         stream: controller.currentItem.stream,
         initialData: controller.currentItem.valueOrNull,
         builder: (context, snapshot) {
           final title = snapshot.data?.title ?? '';
-          return _text(title.isNotEmpty ? title : fallback);
+          return _text(title.isNotEmpty ? title : label);
         },
       );
     }
-    return _text(fallback);
+    // TV with no song → "Transmisiune live"; radio keeps its song line.
+    final subtitle = computeStationSubtitle(
+      type: st.stationType,
+      songLine: fallback,
+      isRomanian: true,
+      tvLiveFallback: true,
+    );
+    return _text(subtitle ?? fallback);
   }
 }

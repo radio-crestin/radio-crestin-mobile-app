@@ -53,7 +53,23 @@ void main() {
       expect(station.isUp, true);
     });
 
-    test('isUp returns false when uptime.is_up is false', () {
+    test('confirmed up: isUp true, isDown false, isUpOrNull true', () {
+      final station = StationFactory.createStation(
+        id: 1,
+        slug: 'test',
+        title: 'Test',
+        uptime: Query$GetStations$stations$uptime(
+          is_up: true,
+          timestamp: '2024-01-01T00:00:00Z',
+        ),
+      );
+
+      expect(station.isUp, true);
+      expect(station.isDown, false);
+      expect(station.isUpOrNull, true);
+    });
+
+    test('confirmed down: isUp false, isDown true, isUpOrNull false', () {
       final station = StationFactory.createStation(
         id: 1,
         slug: 'test',
@@ -65,9 +81,13 @@ void main() {
       );
 
       expect(station.isUp, false);
+      expect(station.isDown, true);
+      expect(station.isUpOrNull, false);
     });
 
-    test('isUp returns false when uptime is null', () {
+    test('unknown uptime is treated as available: isUp true, isDown false', () {
+      // A missing `uptime` means "not probed yet", not "down" — so it must
+      // never warn or dim (no "Stație posibil indisponibilă").
       final station = Station(
         rawStationData: Query$GetStations$stations(
           id: 1,
@@ -84,7 +104,9 @@ void main() {
         ),
       );
 
-      expect(station.isUp, false);
+      expect(station.isUpOrNull, isNull);
+      expect(station.isUp, true);
+      expect(station.isDown, false);
     });
 
     test('displayTitle returns station title', () {

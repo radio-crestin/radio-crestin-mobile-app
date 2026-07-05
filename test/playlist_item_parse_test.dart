@@ -56,7 +56,10 @@ void main() {
     String body(List<Map<String, dynamic>> stations) =>
         json.encode({'data': {'stations': stations}});
 
-    test('parses items sorted by order', () {
+    test('preserves the server order exactly (no client re-sort)', () {
+      // The server serves items newest-first; the app must not reshuffle them
+      // by `order` (that would flip the list on the first poll and disagree
+      // with the initial GraphQL load, which also preserves wire order).
       final items = PlaylistSyncService.parsePlaylistResponse(
         body([
           {
@@ -71,7 +74,7 @@ void main() {
         ]),
       );
       expect(items, isNotNull);
-      expect(items!.map((e) => e.id), [10, 20]); // sorted by order
+      expect(items!.map((e) => e.id), [20, 10]); // wire order preserved as-is
     });
 
     test('empty stations array yields empty list', () {
