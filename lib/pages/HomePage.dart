@@ -117,6 +117,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Timer? _backOnlineTimer;
   StreamSubscription? _offlineSub;
   StreamSubscription? _connectionErrorSub;
+  StreamSubscription? _videoModeSub;
+  StreamSubscription? _videoContentSub;
+
+  /// Identity of the video item for which the user explicitly collapsed the
+  /// full player. While it matches the currently-starting video, auto-open is
+  /// suppressed (they chose the mini player for THIS item). Cleared implicitly
+  /// when a different video starts (a new key no longer matches).
+  String? _suppressVideoAutoOpenKey;
   StreamSubscription? _customEventSub;
   OverlayEntry? _activeConnectionToast;
   final ValueNotifier<double> _panelSlide = ValueNotifier(0.0);
@@ -225,12 +233,52 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       }
     });
 
+    // Auto-open the full player whenever video content starts playing (TV video
+    // mode, or a playlist advancing/resuming into a video item) so the picture
+    // is immediately visible. Tap-to-open is handled in StationsList; these
+    // cover auto-advance and background→foreground resume. `.distinct()` +
+    // reacting only to the true transition avoids re-opening on every emit.
+    _videoModeSub = _audioHandler.isVideoMode
+        .distinct()
+        .listen((on) => _maybeAutoOpenForVideo(on));
+    _videoContentSub = _playlistController.isVideoContent
+        .distinct()
+        .listen((on) => _maybeAutoOpenForVideo(on));
+
     // Defer non-critical work to after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkSharePromotionVisibility();
       _loadShareLinkData();
       _loadPromoNotification();
     });
+  }
+
+  /// The identity of the currently-playing video content, or null when none.
+  /// Playlist video items are keyed by item id; TV channels by station slug.
+  String? _currentVideoKey() {
+    if (_playlistController.isActive &&
+        _playlistController.isVideoContent.value) {
+      final id = _playlistController.currentItem.value?.id;
+      return id == null ? null : 'pl-$id';
+    }
+    if (_audioHandler.isVideoModeActive) {
+      final slug = _audioHandler.currentStation.valueOrNull?.slug;
+      return slug == null ? null : 'tv-$slug';
+    }
+    return null;
+  }
+
+  /// Opens the full player when [videoStarting] is true, unless the user
+  /// already collapsed the panel for this exact video item.
+  void _maybeAutoOpenForVideo(bool videoStarting) {
+    if (!videoStarting || !mounted) return;
+    final key = _currentVideoKey();
+    if (key == null) return;
+    if (key == _suppressVideoAutoOpenKey) return; // user chose the mini player
+    final panel = slidingUpPanelController;
+    if (panel.isAttached && panel.isPanelClosed) {
+      panel.open();
+    }
   }
 
   Future<void> _handleRefresh() async {
@@ -371,6 +419,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _sub.cancel();
     _offlineSub?.cancel();
     _connectionErrorSub?.cancel();
+    _videoModeSub?.cancel();
+    _videoContentSub?.cancel();
     _customEventSub?.cancel();
     _backOnlineTimer?.cancel();
     removeBottomToast(_activeConnectionToast);
@@ -754,6 +804,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               },
               onPanelClosed: () {
                 slidingUpPanelController.isExpandedSubject.add(false);
+                // If video is playing as the panel collapses, remember this item
+                // so we don't auto-reopen the full player for it — the user
+                // deliberately chose the mini player. A different video later
+                // has a different key and will auto-open again.
+                _suppressVideoAutoOpenKey = _currentVideoKey();
                 // Panel hidden — stop the playlist live reconcile (playback
                 // continues; the list just isn't on screen). Harmless no-op for
                 // non-playlist stations.
