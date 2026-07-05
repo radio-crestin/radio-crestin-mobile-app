@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:radio_crestin/appAudioHandler.dart';
 import 'package:radio_crestin/theme.dart';
+import 'package:radio_crestin/widgets/station_type_badge.dart';
 import 'package:sliding_up_panel2/sliding_up_panel2.dart';
 
 import '../services/analytics_service.dart';
@@ -84,6 +85,14 @@ class StationsList extends StatelessWidget {
                             children: [
                               Row(
                                 children: [
+                                  if (station.stationType !=
+                                      StationMediaType.radio) ...[
+                                    StationTypeBadge(
+                                      type: station.stationType,
+                                      compact: true,
+                                    ),
+                                    const SizedBox(width: 6),
+                                  ],
                                   Flexible(
                                     child: Text(
                                       station.displayTitle,
