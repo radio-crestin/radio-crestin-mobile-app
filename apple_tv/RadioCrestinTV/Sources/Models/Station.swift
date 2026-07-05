@@ -37,6 +37,12 @@ struct Station: Codable, Identifiable, Hashable {
         case playlistItems = "playlist_items"
     }
 
+    /// Whether the station is currently reachable. A **missing** `uptime`
+    /// record — the backend omits it when `check_uptime == false` (private
+    /// dev/test stations, and some real TV/playlist stations) — means
+    /// *unknown*, not down: it reads as `true` so the station stays playable
+    /// and shows no warning. Only an explicit `is_up == false` marks a
+    /// station as unavailable.
     var isUp: Bool { uptime?.isUp ?? true }
 
     /// How this station should be played. Parsed case-insensitively;
@@ -83,6 +89,28 @@ struct Station: Codable, Identifiable, Hashable {
     var songArtist: String { nowPlaying?.song?.artist?.name ?? "" }
     var songThumbnailUrl: String? {
         nowPlaying?.song?.thumbnailUrl ?? nowPlaying?.song?.artist?.thumbnailUrl
+    }
+
+    /// Secondary line shown under the station title in the grid. Radio
+    /// stations surface the current song and fall back to an empty string
+    /// when nothing is playing (the grid then shows only the title).
+    /// Playlist and TV stations never carry a `now_playing` song, so
+    /// rather than render an empty line they get a typed descriptor: a
+    /// playlist summary (playable-item count, or a plain label when there's
+    /// nothing to count) or a live-TV label.
+    var cardSubtitle: String {
+        switch kind {
+        case .radio:
+            return songTitle
+        case .tv:
+            return "Transmisiune live"
+        case .playlist:
+            let count = playableItems.count
+            guard count > 0 else { return "Listă de redare" }
+            return count == 1
+                ? "Listă de redare · o piesă"
+                : "Listă de redare · \(count) piese"
+        }
     }
 
     /// URL list to try in order: song / artist art first (so the user

@@ -184,6 +184,76 @@ final class StationModelTests: XCTestCase {
         XCTAssertFalse(makeStation(uptime: Uptime(isUp: false, timestamp: nil)).isUp)
     }
 
+    func test_missing_uptime_is_unknown_not_down() {
+        // A station with backend check_uptime=false ships no uptime record.
+        // That's "unknown", never "down": it must stay playable so no
+        // unavailable state is rendered for it.
+        XCTAssertTrue(makeStation(uptime: nil).isUp)
+        XCTAssertTrue(makeStation(uptime: nil, stationType: "tv").isUp)
+        XCTAssertTrue(makeStation(uptime: nil, stationType: "playlist").isUp)
+    }
+
+    // MARK: - cardSubtitle (grid second line)
+
+    func test_cardSubtitle_radio_uses_current_song() {
+        let np = NowPlaying(
+            id: 1, timestamp: nil,
+            song: Song(id: 1, name: "Osana", thumbnailUrl: nil, artist: nil)
+        )
+        XCTAssertEqual(makeStation(nowPlaying: np).cardSubtitle, "Osana")
+    }
+
+    func test_cardSubtitle_radio_empty_when_no_song() {
+        // Radio with no now_playing shows only its title — an empty second
+        // line is the intended (unchanged) behavior for radio.
+        XCTAssertEqual(makeStation(nowPlaying: nil).cardSubtitle, "")
+    }
+
+    func test_cardSubtitle_tv_is_live_label() {
+        XCTAssertEqual(makeStation(stationType: "tv").cardSubtitle,
+                       "Transmisiune live")
+    }
+
+    func test_cardSubtitle_playlist_counts_playable_items() {
+        let items = [
+            PlaylistItem(id: 1, order: 0, type: "audio", url: "a",
+                         title: "A", thumbnailUrl: nil, durationSeconds: nil),
+            PlaylistItem(id: 2, order: 1, type: "video", url: "v",
+                         title: "V", thumbnailUrl: nil, durationSeconds: nil),
+            PlaylistItem(id: 3, order: 2, type: "youtube", url: "y",
+                         title: "Y", thumbnailUrl: nil, durationSeconds: nil),
+        ]
+        // youtube is unplayable → 2 counted.
+        let s = makeStation(stationType: "playlist", playlistItems: items)
+        XCTAssertEqual(s.cardSubtitle, "Listă de redare · 2 piese")
+    }
+
+    func test_cardSubtitle_playlist_singular_item() {
+        let items = [
+            PlaylistItem(id: 1, order: 0, type: "audio", url: "a",
+                         title: "A", thumbnailUrl: nil, durationSeconds: nil),
+        ]
+        let s = makeStation(stationType: "playlist", playlistItems: items)
+        XCTAssertEqual(s.cardSubtitle, "Listă de redare · o piesă")
+    }
+
+    func test_cardSubtitle_playlist_label_when_nothing_countable() {
+        // YouTube-only, empty, or missing lists still get a meaningful
+        // label — never an empty second line.
+        let youtubeOnly = [
+            PlaylistItem(id: 1, order: 0, type: "youtube", url: "y",
+                         title: "Y", thumbnailUrl: nil, durationSeconds: nil),
+        ]
+        XCTAssertEqual(
+            makeStation(stationType: "playlist", playlistItems: youtubeOnly).cardSubtitle,
+            "Listă de redare"
+        )
+        XCTAssertEqual(
+            makeStation(stationType: "playlist", playlistItems: nil).cardSubtitle,
+            "Listă de redare"
+        )
+    }
+
     func test_orderedStreams_sorts_by_order() {
         let s = makeStation(streams: [
             StationStream(order: 2, type: "MP3", streamUrl: "c"),
@@ -296,5 +366,16 @@ final class StationModelTests: XCTestCase {
         let m = try metadata(songName: "Z")  // listeners nil
         let merged = original.merging(m, liveListeners: nil)
         XCTAssertEqual(merged.totalListeners, 5)
+    }
+
+    func test_merging_preserves_missing_uptime_never_synthesizes_down() throws {
+        // Stations that never appear in /stations-metadata (private stations)
+        // or whose metadata omits uptime must keep their existing uptime —
+        // the merge must not invent a "down" state for them.
+        let original = makeStation(uptime: nil, nowPlaying: nil)
+        let m = try metadata(songName: "Song")  // no uptime key
+        let merged = original.merging(m, liveListeners: nil)
+        XCTAssertNil(merged.uptime)
+        XCTAssertTrue(merged.isUp)
     }
 }

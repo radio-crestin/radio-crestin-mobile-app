@@ -42,8 +42,11 @@ struct StationCard: View {
                         .font(.system(size: 22, weight: .semibold))
                         .foregroundStyle(Theme.textPrimary)
                         .lineLimit(1)
-                    if !station.songTitle.isEmpty {
-                        Text(station.songTitle)
+                    // Radio: current song (blank when none). TV / playlist
+                    // carry no now-playing song, so they show a typed label
+                    // instead of an empty line.
+                    if !station.cardSubtitle.isEmpty {
+                        Text(station.cardSubtitle)
                             .font(.system(size: 18))
                             .foregroundStyle(Theme.textTertiary)
                             .lineLimit(1)
