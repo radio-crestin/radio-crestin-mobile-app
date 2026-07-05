@@ -76,7 +76,8 @@ final class AudioPlayer: ObservableObject {
     private enum PlaybackMode { case stream, playlist }
     private var playbackMode: PlaybackMode = .stream
 
-    /// Ordered, playable (non-YouTube) items for the active playlist station.
+    /// Playable (non-YouTube) items for the active playlist station, in
+    /// wire order — newest first, index 0 plays first.
     private var playlistItems: [PlaylistItem] = []
 
     /// Consecutive playlist-item load failures. Reset on any successful
@@ -261,7 +262,8 @@ final class AudioPlayer: ObservableObject {
     /// Semantics (matched against item `id`):
     /// * Current item still present → update list/count/index bookkeeping
     ///   only; playback is NOT touched (the index may shift when items
-    ///   before it were removed).
+    ///   before it were removed, or by +1 per item inserted at the head —
+    ///   the wire is newest-first, so new uploads arrive at position 0).
     /// * Current item removed → advance to the next surviving playable
     ///   item, following the old order with wrap-around (loop rules).
     /// * Nothing playable survives → stop and flag `playlistDepleted` so
@@ -272,10 +274,12 @@ final class AudioPlayer: ObservableObject {
     /// every sync.
     func applyPlaylistUpdate(_ rawItems: [PlaylistItem]) {
         guard playbackMode == .playlist else { return }
-        // Same playability allowlist as `Station.playableItems`.
-        let items = rawItems
-            .filter(\.isPlayable)
-            .sorted { $0.order < $1.order }
+        // Same playability allowlist as `Station.playableItems`. Wire
+        // order is preserved (newest-first from the backend) — a new
+        // item lands at the HEAD, shifting later positions by +1; the
+        // id-based reconciliation below absorbs that without touching
+        // playback.
+        let items = rawItems.filter(\.isPlayable)
         guard items != playlistItems else { return }
 
         if items.isEmpty {

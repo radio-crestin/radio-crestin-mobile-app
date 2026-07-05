@@ -49,15 +49,15 @@ struct Station: Codable, Identifiable, Hashable {
     /// anything unrecognized (or absent) falls back to `.radio`.
     var kind: StationKind { StationKind(rawWireValue: stationType) }
 
-    /// Playlist entries the tvOS player can actually render, in order.
-    /// Allowlist-based: only `audio` and `video` survive — YouTube
-    /// entries (single clips or whole playlists) and any unknown future
-    /// type strings cannot be embedded on tvOS and would only hand
-    /// AVPlayer an unplayable URL.
+    /// Playlist entries the tvOS player can actually render, in **wire
+    /// order** — the backend serves them newest-first, and the first
+    /// array element must play first / show at the top, so we filter
+    /// only and never re-sort. Allowlist-based: only `audio` and `video`
+    /// survive — YouTube entries (single clips or whole playlists) and
+    /// any unknown future type strings cannot be embedded on tvOS and
+    /// would only hand AVPlayer an unplayable URL.
     var playableItems: [PlaylistItem] {
-        (playlistItems ?? [])
-            .filter(\.isPlayable)
-            .sorted { $0.order < $1.order }
+        (playlistItems ?? []).filter(\.isPlayable)
     }
 
     /// True when this is a playlist station whose entries exist but none
@@ -177,10 +177,12 @@ enum StationKind: String, Hashable {
     }
 }
 
-/// One entry in a playlist station. Pre-sorted and enabled-only on the
-/// wire; we still sort defensively on read. `type` is `audio`, `video`,
-/// `youtube`, or `youtube_playlist` (the YouTube kinds — and any future
-/// type strings — are unplayable on tvOS).
+/// One entry in a playlist station. The wire delivers entries
+/// newest-first (descending `playlist_item_order`) and enabled-only;
+/// apps must preserve that order exactly, so nothing re-sorts by
+/// `order`. `type` is `audio`, `video`, `youtube`, or
+/// `youtube_playlist` (the YouTube kinds — and any future type
+/// strings — are unplayable on tvOS).
 struct PlaylistItem: Codable, Hashable, Identifiable {
     let id: Int
     let order: Int

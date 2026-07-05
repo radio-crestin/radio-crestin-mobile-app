@@ -87,7 +87,11 @@ final class StationModelTests: XCTestCase {
         XCTAssertEqual(makeStation(stationType: "wat").kind, .radio)
     }
 
-    func test_playlist_items_decode_and_sort_by_order() throws {
+    func test_playlist_items_decode_preserving_wire_order() throws {
+        // The backend serves playlist items newest-first (descending
+        // playlist_item_order). The wire order is authoritative: the
+        // first array element plays first, so playableItems must NOT
+        // re-sort by the `order` field.
         let json = """
         {
           "id": 7, "slug": "p", "title": "P", "order": 0,
@@ -105,16 +109,18 @@ final class StationModelTests: XCTestCase {
         let s = try JSONDecoder().decode(Station.self, from: json)
         XCTAssertEqual(s.kind, .playlist)
         XCTAssertEqual(s.playlistItems?.count, 2)
-        // Sorted by order in playableItems.
-        XCTAssertEqual(s.playableItems.map(\.id), [1, 2])
+        // Wire order preserved — id 2 (order 1) stays first even though
+        // its `order` field is higher.
+        XCTAssertEqual(s.playableItems.map(\.id), [2, 1])
         let first = s.playableItems[0]
-        XCTAssertEqual(first.title, "A")
-        XCTAssertTrue(first.isAudio)
-        XCTAssertNil(first.durationSeconds)
+        XCTAssertEqual(first.title, "B")
+        XCTAssertTrue(first.isVideo)
+        XCTAssertEqual(first.durationSeconds, 120)
+        XCTAssertEqual(first.thumbnailUrl, "https://x/b.png")
         let second = s.playableItems[1]
-        XCTAssertTrue(second.isVideo)
-        XCTAssertEqual(second.durationSeconds, 120)
-        XCTAssertEqual(second.thumbnailUrl, "https://x/b.png")
+        XCTAssertEqual(second.title, "A")
+        XCTAssertTrue(second.isAudio)
+        XCTAssertNil(second.durationSeconds)
     }
 
     func test_playableItems_allowlists_audio_and_video_only() {
