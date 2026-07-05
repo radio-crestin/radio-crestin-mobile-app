@@ -71,7 +71,7 @@ final class StationModelTests: XCTestCase {
         let s = try JSONDecoder().decode(Station.self, from: json)
         XCTAssertNil(s.stationType)
         XCTAssertEqual(s.kind, .radio)
-        XCTAssertFalse(s.hasOnlyYouTubeItems)
+        XCTAssertFalse(s.hasOnlyUnplayableItems)
         XCTAssertTrue(s.playableItems.isEmpty)
     }
 
@@ -117,7 +117,7 @@ final class StationModelTests: XCTestCase {
         XCTAssertEqual(second.thumbnailUrl, "https://x/b.png")
     }
 
-    func test_playableItems_excludes_youtube() {
+    func test_playableItems_allowlists_audio_and_video_only() {
         let items = [
             PlaylistItem(id: 1, order: 0, type: "audio", url: "a",
                          title: "A", thumbnailUrl: nil, durationSeconds: nil),
@@ -125,33 +125,52 @@ final class StationModelTests: XCTestCase {
                          title: "YT", thumbnailUrl: nil, durationSeconds: nil),
             PlaylistItem(id: 3, order: 2, type: "video", url: "v",
                          title: "V", thumbnailUrl: nil, durationSeconds: nil),
+            PlaylistItem(id: 4, order: 3, type: "youtube_playlist", url: "ytp",
+                         title: "YTP", thumbnailUrl: nil, durationSeconds: nil),
+            PlaylistItem(id: 5, order: 4, type: "hologram", url: "h",
+                         title: "Future", thumbnailUrl: nil, durationSeconds: nil),
         ]
         let s = makeStation(stationType: "playlist", playlistItems: items)
+        // youtube, youtube_playlist, and unknown types all excluded.
         XCTAssertEqual(s.playableItems.map(\.id), [1, 3])
-        XCTAssertFalse(s.hasOnlyYouTubeItems)
+        XCTAssertFalse(s.hasOnlyUnplayableItems)
     }
 
-    func test_hasOnlyYouTubeItems_true_when_all_youtube() {
+    func test_isPlayable_is_case_insensitive_allowlist() {
+        func item(_ type: String) -> PlaylistItem {
+            PlaylistItem(id: 1, order: 0, type: type, url: "u",
+                         title: "T", thumbnailUrl: nil, durationSeconds: nil)
+        }
+        XCTAssertTrue(item("Audio").isPlayable)
+        XCTAssertTrue(item("VIDEO").isPlayable)
+        XCTAssertFalse(item("youtube").isPlayable)
+        XCTAssertFalse(item("YouTube_Playlist").isPlayable)
+        XCTAssertFalse(item("").isPlayable)
+    }
+
+    func test_hasOnlyUnplayableItems_true_when_nothing_playable() {
         let items = [
             PlaylistItem(id: 1, order: 0, type: "youtube", url: "y1",
                          title: "1", thumbnailUrl: nil, durationSeconds: nil),
-            PlaylistItem(id: 2, order: 1, type: "YouTube", url: "y2",
+            PlaylistItem(id: 2, order: 1, type: "YouTube_Playlist", url: "y2",
                          title: "2", thumbnailUrl: nil, durationSeconds: nil),
+            PlaylistItem(id: 3, order: 2, type: "vr_scene", url: "y3",
+                         title: "3", thumbnailUrl: nil, durationSeconds: nil),
         ]
         let s = makeStation(stationType: "playlist", playlistItems: items)
-        XCTAssertTrue(s.hasOnlyYouTubeItems)
+        XCTAssertTrue(s.hasOnlyUnplayableItems)
         XCTAssertTrue(s.playableItems.isEmpty)
     }
 
-    func test_hasOnlyYouTubeItems_false_for_non_playlist() {
+    func test_hasOnlyUnplayableItems_false_for_non_playlist() {
         let items = [
             PlaylistItem(id: 1, order: 0, type: "youtube", url: "y1",
                          title: "1", thumbnailUrl: nil, durationSeconds: nil),
         ]
-        // Even if items are all youtube, a radio-kind station never shows
-        // the playlist "only youtube" message.
+        // Even if no item is playable, a radio-kind station never shows
+        // the playlist "nothing playable" message.
         let s = makeStation(stationType: "radio", playlistItems: items)
-        XCTAssertFalse(s.hasOnlyYouTubeItems)
+        XCTAssertFalse(s.hasOnlyUnplayableItems)
     }
 
     // MARK: - Computed properties

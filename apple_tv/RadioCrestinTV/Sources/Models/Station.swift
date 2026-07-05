@@ -44,21 +44,23 @@ struct Station: Codable, Identifiable, Hashable {
     var kind: StationKind { StationKind(rawWireValue: stationType) }
 
     /// Playlist entries the tvOS player can actually render, in order.
-    /// YouTube items are excluded — tvOS has no embeddable YouTube surface,
-    /// so they'd only produce a broken player.
+    /// Allowlist-based: only `audio` and `video` survive — YouTube
+    /// entries (single clips or whole playlists) and any unknown future
+    /// type strings cannot be embedded on tvOS and would only hand
+    /// AVPlayer an unplayable URL.
     var playableItems: [PlaylistItem] {
         (playlistItems ?? [])
-            .filter { !$0.isYouTube }
+            .filter(\.isPlayable)
             .sorted { $0.order < $1.order }
     }
 
-    /// True when this is a playlist station whose only entries are YouTube
-    /// (nothing playable). The UI shows a friendly explanation instead of a
-    /// dead player.
-    var hasOnlyYouTubeItems: Bool {
+    /// True when this is a playlist station whose entries exist but none
+    /// is playable on tvOS (YouTube-only lists, unknown types). The UI
+    /// shows a friendly explanation instead of a dead player.
+    var hasOnlyUnplayableItems: Bool {
         guard kind == .playlist else { return false }
         let items = playlistItems ?? []
-        return !items.isEmpty && items.allSatisfy { $0.isYouTube }
+        return !items.isEmpty && !items.contains(where: \.isPlayable)
     }
 
     /// Value reported to analytics for the station kind ("radio"/"tv"/
@@ -149,7 +151,8 @@ enum StationKind: String, Hashable {
 
 /// One entry in a playlist station. Pre-sorted and enabled-only on the
 /// wire; we still sort defensively on read. `type` is `audio`, `video`,
-/// or `youtube` (the last is unplayable on tvOS).
+/// `youtube`, or `youtube_playlist` (the YouTube kinds — and any future
+/// type strings — are unplayable on tvOS).
 struct PlaylistItem: Codable, Hashable, Identifiable {
     let id: Int
     let order: Int
@@ -165,9 +168,14 @@ struct PlaylistItem: Codable, Hashable, Identifiable {
         case durationSeconds = "duration_seconds"
     }
 
-    var isYouTube: Bool { type.lowercased() == "youtube" }
     var isVideo: Bool { type.lowercased() == "video" }
     var isAudio: Bool { type.lowercased() == "audio" }
+
+    /// True when tvOS can render this item natively. Allowlist — only
+    /// `audio` and `video` qualify, so `youtube`, `youtube_playlist`,
+    /// and any unknown future type degrade to "not playable" instead of
+    /// handing AVPlayer a URL it cannot open.
+    var isPlayable: Bool { isAudio || isVideo }
 }
 
 struct ReviewsStats: Codable, Hashable {

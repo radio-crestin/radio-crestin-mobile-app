@@ -49,9 +49,10 @@ final class AudioPlayer: ObservableObject {
     @Published private(set) var vodPosition: Double = 0
     @Published private(set) var vodDuration: Double = 0
 
-    /// True when the selected playlist station has entries but every one is
-    /// YouTube — nothing tvOS can embed. The UI shows a friendly message.
-    @Published private(set) var youTubeOnlyPlaylist: Bool = false
+    /// True when the selected playlist station has entries but none is
+    /// playable on tvOS (YouTube clips/playlists, unknown types). The UI
+    /// shows a friendly message instead of a broken player.
+    @Published private(set) var unplayableOnlyPlaylist: Bool = false
 
     /// True when a live playlist sync removed every playable item while
     /// the station was playing — the UI swaps to a friendly empty state.
@@ -154,9 +155,9 @@ final class AudioPlayer: ObservableObject {
             playbackMode = .playlist
             let items = station.playableItems
             guard !items.isEmpty else {
-                // Nothing playable — surface the friendly YouTube-only
+                // Nothing playable — surface the friendly unplayable
                 // state rather than a spinning, broken player.
-                youTubeOnlyPlaylist = station.hasOnlyYouTubeItems
+                unplayableOnlyPlaylist = station.hasOnlyUnplayableItems
                 isVideoContent = false
                 state = .idle
                 return
@@ -267,11 +268,13 @@ final class AudioPlayer: ObservableObject {
     ///   the UI shows the friendly empty state. A later sync with items
     ///   recovers automatically.
     ///
-    /// YouTube filtering is re-applied on every sync.
+    /// The playability allowlist (audio/video only) is re-applied on
+    /// every sync.
     func applyPlaylistUpdate(_ rawItems: [PlaylistItem]) {
         guard playbackMode == .playlist else { return }
+        // Same playability allowlist as `Station.playableItems`.
         let items = rawItems
-            .filter { !$0.isYouTube }
+            .filter(\.isPlayable)
             .sorted { $0.order < $1.order }
         guard items != playlistItems else { return }
 
@@ -280,7 +283,7 @@ final class AudioPlayer: ObservableObject {
             return
         }
         playlistDepleted = false
-        youTubeOnlyPlaylist = false
+        unplayableOnlyPlaylist = false
 
         let previousItems = playlistItems
         let currentId = currentPlaylistItem?.id
@@ -565,7 +568,7 @@ final class AudioPlayer: ObservableObject {
         consecutivePlaylistErrors = 0
         vodPosition = 0
         vodDuration = 0
-        youTubeOnlyPlaylist = false
+        unplayableOnlyPlaylist = false
         playlistDepleted = false
     }
 

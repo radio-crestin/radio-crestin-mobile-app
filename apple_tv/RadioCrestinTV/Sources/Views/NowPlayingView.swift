@@ -48,15 +48,16 @@ struct NowPlayingView: View {
                     icon: "rectangle.on.rectangle.slash",
                     message: "Playlistul nu mai conține nimic de redat. Conținutul a fost actualizat între timp — încearcă din nou mai târziu."
                 )
-            } else if station.hasOnlyYouTubeItems
+            } else if station.hasOnlyUnplayableItems
                         && player.currentPlaylistItem == nil {
-                // Playlist with only YouTube entries — nothing tvOS can
-                // embed. Explain rather than showing a broken player.
-                // (Cleared automatically if a live sync brings playable
-                // items and playback starts.)
+                // Playlist whose entries (YouTube clips/playlists or
+                // unknown types) can't be embedded on tvOS. Explain
+                // rather than showing a broken player. (Cleared
+                // automatically if a live sync brings playable items
+                // and playback starts.)
                 unavailableLayout(
                     icon: "play.rectangle.on.rectangle",
-                    message: "Acest playlist conține doar clipuri YouTube, care nu pot fi redate pe Apple TV. Deschide aplicația Radio Creștin pe telefon pentru a le viziona."
+                    message: "Acest playlist conține doar elemente care nu pot fi redate pe TV (de exemplu clipuri YouTube). Deschide aplicația Radio Creștin pe telefon pentru a le urmări."
                 )
             } else if player.isVideoContent {
                 // TV station or a playlist video item — full-bleed video
