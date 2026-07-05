@@ -9,10 +9,13 @@ import 'package:get_it/get_it.dart';
 import 'package:rxdart/rxdart.dart';
 
 import '../../appAudioHandler.dart';
+import '../../services/playlist_controller.dart';
 import '../../services/station_data_service.dart';
 import '../../types/Station.dart';
+import '../../types/playlist_item.dart';
 import '../tv_shell.dart';
 import '../tv_theme.dart';
+import '../widgets/tv_video_surface.dart';
 
 /// TV-only now-playing page.
 /// Back (top-left) and favorite (top-right) span full width.
@@ -34,6 +37,7 @@ class TvNowPlaying extends StatefulWidget {
 class _TvNowPlayingState extends State<TvNowPlaying> {
   late final AppAudioHandler _audioHandler;
   late final StationDataService _stationDataService;
+  late final PlaylistController _playlistController;
   final List<StreamSubscription> _subscriptions = [];
 
   Station? _station;
@@ -42,6 +46,13 @@ class _TvNowPlayingState extends State<TvNowPlaying> {
   bool _disliked = false;
   bool _isPlaying = false;
   bool _isBuffering = false;
+  bool _isVideoMode = false;
+  // Active YouTube playlist item (cannot be embedded on TV/desktop — shown as
+  // an "up next" card that auto-advances).
+  PlaylistItem? _youtubeItem;
+  PlaylistItem? _playlistItem;
+  int _playlistIndex = -1;
+  int _playlistCount = 0;
   // Optimistic "user wants it playing" intent: set the instant the user taps
   // play (or picks a station) so the button flips to pause immediately, before
   // the stream confirms. Cleared once playback settles into a real paused state.
@@ -53,6 +64,7 @@ class _TvNowPlayingState extends State<TvNowPlaying> {
     super.initState();
     _audioHandler = GetIt.instance<AppAudioHandler>();
     _stationDataService = GetIt.instance<StationDataService>();
+    _playlistController = GetIt.instance<PlaylistController>();
 
     // Seed synchronously from the in-memory streams so the first frame shows
     // the current station + correct play state instead of a spinner flash.
@@ -64,6 +76,27 @@ class _TvNowPlayingState extends State<TvNowPlaying> {
     _isBuffering = pb.processingState == AudioProcessingState.loading ||
         pb.processingState == AudioProcessingState.buffering;
     _pressedPlay = pb.playing;
+    _isVideoMode = _audioHandler.isVideoMode.value;
+    _youtubeItem = _playlistController.youtubeRequest.valueOrNull;
+    _playlistItem = _playlistController.currentItem.valueOrNull;
+    _playlistIndex = _playlistController.currentIndex.value;
+    _playlistCount = _playlistController.itemCount;
+
+    _subscriptions.add(_audioHandler.isVideoMode.stream.listen((v) {
+      if (mounted) setState(() => _isVideoMode = v);
+    }));
+    _subscriptions.add(_playlistController.youtubeRequest.stream.listen((v) {
+      if (mounted) setState(() => _youtubeItem = v);
+    }));
+    _subscriptions.add(_playlistController.currentItem.stream.listen((v) {
+      if (mounted) setState(() => _playlistItem = v);
+    }));
+    _subscriptions.add(_playlistController.currentIndex.stream.listen((v) {
+      if (mounted) setState(() => _playlistIndex = v);
+    }));
+    _subscriptions.add(_playlistController.items.stream.listen((v) {
+      if (mounted) setState(() => _playlistCount = v.length);
+    }));
 
     _subscriptions.add(
       Rx.combineLatest2(
@@ -214,20 +247,18 @@ class _TvNowPlayingState extends State<TvNowPlaying> {
       );
     }
 
-    final prevSongs = _prevSongs;
+    // Playlist reached a YouTube item — cannot embed on TV/desktop, show the
+    // auto-advancing "up next" card instead.
+    if (_youtubeItem != null) return _wrap(_buildYoutubeLayout(station));
+    // TV video mode (live TV or a playlist video item) — full-bleed video.
+    if (_isVideoMode) return _wrap(_buildVideoLayout(station));
 
-    return PopScope(
-      // System BACK on Now Playing returns to Browse, not exit.
-      canPop: false,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) widget.onBrowse();
-      },
-      child: Focus(
-      onKeyEvent: _onKeyEvent,
+    final prevSongs = _prevSongs;
+    return _wrap(
       // No autofocus on the parent: it would steal focus from the play
       // button below, which is the intended landing target so the user
       // can pause/resume immediately when opening a station.
-      child: Stack(
+      Stack(
         fit: StackFit.expand,
         children: [
           // Blurred artwork background
@@ -521,7 +552,228 @@ class _TvNowPlayingState extends State<TvNowPlaying> {
           ),
         ],
       ),
+    );
+  }
+
+  /// Wraps a page layout in the shared BACK handling + key-event focus.
+  Widget _wrap(Widget child) {
+    return PopScope(
+      // System BACK on Now Playing returns to Browse, not exit.
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) widget.onBrowse();
+      },
+      child: Focus(onKeyEvent: _onKeyEvent, child: child),
+    );
+  }
+
+  /// The primary play/pause control (brand circle + optimistic spinner).
+  Widget _bigPlayButton({required bool autofocus}) {
+    return DpadFocusable(
+      autofocus: autofocus,
+      region: 'np-controls',
+      isEntryPoint: true,
+      onSelect: _togglePlayback,
+      builder: FocusEffects.scaleWithBorder(
+        scale: 1.12,
+        borderColor: Colors.white,
+        borderWidth: 4,
+        borderRadius: BorderRadius.circular(36),
       ),
+      child: SizedBox(
+        width: 64,
+        height: 64,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                color: TvColors.primary,
+                shape: BoxShape.circle,
+              ),
+              child: SizedBox.expand(),
+            ),
+            if (_showSpinner)
+              const Padding(
+                padding: EdgeInsets.all(3),
+                child: SizedBox.expand(
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    valueColor: AlwaysStoppedAnimation(Colors.white),
+                  ),
+                ),
+              ),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 150),
+              child: Icon(
+                _showPause ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                key: ValueKey(_showPause),
+                color: Colors.white,
+                size: 36,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Full-bleed video layout for TV video mode (live TV / playlist video item)
+  /// with an overlay scrim carrying the title, LIVE pill, playlist counter and
+  /// transport controls.
+  Widget _buildVideoLayout(Station station) {
+    final isPlaylist = station.isPlaylist;
+    final counter = _playlistCount > 0 && _playlistIndex >= 0
+        ? '${_playlistIndex + 1} / $_playlistCount'
+        : '';
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        TvVideoSurface(videoService: _audioHandler.videoService),
+        // Back button, top-left.
+        SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(TvSpacing.md),
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: _btn(
+                icon: Icons.arrow_back_rounded,
+                size: 40,
+                iconSize: 22,
+                color: Colors.white,
+                bg: Colors.black.withValues(alpha: 0.4),
+                onSelect: widget.onBrowse,
+                region: 'np-top',
+              ),
+            ),
+          ),
+        ),
+        // Bottom scrim: metadata + transport.
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: Container(
+            padding: EdgeInsets.fromLTRB(TvSpacing.marginHorizontal,
+                TvSpacing.xl, TvSpacing.marginHorizontal, TvSpacing.lg),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.transparent,
+                  Colors.black.withValues(alpha: 0.85),
+                ],
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    if (station.isTv) ...[
+                      const TvLivePill(),
+                      const SizedBox(width: TvSpacing.sm),
+                    ],
+                    Expanded(
+                      child: Text(
+                        station.title,
+                        style: TvTypography.title.copyWith(fontSize: 20),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                if (isPlaylist && _playlistItem != null) ...[
+                  const SizedBox(height: TvSpacing.xs),
+                  Row(
+                    children: [
+                      if (counter.isNotEmpty) ...[
+                        Text(counter,
+                            style: TvTypography.caption.copyWith(
+                                color: TvColors.primary,
+                                fontWeight: FontWeight.w700)),
+                        const SizedBox(width: TvSpacing.sm),
+                      ],
+                      Expanded(
+                        child: Text(
+                          _playlistItem!.title,
+                          style: TvTypography.body
+                              .copyWith(color: TvColors.textSecondary),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: TvSpacing.md),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _btn(
+                      icon: Icons.skip_previous_rounded,
+                      color: TvColors.textPrimary,
+                      iconSize: 28,
+                      size: 52,
+                      region: 'np-controls',
+                      onSelect: () => _audioHandler.skipToPrevious(),
+                    ),
+                    const SizedBox(width: TvSpacing.md),
+                    _bigPlayButton(autofocus: true),
+                    const SizedBox(width: TvSpacing.md),
+                    _btn(
+                      icon: Icons.skip_next_rounded,
+                      color: TvColors.textPrimary,
+                      iconSize: 28,
+                      size: 52,
+                      region: 'np-controls',
+                      onSelect: () => _audioHandler.skipToNext(),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Layout shown when a playlist reaches a YouTube item on TV/desktop.
+  Widget _buildYoutubeLayout(Station station) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        const ColoredBox(color: TvColors.background),
+        SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(TvSpacing.md),
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: _btn(
+                icon: Icons.arrow_back_rounded,
+                size: 40,
+                iconSize: 22,
+                color: Colors.white,
+                bg: Colors.black.withValues(alpha: 0.4),
+                onSelect: widget.onBrowse,
+                region: 'np-top',
+              ),
+            ),
+          ),
+        ),
+        Padding(
+          padding: EdgeInsets.symmetric(
+              horizontal: TvSpacing.marginHorizontal, vertical: TvSpacing.xl),
+          child: TvYoutubeUpNextCard(
+            item: _youtubeItem!,
+            onAutoAdvance: _playlistController.notifyYoutubeItemEnded,
+          ),
+        ),
+      ],
     );
   }
 }

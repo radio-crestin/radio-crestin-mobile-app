@@ -6,10 +6,14 @@ import 'package:get_it/get_it.dart';
 import 'package:rxdart/rxdart.dart';
 
 import '../appAudioHandler.dart';
+import '../services/playlist_controller.dart';
 import '../services/station_data_service.dart';
+import '../services/video_playback_service.dart';
 import '../types/Station.dart';
+import '../types/playlist_item.dart';
 import 'tv_shell.dart';
 import 'tv_theme.dart';
+import 'widgets/tv_video_surface.dart';
 
 /// Full-screen now-playing panel for desktop.
 ///
@@ -29,6 +33,7 @@ class DesktopNowPlayingSheet extends StatefulWidget {
 class _DesktopNowPlayingSheetState extends State<DesktopNowPlayingSheet> {
   late final AppAudioHandler _audioHandler;
   late final StationDataService _stationDataService;
+  late final PlaylistController _playlistController;
   final List<StreamSubscription> _subscriptions = [];
   final FocusNode _keyboardFocus =
       FocusNode(debugLabel: 'desktop-np-keyboard');
@@ -39,12 +44,25 @@ class _DesktopNowPlayingSheetState extends State<DesktopNowPlayingSheet> {
   bool _liked = false;
   bool _disliked = false;
   int _lastSongId = -1;
+  bool _isVideoMode = false;
+  PlaylistItem? _youtubeItem;
 
   @override
   void initState() {
     super.initState();
     _audioHandler = GetIt.instance<AppAudioHandler>();
     _stationDataService = GetIt.instance<StationDataService>();
+    _playlistController = GetIt.instance<PlaylistController>();
+
+    _isVideoMode = _audioHandler.isVideoMode.value;
+    _youtubeItem = _playlistController.youtubeRequest.valueOrNull;
+
+    _subscriptions.add(_audioHandler.isVideoMode.stream.listen((v) {
+      if (mounted) setState(() => _isVideoMode = v);
+    }));
+    _subscriptions.add(_playlistController.youtubeRequest.stream.listen((v) {
+      if (mounted) setState(() => _youtubeItem = v);
+    }));
 
     _subscriptions.add(
       Rx.combineLatest2(
@@ -162,6 +180,38 @@ class _DesktopNowPlayingSheetState extends State<DesktopNowPlayingSheet> {
       );
     }
 
+    // Playlist reached a YouTube item — show the auto-advancing "up next" card.
+    if (_youtubeItem != null) {
+      return Focus(
+        focusNode: _keyboardFocus,
+        onKeyEvent: _onKey,
+        child: Container(
+          decoration: const BoxDecoration(
+            color: _NowPlayingPalette.panel,
+            borderRadius: BorderRadius.all(Radius.circular(20)),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _TopBar(
+                isFavorite: _isFavorite,
+                onClose: _close,
+                onFavorite: () => _audioHandler.customAction('toggleFavorite'),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(28, 8, 28, 32),
+                child: TvYoutubeUpNextCard(
+                  item: _youtubeItem!,
+                  onAutoAdvance: _playlistController.notifyYoutubeItemEnded,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     final prevSongs = _prevSongs;
 
     final transport = _TransportRow(
@@ -212,7 +262,13 @@ class _DesktopNowPlayingSheetState extends State<DesktopNowPlayingSheet> {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        _Artwork(station: station, size: artworkSize),
+                        _isVideoMode
+                            ? _VideoBox(
+                                videoService: _audioHandler.videoService,
+                                isTv: station.isTv,
+                                width: artworkSize,
+                              )
+                            : _Artwork(station: station, size: artworkSize),
                         const SizedBox(width: gap),
                         Expanded(
                           child: Column(
@@ -329,6 +385,38 @@ class _Artwork extends StatelessWidget {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(16),
           child: station.displayThumbnail(cacheWidth: (size * 2).toInt()),
+        ),
+      ),
+    );
+  }
+}
+
+/// 16:9 live video output for desktop video mode, with a LIVE pill for TV.
+class _VideoBox extends StatelessWidget {
+  final VideoPlaybackService videoService;
+  final bool isTv;
+  final double width;
+
+  const _VideoBox({
+    required this.videoService,
+    required this.isTv,
+    required this.width,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: width,
+      height: width * 9 / 16,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            TvVideoSurface(videoService: videoService),
+            if (isTv)
+              const Positioned(top: 10, left: 10, child: TvLivePill()),
+          ],
         ),
       ),
     );

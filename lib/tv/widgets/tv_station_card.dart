@@ -133,6 +133,13 @@ class _TvStationCardState extends State<TvStationCard> {
                 children: [
                   station.displayThumbnail(
                       cacheWidth: (cardSize * 2).toInt()),
+                  // Station-type badge (TV pill / playlist glyph), top-left.
+                  if (station.stationType != StationMediaType.radio)
+                    Positioned(
+                      top: 6,
+                      left: 6,
+                      child: _TvTypeBadge(type: station.stationType),
+                    ),
                   if (isPlaying)
                     Positioned(
                       bottom: 6,
@@ -221,6 +228,52 @@ class _TvStationCardState extends State<TvStationCard> {
       ),
       ),
     );
+  }
+}
+
+/// Compact TV/desktop badge marking a station's playback kind.
+class _TvTypeBadge extends StatelessWidget {
+  final StationMediaType type;
+
+  const _TvTypeBadge({required this.type});
+
+  @override
+  Widget build(BuildContext context) {
+    if (type == StationMediaType.tv) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: TvColors.primary,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.live_tv_rounded, size: 11, color: Colors.white),
+            SizedBox(width: 3),
+            Text('TV',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 9,
+                    letterSpacing: 0.5,
+                    height: 1.0)),
+          ],
+        ),
+      );
+    }
+    if (type == StationMediaType.playlist) {
+      return Container(
+        padding: const EdgeInsets.all(3),
+        decoration: BoxDecoration(
+          color: TvColors.primary,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: const Icon(Icons.queue_music_rounded,
+            size: 13, color: Colors.white),
+      );
+    }
+    return const SizedBox.shrink();
   }
 }
 
