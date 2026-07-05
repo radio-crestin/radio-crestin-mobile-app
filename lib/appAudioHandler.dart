@@ -6,6 +6,7 @@ import 'dart:ui';
 import 'package:audio_service/audio_service.dart';
 import 'package:audio_session/audio_session.dart';
 import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fuzzywuzzy/fuzzywuzzy.dart';
@@ -123,6 +124,41 @@ class MetadataChangeAlignment {
       Duration(seconds: lagSeconds),
     );
   }
+}
+
+/// Pure fast-start tuning policy: how conservatively the player should buffer
+/// before it begins (or resumes) playback, split by whether the source is a
+/// live stream or seekable VOD.
+///
+/// The just_audio player is a single instance shared by live radio/TV and VOD
+/// playlist items, so its load configuration is global. These values encode the
+/// intent (live favours a snappy start; VOD keeps a safer pre-roll) and are the
+/// single source of truth used both when constructing the player and in tests.
+class FastStartConfig {
+  /// Android `bufferForPlaybackDuration` for live: lowered from 3s so ExoPlayer
+  /// starts ~1.5s sooner. Safe because the 50s `minBufferDuration`, the 2s
+  /// post-rebuffer threshold, and the reconnect/stall machinery still cover the
+  /// rebuffer risk — this only moves the "ok to start" line, not the fill goal.
+  static const Duration liveAndroidBufferForPlayback =
+      Duration(milliseconds: 1500);
+
+  /// Android `bufferForPlaybackDuration` for VOD — keeps the conservative 3s
+  /// (a VOD stall is more jarring than a few hundred ms of live start latency).
+  static const Duration vodAndroidBufferForPlayback = Duration(seconds: 3);
+
+  static Duration androidBufferForPlayback({required bool isLive}) =>
+      isLive ? liveAndroidBufferForPlayback : vodAndroidBufferForPlayback;
+
+  /// iOS/macOS `automaticallyWaitsToMinimizeStalling` for live sources: false so
+  /// AVPlayer begins as soon as it can instead of pre-filling a conservative
+  /// buffer. A compile-time const so it can feed the const player config.
+  static const bool liveDarwinAutomaticallyWaits = false;
+
+  /// iOS/macOS `automaticallyWaitsToMinimizeStalling`. For live sources, false
+  /// lets AVPlayer begin as soon as it can instead of pre-filling a
+  /// conservative buffer; VOD keeps the default (true).
+  static bool darwinAutomaticallyWaits({required bool isLive}) =>
+      isLive ? liveDarwinAutomaticallyWaits : true;
 }
 
 /// Pure decision policy for whether to issue a reconnect attempt now.
@@ -287,7 +323,12 @@ Future<AppAudioHandler> initAudioService({required graphqlClient}) async {
       androidLoadControl: AndroidLoadControl(
         minBufferDuration: Duration(seconds: 50),
         maxBufferDuration: Duration(minutes: 10),
-        bufferForPlaybackDuration: Duration(seconds: 3),
+        // Fast-start: 1.5s (was 3s). ~all app playback is live radio/TV, so the
+        // global value is tuned for live via FastStartConfig. Rebuffer risk is
+        // still covered by the 50s minBuffer, the 2s post-rebuffer threshold,
+        // and the reconnect/stall machinery. (Android is reasoning-verified —
+        // not measurable on the iOS test rig.)
+        bufferForPlaybackDuration: FastStartConfig.liveAndroidBufferForPlayback,
         // 2s (was 5s): post-rebuffer is exactly when we need fast resume —
         // every extra second here is silence the user hears after a
         // network blip. ExoPlayer still re-fills minBufferDuration in the
@@ -301,12 +342,15 @@ Future<AppAudioHandler> initAudioService({required graphqlClient}) async {
       ),
       darwinLoadControl: DarwinLoadControl(
         canUseNetworkResourcesForLiveStreamingWhilePaused: true,
-        // automaticallyWaitsToMinimizeStalling: tried false in c52d785 to
-        // skip AVPlayer's pre-emptive pause; users reported playback
-        // stopping permanently in background with no events fired (likely
-        // AVPlayer entering a silent ready-state). Reverted to true. The
-        // rebuffer-with-full-buffer hiccup needs a different approach.
-        automaticallyWaitsToMinimizeStalling: true,
+        // Fast-start: false lets AVPlayer begin as soon as it has data instead
+        // of pre-filling a conservative buffer. c52d785 tried this and reverted
+        // it because playback could stop permanently in background; that
+        // regression predates the silence keep-alive (assets/silence.m4a) which
+        // now keeps the iOS engine alive across stalls, so the pre-emptive-pause
+        // failure mode is covered. ~all playback is live, so this global value
+        // follows FastStartConfig's live setting.
+        automaticallyWaitsToMinimizeStalling:
+            FastStartConfig.liveDarwinAutomaticallyWaits,
         preferredForwardBufferDuration: Duration(seconds: 60),
       ),
     ),
@@ -398,6 +442,16 @@ class AppAudioHandler extends BaseAudioHandler {
   // Aliased to the canonical value in ReconnectPolicy so the test suite
   // can assert on a single source of truth.
   static const _bufferingStallTimeout = ReconnectPolicy.bufferingStallTimeout;
+
+  // ── Fast-start instrumentation (debug-mode only) ──────────────────────
+  // Measures tap→first-audio: the stopwatch starts at playStation() entry and
+  // is read when the player first advances position while playing. No-op in
+  // release (guarded by kDebugMode) so it never costs the tap path in prod.
+  Stopwatch? _fastStartWatch;
+  String? _fastStartLabel; // 'AUDIO' | 'TV' | 'PLAYLIST'
+  bool _fastStartDone = true;
+  // Guards the one-shot connection pre-warm of the last-played station.
+  bool _prewarmed = false;
 
   // ── iOS background-suspension keep-alive ──────────────────────────
   // When the main player enters `buffering` and audio output stops, iOS
@@ -885,6 +939,12 @@ class AppAudioHandler extends BaseAudioHandler {
     // when the playing state flips, guaranteeing CarPlay/Android Auto sync.
     player.playingStream.listen((_) => _broadcastState(player.playbackEvent));
 
+    // Fast-start measurement: catch the first position advance while playing.
+    // Debug-only; the listener is a cheap early-return once the measure is done.
+    if (kDebugMode) {
+      player.positionStream.listen((_) => _maybeCompleteFastStartMeasure());
+    }
+
     // ICY tag listener (direct/MP3 streams). just_audio surfaces SHOUTcast
     // ICY metadata (`StreamTitle`) on this stream — when the title flips,
     // the audio is announcing a new song. Trigger an offset diff so the
@@ -1341,6 +1401,7 @@ class AppAudioHandler extends BaseAudioHandler {
 
   Future<void> playStation(Station station, {bool? fromFavorites}) async {
     _log('playStation(${station.slug}, fromFavorites=$fromFavorites)');
+    _beginFastStartMeasure(station);
     _hasBeenPlayed = true;
 
     // Track navigation context for next/previous behavior
@@ -2107,6 +2168,93 @@ class AppAudioHandler extends BaseAudioHandler {
     // previous stream's last value.
     _lastSeenDateRangeId = null;
     _lastSeenMetadataChangedEpoch = null;
+  }
+
+  // ── Fast-start measurement ────────────────────────────────────────────
+
+  /// Starts the tap→first-audio stopwatch for [station]. Debug-only.
+  void _beginFastStartMeasure(Station station) {
+    if (!kDebugMode) return;
+    _fastStartLabel = station.isTv
+        ? 'TV'
+        : (station.stationType == StationMediaType.playlist
+            ? 'PLAYLIST'
+            : 'AUDIO');
+    _fastStartWatch = Stopwatch()..start();
+    _fastStartDone = false;
+  }
+
+  /// Reads the stopwatch on the first position advance while playing and logs
+  /// the tap→first-audio latency, labelled by resolved stream type. Debug-only.
+  void _maybeCompleteFastStartMeasure() {
+    if (_fastStartDone) return;
+    final watch = _fastStartWatch;
+    if (watch == null) return;
+    if (!player.playing || player.position <= Duration.zero) return;
+    _fastStartDone = true;
+    watch.stop();
+    final ms = watch.elapsedMilliseconds;
+    final type = _loadedStreamType ?? _fastStartLabel ?? '?';
+    // Labelled so it can be grepped from device logs when measuring.
+    debugPrint('[FASTSTART] tap→first-audio ${ms}ms '
+        '(kind=$_fastStartLabel stream=$type '
+        'station=${currentStation.valueOrNull?.slug})');
+    AnalyticsService.instance.captureDebug('fast_start_first_audio', {
+      'ms': ms,
+      'kind': _fastStartLabel,
+      'stream_type': type,
+      'station_slug': currentStation.valueOrNull?.slug,
+      'station_id': currentStation.valueOrNull?.id,
+    });
+  }
+
+  // ── Connection pre-warm ───────────────────────────────────────────────
+
+  /// Warms the network path to the last-played station's stream so the first
+  /// tap of the session starts faster (DNS + TLS + first bytes already primed).
+  ///
+  /// Fire-and-forget and startup-safe: guarded to run once, waits for the
+  /// station list off the UI thread, never blocks, and swallows all errors.
+  /// Warms exactly one station — reuses the HLS playlist GET for HLS streams,
+  /// a HEAD for direct/MP3 streams.
+  Future<void> prewarmLastPlayed() async {
+    if (_prewarmed) return;
+    _prewarmed = true;
+    try {
+      final slug = _prefs.getString(LAST_PLAYED_MEDIA_ITEM);
+      if (slug == null) return;
+      // Resolve the station once the list is available (bounded wait so we
+      // never leak a subscription if stations never load).
+      Station? station = _firstBySlug(stationDataService.stations.value, slug);
+      station ??= await stationDataService.stations.stream
+          .firstWhere((list) => list.isNotEmpty)
+          .then((list) => _firstBySlug(list, slug))
+          .timeout(const Duration(seconds: 20), onTimeout: () => null);
+      if (station == null) return;
+      final streams = Utils.getStationStreamObjects(station.rawStationData);
+      if (streams.isEmpty) return;
+      final first = streams.first;
+      final url = first['url'];
+      if (url == null || url.isEmpty) return;
+      final uri = Uri.parse(url);
+      final isHls = first['type'] == 'HLS';
+      if (isHls) {
+        // Reuses the lightweight playlist GET — primes DNS/TLS and the CDN edge.
+        await http.get(uri).timeout(const Duration(seconds: 5));
+      } else {
+        await http.head(uri).timeout(const Duration(seconds: 5));
+      }
+      _log('prewarm: warmed ${station.slug} (${isHls ? 'HLS' : 'direct'} $url)');
+    } catch (e) {
+      _log('prewarm: $e');
+    }
+  }
+
+  Station? _firstBySlug(List<Station> list, String slug) {
+    for (final s in list) {
+      if (s.slug == slug) return s;
+    }
+    return null;
   }
 
   // ── Silence keep-alive (iOS-only background-suspension prevention) ──
