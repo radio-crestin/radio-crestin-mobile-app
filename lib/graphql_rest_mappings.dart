@@ -34,23 +34,28 @@ Map<String, RestApiConfig> createGraphQLToRestMappings() {
   return mappings;
 }
 
-Map<String, dynamic> _transformStationsData(dynamic jsonData) {
-  // Extract reviews_stats from REST response before GraphQL parsing discards it
-  final stationsList = jsonData['data']?['stations'] as List?;
-  if (stationsList != null) {
-    for (final station in stationsList) {
-      if (station is Map<String, dynamic>) {
-        final id = station['id'] as int?;
-        final stats = station['reviews_stats'] as Map<String, dynamic>?;
-        if (id != null && stats != null) {
-          reviewsStatsCache[id] = (
-            averageRating: (stats['average_rating'] as num?)?.toDouble() ?? 0,
-            numberOfReviews: (stats['number_of_reviews'] as num?)?.toInt() ?? 0,
-          );
-        }
+/// Sideloads each station's `reviews_stats` into [reviewsStatsCache] before
+/// GraphQL parsing discards the field. Shared by the GetStations REST transform
+/// and the private-stations fetch so both populate the cache identically.
+void sideloadReviewsStats(List<dynamic>? stationsList) {
+  if (stationsList == null) return;
+  for (final station in stationsList) {
+    if (station is Map<String, dynamic>) {
+      final id = station['id'] as int?;
+      final stats = station['reviews_stats'] as Map<String, dynamic>?;
+      if (id != null && stats != null) {
+        reviewsStatsCache[id] = (
+          averageRating: (stats['average_rating'] as num?)?.toDouble() ?? 0,
+          numberOfReviews: (stats['number_of_reviews'] as num?)?.toInt() ?? 0,
+        );
       }
     }
   }
+}
+
+Map<String, dynamic> _transformStationsData(dynamic jsonData) {
+  // Extract reviews_stats from REST response before GraphQL parsing discards it
+  sideloadReviewsStats(jsonData['data']?['stations'] as List?);
   return jsonData['data'];
 }
 
