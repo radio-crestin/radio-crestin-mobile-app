@@ -98,6 +98,15 @@ dependencies:
     path: packages/flutter_chrome_cast
   flutter_airplay:
     path: packages/flutter_airplay
+  # Video playback engine for TV channels and video playlist items. media_kit
+  # (libmpv) plays HLS/MP4 video with perfect audio+video sync in the app's
+  # "video mode". media_kit_libs_video (above) already ships the native libs.
+  media_kit: ^1.2.6
+  media_kit_video: ^2.0.1
+  # YouTube playlist items are rendered by the UI layer via an inline iframe
+  # player; the playback engine only orchestrates (skip in car/cast, pause in
+  # background) and receives ended/error callbacks from the UI.
+  youtube_player_iframe: ^6.0.2
 
 dev_dependencies:
   dependency_validator: ^5.0.3
