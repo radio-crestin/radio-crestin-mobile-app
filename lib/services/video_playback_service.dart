@@ -178,6 +178,12 @@ class VideoPlaybackService {
       await platform.setProperty('demuxer-max-bytes', '64MiB');
       // Back cache so a small seek-back after a live-edge stall is instant.
       await platform.setProperty('demuxer-max-back-bytes', '32MiB');
+      // Fast-start (join speed): begin playback as soon as the decoder has a
+      // frame instead of waiting for the cache to fill first. This is libmpv's
+      // default, set explicitly to lock the instant-start intent for live TV.
+      // Code-verified only — the iOS simulator can't decode video, so this
+      // path is not measurable on the test rig.
+      await platform.setProperty('cache-pause-initial', 'no');
     } catch (e) {
       debugPrint('VideoPlaybackService: buffering config failed: $e');
     }

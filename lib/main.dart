@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as developer;
 import 'dart:io' show PathNotFoundException, Platform;
@@ -355,6 +356,14 @@ void main() async {
   // Initialize quick actions after runApp so the Android Activity is available
   WidgetsBinding.instance.addPostFrameCallback((_) {
     QuickActionsService.initialize();
+  });
+
+  // Pre-warm the network path to the last-played station's stream so the first
+  // tap of the session starts faster. Fire-and-forget; never blocks startup.
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (getIt.isRegistered<AppAudioHandler>()) {
+      unawaited(getIt<AppAudioHandler>().prewarmLastPlayed());
+    }
   });
 
   // Upsert this device's details to our backend in the background. Fire-and-
