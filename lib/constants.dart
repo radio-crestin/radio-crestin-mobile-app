@@ -5,6 +5,10 @@ class CONSTANTS {
   static String STATIONS_URL = "$API_BASE_URL/stations";
   static String STATIONS_METADATA_URL = "$API_BASE_URL/stations-metadata";
   static String STATIONS_METADATA_HISTORY_URL = "$API_BASE_URL/stations-metadata-history";
+  // Live playlist for a single "playlist" station. Polled every 5s while a
+  // playlist station is on screen; append "?station_slug=<slug>&timestamp=<ts>"
+  // where ts is unix-now floored to 5s (see getRoundedTimestamp5s).
+  static String STATION_PLAYLIST_URL = "$API_BASE_URL/station-playlist";
   static String SHARE_LINKS_URL = "$API_BASE_URL/share-links";
   static String REVIEWS_URL = "$API_BASE_URL/reviews/";
   // Device/client registration upsert. Trailing slash is required so Django's

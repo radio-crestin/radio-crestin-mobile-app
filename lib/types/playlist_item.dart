@@ -62,6 +62,24 @@ class PlaylistItem {
     );
   }
 
+  /// Builds a [PlaylistItem] from a raw `/station-playlist` REST entry.
+  ///
+  /// Mirrors [PlaylistItem.fromRaw] but reads the snake_case JSON shape used
+  /// by the live playlist endpoint (`thumbnail_url`, `duration_seconds`).
+  /// Missing/malformed fields fall back to safe defaults so a partial payload
+  /// never yields a null `url`, `title` or `id`.
+  factory PlaylistItem.fromJson(Map<String, dynamic> json) {
+    return PlaylistItem(
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      order: (json['order'] as num?)?.toInt() ?? 0,
+      type: PlaylistItemType.parse(json['type'] as String?),
+      url: (json['url'] as String?) ?? '',
+      title: (json['title'] as String?) ?? '',
+      thumbnailUrl: json['thumbnail_url'] as String?,
+      durationSeconds: (json['duration_seconds'] as num?)?.toInt(),
+    );
+  }
+
   /// Stable backend identifier for the entry.
   final int id;
 
