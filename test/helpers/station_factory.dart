@@ -154,6 +154,58 @@ class StationFactory {
     );
   }
 
+  /// Builds a raw station JSON map matching the REST `/stations` (and
+  /// `/private-stations`) wire shape: no `__typename` keys, plus an optional
+  /// `reviews_stats` block. Handy for exercising the private-stations parse
+  /// pipeline (typename injection + reviews-stats sideload).
+  static Map<String, dynamic> createRawStationJson({
+    required int id,
+    required String slug,
+    required String title,
+    int order = 0,
+    int? totalListeners = 10,
+    Query$GetStations$stations$now_playing? nowPlaying,
+    Query$GetStations$stations$uptime? uptime,
+    List<Query$GetStations$stations$station_streams>? stationStreams,
+    String? stationType,
+    double? averageRating,
+    int? numberOfReviews,
+  }) {
+    final raw = createRawStation(
+      id: id,
+      slug: slug,
+      title: title,
+      order: order,
+      totalListeners: totalListeners,
+      nowPlaying: nowPlaying,
+      uptime: uptime,
+      stationStreams: stationStreams,
+      stationType: stationType,
+    );
+    final map = _stripTypenames(raw.toJson()) as Map<String, dynamic>;
+    if (averageRating != null || numberOfReviews != null) {
+      map['reviews_stats'] = <String, dynamic>{
+        'average_rating': averageRating ?? 0,
+        'number_of_reviews': numberOfReviews ?? 0,
+      };
+    }
+    return map;
+  }
+
+  /// Recursively removes `__typename` keys, mirroring a raw REST payload.
+  static dynamic _stripTypenames(dynamic node) {
+    if (node is Map) {
+      final out = <String, dynamic>{};
+      node.forEach((key, value) {
+        if (key == '__typename') return;
+        out[key as String] = _stripTypenames(value);
+      });
+      return out;
+    }
+    if (node is List) return node.map(_stripTypenames).toList();
+    return node;
+  }
+
   /// Creates a list of test stations for playlist/navigation testing.
   static List<Station> createPlaylist({int count = 5}) {
     return List.generate(

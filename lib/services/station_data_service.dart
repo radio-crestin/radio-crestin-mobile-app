@@ -11,6 +11,7 @@ import 'package:radio_crestin/performance_monitor.dart';
 import 'package:radio_crestin/seek_mode_manager.dart';
 import 'package:radio_crestin/services/network_service.dart';
 import 'package:radio_crestin/services/play_count_service.dart';
+import 'package:radio_crestin/services/private_stations_service.dart';
 import 'package:radio_crestin/services/station_sort_service.dart';
 import 'package:radio_crestin/queries/getStations.graphql.dart';
 import 'package:radio_crestin/graphql_rest_mappings.dart';
@@ -47,6 +48,11 @@ enum SyncReason {
 
 class StationDataService {
   final GraphQLClient graphqlClient;
+
+  /// Fetches + persists the device-allowlisted ("private") station list. Owns
+  /// the fetch policy state machine; this service parses its raw output into
+  /// [Station]s and merges them into the public catalog.
+  final PrivateStationsService _privateStationsService;
 
   // ---------------------------------------------------------------------------
   // Sync engine state
@@ -196,11 +202,31 @@ class StationDataService {
     'station_to_station_groups': 'StationToStationGroupType',
   };
 
-  StationDataService({required this.graphqlClient}) {
+  StationDataService({
+    required this.graphqlClient,
+    PrivateStationsService? privateStationsService,
+  }) : _privateStationsService =
+            privateStationsService ?? PrivateStationsService() {
     // Wire the frozen-order stream up front (not in initialize) so
     // orderedStations tracks `stations` from the very first emission.
     _initOrderedStationsStream();
   }
+
+  // ---------------------------------------------------------------------------
+  // Public / private catalog split
+  //
+  // `stations` is the MERGED catalog. It is rebuilt from two internal sources
+  // so a public-only metadata refresh can never clobber or drop private
+  // stations, and a private refresh can never disturb the frozen public order.
+  // ---------------------------------------------------------------------------
+
+  /// Latest public station list (the only source `/stations-metadata` updates).
+  List<Station> _publicStations = <Station>[];
+
+  /// Latest private station list, in the backend-provided order. Their
+  /// now_playing/uptime/listeners come ONLY from the private payload — the
+  /// public metadata endpoint never carries them.
+  List<Station> _privateStations = <Station>[];
 
   void _log(String message) {
     debugPrint("StationDataService: $message");
@@ -258,6 +284,11 @@ class StationDataService {
   /// Called by AppAudioHandler when a new station starts playing.
   Future<void> onStationPlayed() => enqueueSync(SyncReason.stationPlayed);
 
+  /// Forces a private-stations refresh outside the periodic cadence, honoring
+  /// the session gate. The periodic tick and full refreshes already drive this
+  /// automatically; exposed for explicit triggers and tests.
+  Future<void> refreshPrivateStations() => _syncPrivateStations();
+
   void pausePeriodic() {
     _log("Pausing periodic sync");
     _periodicTimer?.cancel();
@@ -287,8 +318,19 @@ class StationDataService {
   // ---------------------------------------------------------------------------
 
   /// One sync iteration. Promotes any reason to a full refresh when the
-  /// 10-min window has elapsed; otherwise dispatches by reason kind.
+  /// 10-min window has elapsed; otherwise dispatches by reason kind. The
+  /// private-stations fetch (when due for this reason) runs in parallel with
+  /// the public path — a fully independent request.
   Future<void> _executeSync(SyncReason reason) async {
+    // A resume is a fresh chance for private stations: reopen the gate an
+    // authoritative-empty / not-deployed response may have closed this session.
+    if (reason == SyncReason.appResumed) {
+      _privateStationsService.reopenSessionGate();
+    }
+
+    final privateFuture =
+        _shouldFetchPrivate(reason) ? _syncPrivateStations() : null;
+
     final fullDue = _lastFullRefreshTime == null ||
         DateTime.now().difference(_lastFullRefreshTime!) >= _fullRefreshInterval;
 
@@ -297,16 +339,27 @@ class StationDataService {
         reason == SyncReason.stationPlayed ||
         reason == SyncReason.seekOffsetChanged;
 
+    final Future<void> publicFuture;
     if (isFullReason || fullDue) {
-      await _doFullRefresh(reason, becausePromoted: !isFullReason);
-      return;
+      publicFuture = _doFullRefresh(reason, becausePromoted: !isFullReason);
+    } else if (reason == SyncReason.audioMetadataChanged) {
+      publicFuture = _doAudioDiff();
+    } else {
+      publicFuture = _doPeriodicDiff();
     }
-    if (reason == SyncReason.audioMetadataChanged) {
-      await _doAudioDiff();
-      return;
-    }
-    await _doPeriodicDiff();
+
+    await publicFuture;
+    if (privateFuture != null) await privateFuture;
   }
+
+  /// Private stations are fetched on startup, on resume, and on the 60s
+  /// periodic tick (which piggybacks the same timer). Other reasons
+  /// (stationPlayed, seek offset, audio-metadata diff) leave the private list
+  /// untouched — nothing about them changes the allowlist.
+  bool _shouldFetchPrivate(SyncReason reason) =>
+      reason == SyncReason.startup ||
+      reason == SyncReason.appResumed ||
+      reason == SyncReason.periodic;
 
   /// Full refresh: GraphQL stations + live metadata, merged in one shot.
   /// Resets the offset cursor — the next audio event will repopulate it.
@@ -451,8 +504,11 @@ class StationDataService {
   }) {
     if (liveMetadata == null && offsetMetadata == null) return;
 
-    final currentStations = stations.value;
-    final updatedStations = currentStations.map((station) {
+    // The metadata endpoint carries public stations only, so it can only ever
+    // update `_publicStations`. Private stations are refreshed by their own
+    // fetch and re-appended by [_publishMerged] — never touched here.
+    final currentPublic = _publicStations;
+    final updatedPublic = currentPublic.map((station) {
       final useOffset = _shouldUseOffsetMetadata(station);
       final primarySource = useOffset ? offsetMetadata : liveMetadata;
       final fallbackSource = useOffset ? liveMetadata : offsetMetadata;
@@ -465,12 +521,51 @@ class StationDataService {
       return _mergeStationWithMetadata(station, metadata, liveListeners: liveListeners);
     }).toList();
 
-    if (_hasStationsChanged(currentStations, updatedStations)) {
-      stations.add(updatedStations);
+    if (_hasStationsChanged(currentPublic, updatedPublic)) {
+      _publicStations = updatedPublic;
+      _publishMerged();
       _log("merge: stations updated");
       if (SeekModeManager.isUnstableConnection) {
-        _preCacheSongThumbnails(updatedStations);
+        _preCacheSongThumbnails(updatedPublic);
       }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Merge + publish
+  // ---------------------------------------------------------------------------
+
+  /// Ids of private stations that are NOT shadowed by a public station of the
+  /// same id (public wins on conflict). This is the set treated as "private"
+  /// for pinning and filtering.
+  Set<int> get _privateOnlyIds {
+    if (_privateStations.isEmpty) return const <int>{};
+    final publicIds = _publicStations.map((s) => s.id as int).toSet();
+    return _privateStations
+        .where((s) => !publicIds.contains(s.id))
+        .map((s) => s.id as int)
+        .toSet();
+  }
+
+  /// Builds the merged catalog: private-only stations (deduped against public
+  /// by id, public wins) followed by the public list. Display order is imposed
+  /// later by [getSortedStations] / [orderedStations]; this order only affects
+  /// change detection.
+  List<Station> _mergePublicPrivate() {
+    if (_privateStations.isEmpty) return List<Station>.of(_publicStations);
+    final publicIds = _publicStations.map((s) => s.id as int).toSet();
+    final privateOnly =
+        _privateStations.where((s) => !publicIds.contains(s.id));
+    return [...privateOnly, ..._publicStations];
+  }
+
+  /// Publishes the merged catalog to [stations]. Change-gated by default so a
+  /// no-op refresh doesn't churn downstream streams; [force] bypasses the gate
+  /// for structural changes (bootstrap, full refresh, private list cleared).
+  void _publishMerged({bool force = false}) {
+    final merged = _mergePublicPrivate();
+    if (force || _hasStationsChanged(stations.value, merged)) {
+      stations.add(merged);
     }
   }
 
@@ -504,6 +599,11 @@ class StationDataService {
 
   Future<void> _bootstrap() async {
     _log("bootstrap: loading cached/fallback stations");
+
+    // Load persisted private stations first, so the very first publish already
+    // pins them ahead of the public cache before the network responds.
+    _bootstrapPrivateStations();
+
     final cached = await _loadCachedStations();
     final hasCachedData = cached != null;
     if (hasCachedData) {
@@ -514,6 +614,10 @@ class StationDataService {
       if (fallback != null) {
         _log("bootstrap: ${fallback.stations.length} stations from bundled fallback");
         _applyStationsData(fallback);
+      } else if (_privateStations.isNotEmpty) {
+        // No public cache/fallback, but we have persisted private stations —
+        // publish them so the UI isn't blank while the network loads.
+        _publishMerged(force: true);
       }
     }
 
@@ -591,7 +695,8 @@ class StationDataService {
   }
 
   void _applyStationsData(Query$GetStations data) {
-    stations.add(data.stations.map(_createStation).toList());
+    _publicStations = data.stations.map(_createStation).toList();
+    _publishMerged(force: true);
     stationGroups.add(data.station_groups);
   }
 
@@ -625,10 +730,94 @@ class StationDataService {
         return station;
       }).toList();
 
-      stations.add(stationsWithMetadata);
+      _publicStations = stationsWithMetadata;
+      _publishMerged(force: true);
       stationGroups.add(parsedData.station_groups);
       _cacheStationsData(parsedData);
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Private (device-allowlisted) stations
+  // ---------------------------------------------------------------------------
+
+  /// Loads persisted private stations synchronously during bootstrap. Failures
+  /// are swallowed — a bad cache must never block the app from starting.
+  void _bootstrapPrivateStations() {
+    final rawStations = _privateStationsService.loadCachedRaw();
+    if (rawStations == null || rawStations.isEmpty) return;
+    final parsed = _parsePrivateStations(rawStations);
+    if (parsed.isNotEmpty) {
+      _privateStations = parsed;
+      _log("bootstrap: ${parsed.length} private stations from cache");
+    }
+  }
+
+  /// One private-stations fetch iteration, applying the outcome policy:
+  /// - updated → re-parse and merge (freshness flows on the next publish);
+  /// - emptyAuthoritative → drop any private stations we were showing;
+  /// - notDeployed / transientFailure / skipped → keep the last known list.
+  Future<void> _syncPrivateStations() async {
+    final result = await _privateStationsService.fetch();
+    switch (result.outcome) {
+      case PrivateFetchOutcome.skipped:
+      case PrivateFetchOutcome.notDeployed:
+      case PrivateFetchOutcome.transientFailure:
+        return;
+      case PrivateFetchOutcome.emptyAuthoritative:
+        if (_privateStations.isNotEmpty) {
+          _privateStations = <Station>[];
+          _publishMerged(force: true);
+          _log("private: cleared (authoritative empty)");
+        }
+        return;
+      case PrivateFetchOutcome.updated:
+        _privateStations = _parsePrivateStations(result.rawStations!);
+        // Change-gated: private now_playing / listeners / uptime.is_up are all
+        // covered by [_hasStationsChanged], so meaningful changes still emit
+        // while identical polls stay quiet.
+        _publishMerged();
+        return;
+    }
+  }
+
+  /// Turns raw private station maps (same shape as public `/stations`) into
+  /// [Station]s. Reuses the shared reviews-stats sideload and the typename
+  /// injection so private stations parse exactly like public ones.
+  List<Station> _parsePrivateStations(List<Map<String, dynamic>> rawStations) {
+    if (rawStations.isEmpty) return <Station>[];
+    // Populate reviewsStatsCache before parsing — Station reads it in
+    // _createStation. Shared with the public GetStations transform.
+    sideloadReviewsStats(rawStations);
+    // Inject __typename in place so Query$GetStations$stations.fromJson parses.
+    _injectTypenames(<String, dynamic>{'stations': rawStations});
+    final result = <Station>[];
+    for (final raw in rawStations) {
+      try {
+        result.add(_createStation(Query$GetStations$stations.fromJson(raw)));
+      } catch (e) {
+        _log("private parse: skipping malformed station: $e");
+      }
+    }
+    return result;
+  }
+
+  /// Test seam: injects the parsed private station list and republishes the
+  /// merged catalog, bypassing the network. Mirrors what [_syncPrivateStations]
+  /// does on an `updated` outcome.
+  @visibleForTesting
+  void applyPrivateStationsForTest(List<Station> privateStations) {
+    _privateStations = List<Station>.of(privateStations);
+    _publishMerged(force: true);
+  }
+
+  /// Test seam: replaces the public station list and republishes, mirroring a
+  /// full refresh or metadata merge, so tests can prove private stations
+  /// survive public-only updates.
+  @visibleForTesting
+  void applyPublicStationsForTest(List<Station> publicStations) {
+    _publicStations = List<Station>.of(publicStations);
+    _publishMerged(force: true);
   }
 
   // ---------------------------------------------------------------------------
@@ -755,9 +944,17 @@ class StationDataService {
 
     // Recommended ("Pentru tine") is frozen once per session — the single
     // source of truth shared by phone, TV, desktop, CarPlay and Android Auto.
+    // It already pins private stations ahead of the frozen public order.
     if (sortOption == StationSortOption.recommended) {
       return _applyFrozenRecommendedOrder(allStations);
     }
+
+    // Private stations are pinned first (in backend order); everything below
+    // sorts / caches over the PUBLIC remainder exactly as before.
+    final privatePinned = _orderedPrivateFrom(allStations);
+    final privateIds = _privateOnlyIds;
+    final publicOnly =
+        allStations.where((s) => !privateIds.contains(s.id)).toList();
 
     // User-chosen sorts: cache the slug order so it stays stable during the
     // session. Re-sort only when the user picks a different option (count
@@ -766,9 +963,9 @@ class StationDataService {
         _cachedSortOrder != null && _cachedSortOption == sortOption;
 
     if (cacheValid) {
-      // Reorder current stations by the cached slug order, preserving
+      // Reorder current public stations by the cached slug order, preserving
       // fresh metadata (listeners, now_playing, etc.)
-      final stationMap = {for (final s in allStations) s.slug: s};
+      final stationMap = {for (final s in publicOnly) s.slug: s};
       final result = <Station>[];
       for (final slug in _cachedSortOrder!) {
         final station = stationMap.remove(slug);
@@ -776,7 +973,7 @@ class StationDataService {
       }
       // Append any new stations not in the cache (e.g. added since last sort)
       result.addAll(stationMap.values);
-      return result;
+      return [...privatePinned, ...result];
     }
 
     // Cache miss — compute fresh sort
@@ -789,17 +986,32 @@ class StationDataService {
     final playCounts = playCountService?.playCounts ?? <String, int>{};
     final favSlugs = favoriteStationSlugs.value;
     final sorted = StationSortService.sort(
-      stations: allStations,
+      stations: publicOnly,
       sortBy: sortOption,
       playCounts: playCounts,
       favoriteSlugs: favSlugs,
     ).sorted;
 
-    // Cache the order
+    // Cache the (public) order
     _cachedSortOrder = sorted.map<String>((s) => s.slug).toList();
     _cachedSortOption = sortOption;
 
-    return sorted;
+    return [...privatePinned, ...sorted];
+  }
+
+  /// Extracts the private stations present in [source], ordered by their
+  /// position in the backend-provided private list (stable among themselves).
+  List<Station> _orderedPrivateFrom(List<Station> source) {
+    final privateIds = _privateOnlyIds;
+    if (privateIds.isEmpty) return const <Station>[];
+    final orderIndex = <int, int>{};
+    for (var i = 0; i < _privateStations.length; i++) {
+      orderIndex[_privateStations[i].id as int] = i;
+    }
+    final result = source.where((s) => privateIds.contains(s.id)).toList();
+    result.sort((a, b) =>
+        (orderIndex[a.id as int] ?? 0).compareTo(orderIndex[b.id as int] ?? 0));
+    return result;
   }
 
   /// Keeps [orderedStations] in sync with the frozen recommended order as
@@ -820,9 +1032,22 @@ class StationDataService {
   /// group-filtered) [source] is passed in: removed stations drop out and
   /// genuinely-new stations are appended at the end — positions never shift.
   List<Station> _applyFrozenRecommendedOrder(List<Station> source) {
+    // Private stations are pinned first and never enter the frozen public
+    // order — they can be added/removed mid-session without shifting a single
+    // public position.
+    final privatePinned = _orderedPrivateFrom(source);
+    final privateIds = _privateOnlyIds;
+    final publicSource =
+        source.where((s) => !privateIds.contains(s.id)).toList();
+
     if (_frozenRecommendedOrder == null) {
-      final full = stations.value;
-      if (full.isEmpty) return source; // nothing to freeze yet
+      final full = stations.value
+          .where((s) => !privateIds.contains(s.id))
+          .toList();
+      if (full.isEmpty) {
+        // No public stations to freeze yet.
+        return [...privatePinned, ...publicSource];
+      }
       final playCountService = GetIt.instance.isRegistered<PlayCountService>()
           ? GetIt.instance<PlayCountService>()
           : null;
@@ -837,15 +1062,15 @@ class StationDataService {
       _frozenRecommendedOrder = sorted.map<String>((s) => s.slug).toList();
     }
 
-    final bySlug = {for (final s in source) s.slug: s};
-    final result = <Station>[];
+    final bySlug = {for (final s in publicSource) s.slug: s};
+    final orderedPublic = <Station>[];
     for (final slug in _frozenRecommendedOrder!) {
       final station = bySlug.remove(slug);
-      if (station != null) result.add(station);
+      if (station != null) orderedPublic.add(station);
     }
-    // Genuinely-new stations (not in the frozen order) go at the end.
-    result.addAll(bySlug.values);
-    return result;
+    // Genuinely-new public stations (not in the frozen order) go at the end.
+    orderedPublic.addAll(bySlug.values);
+    return [...privatePinned, ...orderedPublic];
   }
 
   /// Invalidates the cached order for the user-chosen sort options, forcing a
