@@ -148,6 +148,7 @@ void main() {
       bool initialBuffering = false,
       bool isLive = false,
       bool showTransport = false,
+      bool isFullscreen = false,
       Duration initialPosition = Duration.zero,
       Duration? initialDuration,
       Duration? fallbackDuration,
@@ -173,6 +174,7 @@ void main() {
                 title: 'Emisiune live • Radio Creștin',
                 isLive: isLive,
                 showTransport: showTransport,
+                isFullscreen: isFullscreen,
                 onPlay: () {},
                 onPause: () {},
                 onSeek: onSeek,
@@ -216,9 +218,9 @@ void main() {
       expect(controlsOpacity(tester), 1.0);
     });
 
-    testWidgets('buffering shows a single spinner in the play button, '
-        'controls stay visible', (tester) async {
-      await tester.pumpWidget(build(initialBuffering: true));
+    testWidgets('fullscreen: buffering shows a single spinner in the play '
+        'button, controls stay visible', (tester) async {
+      await tester.pumpWidget(build(initialBuffering: true, isFullscreen: true));
       await tester.pump();
       // Exactly one spinner (in the play/pause button), not a separate center
       // spinner plus a transport spinner.
@@ -228,6 +230,23 @@ void main() {
       // The play/pause glyph is replaced by the spinner while buffering.
       expect(find.byIcon(Icons.play_arrow_rounded), findsNothing);
       expect(find.byIcon(Icons.pause_rounded), findsNothing);
+    });
+
+    testWidgets('inline: no surface spinner and no center transport — the '
+        'below-title transport owns both', (tester) async {
+      await tester.pumpWidget(build(
+        initialBuffering: true,
+        showTransport: true,
+        onToggleFullscreen: () {},
+      ));
+      await tester.pump();
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(find.byIcon(Icons.play_arrow_rounded), findsNothing);
+      expect(find.byIcon(Icons.pause_rounded), findsNothing);
+      expect(find.byIcon(Icons.skip_previous_rounded), findsNothing);
+      expect(find.byIcon(Icons.skip_next_rounded), findsNothing);
+      // The corner fullscreen button IS on the surface inline.
+      expect(find.byIcon(Icons.fullscreen_rounded), findsOneWidget);
     });
 
     testWidgets('live variant shows the LIVE pill and no seek bar',
@@ -264,14 +283,15 @@ void main() {
       expect(slider.max, const Duration(minutes: 2).inMilliseconds.toDouble());
     });
 
-    testWidgets('prev/next appear only when showTransport is true',
+    testWidgets(
+        'fullscreen: prev/next appear only when showTransport is true',
         (tester) async {
-      await tester.pumpWidget(build(showTransport: false));
+      await tester.pumpWidget(build(showTransport: false, isFullscreen: true));
       await tester.pump();
       expect(find.byIcon(Icons.skip_previous_rounded), findsNothing);
       expect(find.byIcon(Icons.skip_next_rounded), findsNothing);
 
-      await tester.pumpWidget(build(showTransport: true));
+      await tester.pumpWidget(build(showTransport: true, isFullscreen: true));
       await tester.pump();
       expect(find.byIcon(Icons.skip_previous_rounded), findsOneWidget);
       expect(find.byIcon(Icons.skip_next_rounded), findsOneWidget);

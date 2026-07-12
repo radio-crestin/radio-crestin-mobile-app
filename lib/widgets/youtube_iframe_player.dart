@@ -332,15 +332,136 @@ class _YoutubeIframePlayerState extends State<YoutubeIframePlayer> {
     // YouTube's chrome is never summoned — the surface reads as chromeless
     // and all controls (prev, play/pause, next, fullscreen) live OUTSIDE the
     // player, linked through the PlaylistController channels. In fullscreen
-    // the shield lifts and the user interacts with YouTube's own controls.
-    // The same WebView instance persists across the transition (the package
-    // only re-positions it), so playback is never interrupted.
+    // the shield lifts: the user interacts with YouTube's own controls, plus
+    // a minimal prev/next pair at the screen edges for app-playlist
+    // navigation (the native chrome can't do that). The same WebView instance
+    // persists across the transition (the package only re-positions it), so
+    // playback is never interrupted.
     return YoutubePlayer(
       controller: _yt,
       aspectRatio: widget.aspectRatio,
       controlsBuilder: (context, isFullscreen) => isFullscreen
-          ? const SizedBox.shrink()
+          ? _FullscreenEdgeSkips(
+              onPrevious: () => unawaited(widget.controller.skipToPrevious()),
+              onNext: () => unawaited(widget.controller.skipToNext()),
+            )
           : const AbsorbPointer(child: SizedBox.expand()),
+    );
+  }
+}
+
+/// Minimal prev/next pair pinned to the screen edges in YouTube fullscreen.
+///
+/// Sits above the iframe but only claims hits on the two small buttons, so
+/// YouTube's native chrome stays fully interactive. Dims to a subtle state
+/// after a few seconds (and re-brightens on use) instead of hiding entirely —
+/// fully hidden buttons would be unreachable, since surface taps belong to
+/// the native chrome.
+class _FullscreenEdgeSkips extends StatefulWidget {
+  const _FullscreenEdgeSkips({
+    required this.onPrevious,
+    required this.onNext,
+  });
+
+  final VoidCallback onPrevious;
+  final VoidCallback onNext;
+
+  @override
+  State<_FullscreenEdgeSkips> createState() => _FullscreenEdgeSkipsState();
+}
+
+class _FullscreenEdgeSkipsState extends State<_FullscreenEdgeSkips> {
+  bool _dimmed = false;
+  Timer? _dimTimer;
+
+  static const Duration _dimDelay = Duration(seconds: 3);
+
+  @override
+  void initState() {
+    super.initState();
+    _scheduleDim();
+  }
+
+  @override
+  void dispose() {
+    _dimTimer?.cancel();
+    super.dispose();
+  }
+
+  void _scheduleDim() {
+    _dimTimer?.cancel();
+    _dimTimer = Timer(_dimDelay, () {
+      if (mounted) setState(() => _dimmed = true);
+    });
+  }
+
+  void _onTap(VoidCallback action) {
+    setState(() => _dimmed = false);
+    _scheduleDim();
+    action();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Padding(
+            padding: const EdgeInsets.only(left: 12),
+            child: _EdgeSkipButton(
+              icon: Icons.skip_previous_rounded,
+              dimmed: _dimmed,
+              onTap: () => _onTap(widget.onPrevious),
+            ),
+          ),
+        ),
+        Align(
+          alignment: Alignment.centerRight,
+          child: Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: _EdgeSkipButton(
+              icon: Icons.skip_next_rounded,
+              dimmed: _dimmed,
+              onTap: () => _onTap(widget.onNext),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _EdgeSkipButton extends StatelessWidget {
+  const _EdgeSkipButton({
+    required this.icon,
+    required this.dimmed,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final bool dimmed;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeInOut,
+      opacity: dimmed ? 0.35 : 1.0,
+      child: Material(
+        color: Colors.black.withValues(alpha: 0.38),
+        shape: const CircleBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          customBorder: const CircleBorder(),
+          child: Padding(
+            padding: const EdgeInsets.all(8),
+            child: Icon(icon, color: Colors.white, size: 30),
+          ),
+        ),
+      ),
     );
   }
 }

@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
+import 'package:media_kit/media_kit.dart';
+import 'package:media_kit_video/media_kit_video.dart';
 import 'package:radio_crestin/theme.dart';
 import 'package:sliding_up_panel2/sliding_up_panel2.dart';
 
@@ -66,6 +68,10 @@ class _PlaylistPlayerSectionState extends State<PlaylistPlayerSection> {
   final _playButtonKey = GlobalKey<AnimatedPlayButtonState>();
   final ScrollController _listController = ScrollController();
 
+  /// Key onto the media_kit [Video] widget so the below-title transport's
+  /// fullscreen button can drive `enterFullscreen()` from outside the surface.
+  final _videoKey = GlobalKey<VideoState>();
+
   static const double _rowExtent = 64.0;
 
   final PlaylistController _controller = GetIt.instance<PlaylistController>();
@@ -77,6 +83,7 @@ class _PlaylistPlayerSectionState extends State<PlaylistPlayerSection> {
   bool _isYoutubeContent = false;
   bool _audioOnlyFallback = false;
   Set<int> _failedIds = const {};
+  List<VideoTrack> _videoTracks = const [];
   OverlayEntry? _skipToast;
 
   /// The persistent below-video scrubber is shown only for audio items: video
@@ -136,6 +143,22 @@ class _PlaylistPlayerSectionState extends State<PlaylistPlayerSection> {
     _subs.add(c.isYoutubeContent.stream.listen((v) {
       if (mounted) setState(() => _isYoutubeContent = v);
     }));
+    _videoTracks = widget.audioHandler.videoService.videoTracks;
+    _subs.add(widget.audioHandler.videoService.videoTracksStream.listen((t) {
+      if (mounted) setState(() => _videoTracks = t);
+    }));
+  }
+
+  /// Opens the shared quality sheet for the current video item and applies
+  /// the selection on the media_kit player.
+  Future<void> _openQualitySheet() async {
+    final vs = widget.audioHandler.videoService;
+    final chosen = await showVideoQualitySheet(
+      context,
+      qualities: distinctVideoQualities(_videoTracks),
+      selectedId: vs.selectedVideoTrack.id,
+    );
+    if (chosen != null) await vs.setVideoQuality(chosen);
   }
 
   @override
@@ -176,6 +199,7 @@ class _PlaylistPlayerSectionState extends State<PlaylistPlayerSection> {
             isYoutubeContent: _isYoutubeContent,
             audioOnlyFallback: _audioOnlyFallback,
             panelExpanded: widget.panelExpanded,
+            videoKey: _videoKey,
           ),
         ),
         const SizedBox(height: 14),
@@ -213,15 +237,23 @@ class _PlaylistPlayerSectionState extends State<PlaylistPlayerSection> {
             ),
           ),
         const SizedBox(height: 6),
-        // Transport: prev | play/pause | next (+ fullscreen for YouTube items,
-        // whose chromeless inline surface carries no controls of its own).
-        // Play/pause routes through the handler for every item type.
+        // Transport below the title — the SINGLE inline transport:
+        // [quality] [prev] [play/pause] [next] [fullscreen]. The video surface
+        // itself stays clean inline (only seek bar/LIVE pill + a corner
+        // fullscreen button). Play/pause routes through the handler for every
+        // item type.
         _Transport(
           audioHandler: widget.audioHandler,
           playButtonKey: _playButtonKey,
+          onQuality: _isVideoContent &&
+                  distinctVideoQualities(_videoTracks).length > 1
+              ? _openQualitySheet
+              : null,
           onFullscreen: _isYoutubeContent
               ? _controller.requestYoutubeFullscreen
-              : null,
+              : _isVideoContent
+                  ? () => _videoKey.currentState?.enterFullscreen()
+                  : null,
         ),
         const SizedBox(height: 12),
         // Track list — live-reconciling, current item highlighted.
@@ -258,6 +290,7 @@ class _MediaSurface extends StatelessWidget {
     required this.isYoutubeContent,
     required this.audioOnlyFallback,
     required this.panelExpanded,
+    required this.videoKey,
   });
 
   final AppAudioHandler audioHandler;
@@ -266,6 +299,9 @@ class _MediaSurface extends StatelessWidget {
   final PlaylistItem? item;
   final bool isVideoContent;
   final bool isYoutubeContent;
+
+  /// Key onto the media_kit [Video] widget (external fullscreen trigger).
+  final GlobalKey<VideoState> videoKey;
 
   /// True when this (video) item is playing audio-only because video rendering
   /// failed — overlays a subtle "Doar audio" chip on the artwork.
@@ -299,6 +335,7 @@ class _MediaSurface extends StatelessWidget {
       // double-tap ±10s and fullscreen. VOD (playlist items are not live).
       child = VideoPlayerStage(
         videoService: audioHandler.videoService,
+        videoKey: videoKey,
         title: item?.title ?? station.displayTitle,
         isLive: false,
         showTransport: true,
@@ -508,19 +545,23 @@ class _Transport extends StatelessWidget {
   const _Transport({
     required this.audioHandler,
     required this.playButtonKey,
+    this.onQuality,
     this.onFullscreen,
   });
 
   final AppAudioHandler audioHandler;
   final GlobalKey<AnimatedPlayButtonState> playButtonKey;
 
-  /// Fullscreen action shown right of "next" — used by YouTube items, whose
-  /// chromeless inline surface has no fullscreen control of its own.
+  /// Quality picker, shown left of "prev" for multi-quality video items.
+  final VoidCallback? onQuality;
+
+  /// Fullscreen action shown right of "next" — video items enter media_kit
+  /// fullscreen, YouTube items enter the iframe fullscreen.
   final VoidCallback? onFullscreen;
 
   /// Side length of the round secondary buttons (10px padding + 30px icon) —
-  /// also the size of the invisible left spacer that keeps the prev/play/next
-  /// cluster dead-center when fullscreen is present on the right.
+  /// also the size of the invisible spacer that keeps the prev/play/next
+  /// cluster dead-center when only one side control is present.
   static const double _sideButtonSize = 50.0;
 
   @override
@@ -528,9 +569,20 @@ class _Transport extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        // Ghost slot mirroring the fullscreen button so the transport cluster
-        // stays visually centered.
-        if (onFullscreen != null) ...[
+        // Left slot: quality, or a ghost mirroring the right-side button so
+        // the transport cluster stays visually centered.
+        if (onQuality != null) ...[
+          InkWell(
+            customBorder: const CircleBorder(),
+            onTap: onQuality,
+            child: Padding(
+              padding: const EdgeInsets.all(10.0),
+              child: Icon(Icons.high_quality_rounded,
+                  size: 30, color: Theme.of(context).colorScheme.onSurface),
+            ),
+          ),
+          const SizedBox(width: 24),
+        ] else if (onFullscreen != null) ...[
           const SizedBox(width: _sideButtonSize, height: _sideButtonSize),
           const SizedBox(width: 24),
         ],
@@ -570,6 +622,7 @@ class _Transport extends StatelessWidget {
                 size: 30, color: Theme.of(context).colorScheme.onSurface),
           ),
         ),
+        // Right slot: fullscreen, or a ghost mirroring the quality button.
         if (onFullscreen != null) ...[
           const SizedBox(width: 24),
           InkWell(
@@ -581,6 +634,9 @@ class _Transport extends StatelessWidget {
                   size: 30, color: Theme.of(context).colorScheme.onSurface),
             ),
           ),
+        ] else if (onQuality != null) ...[
+          const SizedBox(width: 24),
+          const SizedBox(width: _sideButtonSize, height: _sideButtonSize),
         ],
       ],
     );

@@ -127,12 +127,17 @@ class PlayerVideoSurface extends StatelessWidget {
     this.fit = BoxFit.contain,
     this.borderRadius = const BorderRadius.all(Radius.circular(12)),
     this.controls,
+    this.videoKey,
   });
 
   final VideoPlaybackService videoService;
   final bool showLivePill;
   final BoxFit fit;
   final BorderRadius borderRadius;
+
+  /// Optional key onto the media_kit [Video] widget so UI outside the surface
+  /// can call `videoKey.currentState?.enterFullscreen()`.
+  final GlobalKey<VideoState>? videoKey;
 
   /// Optional custom controls builder (e.g. [VideoOverlayControls]). When
   /// provided, the surface hands buffering and the LIVE pill to the overlay and
@@ -158,6 +163,7 @@ class PlayerVideoSurface extends StatelessWidget {
                   return const _SurfaceSpinner();
                 }
                 return Video(
+                  key: videoKey,
                   controller: controller,
                   controls: controls ?? NoVideoControls,
                   fit: fit,
