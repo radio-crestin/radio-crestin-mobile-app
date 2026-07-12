@@ -119,6 +119,7 @@ class VideoOverlayControls extends StatefulWidget {
     this.initialBuffering = false,
     this.initialPosition = Duration.zero,
     this.initialDuration,
+    this.fallbackDuration,
     this.isLive = false,
     this.showTransport = false,
     this.isFullscreen = false,
@@ -141,6 +142,11 @@ class VideoOverlayControls extends StatefulWidget {
   final Duration initialPosition;
   final Stream<Duration> durationStream;
   final Duration? initialDuration;
+
+  /// Known total length (e.g. the playlist item's `duration_seconds`) used to
+  /// enable the seek bar and clamp double-tap seeks before the player has
+  /// reported its own duration. Ignored once a positive stream duration arrives.
+  final Duration? fallbackDuration;
 
   /// Title shown along the top of the overlay (single line, ellipsized).
   final String title;
@@ -221,6 +227,14 @@ class _VideoOverlayControlsState extends State<VideoOverlayControls>
 
   bool get _seekable =>
       !widget.isLive && widget.onSeek != null;
+
+  /// The stream-reported duration when known & positive, else the caller's
+  /// [VideoOverlayControls.fallbackDuration] so the seek bar works immediately.
+  Duration? get _effectiveDuration {
+    final d = _duration;
+    if (d != null && d > Duration.zero) return d;
+    return widget.fallbackDuration;
+  }
 
   bool get _effectiveVisible => _visible || !_playing || _buffering;
 
@@ -324,7 +338,7 @@ class _VideoOverlayControlsState extends State<VideoOverlayControls>
     final forward = _lastTapDx >= _surfaceWidth / 2;
     final target = computeDoubleTapSeek(
       position: _position,
-      duration: _duration,
+      duration: _effectiveDuration,
       forward: forward,
     );
     widget.onSeek!(target);
@@ -442,7 +456,7 @@ class _VideoOverlayControlsState extends State<VideoOverlayControls>
                     showPlaying: showPlaying,
                     buffering: _buffering,
                     position: _position,
-                    duration: _duration,
+                    duration: _effectiveDuration,
                     dragValue: _dragValue,
                     showQuality: showQuality,
                     onOpenQuality:
@@ -1012,6 +1026,7 @@ class VideoPlayerStage extends StatelessWidget {
     this.onSkipNext,
     this.onSkipPrevious,
     this.onSeek,
+    this.fallbackDuration,
     this.allowFullscreen = true,
     this.borderRadius = const BorderRadius.all(Radius.circular(16)),
   });
@@ -1020,6 +1035,10 @@ class VideoPlayerStage extends StatelessWidget {
   final String title;
   final bool isLive;
   final bool showTransport;
+
+  /// Known total length for VOD when the player hasn't reported one yet (e.g.
+  /// the playlist item's `duration_seconds`). Enables the seek bar immediately.
+  final Duration? fallbackDuration;
   final VoidCallback onPlay;
   final VoidCallback onPause;
   final VoidCallback? onSkipNext;
@@ -1044,6 +1063,7 @@ class VideoPlayerStage extends StatelessWidget {
           initialPosition: videoService.position,
           durationStream: videoService.durationStream,
           initialDuration: videoService.duration,
+          fallbackDuration: fallbackDuration,
           title: title,
           isLive: isLive,
           showTransport: showTransport,

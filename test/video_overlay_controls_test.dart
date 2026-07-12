@@ -150,6 +150,7 @@ void main() {
       bool showTransport = false,
       Duration initialPosition = Duration.zero,
       Duration? initialDuration,
+      Duration? fallbackDuration,
       ValueChanged<Duration>? onSeek,
       VoidCallback? onToggleFullscreen,
     }) {
@@ -168,6 +169,7 @@ void main() {
                 initialPosition: initialPosition,
                 durationStream: duration.stream,
                 initialDuration: initialDuration,
+                fallbackDuration: fallbackDuration,
                 title: 'Emisiune live • Radio Creștin',
                 isLive: isLive,
                 showTransport: showTransport,
@@ -246,6 +248,20 @@ void main() {
       await tester.pump();
       expect(find.byType(Slider), findsOneWidget);
       expect(find.byType(LivePill), findsNothing);
+    });
+
+    testWidgets('fallbackDuration enables the seek bar before the player '
+        'reports a duration', (tester) async {
+      await tester.pumpWidget(build(
+        isLive: false,
+        onSeek: (_) {},
+        initialDuration: null, // player has not reported a duration yet
+        fallbackDuration: const Duration(minutes: 2),
+      ));
+      await tester.pump();
+      final slider = tester.widget<Slider>(find.byType(Slider));
+      expect(slider.onChanged, isNotNull); // enabled via the fallback
+      expect(slider.max, const Duration(minutes: 2).inMilliseconds.toDouble());
     });
 
     testWidgets('prev/next appear only when showTransport is true',

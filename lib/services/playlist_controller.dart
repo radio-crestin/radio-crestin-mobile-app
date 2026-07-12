@@ -164,7 +164,10 @@ class PlaylistController {
     }));
     _subs.add(_handler.player.durationStream.listen((d) {
       if (!_handler.isVideoModeActive && !isYoutubeContent.value) {
-        duration.add(d);
+        // just_audio emits null/zero briefly on each new source; keep the
+        // item's seeded duration (set in playItemAt) so the audio VOD seek bar
+        // stays enabled instead of flickering to "unknown".
+        if (d != null && d > Duration.zero) duration.add(d);
       }
     }));
 

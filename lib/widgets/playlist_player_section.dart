@@ -301,6 +301,11 @@ class _MediaSurface extends StatelessWidget {
         onSkipNext: audioHandler.skipToNext,
         onSkipPrevious: audioHandler.skipToPrevious,
         onSeek: (d) => controller.seek(d),
+        // Enable the seek bar right away using the item's known length, before
+        // libmpv reports its own duration.
+        fallbackDuration: item?.durationSeconds != null
+            ? Duration(seconds: item!.durationSeconds!)
+            : null,
       );
     } else {
       kind = 'audio-${item?.id}';
