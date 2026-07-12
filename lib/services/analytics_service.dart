@@ -5,6 +5,8 @@ import 'dart:io' show PathNotFoundException;
 import 'package:flutter/foundation.dart';
 import 'package:posthog_flutter/posthog_flutter.dart';
 
+import 'session_replay_controller.dart';
+
 /// Centralized analytics service wrapping PostHog.
 /// Handles user identification, event tracking, error tracking,
 /// and listening duration measurement.
@@ -17,6 +19,11 @@ class AnalyticsService {
   bool _initialized = false;
   String? _sessionId;
   String? _userId;
+
+  // Identity context, attached to every structured log record so a log line in
+  // PostHog Logs can be pinned to an app version / platform without a join.
+  String? _appVersion;
+  String? _platform;
 
   // Listening duration tracking
   String? _currentStationSlug;
@@ -59,13 +66,15 @@ class AnalyticsService {
 
   /// Initialize PostHog with manual setup for error tracking support.
   ///
-  /// [sessionReplayEnabled] and [sessionReplaySampleRate] (a 0.0–1.0 fraction)
-  /// are supplied by the caller from our backend (see SessionRecordingService)
-  /// so screen recording can be tuned per device without a new app release.
-  /// Defaults to off so nothing records unless the backend opts the device in.
+  /// [sessionReplayAtSetup] decides `config.sessionReplay`. It must be true for
+  /// the native replay integration to install so that runtime start/stop works
+  /// (see [SessionReplayController]); the controller then stops recording until
+  /// the `mobile-session-replay` feature flag allows it. [onFeatureFlagsLoaded]
+  /// is invoked once PostHog has loaded feature flags, which is when the
+  /// replay decision can first be read.
   Future<void> initialize({
-    bool sessionReplayEnabled = false,
-    double sessionReplaySampleRate = 1.0,
+    bool sessionReplayAtSetup = false,
+    VoidCallback? onFeatureFlagsLoaded,
   }) async {
     final config = PostHogConfig('phc_9lTquHDSyoFxkYq4VPd8cFiQ21VZd627Lv8jSV8S7Fi');
     config.host = 'https://k.radiocrestin.ro';
@@ -82,19 +91,29 @@ class AnalyticsService {
 
     // Session replay (screen recording) — Android & iOS.
     // Requires "Record user sessions" enabled in PostHog Project Settings.
-    // The enabled flag and sample rate are decided per device by our backend
-    // (see SessionRecordingService), so they can change without a new app
-    // release.
-    config.sessionReplay = sessionReplayEnabled;
+    // Whether recording actually runs is decided at runtime by the
+    // `mobile-session-replay` feature flag (see SessionReplayController); this
+    // only installs the native integration so runtime start/stop can work.
+    config.sessionReplay = sessionReplayAtSetup;
     // No sensitive data is shown (station names, song titles, artwork), so we
     // leave text and images unmasked to keep recordings useful. Wrap any
     // sensitive widget with PostHogMaskWidget to mask it individually.
     config.sessionReplayConfig.maskAllTexts = false;
     config.sessionReplayConfig.maskAllImages = false;
-    // Snapshot throttle — lower = more frequent captures + higher overhead.
-    config.sessionReplayConfig.throttleDelay = const Duration(milliseconds: 1000);
-    // Fraction of sessions to record (0.0–1.0). PostHog rolls per session.
-    config.sessionReplayConfig.sampleRate = sessionReplaySampleRate;
+    // Snapshot throttle — higher = fewer captures, so audio streaming keeps the
+    // bandwidth/CPU. Smooth playback is the priority, so we throttle to 1.5s.
+    config.sessionReplayConfig.throttleDelay =
+        const Duration(milliseconds: 1500);
+    // Always full-rate: sampling is done by the flag's 10% variant rollout, not
+    // the SDK.
+    config.sessionReplayConfig.sampleRate = 1.0;
+
+    // Feature flags gate session replay; fire the caller's callback once loaded.
+    config.onFeatureFlags = onFeatureFlagsLoaded;
+
+    // PostHog Logs (OTLP) resource attributes.
+    config.logsConfig.serviceName = 'radio-crestin-mobile';
+    config.logsConfig.environment = kDebugMode ? 'development' : 'production';
 
     // Person profiles
     config.personProfiles = PostHogPersonProfiles.identifiedOnly;
@@ -146,6 +165,22 @@ class AnalyticsService {
         if (context != null) 'context': context,
       },
     ));
+
+    // Mirror to PostHog Logs with full detail (message, stack, station/stream
+    // context, app version, platform) so playback issues are debuggable there.
+    _emitLog(
+      PostHogLogSeverity.error,
+      context == null ? error.toString() : '$context: $error',
+      {
+        'error_type': error.runtimeType.toString(),
+        if (context != null) 'context': context,
+        if (stackTrace != null) 'stack_trace': stackTrace.toString(),
+        ..._logContext(),
+      },
+    );
+
+    // Real error → start replay for `on-error` devices (WiFi gate still applies).
+    SessionReplayController.instance.notifyErrorCaptured();
   }
 
   /// Identify user with persistent device ID.
@@ -156,6 +191,8 @@ class AnalyticsService {
     String? platform,
   }) async {
     _userId = userId;
+    _appVersion = appVersion ?? _appVersion;
+    _platform = platform ?? _platform;
     // Reset first to clear any stale anonymous/misidentified distinct_id
     // from previous sessions. This generates a fresh anonymous ID which
     // identify() then links to the real userId.
@@ -177,16 +214,9 @@ class AnalyticsService {
 
   /// Capture a custom event.
   void capture(String eventName, [Map<String, Object?>? properties]) {
-    // Filter out null values and cast to Map<String, Object>
-    final filtered = <String, Object>{};
-    if (properties != null) {
-      for (final entry in properties.entries) {
-        if (entry.value != null) filtered[entry.key] = entry.value!;
-      }
-    }
     Posthog().capture(
       eventName: eventName,
-      properties: filtered,
+      properties: _filterNulls(properties),
     );
   }
 
@@ -197,6 +227,7 @@ class AnalyticsService {
   void captureDebug(String eventName, [Map<String, Object?>? properties]) {
     if (!kDebugMode) return;
     capture(eventName, properties);
+    _emitLog(PostHogLogSeverity.debug, eventName, _filterNulls(properties));
   }
 
   /// Set a user property without re-identifying.
@@ -208,9 +239,54 @@ class AnalyticsService {
     );
   }
 
-  /// Log a message as a PostHog `app_log` event.
-  void log(String message) {
-    capture('app_log', {'message': message});
+  /// Emit an info-level structured log record to PostHog Logs.
+  void log(String message, [Map<String, Object?>? attributes]) {
+    _emitLog(PostHogLogSeverity.info, message, _filterNulls(attributes));
+  }
+
+  /// Emit a warning-level structured log record (e.g. a recoverable stream
+  /// failure worth debugging in PostHog Logs).
+  void logWarning(String message, [Map<String, Object?>? attributes]) {
+    _emitLog(PostHogLogSeverity.warn, message, _filterNulls(attributes));
+  }
+
+  // ── Structured logging (PostHog Logs) ──
+
+  /// Forwards a record to PostHog Logs. Fire-and-forget and never throws into
+  /// the caller — a failed log must not disturb playback.
+  void _emitLog(
+    PostHogLogSeverity level,
+    String body, [
+    Map<String, Object>? attributes,
+  ]) {
+    if (!_initialized || body.trim().isEmpty) return;
+    unawaited(
+      Posthog()
+          .captureLog(body: body, level: level, attributes: attributes)
+          .catchError((Object _) {}),
+    );
+  }
+
+  /// Identity + station/stream context shared by every rich log record.
+  Map<String, Object> _logContext() => {
+        if (_currentStationSlug != null) 'station_slug': _currentStationSlug!,
+        if (_currentStationName != null) 'station_name': _currentStationName!,
+        if (_currentStationId != null) 'station_id': _currentStationId!,
+        ..._streamContext,
+        if (_appVersion != null) 'app_version': _appVersion!,
+        if (_platform != null) 'platform': _platform!,
+      };
+
+  /// Drops null-valued entries and narrows to `Map<String, Object>`.
+  Map<String, Object> _filterNulls(Map<String, Object?>? properties) {
+    final filtered = <String, Object>{};
+    if (properties != null) {
+      for (final entry in properties.entries) {
+        final value = entry.value;
+        if (value != null) filtered[entry.key] = value;
+      }
+    }
+    return filtered;
   }
 
   // ── Listening session tracking ──
@@ -255,6 +331,12 @@ class AnalyticsService {
       if (stationId != null) 'station_id': stationId,
       ..._streamContext,
     });
+    _emitLog(PostHogLogSeverity.info, 'listening started', {
+      'station_slug': stationSlug,
+      'station_name': stationName,
+      if (stationId != null) 'station_id': stationId,
+      ..._streamContext,
+    });
 
     _startHeartbeat();
   }
@@ -269,6 +351,11 @@ class AnalyticsService {
     capture('listening_resumed', {
       'station_slug': _currentStationSlug!,
       'station_name': _currentStationName ?? '',
+      if (_currentStationId != null) 'station_id': _currentStationId!,
+      ..._streamContext,
+    });
+    _emitLog(PostHogLogSeverity.info, 'listening resumed', {
+      'station_slug': _currentStationSlug!,
       if (_currentStationId != null) 'station_id': _currentStationId!,
       ..._streamContext,
     });
@@ -289,6 +376,12 @@ class AnalyticsService {
     capture('listening_stopped', {
       'station_slug': _currentStationSlug ?? '',
       'station_name': _currentStationName ?? '',
+      if (_currentStationId != null) 'station_id': _currentStationId!,
+      'duration_seconds': durationSeconds,
+      'reason': reason,
+    });
+    _emitLog(PostHogLogSeverity.info, 'listening stopped', {
+      'station_slug': _currentStationSlug ?? '',
       if (_currentStationId != null) 'station_id': _currentStationId!,
       'duration_seconds': durationSeconds,
       'reason': reason,

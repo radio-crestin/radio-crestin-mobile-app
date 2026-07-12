@@ -35,7 +35,10 @@ class ErrorFilter {
 
   /// Wraps the current `FlutterError.onError` / `PlatformDispatcher.onError`
   /// (installed by PostHog) with a benign-error filter. Idempotent.
-  static void install() {
+  ///
+  /// [onReportableError] fires once for every non-benign error just before it
+  /// is forwarded to PostHog — used to start `on-error` session replay.
+  static void install({VoidCallback? onReportableError}) {
     if (_installed) return;
     _installed = true;
 
@@ -48,6 +51,7 @@ class ErrorFilter {
         }
         return;
       }
+      onReportableError?.call();
       downstreamFlutterHandler?.call(details);
     };
 
@@ -60,6 +64,7 @@ class ErrorFilter {
         }
         return true; // handled — don't report, don't surface as a crash
       }
+      onReportableError?.call();
       return downstreamPlatformHandler?.call(error, stack) ?? false;
     };
   }

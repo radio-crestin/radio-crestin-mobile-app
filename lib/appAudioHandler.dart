@@ -660,8 +660,9 @@ class AppAudioHandler extends BaseAudioHandler {
       StreamEventKind.playerError,
       'Player error${code != null ? ' code=$code' : ''}${shortMsg.isNotEmpty ? ': $shortMsg' : ''}',
     );
-    AnalyticsService.instance.capture('stream_player_error', {
-      'station_slug': lastInfo?.stationSlug ?? currentStation.valueOrNull?.slug ?? '',
+    final playerErrorProps = <String, Object?>{
+      'station_slug':
+          lastInfo?.stationSlug ?? currentStation.valueOrNull?.slug ?? '',
       'station_id': currentStation.valueOrNull?.id,
       'stream_url': lastInfo?.url,
       'stream_type': lastInfo?.type,
@@ -670,7 +671,9 @@ class AppAudioHandler extends BaseAudioHandler {
       'error_code': code,
       'error_message': msg,
       'error_runtime_type': error.runtimeType.toString(),
-    });
+    };
+    AnalyticsService.instance.capture('stream_player_error', playerErrorProps);
+    AnalyticsService.instance.logWarning('stream player error', playerErrorProps);
   }
 
   _log(String message) {
@@ -1836,7 +1839,7 @@ class AppAudioHandler extends BaseAudioHandler {
             StreamEventKind.failed,
             'Attempt ${attemptIndex + 1}/$totalStreams failed (${elapsedMs}ms): ${_shortErr(e)}',
           );
-          AnalyticsService.instance.capture('stream_failed', {
+          final failedProps = <String, Object?>{
             'station_slug': stationSlug,
             if (stationId != null) 'station_id': stationId,
             'stream_url': streamUrl,
@@ -1846,7 +1849,10 @@ class AppAudioHandler extends BaseAudioHandler {
             'retry': retry,
             'elapsed_ms': elapsedMs,
             'error': _shortErr(e),
-          });
+          };
+          AnalyticsService.instance.capture('stream_failed', failedProps);
+          AnalyticsService.instance
+              .logWarning('stream attempt failed', failedProps);
           retry++;
         }
       } else {

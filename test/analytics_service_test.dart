@@ -84,6 +84,21 @@ class _FakePosthogPlatform extends PosthogFlutterPlatformInterface {
     flushCalls++;
   }
 
+  final List<({String body, PostHogLogSeverity level, Map<String, Object>? attributes})>
+      capturedLogs = [];
+
+  @override
+  Future<void> captureLog({
+    required String body,
+    PostHogLogSeverity level = PostHogLogSeverity.info,
+    Map<String, Object>? attributes,
+    String? traceId,
+    String? spanId,
+    int? traceFlags,
+  }) async {
+    capturedLogs.add((body: body, level: level, attributes: attributes));
+  }
+
   final List<({Object error, StackTrace? stackTrace, Map<String, Object>? properties})>
       capturedExceptions = [];
 
@@ -514,10 +529,27 @@ void main() {
   });
 
   group('log', () {
-    test('emits app_log with the message property', () {
-      analytics.log('hello');
-      final ev = fake.events.singleWhere((e) => e.eventName == 'app_log');
-      expect(ev.properties?['message'], 'hello');
+    test('emits an info-level structured log to PostHog Logs', () async {
+      await analytics.initialize();
+      fake.capturedLogs.clear();
+
+      analytics.log('hello', {'k': 'v'});
+
+      final rec = fake.capturedLogs.singleWhere((l) => l.body == 'hello');
+      expect(rec.level, PostHogLogSeverity.info);
+      expect(rec.attributes?['k'], 'v');
+      // Logs are not captured as analytics events.
+      expect(fake.events.any((e) => e.eventName == 'app_log'), isFalse);
+    });
+
+    test('logWarning emits a warn-level structured log', () async {
+      await analytics.initialize();
+      fake.capturedLogs.clear();
+
+      analytics.logWarning('careful');
+
+      final rec = fake.capturedLogs.singleWhere((l) => l.body == 'careful');
+      expect(rec.level, PostHogLogSeverity.warn);
     });
   });
 }

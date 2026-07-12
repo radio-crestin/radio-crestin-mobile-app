@@ -99,6 +99,8 @@ PODS:
     - FlutterMacOS
   - media_kit_libs_ios_video (1.0.4):
     - Flutter
+  - media_kit_video (0.0.1):
+    - Flutter
   - nanopb (3.30910.0):
     - nanopb/decode (= 3.30910.0)
     - nanopb/encode (= 3.30910.0)
@@ -157,6 +159,11 @@ PODS:
     - sqlite3/session
   - url_launcher_ios (0.0.1):
     - Flutter
+  - wakelock_plus (0.0.1):
+    - Flutter
+  - webview_flutter_wkwebview (0.0.1):
+    - Flutter
+    - FlutterMacOS
 
 DEPENDENCIES:
   - app_links (from `.symlinks/plugins/app_links/ios`)
@@ -177,6 +184,7 @@ DEPENDENCIES:
   - in_app_review (from `.symlinks/plugins/in_app_review/ios`)
   - just_audio (from `.symlinks/plugins/just_audio/darwin`)
   - media_kit_libs_ios_video (from `.symlinks/plugins/media_kit_libs_ios_video/ios`)
+  - media_kit_video (from `.symlinks/plugins/media_kit_video/ios`)
   - objective_c (from `.symlinks/plugins/objective_c/ios`)
   - package_info_plus (from `.symlinks/plugins/package_info_plus/ios`)
   - path_provider_foundation (from `.symlinks/plugins/path_provider_foundation/darwin`)
@@ -188,6 +196,8 @@ DEPENDENCIES:
   - sqflite_darwin (from `.symlinks/plugins/sqflite_darwin/darwin`)
   - sqlite3_flutter_libs (from `.symlinks/plugins/sqlite3_flutter_libs/darwin`)
   - url_launcher_ios (from `.symlinks/plugins/url_launcher_ios/ios`)
+  - wakelock_plus (from `.symlinks/plugins/wakelock_plus/ios`)
+  - webview_flutter_wkwebview (from `.symlinks/plugins/webview_flutter_wkwebview/darwin`)
 
 SPEC REPOS:
   trunk:
@@ -242,6 +252,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/just_audio/darwin"
   media_kit_libs_ios_video:
     :path: ".symlinks/plugins/media_kit_libs_ios_video/ios"
+  media_kit_video:
+    :path: ".symlinks/plugins/media_kit_video/ios"
   objective_c:
     :path: ".symlinks/plugins/objective_c/ios"
   package_info_plus:
@@ -264,6 +276,10 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/sqlite3_flutter_libs/darwin"
   url_launcher_ios:
     :path: ".symlinks/plugins/url_launcher_ios/ios"
+  wakelock_plus:
+    :path: ".symlinks/plugins/wakelock_plus/ios"
+  webview_flutter_wkwebview:
+    :path: ".symlinks/plugins/webview_flutter_wkwebview/darwin"
 
 SPEC CHECKSUMS:
   app_links: a754cbec3c255bd4bbb4d236ecc06f28cd9a7ce8
@@ -292,6 +308,7 @@ SPEC CHECKSUMS:
   in_app_review: 7dd1ea365263f834b8464673f9df72c80c17c937
   just_audio: 4e391f57b79cad2b0674030a00453ca5ce817eed
   media_kit_libs_ios_video: 5a18affdb97d1f5d466dc79988b13eff6c5e2854
+  media_kit_video: 1746e198cb697d1ffb734b1d05ec429d1fcd1474
   nanopb: fad817b59e0457d11a5dfbde799381cd727c1275
   objective_c: 89e720c30d716b036faf9c9684022048eee1eee2
   package_info_plus: af8e2ca6888548050f16fa2f1938db7b5a5df499
@@ -308,6 +325,8 @@ SPEC CHECKSUMS:
   sqlite3: a51c07cf16e023d6c48abd5e5791a61a47354921
   sqlite3_flutter_libs: b3e120efe9a82017e5552a620f696589ed4f62ab
   url_launcher_ios: 7a95fa5b60cc718a708b8f2966718e93db0cef1b
+  wakelock_plus: e29112ab3ef0b318e58cfa5c32326458be66b556
+  webview_flutter_wkwebview: 8ebf4fded22593026f7dbff1fbff31ea98573c8d
 
 PODFILE CHECKSUM: e12928a8084935ad06a71f397f88d7a826ecab85
 

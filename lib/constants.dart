@@ -21,8 +21,6 @@ class CONSTANTS {
   // Device/client registration upsert. Trailing slash is required so Django's
   // APPEND_SLASH never 301-redirects the POST (which would drop the body).
   static String DEVICE_REGISTER_URL = "$API_BASE_URL/devices/register/";
-  // Per-device screen-recording decision; append "/<device_id>/".
-  static String SESSION_RECORDING_URL = "$API_BASE_URL/session-recording";
   static String DEFAULT_STATION_THUMBNAIL_URL = "";
   static String IMAGE_PROXY_PREFIX = "";
   static String STATIC_MP3_URL =

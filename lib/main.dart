@@ -45,7 +45,7 @@ import 'services/image_cache_service.dart';
 import 'services/quick_actions_service.dart';
 import 'services/network_service.dart';
 import 'services/play_count_service.dart';
-import 'services/session_recording_service.dart';
+import 'services/session_replay_controller.dart';
 import 'services/song_like_service.dart';
 import 'services/station_data_service.dart';
 import 'services/video_playback_service.dart';
@@ -282,22 +282,30 @@ void main() async {
   // Now await Firebase (likely already done since audio init takes longer)
   await firebaseInitFuture;
 
-  // Ask our backend whether this device should record its screen (session
-  // replay), before PostHog setup where the sample rate must be set. Uses the
-  // value cached from the previous launch, so it does not block on the network.
-  final replay = await SessionRecordingService.instance
-      .load(prefs, globals.deviceId);
+  // Load the cached `mobile-session-replay` flag decision (from the previous
+  // launch) so PostHog setup can decide whether to install the native replay
+  // integration. Does not block on the network.
+  await SessionReplayController.instance.loadCache(prefs);
 
-  // Initialize PostHog analytics (error tracking is handled by PostHog config)
+  // Initialize PostHog analytics (error tracking is handled by PostHog config).
+  // The onFeatureFlags callback lets the controller apply the live flag once
+  // PostHog has loaded it.
   await AnalyticsService.instance.initialize(
-    sessionReplayEnabled: replay.enabled,
-    sessionReplaySampleRate: replay.sampleRate,
+    sessionReplayAtSetup: SessionReplayController.instance.enableReplayAtSetup,
+    onFeatureFlagsLoaded: SessionReplayController.instance.onFlagsLoaded,
   );
+
+  // Start the replay controller: subscribe to connectivity and stop recording
+  // until the flag-driven decision (and WiFi gate) allow it. After setup.
+  SessionReplayController.instance.start();
 
   // Suppress known-benign runtime/network/plugin errors so they neither crash
   // the app nor drown out real issues in PostHog. Must run AFTER PostHog setup —
   // it wraps the FlutterError/PlatformDispatcher handlers PostHog just installed.
-  ErrorFilter.install();
+  // A non-benign error also starts `on-error` session replay.
+  ErrorFilter.install(
+    onReportableError: SessionReplayController.instance.notifyErrorCaptured,
+  );
 
   // Identify user immediately after PostHog init — before any events fire.
   // deviceId is already set above; appVersion/buildNumber come later.

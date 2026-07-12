@@ -59,7 +59,7 @@ dependencies:
   device_info_plus: ^12.3.0
   font_awesome_flutter: ^10.7.0
   firebase_core: ^4.4.0
-  posthog_flutter: ^5.24.0
+  posthog_flutter: ^5.30.0
   flutter_launcher_icons: ^0.14.0
   rxdart: ^0.28.0
   fuzzywuzzy: ^1.1.6
