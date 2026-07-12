@@ -2717,6 +2717,10 @@ class AppAudioHandler extends BaseAudioHandler {
     Duration? startPosition,
   }) async {
     _log('enterVideoMode($url, live=$live)');
+    // Invalidate any in-flight just_audio load (e.g. a previous playlist audio
+    // item still buffering) so its queued play() can't resume over the video —
+    // the cross-engine "zombie audio on skip" bug.
+    _cancelInFlightPlay();
     if (Platform.isIOS) {
       await _startSilenceKeepAlive();
     }
@@ -3004,6 +3008,7 @@ class AppAudioHandler extends BaseAudioHandler {
     try {
       if (player.playing || player.processingState != ProcessingState.idle) {
         await player.stop();
+        if (myOpId != _playOperationId) return;
       }
       await player.setAudioSource(
         AudioSource.uri(Uri.parse(url)),
@@ -3012,9 +3017,12 @@ class AppAudioHandler extends BaseAudioHandler {
       if (myOpId != _playOperationId) return;
       if (startPosition != null && startPosition > Duration.zero) {
         await player.seek(startPosition);
+        // A skip can supersede this item during the seek await too.
+        if (myOpId != _playOperationId) return;
       }
       _isConnecting = false;
       _broadcastState(player.playbackEvent);
+      if (myOpId != _playOperationId) return;
       await player.play();
     } catch (e) {
       _isConnecting = false;
@@ -3057,6 +3065,9 @@ class AppAudioHandler extends BaseAudioHandler {
   /// for youtube items, which have no engine-owned player).
   Future<void> stopPlaylistPlayback() async {
     _log('stopPlaylistPlayback');
+    // Kill any in-flight audio-item load so it can't start playing after this
+    // stop (e.g. skipping onto a youtube item mid-buffer).
+    _cancelInFlightPlay();
     _disconnectTimer?.cancel();
     _bufferingStallTimer?.cancel();
     await _exitVideoMode(stopVideo: true);
