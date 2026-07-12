@@ -734,7 +734,8 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
         height: thumbSize,
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
-          borderRadius: const BorderRadius.all(Radius.circular(8)),
+          borderRadius:
+              const BorderRadius.all(Radius.circular(AppRadius.artwork)),
           boxShadow: [
             BoxShadow(
               color: Colors.grey.withOpacity(0.35),
@@ -745,7 +746,8 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
           ],
         ),
         child: ClipRRect(
-          borderRadius: const BorderRadius.all(Radius.circular(8)),
+          borderRadius:
+              const BorderRadius.all(Radius.circular(AppRadius.artwork)),
           child: Stack(
             fit: StackFit.expand,
             children: [

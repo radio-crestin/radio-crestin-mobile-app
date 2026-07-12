@@ -343,7 +343,8 @@ class _AudioArtwork extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: const BorderRadius.all(Radius.circular(16)),
+      borderRadius:
+          const BorderRadius.all(Radius.circular(AppRadius.artwork)),
       child: ColoredBox(
         color: Colors.black,
         child: Center(
@@ -352,7 +353,10 @@ class _AudioArtwork extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.all(10),
               child: ClipRRect(
-                borderRadius: const BorderRadius.all(Radius.circular(8)),
+                // Concentric corners: inner radius = outer minus the 10px
+                // padding gap, so the two rounded edges stay parallel.
+                borderRadius: const BorderRadius.all(
+                    Radius.circular(AppRadius.artwork - 10)),
                 child: (thumbnailUrl != null && thumbnailUrl!.isNotEmpty)
                     ? Utils.displayImage(thumbnailUrl!,
                         cache: true, cacheWidth: 400)
@@ -649,7 +653,10 @@ class _TrackRow extends StatelessWidget {
             child: Row(
               children: [
                 ClipRRect(
-                  borderRadius: const BorderRadius.all(Radius.circular(8)),
+                  // Thumbnail image fills this clip with no gap, so it takes
+                  // the small-thumbnail radius directly.
+                  borderRadius: const BorderRadius.all(
+                      Radius.circular(AppRadius.thumbnail)),
                   child: SizedBox(
                     width: 44,
                     height: 44,

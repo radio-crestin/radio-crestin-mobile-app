@@ -86,7 +86,8 @@ class StationsList extends StatelessWidget {
                           width: 70.0,
                           height: 70.0,
                           child: ClipRRect(
-                            borderRadius: BorderRadius.circular(12.0),
+                            borderRadius:
+                                BorderRadius.circular(AppRadius.thumbnail),
                             child: station.thumbnail,
                           ),
                         ),

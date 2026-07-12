@@ -37,6 +37,17 @@ class AppColors {
   static const Color offlineBanner = Color(0xFF2C2C2C);
 }
 
+/// Corner radii for station artwork across the app.
+class AppRadius {
+  AppRadius._();
+
+  /// Small thumbnails (station list, mini players).
+  static const double thumbnail = 12.0;
+
+  /// Large artwork (full player, now-playing views).
+  static const double artwork = 16.0;
+}
+
 final ThemeData lightTheme = ThemeData(
   useMaterial3: true,
   // fontFamily: 'Inter',

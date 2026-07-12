@@ -3,6 +3,7 @@ import 'dart:io' show Platform;
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
+import 'package:radio_crestin/theme.dart';
 import 'package:radio_crestin/types/Station.dart';
 import 'package:radio_crestin/widgets/animated_play_button.dart';
 import 'package:radio_crestin/widgets/station_type_badge.dart';
@@ -74,7 +75,7 @@ class MiniAudioPlayer extends StatelessWidget {
                     width: 60.0,
                     height: 60.0,
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12.0),
+                      borderRadius: BorderRadius.circular(AppRadius.thumbnail),
                       child: currentStation?.thumbnail,
                     ),
                   ),

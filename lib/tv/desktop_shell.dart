@@ -623,7 +623,8 @@ class _DesktopMiniPlayer extends StatelessWidget {
                       children: [
                         // Artwork
                         ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius:
+                              BorderRadius.circular(TvSpacing.radiusMd),
                           child: SizedBox(
                             width: 52,
                             height: 52,
