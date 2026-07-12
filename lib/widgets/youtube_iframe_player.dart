@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
@@ -56,6 +57,20 @@ class _YoutubeIframePlayerState extends State<YoutubeIframePlayer> {
   bool _endedReported = false;
   Duration _duration = Duration.zero;
   bool _isFullscreen = false;
+
+  /// True once the current load has reached the iframe (any real playerState).
+  /// Until then play/pause commands are held back: `playVideo()` on a player
+  /// with no content makes YouTube fire ERROR 2 (invalidParam), which would be
+  /// misread as the ITEM failing (verified against the real IFrame API).
+  bool _contentStarted = false;
+
+  /// Latest desired play/pause state, applied once the content starts.
+  bool _pendingShouldPlay = true;
+
+  /// Last error VALUE seen. [YoutubePlayerValue] keeps the error sticky across
+  /// later state updates, so only a transition (none→e / e1→e2) is a genuinely
+  /// new error worth reporting.
+  YoutubeError _lastSeenError = YoutubeError.none;
 
   /// Content currently loaded, kept so the fullscreen chrome swap (which
   /// reloads the iframe) can restore it at the same position.
@@ -142,6 +157,11 @@ class _YoutubeIframePlayerState extends State<YoutubeIframePlayer> {
     }
     if (!mounted || _loadedItemId != itemId) return;
     try {
+      // The iframe reboots: hold play/pause commands and reset error tracking
+      // until the restored content reaches it (same rules as a fresh load).
+      _contentStarted = false;
+      _lastSeenError = YoutubeError.none;
+      _yt.update(error: YoutubeError.none);
       await _yt.initWithParams(params: _paramsFor(nativeControls: nativeControls));
       final ready = await _waitForIframePlayer();
       if (!mounted || _loadedItemId != itemId || !ready) return;
@@ -202,6 +222,11 @@ class _YoutubeIframePlayerState extends State<YoutubeIframePlayer> {
     _duration = Duration.zero;
     _currentVideoId = null;
     _currentListId = null;
+    _contentStarted = false;
+    // Clear the sticky error from any previous item so this item's error
+    // detection starts fresh (see [_lastSeenError]).
+    _lastSeenError = YoutubeError.none;
+    _yt.update(error: YoutubeError.none);
 
     if (item.type == PlaylistItemType.youtubePlaylist) {
       final listId = youtubePlaylistIdFromUrl(item.url);
@@ -259,8 +284,20 @@ class _YoutubeIframePlayerState extends State<YoutubeIframePlayer> {
   }
 
   void _onValue(YoutubePlayerValue value) {
+    if (kDebugMode) {
+      debugPrint('YoutubeIframePlayer: state=${value.playerState.name} '
+          'error=${value.error.name} video=${value.metaData.videoId}');
+    }
     final d = value.metaData.duration;
     if (d > Duration.zero) _duration = d;
+
+    // First real state → the load reached the iframe; release any held
+    // play/pause command (the load itself autoplays, so only a pending pause
+    // needs applying).
+    if (!_contentStarted && value.playerState != PlayerState.unknown) {
+      _contentStarted = true;
+      if (!_pendingShouldPlay) _yt.pauseVideo();
+    }
 
     switch (value.playerState) {
       case PlayerState.playing:
@@ -279,7 +316,11 @@ class _YoutubeIframePlayerState extends State<YoutubeIframePlayer> {
         break;
     }
 
-    if (value.error != YoutubeError.none) {
+    // Report only error TRANSITIONS — the value keeps the last error sticky
+    // across unrelated state updates, which would otherwise re-fail the item.
+    final previousError = _lastSeenError;
+    _lastSeenError = value.error;
+    if (value.error != YoutubeError.none && value.error != previousError) {
       widget.controller.notifyYoutubeItemError(itemId: widget.item.id);
     }
   }
@@ -323,6 +364,10 @@ class _YoutubeIframePlayerState extends State<YoutubeIframePlayer> {
   }
 
   void _onShouldPlay(bool shouldPlay) {
+    _pendingShouldPlay = shouldPlay;
+    // Hold commands until the load reaches the iframe — playVideo() on a
+    // contentless player triggers YouTube ERROR 2 (see [_contentStarted]).
+    if (!_contentStarted) return;
     if (shouldPlay) {
       _yt.playVideo();
     } else {
