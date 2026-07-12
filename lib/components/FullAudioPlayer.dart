@@ -233,14 +233,15 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     final skipIconSize = layout.skipIconSize;
     final skipSpacing = layout.skipSpacing;
 
-    // On tablets held in landscape the tall portrait column wastes the wide
-    // canvas, so we switch to a TV-style split: artwork on the left, all
-    // metadata + controls stacked in a column on the right. Phones and any
-    // portrait orientation keep the original vertical layout untouched.
+    // In landscape the tall portrait column wastes the wide canvas, so we
+    // switch to a TV-style split: artwork on the left, all metadata + controls
+    // stacked in a column on the right. Applies to phones and tablets alike;
+    // the split itself adapts to the short height of a phone in landscape (see
+    // _buildLandscapeLayout). Any portrait orientation keeps the vertical
+    // layout untouched.
     final mq = MediaQuery.of(context);
-    final isTabletLandscape = mq.orientation == Orientation.landscape &&
-        mq.size.shortestSide >= 600;
-    if (isTabletLandscape) {
+    final isLandscape = mq.orientation == Orientation.landscape;
+    if (isLandscape) {
       return _buildLandscapeLayout(
         context,
         isDark,
@@ -287,10 +288,16 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     );
   }
 
-  /// Tablet landscape layout: artwork on the left, metadata + controls in a
-  /// column on the right (mirrors the TV / Apple TV now-playing screen). Reuses
-  /// the exact same content widgets as the portrait layout so behaviour and
-  /// animations stay identical — only the arrangement changes.
+  /// Landscape layout: artwork on the left, metadata + controls in a column on
+  /// the right (mirrors the TV / Apple TV now-playing screen). Reuses the exact
+  /// same content widgets as the portrait layout so behaviour and animations
+  /// stay identical — only the arrangement changes.
+  ///
+  /// Adapts to the caller's height: on a phone in landscape the panel content
+  /// is only ~300–360 logical px tall, so a [compact] mode tightens every
+  /// vertical gap and derives its own control sizes (the shared
+  /// [computePlayerLayout] metrics are tuned for portrait height budgets). The
+  /// [SingleChildScrollView] remains as an overflow safety net.
   Widget _buildLandscapeLayout(
     BuildContext context,
     bool isDark,
@@ -316,23 +323,40 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                   padding: const EdgeInsets.fromLTRB(16.0, 4.0, 16.0, 8.0),
                   child: LayoutBuilder(
                     builder: (context, constraints) {
-                      // Square artwork sized to the row height, but never wider
-                      // than ~44% of the row so the info column keeps room.
-                      final maxByWidth =
-                          (constraints.maxWidth * 0.44).clamp(140.0, double.infinity);
-                      final artSize = constraints.maxHeight
-                          .clamp(140.0, 360.0)
-                          .clamp(140.0, maxByWidth)
-                          .toDouble();
+                      // Short heights (phone landscape) get the compact
+                      // treatment. Tablets in landscape have >=~520px of
+                      // content height, so the 380 threshold cleanly separates
+                      // the two form factors.
+                      final compact = constraints.maxHeight < 380.0;
+
+                      // Left slot dimensions. In video mode the media is 16:9
+                      // and must keep the info column at least ~45% of the
+                      // width; the audio artwork stays square.
+                      final (double slotW, double slotH) = _landscapeMediaSize(
+                        maxWidth: constraints.maxWidth,
+                        maxHeight: constraints.maxHeight,
+                        isVideo: _isVideoMode,
+                      );
+
+                      // Landscape control sizes. Compact phones emphasise the
+                      // play button (TV spirit) while keeping the skips modest
+                      // so the cluster fits a short height; tablets keep the
+                      // shared portrait metrics.
+                      final lsPlayIconSize = compact ? 60.0 : playIconSize;
+                      final lsSkipIconSize = compact ? 32.0 : skipIconSize;
+                      final lsSkipSpacing = compact ? 24.0 : skipSpacing;
+
+                      final artGap = compact ? 20.0 : 24.0;
+
                       return Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           SizedBox(
-                            width: artSize,
-                            height: artSize,
-                            child: Center(child: _buildArtwork(context, artSize)),
+                            width: slotW,
+                            height: slotH,
+                            child: Center(child: _buildArtwork(context, slotW)),
                           ),
-                          const SizedBox(width: 24.0),
+                          SizedBox(width: artGap),
                           Expanded(
                             child: SingleChildScrollView(
                               child: Column(
@@ -341,22 +365,24 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                                 children: [
                                   _buildStationTitle(context,
                                       textAlign: TextAlign.start),
-                                  const SizedBox(height: 10.0),
+                                  SizedBox(height: compact ? 6.0 : 10.0),
                                   _buildSongTitle(context,
                                       textAlign: TextAlign.start,
                                       horizontalPadding: 0.0),
-                                  const SizedBox(height: 4.0),
+                                  SizedBox(height: compact ? 2.0 : 4.0),
                                   _buildArtist(context,
                                       textAlign: TextAlign.start),
-                                  const SizedBox(height: 16.0),
+                                  SizedBox(height: compact ? 10.0 : 16.0),
                                   _buildChipRow(context, isDark,
                                       alignStart: true),
-                                  const SizedBox(height: 20.0),
-                                  _buildTransportControls(context, playIconSize,
-                                      skipIconSize, skipSpacing,
+                                  SizedBox(height: compact ? 12.0 : 20.0),
+                                  _buildTransportControls(context,
+                                      lsPlayIconSize, lsSkipIconSize,
+                                      lsSkipSpacing,
                                       alignStart: true),
-                                  const SizedBox(height: 12.0),
-                                  _buildBottomActionRow(context, hasYoutubeLink),
+                                  SizedBox(height: compact ? 8.0 : 12.0),
+                                  _buildBottomActionRow(context, hasYoutubeLink,
+                                      alignStart: true),
                                 ],
                               ),
                             ),
@@ -372,6 +398,43 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
         ),
       ),
     );
+  }
+
+  /// Size of the landscape left media slot as `(width, height)`.
+  ///
+  /// Audio artwork is square and fills the available height, capped so the
+  /// info column keeps room. Video is 16:9 and capped so the column keeps at
+  /// least ~45% of the width. Every `clamp` upper bound is floored at its lower
+  /// bound so the math is well-formed even mid-drag / split-screen (see the
+  /// crash guard on [computePlayerLayout]).
+  (double, double) _landscapeMediaSize({
+    required double maxWidth,
+    required double maxHeight,
+    required bool isVideo,
+  }) {
+    if (isVideo) {
+      // Never let the 16:9 stage swallow more than 55% of the width, so the
+      // info column always keeps >=45%.
+      final maxVideoWidth =
+          (maxWidth * 0.55).clamp(140.0, double.infinity).toDouble();
+      var videoH = maxHeight.clamp(120.0, 360.0).toDouble();
+      var videoW = videoH * 16.0 / 9.0;
+      if (videoW > maxVideoWidth) {
+        videoW = maxVideoWidth;
+        videoH = videoW * 9.0 / 16.0;
+      }
+      return (videoW, videoH);
+    }
+
+    // Square artwork sized to the row height, but never wider than ~44% of the
+    // row so the info column keeps room.
+    final maxByWidth =
+        (maxWidth * 0.44).clamp(140.0, double.infinity).toDouble();
+    final artSize = maxHeight
+        .clamp(140.0, 360.0)
+        .clamp(140.0, maxByWidth)
+        .toDouble();
+    return (artSize, artSize);
   }
 
   /// The rounded drag handle at the top of the sliding panel.
@@ -573,10 +636,14 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     );
   }
 
-  /// Bottom action row: favorit | istoric | somn | youtube.
-  Widget _buildBottomActionRow(BuildContext context, bool hasYoutubeLink) {
+  /// Bottom action row: favorit | istoric | somn | youtube. [alignStart]
+  /// left-aligns the cluster as a single block for the landscape right-hand
+  /// column; the default spreads it evenly (portrait).
+  Widget _buildBottomActionRow(BuildContext context, bool hasYoutubeLink,
+      {bool alignStart = false}) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      mainAxisAlignment:
+          alignStart ? MainAxisAlignment.start : MainAxisAlignment.spaceEvenly,
       children: <Widget>[
         InkWell(
           customBorder: const CircleBorder(),
