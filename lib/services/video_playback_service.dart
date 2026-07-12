@@ -189,6 +189,35 @@ class VideoPlaybackService {
     }
   }
 
+  /// Tunes libmpv's libavformat probing per [open]. A live HLS master (the
+  /// Apple bipbop test carries ~24 variants + alt audio/captions) otherwise
+  /// spends seconds probing every variant before the first frame; capping the
+  /// analyze duration and probe size — and starting at the live edge — makes it
+  /// join almost instantly. VOD is reset to generous defaults so full-file
+  /// probing (accurate duration/seek) is never sacrificed. Must run BEFORE
+  /// [Player.open] since these only take effect at demuxer init.
+  Future<void> _configureProbing(Player player, bool live) async {
+    final platform = player.platform;
+    if (platform is! NativePlayer) return;
+    try {
+      if (live) {
+        // Analyze ~1s of the stream and probe at most 500 KB before playing.
+        await platform.setProperty('demuxer-lavf-analyzeduration', '1');
+        await platform.setProperty('demuxer-lavf-probesize', '500000');
+        // Start at the live edge (last segment) rather than the playlist start.
+        await platform.setProperty(
+            'demuxer-lavf-o', 'live_start_index=-1');
+      } else {
+        // Restore libav defaults so VOD duration/seek stay fully accurate.
+        await platform.setProperty('demuxer-lavf-analyzeduration', '0');
+        await platform.setProperty('demuxer-lavf-probesize', '5000000');
+        await platform.setProperty('demuxer-lavf-o', '');
+      }
+    } catch (e) {
+      debugPrint('VideoPlaybackService: probing config failed: $e');
+    }
+  }
+
   /// Opens [url] and (by default) starts playing. [live] marks the media as a
   /// live stream so no VOD timeline is exposed. [startPosition] seeks a VOD
   /// item after load (used to carry position across a background handoff).
@@ -206,6 +235,9 @@ class VideoPlaybackService {
     _lastWidth = null;
     _lastHeight = null;
     _hasFrame.add(false);
+    // Scope demuxer probing to this open so a live master (many HLS variants)
+    // starts fast, without leaving the tighter limits set for a later VOD.
+    await _configureProbing(player, live);
     await player.open(Media(url), play: autoPlay);
     // Re-apply volume/mute across media changes (libmpv keeps them, but be safe).
     await player.setVolume(_muted ? 0.0 : _volume * 100.0);
