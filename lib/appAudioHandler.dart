@@ -28,6 +28,7 @@ import 'package:radio_crestin/services/review_service.dart';
 import 'package:radio_crestin/services/song_history_service.dart';
 import 'package:radio_crestin/services/song_like_service.dart';
 import 'package:radio_crestin/services/station_data_service.dart';
+import 'package:radio_crestin/stream_failover.dart';
 import 'package:radio_crestin/services/video_playback_service.dart';
 import 'package:radio_crestin/services/video_mode_decision.dart';
 import 'package:radio_crestin/services/playlist_controller.dart';
@@ -188,9 +189,9 @@ class ReconnectPolicy {
 
   /// Reattempt play() after this much continuous buffering. Was 15s;
   /// dropped to 3s to match Spotify-tier perceived recovery. play() has
-  /// its own retry chain (maxRetries=4 across the station's stream URLs),
-  /// so a fast retry here just shortens the silence window — it does
-  /// not bypass any safety net.
+  /// its own retry chain (cycles the station's stream URLs endlessly with
+  /// capped backoff — see [StreamFailover]), so a fast retry here just
+  /// shortens the silence window — it does not bypass any safety net.
   static const Duration bufferingStallTimeout = Duration(seconds: 3);
 
   /// How often the position-advancement watchdog samples `player.position`.
@@ -1007,7 +1008,9 @@ class AppAudioHandler extends BaseAudioHandler {
 
   SharedPreferences get _prefs => GetIt.instance<SharedPreferences>();
 
-  final int maxRetries = 4;
+  // Per-URL failure memory + retry pacing for the play() retry loop and
+  // every reconnect trigger. See [StreamFailover] for the policy.
+  final StreamFailover _failover = StreamFailover();
 
   AppAudioHandler({required this.graphqlClient, required this.player}) {
     stationDataService.getPlayingStreamType = (stationId) {
@@ -1163,6 +1166,11 @@ class AppAudioHandler extends BaseAudioHandler {
                 ? null
                 : DateTime.now().difference(lastInfo.loadedAt).inMilliseconds,
           });
+          // The completed URL is suspect — remember it so the reconnect
+          // starts at the next stream instead of re-looping on it.
+          if (_loadedStreamUrl != null) {
+            _failover.recordFailure(_loadedStreamUrl!, DateTime.now());
+          }
           _loadedStreamUrl = null;
           _loadedStreamType = null;
           play();
@@ -1226,6 +1234,10 @@ class AppAudioHandler extends BaseAudioHandler {
               ? null
               : DateTime.now().difference(lastInfo.loadedAt).inMilliseconds,
         });
+        // The lost URL is suspect — start the reconnect at the next stream.
+        if (_loadedStreamUrl != null) {
+          _failover.recordFailure(_loadedStreamUrl!, DateTime.now());
+        }
         _loadedStreamUrl = null;
         _loadedStreamType = null;
         play();
@@ -1246,12 +1258,11 @@ class AppAudioHandler extends BaseAudioHandler {
           _bufferingStartBuffered = player.bufferedPosition;
           _scheduleSilenceKeepAlive();
         }
-        // Stall timer: if buffering doesn't resolve within 15s, kick a
-        // fresh play() instead of giving up. play() has its own retry
-        // chain (maxRetries=4 across the station's stream URLs) and will
-        // surface a connectionError only after all of those fail. Goal:
-        // the stream auto-recovers without the user noticing — never
-        // stop on a transient network blip.
+        // Stall timer: if buffering doesn't resolve, kick a fresh play()
+        // instead of giving up. play() cycles the station's stream URLs
+        // (skipping recently-failed ones) and surfaces a connectionError
+        // only after a full cycle fails. Goal: the stream auto-recovers
+        // without the user noticing — never stop on a transient blip.
         _bufferingStallTimer?.cancel();
         _bufferingStallTimer = Timer(_bufferingStallTimeout, () {
           if (player.processingState == ProcessingState.buffering && player.playing) {
@@ -1272,6 +1283,11 @@ class AppAudioHandler extends BaseAudioHandler {
               'action': 'reattempt',
             });
             _recordStreamTrouble('buffering_stall');
+            // A stalled stream counts as a failed one: remember it so the
+            // reconnect starts at the next stream if it stalls repeatedly.
+            if (_loadedStreamUrl != null) {
+              _failover.recordFailure(_loadedStreamUrl!, DateTime.now());
+            }
             // Force play() to re-issue setAudioSource (rather than skip
             // because the URL is "already loaded").
             _loadedStreamUrl = null;
@@ -1800,7 +1816,6 @@ class AppAudioHandler extends BaseAudioHandler {
       await player.play();
       return;
     }
-    final myOpId = _playOperationId;
     _disconnectTimer?.cancel();
     stationDataService.resumePolling();
 
@@ -1839,49 +1854,205 @@ class AppAudioHandler extends BaseAudioHandler {
       _loadedStreamType = null;
     }
 
-    // Need to load a new stream source
+    // Need to load a new stream source. Claim the operation first: cancel
+    // any older retry loop still cycling (duplicate play() tap, zombie
+    // reconnect) so exactly one loop drives the player — the loops never
+    // give up on their own anymore, so a stale one must be cancelled here.
+    _cancelInFlightPlay();
+    final myOpId = _playOperationId;
     PerformanceMonitor.startOperation('audio_play');
     _isConnecting = true;
     _broadcastState(player.playbackEvent);
     var retry = 0;
     Object? lastError;
+    // Retry-cycle start index — computed once from the failure memory so a
+    // reconnect after a mid-playback HLS death starts at the next healthy
+    // stream instead of re-looping on the dead one (the old `retry % total`
+    // always restarted at index 0).
+    int? cycleStart;
+    // The connection-error toast fires once per play() call, after the first
+    // full failed cycle. The loop itself never gives up (live radio): it
+    // keeps cycling with capped backoff until cancelled or superseded.
+    var surfacedError = false;
     final canceller = Completer<void>();
     _sourceLoadCanceller = canceller;
     final previousStreamInfo = currentStreamInfo.valueOrNull;
 
     while (item != null && myOpId == _playOperationId) {
-      if (retry < maxRetries) {
-        var streams = item.extras?["station_streams"] as List<dynamic>?;
-        // Desktop (Linux/Windows) uses just_audio_media_kit (libmpv ~2023-09) which
-        // has flaky support for HLS v9 with query params. Prefer direct streams there.
-        if (streams != null && (Platform.isWindows || Platform.isLinux)) {
-          final reordered = List<dynamic>.from(streams);
-          reordered.sort((a, b) {
-            final aHls = (a is Map && a["type"]?.toString() == 'HLS') ? 1 : 0;
-            final bHls = (b is Map && b["type"]?.toString() == 'HLS') ? 1 : 0;
-            return aHls - bHls;
-          });
-          streams = reordered;
-        }
-        final totalStreams = streams?.length ?? 0;
-        final streamEntry = streams?[retry % (totalStreams == 0 ? 1 : totalStreams)];
-        final streamUrl = (streamEntry is Map ? streamEntry["url"] : streamEntry)?.toString() ?? item.id;
-        final streamType = streamEntry is Map ? streamEntry["type"]?.toString() : null;
-        final attemptIndex = totalStreams == 0 ? 0 : retry % totalStreams;
-        final isHls = streamType == 'HLS';
-        _log("play: attempt $retry - $streamUrl (type: $streamType)");
+      var streams = item.extras?["station_streams"] as List<dynamic>?;
+      // Desktop (Linux/Windows) uses just_audio_media_kit (libmpv ~2023-09) which
+      // has flaky support for HLS v9 with query params. Prefer direct streams there.
+      if (streams != null && (Platform.isWindows || Platform.isLinux)) {
+        final reordered = List<dynamic>.from(streams);
+        reordered.sort((a, b) {
+          final aHls = (a is Map && a["type"]?.toString() == 'HLS') ? 1 : 0;
+          final bHls = (b is Map && b["type"]?.toString() == 'HLS') ? 1 : 0;
+          return aHls - bHls;
+        });
+        streams = reordered;
+      }
+      final totalStreams = streams?.length ?? 0;
+      final stationSlug = item.extras?["station_slug"]?.toString() ?? '';
+      final stationId = item.extras?["station_id"];
+      final stationTitle = item.extras?["station_title"]?.toString() ?? '';
 
-        final stationSlug = item.extras?["station_slug"]?.toString() ?? '';
-        final stationId = item.extras?["station_id"];
-        final stationTitle = item.extras?["station_title"]?.toString() ?? '';
+      final start = cycleStart ?? _cycleStartIndex(streams, stationSlug);
+      cycleStart = start;
+      final attemptIndex =
+          totalStreams == 0 ? 0 : (start + retry) % totalStreams;
+      final streamEntry = (streams == null || streams.isEmpty)
+          ? null
+          : streams[attemptIndex];
+      final streamUrl = (streamEntry is Map ? streamEntry["url"] : streamEntry)?.toString() ?? item.id;
+      final streamType = streamEntry is Map ? streamEntry["type"]?.toString() : null;
+      final isHls = streamType == 'HLS';
+
+      // Cycle backoff: streams fail over to each other instantly; a delay
+      // applies only once every stream has failed a full pass (1s, 2s, 5s,
+      // then 10s cap — see StreamFailover.retryDelay).
+      final delay = StreamFailover.retryDelay(
+        retry: retry,
+        totalStreams: totalStreams,
+      );
+      if (delay > Duration.zero) {
+        _log('play: all streams failed a full cycle — backing off '
+            '${delay.inMilliseconds}ms before attempt $retry');
+        try {
+          await Future.any([Future<void>.delayed(delay), canceller.future]);
+        } catch (_) {
+          // canceller completes with an error on cancel; the opId check
+          // below exits the loop.
+        }
+        if (myOpId != _playOperationId) break;
+      }
+
+      _log("play: attempt $retry - $streamUrl (type: $streamType)");
+      _recordStreamEvent(
+        StreamEventKind.attempt,
+        'Attempt ${attemptIndex + 1}/$totalStreams ${streamType ?? '?'}',
+      );
+      // Debug-only: high volume on healthy connections. Errors and switches
+      // still ship in production via capture() below.
+      AnalyticsService.instance.captureDebug('stream_attempt', {
+        'station_slug': stationSlug,
+        if (stationId != null) 'station_id': stationId,
+        'stream_url': streamUrl,
+        'stream_type': streamType,
+        'stream_index': attemptIndex,
+        'total_streams': totalStreams,
+        'retry': retry,
+      });
+
+      final attemptStart = DateTime.now();
+      try {
+        if (retry > 0) {
+          await player.stop();
+        }
+        final trackedUrl = addTrackingParametersToUrl(streamUrl);
+        final loadUrl = trackedUrl;
+        // Hard load timeout — a hanging playlist/stream request counts as
+        // a failure and advances to the next stream (StreamFailover owns
+        // the values so they are asserted in tests).
+        final timeout = StreamFailover.loadTimeout(isHls: isHls);
+        // Race setAudioSource against the canceller so playStation() can
+        // break this await immediately instead of waiting for the timeout.
+        final loadFuture = player.setAudioSource(
+          AudioSource.uri(Uri.parse(loadUrl)),
+          preload: true,
+        );
+        // Prevent unhandled error if abandoned by Future.any
+        loadFuture.ignore();
+        await Future.any([loadFuture, canceller.future]).timeout(timeout);
+        _loadedStreamUrl = streamUrl;
+        _loadedStreamType = streamType;
+        _lastSuccessfulLoadAt = DateTime.now();
+        _lastLoadOrSeekAt = _lastSuccessfulLoadAt; // watchdog grace baseline
+        _failover.recordSuccess(streamUrl);
+        final elapsedMs = DateTime.now().difference(attemptStart).inMilliseconds;
+        _log("play: source loaded successfully ($trackedUrl)");
+
+        final newInfo = StreamInfo(
+          url: streamUrl,
+          type: streamType,
+          attemptIndex: attemptIndex,
+          totalStreams: totalStreams,
+          stationSlug: stationSlug,
+          stationTitle: stationTitle,
+          loadedAt: DateTime.now(),
+        );
+        currentStreamInfo.add(newInfo);
+        AnalyticsService.instance.setCurrentStream(
+          url: streamUrl,
+          type: streamType,
+          index: attemptIndex,
+          total: totalStreams,
+        );
 
         _recordStreamEvent(
-          StreamEventKind.attempt,
-          'Attempt ${attemptIndex + 1}/$totalStreams ${streamType ?? '?'}',
+          StreamEventKind.loaded,
+          '${streamType ?? '?'} loaded in ${elapsedMs}ms',
         );
-        // Debug-only: high volume on healthy connections. Errors and switches
-        // still ship in production via capture() below.
-        AnalyticsService.instance.captureDebug('stream_attempt', {
+        // Debug-only: paired with stream_attempt; the listening_active
+        // heartbeat already carries the loaded URL/type for production.
+        AnalyticsService.instance.captureDebug('stream_loaded', {
+          'station_slug': stationSlug,
+          if (stationId != null) 'station_id': stationId,
+          'stream_url': streamUrl,
+          'stream_type': streamType,
+          'stream_index': attemptIndex,
+          'total_streams': totalStreams,
+          'elapsed_ms': elapsedMs,
+          'retry': retry,
+        });
+
+        // Fire stream_switched only when the loaded URL differs from the
+        // previously-loaded URL — distinguishes a true fallback switch from
+        // a same-stream reconnect.
+        if (previousStreamInfo != null && previousStreamInfo.url != streamUrl) {
+          final reason = previousStreamInfo.stationSlug != stationSlug
+              ? 'station_change'
+              : (retry > 0
+                  ? 'load_failed_fallback'
+                  : (start > 0
+                      ? 'failure_memory_skip'
+                      : 'reconnect_to_different'));
+          _recordStreamEvent(
+            StreamEventKind.switched,
+            'Switched to ${streamType ?? '?'} #${attemptIndex + 1} ($reason)',
+          );
+          AnalyticsService.instance.capture('stream_switched', {
+            'station_slug': stationSlug,
+            if (stationId != null) 'station_id': stationId,
+            'reason': reason,
+            'previous_url': previousStreamInfo.url,
+            'new_url': streamUrl,
+            'previous_type': previousStreamInfo.type,
+            'new_type': streamType,
+            'previous_index': previousStreamInfo.attemptIndex,
+            'new_index': attemptIndex,
+            'retry_count': retry,
+            'ms_since_last_load':
+                DateTime.now().difference(previousStreamInfo.loadedAt).inMilliseconds,
+          });
+        }
+        break;
+      } catch (e) {
+        lastError = e;
+        final elapsedMs = DateTime.now().difference(attemptStart).inMilliseconds;
+        _loadedStreamUrl = null;
+        _loadedStreamType = null;
+        // If superseded by a newer playStation(), exit immediately
+        if (myOpId != _playOperationId) {
+          _log("play: cancelled (op $myOpId < $_playOperationId)");
+          break;
+        }
+        _failover.recordFailure(streamUrl, DateTime.now());
+        _log("play: attempt $retry failed - $e");
+        _recordStreamEvent(
+          StreamEventKind.failed,
+          'Attempt ${attemptIndex + 1}/$totalStreams failed (${elapsedMs}ms): ${_shortErr(e)}',
+        );
+        final failedProps = <String, Object?>{
           'station_slug': stationSlug,
           if (stationId != null) 'station_id': stationId,
           'stream_url': streamUrl,
@@ -1889,143 +2060,31 @@ class AppAudioHandler extends BaseAudioHandler {
           'stream_index': attemptIndex,
           'total_streams': totalStreams,
           'retry': retry,
-        });
-
-        final attemptStart = DateTime.now();
-        try {
-          if (retry > 0) {
-            await player.stop();
-          }
-          final trackedUrl = addTrackingParametersToUrl(streamUrl);
-          final loadUrl = trackedUrl;
-          final timeout = isHls ? const Duration(seconds: 3) : const Duration(seconds: 10);
-          // Race setAudioSource against the canceller so playStation() can
-          // break this await immediately instead of waiting for the timeout.
-          final loadFuture = player.setAudioSource(
-            AudioSource.uri(Uri.parse(loadUrl)),
-            preload: true,
-          );
-          // Prevent unhandled error if abandoned by Future.any
-          loadFuture.ignore();
-          await Future.any([loadFuture, canceller.future]).timeout(timeout);
-          _loadedStreamUrl = streamUrl;
-          _loadedStreamType = streamType;
-          _lastSuccessfulLoadAt = DateTime.now();
-          _lastLoadOrSeekAt = _lastSuccessfulLoadAt; // watchdog grace baseline
-          final elapsedMs = DateTime.now().difference(attemptStart).inMilliseconds;
-          _log("play: source loaded successfully ($trackedUrl)");
-
-          final newInfo = StreamInfo(
-            url: streamUrl,
-            type: streamType,
-            attemptIndex: attemptIndex,
-            totalStreams: totalStreams,
-            stationSlug: stationSlug,
-            stationTitle: stationTitle,
-            loadedAt: DateTime.now(),
-          );
-          currentStreamInfo.add(newInfo);
-          AnalyticsService.instance.setCurrentStream(
-            url: streamUrl,
-            type: streamType,
-            index: attemptIndex,
-            total: totalStreams,
-          );
-
-          _recordStreamEvent(
-            StreamEventKind.loaded,
-            '${streamType ?? '?'} loaded in ${elapsedMs}ms',
-          );
-          // Debug-only: paired with stream_attempt; the listening_active
-          // heartbeat already carries the loaded URL/type for production.
-          AnalyticsService.instance.captureDebug('stream_loaded', {
+          'elapsed_ms': elapsedMs,
+          'error': _shortErr(e),
+        };
+        AnalyticsService.instance.capture('stream_failed', failedProps);
+        AnalyticsService.instance
+            .logWarning('stream attempt failed', failedProps);
+        retry++;
+        // Every stream failed a full pass: surface the error once (toast
+        // + analytics) but keep the spinner and keep cycling — stopping
+        // here (the old maxRetries=4 behavior) left the player fully
+        // stuck until a manual tap, even after the network recovered.
+        final cycleSize = totalStreams == 0 ? 1 : totalStreams;
+        if (!surfacedError && retry >= cycleSize) {
+          surfacedError = true;
+          final stationName = currentStation.valueOrNull?.title ?? '';
+          final classified = _classifyError(stationName, lastError);
+          connectionError.add(classified);
+          AnalyticsService.instance.capture('stream_all_failed', {
             'station_slug': stationSlug,
             if (stationId != null) 'station_id': stationId,
-            'stream_url': streamUrl,
-            'stream_type': streamType,
-            'stream_index': attemptIndex,
             'total_streams': totalStreams,
-            'elapsed_ms': elapsedMs,
-            'retry': retry,
+            'retries': retry,
+            'reason': classified.reason.name,
           });
-
-          // Fire stream_switched only when the loaded URL differs from the
-          // previously-loaded URL — distinguishes a true fallback switch from
-          // a same-stream reconnect.
-          if (previousStreamInfo != null && previousStreamInfo.url != streamUrl) {
-            final reason = previousStreamInfo.stationSlug != stationSlug
-                ? 'station_change'
-                : (retry > 0 ? 'load_failed_fallback' : 'reconnect_to_different');
-            _recordStreamEvent(
-              StreamEventKind.switched,
-              'Switched to ${streamType ?? '?'} #${attemptIndex + 1} ($reason)',
-            );
-            AnalyticsService.instance.capture('stream_switched', {
-              'station_slug': stationSlug,
-              if (stationId != null) 'station_id': stationId,
-              'reason': reason,
-              'previous_url': previousStreamInfo.url,
-              'new_url': streamUrl,
-              'previous_type': previousStreamInfo.type,
-              'new_type': streamType,
-              'previous_index': previousStreamInfo.attemptIndex,
-              'new_index': attemptIndex,
-              'retry_count': retry,
-              'ms_since_last_load':
-                  DateTime.now().difference(previousStreamInfo.loadedAt).inMilliseconds,
-            });
-          }
-          break;
-        } catch (e) {
-          lastError = e;
-          final elapsedMs = DateTime.now().difference(attemptStart).inMilliseconds;
-          _loadedStreamUrl = null;
-          _loadedStreamType = null;
-          // If superseded by a newer playStation(), exit immediately
-          if (myOpId != _playOperationId) {
-            _log("play: cancelled (op $myOpId < $_playOperationId)");
-            break;
-          }
-          _log("play: attempt $retry failed - $e");
-          _recordStreamEvent(
-            StreamEventKind.failed,
-            'Attempt ${attemptIndex + 1}/$totalStreams failed (${elapsedMs}ms): ${_shortErr(e)}',
-          );
-          final failedProps = <String, Object?>{
-            'station_slug': stationSlug,
-            if (stationId != null) 'station_id': stationId,
-            'stream_url': streamUrl,
-            'stream_type': streamType,
-            'stream_index': attemptIndex,
-            'total_streams': totalStreams,
-            'retry': retry,
-            'elapsed_ms': elapsedMs,
-            'error': _shortErr(e),
-          };
-          AnalyticsService.instance.capture('stream_failed', failedProps);
-          AnalyticsService.instance
-              .logWarning('stream attempt failed', failedProps);
-          retry++;
         }
-      } else {
-        _log("play: max retries reached");
-        _isConnecting = false;
-        _loadedStreamUrl = null;
-        _loadedStreamType = null;
-        currentStreamInfo.add(null);
-        AnalyticsService.instance.setCurrentStream(url: null, type: null, index: null, total: null);
-        PerformanceMonitor.endOperation('audio_play');
-        final stationName = currentStation.valueOrNull?.title ?? '';
-        final classifiedError = _classifyError(stationName, lastError);
-        connectionError.add(classifiedError);
-        AnalyticsService.instance.endListening(reason: 'error');
-        AnalyticsService.instance.captureException(
-          lastError ?? Exception('Max retries reached'),
-          null,
-          context: 'play_station_failed:${classifiedError.reason.name}',
-        );
-        _stopDueToError();
-        return;
       }
     }
 
@@ -2047,6 +2106,31 @@ class AppAudioHandler extends BaseAudioHandler {
     }
 
     return player.play();
+  }
+
+  /// Retry-cycle start index for [streams]: the first stream without a
+  /// recent failure (see [StreamFailover.startIndex]). Logs and captures a
+  /// `stream_failover` event when the preferred stream is being skipped so
+  /// failovers are visible in analytics.
+  int _cycleStartIndex(List<dynamic>? streams, String stationSlug) {
+    if (streams == null || streams.isEmpty) return 0;
+    final urls = [
+      for (final s in streams) (s is Map ? s["url"] : s)?.toString() ?? '',
+    ];
+    final start = _failover.startIndex(urls, DateTime.now());
+    if (start > 0) {
+      _log('play: failover — skipping $start recently-failed stream(s), '
+          'starting at index $start (${urls[start]})');
+      AnalyticsService.instance.capture('stream_failover', {
+        'station_slug': stationSlug,
+        'skipped_urls': urls.take(start).join(', '),
+        'start_index': start,
+        'start_url': urls[start],
+        'total_streams': urls.length,
+        'reason': 'recent_failure',
+      });
+    }
+    return start;
   }
 
   @override
@@ -2254,6 +2338,13 @@ class AppAudioHandler extends BaseAudioHandler {
     });
     _recordStreamTrouble('position_frozen');
     _stopPositionWatchdog();
+    // A frozen stream is a failed stream even though its load "succeeded"
+    // (a stale-but-serving HLS playlist passes the load step every time).
+    // Remembering it makes the reconnect start at the next stream, breaking
+    // the "stuck on dead HLS forever" loop.
+    if (_loadedStreamUrl != null) {
+      _failover.recordFailure(_loadedStreamUrl!, now);
+    }
     // Clear the loaded URL so play() takes the fresh-load path (which
     // re-seeks behind the live edge) rather than resuming in place.
     _loadedStreamUrl = null;

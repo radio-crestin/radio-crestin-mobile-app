@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:radio_crestin/appAudioHandler.dart';
 import 'package:radio_crestin/queries/getStations.graphql.dart';
+import 'package:radio_crestin/stream_failover.dart';
 import 'helpers/station_factory.dart';
 
 void main() {
@@ -451,18 +452,19 @@ void main() {
   });
 
   group('Stream retry logic', () {
-    test('cycles through multiple streams', () {
+    test('cycles through multiple streams from the failover start index', () {
       final streams = [
-        {'url': 'https://stream1.com', 'type': 'direct_stream'},
-        {'url': 'https://stream2.com', 'type': 'HLS'},
+        {'url': 'https://stream1.com', 'type': 'HLS'},
+        {'url': 'https://stream2.com', 'type': 'direct_stream'},
         {'url': 'https://stream3.com', 'type': 'direct_stream'},
       ];
 
-      final maxRetries = 4;
+      // Mirrors play(): attemptIndex = (start + retry) % total, where
+      // start skips recently-failed streams (0 when memory is clean).
+      const start = 0;
       final selectedUrls = <String>[];
-
-      for (var retry = 0; retry < maxRetries; retry++) {
-        final idx = retry % streams.length;
+      for (var retry = 0; retry < 4; retry++) {
+        final idx = (start + retry) % streams.length;
         selectedUrls.add(streams[idx]['url']!);
       }
 
@@ -474,9 +476,12 @@ void main() {
       ]);
     });
 
-    test('maxRetries is 4', () {
-      const maxRetries = 4;
-      expect(maxRetries, 4);
+    test('retry loop never gives up — backoff is capped, not terminal', () {
+      // The old maxRetries=4 behavior stopped the player entirely after
+      // one failed pass; live radio now cycles forever with capped delays
+      // (detailed schedule covered in stream_failover_test.dart).
+      expect(StreamFailover.retryDelay(retry: 1000, totalStreams: 2),
+          lessThanOrEqualTo(StreamFailover.maxCycleBackoff));
     });
   });
 
