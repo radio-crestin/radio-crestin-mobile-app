@@ -1272,7 +1272,7 @@ class AppAudioHandler extends BaseAudioHandler {
               StreamEventKind.bufferingStall,
               'Buffering stalled ${_bufferingStallTimeout.inSeconds}s — reattempting',
             );
-            AnalyticsService.instance.capture('stream_buffering_stall', {
+            final stallProps = <String, Object?>{
               'station_slug': lastInfo?.stationSlug ?? currentStation.valueOrNull?.slug ?? '',
               'station_id': currentStation.valueOrNull?.id,
               'stream_url': lastInfo?.url,
@@ -1281,7 +1281,11 @@ class AppAudioHandler extends BaseAudioHandler {
               'total_streams': lastInfo?.totalStreams,
               'stall_seconds': _bufferingStallTimeout.inSeconds,
               'action': 'reattempt',
-            });
+            };
+            AnalyticsService.instance
+                .capture('stream_buffering_stall', stallProps);
+            AnalyticsService.instance
+                .logDebug('stream buffering stall', stallProps);
             _recordStreamTrouble('buffering_stall');
             // A stalled stream counts as a failed one: remember it so the
             // reconnect starts at the next stream if it stalls repeatedly.
@@ -1357,6 +1361,7 @@ class AppAudioHandler extends BaseAudioHandler {
       StreamEventKind.lifecycle,
       'App lifecycle: $state',
     );
+    AnalyticsService.instance.logDebug('app lifecycle', {'state': state});
   }
 
   @override
@@ -1548,6 +1553,12 @@ class AppAudioHandler extends BaseAudioHandler {
 
   Future<void> playStation(Station station, {bool? fromFavorites}) async {
     _log('playStation(${station.slug}, fromFavorites=$fromFavorites)');
+    AnalyticsService.instance.logDebug('station switch', {
+      'to_station_slug': station.slug,
+      'from_station_slug': currentStation.valueOrNull?.slug,
+      'station_type': station.stationType.name,
+      'from_favorites': fromFavorites,
+    });
     _beginFastStartMeasure(station);
     _hasBeenPlayed = true;
 
@@ -1941,6 +1952,7 @@ class AppAudioHandler extends BaseAudioHandler {
         'stream_index': attemptIndex,
         'total_streams': totalStreams,
         'retry': retry,
+        'player_backend': isVideoModeActive ? 'media_kit' : 'just_audio',
       });
 
       final attemptStart = DateTime.now();
@@ -2020,7 +2032,7 @@ class AppAudioHandler extends BaseAudioHandler {
             StreamEventKind.switched,
             'Switched to ${streamType ?? '?'} #${attemptIndex + 1} ($reason)',
           );
-          AnalyticsService.instance.capture('stream_switched', {
+          final switchedProps = <String, Object?>{
             'station_slug': stationSlug,
             if (stationId != null) 'station_id': stationId,
             'reason': reason,
@@ -2033,7 +2045,9 @@ class AppAudioHandler extends BaseAudioHandler {
             'retry_count': retry,
             'ms_since_last_load':
                 DateTime.now().difference(previousStreamInfo.loadedAt).inMilliseconds,
-          });
+          };
+          AnalyticsService.instance.capture('stream_switched', switchedProps);
+          AnalyticsService.instance.logDebug('stream switched', switchedProps);
         }
         break;
       } catch (e) {

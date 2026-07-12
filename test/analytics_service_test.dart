@@ -552,4 +552,65 @@ void main() {
       expect(rec.level, PostHogLogSeverity.warn);
     });
   });
+
+  group('verbose logging tiers', () {
+    test('shouldShip gates strictly by severity order', () {
+      const info = PostHogLogSeverity.info;
+      const debug = PostHogLogSeverity.debug;
+      expect(
+          AnalyticsService.shouldShip(PostHogLogSeverity.debug, info), isFalse);
+      expect(
+          AnalyticsService.shouldShip(PostHogLogSeverity.trace, debug), isFalse);
+      expect(AnalyticsService.shouldShip(PostHogLogSeverity.info, info), isTrue);
+      expect(
+          AnalyticsService.shouldShip(PostHogLogSeverity.error, info), isTrue);
+      expect(
+          AnalyticsService.shouldShip(PostHogLogSeverity.debug, debug), isTrue);
+    });
+
+    test('logDebug does not ship to PostHog by default', () async {
+      await analytics.initialize();
+      analytics.setRemoteVerbose(false);
+      analytics.setDeveloperVerbose(false);
+      fake.capturedLogs.clear();
+
+      analytics.logDebug('quiet detail');
+
+      expect(fake.capturedLogs, isEmpty);
+    });
+
+    test('logDebug ships while developer verbose mode is on', () async {
+      await analytics.initialize();
+      analytics.setDeveloperVerbose(true);
+      fake.capturedLogs.clear();
+
+      analytics.logDebug('loud detail', {'k': 1});
+
+      final rec = fake.capturedLogs.singleWhere((l) => l.body == 'loud detail');
+      expect(rec.level, PostHogLogSeverity.debug);
+      analytics.setDeveloperVerbose(false);
+    });
+
+    test('logDebug ships while remote verbose mode is on', () async {
+      await analytics.initialize();
+      analytics.setRemoteVerbose(true);
+      fake.capturedLogs.clear();
+
+      analytics.logDebug('remote detail');
+
+      expect(fake.capturedLogs.any((l) => l.body == 'remote detail'), isTrue);
+      analytics.setRemoteVerbose(false);
+    });
+
+    test('info records still ship without verbose mode', () async {
+      await analytics.initialize();
+      analytics.setRemoteVerbose(false);
+      analytics.setDeveloperVerbose(false);
+      fake.capturedLogs.clear();
+
+      analytics.log('normal info');
+
+      expect(fake.capturedLogs.any((l) => l.body == 'normal info'), isTrue);
+    });
+  });
 }

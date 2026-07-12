@@ -76,6 +76,22 @@ class LocalLogStore {
     ];
   }
 
+  /// Newest-first concatenation of the log files, capped at [maxBytes]
+  /// (default ~200KB). Used by "Copy logs" so the clipboard stays manageable.
+  Future<String> readRecent({int maxBytes = 200 * 1024}) async {
+    final buffer = StringBuffer();
+    var bytes = 0;
+    for (final file in await collectLogFiles()) {
+      for (final line in (await file.readAsLines()).reversed) {
+        final lineBytes = utf8.encode(line).length + 1;
+        if (bytes + lineBytes > maxBytes) return buffer.toString();
+        buffer.writeln(line);
+        bytes += lineBytes;
+      }
+    }
+    return buffer.toString();
+  }
+
   /// Formats one log line: ISO-8601 UTC timestamp, upper-cased level, body
   /// with newlines escaped (stack traces stay on one line), and compact JSON
   /// attributes. Pure — unit tested directly.

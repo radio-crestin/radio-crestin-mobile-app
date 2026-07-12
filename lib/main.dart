@@ -43,6 +43,7 @@ import 'services/device_registration_service.dart';
 import 'services/error_filter.dart';
 import 'services/image_cache_service.dart';
 import 'services/log_flush_guard.dart';
+import 'services/remote_debug_controller.dart';
 import 'services/quick_actions_service.dart';
 import 'services/network_service.dart';
 import 'services/play_count_service.dart';
@@ -283,27 +284,41 @@ void main() async {
   // Now await Firebase (likely already done since audio init takes longer)
   await firebaseInitFuture;
 
-  // Load the cached `mobile-session-replay` flag decision (from the previous
-  // launch) so PostHog setup can decide whether to install the native replay
-  // integration. Does not block on the network.
+  // Load the cached flag decisions (from the previous launch) so PostHog
+  // setup can decide whether to install the native replay integration.
+  // Does not block on the network.
   await SessionReplayController.instance.loadCache(prefs);
+  await RemoteDebugController.instance.loadCache(prefs);
+
+  // Developer mode (Settings hidden gesture) ships debug-level logs.
+  AnalyticsService.instance
+      .setDeveloperVerbose(prefs.getBool('developer_mode_enabled') ?? false);
 
   // packageInfo has been resolving since Phase 1 and is effectively instant
   // by now; awaiting it here lets PostHog Logs stamp `service.version`.
   final packageInfo = await packageInfoFuture;
 
   // Initialize PostHog analytics (error tracking is handled by PostHog config).
-  // The onFeatureFlags callback lets the controller apply the live flag once
-  // PostHog has loaded it.
+  // The onFeatureFlags callback lets the controllers apply the live flags once
+  // PostHog has loaded them.
   await AnalyticsService.instance.initialize(
-    sessionReplayAtSetup: SessionReplayController.instance.enableReplayAtSetup,
-    onFeatureFlagsLoaded: SessionReplayController.instance.onFlagsLoaded,
+    sessionReplayAtSetup:
+        SessionReplayController.instance.enableReplayAtSetup ||
+            RemoteDebugController.instance.forceSessionReplay,
+    onFeatureFlagsLoaded: () {
+      unawaited(SessionReplayController.instance.onFlagsLoaded());
+      unawaited(RemoteDebugController.instance.onFlagsLoaded());
+    },
     appVersion: packageInfo.version,
   );
 
   // Start the replay controller: subscribe to connectivity and stop recording
   // until the flag-driven decision (and WiFi gate) allow it. After setup.
   SessionReplayController.instance.start();
+
+  // Apply the cached remote-debug config (verbose logs, forced replay,
+  // auto log upload). After the replay controller so its override lands.
+  RemoteDebugController.instance.start();
 
   // Settle any flush owed from a previous offline exception (or a crash
   // before the flush completed) and watch connectivity for new debts.

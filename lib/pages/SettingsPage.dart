@@ -16,6 +16,9 @@ import '../appAudioHandler.dart';
 import '../globals.dart' as globals;
 import '../main.dart' show getIt;
 import '../services/analytics_service.dart';
+import '../services/local_log_store.dart';
+import '../services/log_upload_service.dart';
+import 'LogsViewerPage.dart';
 import '../seek_mode_manager.dart';
 import '../theme.dart';
 import '../theme_manager.dart';
@@ -54,6 +57,13 @@ class _SettingsPageState extends State<SettingsPage> {
   int? _visitCount;
   bool _isLoadingShareData = true;
 
+  // Developer mode: unlocked by tapping the version row 7 times.
+  static const _devModeTapsNeeded = 7;
+  bool _developerMode = false;
+  bool _uploadingLogs = false;
+  int _versionTaps = 0;
+  Timer? _versionTapReset;
+
   // Stream diagnostics — re-rendered live so the user can watch fallbacks
   // happen while listening.
   StreamInfo? _streamInfo;
@@ -68,6 +78,7 @@ class _SettingsPageState extends State<SettingsPage> {
     super.initState();
     _getNotificationsEnabled();
     _getAutoStartStation();
+    _loadDeveloperMode();
     _loadThemeMode();
     _loadSeekMode();
     _loadUnstableConnection();
@@ -102,6 +113,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _streamInfoSub?.cancel();
     _streamEventsSub?.cancel();
     _diagnosticTicker?.cancel();
+    _versionTapReset?.cancel();
     super.dispose();
   }
 
@@ -483,6 +495,136 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
+  /// Trailing copy affordance shared by the "Despre aplicație" tiles.
+  Widget _buildCopyIcon(bool isDark) {
+    return Icon(
+      Icons.copy,
+      size: 18,
+      color: isDark ? const Color(0xff8a8a8a) : const Color(0xff6b6b6b),
+    );
+  }
+
+  /// Copies [value] to the clipboard and confirms via a SnackBar showing
+  /// [confirmation]. Used by the "Despre aplicație" tiles so users can
+  /// share these details for support without retyping them.
+  Future<void> _copyAppInfoValue({
+    required String buttonName,
+    required String value,
+    required String confirmation,
+  }) async {
+    AnalyticsService.instance.capture('button_clicked', {'button_name': buttonName});
+    await Clipboard.setData(ClipboardData(text: value));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          confirmation,
+          style: const TextStyle(color: Colors.white),
+        ),
+        duration: const Duration(seconds: 2),
+        backgroundColor: AppColors.primaryDark,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
+  // ── Developer mode ──
+
+  Future<void> _loadDeveloperMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      _developerMode = prefs.getBool('developer_mode_enabled') ?? false;
+    });
+  }
+
+  /// Hidden gesture on the version row: 7 taps within a 2s-per-tap window
+  /// enable developer mode. Casual taps keep the copy-version behavior; from
+  /// tap 4 a countdown snackbar appears instead.
+  void _onVersionTap() {
+    _versionTapReset?.cancel();
+    _versionTapReset = Timer(const Duration(seconds: 2), () {
+      _versionTaps = 0;
+    });
+    if (_developerMode) {
+      _copyAppInfoValue(
+        buttonName: 'copy_app_version',
+        value: '$_version ($_buildNumber)',
+        confirmation: 'Versiune copiată',
+      );
+      return;
+    }
+    _versionTaps++;
+    final remaining = _devModeTapsNeeded - _versionTaps;
+    if (remaining <= 0) {
+      _versionTaps = 0;
+      _setDeveloperMode(true);
+    } else if (_versionTaps >= 4) {
+      _showDevSnack(
+        remaining == 1 ? 'Încă o apăsare…' : 'Încă $remaining apăsări…',
+      );
+    } else if (_versionTaps == 1) {
+      _copyAppInfoValue(
+        buttonName: 'copy_app_version',
+        value: '$_version ($_buildNumber)',
+        confirmation: 'Versiune copiată',
+      );
+    }
+  }
+
+  Future<void> _setDeveloperMode(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('developer_mode_enabled', enabled);
+    // Developer mode ships debug-level logs to PostHog for this device.
+    AnalyticsService.instance.setDeveloperVerbose(enabled);
+    AnalyticsService.instance
+        .capture('developer_mode_toggled', {'enabled': enabled});
+    if (!mounted) return;
+    setState(() => _developerMode = enabled);
+    _showDevSnack(enabled
+        ? 'Mod dezvoltator activat'
+        : 'Mod dezvoltator dezactivat');
+  }
+
+  Future<void> _copyLogs() async {
+    AnalyticsService.instance
+        .capture('button_clicked', {'button_name': 'copy_logs'});
+    final text = await LocalLogStore.instance.readRecent();
+    if (text.isEmpty) {
+      _showDevSnack('Niciun log de copiat');
+      return;
+    }
+    await Clipboard.setData(ClipboardData(text: text));
+    _showDevSnack('Loguri copiate');
+  }
+
+  Future<void> _sendLogs() async {
+    if (_uploadingLogs) return;
+    AnalyticsService.instance
+        .capture('button_clicked', {'button_name': 'send_logs'});
+    setState(() => _uploadingLogs = true);
+    final result = await LogUploadService.instance.upload(trigger: 'manual');
+    if (!mounted) return;
+    setState(() => _uploadingLogs = false);
+    _showDevSnack(result.success
+        ? 'Loguri trimise (${result.parts} părți)'
+        : 'Trimiterea logurilor a eșuat. Încearcă din nou.');
+  }
+
+  void _showDevSnack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text(message, style: const TextStyle(color: Colors.white)),
+        duration: const Duration(seconds: 2),
+        backgroundColor: AppColors.primaryDark,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ));
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -850,24 +992,108 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                   ]),
                 ],
-                const SizedBox(height: 32),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        'Versiune $_version ($_buildNumber)',
-                        style: TextStyle(color: isDark ? const Color(0xff5a5a5c) : const Color(0xff8e8e93), fontSize: 12),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Device ID: $_deviceId',
-                        style: TextStyle(color: isDark ? const Color(0xff48484a) : const Color(0xffaeaeb2), fontSize: 10),
-                      ),
-                    ],
+                _buildSectionHeader('Despre aplicație'),
+                _buildSettingsCard(children: [
+                  _buildSettingsTile(
+                    icon: Icons.info_outline_rounded,
+                    title: 'Versiune',
+                    subtitle: '$_version ($_buildNumber)',
+                    trailing: _buildCopyIcon(isDark),
+                    // Also the hidden developer-mode gesture (7 taps).
+                    onTap: _onVersionTap,
                   ),
-                ),
+                  _buildSettingsTile(
+                    icon: Icons.fingerprint,
+                    title: 'ID dispozitiv',
+                    subtitleWidget: Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        _deviceId,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontFamily: 'monospace',
+                          color: isDark
+                              ? const Color(0xff8a8a8a)
+                              : const Color(0xff6b6b6b),
+                        ),
+                      ),
+                    ),
+                    trailing: _buildCopyIcon(isDark),
+                    onTap: () => _copyAppInfoValue(
+                      buttonName: 'copy_device_id',
+                      value: _deviceId,
+                      confirmation: 'ID dispozitiv copiat',
+                    ),
+                  ),
+                ]),
+
+                if (_developerMode) ...[
+                  _buildSectionHeader('Developer'),
+                  _buildSettingsCard(children: [
+                    _buildSettingsTile(
+                      icon: Icons.fingerprint,
+                      title: 'ID dispozitiv',
+                      subtitle: _deviceId,
+                      trailing: _buildCopyIcon(isDark),
+                      onTap: () => _copyAppInfoValue(
+                        buttonName: 'copy_device_id_dev',
+                        value: _deviceId,
+                        confirmation: 'ID dispozitiv copiat',
+                      ),
+                    ),
+                    _buildSettingsTile(
+                      icon: Icons.article_outlined,
+                      title: 'Vezi logurile',
+                      subtitle: 'Logurile locale ale aplicației',
+                      onTap: () {
+                        AnalyticsService.instance.capture('button_clicked',
+                            {'button_name': 'view_logs'});
+                        LogsViewerPage.show(context);
+                      },
+                    ),
+                    _buildSettingsTile(
+                      icon: Icons.copy_all_outlined,
+                      title: 'Copiază logurile',
+                      subtitle: 'Cele mai recente (max. 200KB)',
+                      onTap: _copyLogs,
+                    ),
+                    _buildSettingsTile(
+                      icon: Icons.cloud_upload_outlined,
+                      title: 'Trimite logurile către noi',
+                      subtitle: 'Încarcă logurile pentru diagnosticare',
+                      trailing: _uploadingLogs
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                color: AppColors.primary,
+                              ),
+                            )
+                          : null,
+                      onTap: _uploadingLogs ? null : _sendLogs,
+                    ),
+                    _buildSettingsTile(
+                      icon: Icons.developer_mode,
+                      title: 'Mod dezvoltator',
+                      subtitle: 'Loguri detaliate activate',
+                      trailing: Switch.adaptive(
+                        activeThumbColor: Colors.white,
+                        activeTrackColor: isDark
+                            ? const Color(0xff48a868)
+                            : const Color(0xff34c759),
+                        inactiveThumbColor: Colors.white,
+                        inactiveTrackColor: isDark
+                            ? const Color(0xff39393d)
+                            : const Color(0xffe9e9ea),
+                        value: _developerMode,
+                        onChanged: (value) => _setDeveloperMode(value),
+                      ),
+                    ),
+                  ]),
+                ],
                 const SizedBox(height: 40),
             ],
           ),

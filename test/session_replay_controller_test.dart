@@ -80,6 +80,61 @@ void main() {
     });
   });
 
+  group('SessionReplayController.shouldRecordWithOverride', () {
+    test('remote force records even for disabled variant on mobile data', () {
+      expect(
+        SessionReplayController.shouldRecordWithOverride(
+          variant: 'disabled',
+          wifiOnly: true,
+          onWifi: false,
+          errorOccurred: false,
+          remoteForce: true,
+          remoteWifiOnly: false,
+        ),
+        isTrue,
+      );
+    });
+
+    test('remote force honors its own wifiOnly gate', () {
+      expect(
+        SessionReplayController.shouldRecordWithOverride(
+          variant: 'always',
+          wifiOnly: false,
+          onWifi: false,
+          errorOccurred: false,
+          remoteForce: true,
+          remoteWifiOnly: true,
+        ),
+        isFalse,
+      );
+    });
+
+    test('without remote force it defers to the variant decision', () {
+      expect(
+        SessionReplayController.shouldRecordWithOverride(
+          variant: 'always',
+          wifiOnly: true,
+          onWifi: true,
+          errorOccurred: false,
+          remoteForce: false,
+          remoteWifiOnly: false,
+        ),
+        isTrue,
+      );
+      expect(
+        SessionReplayController.shouldRecordWithOverride(
+          variant: 'disabled',
+          wifiOnly: false,
+          onWifi: true,
+          errorOccurred: true,
+          remoteForce: false,
+          remoteWifiOnly: false,
+        ),
+        isFalse,
+      );
+    });
+  });
+
   group('SessionReplayController.parseWifiOnly', () {
     test('reads the wifiOnly flag from the payload', () {
       expect(SessionReplayController.parseWifiOnly({'wifiOnly': false}), isFalse);

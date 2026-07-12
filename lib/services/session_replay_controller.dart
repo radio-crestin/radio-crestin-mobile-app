@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:posthog_flutter/posthog_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'analytics_service.dart';
 import 'network_service.dart';
 
 /// Controls PostHog session replay via the `mobile-session-replay` feature
@@ -49,6 +50,13 @@ class SessionReplayController {
   bool _wifiOnly = true;
   bool _errorOccurred = false;
   bool _started = false;
+
+  // Remote-debug override (`mobile-remote-debug` payload `sessionReplay`):
+  // forces recording ON regardless of the replay variant, honoring only the
+  // override's own wifiOnly (default false, so remote debugging works on
+  // mobile data).
+  bool _remoteForce = false;
+  bool _remoteWifiOnly = false;
 
   /// Last native recording state we applied (null until the first decision).
   bool? _recording;
@@ -107,19 +115,40 @@ class SessionReplayController {
     _apply();
   }
 
+  /// Applies the `mobile-remote-debug` override: while [force] is true,
+  /// recording runs regardless of the `mobile-session-replay` variant, gated
+  /// only by [wifiOnly] (default false for remote debugging). Called by
+  /// `RemoteDebugController`; `force: false` reverts to flag-driven behavior.
+  void setRemoteOverride({required bool force, required bool wifiOnly}) {
+    if (_remoteForce == force && _remoteWifiOnly == wifiOnly) return;
+    _remoteForce = force;
+    _remoteWifiOnly = wifiOnly;
+    _apply();
+  }
+
   /// Recomputes the decision and starts/stops native recording on change.
   void _apply() {
     if (!_started) return;
     final network = NetworkService.instance;
     final onWifi = !network.isOnMobileData.value && !network.isOffline.value;
-    final record = shouldRecord(
+    final record = shouldRecordWithOverride(
       variant: _variant,
       wifiOnly: _wifiOnly,
       onWifi: onWifi,
       errorOccurred: _errorOccurred,
+      remoteForce: _remoteForce,
+      remoteWifiOnly: _remoteWifiOnly,
     );
     if (record == _recording) return;
     _recording = record;
+    AnalyticsService.instance.logDebug('replay decision', {
+      'variant': _variant ?? 'null',
+      'wifi_only': _wifiOnly,
+      'on_wifi': onWifi,
+      'error_occurred': _errorOccurred,
+      'remote_force': _remoteForce,
+      'recording': record,
+    });
     if (record) {
       unawaited(Posthog().startSessionRecording().catchError((_) {}));
     } else {
@@ -141,6 +170,27 @@ class SessionReplayController {
       _ => false,
     };
     return allowed && (!wifiOnly || onWifi);
+  }
+
+  /// [shouldRecord] extended with the remote-debug override: when
+  /// [remoteForce] is on, the variant is ignored and only [remoteWifiOnly]
+  /// gates recording. Pure — unit tested directly.
+  @visibleForTesting
+  static bool shouldRecordWithOverride({
+    required String? variant,
+    required bool wifiOnly,
+    required bool onWifi,
+    required bool errorOccurred,
+    required bool remoteForce,
+    required bool remoteWifiOnly,
+  }) {
+    if (remoteForce) return !remoteWifiOnly || onWifi;
+    return shouldRecord(
+      variant: variant,
+      wifiOnly: wifiOnly,
+      onWifi: onWifi,
+      errorOccurred: errorOccurred,
+    );
   }
 
   /// Extracts `wifiOnly` from a flag payload, defaulting to `true` when the

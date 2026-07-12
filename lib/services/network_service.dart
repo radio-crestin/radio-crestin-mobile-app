@@ -4,6 +4,8 @@ import 'dart:developer' as developer;
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:rxdart/rxdart.dart';
 
+import 'analytics_service.dart';
+
 class NetworkService {
   // Lazy-init so callers (including tests that don't bootstrap main()) always
   // get a usable instance. The default seeded BehaviorSubjects (false/false)
@@ -42,16 +44,26 @@ class NetworkService {
 
     // Offline if only ConnectivityResult.none or empty results (iOS transition)
     final offline = results.isEmpty || (none && !mobile && !wifi && !ethernet);
+    // On mobile data only if mobile is present AND wifi/ethernet is not
+    final onMobile = mobile && !wifi && !ethernet;
+    final changed =
+        offline != isOffline.value || onMobile != isOnMobileData.value;
+
     if (offline != isOffline.value) {
       developer.log('NetworkService: isOffline = $offline');
       isOffline.add(offline);
     }
-
-    // On mobile data only if mobile is present AND wifi/ethernet is not
-    final onMobile = mobile && !wifi && !ethernet;
     if (onMobile != isOnMobileData.value) {
       developer.log('NetworkService: isOnMobileData = $onMobile');
       isOnMobileData.add(onMobile);
+    }
+
+    if (changed) {
+      AnalyticsService.instance.logDebug('connectivity changed', {
+        'offline': offline,
+        'on_mobile_data': onMobile,
+        'types': results.map((r) => r.name).join(','),
+      });
     }
   }
 

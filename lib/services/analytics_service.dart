@@ -27,6 +27,32 @@ class AnalyticsService {
   String? _appVersion;
   String? _platform;
 
+  // Verbose logging tiers. LocalLogStore always receives everything; PostHog
+  // receives info+ by default and debug+ while either verbose source is on
+  // (the `mobile-remote-debug` flag payload, or on-device developer mode).
+  bool _verboseRemote = false;
+  bool _verboseDeveloper = false;
+
+  /// Minimum severity shipped to PostHog (the local store gets everything).
+  PostHogLogSeverity get minShipLevel => (_verboseRemote || _verboseDeveloper)
+      ? PostHogLogSeverity.debug
+      : PostHogLogSeverity.info;
+
+  /// Set by the `mobile-remote-debug` flag payload (`verboseLogs`).
+  void setRemoteVerbose(bool enabled) => _verboseRemote = enabled;
+
+  /// Set while the hidden developer mode (Settings) is enabled.
+  void setDeveloperVerbose(bool enabled) => _verboseDeveloper = enabled;
+
+  /// Whether a record at [level] ships to PostHog given [minLevel].
+  /// Pure — unit tested directly.
+  @visibleForTesting
+  static bool shouldShip(
+    PostHogLogSeverity level,
+    PostHogLogSeverity minLevel,
+  ) =>
+      level.index >= minLevel.index;
+
   // Listening duration tracking
   String? _currentStationSlug;
   String? _currentStationName;
@@ -240,9 +266,12 @@ class AnalyticsService {
   /// use [capture]. The in-app event log (Settings → Diagnostic redare)
   /// always sees every event regardless of build mode.
   void captureDebug(String eventName, [Map<String, Object?>? properties]) {
+    // The debug log record always flows through the choke point (local store
+    // in every build; ships to PostHog only in verbose mode) — only the
+    // analytics *event* stays debug-build-only.
+    _emitLog(PostHogLogSeverity.debug, eventName, _filterNulls(properties));
     if (!kDebugMode) return;
     capture(eventName, properties);
-    _emitLog(PostHogLogSeverity.debug, eventName, _filterNulls(properties));
   }
 
   /// Set a user property without re-identifying.
@@ -257,6 +286,13 @@ class AnalyticsService {
   /// Emit an info-level structured log record to PostHog Logs.
   void log(String message, [Map<String, Object?>? attributes]) {
     _emitLog(PostHogLogSeverity.info, message, _filterNulls(attributes));
+  }
+
+  /// Emit a debug-level structured log record. Always lands in the local log
+  /// file; ships to PostHog only while verbose mode is on. Use for detailed
+  /// playback diagnostics (attempts, switches, stalls, decisions).
+  void logDebug(String message, [Map<String, Object?>? attributes]) {
+    _emitLog(PostHogLogSeverity.debug, message, _filterNulls(attributes));
   }
 
   /// Emit a warning-level structured log record (e.g. a recoverable stream
@@ -277,9 +313,10 @@ class AnalyticsService {
     Map<String, Object>? attributes,
   ]) {
     if (body.trim().isEmpty) return;
-    // Local copy first: it also captures records emitted before PostHog is up.
+    // Local copy first: it also captures records emitted before PostHog is up
+    // and always receives every severity, including debug.
     LocalLogStore.instance.append(level.name, body, attributes);
-    if (!_initialized) return;
+    if (!_initialized || !shouldShip(level, minShipLevel)) return;
     unawaited(
       Posthog()
           .captureLog(body: body, level: level, attributes: attributes)
