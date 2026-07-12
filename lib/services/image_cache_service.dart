@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
+import 'package:radio_crestin/utils/http_stall_guard.dart';
 
 class ImageCacheService {
   static ImageCacheService? _instance;
@@ -108,23 +109,35 @@ class ImageCacheService {
     }
 
     _activeDownloads++;
+    // Streamed download with stall semantics instead of a flat total
+    // timeout: a slow-but-flowing large image survives, while a backend
+    // that goes silent mid-transfer is cancelled after a short idle gap.
+    // The dedicated client is closed in `finally` so a cancelled transfer
+    // also releases its socket.
+    final client = http.Client();
     try {
-      final response = await http.get(Uri.parse(url)).timeout(
-        const Duration(seconds: 10),
-      );
-      if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
-        final file = File(filePath);
-        await file.writeAsBytes(response.bodyBytes);
-        _cache[url] = filePath;
-        _log("Downloaded: $url");
-        return file;
+      final response = await client
+          .send(http.Request('GET', Uri.parse(url)))
+          .timeout(HttpStallGuard.responseHeadersTimeout);
+      if (response.statusCode != 200) {
+        _log("Download failed (${response.statusCode}): $url");
+        return null;
       }
-      _log("Download failed (${response.statusCode}): $url");
-      return null;
+      final bytes = await HttpStallGuard.readBytes(response.stream);
+      if (bytes.isEmpty) {
+        _log("Download failed (empty body): $url");
+        return null;
+      }
+      final file = File(filePath);
+      await file.writeAsBytes(bytes);
+      _cache[url] = filePath;
+      _log("Downloaded: $url");
+      return file;
     } catch (e) {
       _log("Download error: $url - $e");
       return null;
     } finally {
+      client.close();
       _activeDownloads--;
     }
   }

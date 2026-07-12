@@ -3,6 +3,7 @@ import 'dart:developer' as developer;
 
 import 'package:http/http.dart' as http;
 import 'package:radio_crestin/constants.dart';
+import 'package:radio_crestin/utils/http_stall_guard.dart';
 
 /// A single item in the song history timeline.
 class SongHistoryItem {
@@ -129,7 +130,9 @@ class SongHistoryService {
     }
 
     try {
-      final response = await http.get(Uri.parse(url));
+      final response = await http
+          .get(Uri.parse(url))
+          .timeout(HttpStallGuard.restApiTimeout);
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body) as Map<String, dynamic>;
         final historyData = jsonData['data']?['stations_metadata_history'];

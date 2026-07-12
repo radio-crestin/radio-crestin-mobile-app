@@ -1958,7 +1958,23 @@ class AppAudioHandler extends BaseAudioHandler {
       final attemptStart = DateTime.now();
       try {
         if (retry > 0) {
-          await player.stop();
+          // Abort the previous (possibly hung) load before this attempt.
+          // just_audio 0.10.5 guarantees the abandoned load actually dies:
+          // stop() bumps the plugin's activation count so the old Dart-side
+          // load throws PlayerInterruptedException at its next checkpoint
+          // (just_audio.dart setAudioSources/_setPlatformActive), the idle
+          // switch disposes the native player, and the native side aborts
+          // any pending load ("Connection aborted" — abortExistingConnection
+          // in iOS AudioPlayer.m:611 / Android AudioPlayer.java:758). The
+          // fresh setAudioSource below then runs on a clean instance.
+          // Time-bounded as belt-and-braces so a pathological platform
+          // stall can't wedge this retry loop too.
+          await player
+              .stop()
+              .timeout(StreamFailover.stopAbortTimeout, onTimeout: () {
+            _log('play: stop() timed out aborting previous load — '
+                'continuing with next attempt');
+          });
         }
         final trackedUrl = addTrackingParametersToUrl(streamUrl);
         final loadUrl = trackedUrl;

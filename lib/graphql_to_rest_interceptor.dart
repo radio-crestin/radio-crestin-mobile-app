@@ -4,6 +4,7 @@ import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:radio_crestin/performance_monitor.dart';
 import 'package:radio_crestin/utils/api_utils.dart';
+import 'package:radio_crestin/utils/http_stall_guard.dart';
 
 typedef RestApiTransformer = Map<String, dynamic> Function(dynamic jsonData);
 
@@ -56,7 +57,13 @@ class GraphQLToRestInterceptorLink extends Link {
   }
   
   Future<http.Response> _fetchFromRestApi(String url) async {
-    return await http.get(Uri.parse(url));
+    // Total-duration bound: this is the station-data poll — an unbounded
+    // request here let a silent backend stall the whole refresh pipeline.
+    // A timeout surfaces as a GraphQL error response; the poller's next
+    // tick retries as usual.
+    return await http
+        .get(Uri.parse(url))
+        .timeout(HttpStallGuard.restApiTimeout);
   }
   
   Response _createSuccessResponse(Map<String, dynamic> data, Context context) {

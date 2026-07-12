@@ -48,6 +48,12 @@ class StreamFailover {
   /// stream per ~10s) without ever giving up.
   static const Duration maxCycleBackoff = Duration(seconds: 10);
 
+  /// Bound on the `player.stop()` issued between attempts to abort the
+  /// previous (possibly hung) platform load. stop() completes in
+  /// milliseconds normally; the bound only exists so a pathological
+  /// platform stall can't wedge the retry loop itself.
+  static const Duration stopAbortTimeout = Duration(seconds: 2);
+
   final Map<String, DateTime> _lastFailureAt = {};
 
   /// Timeout to apply to a single source load.

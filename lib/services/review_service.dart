@@ -3,6 +3,7 @@ import 'dart:developer' as developer;
 
 import 'package:http/http.dart' as http;
 import 'package:radio_crestin/constants.dart';
+import 'package:radio_crestin/utils/http_stall_guard.dart';
 
 class ReviewService {
   static final Uri _reviewsUrl = Uri.parse(CONSTANTS.REVIEWS_URL);
@@ -25,14 +26,16 @@ class ReviewService {
       if (songId != null && songId > 0) {
         body['song_id'] = songId;
       }
-      final response = await http.post(
-        _reviewsUrl,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: jsonEncode(body),
-      );
+      final response = await http
+          .post(
+            _reviewsUrl,
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: jsonEncode(body),
+          )
+          .timeout(HttpStallGuard.restApiTimeout);
 
       if (response.statusCode != 200) {
         return (success: false, error: 'Eroare de rețea (${response.statusCode})');
@@ -73,14 +76,16 @@ class ReviewService {
       if (songId != null && songId > 0) {
         body['song_id'] = songId;
       }
-      final response = await http.post(
-        _deleteReviewUrl,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: jsonEncode(body),
-      );
+      final response = await http
+          .post(
+            _deleteReviewUrl,
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: jsonEncode(body),
+          )
+          .timeout(HttpStallGuard.restApiTimeout);
 
       if (response.statusCode != 200) {
         return (success: false, error: 'Eroare de rețea (${response.statusCode})');

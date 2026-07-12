@@ -13,7 +13,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:get_it/get_it.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
+import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:radio_crestin/utils/http_stall_guard.dart';
 import 'package:radio_crestin/graphql_rest_mappings.dart';
 import 'package:radio_crestin/performance_monitor.dart';
 import 'package:radio_crestin/resilient_hive_store.dart';
@@ -192,9 +194,13 @@ void main() async {
     prefs.setString('_reviewStatus', json.encode(defaultReviewStatus));
   }
 
-  // GraphQL client setup (only needs hiveStore, not Firebase)
+  // GraphQL client setup (only needs hiveStore, not Firebase).
+  // TimeoutHttpClient bounds every GraphQL round-trip (headers + body
+  // idle) so a backend that accepts the connection but goes silent can't
+  // hang a query/mutation indefinitely.
   final HttpLink httpLink = HttpLink(
     CONSTANTS.GRAPHQL_ENDPOINT,
+    httpClient: TimeoutHttpClient(http.Client()),
   );
 
   final AuthLink authLink = AuthLink(
