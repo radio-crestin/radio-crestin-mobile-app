@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:media_kit/media_kit.dart';
 import 'package:radio_crestin/widgets/player_video_surface.dart';
 import 'package:radio_crestin/widgets/video_overlay_controls.dart';
 
@@ -87,6 +88,38 @@ void main() {
       // Skip controls must read as clearly secondary to play.
       expect(kOverlaySkipButtonSize, lessThan(kOverlayPlayButtonSize));
       expect(kOverlaySkipButtonSize, lessThanOrEqualTo(36.0));
+    });
+  });
+
+  group('distinctVideoQualities', () {
+    VideoTrack track(String id, {int? h, int? w}) =>
+        VideoTrack(id, null, null, w: w, h: h);
+
+    test('drops auto/no and tracks without a height', () {
+      final result = distinctVideoQualities([
+        VideoTrack.auto(),
+        VideoTrack.no(),
+        track('a'), // no height
+        track('b', h: 720, w: 1280),
+      ]);
+      expect(result.map((q) => q.label), ['720p']);
+    });
+
+    test('de-dupes by height and sorts highest first', () {
+      final result = distinctVideoQualities([
+        track('a', h: 720, w: 1280),
+        track('b', h: 1080, w: 1920),
+        track('c', h: 720, w: 1280), // duplicate height
+        track('d', h: 480, w: 854),
+      ]);
+      expect(result.map((q) => q.label), ['1080p', '720p', '480p']);
+      // Kept the first track seen per height.
+      expect(result.firstWhere((q) => q.label == '720p').track.id, 'a');
+    });
+
+    test('empty when no real qualities exist', () {
+      expect(distinctVideoQualities([VideoTrack.auto(), VideoTrack.no()]),
+          isEmpty);
     });
   });
 

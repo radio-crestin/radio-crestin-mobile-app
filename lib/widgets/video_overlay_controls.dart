@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:radio_crestin/theme.dart';
 
@@ -57,6 +58,38 @@ Duration computeDoubleTapSeek({
   return target;
 }
 
+/// A selectable video quality (an HLS variant), labeled by pixel height.
+@immutable
+class VideoQuality {
+  const VideoQuality({required this.track, required this.label});
+
+  /// The underlying libmpv video track to select.
+  final VideoTrack track;
+
+  /// Human label, e.g. `1080p`.
+  final String label;
+}
+
+/// The distinct, selectable qualities from libmpv's [tracks], highest first.
+///
+/// Drops the synthetic `auto`/`no` entries and any track without a known
+/// height, then de-dupes by height (HLS masters often list several variants at
+/// the same resolution). Pure so the label/dedupe logic is unit-testable; the
+/// quality button hides itself when this yields fewer than two entries.
+List<VideoQuality> distinctVideoQualities(List<VideoTrack> tracks) {
+  final seenHeights = <int>{};
+  final result = <VideoQuality>[];
+  for (final t in tracks) {
+    if (t.id == 'auto' || t.id == 'no') continue;
+    final h = t.h;
+    if (h == null || h <= 0) continue;
+    if (!seenHeights.add(h)) continue;
+    result.add(VideoQuality(track: t, label: '${h}p'));
+  }
+  result.sort((a, b) => (b.track.h ?? 0).compareTo(a.track.h ?? 0));
+  return result;
+}
+
 /// YouTube-style controls layer drawn on top of the media_kit video surface.
 ///
 /// Pure and stream-driven (no `media_kit` dependency) so it is fully
@@ -93,6 +126,11 @@ class VideoOverlayControls extends StatefulWidget {
     this.onSkipPrevious,
     this.onSeek,
     this.onToggleFullscreen,
+    this.videoTracksStream,
+    this.initialVideoTracks = const [],
+    this.selectedVideoTrackStream,
+    this.initialSelectedVideoTrack,
+    this.onSelectQuality,
   });
 
   final Stream<bool> playingStream;
@@ -130,6 +168,20 @@ class VideoOverlayControls extends StatefulWidget {
   /// Enters/exits fullscreen. Null hides the fullscreen button.
   final VoidCallback? onToggleFullscreen;
 
+  /// Available video qualities (HLS variants). The quality button appears only
+  /// for video content with more than one distinct quality; null (YouTube)
+  /// hides it entirely.
+  final Stream<List<VideoTrack>>? videoTracksStream;
+  final List<VideoTrack> initialVideoTracks;
+
+  /// The currently selected video track, so the picker can mark it.
+  final Stream<VideoTrack>? selectedVideoTrackStream;
+  final VideoTrack? initialSelectedVideoTrack;
+
+  /// Selects a quality (pass [VideoTrack.auto] for adaptive). Null disables the
+  /// quality button.
+  final ValueChanged<VideoTrack>? onSelectQuality;
+
   @override
   State<VideoOverlayControls> createState() => _VideoOverlayControlsState();
 }
@@ -142,6 +194,8 @@ class _VideoOverlayControlsState extends State<VideoOverlayControls>
   bool _buffering = false;
   Duration _position = Duration.zero;
   Duration? _duration;
+  List<VideoTrack> _videoTracks = const [];
+  VideoTrack? _selectedTrack;
 
   /// User's manual toggle for the auto-hiding controls. The effective
   /// visibility ([_effectiveVisible]) additionally forces controls on while
@@ -177,6 +231,8 @@ class _VideoOverlayControlsState extends State<VideoOverlayControls>
     _buffering = widget.initialBuffering;
     _position = widget.initialPosition;
     _duration = widget.initialDuration;
+    _videoTracks = widget.initialVideoTracks;
+    _selectedTrack = widget.initialSelectedVideoTrack;
 
     _rippleController = AnimationController(
       vsync: this,
@@ -195,6 +251,18 @@ class _VideoOverlayControlsState extends State<VideoOverlayControls>
     _subs.add(widget.durationStream.listen((d) {
       if (mounted) setState(() => _duration = d);
     }));
+    final tracksStream = widget.videoTracksStream;
+    if (tracksStream != null) {
+      _subs.add(tracksStream.listen((t) {
+        if (mounted) setState(() => _videoTracks = t);
+      }));
+    }
+    final selectedStream = widget.selectedVideoTrackStream;
+    if (selectedStream != null) {
+      _subs.add(selectedStream.listen((t) {
+        if (mounted) setState(() => _selectedTrack = t);
+      }));
+    }
 
     if (_playing && !_buffering) _scheduleHide();
   }
@@ -300,9 +368,32 @@ class _VideoOverlayControlsState extends State<VideoOverlayControls>
     _scheduleHide();
   }
 
+  Future<void> _openQualityPicker(List<VideoQuality> qualities) async {
+    _hideTimer?.cancel();
+    setState(() => _visible = true);
+    final selectedId = _selectedTrack?.id ?? 'auto';
+    final chosen = await showModalBottomSheet<VideoTrack>(
+      context: context,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      showDragHandle: true,
+      builder: (ctx) => _QualitySheet(
+        qualities: qualities,
+        selectedId: selectedId,
+      ),
+    );
+    if (chosen != null) widget.onSelectQuality?.call(chosen);
+    if (mounted && _playing && !_buffering) _scheduleHide();
+  }
+
   @override
   Widget build(BuildContext context) {
     final showPlaying = _optimisticPlaying ?? _playing;
+    // Quality button only for video content (onSelectQuality != null) exposing
+    // more than one distinct quality.
+    final qualities = widget.onSelectQuality != null
+        ? distinctVideoQualities(_videoTracks)
+        : const <VideoQuality>[];
+    final showQuality = qualities.length > 1;
     return LayoutBuilder(
       builder: (context, constraints) {
         _surfaceWidth = constraints.maxWidth;
@@ -353,6 +444,9 @@ class _VideoOverlayControlsState extends State<VideoOverlayControls>
                     position: _position,
                     duration: _duration,
                     dragValue: _dragValue,
+                    showQuality: showQuality,
+                    onOpenQuality:
+                        showQuality ? () => _openQualityPicker(qualities) : null,
                     onTogglePlay: _togglePlay,
                     onSkipNext: widget.showTransport
                         ? () => _onSkip(widget.onSkipNext)
@@ -420,6 +514,8 @@ class _ControlsLayer extends StatelessWidget {
     required this.position,
     required this.duration,
     required this.dragValue,
+    required this.showQuality,
+    required this.onOpenQuality,
     required this.onTogglePlay,
     required this.onSkipNext,
     required this.onSkipPrevious,
@@ -437,6 +533,8 @@ class _ControlsLayer extends StatelessWidget {
   final Duration position;
   final Duration? duration;
   final double? dragValue;
+  final bool showQuality;
+  final VoidCallback? onOpenQuality;
   final VoidCallback onTogglePlay;
   final VoidCallback? onSkipNext;
   final VoidCallback? onSkipPrevious;
@@ -468,12 +566,15 @@ class _ControlsLayer extends StatelessWidget {
             ],
           ),
         ),
-        // Center: prev | play/pause | next.
+        // Center: quality | prev | play/pause | next | fullscreen.
         Expanded(
           child: Center(
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                if (showQuality)
+                  _QualityButton(onTap: onOpenQuality),
+                if (showQuality) const SizedBox(width: 22),
                 if (showTransport)
                   _SkipButton(
                     icon: Icons.skip_previous_rounded,
@@ -490,11 +591,18 @@ class _ControlsLayer extends StatelessWidget {
                     icon: Icons.skip_next_rounded,
                     onTap: onSkipNext,
                   ),
+                if (onToggleFullscreen != null) const SizedBox(width: 22),
+                if (onToggleFullscreen != null)
+                  _FullscreenButton(
+                    isFullscreen: isFullscreen,
+                    onTap: onToggleFullscreen!,
+                  ),
               ],
             ),
           ),
         ),
-        // Bottom: VOD seek bar (+ fullscreen) or LIVE pill (+ fullscreen).
+        // Bottom: VOD seek bar or LIVE pill (fullscreen now lives in the row
+        // above, so the bottom bar stays minimal).
         Padding(
           padding: const EdgeInsets.fromLTRB(6, 0, 6, 8),
           child: seekable
@@ -504,14 +612,8 @@ class _ControlsLayer extends StatelessWidget {
                   dragValue: dragValue,
                   onChanged: onSeekChanged,
                   onChangeEnd: onSeekEnd,
-                  isFullscreen: isFullscreen,
-                  onToggleFullscreen: onToggleFullscreen,
                 )
-              : _LiveBottomBar(
-                  showLivePill: isLive,
-                  isFullscreen: isFullscreen,
-                  onToggleFullscreen: onToggleFullscreen,
-                ),
+              : _LiveBottomBar(showLivePill: isLive),
         ),
       ],
     );
@@ -580,7 +682,7 @@ class _SkipButton extends StatelessWidget {
   }
 }
 
-/// Thin brand seek bar with elapsed/total labels and a fullscreen button.
+/// Thin brand seek bar with elapsed/total labels.
 class _VodBottomBar extends StatelessWidget {
   const _VodBottomBar({
     required this.position,
@@ -588,8 +690,6 @@ class _VodBottomBar extends StatelessWidget {
     required this.dragValue,
     required this.onChanged,
     required this.onChangeEnd,
-    required this.isFullscreen,
-    required this.onToggleFullscreen,
   });
 
   final Duration position;
@@ -597,8 +697,6 @@ class _VodBottomBar extends StatelessWidget {
   final double? dragValue;
   final ValueChanged<double> onChanged;
   final ValueChanged<double> onChangeEnd;
-  final bool isFullscreen;
-  final VoidCallback? onToggleFullscreen;
 
   @override
   Widget build(BuildContext context) {
@@ -622,11 +720,6 @@ class _VodBottomBar extends StatelessWidget {
             children: [
               Text('$elapsed / $total', style: _labelStyle),
               const Spacer(),
-              if (onToggleFullscreen != null)
-                _FullscreenButton(
-                  isFullscreen: isFullscreen,
-                  onTap: onToggleFullscreen!,
-                ),
             ],
           ),
         ),
@@ -658,18 +751,12 @@ class _VodBottomBar extends StatelessWidget {
   );
 }
 
-/// LIVE pill (bottom-left) + fullscreen button. No seek bar — a clean slot for
-/// a future DVR feature.
+/// LIVE pill (bottom-left). No seek bar — a clean slot for a future DVR
+/// feature. Fullscreen now lives in the center control row.
 class _LiveBottomBar extends StatelessWidget {
-  const _LiveBottomBar({
-    required this.showLivePill,
-    required this.isFullscreen,
-    required this.onToggleFullscreen,
-  });
+  const _LiveBottomBar({required this.showLivePill});
 
   final bool showLivePill;
-  final bool isFullscreen;
-  final VoidCallback? onToggleFullscreen;
 
   @override
   Widget build(BuildContext context) {
@@ -679,13 +766,102 @@ class _LiveBottomBar extends StatelessWidget {
         children: [
           if (showLivePill) const LivePill(),
           const Spacer(),
-          if (onToggleFullscreen != null)
-            _FullscreenButton(
-              isFullscreen: isFullscreen,
-              onTap: onToggleFullscreen!,
-            ),
         ],
       ),
+    );
+  }
+}
+
+/// Small quality (gear) control shown left of the transport for multi-quality
+/// video. Opens the [_QualitySheet].
+class _QualityButton extends StatelessWidget {
+  const _QualityButton({required this.onTap});
+
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      shape: const CircleBorder(),
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: const Padding(
+          padding: EdgeInsets.all(6),
+          child: Icon(
+            Icons.high_quality_rounded,
+            color: Colors.white,
+            size: 24,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Material 3 bottom sheet listing "Auto" + each distinct video quality.
+/// Returns the chosen [VideoTrack] (or [VideoTrack.auto] for Auto).
+class _QualitySheet extends StatelessWidget {
+  const _QualitySheet({required this.qualities, required this.selectedId});
+
+  final List<VideoQuality> qualities;
+  final String selectedId;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text('Calitate video',
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w700)),
+            ),
+          ),
+          _QualityTile(
+            label: 'Auto',
+            selected: selectedId == 'auto',
+            onTap: () => Navigator.of(context).pop(VideoTrack.auto()),
+          ),
+          for (final q in qualities)
+            _QualityTile(
+              label: q.label,
+              selected: q.track.id == selectedId,
+              onTap: () => Navigator.of(context).pop(q.track),
+            ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+}
+
+class _QualityTile extends StatelessWidget {
+  const _QualityTile({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      title: Text(label),
+      trailing: selected
+          ? const Icon(Icons.check_rounded, color: AppColors.primary)
+          : null,
+      selected: selected,
+      onTap: onTap,
     );
   }
 }
@@ -874,6 +1050,11 @@ class VideoPlayerStage extends StatelessWidget {
           onSeek: onSeek,
           onToggleFullscreen:
               allowFullscreen ? () => toggleFullscreen(ctx) : null,
+          videoTracksStream: videoService.videoTracksStream,
+          initialVideoTracks: videoService.videoTracks,
+          selectedVideoTrackStream: videoService.selectedVideoTrackStream,
+          initialSelectedVideoTrack: videoService.selectedVideoTrack,
+          onSelectQuality: videoService.setVideoQuality,
         ),
       ),
     );

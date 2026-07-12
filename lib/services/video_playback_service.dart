@@ -51,6 +51,17 @@ class VideoPlaybackService {
   int? _lastWidth;
   int? _lastHeight;
 
+  /// Available video tracks (HLS variants) for the CURRENT media, reset on every
+  /// [open]. libmpv exposes each variant as a [VideoTrack] with `w`/`h` once it
+  /// has probed the master, so the UI can offer a quality picker.
+  final BehaviorSubject<List<VideoTrack>> _videoTracks =
+      BehaviorSubject<List<VideoTrack>>.seeded(const []);
+
+  /// The currently selected video track (`auto` by default). Drives the quality
+  /// picker's checkmark.
+  final BehaviorSubject<VideoTrack> _selectedVideoTrack =
+      BehaviorSubject<VideoTrack>.seeded(const VideoTrack('auto', null, null));
+
   /// Demuxer cache size (bytes). 64 MB — double media_kit's 32 MB default so a
   /// live TV stream keeps several seconds of video buffered against jitter.
   static const int _bufferSizeBytes = 64 * 1024 * 1024;
@@ -101,6 +112,20 @@ class VideoPlaybackService {
 
   /// Whether the current media has rendered a first video frame yet.
   bool get hasRenderedFrame => _hasFrame.value;
+
+  /// Available video tracks (HLS variants) for the current media.
+  Stream<List<VideoTrack>> get videoTracksStream => _videoTracks.stream;
+  List<VideoTrack> get videoTracks => _videoTracks.value;
+
+  /// The currently selected video track.
+  Stream<VideoTrack> get selectedVideoTrackStream => _selectedVideoTrack.stream;
+  VideoTrack get selectedVideoTrack => _selectedVideoTrack.value;
+
+  /// Selects [track] for output (pass [VideoTrack.auto] for adaptive quality).
+  Future<void> setVideoQuality(VideoTrack track) async {
+    await _player?.setVideoTrack(track);
+    _selectedVideoTrack.add(track);
+  }
 
   // ── Lifecycle ───────────────────────────────────────────────────────────
 
@@ -154,6 +179,11 @@ class VideoPlaybackService {
       _lastHeight = h;
       _recomputeHasFrame();
     }));
+    // Available/selected video tracks for the quality picker. HLS variants show
+    // up here (each with its own width/height) once libmpv probes the master.
+    _subs.add(player.stream.tracks.listen((t) => _videoTracks.add(t.video)));
+    _subs.add(
+        player.stream.track.listen((t) => _selectedVideoTrack.add(t.video)));
 
     return controller;
   }
@@ -235,6 +265,9 @@ class VideoPlaybackService {
     _lastWidth = null;
     _lastHeight = null;
     _hasFrame.add(false);
+    // Reset the quality picker for the new media (tracks arrive after open).
+    _videoTracks.add(const []);
+    _selectedVideoTrack.add(VideoTrack.auto());
     // Scope demuxer probing to this open so a live master (many HLS variants)
     // starts fast, without leaving the tighter limits set for a later VOD.
     await _configureProbing(player, live);
@@ -291,5 +324,7 @@ class VideoPlaybackService {
     await _completed.close();
     await _error.close();
     await _hasFrame.close();
+    await _videoTracks.close();
+    await _selectedVideoTrack.close();
   }
 }
