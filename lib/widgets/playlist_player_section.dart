@@ -210,12 +210,15 @@ class _PlaylistPlayerSectionState extends State<PlaylistPlayerSection> {
             ),
           ),
         const SizedBox(height: 6),
-        // Transport: prev | play/pause | next. Duplicates the video overlay for
-        // accessibility (always visible even when the overlay auto-hides).
+        // Transport: prev | play/pause | next (+ fullscreen for YouTube items,
+        // whose chromeless inline surface carries no controls of its own).
         // Play/pause routes through the handler for every item type.
         _Transport(
           audioHandler: widget.audioHandler,
           playButtonKey: _playButtonKey,
+          onFullscreen: _isYoutubeContent
+              ? _controller.requestYoutubeFullscreen
+              : null,
         ),
         const SizedBox(height: 12),
         // Track list — live-reconciling, current item highlighted.
@@ -338,8 +341,10 @@ class _MediaSurface extends StatelessWidget {
   }
 }
 
-/// Centered rounded artwork on a dark backdrop, used for audio-only items so
-/// the media area stays a stable 16:9 across item-type changes.
+/// Audio items present like a radio station: the square artwork card with the
+/// station look (surface color, [AppRadius.artwork] corners and the soft
+/// station shadow), centered in the stable 16:9 media area. Thumbnail chain:
+/// item → station → music-note placeholder.
 class _AudioArtwork extends StatelessWidget {
   const _AudioArtwork({required this.thumbnailUrl});
 
@@ -347,31 +352,33 @@ class _AudioArtwork extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius:
-          const BorderRadius.all(Radius.circular(AppRadius.artwork)),
-      child: ColoredBox(
-        color: Colors.black,
-        child: Center(
-          child: AspectRatio(
-            aspectRatio: 1,
-            child: Padding(
-              padding: const EdgeInsets.all(10),
-              child: ClipRRect(
-                // Concentric corners: inner radius = outer minus the 10px
-                // padding gap, so the two rounded edges stay parallel.
-                borderRadius: const BorderRadius.all(
-                    Radius.circular(AppRadius.artwork - 10)),
-                child: (thumbnailUrl != null && thumbnailUrl!.isNotEmpty)
-                    ? Utils.displayImage(thumbnailUrl!,
-                        cache: true, cacheWidth: 400)
-                    : const ColoredBox(
-                        color: Color(0xFF1E1E1E),
-                        child: Icon(Icons.music_note_rounded,
-                            color: Colors.white54, size: 40),
-                      ),
+    return Center(
+      child: AspectRatio(
+        aspectRatio: 1,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius:
+                const BorderRadius.all(Radius.circular(AppRadius.artwork)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withValues(alpha: 0.35),
+                blurRadius: 4,
+                offset: const Offset(2, 3),
               ),
-            ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius:
+                const BorderRadius.all(Radius.circular(AppRadius.artwork)),
+            child: (thumbnailUrl != null && thumbnailUrl!.isNotEmpty)
+                ? Utils.displayImage(thumbnailUrl!,
+                    cache: true, cacheWidth: 400)
+                : const ColoredBox(
+                    color: Color(0xFF1E1E1E),
+                    child: Icon(Icons.music_note_rounded,
+                        color: Colors.white54, size: 40),
+                  ),
           ),
         ),
       ),
@@ -493,10 +500,15 @@ class _Transport extends StatelessWidget {
   const _Transport({
     required this.audioHandler,
     required this.playButtonKey,
+    this.onFullscreen,
   });
 
   final AppAudioHandler audioHandler;
   final GlobalKey<AnimatedPlayButtonState> playButtonKey;
+
+  /// Fullscreen action shown right of "next" — used by YouTube items, whose
+  /// chromeless inline surface has no fullscreen control of its own.
+  final VoidCallback? onFullscreen;
 
   @override
   Widget build(BuildContext context) {
@@ -539,6 +551,18 @@ class _Transport extends StatelessWidget {
                 size: 30, color: Theme.of(context).colorScheme.onSurface),
           ),
         ),
+        if (onFullscreen != null) ...[
+          const SizedBox(width: 24),
+          InkWell(
+            customBorder: const CircleBorder(),
+            onTap: onFullscreen,
+            child: Padding(
+              padding: const EdgeInsets.all(10.0),
+              child: Icon(Icons.fullscreen_rounded,
+                  size: 30, color: Theme.of(context).colorScheme.onSurface),
+            ),
+          ),
+        ],
       ],
     );
   }
