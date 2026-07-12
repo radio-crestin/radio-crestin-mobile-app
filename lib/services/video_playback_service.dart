@@ -202,8 +202,8 @@ class VideoPlaybackService {
     if (platform is! NativePlayer) return;
     try {
       await platform.setProperty('cache', 'yes');
-      // Seconds of media to keep buffered ahead — matches Darwin's 60s.
-      await platform.setProperty('cache-secs', '60');
+      // NOTE: cache-secs / demuxer-readahead-secs are per-open — live keeps a
+      // bounded window while VOD fills greedily to EOF (see [_configureProbing]).
       // Forward demuxer cache (in addition to bufferSize above).
       await platform.setProperty('demuxer-max-bytes', '64MiB');
       // Back cache so a small seek-back after a live-edge stall is instant.
@@ -219,13 +219,21 @@ class VideoPlaybackService {
     }
   }
 
-  /// Tunes libmpv's libavformat probing per [open]. A live HLS master (the
-  /// Apple bipbop test carries ~24 variants + alt audio/captions) otherwise
-  /// spends seconds probing every variant before the first frame; capping the
-  /// analyze duration and probe size — and starting at the live edge — makes it
-  /// join almost instantly. VOD is reset to generous defaults so full-file
-  /// probing (accurate duration/seek) is never sacrificed. Must run BEFORE
-  /// [Player.open] since these only take effect at demuxer init.
+  /// Tunes libmpv's probing AND cache greediness per [open].
+  ///
+  /// Live: a live HLS master (the Apple bipbop test carries ~24 variants +
+  /// alt audio/captions) otherwise spends seconds probing every variant
+  /// before the first frame — cap the analyze duration/probe size and start
+  /// at the live edge. The forward cache stays a bounded 60s window (there is
+  /// no "end" to buffer to on live).
+  ///
+  /// VOD: start promptly (a small probe still yields exact duration — mp4/HLS
+  /// carry it in container/playlist metadata), then fill the cache greedily to
+  /// EOF (huge cache-secs/readahead, bounded by the 64MiB demuxer cache) so
+  /// later playback and seeks never wait on the network.
+  ///
+  /// Must run BEFORE [Player.open] — probing properties only take effect at
+  /// demuxer init, and the player instance is reused across media.
   Future<void> _configureProbing(Player player, bool live) async {
     final platform = player.platform;
     if (platform is! NativePlayer) return;
@@ -237,11 +245,18 @@ class VideoPlaybackService {
         // Start at the live edge (last segment) rather than the playlist start.
         await platform.setProperty(
             'demuxer-lavf-o', 'live_start_index=-1');
+        await platform.setProperty('cache-secs', '60');
+        await platform.setProperty('demuxer-readahead-secs', '60');
       } else {
-        // Restore libav defaults so VOD duration/seek stay fully accurate.
+        // Prompt start: 1 MB probe is plenty for mp4/HLS-VOD headers while
+        // keeping duration/seek indexes accurate.
         await platform.setProperty('demuxer-lavf-analyzeduration', '0');
-        await platform.setProperty('demuxer-lavf-probesize', '5000000');
+        await platform.setProperty('demuxer-lavf-probesize', '1000000');
         await platform.setProperty('demuxer-lavf-o', '');
+        // Buffer to the end: effectively unbounded time windows; the 64MiB
+        // demuxer-max-bytes cap is the real limit.
+        await platform.setProperty('cache-secs', '100000');
+        await platform.setProperty('demuxer-readahead-secs', '100000');
       }
     } catch (e) {
       debugPrint('VideoPlaybackService: probing config failed: $e');

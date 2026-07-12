@@ -136,23 +136,45 @@ class MetadataChangeAlignment {
 /// intent (live favours a snappy start; VOD keeps a safer pre-roll) and are the
 /// single source of truth used both when constructing the player and in tests.
 class FastStartConfig {
-  /// Android `bufferForPlaybackDuration` for live: lowered from 3s so ExoPlayer
-  /// starts ~1.5s sooner. Safe because the 50s `minBufferDuration`, the 2s
-  /// post-rebuffer threshold, and the reconnect/stall machinery still cover the
-  /// rebuffer risk — this only moves the "ok to start" line, not the fill goal.
-  static const Duration liveAndroidBufferForPlayback =
-      Duration(milliseconds: 1500);
+  /// Android `bufferForPlaybackDuration` — the single global "ok to start"
+  /// line for the shared player (just_audio cannot retune per load). 1s (was
+  /// 1.5s, originally 3s): the VOD strategy is "start as fast as possible,
+  /// then buffer to the end", and live wants the same snappy start. Rebuffer
+  /// risk stays covered by the 50s `minBufferDuration`, the 2s post-rebuffer
+  /// threshold and the reconnect/stall machinery — this only moves the start
+  /// line, not the fill goal. (Android is reasoning-verified — not measurable
+  /// on the iOS test rig.)
+  static const Duration liveAndroidBufferForPlayback = Duration(seconds: 1);
 
-  /// Android `bufferForPlaybackDuration` for VOD — keeps the conservative 3s
-  /// (a VOD stall is more jarring than a few hundred ms of live start latency).
-  static const Duration vodAndroidBufferForPlayback = Duration(seconds: 3);
+  /// Android `bufferForPlaybackDuration` for VOD — same minimal start
+  /// threshold as live (see [liveAndroidBufferForPlayback]; one shared player,
+  /// one global value).
+  static const Duration vodAndroidBufferForPlayback = Duration(seconds: 1);
 
   static Duration androidBufferForPlayback({required bool isLive}) =>
       isLive ? liveAndroidBufferForPlayback : vodAndroidBufferForPlayback;
 
+  /// Android `maxBufferDuration`: how far ahead ExoPlayer keeps downloading
+  /// once playing. 10 minutes ≈ "the whole file" for typical VOD items, so
+  /// later playback/seeks never wait on the network; live is bounded by the
+  /// live edge anyway.
+  static const Duration androidMaxBuffer = Duration(minutes: 10);
+
+  /// iOS/macOS `preferredForwardBufferDuration`: like [androidMaxBuffer], a
+  /// large forward window so AVPlayer keeps fetching VOD items to the end
+  /// after the fast start (harmless for live — the live edge bounds it).
+  /// Was 60s, which stopped VOD prefetch a minute ahead and let later seeks
+  /// stall.
+  static const Duration darwinPreferredForwardBuffer = Duration(minutes: 10);
+
   /// iOS/macOS `automaticallyWaitsToMinimizeStalling` for live sources: false so
   /// AVPlayer begins as soon as it can instead of pre-filling a conservative
   /// buffer. A compile-time const so it can feed the const player config.
+  ///
+  /// This global also covers VOD in practice (shared player): MP3 playlist
+  /// items provably start and play with waits=false on the iOS path (verified
+  /// on the simulator; the known waits=false MP3 breakage is specific to the
+  /// native tvOS AVPlayer app, not this pipeline).
   static const bool liveDarwinAutomaticallyWaits = false;
 
   /// iOS/macOS `automaticallyWaitsToMinimizeStalling`. For live sources, false
@@ -413,12 +435,11 @@ Future<AppAudioHandler> initAudioService({required graphqlClient}) async {
     audioLoadConfiguration: const AudioLoadConfiguration(
       androidLoadControl: AndroidLoadControl(
         minBufferDuration: Duration(seconds: 50),
-        maxBufferDuration: Duration(minutes: 10),
-        // Fast-start: 1.5s (was 3s). ~all app playback is live radio/TV, so the
-        // global value is tuned for live via FastStartConfig. Rebuffer risk is
-        // still covered by the 50s minBuffer, the 2s post-rebuffer threshold,
-        // and the reconnect/stall machinery. (Android is reasoning-verified —
-        // not measurable on the iOS test rig.)
+        // Greedy fill: keep downloading up to 10 min ahead once playing, so a
+        // typical VOD item is fully fetched and later seeks never stall.
+        maxBufferDuration: FastStartConfig.androidMaxBuffer,
+        // Fast-start: minimal "ok to start" threshold for live AND VOD (see
+        // FastStartConfig — one shared player, one global value).
         bufferForPlaybackDuration: FastStartConfig.liveAndroidBufferForPlayback,
         // 2s (was 5s): post-rebuffer is exactly when we need fast resume —
         // every extra second here is silence the user hears after a
@@ -442,7 +463,11 @@ Future<AppAudioHandler> initAudioService({required graphqlClient}) async {
         // follows FastStartConfig's live setting.
         automaticallyWaitsToMinimizeStalling:
             FastStartConfig.liveDarwinAutomaticallyWaits,
-        preferredForwardBufferDuration: Duration(seconds: 60),
+        // Greedy fill after the fast start: a large forward window keeps
+        // AVPlayer fetching VOD items to the end (live is bounded by the live
+        // edge, so this is harmless there).
+        preferredForwardBufferDuration:
+            FastStartConfig.darwinPreferredForwardBuffer,
       ),
     ),
   );
