@@ -423,17 +423,16 @@ class _VideoOverlayControlsState extends State<VideoOverlayControls>
                   onLeft: !_rippleForward,
                   seconds: _rippleSeconds,
                 ),
-              // Buffering spinner — sits above the scrim, independent of the
-              // transport controls (which are hidden while buffering).
-              if (_buffering) const _CenterSpinner(),
-              // Controls layer — hidden while buffering (spinner instead).
+              // Controls layer. While buffering the play/pause button itself
+              // shows the spinner (a single spinner, sized-stable), so the
+              // controls stay visible instead of being replaced.
               AnimatedOpacity(
                 key: const ValueKey('video-overlay-controls'),
                 duration: const Duration(milliseconds: 250),
                 curve: Curves.easeInOut,
-                opacity: _effectiveVisible && !_buffering ? 1.0 : 0.0,
+                opacity: _effectiveVisible ? 1.0 : 0.0,
                 child: IgnorePointer(
-                  ignoring: !(_effectiveVisible && !_buffering),
+                  ignoring: !_effectiveVisible,
                   child: _ControlsLayer(
                     title: widget.title,
                     isLive: widget.isLive,
@@ -441,6 +440,7 @@ class _VideoOverlayControlsState extends State<VideoOverlayControls>
                     showTransport: widget.showTransport,
                     isFullscreen: widget.isFullscreen,
                     showPlaying: showPlaying,
+                    buffering: _buffering,
                     position: _position,
                     duration: _duration,
                     dragValue: _dragValue,
@@ -511,6 +511,7 @@ class _ControlsLayer extends StatelessWidget {
     required this.showTransport,
     required this.isFullscreen,
     required this.showPlaying,
+    required this.buffering,
     required this.position,
     required this.duration,
     required this.dragValue,
@@ -530,6 +531,7 @@ class _ControlsLayer extends StatelessWidget {
   final bool showTransport;
   final bool isFullscreen;
   final bool showPlaying;
+  final bool buffering;
   final Duration position;
   final Duration? duration;
   final double? dragValue;
@@ -583,6 +585,7 @@ class _ControlsLayer extends StatelessWidget {
                 if (showTransport) const SizedBox(width: 26),
                 _PlayPauseButton(
                   showPlaying: showPlaying,
+                  buffering: buffering,
                   onTap: onTogglePlay,
                 ),
                 if (showTransport) const SizedBox(width: 26),
@@ -621,10 +624,19 @@ class _ControlsLayer extends StatelessWidget {
 }
 
 /// Central play/pause with a subtle translucent disc and a 150ms icon swap.
+///
+/// While [buffering] the disc shows a brand spinner in place of the glyph — the
+/// single buffering indicator for the whole overlay (the button keeps its size
+/// so the row never jumps). It stays tappable so the user can still pause.
 class _PlayPauseButton extends StatelessWidget {
-  const _PlayPauseButton({required this.showPlaying, required this.onTap});
+  const _PlayPauseButton({
+    required this.showPlaying,
+    required this.buffering,
+    required this.onTap,
+  });
 
   final bool showPlaying;
+  final bool buffering;
   final VoidCallback onTap;
 
   @override
@@ -641,12 +653,24 @@ class _PlayPauseButton extends StatelessWidget {
           height: kOverlayPlayButtonSize,
           child: AnimatedSwitcher(
             duration: const Duration(milliseconds: 150),
-            child: Icon(
-              showPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-              key: ValueKey(showPlaying),
-              color: Colors.white,
-              size: kOverlayPlayButtonSize * 0.62,
-            ),
+            child: buffering
+                ? const SizedBox(
+                    key: ValueKey('buffering'),
+                    width: 26,
+                    height: 26,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      valueColor: AlwaysStoppedAnimation(AppColors.primary),
+                    ),
+                  )
+                : Icon(
+                    showPlaying
+                        ? Icons.pause_rounded
+                        : Icons.play_arrow_rounded,
+                    key: ValueKey(showPlaying),
+                    color: Colors.white,
+                    size: kOverlayPlayButtonSize * 0.62,
+                  ),
           ),
         ),
       ),
@@ -890,25 +914,6 @@ class _FullscreenButton extends StatelessWidget {
             color: Colors.white,
             size: 24,
           ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Centered brand spinner shown while the decoder waits on data.
-class _CenterSpinner extends StatelessWidget {
-  const _CenterSpinner();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(
-      child: SizedBox(
-        width: 34,
-        height: 34,
-        child: CircularProgressIndicator(
-          strokeWidth: 2.5,
-          valueColor: AlwaysStoppedAnimation(AppColors.primary),
         ),
       ),
     );

@@ -214,13 +214,18 @@ void main() {
       expect(controlsOpacity(tester), 1.0);
     });
 
-    testWidgets('buffering shows the centered spinner and hides transport',
-        (tester) async {
+    testWidgets('buffering shows a single spinner in the play button, '
+        'controls stay visible', (tester) async {
       await tester.pumpWidget(build(initialBuffering: true));
       await tester.pump();
+      // Exactly one spinner (in the play/pause button), not a separate center
+      // spinner plus a transport spinner.
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
-      // Transport is hidden behind the spinner while buffering.
-      expect(controlsOpacity(tester), 0.0);
+      // Controls remain visible while buffering (no longer hidden).
+      expect(controlsOpacity(tester), 1.0);
+      // The play/pause glyph is replaced by the spinner while buffering.
+      expect(find.byIcon(Icons.play_arrow_rounded), findsNothing);
+      expect(find.byIcon(Icons.pause_rounded), findsNothing);
     });
 
     testWidgets('live variant shows the LIVE pill and no seek bar',
