@@ -582,15 +582,20 @@ class _ControlsLayer extends StatelessWidget {
             ],
           ),
         ),
-        // Center: quality | prev | play/pause | next | fullscreen.
+        // Center: quality | prev | play/pause | next | fullscreen. Left and
+        // right slot counts always match — an invisible spacer stands in for
+        // a missing side — so the transport cluster stays dead-center.
         Expanded(
           child: Center(
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (showQuality)
-                  _QualityButton(onTap: onOpenQuality),
-                if (showQuality) const SizedBox(width: 22),
+                  _QualityButton(onTap: onOpenQuality)
+                else if (onToggleFullscreen != null)
+                  const _GhostSideButton(),
+                if (showQuality || onToggleFullscreen != null)
+                  const SizedBox(width: 22),
                 if (showTransport)
                   _SkipButton(
                     icon: Icons.skip_previous_rounded,
@@ -608,12 +613,15 @@ class _ControlsLayer extends StatelessWidget {
                     icon: Icons.skip_next_rounded,
                     onTap: onSkipNext,
                   ),
-                if (onToggleFullscreen != null) const SizedBox(width: 22),
+                if (showQuality || onToggleFullscreen != null)
+                  const SizedBox(width: 22),
                 if (onToggleFullscreen != null)
                   _FullscreenButton(
                     isFullscreen: isFullscreen,
                     onTap: onToggleFullscreen!,
-                  ),
+                  )
+                else if (showQuality)
+                  const _GhostSideButton(),
               ],
             ),
           ),
@@ -807,6 +815,18 @@ class _LiveBottomBar extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// Invisible stand-in matching the side buttons' 36x36 footprint (24px icon +
+/// 6px padding), used to keep the transport cluster centered when only one
+/// side control is present.
+class _GhostSideButton extends StatelessWidget {
+  const _GhostSideButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox(width: 36, height: 36);
   }
 }
 

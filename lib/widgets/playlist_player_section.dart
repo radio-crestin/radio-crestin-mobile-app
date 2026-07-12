@@ -315,8 +315,13 @@ class _MediaSurface extends StatelessWidget {
       );
     } else {
       kind = 'audio-${item?.id}';
+      // Empty-string thumbnails (common on the live playlist API) must fall
+      // back to the station artwork, exactly like a null.
+      final itemThumb = item?.thumbnailUrl;
       child = _AudioArtwork(
-        thumbnailUrl: item?.thumbnailUrl ?? station.thumbnailUrl,
+        thumbnailUrl: (itemThumb != null && itemThumb.isNotEmpty)
+            ? itemThumb
+            : station.thumbnailUrl,
       );
     }
 
@@ -513,11 +518,22 @@ class _Transport extends StatelessWidget {
   /// chromeless inline surface has no fullscreen control of its own.
   final VoidCallback? onFullscreen;
 
+  /// Side length of the round secondary buttons (10px padding + 30px icon) —
+  /// also the size of the invisible left spacer that keeps the prev/play/next
+  /// cluster dead-center when fullscreen is present on the right.
+  static const double _sideButtonSize = 50.0;
+
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
+        // Ghost slot mirroring the fullscreen button so the transport cluster
+        // stays visually centered.
+        if (onFullscreen != null) ...[
+          const SizedBox(width: _sideButtonSize, height: _sideButtonSize),
+          const SizedBox(width: 24),
+        ],
         InkWell(
           customBorder: const CircleBorder(),
           onTap: () {
