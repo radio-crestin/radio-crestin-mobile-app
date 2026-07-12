@@ -42,6 +42,7 @@ import 'services/analytics_service.dart';
 import 'services/device_registration_service.dart';
 import 'services/error_filter.dart';
 import 'services/image_cache_service.dart';
+import 'services/log_flush_guard.dart';
 import 'services/quick_actions_service.dart';
 import 'services/network_service.dart';
 import 'services/play_count_service.dart';
@@ -287,17 +288,26 @@ void main() async {
   // integration. Does not block on the network.
   await SessionReplayController.instance.loadCache(prefs);
 
+  // packageInfo has been resolving since Phase 1 and is effectively instant
+  // by now; awaiting it here lets PostHog Logs stamp `service.version`.
+  final packageInfo = await packageInfoFuture;
+
   // Initialize PostHog analytics (error tracking is handled by PostHog config).
   // The onFeatureFlags callback lets the controller apply the live flag once
   // PostHog has loaded it.
   await AnalyticsService.instance.initialize(
     sessionReplayAtSetup: SessionReplayController.instance.enableReplayAtSetup,
     onFeatureFlagsLoaded: SessionReplayController.instance.onFlagsLoaded,
+    appVersion: packageInfo.version,
   );
 
   // Start the replay controller: subscribe to connectivity and stop recording
   // until the flag-driven decision (and WiFi gate) allow it. After setup.
   SessionReplayController.instance.start();
+
+  // Settle any flush owed from a previous offline exception (or a crash
+  // before the flush completed) and watch connectivity for new debts.
+  LogFlushGuard.instance.start(prefs);
 
   // Suppress known-benign runtime/network/plugin errors so they neither crash
   // the app nor drown out real issues in PostHog. Must run AFTER PostHog setup —
@@ -322,11 +332,10 @@ void main() async {
     PerformanceMonitor.trackAsync('firebase_messaging_init', () => initializeFirebaseMessaging());
   }
 
-  // Wait for audio + packageInfo
-  final serviceResults = await Future.wait([audioHandlerFuture, packageInfoFuture]);
-  getIt.registerSingleton<AppAudioHandler>(serviceResults[0] as AppAudioHandler);
+  // Wait for audio (packageInfo already resolved above)
+  final audioHandler = await audioHandlerFuture;
+  getIt.registerSingleton<AppAudioHandler>(audioHandler);
 
-  final packageInfo = serviceResults[1] as PackageInfo;
   globals.appVersion = packageInfo.version;
   globals.buildNumber = packageInfo.buildNumber;
 

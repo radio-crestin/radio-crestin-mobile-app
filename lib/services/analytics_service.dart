@@ -5,6 +5,8 @@ import 'dart:io' show PathNotFoundException;
 import 'package:flutter/foundation.dart';
 import 'package:posthog_flutter/posthog_flutter.dart';
 
+import 'local_log_store.dart';
+import 'log_flush_guard.dart';
 import 'session_replay_controller.dart';
 
 /// Centralized analytics service wrapping PostHog.
@@ -71,11 +73,14 @@ class AnalyticsService {
   /// (see [SessionReplayController]); the controller then stops recording until
   /// the `mobile-session-replay` feature flag allows it. [onFeatureFlagsLoaded]
   /// is invoked once PostHog has loaded feature flags, which is when the
-  /// replay decision can first be read.
+  /// replay decision can first be read. [appVersion] becomes the OTLP
+  /// `service.version` on every log record.
   Future<void> initialize({
     bool sessionReplayAtSetup = false,
     VoidCallback? onFeatureFlagsLoaded,
+    String? appVersion,
   }) async {
+    _appVersion = appVersion ?? _appVersion;
     final config = PostHogConfig('phc_9lTquHDSyoFxkYq4VPd8cFiQ21VZd627Lv8jSV8S7Fi');
     config.host = 'https://k.radiocrestin.ro';
     config.debug = kDebugMode;
@@ -111,9 +116,14 @@ class AnalyticsService {
     // Feature flags gate session replay; fire the caller's callback once loaded.
     config.onFeatureFlags = onFeatureFlagsLoaded;
 
-    // PostHog Logs (OTLP) resource attributes.
+    // PostHog Logs (OTLP) resource attributes. Buffering, disk persistence
+    // across restarts, and auto-flush (30s / flushAt / on backgrounding) are
+    // SDK defaults and left untouched; the 500-per-10s rate cap is far above
+    // our volume (no per-second logs, heartbeats are events-only).
     config.logsConfig.serviceName = 'radio-crestin-mobile';
-    config.logsConfig.environment = kDebugMode ? 'development' : 'production';
+    if (appVersion != null) config.logsConfig.serviceVersion = appVersion;
+    config.logsConfig.environment =
+        kReleaseMode ? 'production' : 'development';
 
     // Person profiles
     config.personProfiles = PostHogPersonProfiles.identifiedOnly;
@@ -181,6 +191,11 @@ class AnalyticsService {
 
     // Real error → start replay for `on-error` devices (WiFi gate still applies).
     SessionReplayController.instance.notifyErrorCaptured();
+
+    // Guarantee upload: flush now, or owe a flush until connectivity returns
+    // (LogFlushGuard persists the debt across restarts, and the SDK's queues
+    // survive on disk). Not WiFi-gated — log/event uploads are tiny.
+    LogFlushGuard.instance.requestFlush();
   }
 
   /// Identify user with persistent device ID.
@@ -252,14 +267,19 @@ class AnalyticsService {
 
   // ── Structured logging (PostHog Logs) ──
 
-  /// Forwards a record to PostHog Logs. Fire-and-forget and never throws into
-  /// the caller — a failed log must not disturb playback.
+  /// Forwards a record to PostHog Logs and mirrors it to [LocalLogStore] —
+  /// the single choke point for every log record the app emits. Fire-and-
+  /// forget and never throws into the caller — a failed log must not disturb
+  /// playback.
   void _emitLog(
     PostHogLogSeverity level,
     String body, [
     Map<String, Object>? attributes,
   ]) {
-    if (!_initialized || body.trim().isEmpty) return;
+    if (body.trim().isEmpty) return;
+    // Local copy first: it also captures records emitted before PostHog is up.
+    LocalLogStore.instance.append(level.name, body, attributes);
+    if (!_initialized) return;
     unawaited(
       Posthog()
           .captureLog(body: body, level: level, attributes: attributes)
