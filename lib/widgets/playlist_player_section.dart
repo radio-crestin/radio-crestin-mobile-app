@@ -109,12 +109,15 @@ class _PlaylistPlayerSectionState extends State<PlaylistPlayerSection> {
     _subs.add(c.transientMessages.stream.listen((message) {
       if (!mounted) return;
       removeBottomToast(_skipToast);
+      // Red error toast naming the element that failed (the controller
+      // includes the item's display name in the message).
       _skipToast = showBottomToast(
         context,
         title: 'Element indisponibil',
         message: message,
-        icon: Icons.skip_next_rounded,
-        duration: const Duration(seconds: 2),
+        icon: Icons.error_rounded,
+        isError: true,
+        duration: const Duration(seconds: 3),
         onDismissed: () => _skipToast = null,
       );
     }));

@@ -306,13 +306,20 @@ class PlaylistController {
         youtubeRequest.add(item);
         break;
       case PlaylistItemType.unknown:
-        // Unrecognized future kind — unplayable. Auto-advance past it.
+        // Unrecognized future kind — unplayable. Notify once (red toast with
+        // the element's name), then auto-advance past it.
         _log('playItemAt: unknown item type → skip');
         isVideoContent.add(false);
         isYoutubeContent.add(false);
         youtubeRequest.add(null);
         _handler.setPlaylistYoutubeActive(false);
         await _handler.stopPlaylistPlayback();
+        if (!failedItemIds.value.contains(item.id)) {
+          _markItemFailed(item.id);
+          transientMessages.add(
+              '„${playlistItemDisplayName(item)}” nu a putut fi redat — '
+              'se trece la următorul');
+        }
         unawaited(_advance(direction: 1));
         break;
     }
@@ -399,6 +406,9 @@ class PlaylistController {
       'item_url': item?.url,
       'error': error.toString(),
     });
+    // First failure for this item → user-visible notification (dedupe: a
+    // retry of an already-failed item stays silent until it plays again).
+    final firstFailure = item != null && !failedItemIds.value.contains(item.id);
     if (item != null) _markItemFailed(item.id);
     _consecutiveFailures++;
 
@@ -417,10 +427,13 @@ class PlaylistController {
       return;
     }
 
-    // Intermediate failure — tell the user we're moving on, then advance. The
-    // UI pairs this with an "Element indisponibil" title for the full sentence
-    // "Element indisponibil — se trece la următorul".
-    transientMessages.add('Se trece la următorul');
+    // Intermediate failure — name the element that failed and move on. The UI
+    // shows this as the red error toast (title "Element indisponibil").
+    if (item != null && firstFailure) {
+      transientMessages.add(
+          '„${playlistItemDisplayName(item)}” nu a putut fi redat — '
+          'se trece la următorul');
+    }
     unawaited(_advance(direction: 1));
   }
 

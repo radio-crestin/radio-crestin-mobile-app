@@ -70,6 +70,17 @@ String? youtubePlaylistIdFromUrl(String url) {
   return null;
 }
 
+/// User-facing display name for a playlist entry: its title, or the URL's
+/// host when the title is empty (never an empty string). Used by failure
+/// notifications so the user can tell WHICH element was unavailable.
+String playlistItemDisplayName(PlaylistItem item) {
+  final title = item.title.trim();
+  if (title.isNotEmpty) return title;
+  final host = Uri.tryParse(item.url.trim())?.host;
+  if (host != null && host.isNotEmpty) return host;
+  return 'Element necunoscut';
+}
+
 /// Immutable view over a single backend playlist entry.
 ///
 /// Wraps the generated GraphQL type so callers work with strongly typed,

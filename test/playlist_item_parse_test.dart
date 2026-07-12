@@ -119,4 +119,29 @@ void main() {
       expect(items!.single.id, 42);
     });
   });
+
+  group('playlistItemDisplayName', () {
+    PlaylistItem item({String title = '', String url = ''}) => PlaylistItem(
+        id: 1, order: 0, type: PlaylistItemType.audio, url: url, title: title);
+
+    test('uses the title when present', () {
+      expect(
+          playlistItemDisplayName(
+              item(title: 'Cântare', url: 'https://x.ro/a.mp3')),
+          'Cântare');
+    });
+
+    test('falls back to the URL host when the title is empty', () {
+      expect(
+          playlistItemDisplayName(item(url: 'https://cdn.example.ro/a.mp3')),
+          'cdn.example.ro');
+      expect(playlistItemDisplayName(item(title: '   ', url: 'https://x.ro/a')),
+          'x.ro');
+    });
+
+    test('never returns an empty string', () {
+      expect(playlistItemDisplayName(item()), isNotEmpty);
+      expect(playlistItemDisplayName(item(url: 'not a url')), isNotEmpty);
+    });
+  });
 }
