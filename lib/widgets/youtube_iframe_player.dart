@@ -50,11 +50,17 @@ class _YoutubeIframePlayerState extends State<YoutubeIframePlayer> {
   StreamSubscription<YoutubeVideoState>? _positionSub;
   StreamSubscription<bool>? _shouldPlaySub;
   StreamSubscription<Duration>? _seekSub;
+  StreamSubscription<void>? _fullscreenReqSub;
 
   int? _loadedItemId;
   bool _endedReported = false;
   Duration _duration = Duration.zero;
   bool _isFullscreen = false;
+
+  /// Content currently loaded, kept so the fullscreen chrome swap (which
+  /// reloads the iframe) can restore it at the same position.
+  String? _currentVideoId;
+  String? _currentListId;
 
   bool get _isPlaylist =>
       widget.item.type == PlaylistItemType.youtubePlaylist;
@@ -62,41 +68,47 @@ class _YoutubeIframePlayerState extends State<YoutubeIframePlayer> {
   @override
   void initState() {
     super.initState();
-    _yt = YoutubePlayerController(
-      params: const YoutubePlayerParams(
-        // Native controls are required for the fullscreen button (and give the
-        // only reliable cross-platform way to *exit* fullscreen, e.g. iOS which
-        // has no system back button). They auto-hide, keeping the surface clean.
-        showControls: true,
-        showFullscreenButton: true,
-        mute: false,
-        loop: false,
-        enableCaption: false,
-        // youtube-nocookie.com host; avoids setting tracking cookies.
-        privacyEnhancedMode: true,
-        // Keep the related-video grid to the same channel where possible.
-        strictRelatedVideos: true,
-        playsInline: true,
-      ),
-    );
+    _yt = YoutubePlayerController(params: _paramsFor(nativeControls: false));
 
     _stateSub = _yt.stream.listen(_onValue);
     _positionSub = _yt.videoStateStream.listen(_onPosition);
     _shouldPlaySub =
         widget.controller.youtubeShouldPlay.stream.listen(_onShouldPlay);
     _seekSub = widget.controller.youtubeSeek.stream.listen(_onSeek);
-    // The package renders fullscreen itself (an overlay); we only own the
-    // system chrome — landscape + immersive on enter, portrait restored on exit.
+    _fullscreenReqSub = widget.controller.youtubeFullscreenRequests.stream
+        .listen((_) => _yt.enterFullScreen());
+    // The package renders fullscreen itself (an overlay); we own the system
+    // chrome (landscape+immersive) and the controls swap: chromeless inline,
+    // YouTube's own controls in fullscreen.
     _yt.setFullScreenListener(_onFullscreenChanged);
 
     _loadItem(widget.item);
   }
 
-  /// Applies the platform chrome for the player's fullscreen transitions. The
-  /// player widget handles the actual fullscreen layout; here we rotate to
-  /// landscape and hide the system bars when entering, and restore portrait and
-  /// the system bars when exiting.
+  /// Player params for the two chrome states. Inline is chromeless (all
+  /// buttons live in the app's UI); fullscreen shows YouTube's own controls —
+  /// including its exit-fullscreen button, which the package detects and
+  /// routes back to [_onFullscreenChanged].
+  static YoutubePlayerParams _paramsFor({required bool nativeControls}) {
+    return YoutubePlayerParams(
+      showControls: nativeControls,
+      showFullscreenButton: nativeControls,
+      mute: false,
+      loop: false,
+      enableCaption: false,
+      // youtube-nocookie.com host; avoids setting tracking cookies.
+      privacyEnhancedMode: true,
+      // Keep the related-video grid to the same channel where possible.
+      strictRelatedVideos: true,
+      playsInline: true,
+    );
+  }
+
+  /// Applies the platform chrome for the player's fullscreen transitions
+  /// (landscape + immersive in, portrait restored out) and swaps the iframe's
+  /// own chrome: native YouTube controls in fullscreen, chromeless inline.
   void _onFullscreenChanged(bool fullscreen) {
+    if (_isFullscreen == fullscreen) return;
     _isFullscreen = fullscreen;
     if (fullscreen) {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
@@ -107,6 +119,61 @@ class _YoutubeIframePlayerState extends State<YoutubeIframePlayer> {
     } else {
       _restorePortraitChrome();
     }
+    unawaited(_swapIframeChrome(nativeControls: fullscreen));
+  }
+
+  /// Reloads the iframe with [nativeControls] on/off, restoring the same
+  /// content at the same position.
+  ///
+  /// The IFrame API fixes `controls` at embed time — it cannot be toggled on a
+  /// live player — so the only reliable swap is a reload: capture
+  /// position (+ playlist index), re-init the player HTML with the new params,
+  /// wait for the fresh `player` object, then reload the content with
+  /// `startSeconds`.
+  Future<void> _swapIframeChrome({required bool nativeControls}) async {
+    final itemId = _loadedItemId;
+    double pos = 0;
+    int plIndex = 0;
+    try {
+      pos = await _yt.currentTime;
+      if (_isPlaylist) plIndex = await _yt.playlistIndex;
+    } catch (_) {
+      // Position unknown — restart the content from 0 rather than aborting.
+    }
+    if (!mounted || _loadedItemId != itemId) return;
+    try {
+      await _yt.initWithParams(params: _paramsFor(nativeControls: nativeControls));
+      final ready = await _waitForIframePlayer();
+      if (!mounted || _loadedItemId != itemId || !ready) return;
+      final listId = _currentListId;
+      final videoId = _currentVideoId;
+      if (_isPlaylist && listId != null) {
+        await _runPlaylistLoad(listId, index: plIndex, startSeconds: pos);
+      } else if (videoId != null) {
+        await _yt.loadVideoById(videoId: videoId, startSeconds: pos);
+      }
+    } catch (e) {
+      debugPrint('YoutubeIframePlayer: chrome swap failed: $e');
+    }
+  }
+
+  /// Polls until the freshly reloaded player HTML has a live `player` object
+  /// (the JS bridge's ready gate only covers the FIRST load). ~4s budget.
+  Future<bool> _waitForIframePlayer() async {
+    for (var i = 0; i < 40; i++) {
+      try {
+        final ok = await _yt.webViewController.runJavaScriptReturningResult(
+          "typeof player !== 'undefined' && "
+          "typeof player.loadVideoById === 'function' ? '1' : '0'",
+        );
+        if (ok.toString().contains('1')) return true;
+      } catch (_) {
+        // Page still booting — keep polling.
+      }
+      await Future.delayed(const Duration(milliseconds: 100));
+      if (!mounted) return false;
+    }
+    return false;
   }
 
   /// Restores portrait orientation and the normal (edge-to-edge) system UI.
@@ -133,6 +200,8 @@ class _YoutubeIframePlayerState extends State<YoutubeIframePlayer> {
     _loadedItemId = item.id;
     _endedReported = false;
     _duration = Duration.zero;
+    _currentVideoId = null;
+    _currentListId = null;
 
     if (item.type == PlaylistItemType.youtubePlaylist) {
       final listId = youtubePlaylistIdFromUrl(item.url);
@@ -140,7 +209,8 @@ class _YoutubeIframePlayerState extends State<YoutubeIframePlayer> {
         widget.controller.notifyYoutubeItemError(itemId: item.id);
         return;
       }
-      _yt.loadPlaylist(list: [listId], listType: ListType.playlist);
+      _currentListId = listId;
+      unawaited(_loadYoutubePlaylist(listId, item.id));
       return;
     }
 
@@ -150,7 +220,42 @@ class _YoutubeIframePlayerState extends State<YoutubeIframePlayer> {
       widget.controller.notifyYoutubeItemError(itemId: item.id);
       return;
     }
+    _currentVideoId = videoId;
     _yt.loadVideoById(videoId: videoId);
+  }
+
+  /// Loads a whole YouTube playlist by [listId].
+  ///
+  /// The bundled `loadPlaylist` serializes `list` as a JS **array**, but the
+  /// IFrame API requires the playlist id as a **string** when `listType` is
+  /// `playlist` — so the wrapper's call silently no-ops and nothing plays
+  /// (the reported bug). We gate on the player being ready via a benign
+  /// [YoutubePlayerController.setLoop] (its eval awaits the `Ready` event) and
+  /// then issue the correctly shaped call straight to the iframe.
+  Future<void> _loadYoutubePlaylist(String listId, int itemId) async {
+    try {
+      await _yt.setLoop(loopPlaylists: false);
+      // Bail if the item advanced while we were waiting for readiness.
+      if (!mounted || _loadedItemId != itemId) return;
+      await _runPlaylistLoad(listId);
+    } catch (e) {
+      debugPrint('YoutubeIframePlayer: playlist load failed: $e');
+      if (mounted) widget.controller.notifyYoutubeItemError(itemId: itemId);
+    }
+  }
+
+  /// Issues the correctly shaped `loadPlaylist` JS (`list` as a string) with
+  /// an optional starting [index]/[startSeconds] (used by the chrome swap).
+  Future<void> _runPlaylistLoad(
+    String listId, {
+    int index = 0,
+    double startSeconds = 0,
+  }) {
+    final escaped = listId.replaceAll(r'\', r'\\').replaceAll("'", r"\'");
+    return _yt.webViewController.runJavaScript(
+      "player.loadPlaylist({list: '$escaped', listType: 'playlist', "
+      'index: $index, startSeconds: $startSeconds});',
+    );
   }
 
   void _onValue(YoutubePlayerValue value) {
@@ -239,12 +344,18 @@ class _YoutubeIframePlayerState extends State<YoutubeIframePlayer> {
     _positionSub?.cancel();
     _shouldPlaySub?.cancel();
     _seekSub?.cancel();
+    _fullscreenReqSub?.cancel();
     _yt.close();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    // Inline the surface is chromeless — every control (prev, play/pause,
+    // next, fullscreen) lives OUTSIDE the player in the transport row below
+    // it, each linked to the iframe through the PlaylistController channels.
+    // In fullscreen the iframe swaps to YouTube's own controls (see
+    // [_swapIframeChrome]).
     return YoutubePlayer(
       controller: _yt,
       aspectRatio: widget.aspectRatio,

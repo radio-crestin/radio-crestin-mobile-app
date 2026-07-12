@@ -94,6 +94,18 @@ class PlaylistController {
   /// iframe subscribes and calls `controller.seekTo`.
   final PublishSubject<Duration> youtubeSeek = PublishSubject<Duration>();
 
+  /// Fullscreen requests for the inline YouTube player. The external transport
+  /// row's fullscreen button emits here; the iframe widget subscribes and
+  /// enters the package's fullscreen (exit happens via YouTube's own chrome or
+  /// the back gesture).
+  final PublishSubject<void> youtubeFullscreenRequests = PublishSubject<void>();
+
+  /// UI hook for the external fullscreen button (YouTube items only).
+  void requestYoutubeFullscreen() {
+    if (!(currentItem.value?.type.isYoutube ?? false)) return;
+    youtubeFullscreenRequests.add(null);
+  }
+
   /// Ids of items that failed to play (dead url, decode error, unavailable
   /// YouTube video). The track list dims these rows and shows an error icon.
   /// An id is cleared when that item later plays successfully.
@@ -635,6 +647,7 @@ class PlaylistController {
     youtubeRequest.close();
     youtubeShouldPlay.close();
     youtubeSeek.close();
+    youtubeFullscreenRequests.close();
     failedItemIds.close();
     transientMessages.close();
   }
