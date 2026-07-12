@@ -322,9 +322,12 @@ class StationDataService {
   /// private-stations fetch (when due for this reason) runs in parallel with
   /// the public path — a fully independent request.
   Future<void> _executeSync(SyncReason reason) async {
-    // A resume is a fresh chance for private stations: reopen the gate an
-    // authoritative-empty / not-deployed response may have closed this session.
-    if (reason == SyncReason.appResumed) {
+    // A resume — or a manual reload (pull-to-refresh and friends map to
+    // seekOffsetChanged) — is a fresh chance for private stations: reopen the
+    // gate an authoritative-empty / not-deployed response may have closed, so
+    // the refresh behaves like a cold start even after a 0-result session.
+    if (reason == SyncReason.appResumed ||
+        reason == SyncReason.seekOffsetChanged) {
       _privateStationsService.reopenSessionGate();
     }
 
@@ -359,6 +362,7 @@ class StationDataService {
   bool _shouldFetchPrivate(SyncReason reason) =>
       reason == SyncReason.startup ||
       reason == SyncReason.appResumed ||
+      reason == SyncReason.seekOffsetChanged ||
       reason == SyncReason.periodic;
 
   /// Full refresh: GraphQL stations + live metadata, merged in one shot.

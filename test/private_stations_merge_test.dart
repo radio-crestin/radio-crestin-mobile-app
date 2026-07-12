@@ -233,4 +233,57 @@ void main() {
       service.dispose();
     });
   });
+
+  group('Manual refresh (pull-to-refresh) re-fetch', () {
+    test(
+        'refreshStations reopens a gate closed by an authoritative-empty '
+        'response and picks up newly-appearing private stations', () async {
+      var call = 0;
+      final raw = StationFactory.createRawStationJson(
+        id: 88,
+        slug: 'private-late',
+        title: 'Private Late',
+      );
+      final client = MockClient((_) async {
+        call++;
+        // First fetch: authoritative empty → closes the session gate.
+        if (call == 1) {
+          return http.Response(
+              json.encode({
+                'data': {'stations': <Object>[]}
+              }),
+              200);
+        }
+        // Later fetches: the device now has a private station.
+        return http.Response(
+            json.encode({
+              'data': {'stations': [raw]}
+            }),
+            200);
+      });
+      final privateService = PrivateStationsService(
+        httpClient: client,
+        prefs: GetIt.instance<SharedPreferences>(),
+        deviceIdProvider: () => 'device-1',
+      );
+      final service = newService(private: privateService);
+
+      await service.refreshPrivateStations();
+      expect(privateService.isSessionGateClosed, isTrue);
+      expect(service.stations.value, isEmpty);
+
+      // The gate would silently skip a plain private fetch...
+      await service.refreshPrivateStations();
+      expect(call, 1, reason: 'closed gate must skip the network');
+
+      // ...but a manual refresh behaves like a fresh launch: gate reopens,
+      // private stations are re-fetched and pinned into the catalog.
+      await service.refreshStations();
+      expect(call, 2);
+      expect(privateService.isSessionGateClosed, isFalse);
+      expect(ids(service.stations.value), contains(88));
+
+      service.dispose();
+    });
+  });
 }
