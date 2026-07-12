@@ -45,7 +45,7 @@ class AppRadius {
   static const double thumbnail = 12.0;
 
   /// Large artwork (full player, now-playing views).
-  static const double artwork = 16.0;
+  static const double artwork = 20.0;
 }
 
 final ThemeData lightTheme = ThemeData(
