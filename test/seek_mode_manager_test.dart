@@ -8,6 +8,40 @@ void main() {
     setUp(() {
       SharedPreferences.setMockInitialValues({});
       SeekModeManager.changeSeekMode(SeekMode.twoMinutes);
+      // Runtime overrides are static & sticky — clear them between tests.
+      SeekModeManager.changeCarConnected(false);
+      SeekModeManager.changeUnstableConnection(false);
+      SeekModeManager.changeAutoSlowConnection(false);
+    });
+
+    group('autoSlowConnection override', () {
+      test('forces 5-minute offset even in instant mode', () {
+        SeekModeManager.changeSeekMode(SeekMode.instant);
+        expect(SeekModeManager.currentOffset, Duration.zero);
+        SeekModeManager.changeAutoSlowConnection(true);
+        expect(SeekModeManager.currentOffset, const Duration(minutes: 5));
+      });
+
+      test('forces effectiveSeekMode to fiveMinutes', () {
+        SeekModeManager.changeSeekMode(SeekMode.twoMinutes);
+        expect(SeekModeManager.effectiveSeekMode, SeekMode.twoMinutes);
+        SeekModeManager.changeAutoSlowConnection(true);
+        expect(SeekModeManager.effectiveSeekMode, SeekMode.fiveMinutes);
+        expect(SeekModeManager.isAutoSlowConnection, isTrue);
+      });
+
+      test('clearing it restores the user-selected offset', () {
+        SeekModeManager.changeSeekMode(SeekMode.twoMinutes);
+        SeekModeManager.changeAutoSlowConnection(true);
+        SeekModeManager.changeAutoSlowConnection(false);
+        expect(SeekModeManager.currentOffset, const Duration(minutes: 2));
+      });
+
+      test('is not persisted to SharedPreferences', () async {
+        SeekModeManager.changeAutoSlowConnection(true);
+        final prefs = await SharedPreferences.getInstance();
+        expect(prefs.getBool('unstable_connection'), isNull);
+      });
     });
 
     group('currentOffset', () {

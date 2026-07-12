@@ -9,17 +9,35 @@ class SeekModeManager {
   static final _seekModeNotifier = ValueNotifier<SeekMode>(SeekMode.twoMinutes);
   static final _unstableConnectionNotifier = ValueNotifier<bool>(false);
   static final _carConnectedNotifier = ValueNotifier<bool>(false);
+  // Runtime-only (not persisted): set automatically when the app detects a
+  // genuinely slow/flaky connection (repeated buffering stalls / watchdog
+  // reconnects). Distinct from the manual `unstable_connection` user toggle;
+  // both force the 5-minute offset so the player has a large already-published
+  // forward buffer to download ahead and ride out the bad link. Sticky for the
+  // session — an improving connection does not auto-de-escalate.
+  static final _autoSlowConnectionNotifier = ValueNotifier<bool>(false);
 
   static ValueNotifier<SeekMode> get seekMode => _seekModeNotifier;
   static ValueNotifier<bool> get unstableConnection => _unstableConnectionNotifier;
   static ValueNotifier<bool> get carConnected => _carConnectedNotifier;
+  static ValueNotifier<bool> get autoSlowConnection =>
+      _autoSlowConnectionNotifier;
 
   static bool get isUnstableConnection => _unstableConnectionNotifier.value;
   static bool get isCarConnected => _carConnectedNotifier.value;
+  static bool get isAutoSlowConnection => _autoSlowConnectionNotifier.value;
+
+  /// Whether any signal (manual, car, or auto-detected slow link) forces the
+  /// 5-minute offset.
+  static bool get _forcesFiveMinutes =>
+      _carConnectedNotifier.value ||
+      _unstableConnectionNotifier.value ||
+      _autoSlowConnectionNotifier.value;
 
   static Duration get currentOffset {
-    // When car is connected or unstable connection is active, always use 5 minutes
-    if (_carConnectedNotifier.value || _unstableConnectionNotifier.value) {
+    // Car, manual "unstable", or an auto-detected slow connection all pin the
+    // offset to 5 minutes for a large forward buffer.
+    if (_forcesFiveMinutes) {
       return const Duration(minutes: 5);
     }
     switch (_seekModeNotifier.value) {
@@ -32,14 +50,22 @@ class SeekModeManager {
     }
   }
 
-  /// The effective seek mode considering car connection and unstable connection overrides.
+  /// The effective seek mode considering car connection, manual unstable, and
+  /// auto-detected slow-connection overrides.
   static SeekMode get effectiveSeekMode {
-    if (_carConnectedNotifier.value || _unstableConnectionNotifier.value) return SeekMode.fiveMinutes;
+    if (_forcesFiveMinutes) return SeekMode.fiveMinutes;
     return _seekModeNotifier.value;
   }
 
   static void changeCarConnected(bool connected) {
     _carConnectedNotifier.value = connected;
+  }
+
+  /// Escalate (or clear) the auto-detected slow-connection override. Runtime
+  /// only — deliberately not persisted, so a one-off bad network patch does
+  /// not lock the user into the 5-minute offset across app restarts.
+  static void changeAutoSlowConnection(bool enabled) {
+    _autoSlowConnectionNotifier.value = enabled;
   }
 
   static Future<void> saveSeekMode(SeekMode mode) async {

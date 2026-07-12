@@ -193,6 +193,96 @@ class ReconnectPolicy {
   /// not bypass any safety net.
   static const Duration bufferingStallTimeout = Duration(seconds: 3);
 
+  /// How often the position-advancement watchdog samples `player.position`.
+  /// A cheap periodic poll (not a positionStream subscription) — the goal is
+  /// only to notice a hard freeze, so a coarse cadence keeps it near-free.
+  static const Duration positionWatchdogInterval = Duration(seconds: 5);
+
+  /// How long `player.position` may stay frozen — while the player reports
+  /// `ready` + `playing`, so buffering (which has its own stall timer) is not
+  /// the cause — before we treat the stream as silently dead and reconnect.
+  /// This is the safety net for the DVR-window case: the server deletes the
+  /// segment under the playhead and AVPlayer keeps saying `ready`/`playing`
+  /// with no error or state change, so no other recovery path ever fires.
+  static const Duration positionFrozenTimeout = Duration(seconds: 10);
+
+  /// Grace after a load or seek during which a frozen position is expected
+  /// (initial buffer fill / seek settle legitimately holds position still).
+  /// Kept just above [positionFrozenTimeout] so a slow-but-legit start never
+  /// trips the watchdog on its first evaluation.
+  static const Duration positionFrozenGrace = Duration(seconds: 12);
+
+  /// Minimum position delta between two samples that counts as "advanced".
+  /// A healthy stream advances ~one interval per interval; a frozen one
+  /// advances zero. The epsilon only absorbs sub-second sampling jitter.
+  static const Duration positionAdvanceEpsilon = Duration(milliseconds: 500);
+
+  /// Fraction of the trailing-edge runway we let elapse while paused before
+  /// forcing a reload (re-anchor) instead of resuming in place. 0.6 leaves a
+  /// 40% cushion for segment granularity and clock skew, so we reload well
+  /// before the paused playhead's segment is evicted from the DVR window.
+  static const double fastResumeRunwayFraction = 0.6;
+
+  /// Fallback max pause when the live window depth is unknown. Conservative:
+  /// with a 5-min offset in a ~6-min window the trailing-edge runway can be
+  /// as little as ~60s, so a stale playhead goes bad fast.
+  static const Duration fastResumeMaxPauseFallback = Duration(seconds: 45);
+
+  /// Returns true when the position-advancement watchdog should force a full
+  /// reconnect. Pure function: no I/O, no clock side-effects (caller passes
+  /// [now]). Only fires for the pathological "ready + playing but position
+  /// stuck" case — buffering is deliberately excluded (the buffering stall
+  /// timer owns it), as are casting and video/playlist mode.
+  static bool shouldReconnectFrozenPosition({
+    required bool playing,
+    required ProcessingState processingState,
+    required bool hasLiveStreamLoaded,
+    required bool isCasting,
+    required bool isVideoMode,
+    required DateTime now,
+    required DateTime? lastPositionAdvanceAt,
+    required DateTime? lastLoadOrSeekAt,
+  }) {
+    if (!playing) return false;
+    if (isCasting || isVideoMode) return false;
+    if (!hasLiveStreamLoaded) return false;
+    // Buffering has its own 3s stall timer — only the "player insists it is
+    // playing yet the clock is stuck" case belongs to this watchdog.
+    if (processingState != ProcessingState.ready) return false;
+    if (lastLoadOrSeekAt != null &&
+        now.difference(lastLoadOrSeekAt) < positionFrozenGrace) {
+      return false;
+    }
+    if (lastPositionAdvanceAt == null) return false;
+    return now.difference(lastPositionAdvanceAt) >= positionFrozenTimeout;
+  }
+
+  /// Returns true when a paused live-HLS stream has aged past the point where
+  /// resuming in place is safe, so `play()` should reload and re-anchor behind
+  /// the live edge instead of fast-resuming. Pure function.
+  ///
+  /// The danger is the sliding DVR window's trailing (oldest) edge catching up
+  /// to the paused playhead: the playhead sits [offset] behind live, so it has
+  /// roughly `windowDepth - offset` of runway before its segment is evicted;
+  /// while paused the trailing edge advances one second per wall-clock second.
+  /// [windowDepth] is `player.duration` on the live stream (the window length).
+  static bool shouldReloadAfterPause({
+    required Duration offset,
+    required Duration? windowDepth,
+    required Duration pausedFor,
+  }) {
+    // Instant mode (offset 0) and direct/non-windowed streams have no
+    // trailing-edge risk — always safe to resume in place.
+    if (offset <= Duration.zero) return false;
+    if (windowDepth == null || windowDepth <= offset) {
+      // Unknown depth, or the playhead is already at/behind the window's
+      // trailing edge — fall back to a conservative fixed budget.
+      return pausedFor >= fastResumeMaxPauseFallback;
+    }
+    final runway = windowDepth - offset;
+    return pausedFor >= runway * fastResumeRunwayFraction;
+  }
+
   /// Returns true when the player should be told to reconnect right now.
   /// Pure function: no I/O, no clock side-effects (caller passes [now]).
   static bool shouldReconnect({
@@ -442,6 +532,40 @@ class AppAudioHandler extends BaseAudioHandler {
   // Aliased to the canonical value in ReconnectPolicy so the test suite
   // can assert on a single source of truth.
   static const _bufferingStallTimeout = ReconnectPolicy.bufferingStallTimeout;
+
+  // ── Position-advancement watchdog (silent-stall safety net) ───────────
+  // AVPlayer can keep reporting `ready`/`playing==true` while the playhead
+  // is stuck (e.g. the DVR segment under it was evicted server-side) — no
+  // error, no state change, so no other recovery path fires. This periodic
+  // sampler notices the frozen clock and forces a full reconnect. See
+  // [ReconnectPolicy.shouldReconnectFrozenPosition] for the decision logic.
+  Timer? _positionWatchdogTimer;
+  Duration _watchdogLastPosition = Duration.zero;
+  DateTime? _watchdogLastAdvanceAt;
+  // Wall-clock of the most recent load or seek — the watchdog's grace window
+  // (position legitimately holds still during initial buffer fill / seek
+  // settle) and nothing else keys off it.
+  DateTime? _lastLoadOrSeekAt;
+  // Wall-clock when the station stream was last paused — Fix 2 uses it to
+  // decide whether a fast resume would land on an evicted DVR segment.
+  DateTime? _pausedAt;
+
+  // ── Auto slow-connection escalation ───────────────────────────────────
+  // Repeated stream trouble (buffering stalls / watchdog reconnects) within a
+  // short window means the link can't sustain a small forward buffer, so we
+  // escalate the seek offset to 5 minutes for subsequent (re)loads via
+  // [SeekModeManager.changeAutoSlowConnection]. Timestamps of recent trouble;
+  // pruned to [_slowConnectionWindow] on each record.
+  final List<DateTime> _streamTroubleEvents = [];
+  static const _slowConnectionWindow = Duration(minutes: 3);
+  static const _slowConnectionTroubleThreshold = 3;
+
+  // Never anchor the playhead closer than this to the window's trailing
+  // (oldest) edge. A 5-min offset on a window only ~6 min deep would otherwise
+  // land within seconds of the edge, where the segment is evicted almost
+  // immediately. 75s comfortably exceeds the position-frozen watchdog timeout,
+  // so a genuine stall is still caught rather than masked by a doomed anchor.
+  static const _dvrTrailingSafetyMargin = Duration(seconds: 75);
 
   // ── Fast-start instrumentation (debug-mode only) ──────────────────────
   // Measures tap→first-audio: the stopwatch starts at playStation() entry and
@@ -940,7 +1064,10 @@ class AppAudioHandler extends BaseAudioHandler {
     // playbackEventStream fires on position/buffer changes but may not fire
     // promptly on play()/pause() transitions. playingStream fires exactly
     // when the playing state flips, guaranteeing CarPlay/Android Auto sync.
-    player.playingStream.listen((_) => _broadcastState(player.playbackEvent));
+    player.playingStream.listen((_) {
+      _broadcastState(player.playbackEvent);
+      _syncPositionWatchdog();
+    });
 
     // Fast-start measurement: catch the first position advance while playing.
     // Debug-only; the listener is a cheap early-return once the measure is done.
@@ -1144,6 +1271,7 @@ class AppAudioHandler extends BaseAudioHandler {
               'stall_seconds': _bufferingStallTimeout.inSeconds,
               'action': 'reattempt',
             });
+            _recordStreamTrouble('buffering_stall');
             // Force play() to re-issue setAudioSource (rather than skip
             // because the URL is "already loaded").
             _loadedStreamUrl = null;
@@ -1465,6 +1593,7 @@ class AppAudioHandler extends BaseAudioHandler {
     _loadedStreamUrl = null;
     _loadedStreamType = null;
     _bufferingStartedAt = null;
+    _stopPositionWatchdog();
     _lastPlayerErrorCode = null;
     _lastPlayerErrorMessage = null;
     // Reset the ICY-title dedupe so the next stream's first title fires a refresh.
@@ -1683,9 +1812,31 @@ class AppAudioHandler extends BaseAudioHandler {
     // so non-null means the current station's stream is still loaded.
     if (_loadedStreamUrl != null &&
         player.processingState != ProcessingState.idle) {
-      _log("play: fast resume (stream already loaded)");
-      AnalyticsService.instance.resumeListening();
-      return player.play();
+      // Fix 2 — re-anchor on stale resume. For live HLS the DVR window slides
+      // while paused: the paused playhead sits `offset` behind live, so after
+      // enough wall-clock time the window's trailing edge evicts its segment
+      // and resuming in place would silently stall (AVPlayer sits `ready` but
+      // never advances). If we've been paused past the safe runway, drop the
+      // loaded URL and fall through to a fresh load so _seekBehindLiveEdge()
+      // re-anchors. Direct/non-HLS streams have no window — always fast-resume.
+      final pausedFor = _pausedAt == null
+          ? Duration.zero
+          : DateTime.now().difference(_pausedAt!);
+      final reload = _loadedStreamType == 'HLS' &&
+          ReconnectPolicy.shouldReloadAfterPause(
+            offset: SeekModeManager.currentOffset,
+            windowDepth: player.duration,
+            pausedFor: pausedFor,
+          );
+      if (!reload) {
+        _log("play: fast resume (stream already loaded)");
+        AnalyticsService.instance.resumeListening();
+        return player.play();
+      }
+      _log('play: paused ${pausedFor.inSeconds}s exceeds safe DVR runway — '
+          'reloading to re-anchor behind live edge');
+      _loadedStreamUrl = null;
+      _loadedStreamType = null;
     }
 
     // Need to load a new stream source
@@ -1760,6 +1911,7 @@ class AppAudioHandler extends BaseAudioHandler {
           _loadedStreamUrl = streamUrl;
           _loadedStreamType = streamType;
           _lastSuccessfulLoadAt = DateTime.now();
+          _lastLoadOrSeekAt = _lastSuccessfulLoadAt; // watchdog grace baseline
           final elapsedMs = DateTime.now().difference(attemptStart).inMilliseconds;
           _log("play: source loaded successfully ($trackedUrl)");
 
@@ -1926,6 +2078,8 @@ class AppAudioHandler extends BaseAudioHandler {
     }
     _cancelInFlightPlay();
     _hasBeenPlayed = false;
+    _pausedAt = DateTime.now(); // Fix 2: age the paused playhead on resume
+    _stopPositionWatchdog();
     AnalyticsService.instance.endListening(reason: 'pause');
     await player.pause();
 
@@ -2004,14 +2158,128 @@ class AppAudioHandler extends BaseAudioHandler {
       _log('_seekBehindLiveEdge: no duration or too short ($duration), skipping');
       return;
     }
-    // Clamp: if offset exceeds the window, seek to the beginning instead of skipping
-    final effectiveOffset = offset > duration - const Duration(seconds: 5)
-        ? duration - const Duration(seconds: 5)
-        : offset;
+    _lastLoadOrSeekAt = DateTime.now(); // watchdog grace baseline
+    // Clamp the offset so the playhead never lands closer than
+    // _dvrTrailingSafetyMargin to the window's trailing (oldest) edge. Without
+    // this a 5-min offset on a window only ~6 min deep would anchor within
+    // seconds of the edge — the segment is evicted almost immediately, leaving
+    // no forward runway and defeating the point of seeking back.
+    final maxOffset = duration - _dvrTrailingSafetyMargin;
+    if (maxOffset <= Duration.zero) {
+      // Window shallower than our safety margin — any back-seek lands at/before
+      // the trailing edge. Stay near the live edge instead.
+      _log('_seekBehindLiveEdge: window ($duration) too shallow for a safe '
+          'offset, staying near live edge');
+      return;
+    }
+    final effectiveOffset = offset > maxOffset ? maxOffset : offset;
     final seekTarget = duration - effectiveOffset;
     _log('_seekBehindLiveEdge: duration=$duration, offset=$offset, effectiveOffset=$effectiveOffset, seeking to $seekTarget');
     player.seek(seekTarget).catchError((e) {
       _log('_seekBehindLiveEdge: seek failed ($e), continuing from live edge');
+    });
+  }
+
+  /// Starts or stops the position-advancement watchdog based on whether a
+  /// live HLS stream is actively playing on the local player. Idempotent —
+  /// safe to call on every playing-state flip.
+  void _syncPositionWatchdog() {
+    final shouldRun = player.playing &&
+        _loadedStreamType == 'HLS' &&
+        _loadedStreamUrl != null &&
+        !_videoMode &&
+        !_playlistMode &&
+        !isCasting;
+    if (shouldRun) {
+      if (_positionWatchdogTimer == null) _startPositionWatchdog();
+    } else {
+      _stopPositionWatchdog();
+    }
+  }
+
+  void _startPositionWatchdog() {
+    _positionWatchdogTimer?.cancel();
+    _watchdogLastPosition = player.position;
+    _watchdogLastAdvanceAt = DateTime.now();
+    _positionWatchdogTimer = Timer.periodic(
+      ReconnectPolicy.positionWatchdogInterval,
+      (_) => _checkPositionWatchdog(),
+    );
+  }
+
+  void _stopPositionWatchdog() {
+    _positionWatchdogTimer?.cancel();
+    _positionWatchdogTimer = null;
+  }
+
+  /// Periodic tick: refresh the frozen-position clock, then reconnect if the
+  /// playhead has been stuck past [ReconnectPolicy.positionFrozenTimeout].
+  void _checkPositionWatchdog() {
+    final now = DateTime.now();
+    final pos = player.position;
+    if ((pos - _watchdogLastPosition).abs() >
+        ReconnectPolicy.positionAdvanceEpsilon) {
+      _watchdogLastPosition = pos;
+      _watchdogLastAdvanceAt = now;
+    }
+    if (!ReconnectPolicy.shouldReconnectFrozenPosition(
+      playing: player.playing,
+      processingState: player.processingState,
+      hasLiveStreamLoaded: _loadedStreamType == 'HLS' && _loadedStreamUrl != null,
+      isCasting: isCasting,
+      isVideoMode: _videoMode || _playlistMode,
+      now: now,
+      lastPositionAdvanceAt: _watchdogLastAdvanceAt,
+      lastLoadOrSeekAt: _lastLoadOrSeekAt,
+    )) {
+      return;
+    }
+    _log('watchdog: position frozen for '
+        '${ReconnectPolicy.positionFrozenTimeout.inSeconds}s, forcing reconnect');
+    final lastInfo = currentStreamInfo.valueOrNull;
+    _recordStreamEvent(
+      StreamEventKind.microStall,
+      'Position frozen ${ReconnectPolicy.positionFrozenTimeout.inSeconds}s — '
+      'forcing reconnect',
+    );
+    AnalyticsService.instance.capture('stream_position_frozen', {
+      'station_slug':
+          lastInfo?.stationSlug ?? currentStation.valueOrNull?.slug ?? '',
+      'station_id': currentStation.valueOrNull?.id,
+      'stream_url': lastInfo?.url,
+      'stream_type': lastInfo?.type,
+      'stream_index': lastInfo?.attemptIndex,
+      'total_streams': lastInfo?.totalStreams,
+      'frozen_seconds': ReconnectPolicy.positionFrozenTimeout.inSeconds,
+    });
+    _recordStreamTrouble('position_frozen');
+    _stopPositionWatchdog();
+    // Clear the loaded URL so play() takes the fresh-load path (which
+    // re-seeks behind the live edge) rather than resuming in place.
+    _loadedStreamUrl = null;
+    _loadedStreamType = null;
+    play();
+  }
+
+  /// Records a stream-trouble event and, once enough accumulate within
+  /// [_slowConnectionWindow], escalates the seek offset to 5 minutes so the
+  /// player keeps a large forward buffer on a slow/flaky link. Sticky for the
+  /// session (see [SeekModeManager.changeAutoSlowConnection]).
+  void _recordStreamTrouble(String cause) {
+    final now = DateTime.now();
+    _streamTroubleEvents.add(now);
+    _streamTroubleEvents
+        .removeWhere((t) => now.difference(t) > _slowConnectionWindow);
+    if (SeekModeManager.isAutoSlowConnection) return;
+    if (_streamTroubleEvents.length < _slowConnectionTroubleThreshold) return;
+    _log('slow-connection escalation: ${_streamTroubleEvents.length} stream '
+        'trouble events within ${_slowConnectionWindow.inMinutes}min '
+        '($cause) — raising seek offset to 5 minutes for subsequent loads');
+    SeekModeManager.changeAutoSlowConnection(true);
+    AnalyticsService.instance.capture('seek_offset_escalated', {
+      'reason': cause,
+      'trouble_count': _streamTroubleEvents.length,
+      'window_minutes': _slowConnectionWindow.inMinutes,
     });
   }
 
@@ -2758,6 +3026,7 @@ class AppAudioHandler extends BaseAudioHandler {
     _hasBeenPlayed = false;
     _disconnectTimer?.cancel();
     _bufferingStallTimer?.cancel();
+    _stopPositionWatchdog();
     _bufferingStartedAt = null;
     _stopSilenceKeepAlive();
     _lastPlayerErrorCode = null;
@@ -2789,6 +3058,7 @@ class AppAudioHandler extends BaseAudioHandler {
     AnalyticsService.instance.endListening();
     _disconnectTimer?.cancel();
     _bufferingStallTimer?.cancel();
+    _stopPositionWatchdog();
     _bufferingStartedAt = null;
     _stopSilenceKeepAlive();
     _lastPlayerErrorCode = null;
@@ -3071,6 +3341,7 @@ class AppAudioHandler extends BaseAudioHandler {
     } catch (_) {}
     _cancelInFlightPlay();
     _disconnectTimer?.cancel();
+    _stopPositionWatchdog();
     _loadedStreamUrl = null;
     _loadedStreamType = null;
     AnalyticsService.instance.endListening(reason: 'app_killed');

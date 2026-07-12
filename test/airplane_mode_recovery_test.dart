@@ -272,4 +272,170 @@ void main() {
       ]));
     });
   });
+
+  // ── Fix 1: position-advancement watchdog ────────────────────────────────
+  group('ReconnectPolicy.shouldReconnectFrozenPosition', () {
+    final now = DateTime.now();
+    final wellPastGrace =
+        now.subtract(const Duration(seconds: 30)); // outside 12s grace
+    final frozenLongEnough =
+        now.subtract(const Duration(seconds: 15)); // past 10s frozen timeout
+
+    bool call({
+      bool playing = true,
+      ProcessingState state = ProcessingState.ready,
+      bool hasLiveStreamLoaded = true,
+      bool isCasting = false,
+      bool isVideoMode = false,
+      DateTime? lastAdvance,
+      DateTime? lastLoadOrSeek,
+    }) {
+      return ReconnectPolicy.shouldReconnectFrozenPosition(
+        playing: playing,
+        processingState: state,
+        hasLiveStreamLoaded: hasLiveStreamLoaded,
+        isCasting: isCasting,
+        isVideoMode: isVideoMode,
+        now: now,
+        lastPositionAdvanceAt: lastAdvance ?? frozenLongEnough,
+        lastLoadOrSeekAt: lastLoadOrSeek ?? wellPastGrace,
+      );
+    }
+
+    test('frozen past timeout while ready+playing → reconnect (the bug)', () {
+      expect(call(), isTrue);
+    });
+
+    test('position advanced recently → no-op', () {
+      expect(call(lastAdvance: now.subtract(const Duration(seconds: 3))),
+          isFalse);
+    });
+
+    test('paused → no-op', () {
+      expect(call(playing: false), isFalse);
+    });
+
+    test('buffering → no-op (buffering stall timer owns it)', () {
+      expect(call(state: ProcessingState.buffering), isFalse);
+    });
+
+    test('within load/seek grace → no-op (initial buffer fill is legit)', () {
+      expect(call(lastLoadOrSeek: now.subtract(const Duration(seconds: 5))),
+          isFalse);
+    });
+
+    test('casting → no-op', () {
+      expect(call(isCasting: true), isFalse);
+    });
+
+    test('video/playlist mode → no-op', () {
+      expect(call(isVideoMode: true), isFalse);
+    });
+
+    test('no live stream loaded → no-op', () {
+      expect(call(hasLiveStreamLoaded: false), isFalse);
+    });
+
+    test('watchdog thresholds are window-independent time constants', () {
+      expect(ReconnectPolicy.positionFrozenTimeout,
+          const Duration(seconds: 10));
+      expect(ReconnectPolicy.positionWatchdogInterval,
+          const Duration(seconds: 5));
+      // Grace must exceed the frozen timeout so a slow-but-legit start does
+      // not trip the watchdog on its first evaluation.
+      expect(
+        ReconnectPolicy.positionFrozenGrace,
+        greaterThan(ReconnectPolicy.positionFrozenTimeout),
+      );
+    });
+  });
+
+  // ── Fix 2: re-anchor on stale resume ────────────────────────────────────
+  group('ReconnectPolicy.shouldReloadAfterPause', () {
+    const twoMin = Duration(minutes: 2);
+    const fiveMin = Duration(minutes: 5);
+    const sixMinWindow = Duration(minutes: 6);
+    const tenMinWindow = Duration(minutes: 10);
+
+    test('instant mode (offset 0) → never reload (no window risk)', () {
+      expect(
+        ReconnectPolicy.shouldReloadAfterPause(
+          offset: Duration.zero,
+          windowDepth: sixMinWindow,
+          pausedFor: const Duration(minutes: 30),
+        ),
+        isFalse,
+      );
+    });
+
+    test('2-min offset / 6-min window: 60s pause resumes in place', () {
+      // runway = 6−2 = 4min; safe = 0.6×240s = 144s. 60s (the disconnect
+      // horizon) < 144s → fast resume, no behaviour change for the default.
+      expect(
+        ReconnectPolicy.shouldReloadAfterPause(
+          offset: twoMin,
+          windowDepth: sixMinWindow,
+          pausedFor: const Duration(seconds: 60),
+        ),
+        isFalse,
+      );
+    });
+
+    test('5-min offset / 6-min window: 40s pause forces reload (thin runway)',
+        () {
+      // runway = 6−5 = 1min; safe = 0.6×60s = 36s. 40s > 36s → reload.
+      expect(
+        ReconnectPolicy.shouldReloadAfterPause(
+          offset: fiveMin,
+          windowDepth: sixMinWindow,
+          pausedFor: const Duration(seconds: 40),
+        ),
+        isTrue,
+      );
+    });
+
+    test('5-min offset / 10-min window: 60s pause resumes in place', () {
+      // runway = 10−5 = 5min; safe = 0.6×300s = 180s. 60s < 180s → resume.
+      expect(
+        ReconnectPolicy.shouldReloadAfterPause(
+          offset: fiveMin,
+          windowDepth: tenMinWindow,
+          pausedFor: const Duration(seconds: 60),
+        ),
+        isFalse,
+      );
+    });
+
+    test('unknown window depth → conservative fixed fallback', () {
+      expect(
+        ReconnectPolicy.shouldReloadAfterPause(
+          offset: fiveMin,
+          windowDepth: null,
+          pausedFor: ReconnectPolicy.fastResumeMaxPauseFallback,
+        ),
+        isTrue,
+      );
+      expect(
+        ReconnectPolicy.shouldReloadAfterPause(
+          offset: fiveMin,
+          windowDepth: null,
+          pausedFor: const Duration(seconds: 1),
+        ),
+        isFalse,
+      );
+    });
+
+    test('offset ≥ window depth → conservative fixed fallback', () {
+      // Playhead already at/behind the trailing edge — can't trust the runway
+      // computation, so fall back to the fixed budget.
+      expect(
+        ReconnectPolicy.shouldReloadAfterPause(
+          offset: fiveMin,
+          windowDepth: fiveMin,
+          pausedFor: ReconnectPolicy.fastResumeMaxPauseFallback,
+        ),
+        isTrue,
+      );
+    });
+  });
 }
