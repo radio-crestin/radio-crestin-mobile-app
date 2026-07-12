@@ -233,6 +233,25 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     final skipIconSize = layout.skipIconSize;
     final skipSpacing = layout.skipSpacing;
 
+    // On tablets held in landscape the tall portrait column wastes the wide
+    // canvas, so we switch to a TV-style split: artwork on the left, all
+    // metadata + controls stacked in a column on the right. Phones and any
+    // portrait orientation keep the original vertical layout untouched.
+    final mq = MediaQuery.of(context);
+    final isTabletLandscape = mq.orientation == Orientation.landscape &&
+        mq.size.shortestSide >= 600;
+    if (isTabletLandscape) {
+      return _buildLandscapeLayout(
+        context,
+        isDark,
+        bgColor,
+        hasYoutubeLink,
+        playIconSize,
+        skipIconSize,
+        skipSpacing,
+      );
+    }
+
     return Container(
       decoration: _panelDecoration(isDark, bgColor),
       child: MediaQuery.removePadding(
@@ -241,284 +260,409 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Drag handle
-            Container(
-              margin: const EdgeInsets.only(top: 3.0),
-              child: Container(
-                width: 32,
-                height: 4,
-                decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    borderRadius: const BorderRadius.all(Radius.circular(12.0))),
-              ),
-            ),
+            _buildDragHandle(context),
             const SizedBox(height: 10.0),
-            // Station title
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 250),
-              transitionBuilder: (Widget child, Animation<double> animation) {
-                return FadeTransition(opacity: animation, child: child);
-              },
-              child: Text(
-                currentStation?.displayTitle ?? "",
-                key: ValueKey('title-${currentStation?.id}'),
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 20,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
+            _buildStationTitle(context),
             // Video mode pulls the media high on the screen ("video dominates
             // the top"); the audio layout keeps the artwork vertically centered.
-            _isVideoMode
-                ? const SizedBox(height: 12)
-                : const Spacer(flex: 1),
+            _isVideoMode ? const SizedBox(height: 12) : const Spacer(flex: 1),
             // Artwork — crossfades between the station thumbnail and the live
             // video surface (TV stations) when video mode engages.
             _buildArtwork(context, thumbSize),
             const SizedBox(height: 16),
-            // Song title
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 250),
-              transitionBuilder: (Widget child, Animation<double> animation) {
-                return FadeTransition(opacity: animation, child: child);
-              },
-              child: Padding(
-                key: ValueKey('song-${currentStation?.songTitle}-${currentStation?.id}'),
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: Text(
-                  _primaryLine(),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
+            _buildSongTitle(context),
             const SizedBox(height: 4),
-            // Artist
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 250),
-              transitionBuilder: (Widget child, Animation<double> animation) {
-                return FadeTransition(opacity: animation, child: child);
-              },
-              child: Text(
-                currentStation?.songArtist ?? "",
-                key: ValueKey('artist-${currentStation?.songArtist}-${currentStation?.id}'),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 15,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
+            _buildArtist(context),
             const Spacer(flex: 2),
-            // Chip row: like | dislike | share
-            Builder(builder: (context) {
-              final songId = currentStation?.songId ?? -1;
-              final likeStatus = GetIt.instance<SongLikeService>().getLikeStatus(songId);
-              final chipBg = isDark
-                  ? Colors.white.withValues(alpha: 0.12)
-                  : Colors.black.withValues(alpha: 0.08);
-              final chipRadius = BorderRadius.circular(24);
-
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      _buildChip(
-                        context,
-                        icon: likeStatus == 1 ? Icons.thumb_up : Icons.thumb_up_outlined,
-                        label: 'Îmi place',
-                        isActive: likeStatus == 1,
-                        chipBg: chipBg,
-                        chipRadius: chipRadius,
-                        onTap: () {
-                          AnalyticsService.instance.capture('button_clicked', {'button_name': 'like_song', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug, 'song_id': currentStation?.songId});
-                          _showReviewModal(context, initialStars: 5);
-                        },
-                      ),
-                      const SizedBox(width: 8),
-                      _buildChip(
-                        context,
-                        icon: likeStatus == -1 ? Icons.thumb_down : Icons.thumb_down_outlined,
-                        label: 'Nu-mi place',
-                        isActive: likeStatus == -1,
-                        chipBg: chipBg,
-                        chipRadius: chipRadius,
-                        onTap: () {
-                          AnalyticsService.instance.capture('button_clicked', {'button_name': 'dislike_song', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug, 'song_id': currentStation?.songId});
-                          _showReviewModal(context, initialStars: 1);
-                        },
-                      ),
-                      const SizedBox(width: 8),
-                      _buildChip(
-                        context,
-                        icon: Icons.share_outlined,
-                        label: 'Trimite',
-                        chipBg: chipBg,
-                        chipRadius: chipRadius,
-                        onTap: () {
-                          AnalyticsService.instance.capture('button_clicked', {'button_name': 'share', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug, 'song_id': currentStation?.songId});
-                          _showShareDialog(context);
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }),
+            _buildChipRow(context, isDark),
             const Spacer(flex: 2),
-            // Transport controls: prev | play/pause | next
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: <Widget>[
-                InkWell(
-                  onTap: () {
-                    _playButtonKey.currentState?.notifyWillPlay();
-                    widget.audioHandler.skipToPrevious();
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.all(10.0),
-                    child: Icon(
-                      Icons.skip_previous,
-                      size: skipIconSize,
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
-                  ),
-                ),
-                SizedBox(width: skipSpacing),
-                AnimatedPlayButton(
-                  key: _playButtonKey,
-                  playbackStateStream: widget.audioHandler.playbackState,
-                  iconSize: playIconSize,
-                  iconColor: Theme.of(context).colorScheme.onPrimary,
-                  backgroundColor: Theme.of(context).bottomAppBarTheme.color,
-                  onPlay: widget.audioHandler.play,
-                  onPause: widget.audioHandler.pause,
-                  onStop: widget.audioHandler.stop,
-                ),
-                SizedBox(width: skipSpacing),
-                InkWell(
-                  onTap: () {
-                    _playButtonKey.currentState?.notifyWillPlay();
-                    widget.audioHandler.skipToNext();
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.all(10.0),
-                    child: Icon(
-                      Icons.skip_next_rounded,
-                      size: skipIconSize,
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+            _buildTransportControls(
+                context, playIconSize, skipIconSize, skipSpacing),
             const Spacer(flex: 2),
-            // Bottom row: favorit, istoric, somn, youtube
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: <Widget>[
-                InkWell(
-                  customBorder: const CircleBorder(),
-                  onTap: () {
-                    AnalyticsService.instance.capture('button_clicked', {'button_name': 'favorite', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug});
-                    _likeButtonKey.currentState?.onTap();
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(10.0),
-                    child: Column(
-                      children: [
-                        IgnorePointer(
-                          child: LikeButton(
-                            key: _likeButtonKey,
-                            size: 30,
-                            bubblesSize: 30,
-                            isLiked: currentStation != null && _favoriteSlugs.contains(currentStation!.slug),
-                            likeBuilder: (bool isLiked) {
-                              return Icon(
-                                isLiked ? Icons.favorite_sharp : Icons.favorite_border_sharp,
-                                color: isLiked
-                                    ? Theme.of(context).primaryColor
-                                    : Theme.of(context).colorScheme.onSurface,
-                                size: 23,
-                              );
-                            },
-                            onTap: (bool isLiked) async {
-                              if (currentStation != null) {
-                                widget.audioHandler.setStationIsFavorite(currentStation!, !isLiked);
-                              }
-                              return !isLiked;
-                            },
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8.0),
-                          child: Text('favorit', style: TextStyle(
-                            fontSize: 12,
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          )),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                _buildActionButton(
-                  context,
-                  icon: Icons.history,
-                  label: 'istoric',
-                  onTap: () {
-                    AnalyticsService.instance.capture('button_clicked', {'button_name': 'song_history', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug});
-                    if (currentStation != null) {
-                      SongHistoryModal.show(
-                        context,
-                        stationSlug: currentStation!.slug,
-                        stationTitle: currentStation!.title,
-                        stationThumbnailUrl: currentStation!.thumbnailUrl,
-                      );
-                    }
-                  },
-                ),
-                _buildActionButton(
-                  context,
-                  icon: Icons.nights_stay_sharp,
-                  label: 'somn',
-                  isActive: isTimerActive,
-                  onTap: () {
-                    AnalyticsService.instance.capture('button_clicked', {'button_name': 'sleep_timer', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug});
-                    showSleepTimerDialog(context);
-                  },
-                ),
-                _buildActionButton(
-                  context,
-                  icon: Icons.video_collection,
-                  label: 'youtube',
-                  isEnabled: hasYoutubeLink,
-                  onTap: () async {
-                    if (!hasYoutubeLink || currentStation == null) return;
-                    AnalyticsService.instance.capture('button_clicked', {'button_name': 'youtube_search', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug, 'song_id': currentStation?.songId, 'song_title': currentStation?.songTitle});
-                    final query = "${currentStation?.songArtist} - ${currentStation?.songTitle}";
-                    final encodedQuery = Uri.encodeQueryComponent(query);
-                    final searchUrl = 'https://www.youtube.com/results?q=$encodedQuery';
-                    await launchUrl(Uri.parse(searchUrl), mode: LaunchMode.externalApplication);
-                  },
-                ),
-              ],
-            ),
+            _buildBottomActionRow(context, hasYoutubeLink),
             const SizedBox(height: 24.0),
           ],
         ),
       ),
+    );
+  }
+
+  /// Tablet landscape layout: artwork on the left, metadata + controls in a
+  /// column on the right (mirrors the TV / Apple TV now-playing screen). Reuses
+  /// the exact same content widgets as the portrait layout so behaviour and
+  /// animations stay identical — only the arrangement changes.
+  Widget _buildLandscapeLayout(
+    BuildContext context,
+    bool isDark,
+    Color bgColor,
+    bool hasYoutubeLink,
+    double playIconSize,
+    double skipIconSize,
+    double skipSpacing,
+  ) {
+    return Container(
+      decoration: _panelDecoration(isDark, bgColor),
+      child: MediaQuery.removePadding(
+        context: context,
+        removeTop: true,
+        child: SafeArea(
+          top: false,
+          child: Column(
+            children: [
+              _buildDragHandle(context),
+              const SizedBox(height: 8.0),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16.0, 4.0, 16.0, 8.0),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      // Square artwork sized to the row height, but never wider
+                      // than ~44% of the row so the info column keeps room.
+                      final maxByWidth =
+                          (constraints.maxWidth * 0.44).clamp(140.0, double.infinity);
+                      final artSize = constraints.maxHeight
+                          .clamp(140.0, 360.0)
+                          .clamp(140.0, maxByWidth)
+                          .toDouble();
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: artSize,
+                            height: artSize,
+                            child: Center(child: _buildArtwork(context, artSize)),
+                          ),
+                          const SizedBox(width: 24.0),
+                          Expanded(
+                            child: SingleChildScrollView(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  _buildStationTitle(context,
+                                      textAlign: TextAlign.start),
+                                  const SizedBox(height: 10.0),
+                                  _buildSongTitle(context,
+                                      textAlign: TextAlign.start,
+                                      horizontalPadding: 0.0),
+                                  const SizedBox(height: 4.0),
+                                  _buildArtist(context,
+                                      textAlign: TextAlign.start),
+                                  const SizedBox(height: 16.0),
+                                  _buildChipRow(context, isDark,
+                                      alignStart: true),
+                                  const SizedBox(height: 20.0),
+                                  _buildTransportControls(context, playIconSize,
+                                      skipIconSize, skipSpacing,
+                                      alignStart: true),
+                                  const SizedBox(height: 12.0),
+                                  _buildBottomActionRow(context, hasYoutubeLink),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// The rounded drag handle at the top of the sliding panel.
+  Widget _buildDragHandle(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(top: 3.0),
+      child: Container(
+        width: 32,
+        height: 4,
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+          borderRadius: const BorderRadius.all(Radius.circular(12.0)),
+        ),
+      ),
+    );
+  }
+
+  /// The station name, crossfading between stations.
+  Widget _buildStationTitle(BuildContext context,
+      {TextAlign textAlign = TextAlign.center}) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 250),
+      transitionBuilder: (Widget child, Animation<double> animation) {
+        return FadeTransition(opacity: animation, child: child);
+      },
+      child: Text(
+        currentStation?.displayTitle ?? "",
+        key: ValueKey('title-${currentStation?.id}'),
+        style: const TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 20,
+        ),
+        textAlign: textAlign,
+      ),
+    );
+  }
+
+  /// The primary song line (or idle placeholder), crossfading on change.
+  Widget _buildSongTitle(BuildContext context,
+      {TextAlign textAlign = TextAlign.center,
+      double horizontalPadding = 16.0}) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 250),
+      transitionBuilder: (Widget child, Animation<double> animation) {
+        return FadeTransition(opacity: animation, child: child);
+      },
+      child: Padding(
+        key: ValueKey('song-${currentStation?.songTitle}-${currentStation?.id}'),
+        padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+        child: Text(
+          _primaryLine(),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          textAlign: textAlign,
+          style: const TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// The song artist line, crossfading on change.
+  Widget _buildArtist(BuildContext context,
+      {TextAlign textAlign = TextAlign.center}) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 250),
+      transitionBuilder: (Widget child, Animation<double> animation) {
+        return FadeTransition(opacity: animation, child: child);
+      },
+      child: Text(
+        currentStation?.songArtist ?? "",
+        key: ValueKey('artist-${currentStation?.songArtist}-${currentStation?.id}'),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        textAlign: textAlign,
+        style: TextStyle(
+          fontSize: 15,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+      ),
+    );
+  }
+
+  /// Chip row: like | dislike | share. [alignStart] left-aligns the cluster for
+  /// the landscape right-hand column; the default centers it (portrait).
+  Widget _buildChipRow(BuildContext context, bool isDark,
+      {bool alignStart = false}) {
+    final songId = currentStation?.songId ?? -1;
+    final likeStatus = GetIt.instance<SongLikeService>().getLikeStatus(songId);
+    final chipBg = isDark
+        ? Colors.white.withValues(alpha: 0.12)
+        : Colors.black.withValues(alpha: 0.08);
+    final chipRadius = BorderRadius.circular(24);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: alignStart ? Alignment.centerLeft : Alignment.center,
+        child: Row(
+          mainAxisAlignment:
+              alignStart ? MainAxisAlignment.start : MainAxisAlignment.center,
+          children: [
+            _buildChip(
+              context,
+              icon: likeStatus == 1 ? Icons.thumb_up : Icons.thumb_up_outlined,
+              label: 'Îmi place',
+              isActive: likeStatus == 1,
+              chipBg: chipBg,
+              chipRadius: chipRadius,
+              onTap: () {
+                AnalyticsService.instance.capture('button_clicked', {'button_name': 'like_song', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug, 'song_id': currentStation?.songId});
+                _showReviewModal(context, initialStars: 5);
+              },
+            ),
+            const SizedBox(width: 8),
+            _buildChip(
+              context,
+              icon: likeStatus == -1 ? Icons.thumb_down : Icons.thumb_down_outlined,
+              label: 'Nu-mi place',
+              isActive: likeStatus == -1,
+              chipBg: chipBg,
+              chipRadius: chipRadius,
+              onTap: () {
+                AnalyticsService.instance.capture('button_clicked', {'button_name': 'dislike_song', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug, 'song_id': currentStation?.songId});
+                _showReviewModal(context, initialStars: 1);
+              },
+            ),
+            const SizedBox(width: 8),
+            _buildChip(
+              context,
+              icon: Icons.share_outlined,
+              label: 'Trimite',
+              chipBg: chipBg,
+              chipRadius: chipRadius,
+              onTap: () {
+                AnalyticsService.instance.capture('button_clicked', {'button_name': 'share', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug, 'song_id': currentStation?.songId});
+                _showShareDialog(context);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Transport controls: prev | play/pause | next. [alignStart] left-aligns the
+  /// cluster for the landscape right-hand column.
+  Widget _buildTransportControls(BuildContext context, double playIconSize,
+      double skipIconSize, double skipSpacing,
+      {bool alignStart = false}) {
+    return Row(
+      mainAxisAlignment:
+          alignStart ? MainAxisAlignment.start : MainAxisAlignment.center,
+      children: <Widget>[
+        InkWell(
+          onTap: () {
+            _playButtonKey.currentState?.notifyWillPlay();
+            widget.audioHandler.skipToPrevious();
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(10.0),
+            child: Icon(
+              Icons.skip_previous,
+              size: skipIconSize,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
+          ),
+        ),
+        SizedBox(width: skipSpacing),
+        AnimatedPlayButton(
+          key: _playButtonKey,
+          playbackStateStream: widget.audioHandler.playbackState,
+          iconSize: playIconSize,
+          iconColor: Theme.of(context).colorScheme.onPrimary,
+          backgroundColor: Theme.of(context).bottomAppBarTheme.color,
+          onPlay: widget.audioHandler.play,
+          onPause: widget.audioHandler.pause,
+          onStop: widget.audioHandler.stop,
+        ),
+        SizedBox(width: skipSpacing),
+        InkWell(
+          onTap: () {
+            _playButtonKey.currentState?.notifyWillPlay();
+            widget.audioHandler.skipToNext();
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(10.0),
+            child: Icon(
+              Icons.skip_next_rounded,
+              size: skipIconSize,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Bottom action row: favorit | istoric | somn | youtube.
+  Widget _buildBottomActionRow(BuildContext context, bool hasYoutubeLink) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: <Widget>[
+        InkWell(
+          customBorder: const CircleBorder(),
+          onTap: () {
+            AnalyticsService.instance.capture('button_clicked', {'button_name': 'favorite', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug});
+            _likeButtonKey.currentState?.onTap();
+          },
+          child: Container(
+            padding: const EdgeInsets.all(10.0),
+            child: Column(
+              children: [
+                IgnorePointer(
+                  child: LikeButton(
+                    key: _likeButtonKey,
+                    size: 30,
+                    bubblesSize: 30,
+                    isLiked: currentStation != null && _favoriteSlugs.contains(currentStation!.slug),
+                    likeBuilder: (bool isLiked) {
+                      return Icon(
+                        isLiked ? Icons.favorite_sharp : Icons.favorite_border_sharp,
+                        color: isLiked
+                            ? Theme.of(context).primaryColor
+                            : Theme.of(context).colorScheme.onSurface,
+                        size: 23,
+                      );
+                    },
+                    onTap: (bool isLiked) async {
+                      if (currentStation != null) {
+                        widget.audioHandler.setStationIsFavorite(currentStation!, !isLiked);
+                      }
+                      return !isLiked;
+                    },
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 8.0),
+                  child: Text('favorit', style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  )),
+                ),
+              ],
+            ),
+          ),
+        ),
+        _buildActionButton(
+          context,
+          icon: Icons.history,
+          label: 'istoric',
+          onTap: () {
+            AnalyticsService.instance.capture('button_clicked', {'button_name': 'song_history', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug});
+            if (currentStation != null) {
+              SongHistoryModal.show(
+                context,
+                stationSlug: currentStation!.slug,
+                stationTitle: currentStation!.title,
+                stationThumbnailUrl: currentStation!.thumbnailUrl,
+              );
+            }
+          },
+        ),
+        _buildActionButton(
+          context,
+          icon: Icons.nights_stay_sharp,
+          label: 'somn',
+          isActive: isTimerActive,
+          onTap: () {
+            AnalyticsService.instance.capture('button_clicked', {'button_name': 'sleep_timer', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug});
+            showSleepTimerDialog(context);
+          },
+        ),
+        _buildActionButton(
+          context,
+          icon: Icons.video_collection,
+          label: 'youtube',
+          isEnabled: hasYoutubeLink,
+          onTap: () async {
+            if (!hasYoutubeLink || currentStation == null) return;
+            AnalyticsService.instance.capture('button_clicked', {'button_name': 'youtube_search', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug, 'song_id': currentStation?.songId, 'song_title': currentStation?.songTitle});
+            final query = "${currentStation?.songArtist} - ${currentStation?.songTitle}";
+            final encodedQuery = Uri.encodeQueryComponent(query);
+            final searchUrl = 'https://www.youtube.com/results?q=$encodedQuery';
+            await launchUrl(Uri.parse(searchUrl), mode: LaunchMode.externalApplication);
+          },
+        ),
+      ],
     );
   }
 
