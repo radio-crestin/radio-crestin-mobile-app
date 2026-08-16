@@ -13,7 +13,18 @@ import '../utils.dart';
 import 'analytics_service.dart';
 
 class CastService {
+  /// [autoStartDiscovery] defaults to `false` on iOS: Bonjour browsing is what
+  /// raises the "Local Network" permission prompt, so scanning waits for the
+  /// first tap on the cast button ([startDiscovery] / [restartDiscovery]).
+  /// Other platforms keep scanning from startup — the cast button only shows
+  /// up once devices are found there.
+  CastService({bool? autoStartDiscovery})
+      : autoStartDiscovery = autoStartDiscovery ?? !Platform.isIOS;
+
   static const _tag = 'CastService';
+
+  /// Whether [initialize] may start device discovery right away.
+  final bool autoStartDiscovery;
 
   /// Google Default Media Receiver — native UI with artwork, metadata,
   /// and playback controls on all Cast devices.
@@ -152,8 +163,8 @@ class CastService {
               _customReceiverAppId,
             ),
             suspendSessionsWhenBackgrounded: false,
-            disableDiscoveryAutostart: false,
-            startDiscoveryAfterFirstTapOnCastButton: false,
+            disableDiscoveryAutostart: !autoStartDiscovery,
+            startDiscoveryAfterFirstTapOnCastButton: !autoStartDiscovery,
             stopReceiverApplicationWhenEndingSession: true,
             stopCastingOnAppTerminated: true,
           ),
@@ -214,8 +225,13 @@ class CastService {
         _log('Media status stream error: $e');
       });
 
-      // Start discovery immediately
-      startDiscovery();
+      // Discovery starts here only where it costs no permission prompt; on
+      // iOS the first cast-button tap starts it (see [autoStartDiscovery]).
+      if (autoStartDiscovery) {
+        startDiscovery();
+      } else {
+        _log('Discovery deferred until the first cast-button tap');
+      }
     } catch (e, st) {
       _log('Initialize failed: $e\n$st');
     }

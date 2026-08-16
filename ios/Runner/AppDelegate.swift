@@ -45,13 +45,14 @@ let flutterEngine = FlutterEngine(name: "SharedEngine", project: nil, allowHeadl
         }
 
         // Push Notification
+        //
+        // Authorization is NOT requested here: the prompt would land on a
+        // cold start, before the user has any context for it. Dart's
+        // NotificationPermissionService asks once, after the 2nd station
+        // play. Registering for remote notifications shows no dialog — it
+        // only obtains the APNS token, which FCM needs for users who have
+        // already granted the permission.
         UNUserNotificationCenter.current().delegate = self
-
-        let authOptions: UNAuthorizationOptions = [.alert, .badge, .sound]
-        UNUserNotificationCenter.current().requestAuthorization(
-            options: authOptions,
-            completionHandler: { _, _ in }
-        )
 
         application.registerForRemoteNotifications()
 

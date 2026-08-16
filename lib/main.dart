@@ -6,7 +6,6 @@ import 'dart:io' show PathNotFoundException, Platform;
 import 'package:device_info_plus/device_info_plus.dart';
 
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:posthog_flutter/posthog_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -48,6 +47,7 @@ import 'services/log_flush_guard.dart';
 import 'services/remote_debug_controller.dart';
 import 'services/quick_actions_service.dart';
 import 'services/network_service.dart';
+import 'services/notification_permission_service.dart';
 import 'services/play_count_service.dart';
 import 'services/session_replay_controller.dart';
 import 'services/song_like_service.dart';
@@ -61,32 +61,16 @@ import 'tv/tv_theme.dart';
 
 final getIt = GetIt.instance;
 
-Future<void> initializeFirebaseMessaging() async {
+/// Sets up push messaging WITHOUT prompting for permission. The prompt is
+/// deferred to the 2nd station play by [NotificationPermissionService], which
+/// AppAudioHandler notifies on every play.
+Future<void> initializeFirebaseMessaging(SharedPreferences prefs) async {
   try {
-    if (Platform.isIOS) {
-      FirebaseMessaging messaging = FirebaseMessaging.instance;
-      await messaging.requestPermission(
-        alert: true,
-        announcement: true,
-        badge: true,
-        carPlay: false,
-        criticalAlert: true,
-        provisional: true,
-        sound: true,
-      );
-    } else {
-      await FirebaseMessaging.instance.setAutoInitEnabled(true);
-      try {
-        final fcmToken = await FirebaseMessaging.instance.getToken();
-        if (fcmToken != null) globals.fcmToken = fcmToken;
-        developer.log("FCMToken $fcmToken");
-      } catch (e) {
-        developer.log("Failed to get FCM token: $e");
-        if (e.toString().contains('SERVICE_NOT_AVAILABLE')) {
-          developer.log("Firebase Messaging service not available - likely running on emulator without Google Play Services");
-        }
-      }
+    final service = NotificationPermissionService.firebase(prefs);
+    if (!getIt.isRegistered<NotificationPermissionService>()) {
+      getIt.registerSingleton<NotificationPermissionService>(service);
     }
+    await service.initialize();
   } catch (e, stackTrace) {
     developer.log("Firebase Messaging initialization failed", error: e, stackTrace: stackTrace);
     if (!e.toString().contains('SERVICE_NOT_AVAILABLE')) {
@@ -122,11 +106,11 @@ void main() async {
     );
   }
 
-  // media_kit (the video-playback engine for TV channels + video playlist
-  // items) is initialized LAZILY on first video use — VideoPlaybackService
-  // .ensureInitialized() calls MediaKit.ensureInitialized() before it builds a
-  // Player. Deferring it keeps its native-library registration off the startup
-  // path for the common audio-only launch (measured on first video instead).
+  // The video-playback engine for TV channels + video playlist items is the
+  // OFFICIAL video_player plugin (AVPlayer / ExoPlayer). It needs no global
+  // initialization — VideoPlaybackService creates a native VideoPlayerController
+  // lazily on the first video (open()), so nothing is on the startup path for
+  // the common audio-only launch.
 
   // Phase 1: Start ALL independent async operations in parallel.
   // Firebase, Hive, SharedPreferences, image cache, network, and PackageInfo
@@ -219,6 +203,13 @@ void main() async {
   GraphQLClient graphqlClient = GraphQLClient(
     link: graphqlLink,
     cache: graphQlCache,
+    // Disable graphql's per-request timeout (default 5s). It wraps the link
+    // response stream in `.timeout()` and completes an internal completer
+    // from an *unguarded* onData handler, so a response arriving after the
+    // timeout fired threw "Bad state: Future already completed". The
+    // interceptor's own `HttpStallGuard.restApiTimeout` bound (and the
+    // `TimeoutHttpClient` on `httpLink`) are the single timeout authority.
+    queryRequestTimeout: null,
     defaultPolicies: DefaultPolicies(
       query: Policies(
         fetch: FetchPolicy.cacheAndNetwork,
@@ -350,7 +341,8 @@ void main() async {
   }
 
   if (_firebaseSupported) {
-    PerformanceMonitor.trackAsync('firebase_messaging_init', () => initializeFirebaseMessaging());
+    PerformanceMonitor.trackAsync(
+        'firebase_messaging_init', () => initializeFirebaseMessaging(prefs));
   }
 
   // Wait for audio (packageInfo already resolved above)
