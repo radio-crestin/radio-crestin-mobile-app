@@ -5,10 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_airplay/flutter_airplay.dart';
 import 'package:flutter_chrome_cast/flutter_chrome_cast.dart';
 import 'package:get_it/get_it.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/cast_service.dart';
 import '../services/analytics_service.dart';
 import '../theme.dart';
+import 'local_network_explainer.dart';
 
 // ═══════════════════════════════════════════════════════════════════
 // Cast AppBar button
@@ -87,17 +89,31 @@ class _CastButtonState extends State<CastButton> {
     super.dispose();
   }
 
-  void _open() {
+  /// Gate that explains the iOS Local Network prompt before it appears, then
+  /// re-arms discovery. Re-issuing the Bonjour browse on every tap is a cheap
+  /// no-op after the first one, and it lets a user who denied the system
+  /// prompt recover by tapping again (after toggling iOS Settings → Radio
+  /// Creștin → Local Network ON).
+  LocalNetworkExplainerGate _discoveryGate() => LocalNetworkExplainerGate(
+        prefs: GetIt.instance.isRegistered<SharedPreferences>()
+            ? GetIt.instance<SharedPreferences>()
+            : null,
+        startDiscovery: () => _castService?.restartDiscovery(),
+      );
+
+  Future<void> _open() async {
     if (!_visible) return;
     AnalyticsService.instance.capture('cast_picker_opened', {
       'device_count': _devices.length,
     });
-    // Re-arm discovery on each tap. On iOS this re-issues the Bonjour
-    // browse request, which (re)triggers the Local Network permission
-    // prompt the very first time and is otherwise a cheap no-op. Lets
-    // a user who initially denied the prompt recover by tapping again
-    // (after toggling iOS Settings → Radio Creștin → Local Network ON).
-    _castService?.restartDiscovery();
+    // First tap explains WHY the network is needed; discovery — and with it
+    // the iOS system prompt — starts only once the user agrees.
+    final started = await _discoveryGate().requestDiscovery(context);
+    if (!started) {
+      AnalyticsService.instance.capture('cast_local_network_declined', {});
+      return;
+    }
+    if (!mounted) return;
     showModalBottomSheet(
       context: context,
       backgroundColor:

@@ -124,7 +124,7 @@
 		<key>com.posthog.posthog.AUTO_INIT</key>
 		<false/>
 		<key>NSLocalNetworkUsageDescription</key>
-		<string>Radio Creștin folosește rețeaua locală pentru a găsi dispozitive Chromecast și AirPlay pe care poți asculta posturile de radio.</string>
+		<string>Radio Creștin folosește rețeaua locală doar pentru a găsi televizoarele, boxele și dispozitivele Chromecast sau AirPlay din apropiere, ca să poți reda posturile de radio pe alte dispozitive din casa ta.</string>
 		<key>NSBonjourServices</key>
 		<array>
 			<string>_googlecast._tcp</string>
