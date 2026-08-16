@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(flutter:*)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "mcp__posthog__exec"
     ],
     "deny": []
   }
