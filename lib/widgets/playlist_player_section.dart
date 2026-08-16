@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:radio_crestin/theme.dart';
@@ -34,6 +35,65 @@ String formatPlaylistDuration(Duration d) {
   }
   return '$minutes:$ss';
 }
+
+/// Fixed height of the current-item TITLE slot (two lines at 19px, w700).
+///
+/// Every slot between the media surface and the transport row has a FIXED
+/// height on purpose: a one-line title, a missing publish date or a video item
+/// (no below-video scrubber) must never move the prev/play/next cluster. The
+/// transport is the one control the user reaches for blind, so it stays at the
+/// same pixel for every station type (playlist / video / TV) and item type
+/// (audio / video / youtube).
+const double kPlaylistTitleSlotHeight = 52.0;
+
+/// Fixed height of the publish-date slot under the title (empty when the item
+/// has no date).
+const double kPlaylistMetaSlotHeight = 18.0;
+
+/// Fixed height of the below-title scrubber slot. Only audio items draw a
+/// scrubber here (video items carry one on the video overlay, YouTube items use
+/// the iframe's own chrome) — the space stays reserved either way.
+const double kPlaylistScrubberSlotHeight = 66.0;
+
+/// Height of the seek bar inside [kPlaylistScrubberSlotHeight] (the rest holds
+/// the elapsed / total labels).
+const double kPlaylistSliderHeight = 46.0;
+
+/// Height of the transport row: [AnimatedPlayButton] at `iconSize: 48` plus its
+/// 8px ring padding.
+const double kPlaylistTransportRowHeight = 64.0;
+
+/// Height of the "next station" row below the transport.
+const double kPlaylistNextStationRowHeight = 44.0;
+
+/// Height of the collapsed playlist header (the tappable queue pill).
+const double kPlaylistQueueHeaderHeight = 60.0;
+
+/// Vertical gaps between the fixed slots, in layout order.
+const double _gapAfterMedia = 12.0;
+const double _gapAfterTransport = 6.0;
+const double _gapAfterNextStation = 10.0;
+const double _gapAfterQueueHeader = 8.0;
+
+/// Space the layout reserves below the media surface for everything that is not
+/// the playlist itself.
+///
+/// The 16:9 media box is capped to what is left so the transport can never be
+/// pushed into the panel's clipped region — where its prev/next taps silently
+/// did nothing (the reported "next button doesn't work" bug).
+const double kPlaylistControlsReservedHeight = _gapAfterMedia +
+    kPlaylistTitleSlotHeight +
+    kPlaylistMetaSlotHeight +
+    kPlaylistScrubberSlotHeight +
+    kPlaylistTransportRowHeight +
+    _gapAfterTransport +
+    kPlaylistNextStationRowHeight +
+    _gapAfterNextStation +
+    kPlaylistQueueHeaderHeight +
+    _gapAfterQueueHeader;
+
+/// Expand / collapse animation of the playlist list.
+const Duration kPlaylistExpandDuration = Duration(milliseconds: 300);
 
 /// Whether to overlay the "won't play in background" notice on the media
 /// surface. True only for an active YouTube item: its inline iframe cannot keep
@@ -193,69 +253,276 @@ class _PlaylistPlayerSectionState extends State<PlaylistPlayerSection> {
     );
   }
 
+  /// Jumps to the next STATION in the frozen station order (not the next
+  /// playlist item). The play button flips to "playing" instantly so the tap
+  /// never feels ignored while the next station loads.
+  void _playNextStation() {
+    _playButtonKey.currentState?.notifyWillPlay();
+    widget.audioHandler.skipToNextStation();
+  }
+
+  /// Expanding the playlist scrolls it to the playing item once it has laid out.
+  void _onListExpanded(bool expanded) {
+    if (!expanded) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _scrollToCurrent();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PlaylistPlayerLayout(
+      // [IgnoreDraggableWidget] locks the sliding panel while a pointer is on
+      // the media surface: touches (taps, scrubs, pinches) interact with the
+      // video instead of dragging the panel down.
+      media: IgnoreDraggableWidget(
+        child: _MediaSurface(
+          audioHandler: widget.audioHandler,
+          controller: _controller,
+          station: widget.station,
+          item: _currentItem,
+          isVideoContent: _isVideoContent,
+          isYoutubeContent: _isYoutubeContent,
+          audioOnlyFallback: _audioOnlyFallback,
+          panelExpanded: widget.panelExpanded,
+        ),
+      ),
+      title: _currentItem?.title ?? 'Element indisponibil',
+      titleKey: ValueKey('pl-title-${_currentItem?.id}'),
+      subtitle: _currentItem?.publishedAt != null
+          ? formatPlaylistDate(_currentItem!.publishedAt!)
+          : null,
+      // Persistent scrubber for audio items only (video → overlay scrubber,
+      // YouTube → native controls); the slot stays reserved for the others.
+      scrubber: _showBelowScrubber
+          ? _VodProgressBar(controller: _controller, seekable: true)
+          : null,
+      // Transport: [repeat] [prev] [play/pause] [next] [fullscreen?/quality?].
+      // Video items expose fullscreen on the video surface's own bottom-right
+      // corner button (so no redundant transport one here); YouTube items have
+      // no such corner button (the iframe owns its chrome), so they keep a
+      // transport fullscreen affordance. Play/pause routes through the handler
+      // for every item type.
+      transport: PlaylistTransport(
+        playbackStateStream: widget.audioHandler.playbackState,
+        playButtonKey: _playButtonKey,
+        repeatOne: _repeatOne,
+        onToggleRepeat: _controller.toggleRepeatOne,
+        onPlay: widget.audioHandler.play,
+        onPause: widget.audioHandler.pause,
+        onStop: widget.audioHandler.stop,
+        onPrevious: widget.audioHandler.skipToPrevious,
+        onNext: widget.audioHandler.skipToNext,
+        onQuality: _isVideoContent && _qualities.length > 1
+            ? _openQualitySheet
+            : null,
+        onFullscreen:
+            _isYoutubeContent ? _controller.requestYoutubeFullscreen : null,
+      ),
+      onNextStation: _playNextStation,
+      currentIndex: _currentIndex,
+      itemCount: _items.length,
+      // Track list — live-reconciling, current item highlighted. Wrapped in
+      // [IgnoreDraggableWidget] so touches that start on the list scroll it
+      // instead of dragging the sliding panel.
+      list: IgnoreDraggableWidget(
+        child: _TrackList(
+          controller: _listController,
+          items: _items,
+          currentIndex: _currentIndex,
+          failedIds: _failedIds,
+          rowExtent: _rowExtent,
+          stationThumbnailUrl: widget.station.thumbnailUrl,
+          onTap: (index) => _controller.playItemAt(index),
+        ),
+      ),
+      onExpandedChanged: _onListExpanded,
+    );
+  }
+}
+
+/// The playlist player's stable-layout body: a fixed media slot, fixed title /
+/// date / scrubber slots, the transport row at a constant vertical position, a
+/// "next station" action, and a playlist that is COLLAPSED into a compact
+/// header by default and expands in place.
+///
+/// Presentational and service-free (widgets and callbacks only) so the whole
+/// layout contract — "the transport never moves" and the expand/collapse
+/// behavior — is directly widget-testable.
+class PlaylistPlayerLayout extends StatefulWidget {
+  const PlaylistPlayerLayout({
+    super.key,
+    required this.media,
+    required this.title,
+    required this.transport,
+    required this.onNextStation,
+    required this.currentIndex,
+    required this.itemCount,
+    required this.list,
+    this.titleKey,
+    this.subtitle,
+    this.scrubber,
+    this.onExpandedChanged,
+    this.initiallyExpanded = false,
+  });
+
+  /// The 16:9 media surface (artwork / video / YouTube), already wrapped in its
+  /// drag lock by the caller.
+  final Widget media;
+
+  /// Current item title, shown in the fixed two-line title slot.
+  final String title;
+
+  /// Identity of the title for its crossfade (usually the item id).
+  final Key? titleKey;
+
+  /// Optional publish date under the title; the slot is reserved regardless.
+  final String? subtitle;
+
+  /// Below-title seek bar for audio items; null keeps the slot empty.
+  final Widget? scrubber;
+
+  /// The prev / play / next cluster (plus secondary controls).
+  final Widget transport;
+
+  /// Jumps to the next station in the frozen station order.
+  final VoidCallback onNextStation;
+
+  /// Index of the playing item (-1 when unknown) and the item count, shown on
+  /// the collapsed playlist header as "n din total".
+  final int currentIndex;
+  final int itemCount;
+
+  /// The full playlist, revealed when the header is expanded.
+  final Widget list;
+
+  /// Fired after the user expands / collapses the playlist.
+  final ValueChanged<bool>? onExpandedChanged;
+
+  /// The playlist starts collapsed; a test (or a future preference) can flip it.
+  final bool initiallyExpanded;
+
+  @override
+  State<PlaylistPlayerLayout> createState() => _PlaylistPlayerLayoutState();
+}
+
+class _PlaylistPlayerLayoutState extends State<PlaylistPlayerLayout> {
+  late bool _expanded = widget.initiallyExpanded;
+
+  void _toggleExpanded() {
+    setState(() => _expanded = !_expanded);
+    widget.onExpandedChanged?.call(_expanded);
+  }
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
-      builder: (context, constraints) => _buildBody(context, constraints),
-    );
-  }
+      builder: (context, constraints) {
+        // Cap the 16:9 media so every fixed slot below it (title, date,
+        // scrubber, transport, next-station, playlist header) still fits. The
+        // media is the part that yields — on a very short panel (landscape) it
+        // shrinks away entirely rather than pushing the transport into the
+        // clipped region, where its taps would silently do nothing.
+        final double availWidth = constraints.maxWidth - 24.0; // 12px padding
+        final double maxMediaHeight = constraints.maxHeight.isFinite
+            ? (constraints.maxHeight - kPlaylistControlsReservedHeight)
+                .clamp(0.0, 100000.0)
+            : double.infinity;
+        double mediaWidth = availWidth;
+        double mediaHeight = mediaWidth * 9 / 16;
+        if (mediaHeight > maxMediaHeight) {
+          mediaHeight = maxMediaHeight;
+          mediaWidth = mediaHeight * 16 / 9;
+        }
 
-  Widget _buildBody(BuildContext context, BoxConstraints constraints) {
-    // Cap the 16:9 media so the controls below it (title, scrubber, transport)
-    // and the track list always fit — and stay on-screen and TAPPABLE. Without
-    // this, a short/landscape panel height lets the full-width 16:9 box overflow
-    // the Column and push the transport row into the clipped region, where its
-    // prev/next taps silently do nothing (the reported "next button doesn't
-    // work; only tapping a row does" bug).
-    const double reservedForControls = 210.0;
-    final double availWidth = constraints.maxWidth - 24.0; // 12px side padding
-    final double maxMediaHeight = constraints.maxHeight.isFinite
-        ? (constraints.maxHeight - reservedForControls).clamp(80.0, 100000.0)
-        : double.infinity;
-    double mediaWidth = availWidth;
-    double mediaHeight = mediaWidth * 9 / 16;
-    if (mediaHeight > maxMediaHeight) {
-      mediaHeight = maxMediaHeight;
-      mediaWidth = mediaHeight * 16 / 9;
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // Height-capped 16:9 media area, centered when width-constrained.
-        // [IgnoreDraggableWidget] locks the sliding panel while a pointer is on
-        // the media surface: touches (taps, scrubs, pinches) interact with the
-        // video instead of dragging the panel down.
-        Center(
-          child: SizedBox(
-            width: mediaWidth,
-            height: mediaHeight,
-            child: IgnoreDraggableWidget(
-              child: _MediaSurface(
-                audioHandler: widget.audioHandler,
-                controller: _controller,
-                station: widget.station,
-                item: _currentItem,
-                isVideoContent: _isVideoContent,
-                isYoutubeContent: _isYoutubeContent,
-                audioOnlyFallback: _audioOnlyFallback,
-                panelExpanded: widget.panelExpanded,
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: SizedBox(
+                width: mediaWidth,
+                height: mediaHeight,
+                child: widget.media,
               ),
             ),
-          ),
-        ),
-        const SizedBox(height: 14),
-        // Current item title. The old "n / total" counter row was removed to
-        // give the track list more vertical room; the highlighted current row
-        // in the list below already conveys position.
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20.0),
+            const SizedBox(height: _gapAfterMedia),
+            _TitleSlot(title: widget.title, titleKey: widget.titleKey),
+            _MetaSlot(subtitle: widget.subtitle),
+            SizedBox(
+              height: kPlaylistScrubberSlotHeight,
+              child: widget.scrubber == null
+                  ? null
+                  : Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: widget.scrubber,
+                    ),
+            ),
+            SizedBox(
+              height: kPlaylistTransportRowHeight,
+              child: widget.transport,
+            ),
+            const SizedBox(height: _gapAfterTransport),
+            SizedBox(
+              height: kPlaylistNextStationRowHeight,
+              child: Center(
+                child: PlaylistNextStationButton(onPressed: widget.onNextStation),
+              ),
+            ),
+            const SizedBox(height: _gapAfterNextStation),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: PlaylistQueueHeader(
+                expanded: _expanded,
+                title: widget.title,
+                currentIndex: widget.currentIndex,
+                itemCount: widget.itemCount,
+                onTap: _toggleExpanded,
+              ),
+            ),
+            const SizedBox(height: _gapAfterQueueHeader),
+            // The list grows into (and scrolls within) whatever space is left —
+            // never unbounded. Collapsed it animates down to nothing.
+            Flexible(
+              child: ClipRect(
+                child: AnimatedSize(
+                  duration: kPlaylistExpandDuration,
+                  curve: Curves.fastOutSlowIn,
+                  alignment: Alignment.topCenter,
+                  child: _expanded
+                      ? widget.list
+                      : const SizedBox(width: double.infinity, height: 0),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// Fixed-height, centered two-line title slot with a 250ms crossfade between
+/// items (per the app's animation standards).
+class _TitleSlot extends StatelessWidget {
+  const _TitleSlot({required this.title, this.titleKey});
+
+  final String title;
+  final Key? titleKey;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: kPlaylistTitleSlotHeight,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20.0),
+        child: Center(
           child: AnimatedSwitcher(
             duration: const Duration(milliseconds: 250),
             transitionBuilder: (child, animation) =>
                 FadeTransition(opacity: animation, child: child),
             child: Text(
-              _currentItem?.title ?? 'Element indisponibil',
-              key: ValueKey('pl-title-${_currentItem?.id}'),
+              title,
+              key: titleKey,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
@@ -266,68 +533,169 @@ class _PlaylistPlayerSectionState extends State<PlaylistPlayerSection> {
             ),
           ),
         ),
-        // Publish date under the title, when the backend provides one for the
-        // current item (e.g. a dated live-stream recording). Hidden otherwise.
-        if (_currentItem?.publishedAt != null) ...[
-          const SizedBox(height: 4),
-          Text(
-            formatPlaylistDate(_currentItem!.publishedAt!),
-            key: ValueKey('pl-date-${_currentItem?.id}'),
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 13,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
+    );
+  }
+}
+
+/// Fixed-height publish-date slot — reserved even when the item has no date, so
+/// a dated item and an undated one put the transport in the same place.
+class _MetaSlot extends StatelessWidget {
+  const _MetaSlot({required this.subtitle});
+
+  final String? subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = subtitle;
+    return SizedBox(
+      height: kPlaylistMetaSlotHeight,
+      child: text == null
+          ? null
+          : Center(
+              child: Text(
+                text,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+    );
+  }
+}
+
+/// Compact, tappable playlist header: the playing item's title, its position in
+/// the list and a chevron that rotates as the list expands.
+///
+/// Deliberately shaped nothing like the round transport buttons — it is a full
+/// width card, so it can never be mistaken for a transport control.
+class PlaylistQueueHeader extends StatelessWidget {
+  const PlaylistQueueHeader({
+    super.key,
+    required this.expanded,
+    required this.title,
+    required this.currentIndex,
+    required this.itemCount,
+    required this.onTap,
+  });
+
+  final bool expanded;
+  final String title;
+  final int currentIndex;
+  final int itemCount;
+  final VoidCallback onTap;
+
+  /// "3 din 12" — 1-based, and just the count when the index is unknown.
+  String get _counter {
+    if (itemCount <= 0) return 'Listă goală';
+    if (currentIndex < 0) return '$itemCount elemente';
+    return '${currentIndex + 1} din $itemCount';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Semantics(
+      button: true,
+      label: 'Listă de redare, $_counter',
+      hint: expanded ? 'Atinge pentru a ascunde lista' : 'Atinge pentru a vedea lista',
+      child: Material(
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.55),
+        borderRadius: const BorderRadius.all(Radius.circular(14)),
+        child: InkWell(
+          borderRadius: const BorderRadius.all(Radius.circular(14)),
+          onTap: onTap,
+          child: SizedBox(
+            height: kPlaylistQueueHeaderHeight,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12.0),
+              child: Row(
+                children: [
+                  Icon(Icons.queue_music_rounded,
+                      size: 22, color: scheme.onSurfaceVariant),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w600,
+                            color: scheme.onSurface,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          _counter,
+                          maxLines: 1,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  AnimatedRotation(
+                    duration: kPlaylistExpandDuration,
+                    curve: Curves.fastOutSlowIn,
+                    turns: expanded ? 0.5 : 0.0,
+                    child: Icon(Icons.expand_more_rounded,
+                        size: 24, color: scheme.onSurfaceVariant),
+                  ),
+                ],
+              ),
             ),
           ),
-        ],
-        const SizedBox(height: 10),
-        // Persistent scrubber for audio items only (video → overlay scrubber,
-        // YouTube → native controls). Same styling as the overlay seek bar.
-        if (_showBelowScrubber)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: _VodProgressBar(
-              controller: _controller,
-              seekable: true,
-            ),
-          ),
-        const SizedBox(height: 6),
-        // Transport below the title: [quality] [prev] [play/pause] [next]
-        // [fullscreen?]. Video items expose fullscreen on the video surface's
-        // own bottom-right corner button (so no redundant transport one here);
-        // YouTube items have no such corner button (the iframe owns its chrome),
-        // so they keep a transport fullscreen affordance. Play/pause routes
-        // through the handler for every item type.
-        _Transport(
-          audioHandler: widget.audioHandler,
-          playButtonKey: _playButtonKey,
-          repeatOne: _repeatOne,
-          onToggleRepeat: _controller.toggleRepeatOne,
-          onQuality: _isVideoContent && _qualities.length > 1
-              ? _openQualitySheet
-              : null,
-          onFullscreen:
-              _isYoutubeContent ? _controller.requestYoutubeFullscreen : null,
         ),
-        const SizedBox(height: 12),
-        // Track list — live-reconciling, current item highlighted.
-        // Wrapped in [IgnoreDraggableWidget] so touches that start on the list
-        // scroll it instead of dragging the sliding panel; the drag handle and
-        // the non-list areas above keep dragging the panel as usual.
-        Expanded(
-          child: IgnoreDraggableWidget(
-            child: _TrackList(
-              controller: _listController,
-              items: _items,
-              currentIndex: _currentIndex,
-              failedIds: _failedIds,
-              rowExtent: _rowExtent,
-              stationThumbnailUrl: widget.station.thumbnailUrl,
-              onTap: (index) => _controller.playItemAt(index),
+      ),
+    );
+  }
+}
+
+/// Labeled pill that jumps to the NEXT STATION — deliberately a wide outlined
+/// button with a Romanian label, so it cannot be confused with the round
+/// "next item" transport arrow right above it.
+class PlaylistNextStationButton extends StatelessWidget {
+  const PlaylistNextStationButton({super.key, required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Semantics(
+      button: true,
+      label: 'Treci la postul următor',
+      child: Tooltip(
+        message: 'Treci la postul următor',
+        child: OutlinedButton.icon(
+          onPressed: onPressed,
+          icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+          label: const Text('Postul următor'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: scheme.onSurface,
+            side: BorderSide(
+              color: scheme.outlineVariant,
+            ),
+            shape: const StadiumBorder(),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+            textStyle: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ),
-      ],
+      ),
     );
   }
 }
@@ -534,35 +902,41 @@ class _VodProgressBarState extends State<_VodProgressBar> {
     final total = hasDuration ? formatPlaylistDuration(_duration!) : '--:--';
 
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        SliderTheme(
-          data: SliderTheme.of(context).copyWith(
-            trackHeight: 3.0,
-            activeTrackColor: AppColors.primary,
-            inactiveTrackColor: Theme.of(context)
-                .colorScheme
-                .onSurfaceVariant
-                .withValues(alpha: 0.25),
-            thumbColor: AppColors.primary,
-            overlayColor: AppColors.primary.withValues(alpha: 0.18),
-            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-            overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
-          ),
-          child: Slider(
-            value: sliderValue.clamp(0.0, maxValue),
-            max: maxValue,
-            onChanged: hasDuration && widget.seekable
-                ? (v) => setState(() => _dragValue = v)
-                : null,
-            onChangeEnd: hasDuration && widget.seekable
-                ? (v) {
-                    widget.controller.seek(Duration(milliseconds: v.round()));
-                    setState(() {
-                      _position = Duration(milliseconds: v.round());
-                      _dragValue = null;
-                    });
-                  }
-                : null,
+        // Height-bounded so the whole scrubber (bar + labels) fits the fixed
+        // [kPlaylistScrubberSlotHeight] slot that keeps the transport still.
+        SizedBox(
+          height: kPlaylistSliderHeight,
+          child: SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              trackHeight: 3.0,
+              activeTrackColor: AppColors.primary,
+              inactiveTrackColor: Theme.of(context)
+                  .colorScheme
+                  .onSurfaceVariant
+                  .withValues(alpha: 0.25),
+              thumbColor: AppColors.primary,
+              overlayColor: AppColors.primary.withValues(alpha: 0.18),
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+              overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+            ),
+            child: Slider(
+              value: sliderValue.clamp(0.0, maxValue),
+              max: maxValue,
+              onChanged: hasDuration && widget.seekable
+                  ? (v) => setState(() => _dragValue = v)
+                  : null,
+              onChangeEnd: hasDuration && widget.seekable
+                  ? (v) {
+                      widget.controller.seek(Duration(milliseconds: v.round()));
+                      setState(() {
+                        _position = Duration(milliseconds: v.round());
+                        _dragValue = null;
+                      });
+                    }
+                  : null,
+            ),
           ),
         ),
         Padding(
@@ -587,20 +961,29 @@ class _VodProgressBarState extends State<_VodProgressBar> {
 }
 
 /// Transport row shared by every playlist item type. Play/pause is the standard
-/// [AnimatedPlayButton] routed through [AppAudioHandler] — for YouTube items the
-/// handler forwards to the inline iframe, so `playbackState` is the one source
-/// of truth for the icon and the action.
-class _Transport extends StatelessWidget {
-  const _Transport({
-    required this.audioHandler,
+/// [AnimatedPlayButton] driven by [playbackStateStream] (the handler's
+/// `playbackState`) — for YouTube items the handler forwards to the inline
+/// iframe, so that stream stays the one source of truth for icon and action.
+///
+/// Takes streams and callbacks rather than the handler itself so the row (and
+/// the layout it sits in) is widget-testable without the audio stack.
+class PlaylistTransport extends StatelessWidget {
+  const PlaylistTransport({
+    super.key,
+    required this.playbackStateStream,
     required this.playButtonKey,
     required this.repeatOne,
     required this.onToggleRepeat,
+    required this.onPlay,
+    required this.onPause,
+    required this.onStop,
+    required this.onPrevious,
+    required this.onNext,
     this.onQuality,
     this.onFullscreen,
   });
 
-  final AppAudioHandler audioHandler;
+  final Stream<PlaybackState> playbackStateStream;
   final GlobalKey<AnimatedPlayButtonState> playButtonKey;
 
   /// Whether single-item repeat is active (highlights the repeat button).
@@ -609,11 +992,20 @@ class _Transport extends StatelessWidget {
   /// Toggles single-item repeat (leftmost button).
   final VoidCallback onToggleRepeat;
 
+  final VoidCallback onPlay;
+  final VoidCallback onPause;
+  final VoidCallback onStop;
+
+  /// Previous / next PLAYLIST ITEM (the station-level jump is the labeled
+  /// "Postul următor" button below this row).
+  final VoidCallback onPrevious;
+  final VoidCallback onNext;
+
   /// Quality picker, shown right of "next" for multi-quality video items.
   final VoidCallback? onQuality;
 
-  /// Fullscreen action shown right of "next" — video items enter media_kit
-  /// fullscreen, YouTube items enter the iframe fullscreen.
+  /// Fullscreen action shown right of "next" — video items enter the video
+  /// player's fullscreen, YouTube items the iframe fullscreen.
   final VoidCallback? onFullscreen;
 
   /// Side length of the round secondary buttons (10px padding + 30px icon) —
@@ -667,19 +1059,19 @@ class _Transport extends StatelessWidget {
           color: onSurface,
           onTap: () {
             playButtonKey.currentState?.notifyWillPlay();
-            audioHandler.skipToPrevious();
+            onPrevious();
           },
         ),
         const SizedBox(width: 12),
         AnimatedPlayButton(
           key: playButtonKey,
-          playbackStateStream: audioHandler.playbackState,
+          playbackStateStream: playbackStateStream,
           iconSize: 48,
           iconColor: Theme.of(context).colorScheme.onPrimary,
           backgroundColor: Theme.of(context).bottomAppBarTheme.color,
-          onPlay: audioHandler.play,
-          onPause: audioHandler.pause,
-          onStop: audioHandler.stop,
+          onPlay: onPlay,
+          onPause: onPause,
+          onStop: onStop,
         ),
         const SizedBox(width: 12),
         _RoundIconButton(
@@ -687,7 +1079,7 @@ class _Transport extends StatelessWidget {
           color: onSurface,
           onTap: () {
             playButtonKey.currentState?.notifyWillPlay();
-            audioHandler.skipToNext();
+            onNext();
           },
         ),
         for (final w in rightControls) ...[const SizedBox(width: 12), w],
@@ -730,8 +1122,8 @@ class _GhostButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const SizedBox(
-      width: _Transport._sideButtonSize,
-      height: _Transport._sideButtonSize,
+      width: PlaylistTransport._sideButtonSize,
+      height: PlaylistTransport._sideButtonSize,
     );
   }
 }

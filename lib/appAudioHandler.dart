@@ -938,6 +938,19 @@ class AppAudioHandler extends BaseAudioHandler {
     developer.log("AppAudioHandler: $message");
   }
 
+  /// Always-on diagnostic: the [_log] record PLUS a plain console line.
+  ///
+  /// `developer.log` records travel the VM-service logging stream, which
+  /// `flutter run` does not surface on a physical device — which is why the TV
+  /// branch decision below was invisible in a live console while `debugPrint`
+  /// output (`RC_DEBUG:` / `VideoPlaybackService: …`) came through fine. The few
+  /// decisions that must be readable straight from a device log go through here
+  /// instead. Debug builds only, so release logs stay clean.
+  void _logAlways(String message) {
+    _log(message);
+    if (kDebugMode) debugPrint('RC_DEBUG: AppAudioHandler: $message');
+  }
+
   /// Compact error description for logs/PostHog (avoids dumping multi-line stack traces).
   static String _shortErr(Object e) {
     if (e is TimeoutException) return 'TimeoutException';
@@ -1821,7 +1834,7 @@ class AppAudioHandler extends BaseAudioHandler {
       // Single observable line for the whole TV decision — a declined video
       // mode used to be completely silent, which made "why is this TV station
       // playing audio-only?" impossible to answer from a log.
-      _log('playStation TV branch: isTv=true, useVideoMode=$useVideoMode '
+      _logAlways('playStation TV branch: isTv=true, useVideoMode=$useVideoMode '
           '(isForeground=$isForeground, isCarConnected=$isCarConnected, '
           'isCasting=$isCasting), primaryUrl=$url, '
           'streams=${Utils.getStationStreamObjects(station.rawStationData).length}, '
@@ -2885,7 +2898,7 @@ class AppAudioHandler extends BaseAudioHandler {
     required bool live,
     Duration? startPosition,
   }) async {
-    _log('enterVideoMode($url, live=$live)');
+    _logAlways('enterVideoMode($url, live=$live)');
     // Invalidate any in-flight just_audio load (e.g. a previous playlist audio
     // item still buffering) so its queued play() can't resume over the video —
     // the cross-engine "zombie audio on skip" bug.
@@ -3100,7 +3113,7 @@ class AppAudioHandler extends BaseAudioHandler {
     if (_fallenBackUrl == url) return; // already fell back for this content
     _cancelVideoFallbackWatchdog();
     _cancelVideoStallWatchdog();
-    _log('video→audio fallback ($reason) for $url');
+    _logAlways('video→audio fallback ($reason) for $url');
     _fallenBackUrl = url;
     AnalyticsService.instance.capture('video_fallback_to_audio', {
       'reason': reason,

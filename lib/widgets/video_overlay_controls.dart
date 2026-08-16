@@ -56,6 +56,22 @@ bool shouldShowVideoControls({
 }) =>
     userVisible || !playing || buffering;
 
+/// Fade transition for the overlay's [AnimatedSwitcher]s that never collides
+/// with itself.
+///
+/// [AnimatedSwitcher.defaultTransitionBuilder] gives its `FadeTransition` the
+/// CHILD's key, and `KeyedSubtree.wrap` then reuses that key for the switcher's
+/// internal `Stack` child. So a child key that comes back while the previous
+/// instance is still fading out lands in the same `Stack` twice and the
+/// framework throws "Duplicate keys found". Buffering flips on/off far faster
+/// than the 150ms fade (every rebuffer of a live stream), which is exactly how
+/// the inline spinner crashed the TV overlay. A KEYLESS transition makes
+/// `KeyedSubtree.wrap` fall back to the switcher's monotonic child counter, so
+/// every entry is unique while the children keep their own keys (which is what
+/// drives the switch in the first place).
+Widget _uniqueFade(Widget child, Animation<double> animation) =>
+    FadeTransition(opacity: animation, child: child);
+
 /// Formats the distance [behind] the live edge as a `-m:ss` chip for the live
 /// DVR bar, or `● LIVE`-adjacent when effectively at the edge. Pure so the
 /// threshold + formatting are unit-testable.
@@ -716,6 +732,7 @@ class _ControlsLayer extends StatelessWidget {
                   )
                 : AnimatedSwitcher(
                     duration: const Duration(milliseconds: 150),
+                    transitionBuilder: _uniqueFade,
                     child: buffering
                         ? const _BufferingSpinner(
                             key: ValueKey('inline-buffering'))
@@ -819,6 +836,7 @@ class _PlayPauseButton extends StatelessWidget {
           height: kOverlayPlayButtonSize,
           child: AnimatedSwitcher(
             duration: const Duration(milliseconds: 150),
+            transitionBuilder: _uniqueFade,
             child: buffering
                 ? const SizedBox(
                     key: ValueKey('buffering'),

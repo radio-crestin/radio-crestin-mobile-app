@@ -57,6 +57,8 @@ class VideoPlaybackService {
   final BehaviorSubject<Duration> _duration =
       BehaviorSubject<Duration>.seeded(Duration.zero);
   final BehaviorSubject<bool> _buffering = BehaviorSubject<bool>.seeded(false);
+
+  /// The play/pause INTENT (see [isPlaying]) — not the engine's rate flag.
   final BehaviorSubject<bool> _playing = BehaviorSubject<bool>.seeded(false);
   final BehaviorSubject<bool> _completed = BehaviorSubject<bool>.seeded(false);
   final PublishSubject<String> _error = PublishSubject<String>();
@@ -139,7 +141,25 @@ class VideoPlaybackService {
 
   Duration get position => _controller?.value.position ?? Duration.zero;
   Duration get duration => _controller?.value.duration ?? Duration.zero;
-  bool get isPlaying => _controller?.value.isPlaying ?? false;
+
+  /// Whether playback is ON — the play/pause INTENT, exactly like just_audio's
+  /// `player.playing`, and NOT the decoder's momentary rate.
+  ///
+  /// `VideoPlayerController.value.isPlaying` mirrors the native rate: the
+  /// AVFoundation plugin pushes `isPlayingStateUpdate(player.rate > 0)`, so a
+  /// live stream that rebuffers (or has not reached `rate == 1` right after
+  /// `play()`) reports `isPlaying == false` while the user is very much still
+  /// playing. Publishing that as the app's playing flag flipped the transport
+  /// button to the "play" glyph while a TV channel was audibly playing, and made
+  /// the stall watchdog think nobody intended to play. "Waiting for data" is
+  /// reported separately by [isBuffering] — that is what the UI shows as
+  /// loading.
+  bool get isPlaying => _playIntended;
+
+  /// The engine's momentary rate flag (`rate > 0`), for diagnostics only. UI and
+  /// playback-state decisions use [isPlaying] (the intent) instead.
+  bool get engineIsPlaying => _controller?.value.isPlaying ?? false;
+
   bool get isBuffering => _controller?.value.isBuffering ?? false;
 
   /// Current playback position. For a VOD item this is the elapsed time.
@@ -153,7 +173,8 @@ class VideoPlaybackService {
   /// True while the native player is waiting on data.
   Stream<bool> get bufferingStream => _buffering.stream;
 
-  /// True while actively playing, false when paused.
+  /// True while playback is ON, false when paused/stopped — the play/pause
+  /// INTENT (see [isPlaying]), so it never flickers on a rebuffer.
   Stream<bool> get playingStream => _playing.stream;
 
   /// Emits `true` once when the media reaches its end (VOD auto-advance).
@@ -208,7 +229,7 @@ class VideoPlaybackService {
   }) async {
     final generation = ++_mediaGeneration;
     _live = live;
-    _playIntended = autoPlay;
+    _setPlayIntent(autoPlay);
     _masterUrl = url;
     _lastError = null;
     // Announce "working on it" immediately: between here and the first frame
@@ -237,8 +258,10 @@ class VideoPlaybackService {
       await _disposeQuietly(next);
       if (generation == _mediaGeneration) {
         // Stop the spinner before the error surfaces, so the UI never shows a
-        // spinner spinning next to an error state.
+        // spinner spinning next to an error state. Nothing can be playing after
+        // a failed load, so the intent drops too.
         _buffering.add(false);
+        _setPlayIntent(false);
         _error.add(e.toString());
       }
       return;
@@ -266,13 +289,13 @@ class VideoPlaybackService {
   }
 
   Future<void> play() async {
-    _playIntended = true;
+    _setPlayIntent(true);
     await _controller?.play();
     await _applyWakelock(true);
   }
 
   Future<void> pause() async {
-    _playIntended = false;
+    _setPlayIntent(false);
     await _controller?.pause();
     await _applyWakelock(false);
   }
@@ -283,7 +306,7 @@ class VideoPlaybackService {
   /// next [open] replaces the controller.
   Future<void> stop() async {
     _completed.add(false);
-    _playIntended = false;
+    _setPlayIntent(false);
     await _controller?.pause();
     await _applyWakelock(false);
   }
@@ -392,13 +415,20 @@ class VideoPlaybackService {
     _onValue(c); // emit initial state (already initialized here)
   }
 
+  /// Single writer for the play/pause intent and its stream. Emits only on a
+  /// real change, so the handler re-broadcasts `playbackState` on transitions
+  /// rather than on every engine tick.
+  void _setPlayIntent(bool playing) {
+    _playIntended = playing;
+    if (_playing.value != playing) _playing.add(playing);
+  }
+
   void _onValue(VideoPlayerController c) {
     if (!identical(c, _controller)) return; // stale listener during a swap
     final v = c.value;
     _position.add(v.position);
     _duration.add(v.duration);
     _buffering.add(v.isBuffering);
-    _playing.add(v.isPlaying);
 
     final size = v.size;
     final w = size.width.round();
@@ -409,11 +439,17 @@ class VideoPlaybackService {
       if (!_hasFrame.value) _hasFrame.add(true);
     }
 
-    if (v.isCompleted && !_completed.value) _completed.add(true);
+    // Reaching the end (VOD) or failing outright genuinely ends playback — the
+    // only two engine events that legitimately clear the play intent.
+    if (v.isCompleted && !_completed.value) {
+      _setPlayIntent(false);
+      _completed.add(true);
+    }
 
     if (v.hasError) {
       final desc = v.errorDescription ?? 'video error';
       if (desc != _lastError) {
+        _setPlayIntent(false);
         _lastError = desc;
         debugPrint('VideoPlaybackService: player error: $desc');
         _error.add(desc);

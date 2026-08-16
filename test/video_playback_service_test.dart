@@ -433,6 +433,96 @@ void main() {
     });
   });
 
+  group('play intent vs engine rate', () {
+    test(
+        'a rebuffer that drops the native rate does NOT report "not playing" '
+        '(the transport button stayed on "play" while TV was audible)',
+        () async {
+      // Arrange: a live channel playing.
+      final media = url('/live.m3u8');
+      platform.script(media, const FakeMediaScript());
+      final playing = <bool>[];
+      final sub = service.playingStream.listen(playing.add);
+      await service.open(media); // autoPlay
+      await _settle();
+      expect(service.isPlaying, isTrue);
+
+      // Act: the AVFoundation plugin reports `rate > 0 == false` on every
+      // rebuffer / "waiting to play" phase — the exact event that used to flip
+      // playbackState.playing to false mid-stream.
+      platform.emit(
+        platform.idFor(media),
+        VideoEvent(eventType: VideoEventType.isPlayingStateUpdate,
+            isPlaying: false),
+      );
+      await _settle();
+
+      // Assert: the intent (what the UI shows) is untouched; only the raw
+      // engine flag follows the rate.
+      expect(service.isPlaying, isTrue);
+      expect(service.engineIsPlaying, isFalse);
+      expect(playing, [false, true],
+          reason: 'no spurious false on the user-facing stream');
+      await sub.cancel();
+    });
+
+    test('play / pause / stop drive the intent and emit once per change',
+        () async {
+      // Arrange.
+      final media = url('/vod.m3u8');
+      platform.script(media, const FakeMediaScript());
+      final playing = <bool>[];
+      final sub = service.playingStream.listen(playing.add);
+      await service.open(media, autoPlay: false);
+      await _settle();
+
+      // Act.
+      await service.play();
+      await service.play(); // idempotent
+      await service.pause();
+      await service.play();
+      await service.stop();
+      await _settle();
+
+      // Assert.
+      expect(service.isPlaying, isFalse);
+      expect(playing, [false, true, false, true, false]);
+      await sub.cancel();
+    });
+
+    test('a failed load clears the intent so the button never shows "pause"',
+        () async {
+      // Arrange: a media whose initialize fails.
+      final media = url('/broken.m3u8');
+      platform.script(
+          media, const FakeMediaScript(behavior: FakeInitBehavior.fail));
+
+      // Act.
+      await service.open(media); // autoPlay: true
+      await _settle();
+
+      // Assert.
+      expect(service.isPlaying, isFalse);
+    });
+
+    test('reaching the end of a VOD item clears the intent', () async {
+      // Arrange.
+      final media = url('/vod.m3u8');
+      platform.script(media, const FakeMediaScript());
+      await service.open(media);
+      await _settle();
+      expect(service.isPlaying, isTrue);
+
+      // Act.
+      platform.emit(platform.idFor(media),
+          VideoEvent(eventType: VideoEventType.completed));
+      await _settle();
+
+      // Assert.
+      expect(service.isPlaying, isFalse);
+    });
+  });
+
   group('setVideoQuality preload-then-swap', () {
     late String master;
     late VideoQuality pinned;

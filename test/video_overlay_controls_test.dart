@@ -305,6 +305,59 @@ void main() {
     });
 
     testWidgets(
+        'REGRESSION: buffering flapping faster than the fade never throws '
+        '"Duplicate keys found" (inline)', (tester) async {
+      // A live TV stream rebuffers repeatedly; the spinner child therefore
+      // comes back while its previous instance is still fading out. The
+      // switcher used to reuse the child's key for its internal Stack entry,
+      // putting the same key in that Stack twice.
+      await tester.pumpWidget(build(
+        initialPlaying: true,
+        initialBuffering: true,
+        onToggleFullscreen: () {},
+      ));
+      await tester.pump();
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+      for (var i = 0; i < 4; i++) {
+        buffering.add(i.isEven ? false : true);
+        // 20ms ≪ the 150ms fade, so the outgoing child is still on screen.
+        await tester.pump(const Duration(milliseconds: 20));
+        expect(tester.takeException(), isNull);
+      }
+
+      // Settled back on buffering: exactly one spinner in the tree.
+      buffering.add(true);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(tester.takeException(), isNull);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    });
+
+    testWidgets(
+        'REGRESSION: buffering flapping faster than the fade never throws '
+        '"Duplicate keys found" (fullscreen play button)', (tester) async {
+      await tester.pumpWidget(build(
+        initialPlaying: true,
+        initialBuffering: true,
+        isFullscreen: true,
+      ));
+      await tester.pump();
+
+      for (var i = 0; i < 4; i++) {
+        buffering.add(i.isEven ? false : true);
+        await tester.pump(const Duration(milliseconds: 20));
+        expect(tester.takeException(), isNull);
+      }
+
+      buffering.add(true);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(tester.takeException(), isNull);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    });
+
+    testWidgets(
         'live DVR variant (window ≥ min) shows the LIVE pill AND a seek bar',
         (tester) async {
       await tester.pumpWidget(build(
