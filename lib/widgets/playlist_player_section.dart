@@ -12,8 +12,10 @@ import '../services/video_quality.dart';
 import '../types/Station.dart';
 import '../types/playlist_item.dart';
 import '../utils.dart';
+import '../utils/support_contact.dart';
 import 'animated_play_button.dart';
 import 'bottom_toast.dart';
+import 'contact_support_button.dart';
 import 'default_artwork.dart';
 import 'player_transport.dart';
 import 'player_video_surface.dart';
@@ -60,9 +62,11 @@ const double kPlaylistScrubberSlotHeight = 66.0;
 /// the elapsed / total labels).
 const double kPlaylistSliderHeight = 46.0;
 
-/// Height of the "next station" row, which sits ABOVE the transport (between
-/// the item metadata and the queue header).
-const double kPlaylistNextStationRowHeight = 44.0;
+/// Side of the compact "next station" control that rides on the TITLE row.
+/// 44x44 is the platform minimum tap target, and it fits inside
+/// [kPlaylistTitleSlotHeight] — so the control costs the layout no height at
+/// all (it replaced a dedicated 44px row, which the playlist band inherited).
+const double kPlaylistNextStationControlSize = 44.0;
 
 /// Height of the collapsed playlist header (the tappable queue pill).
 const double kPlaylistQueueHeaderHeight = 60.0;
@@ -70,7 +74,6 @@ const double kPlaylistQueueHeaderHeight = 60.0;
 /// Vertical gaps between the fixed slots, in layout order.
 const double _gapAfterMedia = 12.0;
 const double _gapAfterMeta = 8.0;
-const double _gapAfterNextStation = 10.0;
 const double _gapAfterQueueHeader = 8.0;
 
 /// Space kept below the transport row, so the prev/play/next cluster sits in
@@ -90,8 +93,6 @@ double playlistControlsReservedHeight(double transportRowHeight) =>
     kPlaylistTitleSlotHeight +
     kPlaylistMetaSlotHeight +
     _gapAfterMeta +
-    kPlaylistNextStationRowHeight +
-    _gapAfterNextStation +
     kPlaylistQueueHeaderHeight +
     _gapAfterQueueHeader +
     kPlaylistScrubberSlotHeight +
@@ -100,6 +101,16 @@ double playlistControlsReservedHeight(double transportRowHeight) =>
 
 /// Expand / collapse animation of the playlist list.
 const Duration kPlaylistExpandDuration = Duration(milliseconds: 300);
+
+/// Height of one playlist row (also the unit the list scrolls by).
+const double kPlaylistRowExtent = 64.0;
+
+/// The playlist opens BY DEFAULT only when the elastic band left over between
+/// the queue header and the scrubber can show at least this much — two full
+/// rows. Above the threshold, leaving that band empty would just be a hole in
+/// the layout; below it, an "expanded" list would be a cramped sliver, so a
+/// compact phone, a split-view window or landscape stays collapsed.
+const double kPlaylistAutoExpandMinBandHeight = 2 * kPlaylistRowExtent;
 
 /// Whether to overlay the "won't play in background" notice on the media
 /// surface. True only for an active YouTube item: its inline iframe cannot keep
@@ -144,8 +155,6 @@ class _PlaylistPlayerSectionState extends State<PlaylistPlayerSection> {
   final List<StreamSubscription<dynamic>> _subs = [];
   final _playButtonKey = GlobalKey<AnimatedPlayButtonState>();
   final ScrollController _listController = ScrollController();
-
-  static const double _rowExtent = 64.0;
 
   final PlaylistController _controller = GetIt.instance<PlaylistController>();
 
@@ -250,7 +259,7 @@ class _PlaylistPlayerSectionState extends State<PlaylistPlayerSection> {
 
   void _scrollToCurrent() {
     if (_currentIndex < 0 || !_listController.hasClients) return;
-    final target = (_currentIndex * _rowExtent)
+    final target = (_currentIndex * kPlaylistRowExtent)
         .clamp(0.0, _listController.position.maxScrollExtent);
     _listController.animateTo(
       target,
@@ -290,6 +299,8 @@ class _PlaylistPlayerSectionState extends State<PlaylistPlayerSection> {
           isVideoContent: _isVideoContent,
           isYoutubeContent: _isYoutubeContent,
           audioOnlyFallback: _audioOnlyFallback,
+          itemFailed: _currentItem != null &&
+              _failedIds.contains(_currentItem!.id),
           panelExpanded: widget.panelExpanded,
         ),
       ),
@@ -337,7 +348,7 @@ class _PlaylistPlayerSectionState extends State<PlaylistPlayerSection> {
           items: _items,
           currentIndex: _currentIndex,
           failedIds: _failedIds,
-          rowExtent: _rowExtent,
+          rowExtent: kPlaylistRowExtent,
           stationThumbnailUrl: widget.station.thumbnailUrl,
           onTap: (index) => _controller.playItemAt(index),
         ),
@@ -381,7 +392,7 @@ class PlaylistPlayerLayout extends StatefulWidget {
     this.subtitle,
     this.scrubber,
     this.onExpandedChanged,
-    this.initiallyExpanded = false,
+    this.initiallyExpanded,
   });
 
   /// The 16:9 media surface (artwork / video / YouTube), already wrapped in its
@@ -414,22 +425,41 @@ class PlaylistPlayerLayout extends StatefulWidget {
   /// The full playlist, revealed when the header is expanded.
   final Widget list;
 
-  /// Fired after the user expands / collapses the playlist.
+  /// Fired whenever the playlist's shown / hidden state settles — on the user's
+  /// toggle AND on the automatic first decision.
   final ValueChanged<bool>? onExpandedChanged;
 
-  /// The playlist starts collapsed; a test (or a future preference) can flip it.
-  final bool initiallyExpanded;
+  /// Forces the initial state instead of deciding it from the available space
+  /// (see [kPlaylistAutoExpandMinBandHeight]). Null — the default — means
+  /// "decide automatically"; a test or a future preference can pin it.
+  final bool? initiallyExpanded;
 
   @override
   State<PlaylistPlayerLayout> createState() => _PlaylistPlayerLayoutState();
 }
 
 class _PlaylistPlayerLayoutState extends State<PlaylistPlayerLayout> {
-  late bool _expanded = widget.initiallyExpanded;
+  /// The user's explicit choice, once they have made one. Null means "nobody
+  /// has touched the queue header yet", and the state is decided from the space
+  /// the elastic band has. A collapse the user asked for therefore STICKS for
+  /// this station view, even though the band would happily hold the list.
+  late bool? _choice = widget.initiallyExpanded;
 
-  void _toggleExpanded() {
-    setState(() => _expanded = !_expanded);
-    widget.onExpandedChanged?.call(_expanded);
+  /// Last state handed to [PlaylistPlayerLayout.onExpandedChanged], so the
+  /// automatic first decision is reported exactly once (it drives the
+  /// scroll-to-playing-item pass) and never re-reported on an unrelated
+  /// rebuild.
+  bool? _reported;
+
+  void _toggleExpanded(bool current) => setState(() => _choice = !current);
+
+  /// Reports [expanded] after the frame — never during build.
+  void _reportExpanded(bool expanded) {
+    if (_reported == expanded) return;
+    _reported = expanded;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) widget.onExpandedChanged?.call(expanded);
+    });
   }
 
   @override
@@ -456,6 +486,18 @@ class _PlaylistPlayerLayoutState extends State<PlaylistPlayerLayout> {
           mediaWidth = mediaHeight * 16 / 9;
         }
 
+        // Whatever the fixed slots and the media leave over is the elastic
+        // band. Open the playlist into it by default when it can show a
+        // meaningful slice of the list — an empty band is just a hole, and the
+        // transport does not move either way.
+        final double bandHeight = constraints.maxHeight.isFinite
+            ? (constraints.maxHeight - reserved - mediaHeight)
+                .clamp(0.0, double.infinity)
+            : 0.0;
+        final bool expanded =
+            _choice ?? bandHeight >= kPlaylistAutoExpandMinBandHeight;
+        _reportExpanded(expanded);
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -467,24 +509,21 @@ class _PlaylistPlayerLayoutState extends State<PlaylistPlayerLayout> {
               ),
             ),
             const SizedBox(height: _gapAfterMedia),
-            _TitleSlot(title: widget.title, titleKey: widget.titleKey),
+            _TitleSlot(
+              title: widget.title,
+              titleKey: widget.titleKey,
+              onNextStation: widget.onNextStation,
+            ),
             _MetaSlot(subtitle: widget.subtitle),
             const SizedBox(height: _gapAfterMeta),
-            SizedBox(
-              height: kPlaylistNextStationRowHeight,
-              child: Center(
-                child: PlaylistNextStationButton(onPressed: widget.onNextStation),
-              ),
-            ),
-            const SizedBox(height: _gapAfterNextStation),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: PlaylistQueueHeader(
-                expanded: _expanded,
+                expanded: expanded,
                 title: widget.title,
                 currentIndex: widget.currentIndex,
                 itemCount: widget.itemCount,
-                onTap: _toggleExpanded,
+                onTap: () => _toggleExpanded(expanded),
               ),
             ),
             const SizedBox(height: _gapAfterQueueHeader),
@@ -502,7 +541,7 @@ class _PlaylistPlayerLayoutState extends State<PlaylistPlayerLayout> {
                     duration: kPlaylistExpandDuration,
                     curve: Curves.fastOutSlowIn,
                     alignment: Alignment.topCenter,
-                    child: _expanded
+                    child: expanded
                         ? widget.list
                         : const SizedBox(width: double.infinity, height: 0),
                   ),
@@ -530,37 +569,54 @@ class _PlaylistPlayerLayoutState extends State<PlaylistPlayerLayout> {
   }
 }
 
-/// Fixed-height, centered two-line title slot with a 250ms crossfade between
-/// items (per the app's animation standards).
+/// Fixed-height title slot: the item title, centered with a 250ms crossfade
+/// between items, and the compact "next station" control on its right edge.
+///
+/// An invisible square of the control's size balances the left edge (the same
+/// ghost trick the transport row uses), so the title stays optically centered
+/// instead of drifting left as soon as a control shares its row.
 class _TitleSlot extends StatelessWidget {
-  const _TitleSlot({required this.title, this.titleKey});
+  const _TitleSlot({
+    required this.title,
+    required this.onNextStation,
+    this.titleKey,
+  });
 
   final String title;
   final Key? titleKey;
+  final VoidCallback onNextStation;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       height: kPlaylistTitleSlotHeight,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20.0),
-        child: Center(
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 250),
-            transitionBuilder: (child, animation) =>
-                FadeTransition(opacity: animation, child: child),
-            child: Text(
-              title,
-              key: titleKey,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 19,
-                fontWeight: FontWeight.w700,
+        padding: const EdgeInsets.symmetric(horizontal: 8.0),
+        child: Row(
+          children: [
+            const SizedBox.square(dimension: kPlaylistNextStationControlSize),
+            Expanded(
+              child: Center(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 250),
+                  transitionBuilder: (child, animation) =>
+                      FadeTransition(opacity: animation, child: child),
+                  child: Text(
+                    title,
+                    key: titleKey,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 19,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
               ),
             ),
-          ),
+            PlaylistNextStationButton(onPressed: onNextStation),
+          ],
         ),
       ),
     );
@@ -691,9 +747,13 @@ class PlaylistQueueHeader extends StatelessWidget {
   }
 }
 
-/// Labeled pill that jumps to the NEXT STATION — deliberately a wide outlined
-/// button with a Romanian label, so it cannot be confused with the round
-/// "next item" transport arrow right above it.
+/// Compact control on the title row that jumps to the NEXT STATION.
+///
+/// Rides on the title line rather than owning a row of its own, so the space it
+/// used to cost goes to the playlist. It is deliberately shaped nothing like
+/// the transport's bare round "next item" arrow: a tonal, outlined circle
+/// carrying a FORWARD arrow (not a skip glyph), sitting far from the transport
+/// cluster — three separate cues that this moves to another station.
 class PlaylistNextStationButton extends StatelessWidget {
   const PlaylistNextStationButton({super.key, required this.onPressed});
 
@@ -707,20 +767,24 @@ class PlaylistNextStationButton extends StatelessWidget {
       label: 'Treci la postul următor',
       child: Tooltip(
         message: 'Treci la postul următor',
-        child: OutlinedButton.icon(
-          onPressed: onPressed,
-          icon: const Icon(Icons.arrow_forward_rounded, size: 18),
-          label: const Text('Postul următor'),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: scheme.onSurface,
-            side: BorderSide(
-              color: scheme.outlineVariant,
-            ),
-            shape: const StadiumBorder(),
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-            textStyle: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
+        child: Material(
+          color: scheme.surfaceContainerHighest.withValues(alpha: 0.55),
+          shape: CircleBorder(
+            side: BorderSide(color: scheme.outlineVariant),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: onPressed,
+            // 44x44 keeps the platform minimum tap target even though the
+            // painted circle reads smaller than the transport buttons.
+            child: SizedBox.square(
+              dimension: kPlaylistNextStationControlSize,
+              child: Icon(
+                Icons.arrow_forward_rounded,
+                size: 20,
+                color: scheme.onSurface,
+              ),
             ),
           ),
         ),
@@ -740,6 +804,7 @@ class _MediaSurface extends StatelessWidget {
     required this.isVideoContent,
     required this.isYoutubeContent,
     required this.audioOnlyFallback,
+    required this.itemFailed,
     required this.panelExpanded,
   });
 
@@ -753,6 +818,9 @@ class _MediaSurface extends StatelessWidget {
   /// True when this (video) item is playing audio-only because video rendering
   /// failed — overlays a subtle "Doar audio" chip on the artwork.
   final bool audioOnlyFallback;
+
+  /// True when the current item is one that failed to play.
+  final bool itemFailed;
   final bool panelExpanded;
 
   @override
@@ -830,6 +898,25 @@ class _MediaSurface extends StatelessWidget {
               left: 8,
               bottom: 8,
               child: YoutubeBackgroundChip(),
+            ),
+          // A way OUT of a playback problem — only while there is one. Opens
+          // WhatsApp prefilled with what failed, so the user does not have to
+          // describe it.
+          if (showPlaybackTroubleContact(
+            audioOnlyFallback: audioOnlyFallback && !isYoutubeContent,
+            itemFailed: itemFailed,
+          ))
+            Positioned(
+              right: 8,
+              bottom: 8,
+              child: ContactSupportButton(
+                uri: playbackIssueSupportUri(
+                  stationTitle: station.displayTitle,
+                  stationSlug: station.slug,
+                  itemTitle: item?.title,
+                  streamUrl: item?.url,
+                ),
+              ),
             ),
         ],
       ),

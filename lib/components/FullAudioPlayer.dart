@@ -25,6 +25,7 @@ import 'package:radio_crestin/services/station_data_service.dart';
 import '../appAudioHandler.dart';
 import '../types/Station.dart';
 import '../widgets/animated_play_button.dart';
+import '../widgets/contact_support_button.dart';
 import '../widgets/player_transport.dart';
 import '../widgets/player_video_surface.dart';
 import '../widgets/playlist_player_section.dart';
@@ -793,12 +794,25 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                 ),
               // "Doar audio" chip when a TV channel's video couldn't render and
               // playback fell back to audio-only.
-              if (_audioOnlyFallback)
+              if (_audioOnlyFallback) ...[
                 const Positioned(
                   top: 8,
                   left: 8,
                   child: AudioOnlyChip(),
                 ),
+                // Same "Contactează-ne" affordance the playlist player shows —
+                // only while the video actually failed, never in normal play.
+                Positioned(
+                  right: 8,
+                  bottom: 8,
+                  child: ContactSupportButton(
+                    uri: playbackIssueSupportUri(
+                      stationTitle: currentStation?.displayTitle,
+                      stationSlug: currentStation?.slug,
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),

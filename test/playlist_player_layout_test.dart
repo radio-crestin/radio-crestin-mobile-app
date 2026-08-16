@@ -7,9 +7,9 @@ import 'package:radio_crestin/widgets/playlist_player_section.dart';
 
 /// Layout contract of the playlist / video player body ([PlaylistPlayerLayout]):
 ///
-///  - order is media → title → date → "Postul următor" → queue header →
-///    playlist → scrubber → transport, so the transport sits in the same
-///    bottom-anchored band as the classic radio player's;
+///  - order is media → title (with the next-STATION control on its right) →
+///    date → queue header → playlist → scrubber → transport, so the transport
+///    sits in the same bottom-anchored band as the classic radio player's;
 ///  - the prev/play/next transport sits at the SAME vertical position for every
 ///    item type — an audio item (below-title scrubber) and a video item (no
 ///    scrubber, it lives on the video overlay) must not shift it, and neither
@@ -17,9 +17,10 @@ import 'package:radio_crestin/widgets/playlist_player_section.dart';
 ///  - the prev/play/next controls are the SAME SIZE as the radio full player's
 ///    (both render the shared [PlayerTransportControls] off the shared
 ///    [computePlayerLayout] metrics);
-///  - the playlist starts COLLAPSED behind a compact header and expands /
-///    collapses on tap;
-///  - the labeled "Postul următor" button jumps to the next STATION, separate
+///  - the playlist opens BY DEFAULT when the elastic band can show at least two
+///    rows, stays collapsed when it cannot, and the user's own toggle then wins
+///    for good;
+///  - the compact "Postul următor" control jumps to the next STATION, separate
 ///    from the transport's next-ITEM arrow.
 void main() {
   const listKey = ValueKey('stub-track-list');
@@ -27,6 +28,23 @@ void main() {
 
   /// Stand-in for the below-title seek bar: fills whatever slot it is given.
   const scrubber = SizedBox.expand(key: ValueKey('stub-scrubber'));
+
+  /// A panel tall enough that the elastic band holds well over two rows.
+  const tallPanel = 760.0;
+
+  /// A panel whose band is under the two-row auto-expand threshold.
+  const shortPanel = 600.0;
+
+  /// Pumps [widget] on a window big enough for the hosts below.
+  ///
+  /// The default 800x600 test surface would CLAMP every host to 600px tall, so
+  /// a "tall panel" would silently be a short one and the auto-expand decision
+  /// would be measured against the wrong height.
+  Future<void> pump(WidgetTester tester, Widget widget) async {
+    await tester.binding.setSurfaceSize(const Size(800, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(widget);
+  }
 
   Widget host({
     Widget? scrubberSlot,
@@ -36,6 +54,7 @@ void main() {
     int currentIndex = 2,
     int itemCount = 12,
     ValueChanged<bool>? onExpandedChanged,
+    double height = tallPanel,
   }) {
     final playButtonKey = GlobalKey<AnimatedPlayButtonState>();
     return MaterialApp(
@@ -43,7 +62,7 @@ void main() {
         body: Center(
           child: SizedBox(
             width: 390,
-            height: 760,
+            height: height,
             child: PlaylistPlayerLayout(
               media: const ColoredBox(key: mediaKey, color: Colors.black),
               title: title,
@@ -76,13 +95,11 @@ void main() {
   }
 
   group('slot order', () {
-    testWidgets('"Postul următor" and the queue card sit ABOVE the transport',
+    testWidgets('the queue card sits between the title and the transport',
         (tester) async {
-      await tester.pumpWidget(host(scrubberSlot: scrubber));
+      await pump(tester, host(scrubberSlot: scrubber));
       await tester.pump();
 
-      final pillTop =
-          tester.getTopLeft(find.byType(PlaylistNextStationButton)).dy;
       final queueTop = tester.getTopLeft(find.byType(PlaylistQueueHeader)).dy;
       final transportTop =
           tester.getTopLeft(find.byType(AnimatedPlayButton)).dy;
@@ -91,16 +108,15 @@ void main() {
       final titleTop =
           tester.getTopLeft(find.text('Un titlu de element').first).dy;
 
-      // title → pill → queue card → scrubber → transport.
-      expect(titleTop, lessThan(pillTop));
-      expect(pillTop, lessThan(queueTop));
+      // title → queue card → scrubber → transport.
+      expect(titleTop, lessThan(queueTop));
       expect(queueTop, lessThan(scrubberTop));
       expect(scrubberTop, lessThan(transportTop));
     });
 
     testWidgets('the transport is bottom-anchored inside the section',
         (tester) async {
-      await tester.pumpWidget(host());
+      await pump(tester, host());
       await tester.pump();
 
       final section = tester.getRect(find.byType(PlaylistPlayerLayout));
@@ -110,16 +126,56 @@ void main() {
     });
   });
 
+  group('next-station control on the title row', () {
+    testWidgets('there is no dedicated pill row — it rides on the title line',
+        (tester) async {
+      await pump(tester, host());
+      await tester.pump();
+
+      final control = tester.getRect(find.byType(PlaylistNextStationButton));
+      final titleSlot = tester.getRect(find.text('Un titlu de element').first);
+
+      // Vertically on the title line, horizontally at its right edge.
+      expect(control.center.dy, closeTo(titleSlot.center.dy, 12.0));
+      expect(control.left, greaterThanOrEqualTo(titleSlot.right));
+      // The old label-and-border pill is gone.
+      expect(find.text('Postul următor'), findsNothing);
+    });
+
+    testWidgets('it keeps a 44x44 tap target and still advances the station',
+        (tester) async {
+      var advances = 0;
+      await pump(tester, host(onNextStation: () => advances++));
+      await tester.pump();
+
+      expect(tester.getSize(find.byType(PlaylistNextStationButton)),
+          const Size(44, 44));
+      await tester.tap(find.byType(PlaylistNextStationButton));
+      await tester.pump();
+      expect(advances, 1);
+    });
+
+    testWidgets('the title stays centered in the row', (tester) async {
+      await pump(tester, host(title: 'Scurt'));
+      await tester.pump();
+
+      final section = tester.getRect(find.byType(PlaylistPlayerLayout));
+      final title = tester.getRect(find.text('Scurt').first);
+      // The ghost square on the left balances the control on the right.
+      expect(title.center.dx, closeTo(section.center.dx, 1.0));
+    });
+  });
+
   group('stable transport position', () {
     testWidgets('audio item (with scrubber) and video item (without) put the '
         'play button at the same offset', (tester) async {
       // Arrange + Act: an audio item — the below-title scrubber is shown.
-      await tester.pumpWidget(host(scrubberSlot: scrubber));
+      await pump(tester, host(scrubberSlot: scrubber));
       await tester.pump();
       final audioOffset = tester.getTopLeft(find.byType(AnimatedPlayButton));
 
       // Act: a video item — no below-title scrubber (it lives on the overlay).
-      await tester.pumpWidget(host());
+      await pump(tester, host());
       await tester.pump();
       final videoOffset = tester.getTopLeft(find.byType(AnimatedPlayButton));
 
@@ -129,114 +185,180 @@ void main() {
 
     testWidgets('a one-line title, a two-line title and a dated item all keep '
         'the play button in place', (tester) async {
-      await tester.pumpWidget(host(title: 'Scurt'));
+      await pump(tester, host(title: 'Scurt'));
       await tester.pump();
       final shortOffset = tester.getTopLeft(find.byType(AnimatedPlayButton));
 
-      await tester.pumpWidget(host(
+      await pump(tester, host(
         title: 'Un titlu foarte lung care ocupă cu siguranță două rânduri '
             'întregi pe ecran și chiar mai mult',
       ));
       await tester.pump();
       expect(tester.getTopLeft(find.byType(AnimatedPlayButton)), shortOffset);
 
-      await tester.pumpWidget(host(subtitle: '12 martie 2026'));
+      await pump(tester, host(subtitle: '12 martie 2026'));
       await tester.pump();
       expect(tester.getTopLeft(find.byType(AnimatedPlayButton)), shortOffset);
     });
 
-    testWidgets('expanding the playlist does not move the transport',
-        (tester) async {
-      await tester.pumpWidget(host());
-      await tester.pump();
-      final collapsedOffset = tester.getTopLeft(find.byType(AnimatedPlayButton));
-      final collapsedPill =
+    testWidgets('collapsing and re-expanding the playlist never moves the '
+        'transport', (tester) async {
+      // Arrange: a tall panel — the list is open by default.
+      await pump(tester, host());
+      await tester.pumpAndSettle();
+      expect(find.byKey(listKey), findsOneWidget);
+      final expandedOffset = tester.getTopLeft(find.byType(AnimatedPlayButton));
+      final expandedControl =
           tester.getTopLeft(find.byType(PlaylistNextStationButton));
 
+      // Act: collapse.
       await tester.tap(find.byType(PlaylistQueueHeader));
       await tester.pumpAndSettle();
 
-      // The list took over the empty band above the scrubber; nothing else
-      // moved a pixel.
-      expect(find.byKey(listKey), findsOneWidget);
-      expect(tester.getTopLeft(find.byType(AnimatedPlayButton)),
-          collapsedOffset);
+      // Assert: the band emptied out; nothing else moved a pixel.
+      expect(find.byKey(listKey), findsNothing);
+      expect(
+          tester.getTopLeft(find.byType(AnimatedPlayButton)), expandedOffset);
       expect(tester.getTopLeft(find.byType(PlaylistNextStationButton)),
-          collapsedPill);
+          expandedControl);
 
+      // Act + assert: re-expand.
       await tester.tap(find.byType(PlaylistQueueHeader));
       await tester.pumpAndSettle();
-      expect(tester.getTopLeft(find.byType(AnimatedPlayButton)),
-          collapsedOffset);
+      expect(
+          tester.getTopLeft(find.byType(AnimatedPlayButton)), expandedOffset);
+    });
+
+    testWidgets('a short panel puts the transport in the same place as a tall '
+        'one measured from the bottom', (tester) async {
+      await pump(tester, host(height: shortPanel));
+      await tester.pumpAndSettle();
+      final short = tester.getRect(find.byType(PlaylistPlayerLayout)).bottom -
+          tester.getRect(find.byType(AnimatedPlayButton)).bottom;
+
+      await pump(tester, host(height: tallPanel));
+      await tester.pumpAndSettle();
+      final tall = tester.getRect(find.byType(PlaylistPlayerLayout)).bottom -
+          tester.getRect(find.byType(AnimatedPlayButton)).bottom;
+
+      expect(short, closeTo(tall, 0.5));
     });
   });
 
-  group('collapsible playlist', () {
-    testWidgets('starts collapsed: only the header is shown', (tester) async {
-      await tester.pumpWidget(host());
-      await tester.pump();
+  group('playlist opens by default when there is room', () {
+    testWidgets('a tall panel starts EXPANDED', (tester) async {
+      // Arrange + Act: the elastic band holds well over two rows.
+      await pump(tester, host());
+      await tester.pumpAndSettle();
 
-      expect(find.byType(PlaylistQueueHeader), findsOneWidget);
-      expect(find.byKey(listKey), findsNothing);
-      // The header reads out the position in the list.
-      expect(find.text('3 din 12'), findsOneWidget);
+      // Assert: no empty band — the list is showing, chevron flipped.
+      expect(find.byKey(listKey), findsOneWidget);
+      expect(
+          tester.widget<AnimatedRotation>(find.byType(AnimatedRotation)).turns,
+          0.5);
     });
 
-    testWidgets('tapping the header expands the list, tapping again collapses',
-        (tester) async {
-      final toggles = <bool>[];
-      await tester.pumpWidget(host(onExpandedChanged: toggles.add));
-      await tester.pump();
-
-      await tester.tap(find.byType(PlaylistQueueHeader));
+    testWidgets('a short panel starts COLLAPSED', (tester) async {
+      // Arrange + Act: the band is under the two-row threshold.
+      await pump(tester, host(height: shortPanel));
       await tester.pumpAndSettle();
-      expect(find.byKey(listKey), findsOneWidget);
 
+      // Assert: only the header, which still reads out the position.
+      expect(find.byType(PlaylistQueueHeader), findsOneWidget);
+      expect(find.byKey(listKey), findsNothing);
+      expect(find.text('3 din 12'), findsOneWidget);
+      expect(
+          tester.widget<AnimatedRotation>(find.byType(AnimatedRotation)).turns,
+          0.0);
+    });
+
+    testWidgets('a manual collapse on a tall panel STICKS across rebuilds',
+        (tester) async {
+      // Arrange: opened automatically, then closed by the user.
+      await pump(tester, host());
+      await tester.pumpAndSettle();
       await tester.tap(find.byType(PlaylistQueueHeader));
       await tester.pumpAndSettle();
       expect(find.byKey(listKey), findsNothing);
 
-      expect(toggles, [true, false]);
+      // Act: an unrelated rebuild (a new item's title arrives).
+      await pump(tester, host(title: 'Alt element'));
+      await tester.pumpAndSettle();
+
+      // Assert: the auto rule does NOT re-open it.
+      expect(find.byKey(listKey), findsNothing);
+    });
+
+    testWidgets('the automatic decision is reported once, and every toggle '
+        'after it', (tester) async {
+      final toggles = <bool>[];
+      await pump(tester, host(onExpandedChanged: toggles.add));
+      await tester.pumpAndSettle();
+      expect(toggles, [true], reason: 'the auto-expand drives scroll-to-item');
+
+      await tester.tap(find.byType(PlaylistQueueHeader));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(PlaylistQueueHeader));
+      await tester.pumpAndSettle();
+
+      expect(toggles, [true, false, true]);
+    });
+
+    testWidgets('initiallyExpanded still pins the state explicitly',
+        (tester) async {
+      await pump(tester, MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 390,
+              height: tallPanel,
+              child: PlaylistPlayerLayout(
+                initiallyExpanded: false,
+                media: const ColoredBox(key: mediaKey, color: Colors.black),
+                title: 'Element',
+                transport: PlaylistTransport(
+                  playbackStateStream: const Stream<PlaybackState>.empty(),
+                  playButtonKey: GlobalKey<AnimatedPlayButtonState>(),
+                  repeatOne: false,
+                  onToggleRepeat: () {},
+                  onPlay: () {},
+                  onPause: () {},
+                  onStop: () {},
+                  onPrevious: () {},
+                  onNext: () {},
+                ),
+                onNextStation: () {},
+                currentIndex: 0,
+                itemCount: 3,
+                list: ListView(key: listKey, children: const []),
+              ),
+            ),
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(listKey), findsNothing);
     });
 
     testWidgets('the expanded list is height-bounded and scrolls in place',
         (tester) async {
-      await tester.pumpWidget(host());
-      await tester.pump();
-      await tester.tap(find.byType(PlaylistQueueHeader));
+      await pump(tester, host());
       await tester.pumpAndSettle();
 
       final listHeight = tester.getSize(find.byKey(listKey)).height;
-      expect(listHeight, greaterThan(0));
-      expect(listHeight, lessThan(760),
+      expect(listHeight, greaterThanOrEqualTo(kPlaylistAutoExpandMinBandHeight));
+      expect(listHeight, lessThan(tallPanel),
           reason: 'the list must fit the space left below the controls');
       // No unbounded-height / overflow exception was thrown while laying out.
       expect(tester.takeException(), isNull);
-    });
-
-    testWidgets('the chevron rotates when expanded', (tester) async {
-      await tester.pumpWidget(host());
-      await tester.pump();
-      expect(
-          tester
-              .widget<AnimatedRotation>(find.byType(AnimatedRotation))
-              .turns,
-          0.0);
-
-      await tester.tap(find.byType(PlaylistQueueHeader));
-      await tester.pumpAndSettle();
-      expect(
-          tester
-              .widget<AnimatedRotation>(find.byType(AnimatedRotation))
-              .turns,
-          0.5);
     });
   });
 
   group('short panels', () {
     testWidgets('a landscape-short panel shrinks the media instead of '
         'overflowing the controls', (tester) async {
-      await tester.pumpWidget(MaterialApp(
+      await pump(tester, MaterialApp(
         home: Scaffold(
           body: Center(
             child: SizedBox(
@@ -275,23 +397,10 @@ void main() {
   });
 
   group('next station button', () {
-    testWidgets('tapping "Postul următor" fires the station-advance callback',
-        (tester) async {
-      var advances = 0;
-      await tester.pumpWidget(host(onNextStation: () => advances++));
-      await tester.pump();
-
-      expect(find.text('Postul următor'), findsOneWidget);
-      await tester.tap(find.byType(PlaylistNextStationButton));
-      await tester.pump();
-
-      expect(advances, 1);
-    });
-
     testWidgets('it is NOT the transport next arrow (both exist, separately)',
         (tester) async {
       var advances = 0;
-      await tester.pumpWidget(host(onNextStation: () => advances++));
+      await pump(tester, host(onNextStation: () => advances++));
       await tester.pump();
 
       // The round item-next arrow is still there and does not advance stations.
@@ -357,14 +466,14 @@ void main() {
     testWidgets('play / previous / next render at identical sizes',
         (tester) async {
       // Arrange + Act: the radio layout's cluster.
-      await tester.pumpWidget(radioTransport());
+      await pump(tester, radioTransport());
       await tester.pump();
       final radioPlay = tester.getSize(find.byType(AnimatedPlayButton));
       final radioPrev = tester.getSize(prev());
       final radioNext = tester.getSize(next());
 
       // Act: the playlist layout's cluster, same screen.
-      await tester.pumpWidget(playlistTransport());
+      await pump(tester, playlistTransport());
       await tester.pump();
 
       // Assert: same widget, same metrics, same pixels.
@@ -374,12 +483,12 @@ void main() {
     });
 
     testWidgets('the gap between the trio is identical too', (tester) async {
-      await tester.pumpWidget(radioTransport());
+      await pump(tester, radioTransport());
       await tester.pump();
       final radioGap = tester.getTopLeft(find.byType(AnimatedPlayButton)).dx -
           tester.getTopRight(prev()).dx;
 
-      await tester.pumpWidget(playlistTransport());
+      await pump(tester, playlistTransport());
       await tester.pump();
       final playlistGap =
           tester.getTopLeft(find.byType(AnimatedPlayButton)).dx -
@@ -390,7 +499,7 @@ void main() {
 
     testWidgets('the row height matches playerTransportRowHeight',
         (tester) async {
-      await tester.pumpWidget(radioTransport());
+      await pump(tester, radioTransport());
       await tester.pump();
       final metrics = computePlayerLayout(
         screenWidth: tester.view.physicalSize.width / tester.view.devicePixelRatio,
@@ -403,15 +512,15 @@ void main() {
     });
 
     testWidgets('secondary controls never resize the trio', (tester) async {
-      await tester.pumpWidget(playlistTransport());
+      await pump(tester, playlistTransport());
       await tester.pump();
       final plain = tester.getSize(find.byType(AnimatedPlayButton));
 
-      await tester.pumpWidget(playlistTransport(onQuality: () {}));
+      await pump(tester, playlistTransport(onQuality: () {}));
       await tester.pump();
       expect(tester.getSize(find.byType(AnimatedPlayButton)), plain);
 
-      await tester.pumpWidget(playlistTransport(onFullscreen: () {}));
+      await pump(tester, playlistTransport(onFullscreen: () {}));
       await tester.pump();
       expect(tester.getSize(find.byType(AnimatedPlayButton)), plain);
       expect(tester.takeException(), isNull);
