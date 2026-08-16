@@ -38,6 +38,7 @@
 		A123D8FDDF2FB37C3BE73157 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B0936A6AE22F15E63C9A0D1 /* SettingsView.swift */; };
 		A887B27A16256552E63F0B7A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1D2518EA14E13FD106A01010 /* Assets.xcassets */; };
 		AA9F7E15365C6186FDC543CC /* StationModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D365E2A44FBE4FBF9A648BFD /* StationModelTests.swift */; };
+		B3691206C9A92F289A668B05 /* StationGridFocusTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00A89E887A8E21ADF8CCE2D /* StationGridFocusTests.swift */; };
 		B99A6D1E526523C8501E780B /* StationCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC4A7E03F25C3EDE274E2B29 /* StationCard.swift */; };
 		CD31E5E9DE0C9D06EFF6C231 /* Analytics.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE42B02A6F27AD11E369F759 /* Analytics.swift */; };
 		D09EE00F424FB264461E1E43 /* ContactSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F49094E0764A27032E94E7B7 /* ContactSheet.swift */; };
@@ -90,6 +91,7 @@
 		91CB5D5C822ED753150F891A /* RatingStars.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RatingStars.swift; sourceTree = "<group>"; };
 		97CE3B8E048919836625B5A5 /* YoutubeStreamResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YoutubeStreamResolver.swift; sourceTree = "<group>"; };
 		A670E891F53697D36107A06A /* StationStreamOrderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StationStreamOrderTests.swift; sourceTree = "<group>"; };
+		B00A89E887A8E21ADF8CCE2D /* StationGridFocusTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StationGridFocusTests.swift; sourceTree = "<group>"; };
 		B3C89071A1406162E69A5794 /* QRCodeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRCodeView.swift; sourceTree = "<group>"; };
 		BB674E14F4409CADBF502239 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		BEA1B36A6C3613EAE1D90A72 /* RadioCrestinTVTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = RadioCrestinTVTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -200,6 +202,7 @@
 				6A3E0F46A70C1F84A878B981 /* SongHistoryStoreTests.swift */,
 				51959F3957AF0EE5FADD177B /* SongTitlePlaceholderTests.swift */,
 				2598D36B229CC5D5ED129EFB /* StallRecoveryPolicyTests.swift */,
+				B00A89E887A8E21ADF8CCE2D /* StationGridFocusTests.swift */,
 				D365E2A44FBE4FBF9A648BFD /* StationModelTests.swift */,
 				ED66D32816507315E7ADE993 /* StationOrderTests.swift */,
 				850054D03F1079A3F9C2E876 /* StationSortTests.swift */,
@@ -389,6 +392,7 @@
 				79C4E22D3E36076AA18128BC /* SongHistoryStoreTests.swift in Sources */,
 				D7A45EB956190CE2350A81B3 /* SongTitlePlaceholderTests.swift in Sources */,
 				09B32C3B50660EF248AF210D /* StallRecoveryPolicyTests.swift in Sources */,
+				B3691206C9A92F289A668B05 /* StationGridFocusTests.swift in Sources */,
 				AA9F7E15365C6186FDC543CC /* StationModelTests.swift in Sources */,
 				3879B8C7D1CAD5216ED5262D /* StationOrderTests.swift in Sources */,
 				830BC62CD732CACDFC804EAF /* StationSortTests.swift in Sources */,

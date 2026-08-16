@@ -15,6 +15,14 @@ struct RootView: View {
     @State private var selectedTab: Tab = .stations
     @State private var nowPlayingStation: Station?
 
+    /// Per-tab memory of the station card the user last focused. Lives
+    /// here rather than inside `StationGrid` because `TabView` rebuilds a
+    /// tab's content each time the user leaves and returns, which would
+    /// wipe grid-local state and make every return look like a first
+    /// entry. A missing entry means "never focused" — the grid then
+    /// starts at its first card.
+    @State private var lastFocusedStationId: [Tab: Int] = [:]
+
     enum Tab: Hashable {
         case stations, favorites, recents, settings
     }
@@ -190,7 +198,11 @@ struct RootView: View {
                 connectingStationId: connectingStationId,
                 emptyTitle: "Nu sunt posturi",
                 emptySystemImage: "radio",
-                emptyMessage: ""
+                emptyMessage: "",
+                lastFocusedStationId: $lastFocusedStationId[.stations],
+                // Launch tab: open on the first station card instead of
+                // leaving focus parked on the tab bar.
+                seatsFocusOnAppear: true
             )
             .tabItem { Label("Posturi", systemImage: "radio") }
             .tag(Tab.stations)
@@ -204,7 +216,8 @@ struct RootView: View {
                 connectingStationId: connectingStationId,
                 emptyTitle: "Nu ai posturi favorite",
                 emptySystemImage: "heart",
-                emptyMessage: "Adaugă posturi la favorite din Acum Redă"
+                emptyMessage: "Adaugă posturi la favorite din Acum Redă",
+                lastFocusedStationId: $lastFocusedStationId[.favorites]
             )
             .tabItem { Label("Favorite", systemImage: "heart") }
             .tag(Tab.favorites)
@@ -218,7 +231,8 @@ struct RootView: View {
                 connectingStationId: connectingStationId,
                 emptyTitle: "Nicio redare recentă",
                 emptySystemImage: "clock",
-                emptyMessage: "Posturile redate apar aici"
+                emptyMessage: "Posturile redate apar aici",
+                lastFocusedStationId: $lastFocusedStationId[.recents]
             )
             .tabItem { Label("Recente", systemImage: "clock") }
             .tag(Tab.recents)
