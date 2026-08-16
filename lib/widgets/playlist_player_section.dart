@@ -53,17 +53,27 @@ const double kPlaylistTitleSlotHeight = 52.0;
 /// has no date).
 const double kPlaylistMetaSlotHeight = 18.0;
 
-/// Fixed height of the below-title scrubber slot. Only audio items draw a
-/// scrubber here (video items carry one on the video overlay, YouTube items use
-/// the iframe's own chrome) — the space stays reserved either way.
+/// Height of the below-title scrubber slot WHEN there is a scrubber. Only audio
+/// items draw one here; video items carry theirs on the video overlay and
+/// YouTube items use the iframe's own chrome.
+///
+/// The slot is NOT reserved when it is empty: the transport is anchored to the
+/// bottom of the section, so the elastic playlist band absorbs the difference
+/// and the prev/play/next cluster stays at the very same pixel either way —
+/// while a video item gets those 66 points of playlist instead of dead space.
 const double kPlaylistScrubberSlotHeight = 66.0;
 
 /// Height of the seek bar inside [kPlaylistScrubberSlotHeight] (the rest holds
 /// the elapsed / total labels).
 const double kPlaylistSliderHeight = 46.0;
 
-/// Side of the compact "next station" control that rides on the TITLE row.
-/// 44x44 is the platform minimum tap target, and it fits inside
+/// Side of the PAINTED "next station" circle on the title row — small, so it
+/// reads as a quiet secondary affordance next to the title rather than a third
+/// transport button.
+const double kPlaylistNextStationCircleSize = 36.0;
+
+/// Side of its TAP TARGET. The painted circle is smaller, but the touch area
+/// stays at the platform minimum 44x44, and it still fits inside
 /// [kPlaylistTitleSlotHeight] — so the control costs the layout no height at
 /// all (it replaced a dedicated 44px row, which the playlist band inherited).
 const double kPlaylistNextStationControlSize = 44.0;
@@ -71,31 +81,36 @@ const double kPlaylistNextStationControlSize = 44.0;
 /// Height of the collapsed playlist header (the tappable queue pill).
 const double kPlaylistQueueHeaderHeight = 60.0;
 
-/// Vertical gaps between the fixed slots, in layout order.
-const double _gapAfterMedia = 12.0;
-const double _gapAfterMeta = 8.0;
-const double _gapAfterQueueHeader = 8.0;
+/// Vertical gaps between the fixed slots, in layout order. Deliberately tight —
+/// every point saved here is a point of playlist.
+const double _gapAfterMedia = 6.0;
+const double _gapAfterMeta = 6.0;
+const double _gapAfterQueueHeader = 6.0;
 
 /// Space kept below the transport row, so the prev/play/next cluster sits in
 /// the same bottom-anchored band as the classic radio full player's transport
 /// (`FullAudioPlayer`, which leaves a gap above its own action row) instead of
 /// being glued to the action row underneath the section.
-const double _gapBelowTransport = 24.0;
+const double _gapBelowTransport = 16.0;
 
 /// Space the layout reserves below the media surface for everything that is not
-/// the playlist itself, given the shared [playerTransportRowHeight].
+/// the playlist itself, given the shared [playerTransportRowHeight] and the
+/// scrubber slot's height for THIS item (0 when it has no scrubber).
 ///
 /// The 16:9 media box is capped to what is left so the transport can never be
 /// pushed into the panel's clipped region — where its prev/next taps silently
 /// did nothing (the reported "next button doesn't work" bug).
-double playlistControlsReservedHeight(double transportRowHeight) =>
+double playlistControlsReservedHeight(
+  double transportRowHeight, {
+  double scrubberSlotHeight = kPlaylistScrubberSlotHeight,
+}) =>
     _gapAfterMedia +
     kPlaylistTitleSlotHeight +
     kPlaylistMetaSlotHeight +
     _gapAfterMeta +
     kPlaylistQueueHeaderHeight +
     _gapAfterQueueHeader +
-    kPlaylistScrubberSlotHeight +
+    scrubberSlotHeight +
     transportRowHeight +
     _gapBelowTransport;
 
@@ -451,11 +466,33 @@ class _PlaylistPlayerLayoutState extends State<PlaylistPlayerLayout> {
   /// rebuild.
   bool? _reported;
 
+  /// The band's height as ACTUALLY laid out, measured by the band's own
+  /// [LayoutBuilder] rather than derived from the slot arithmetic.
+  ///
+  /// The arithmetic is only ever an estimate of what the Column will do; the
+  /// automatic expand decision must not hinge on it (nor on whatever
+  /// constraints the very first frame happened to carry, e.g. while the sliding
+  /// panel is still opening). Measuring is safe and cannot oscillate: the band
+  /// is an [Expanded], so its height is the SAME whether the list is shown or
+  /// not — expanding never changes the measurement that caused it.
+  double? _measuredBand;
+
   void _toggleExpanded(bool current) => setState(() => _choice = !current);
 
-  /// Reports [expanded] after the frame — never during build.
+  /// Records the band height the layout really produced; a change re-runs the
+  /// automatic decision on the next frame (skipped once the user has chosen).
+  void _recordBand(double height) {
+    if (_measuredBand == height) return;
+    _measuredBand = height;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  /// Reports [expanded] after the frame — never during build, and only once the
+  /// band has been measured, so a first-frame estimate is never announced.
   void _reportExpanded(bool expanded) {
-    if (_reported == expanded) return;
+    if (_measuredBand == null || _reported == expanded) return;
     _reported = expanded;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) widget.onExpandedChanged?.call(expanded);
@@ -466,7 +503,13 @@ class _PlaylistPlayerLayoutState extends State<PlaylistPlayerLayout> {
   Widget build(BuildContext context) {
     final double transportRowHeight =
         playerTransportRowHeight(playerLayoutOf(context));
-    final double reserved = playlistControlsReservedHeight(transportRowHeight);
+    // An empty scrubber slot is not reserved — see [kPlaylistScrubberSlotHeight].
+    final double scrubberSlotHeight =
+        widget.scrubber == null ? 0.0 : kPlaylistScrubberSlotHeight;
+    final double reserved = playlistControlsReservedHeight(
+      transportRowHeight,
+      scrubberSlotHeight: scrubberSlotHeight,
+    );
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -490,12 +533,16 @@ class _PlaylistPlayerLayoutState extends State<PlaylistPlayerLayout> {
         // band. Open the playlist into it by default when it can show a
         // meaningful slice of the list — an empty band is just a hole, and the
         // transport does not move either way.
-        final double bandHeight = constraints.maxHeight.isFinite
+        //
+        // The MEASURED band wins over this estimate as soon as one frame has
+        // been laid out, so the decision reflects the final layout rather than
+        // whatever constraints the first frame carried.
+        final double estimatedBand = constraints.maxHeight.isFinite
             ? (constraints.maxHeight - reserved - mediaHeight)
                 .clamp(0.0, double.infinity)
             : 0.0;
-        final bool expanded =
-            _choice ?? bandHeight >= kPlaylistAutoExpandMinBandHeight;
+        final bool expanded = _choice ??
+            (_measuredBand ?? estimatedBand) >= kPlaylistAutoExpandMinBandHeight;
         _reportExpanded(expanded);
 
         return Column(
@@ -534,22 +581,36 @@ class _PlaylistPlayerLayoutState extends State<PlaylistPlayerLayout> {
             // the transport — the list simply fills (and scrolls inside) the
             // space that was already empty, animating open via [AnimatedSize].
             Expanded(
-              child: ClipRect(
-                child: Align(
-                  alignment: Alignment.topCenter,
-                  child: AnimatedSize(
-                    duration: kPlaylistExpandDuration,
-                    curve: Curves.fastOutSlowIn,
-                    alignment: Alignment.topCenter,
-                    child: expanded
-                        ? widget.list
-                        : const SizedBox(width: double.infinity, height: 0),
-                  ),
-                ),
+              child: LayoutBuilder(
+                builder: (context, band) {
+                  final double bandHeight =
+                      band.maxHeight.isFinite ? band.maxHeight : 0.0;
+                  _recordBand(bandHeight);
+                  return ClipRect(
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: AnimatedSize(
+                        duration: kPlaylistExpandDuration,
+                        curve: Curves.fastOutSlowIn,
+                        alignment: Alignment.topCenter,
+                        // The list is given the band's FULL height explicitly.
+                        // Left to size itself under [Align]'s loose constraints
+                        // it would settle on its natural height and leave a gap
+                        // above the scrubber; tight here, the viewport always
+                        // fills the band and scrolls when the queue is longer.
+                        child: SizedBox(
+                          width: double.infinity,
+                          height: expanded ? bandHeight : 0,
+                          child: expanded ? widget.list : null,
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
             SizedBox(
-              height: kPlaylistScrubberSlotHeight,
+              height: scrubberSlotHeight,
               child: widget.scrubber == null
                   ? null
                   : Padding(
@@ -767,23 +828,27 @@ class PlaylistNextStationButton extends StatelessWidget {
       label: 'Treci la postul următor',
       child: Tooltip(
         message: 'Treci la postul următor',
-        child: Material(
-          color: scheme.surfaceContainerHighest.withValues(alpha: 0.55),
-          shape: CircleBorder(
-            side: BorderSide(color: scheme.outlineVariant),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            customBorder: const CircleBorder(),
-            onTap: onPressed,
-            // 44x44 keeps the platform minimum tap target even though the
-            // painted circle reads smaller than the transport buttons.
-            child: SizedBox.square(
-              dimension: kPlaylistNextStationControlSize,
-              child: Icon(
-                Icons.arrow_forward_rounded,
-                size: 20,
-                color: scheme.onSurface,
+        // Keeps the 44x44 touch area around the smaller painted circle.
+        child: SizedBox.square(
+          dimension: kPlaylistNextStationControlSize,
+          child: Center(
+            child: Material(
+              color: scheme.surfaceContainerHighest.withValues(alpha: 0.55),
+              shape: CircleBorder(
+                side: BorderSide(color: scheme.outlineVariant),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: onPressed,
+                child: SizedBox.square(
+                  dimension: kPlaylistNextStationCircleSize,
+                  child: Icon(
+                    Icons.arrow_forward_rounded,
+                    size: 17,
+                    color: scheme.onSurface,
+                  ),
+                ),
               ),
             ),
           ),

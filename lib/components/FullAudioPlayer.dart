@@ -845,7 +845,9 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                 ),
               ),
             ),
-            const SizedBox(height: 10.0),
+            // Tight: the playlist body below wants every point it can get, and
+            // the station name does not need to float.
+            const SizedBox(height: 6.0),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24.0),
               child: Text(
@@ -859,7 +861,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                 ),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 6),
             Expanded(
               child: PlaylistPlayerSection(
                 audioHandler: widget.audioHandler,

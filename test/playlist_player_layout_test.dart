@@ -33,7 +33,7 @@ void main() {
   const tallPanel = 760.0;
 
   /// A panel whose band is under the two-row auto-expand threshold.
-  const shortPanel = 600.0;
+  const shortPanel = 540.0;
 
   /// Pumps [widget] on a window big enough for the hosts below.
   ///
@@ -122,7 +122,7 @@ void main() {
       final section = tester.getRect(find.byType(PlaylistPlayerLayout));
       final play = tester.getRect(find.byType(AnimatedPlayButton));
       // Only the documented bottom gap sits under the transport.
-      expect(section.bottom - play.bottom, closeTo(24.0, 0.5));
+      expect(section.bottom - play.bottom, closeTo(16.0, 0.5));
     });
   });
 
@@ -148,8 +148,17 @@ void main() {
       await pump(tester, host(onNextStation: () => advances++));
       await tester.pump();
 
+      // The touch area stays at the platform minimum…
       expect(tester.getSize(find.byType(PlaylistNextStationButton)),
-          const Size(44, 44));
+          const Size(kPlaylistNextStationControlSize,
+              kPlaylistNextStationControlSize));
+      // …while the painted circle reads smaller than the transport buttons.
+      expect(
+          tester.getSize(find.descendant(
+              of: find.byType(PlaylistNextStationButton),
+              matching: find.byType(Material))),
+          const Size(kPlaylistNextStationCircleSize,
+              kPlaylistNextStationCircleSize));
       await tester.tap(find.byType(PlaylistNextStationButton));
       await tester.pump();
       expect(advances, 1);
@@ -352,6 +361,76 @@ void main() {
           reason: 'the list must fit the space left below the controls');
       // No unbounded-height / overflow exception was thrown while laying out.
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('the decision follows the FINAL laid-out band, not the first '
+        'frame it happened to be built with', (tester) async {
+      // Arrange: laid out too short to open (a still-opening panel, split view).
+      await pump(tester, host(height: shortPanel));
+      await tester.pumpAndSettle();
+      expect(find.byKey(listKey), findsNothing);
+
+      // Act: the very same layout settles at its real, tall size.
+      await pump(tester, host(height: tallPanel));
+      await tester.pumpAndSettle();
+
+      // Assert: the automatic decision re-ran — it never latched the first,
+      // wrong measurement (the user has still not touched the header).
+      expect(find.byKey(listKey), findsOneWidget);
+    });
+
+    testWidgets('the expanded list FILLS the band — no dead gap above the '
+        'scrubber / transport', (tester) async {
+      // Arrange + Act: an item WITHOUT a scrubber (video / YouTube), where the
+      // list runs straight into the transport row.
+      await pump(tester, host());
+      await tester.pumpAndSettle();
+
+      final list = tester.getRect(find.byKey(listKey));
+      final play = tester.getRect(find.byType(AnimatedPlayButton));
+      final queue = tester.getRect(find.byType(PlaylistQueueHeader));
+
+      // Assert: the band is entirely list — top flush under the queue card,
+      // bottom flush against the transport block.
+      expect(list.top, closeTo(queue.bottom + 6.0, 0.5));
+      expect(list.bottom, closeTo(play.top, 0.5));
+      expect(list.height, greaterThan(3 * kPlaylistRowExtent),
+          reason: 'a phone-sized panel must show more than a couple of rows');
+    });
+
+    testWidgets('an item WITH a scrubber fills the band down to the scrubber',
+        (tester) async {
+      await pump(tester, host(scrubberSlot: scrubber));
+      await tester.pumpAndSettle();
+
+      final list = tester.getRect(find.byKey(listKey));
+      final scrubberRect = tester.getRect(find.byKey(scrubber.key!));
+
+      expect(list.bottom, closeTo(scrubberRect.top, 0.5));
+    });
+
+    testWidgets('an empty scrubber slot is not reserved — it becomes playlist, '
+        'and the transport still does not move', (tester) async {
+      await pump(tester, host(scrubberSlot: scrubber));
+      await tester.pumpAndSettle();
+      final withScrubber = tester.getSize(find.byKey(listKey)).height;
+      final section = tester.getRect(find.byType(PlaylistPlayerLayout));
+      final playFromBottom =
+          section.bottom - tester.getRect(find.byType(AnimatedPlayButton)).bottom;
+
+      await pump(tester, host());
+      await tester.pumpAndSettle();
+      final withoutScrubber = tester.getSize(find.byKey(listKey)).height;
+
+      // The 66pt slot went to the list…
+      expect(withoutScrubber - withScrubber,
+          closeTo(kPlaylistScrubberSlotHeight, 0.5));
+      // …and the transport kept its exact offset from the bottom.
+      final section2 = tester.getRect(find.byType(PlaylistPlayerLayout));
+      expect(
+          section2.bottom -
+              tester.getRect(find.byType(AnimatedPlayButton)).bottom,
+          closeTo(playFromBottom, 0.5));
     });
   });
 
