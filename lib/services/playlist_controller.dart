@@ -78,6 +78,15 @@ class PlaylistController {
   final BehaviorSubject<bool> isYoutubeContent =
       BehaviorSubject<bool>.seeded(false);
 
+  /// When true, the current item replays on natural completion instead of
+  /// advancing to the next one (the transport's repeat button). A manual
+  /// next/previous or tapping another row still moves as usual — repeat only
+  /// changes what happens when an item plays through to its end.
+  final BehaviorSubject<bool> repeatOne = BehaviorSubject<bool>.seeded(false);
+
+  /// Toggles single-item repeat.
+  void toggleRepeatOne() => repeatOne.add(!repeatOne.value);
+
   /// The YouTube item the UI must render inline, or null when none is active.
   final BehaviorSubject<PlaylistItem?> youtubeRequest =
       BehaviorSubject<PlaylistItem?>.seeded(null);
@@ -326,10 +335,35 @@ class PlaylistController {
   }
 
   /// Advances to the next playable item (lock-screen / steering-wheel "next").
-  Future<void> skipToNext() => _advance(direction: 1);
+  /// On the LAST item this leaves the playlist and plays the next STATION.
+  Future<void> skipToNext() => _userSkip(direction: 1);
 
-  /// Goes to the previous playable item.
-  Future<void> skipToPrevious() => _advance(direction: -1);
+  /// Goes to the previous playable item. On the FIRST item this leaves the
+  /// playlist and plays the previous STATION.
+  Future<void> skipToPrevious() => _userSkip(direction: -1);
+
+  /// A skip the USER asked for (transport button, lock screen, steering wheel).
+  ///
+  /// Inside the list it behaves exactly like [_advance]. At the edge of the
+  /// list it hands over to the station list instead of wrapping: pressing
+  /// "next" on the last item continues with the next station — whatever its
+  /// kind (playlist, TV or radio) — through the same frozen-order station
+  /// advance the radio transport uses. Auto-advance on natural completion is
+  /// untouched and still loops.
+  Future<void> _userSkip({required int direction}) async {
+    final leave = PlaylistNavigator.shouldLeaveStation(
+      items: items.value,
+      fromIndex: currentIndex.value,
+      skipYoutube: _skipYoutube,
+      repeatOne: repeatOne.value,
+      direction: direction,
+    );
+    if (!leave) return _advance(direction: direction);
+    _log('user skip($direction) at the playlist edge → neighbouring station');
+    return direction > 0
+        ? _handler.skipToNextStation()
+        : _handler.skipToPreviousStation();
+  }
 
   Future<void> _advance({required int direction}) async {
     final next = PlaylistNavigator.nextPlayableIndex(
@@ -389,11 +423,22 @@ class PlaylistController {
   static const Duration _progressThreshold = Duration(milliseconds: 1200);
 
   void _onItemCompleted() {
-    _log('item completed → advance');
     // Reaching the end is unambiguous success — clear the guard and any stale
     // failed flag on this item.
     _markPlaybackProgress();
-    unawaited(_advance(direction: 1));
+    _advanceOrRepeat();
+  }
+
+  /// On natural completion, either replay the current item ([repeatOne]) or
+  /// advance to the next playable one.
+  void _advanceOrRepeat() {
+    if (repeatOne.value && currentIndex.value >= 0) {
+      _log('item completed → repeat ${currentIndex.value}');
+      unawaited(playItemAt(currentIndex.value));
+    } else {
+      _log('item completed → advance');
+      unawaited(_advance(direction: 1));
+    }
   }
 
   void _onItemError(Object error) {
@@ -510,9 +555,9 @@ class PlaylistController {
   /// to the reporting iframe (see [_isCurrentYoutube]).
   void notifyYoutubeItemEnded({int? itemId}) {
     if (!_isCurrentYoutube(itemId)) return;
-    _log('youtube ended → advance');
+    _log('youtube ended → advance/repeat');
     _markPlaybackProgress(); // a played-through item is a success
-    unawaited(_advance(direction: 1));
+    _advanceOrRepeat();
   }
 
   /// The UI calls this when the inline YouTube player errors → advance.
@@ -657,6 +702,7 @@ class PlaylistController {
     duration.close();
     isVideoContent.close();
     isYoutubeContent.close();
+    repeatOne.close();
     youtubeRequest.close();
     youtubeShouldPlay.close();
     youtubeSeek.close();

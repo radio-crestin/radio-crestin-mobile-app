@@ -2,16 +2,17 @@ import 'dart:async';
 
 import 'package:dpad/dpad.dart';
 import 'package:flutter/material.dart';
-import 'package:media_kit_video/media_kit_video.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:video_player/video_player.dart';
 
 import '../../services/video_playback_service.dart';
 import '../../types/playlist_item.dart';
 import '../../utils.dart';
+import '../../widgets/player_video_surface.dart';
 import '../tv_platform.dart';
 import '../tv_theme.dart';
 
-/// media_kit video output for the TV / desktop shells, with a dark buffering
+/// video_player output for the TV / desktop shells, with a dark buffering
 /// overlay. Overlay chrome (title, LIVE pill, counter, controls) is composed by
 /// the caller so it can share the page's focus tree.
 class TvVideoSurface extends StatelessWidget {
@@ -31,33 +32,58 @@ class TvVideoSurface extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          FutureBuilder<VideoController>(
-            future: videoService.ensureInitialized(),
-            builder: (context, snapshot) {
-              final controller = snapshot.data ?? videoService.controller;
-              if (controller == null) return const _TvSpinner();
-              return Video(
-                controller: controller,
-                controls: NoVideoControls,
-                fit: fit,
-                fill: Colors.black,
-              );
-            },
-          ),
-          StreamBuilder<bool>(
-            stream: videoService.bufferingStream,
-            initialData: videoService.isBuffering,
-            builder: (context, snapshot) =>
-                snapshot.data == true ? const _TvSpinner() : const SizedBox.shrink(),
-          ),
+          VideoRender(videoService: videoService, fit: fit),
+          _TvLoadingOverlay(videoService: videoService),
         ],
       ),
     );
   }
 }
 
+/// Spinner shown whenever there is no picture to look at yet: no controller
+/// (the media is still opening), a controller that has not initialized, or the
+/// engine reporting a buffer stall. Without the first two cases the surface is
+/// a plain black box for the whole open→first-frame window.
+class _TvLoadingOverlay extends StatelessWidget {
+  const _TvLoadingOverlay({required this.videoService});
+
+  final VideoPlaybackService videoService;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<bool>(
+      stream: videoService.bufferingStream,
+      initialData: videoService.isBuffering,
+      builder: (context, buffering) {
+        return StreamBuilder<VideoPlayerController?>(
+          stream: videoService.controllerStream,
+          initialData: videoService.controller,
+          builder: (context, snapshot) {
+            final controller = snapshot.data;
+            if (controller == null) return const _TvSpinner();
+            return ValueListenableBuilder<VideoPlayerValue>(
+              valueListenable: controller,
+              builder: (context, value, _) {
+                final loading = !value.isInitialized ||
+                    value.isBuffering ||
+                    buffering.data == true;
+                return AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 150),
+                  child: loading
+                      ? const _TvSpinner(key: ValueKey('tv-video-loading'))
+                      : const SizedBox.shrink(key: ValueKey('tv-video-idle')),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
 class _TvSpinner extends StatelessWidget {
-  const _TvSpinner();
+  const _TvSpinner({super.key});
 
   @override
   Widget build(BuildContext context) {

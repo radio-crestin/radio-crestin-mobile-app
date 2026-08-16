@@ -21,7 +21,8 @@ class MiniAudioPlayer extends StatelessWidget {
   const MiniAudioPlayer({
     super.key,
     required this.audioHandler,
-    required this.panelController, this.currentStation,
+    required this.panelController,
+    this.currentStation,
   });
 
   @override
@@ -58,7 +59,8 @@ class MiniAudioPlayer extends StatelessWidget {
                         height: 4,
                         decoration: BoxDecoration(
                             color: Colors.grey[300],
-                            borderRadius: const BorderRadius.all(Radius.circular(12.0))),
+                            borderRadius:
+                                const BorderRadius.all(Radius.circular(12.0))),
                       ),
                     ],
                   ),
@@ -182,12 +184,12 @@ class _MiniSubtitle extends StatelessWidget {
         },
       );
     }
-    // TV with no song → "Transmisiune live"; radio keeps its song line.
+    // Radio/TV: the song/program line, or blank when idle — no synthetic
+    // "Transmisiune live" filler (real metadata only).
     final subtitle = computeStationSubtitle(
       type: st.stationType,
       songLine: fallback,
       isRomanian: true,
-      tvLiveFallback: true,
     );
     return _text(subtitle ?? fallback);
   }

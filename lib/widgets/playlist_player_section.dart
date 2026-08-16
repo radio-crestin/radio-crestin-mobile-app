@@ -2,20 +2,21 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
-import 'package:media_kit/media_kit.dart';
-import 'package:media_kit_video/media_kit_video.dart';
 import 'package:radio_crestin/theme.dart';
 import 'package:sliding_up_panel2/sliding_up_panel2.dart';
 
 import '../appAudioHandler.dart';
 import '../services/playlist_controller.dart';
+import '../services/video_quality.dart';
 import '../types/Station.dart';
 import '../types/playlist_item.dart';
 import '../utils.dart';
 import 'animated_play_button.dart';
 import 'bottom_toast.dart';
+import 'default_artwork.dart';
 import 'player_video_surface.dart';
 import 'video_overlay_controls.dart';
+import 'video_thumbnail_image.dart';
 import 'youtube_iframe_player.dart';
 
 /// Formats a duration as `m:ss` (or `h:mm:ss` past an hour) for the VOD
@@ -33,6 +34,16 @@ String formatPlaylistDuration(Duration d) {
   }
   return '$minutes:$ss';
 }
+
+/// Whether to overlay the "won't play in background" notice on the media
+/// surface. True only for an active YouTube item: its inline iframe cannot keep
+/// playing once the app is backgrounded or the screen locks, so the notice is a
+/// persistent, subtle reminder. Pure and top-level so it is trivially testable.
+bool showYoutubeBackgroundNotice({
+  required bool isYoutubeContent,
+  required PlaylistItem? item,
+}) =>
+    isYoutubeContent && item != null && item.type.isYoutube;
 
 /// The playlist-specific body of the full player: media surface (audio / video
 /// / YouTube), current-item counter + title, a VOD scrubber, transport controls
@@ -68,10 +79,6 @@ class _PlaylistPlayerSectionState extends State<PlaylistPlayerSection> {
   final _playButtonKey = GlobalKey<AnimatedPlayButtonState>();
   final ScrollController _listController = ScrollController();
 
-  /// Key onto the media_kit [Video] widget so the below-title transport's
-  /// fullscreen button can drive `enterFullscreen()` from outside the surface.
-  final _videoKey = GlobalKey<VideoState>();
-
   static const double _rowExtent = 64.0;
 
   final PlaylistController _controller = GetIt.instance<PlaylistController>();
@@ -81,16 +88,16 @@ class _PlaylistPlayerSectionState extends State<PlaylistPlayerSection> {
   PlaylistItem? _currentItem;
   bool _isVideoContent = false;
   bool _isYoutubeContent = false;
+  bool _repeatOne = false;
   bool _audioOnlyFallback = false;
   Set<int> _failedIds = const {};
-  List<VideoTrack> _videoTracks = const [];
+  List<VideoQuality> _qualities = const [];
   OverlayEntry? _skipToast;
 
   /// The persistent below-video scrubber is shown only for audio items: video
   /// items carry their scrubber on the video overlay, and YouTube items use the
   /// native iframe controls (both would otherwise be a confusing duplicate).
-  bool get _showBelowScrubber =>
-      _currentItem?.type == PlaylistItemType.audio;
+  bool get _showBelowScrubber => _currentItem?.type == PlaylistItemType.audio;
 
   @override
   void initState() {
@@ -101,6 +108,7 @@ class _PlaylistPlayerSectionState extends State<PlaylistPlayerSection> {
     _currentItem = c.currentItem.value;
     _isVideoContent = c.isVideoContent.value;
     _isYoutubeContent = c.isYoutubeContent.value;
+    _repeatOne = c.repeatOne.value;
     _audioOnlyFallback = widget.audioHandler.audioOnlyFallback.value;
     _failedIds = c.failedItemIds.value;
 
@@ -143,20 +151,23 @@ class _PlaylistPlayerSectionState extends State<PlaylistPlayerSection> {
     _subs.add(c.isYoutubeContent.stream.listen((v) {
       if (mounted) setState(() => _isYoutubeContent = v);
     }));
-    _videoTracks = widget.audioHandler.videoService.videoTracks;
-    _subs.add(widget.audioHandler.videoService.videoTracksStream.listen((t) {
-      if (mounted) setState(() => _videoTracks = t);
+    _subs.add(c.repeatOne.stream.listen((v) {
+      if (mounted) setState(() => _repeatOne = v);
+    }));
+    _qualities = widget.audioHandler.videoService.qualities;
+    _subs.add(widget.audioHandler.videoService.qualitiesStream.listen((q) {
+      if (mounted) setState(() => _qualities = q);
     }));
   }
 
   /// Opens the shared quality sheet for the current video item and applies
-  /// the selection on the media_kit player.
+  /// the selection on the video player.
   Future<void> _openQualitySheet() async {
     final vs = widget.audioHandler.videoService;
     final chosen = await showVideoQualitySheet(
       context,
-      qualities: distinctVideoQualities(_videoTracks),
-      selectedId: vs.selectedVideoTrack.id,
+      qualities: _qualities,
+      selectedId: vs.selectedQuality.id,
     );
     if (chosen != null) await vs.setVideoQuality(chosen);
   }
@@ -184,22 +195,52 @@ class _PlaylistPlayerSectionState extends State<PlaylistPlayerSection> {
 
   @override
   Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) => _buildBody(context, constraints),
+    );
+  }
+
+  Widget _buildBody(BuildContext context, BoxConstraints constraints) {
+    // Cap the 16:9 media so the controls below it (title, scrubber, transport)
+    // and the track list always fit — and stay on-screen and TAPPABLE. Without
+    // this, a short/landscape panel height lets the full-width 16:9 box overflow
+    // the Column and push the transport row into the clipped region, where its
+    // prev/next taps silently do nothing (the reported "next button doesn't
+    // work; only tapping a row does" bug).
+    const double reservedForControls = 210.0;
+    final double availWidth = constraints.maxWidth - 24.0; // 12px side padding
+    final double maxMediaHeight = constraints.maxHeight.isFinite
+        ? (constraints.maxHeight - reservedForControls).clamp(80.0, 100000.0)
+        : double.infinity;
+    double mediaWidth = availWidth;
+    double mediaHeight = mediaWidth * 9 / 16;
+    if (mediaHeight > maxMediaHeight) {
+      mediaHeight = maxMediaHeight;
+      mediaWidth = mediaHeight * 16 / 9;
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Edge-to-edge (minus a ~12px margin) 16:9 media area.
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12.0),
-          child: _MediaSurface(
-            audioHandler: widget.audioHandler,
-            controller: _controller,
-            station: widget.station,
-            item: _currentItem,
-            isVideoContent: _isVideoContent,
-            isYoutubeContent: _isYoutubeContent,
-            audioOnlyFallback: _audioOnlyFallback,
-            panelExpanded: widget.panelExpanded,
-            videoKey: _videoKey,
+        // Height-capped 16:9 media area, centered when width-constrained.
+        // [IgnoreDraggableWidget] locks the sliding panel while a pointer is on
+        // the media surface: touches (taps, scrubs, pinches) interact with the
+        // video instead of dragging the panel down.
+        Center(
+          child: SizedBox(
+            width: mediaWidth,
+            height: mediaHeight,
+            child: IgnoreDraggableWidget(
+              child: _MediaSurface(
+                audioHandler: widget.audioHandler,
+                controller: _controller,
+                station: widget.station,
+                item: _currentItem,
+                isVideoContent: _isVideoContent,
+                isYoutubeContent: _isYoutubeContent,
+                audioOnlyFallback: _audioOnlyFallback,
+                panelExpanded: widget.panelExpanded,
+              ),
+            ),
           ),
         ),
         const SizedBox(height: 14),
@@ -225,6 +266,20 @@ class _PlaylistPlayerSectionState extends State<PlaylistPlayerSection> {
             ),
           ),
         ),
+        // Publish date under the title, when the backend provides one for the
+        // current item (e.g. a dated live-stream recording). Hidden otherwise.
+        if (_currentItem?.publishedAt != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            formatPlaylistDate(_currentItem!.publishedAt!),
+            key: ValueKey('pl-date-${_currentItem?.id}'),
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
         const SizedBox(height: 10),
         // Persistent scrubber for audio items only (video → overlay scrubber,
         // YouTube → native controls). Same styling as the overlay seek bar.
@@ -237,23 +292,22 @@ class _PlaylistPlayerSectionState extends State<PlaylistPlayerSection> {
             ),
           ),
         const SizedBox(height: 6),
-        // Transport below the title — the SINGLE inline transport:
-        // [quality] [prev] [play/pause] [next] [fullscreen]. The video surface
-        // itself stays clean inline (only seek bar/LIVE pill + a corner
-        // fullscreen button). Play/pause routes through the handler for every
-        // item type.
+        // Transport below the title: [quality] [prev] [play/pause] [next]
+        // [fullscreen?]. Video items expose fullscreen on the video surface's
+        // own bottom-right corner button (so no redundant transport one here);
+        // YouTube items have no such corner button (the iframe owns its chrome),
+        // so they keep a transport fullscreen affordance. Play/pause routes
+        // through the handler for every item type.
         _Transport(
           audioHandler: widget.audioHandler,
           playButtonKey: _playButtonKey,
-          onQuality: _isVideoContent &&
-                  distinctVideoQualities(_videoTracks).length > 1
+          repeatOne: _repeatOne,
+          onToggleRepeat: _controller.toggleRepeatOne,
+          onQuality: _isVideoContent && _qualities.length > 1
               ? _openQualitySheet
               : null,
-          onFullscreen: _isYoutubeContent
-              ? _controller.requestYoutubeFullscreen
-              : _isVideoContent
-                  ? () => _videoKey.currentState?.enterFullscreen()
-                  : null,
+          onFullscreen:
+              _isYoutubeContent ? _controller.requestYoutubeFullscreen : null,
         ),
         const SizedBox(height: 12),
         // Track list — live-reconciling, current item highlighted.
@@ -290,7 +344,6 @@ class _MediaSurface extends StatelessWidget {
     required this.isYoutubeContent,
     required this.audioOnlyFallback,
     required this.panelExpanded,
-    required this.videoKey,
   });
 
   final AppAudioHandler audioHandler;
@@ -299,9 +352,6 @@ class _MediaSurface extends StatelessWidget {
   final PlaylistItem? item;
   final bool isVideoContent;
   final bool isYoutubeContent;
-
-  /// Key onto the media_kit [Video] widget (external fullscreen trigger).
-  final GlobalKey<VideoState> videoKey;
 
   /// True when this (video) item is playing audio-only because video rendering
   /// failed — overlays a subtle "Doar audio" chip on the artwork.
@@ -335,14 +385,10 @@ class _MediaSurface extends StatelessWidget {
       // double-tap ±10s and fullscreen. VOD (playlist items are not live).
       child = VideoPlayerStage(
         videoService: audioHandler.videoService,
-        videoKey: videoKey,
         title: item?.title ?? station.displayTitle,
         isLive: false,
-        showTransport: true,
         onPlay: audioHandler.play,
         onPause: audioHandler.pause,
-        onSkipNext: audioHandler.skipToNext,
-        onSkipPrevious: audioHandler.skipToPrevious,
         onSeek: (d) => controller.seek(d),
         // Enable the seek bar right away using the item's known length, before
         // libmpv reports its own duration.
@@ -379,6 +425,14 @@ class _MediaSurface extends StatelessWidget {
               top: 8,
               left: 8,
               child: AudioOnlyChip(),
+            ),
+          // Persistent "won't play in background" reminder on YouTube items.
+          if (showYoutubeBackgroundNotice(
+              isYoutubeContent: isYoutubeContent, item: item))
+            const Positioned(
+              left: 8,
+              bottom: 8,
+              child: YoutubeBackgroundChip(),
             ),
         ],
       ),
@@ -419,11 +473,7 @@ class _AudioArtwork extends StatelessWidget {
             child: (thumbnailUrl != null && thumbnailUrl!.isNotEmpty)
                 ? Utils.displayImage(thumbnailUrl!,
                     cache: true, cacheWidth: 400)
-                : const ColoredBox(
-                    color: Color(0xFF1E1E1E),
-                    child: Icon(Icons.music_note_rounded,
-                        color: Colors.white54, size: 40),
-                  ),
+                : const DefaultArtwork(),
           ),
         ),
       ),
@@ -481,9 +531,7 @@ class _VodProgressBarState extends State<_VodProgressBar> {
 
     final elapsed = formatPlaylistDuration(
         Duration(milliseconds: (_dragValue ?? positionMs).round()));
-    final total = hasDuration
-        ? formatPlaylistDuration(_duration!)
-        : '--:--';
+    final total = hasDuration ? formatPlaylistDuration(_duration!) : '--:--';
 
     return Column(
       children: [
@@ -491,8 +539,10 @@ class _VodProgressBarState extends State<_VodProgressBar> {
           data: SliderTheme.of(context).copyWith(
             trackHeight: 3.0,
             activeTrackColor: AppColors.primary,
-            inactiveTrackColor:
-                Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.25),
+            inactiveTrackColor: Theme.of(context)
+                .colorScheme
+                .onSurfaceVariant
+                .withValues(alpha: 0.25),
             thumbColor: AppColors.primary,
             overlayColor: AppColors.primary.withValues(alpha: 0.18),
             thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
@@ -506,8 +556,7 @@ class _VodProgressBarState extends State<_VodProgressBar> {
                 : null,
             onChangeEnd: hasDuration && widget.seekable
                 ? (v) {
-                    widget.controller
-                        .seek(Duration(milliseconds: v.round()));
+                    widget.controller.seek(Duration(milliseconds: v.round()));
                     setState(() {
                       _position = Duration(milliseconds: v.round());
                       _dragValue = null;
@@ -545,6 +594,8 @@ class _Transport extends StatelessWidget {
   const _Transport({
     required this.audioHandler,
     required this.playButtonKey,
+    required this.repeatOne,
+    required this.onToggleRepeat,
     this.onQuality,
     this.onFullscreen,
   });
@@ -552,7 +603,13 @@ class _Transport extends StatelessWidget {
   final AppAudioHandler audioHandler;
   final GlobalKey<AnimatedPlayButtonState> playButtonKey;
 
-  /// Quality picker, shown left of "prev" for multi-quality video items.
+  /// Whether single-item repeat is active (highlights the repeat button).
+  final bool repeatOne;
+
+  /// Toggles single-item repeat (leftmost button).
+  final VoidCallback onToggleRepeat;
+
+  /// Quality picker, shown right of "next" for multi-quality video items.
   final VoidCallback? onQuality;
 
   /// Fullscreen action shown right of "next" — video items enter media_kit
@@ -561,44 +618,59 @@ class _Transport extends StatelessWidget {
 
   /// Side length of the round secondary buttons (10px padding + 30px icon) —
   /// also the size of the invisible spacer that keeps the prev/play/next
-  /// cluster dead-center when only one side control is present.
+  /// cluster dead-center when the two sides hold a different number of buttons.
   static const double _sideButtonSize = 50.0;
 
   @override
   Widget build(BuildContext context) {
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+
+    // Left cluster: repeat (always). Right cluster: fullscreen and/or quality.
+    // Both sides are padded with invisible ghosts to equal width so the
+    // prev/play/next trio stays dead-center regardless of how many secondary
+    // controls the current item exposes.
+    final leftControls = <Widget>[
+      _RoundIconButton(
+        icon: Icons.repeat_rounded,
+        color: repeatOne ? AppColors.primary : onSurface,
+        onTap: onToggleRepeat,
+      ),
+    ];
+    final rightControls = <Widget>[
+      if (onFullscreen != null)
+        _RoundIconButton(
+          icon: Icons.fullscreen_rounded,
+          color: onSurface,
+          onTap: onFullscreen!,
+        ),
+      if (onQuality != null)
+        _RoundIconButton(
+          icon: Icons.high_quality_rounded,
+          color: onSurface,
+          onTap: onQuality!,
+        ),
+    ];
+    // Balance the two sides with ghosts so the center trio never shifts.
+    while (leftControls.length < rightControls.length) {
+      leftControls.insert(0, const _GhostButton());
+    }
+    while (rightControls.length < leftControls.length) {
+      rightControls.add(const _GhostButton());
+    }
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        // Left slot: quality, or a ghost mirroring the right-side button so
-        // the transport cluster stays visually centered.
-        if (onQuality != null) ...[
-          InkWell(
-            customBorder: const CircleBorder(),
-            onTap: onQuality,
-            child: Padding(
-              padding: const EdgeInsets.all(10.0),
-              child: Icon(Icons.high_quality_rounded,
-                  size: 30, color: Theme.of(context).colorScheme.onSurface),
-            ),
-          ),
-          const SizedBox(width: 24),
-        ] else if (onFullscreen != null) ...[
-          const SizedBox(width: _sideButtonSize, height: _sideButtonSize),
-          const SizedBox(width: 24),
-        ],
-        InkWell(
-          customBorder: const CircleBorder(),
+        for (final w in leftControls) ...[w, const SizedBox(width: 12)],
+        _RoundIconButton(
+          icon: Icons.skip_previous_rounded,
+          color: onSurface,
           onTap: () {
             playButtonKey.currentState?.notifyWillPlay();
             audioHandler.skipToPrevious();
           },
-          child: Padding(
-            padding: const EdgeInsets.all(10.0),
-            child: Icon(Icons.skip_previous_rounded,
-                size: 30, color: Theme.of(context).colorScheme.onSurface),
-          ),
         ),
-        const SizedBox(width: 24),
+        const SizedBox(width: 12),
         AnimatedPlayButton(
           key: playButtonKey,
           playbackStateStream: audioHandler.playbackState,
@@ -609,36 +681,57 @@ class _Transport extends StatelessWidget {
           onPause: audioHandler.pause,
           onStop: audioHandler.stop,
         ),
-        const SizedBox(width: 24),
-        InkWell(
-          customBorder: const CircleBorder(),
+        const SizedBox(width: 12),
+        _RoundIconButton(
+          icon: Icons.skip_next_rounded,
+          color: onSurface,
           onTap: () {
             playButtonKey.currentState?.notifyWillPlay();
             audioHandler.skipToNext();
           },
-          child: Padding(
-            padding: const EdgeInsets.all(10.0),
-            child: Icon(Icons.skip_next_rounded,
-                size: 30, color: Theme.of(context).colorScheme.onSurface),
-          ),
         ),
-        // Right slot: fullscreen, or a ghost mirroring the quality button.
-        if (onFullscreen != null) ...[
-          const SizedBox(width: 24),
-          InkWell(
-            customBorder: const CircleBorder(),
-            onTap: onFullscreen,
-            child: Padding(
-              padding: const EdgeInsets.all(10.0),
-              child: Icon(Icons.fullscreen_rounded,
-                  size: 30, color: Theme.of(context).colorScheme.onSurface),
-            ),
-          ),
-        ] else if (onQuality != null) ...[
-          const SizedBox(width: 24),
-          const SizedBox(width: _sideButtonSize, height: _sideButtonSize),
-        ],
+        for (final w in rightControls) ...[const SizedBox(width: 12), w],
       ],
+    );
+  }
+}
+
+/// Round, tappable secondary transport control (repeat / prev / next /
+/// fullscreen / quality): a 30px icon with 10px padding (50x50 hit target).
+class _RoundIconButton extends StatelessWidget {
+  const _RoundIconButton({
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      customBorder: const CircleBorder(),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.all(10.0),
+        child: Icon(icon, size: 30, color: color),
+      ),
+    );
+  }
+}
+
+/// Invisible 50x50 stand-in matching [_RoundIconButton]'s footprint, used to
+/// keep the prev/play/next trio centered when the two sides differ in count.
+class _GhostButton extends StatelessWidget {
+  const _GhostButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox(
+      width: _Transport._sideButtonSize,
+      height: _Transport._sideButtonSize,
     );
   }
 }
@@ -729,11 +822,38 @@ class _TrackRow extends StatelessWidget {
     }
   }
 
+  /// Neutral placeholder shown while a thumbnail resolves (or when none exists):
+  /// the station artwork if available, else the branded default tile with a
+  /// type-appropriate glyph.
+  Widget _thumbnailPlaceholder() {
+    final stationThumb = fallbackThumbnailUrl;
+    if (stationThumb != null && stationThumb.isNotEmpty) {
+      return Utils.displayImage(stationThumb, cache: true, cacheWidth: 96);
+    }
+    return DefaultArtwork(icon: _typeIcon);
+  }
+
+  /// Thumbnail chain: the item's own `thumbnail_url` → (video items) the video's
+  /// first frame → the shared placeholder.
+  Widget _thumbnailChild() {
+    final ownThumb = item.thumbnailUrl;
+    if (ownThumb != null && ownThumb.isNotEmpty) {
+      return Utils.displayImage(ownThumb, cache: true, cacheWidth: 96);
+    }
+    if (item.type == PlaylistItemType.video && item.url.isNotEmpty) {
+      return VideoThumbnailImage(
+        videoUrl: item.url,
+        width: 44,
+        height: 44,
+        fit: BoxFit.cover,
+        placeholder: _thumbnailPlaceholder(),
+      );
+    }
+    return _thumbnailPlaceholder();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final thumb = (item.thumbnailUrl != null && item.thumbnailUrl!.isNotEmpty)
-        ? item.thumbnailUrl!
-        : (fallbackThumbnailUrl ?? '');
     final duration = item.durationSeconds != null && item.durationSeconds! > 0
         ? formatPlaylistDuration(Duration(seconds: item.durationSeconds!))
         : null;
@@ -745,87 +865,105 @@ class _TrackRow extends StatelessWidget {
         // (a later tap can retry). The current row never dims.
         opacity: hasFailed && !isCurrent ? 0.45 : 1.0,
         child: Material(
-        color: isCurrent
-            ? Theme.of(context).cardColorSelected
-            : Colors.transparent,
-        borderRadius: const BorderRadius.all(Radius.circular(12)),
-        child: InkWell(
+          color: isCurrent
+              ? Theme.of(context).cardColorSelected
+              : Colors.transparent,
           borderRadius: const BorderRadius.all(Radius.circular(12)),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 6.0),
-            child: Row(
-              children: [
-                ClipRRect(
-                  // Thumbnail image fills this clip with no gap, so it takes
-                  // the small-thumbnail radius directly.
-                  borderRadius: const BorderRadius.all(
-                      Radius.circular(AppRadius.thumbnail)),
-                  child: SizedBox(
-                    width: 44,
-                    height: 44,
-                    child: thumb.isNotEmpty
-                        ? Utils.displayImage(thumb, cache: true, cacheWidth: 96)
-                        : const ColoredBox(
-                            color: Color(0xFF2A2A2A),
-                            child: Icon(Icons.music_note_rounded,
-                                color: Colors.white38, size: 20),
-                          ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Row(
-                    children: [
-                      if (isCurrent) ...[
-                        const Icon(Icons.equalizer_rounded,
-                            size: 15, color: AppColors.primary),
-                        const SizedBox(width: 6),
-                      ],
-                      Expanded(
-                        child: Text(
-                          item.title.isNotEmpty ? item.title : 'Fără titlu',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight:
-                                isCurrent ? FontWeight.w700 : FontWeight.w500,
-                            color: isCurrent
-                                ? AppColors.primary
-                                : Theme.of(context).colorScheme.onSurface,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                // Failed items show an error glyph in place of the type icon.
-                Icon(hasFailed ? Icons.error_outline_rounded : _typeIcon,
-                    size: 16,
-                    color: hasFailed
-                        ? AppColors.error
-                        : Theme.of(context)
-                            .colorScheme
-                            .onSurfaceVariant
-                            .withValues(alpha: 0.7)),
-                if (duration != null) ...[
-                  const SizedBox(width: 8),
-                  Text(
-                    duration,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+          child: InkWell(
+            borderRadius: const BorderRadius.all(Radius.circular(12)),
+            onTap: onTap,
+            child: Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 8.0, vertical: 6.0),
+              child: Row(
+                children: [
+                  ClipRRect(
+                    // Thumbnail image fills this clip with no gap, so it takes
+                    // the small-thumbnail radius directly.
+                    borderRadius: const BorderRadius.all(
+                        Radius.circular(AppRadius.thumbnail)),
+                    child: SizedBox(
+                      width: 44,
+                      height: 44,
+                      child: _thumbnailChild(),
                     ),
                   ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        if (isCurrent) ...[
+                          const Icon(Icons.equalizer_rounded,
+                              size: 15, color: AppColors.primary),
+                          const SizedBox(width: 6),
+                        ],
+                        Expanded(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                item.title.isNotEmpty
+                                    ? item.title
+                                    : 'Fără titlu',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: isCurrent
+                                      ? FontWeight.w700
+                                      : FontWeight.w500,
+                                  color: isCurrent
+                                      ? AppColors.primary
+                                      : Theme.of(context).colorScheme.onSurface,
+                                ),
+                              ),
+                              // Publish date subtitle, when provided by the
+                              // backend for this item (null otherwise → hidden).
+                              if (item.publishedAt != null)
+                                Text(
+                                  formatPlaylistDate(item.publishedAt!),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Failed items show an error glyph in place of the type icon.
+                  Icon(hasFailed ? Icons.error_outline_rounded : _typeIcon,
+                      size: 16,
+                      color: hasFailed
+                          ? AppColors.error
+                          : Theme.of(context)
+                              .colorScheme
+                              .onSurfaceVariant
+                              .withValues(alpha: 0.7)),
+                  if (duration != null) ...[
+                    const SizedBox(width: 8),
+                    Text(
+                      duration,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),
-      ),
       ),
     );
   }

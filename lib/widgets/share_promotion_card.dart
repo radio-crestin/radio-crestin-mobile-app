@@ -259,7 +259,7 @@ class SharePromotionCardState extends State<SharePromotionCard> {
             children: [
               _buildShareButton(
                 context: context,
-                icon: FontAwesomeIcons.whatsapp,
+                icon: FontAwesomeIcons.whatsapp.data,
                 color: _whatsappColor,
                 onTap: () {
                   AnalyticsService.instance.capture('button_clicked', {'button_name': 'promo_share_whatsapp'});
@@ -269,7 +269,7 @@ class SharePromotionCardState extends State<SharePromotionCard> {
               const SizedBox(width: 6),
               _buildShareButton(
                 context: context,
-                icon: FontAwesomeIcons.facebook,
+                icon: FontAwesomeIcons.facebook.data,
                 color: _facebookColor,
                 onTap: () {
                   AnalyticsService.instance.capture('button_clicked', {'button_name': 'promo_share_facebook'});
@@ -326,13 +326,14 @@ class SharePromotionCardState extends State<SharePromotionCard> {
 
   Widget _buildShareButton({
     required BuildContext context,
-    IconData? icon,
-    IconData? iconData,
+    Object? icon,
+    Object? iconData,
     String? label,
     required Color color,
     required VoidCallback onTap,
   }) {
-    final iconToUse = icon ?? iconData ?? Icons.people_outline_rounded;
+    final Object iconToUse =
+        icon ?? iconData ?? Icons.people_outline_rounded;
     
     if (label != null) {
       return Material(
@@ -353,7 +354,9 @@ class SharePromotionCardState extends State<SharePromotionCard> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(iconToUse, size: 20, color: color),
+                iconToUse is FaIconData
+                    ? FaIcon(iconToUse, size: 20, color: color)
+                    : Icon(iconToUse as IconData, size: 20, color: color),
                 const SizedBox(width: 8),
                 Text(
                   label,
@@ -381,7 +384,9 @@ class SharePromotionCardState extends State<SharePromotionCard> {
             color: color.withOpacity(0.1),
             shape: BoxShape.circle,
           ),
-          child: Icon(iconToUse, size: 24, color: color),
+          child: iconToUse is FaIconData
+              ? FaIcon(iconToUse, size: 24, color: color)
+              : Icon(iconToUse as IconData, size: 24, color: color),
         ),
       ),
     );

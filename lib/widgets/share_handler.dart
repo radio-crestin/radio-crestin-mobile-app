@@ -104,7 +104,7 @@ class ShareHandler {
 
   static Widget _buildShareOption({
     required BuildContext context,
-    required IconData icon,
+    required Object icon,
     required String label,
     required Color color,
     required VoidCallback onTap,
@@ -131,11 +131,9 @@ class ShareHandler {
                     width: 1,
                   ),
                 ),
-                child: Icon(
-                  icon,
-                  color: color,
-                  size: 20,
-                ),
+                child: icon is FaIconData
+                    ? FaIcon(icon, color: color, size: 20)
+                    : Icon(icon as IconData, color: color, size: 20),
               ),
               const SizedBox(height: 6),
               Text(
@@ -464,7 +462,7 @@ class _ShareDialogContentState extends State<_ShareDialogContent> {
                     children: [
                       ShareHandler._buildShareOption(
                         context: context,
-                        icon: FontAwesomeIcons.whatsapp,
+                        icon: FontAwesomeIcons.whatsapp.data,
                         label: 'WhatsApp',
                         color: const Color(0xFF25D366),
                         onTap: () async {
@@ -476,7 +474,7 @@ class _ShareDialogContentState extends State<_ShareDialogContent> {
                       const SizedBox(width: 10),
                       ShareHandler._buildShareOption(
                         context: context,
-                        icon: FontAwesomeIcons.facebook,
+                        icon: FontAwesomeIcons.facebook.data,
                         label: 'Facebook',
                         color: const Color(0xFF1877F2),
                         onTap: () async {

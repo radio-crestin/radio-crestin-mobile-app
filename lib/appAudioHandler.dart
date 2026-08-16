@@ -24,6 +24,7 @@ import 'package:flutter_chrome_cast/flutter_chrome_cast.dart' show CastMediaPlay
 import 'package:radio_crestin/tv/tv_platform.dart';
 import 'package:radio_crestin/services/play_count_service.dart';
 import 'package:radio_crestin/services/network_service.dart';
+import 'package:radio_crestin/services/notification_permission_service.dart';
 import 'package:radio_crestin/services/review_service.dart';
 import 'package:radio_crestin/services/song_history_service.dart';
 import 'package:radio_crestin/services/song_like_service.dart';
@@ -166,6 +167,17 @@ class FastStartConfig {
   /// Was 60s, which stopped VOD prefetch a minute ahead and let later seeks
   /// stall.
   static const Duration darwinPreferredForwardBuffer = Duration(minutes: 10);
+
+  /// Forward-buffer target for a LIVE stream (2 minutes). The single source of
+  /// truth for "how far ahead a live source should pre-roll", shared in intent
+  /// by the radio (just_audio) and video (media_kit) pipelines so they stay in
+  /// sync. The video side mirrors this into libmpv's `cache-secs` /
+  /// `demuxer-readahead-secs` via `VideoPlaybackService.liveForwardBufferSeconds`
+  /// (a separate library that must not import this one); a unit test asserts the
+  /// two never drift apart. For just_audio a live source is naturally bounded by
+  /// the live edge, so this documents the shared target rather than capping a
+  /// window the platform players already bound.
+  static const Duration liveForwardBufferTarget = Duration(minutes: 2);
 
   /// iOS/macOS `automaticallyWaitsToMinimizeStalling` for live sources: false so
   /// AVPlayer begins as soon as it can instead of pre-filling a conservative
@@ -342,6 +354,60 @@ class ReconnectPolicy {
     // stale source after a failed reload chain.
     final shouldBePlayingButIsnt = !playing;
     return stalled || shouldBePlayingButIsnt;
+  }
+}
+
+/// What the video-mode stall watchdog should do when a post-first-frame
+/// buffering stall outlasts its timer. See [VideoStallPolicy].
+enum VideoStallAction {
+  /// Leave it alone — no stall worth acting on (pre-frame, paused, not
+  /// buffering).
+  none,
+
+  /// Re-open the same URL in the video player once (seamless in-place recovery).
+  reconnect,
+
+  /// Give up on video and hand off to the just_audio audio-only pipeline.
+  fallback,
+}
+
+/// Pure decision policy for the post-first-frame video stall watchdog.
+///
+/// The startup fallback watchdog ([AppAudioHandler._startVideoFallbackWatchdog])
+/// only covers the cold-start window — it disarms the moment a first frame
+/// renders and never re-arms. This policy owns what happens AFTER that: if a
+/// live TV / video item keeps buffering while we intend to play, recover once
+/// in place, then fall back to audio-only if it stalls again in the same video
+/// session. Extracted from the handler so the escalation is unit-testable
+/// without a real media_kit player.
+class VideoStallPolicy {
+  /// Decides the action for a stall that has already outlasted the watchdog's
+  /// timer. Pure function.
+  ///
+  ///   * [hasRenderedFrame] — false before the first frame; the startup
+  ///     watchdog owns that window, so this policy stays out of it.
+  ///   * [buffering] — libmpv `paused-for-cache`; only a persisting stall
+  ///     matters, so a VOD item paused at the end of its buffer never triggers.
+  ///   * [playIntended] — the player's play/pause intent (not the momentary
+  ///     buffering state); a user-paused item is never reconnected.
+  ///   * [reconnectAttempts] — in-place reconnects already spent this session.
+  ///     The first stall earns one reconnect; a later stall escalates to
+  ///     fallback.
+  static VideoStallAction decide({
+    required bool hasRenderedFrame,
+    required bool buffering,
+    required bool playIntended,
+    required int reconnectAttempts,
+  }) {
+    // Pre-first-frame belongs to the startup watchdog; a paused or non-buffering
+    // item is not stuck.
+    if (!hasRenderedFrame || !buffering || !playIntended) {
+      return VideoStallAction.none;
+    }
+    // One seamless reconnect, then drop to the robust audio-only failover.
+    return reconnectAttempts >= 1
+        ? VideoStallAction.fallback
+        : VideoStallAction.reconnect;
   }
 }
 
@@ -679,6 +745,48 @@ class AppAudioHandler extends BaseAudioHandler {
   /// fallback rather than waiting out [_videoFallbackTimeout].
   static const int _videoFallbackMaxErrors = 2;
 
+  // ── Post-first-frame stall watchdog ────────────────────────────────────
+  // The startup watchdog above disarms once a first frame renders. This one
+  // covers the gap after that: if the picture keeps buffering mid-playback
+  // (libmpv `paused-for-cache` sticks true) while we intend to play, it
+  // reconnects the video once, then falls back to audio-only on a second
+  // stall. See [VideoStallPolicy] for the escalation.
+  Timer? _videoStallTimer;
+  final List<StreamSubscription<dynamic>> _videoStallSubs = [];
+  // In-place reconnects spent in the CURRENT video session (reset on every
+  // [_enterVideoMode]). Drives the reconnect→fallback escalation.
+  int _videoStallReconnectAttempts = 0;
+
+  /// How long the picture may keep buffering AFTER a first frame — while we
+  /// intend to play — before the stall watchdog acts. Longer than
+  /// [_videoFallbackTimeout]: a mid-stream rebuffer deserves more patience than
+  /// a cold start that never rendered anything.
+  static const Duration _videoStallTimeout = Duration(seconds: 12);
+
+  // ── Seamless background↔foreground handoff (TV live) ───────────────────
+  // Backgrounding a TV video hands off to just_audio; returning to foreground
+  // hands back to media_kit video. Both directions overlap the two pipelines
+  // (one muted) so the swap has ZERO audible gap:
+  //   • audio→video (resume): just_audio keeps playing while media_kit spins up
+  //     MUTED; on its first frame we unmute video and stop just_audio.
+  //   • video→audio (background): media_kit keeps playing while just_audio loads
+  //     MUTED; once it is actually playing we unmute audio and stop the video.
+  // These hold the pending swap's listeners/timer while it is in flight.
+  Timer? _resumeSwapTimer;
+  final List<StreamSubscription<dynamic>> _resumeSwapSubs = [];
+  int _resumeSwapErrorCount = 0;
+  // True while a muted media_kit spin-up is in flight (video playing muted,
+  // `_videoMode` still false so the rest of the handler stays audio-driven until
+  // the atomic swap commits).
+  bool _resumeSwapPending = false;
+  StreamSubscription<bool>? _audioReadySwapSub;
+  Timer? _audioReadySwapTimer;
+
+  /// Backstop for the background video→audio swap: if just_audio never reports
+  /// playing within this window we swap anyway (stop the video, unmute audio) so
+  /// we can't get wedged with the video decoder alive in the background.
+  static const Duration _backgroundSwapTimeout = Duration(seconds: 8);
+
   /// Emits true when the current video content is playing audio-only because
   /// video rendering failed and we fell back. The UI shows a subtle "Doar
   /// audio" chip. Cleared when new/working video content starts.
@@ -696,11 +804,11 @@ class AppAudioHandler extends BaseAudioHandler {
   bool get isForeground => _lifecycleState == AppLifecycleState.resumed;
 
   /// Emits true when playback is in video mode. The UI subscribes to know when
-  /// to mount `Video(controller: videoService.controller)`.
+  /// to mount the `VideoPlayer` surface.
   final BehaviorSubject<bool> isVideoMode = BehaviorSubject<bool>.seeded(false);
 
-  /// The media_kit video service (audio+video). Exposed so the UI can read the
-  /// `VideoController` for TV playback.
+  /// The video_player-backed video service (audio+video). Exposed so the UI can
+  /// read the active `VideoPlayerController` for TV playback.
   VideoPlaybackService get videoService => GetIt.instance<VideoPlaybackService>();
 
   PlaylistController get _playlistController =>
@@ -1595,6 +1703,12 @@ class AppAudioHandler extends BaseAudioHandler {
     // Track play count for recommendation algorithm
     GetIt.instance<PlayCountService>().incrementPlayCount(station.slug);
 
+    // Notification permission is asked for on the 2nd play, never at startup.
+    if (GetIt.instance.isRegistered<NotificationPermissionService>()) {
+      unawaited(GetIt.instance<NotificationPermissionService>()
+          .onStationPlayed());
+    }
+
     // Avoid stop-restart if already playing this exact playlist station.
     if (station.isPlaylist &&
         _playlistMode &&
@@ -1618,6 +1732,11 @@ class AppAudioHandler extends BaseAudioHandler {
     // New station selection — forget any prior video→audio fallback so this
     // station gets a fresh video attempt and the chip starts hidden.
     resetVideoFallback();
+
+    // Abandon any in-flight background↔foreground handoff swaps so a stale
+    // muted spin-up can't commit over the new station.
+    _cancelResumeSwap(stopMutedVideo: true);
+    _cancelAudioReadySwap();
 
     // Tearing down the previous station: leave any active playlist and stop
     // video mode so the new station starts from a clean slate.
@@ -1691,19 +1810,27 @@ class AppAudioHandler extends BaseAudioHandler {
     // TV station: play video via media_kit when eligible (foreground, no
     // car/cast); otherwise fall through to the just_audio path, which plays
     // the audio track of the HLS/MP4 stream with all existing behavior.
-    if (station.isTv &&
-        VideoModeDecision.shouldUseVideoMode(
-          isVideoContent: true,
-          isForeground: isForeground,
-          isCarConnected: isCarConnected,
-          isCasting: isCasting,
-        )) {
+    if (station.isTv) {
+      final useVideoMode = VideoModeDecision.shouldUseVideoMode(
+        isVideoContent: true,
+        isForeground: isForeground,
+        isCarConnected: isCarConnected,
+        isCasting: isCasting,
+      );
       final url = _primaryStreamUrl(station);
-      if (url != null && _fallenBackUrl != url) {
+      // Single observable line for the whole TV decision — a declined video
+      // mode used to be completely silent, which made "why is this TV station
+      // playing audio-only?" impossible to answer from a log.
+      _log('playStation TV branch: isTv=true, useVideoMode=$useVideoMode '
+          '(isForeground=$isForeground, isCarConnected=$isCarConnected, '
+          'isCasting=$isCasting), primaryUrl=$url, '
+          'streams=${Utils.getStationStreamObjects(station.rawStationData).length}, '
+          'fallenBackUrl=$_fallenBackUrl');
+      if (useVideoMode && url != null && _fallenBackUrl != url) {
         _isConnecting = false;
         return _enterVideoMode(url, live: true);
       }
-      if (url != null && _fallenBackUrl == url) {
+      if (useVideoMode && url != null && _fallenBackUrl == url) {
         // Known-bad video stream for this station — go straight to audio-only
         // with the chip, skipping the doomed video attempt.
         audioOnlyFallback.add(true);
@@ -1749,23 +1876,40 @@ class AppAudioHandler extends BaseAudioHandler {
   @override
   Future<void> skipToNext() {
     _log('skipToNext() startedFromFavorites=${stationDataService.startedFromFavorites}');
-    // Playlist active: steering-wheel / lock-screen next skips to the next item.
+    // Playlist active: steering-wheel / lock-screen next skips to the next
+    // item — and, on the last item, on to the next STATION (the controller
+    // calls [skipToNextStation] back).
     if (_playlistMode) return _playlistController.skipToNext();
-    if (currentStation.value == null) return super.skipToNext();
-    final next = stationDataService.getNextStation(currentStation.value!.slug);
-    _log('skipToNext: current=${currentStation.value!.slug}, next=${next?.slug}');
-    if (next == null) return super.skipToNext();
-    AnalyticsService.instance.trackStationSkip(currentStation.value!.slug, next.slug, 'next');
-    return playStation(next);
+    return skipToNextStation();
   }
 
   @override
   Future<void> skipToPrevious() {
     _log('skipToPrevious() startedFromFavorites=${stationDataService.startedFromFavorites}');
     if (_playlistMode) return _playlistController.skipToPrevious();
+    return skipToPreviousStation();
+  }
+
+  /// Plays the next station in the frozen ordered station list, whatever its
+  /// kind (radio, TV or playlist).
+  ///
+  /// Split out of [skipToNext] so the playlist controller can reuse the exact
+  /// same path when the user presses "next" on the last playlist item.
+  Future<void> skipToNextStation() {
+    if (currentStation.value == null) return super.skipToNext();
+    final next = stationDataService.getNextStation(currentStation.value!.slug);
+    _log('skipToNextStation: current=${currentStation.value!.slug}, next=${next?.slug}');
+    if (next == null) return super.skipToNext();
+    AnalyticsService.instance.trackStationSkip(currentStation.value!.slug, next.slug, 'next');
+    return playStation(next);
+  }
+
+  /// Plays the previous station in the frozen ordered station list. Mirror of
+  /// [skipToNextStation]; also used for "previous" on the first playlist item.
+  Future<void> skipToPreviousStation() {
     if (currentStation.value == null) return super.skipToPrevious();
     final prev = stationDataService.getPreviousStation(currentStation.value!.slug);
-    _log('skipToPrevious: current=${currentStation.value!.slug}, prev=${prev?.slug}');
+    _log('skipToPreviousStation: current=${currentStation.value!.slug}, prev=${prev?.slug}');
     if (prev == null) return super.skipToPrevious();
     AnalyticsService.instance.trackStationSkip(currentStation.value!.slug, prev.slug, 'previous');
     return playStation(prev);
@@ -2765,6 +2909,7 @@ class AppAudioHandler extends BaseAudioHandler {
     _ensureVideoSubscriptions();
     _attachRouteHandoffListeners();
     _startVideoFallbackWatchdog(url, live: live, startPosition: startPosition);
+    _startVideoStallWatchdog(url, live: live);
     try {
       await videoService.open(url, live: live, startPosition: startPosition);
     } catch (e) {
@@ -2802,19 +2947,22 @@ class AppAudioHandler extends BaseAudioHandler {
     }));
     _videoFallbackSubs.add(vs.errorStream.listen((e) {
       if (!_videoMode) return;
+      // A rendered frame already cancels the watchdog; ignore any late blip.
+      if (vs.hasRenderedFrame) return;
       _videoFallbackErrorCount++;
-      _log('video error #$_videoFallbackErrorCount (hasFrame=${vs.hasRenderedFrame}): $e');
-      if (!vs.hasRenderedFrame) {
-        // Errored before ever showing a picture — the pipeline can't start on
-        // this device/codec. Fall back to audio immediately (don't wait out
-        // the timeout).
+      _log('video error #$_videoFallbackErrorCount (pre-frame): $e');
+      // Do NOT bail on the first error: a healthy live HLS commonly surfaces
+      // one non-fatal libmpv error while it probes alternate renditions /
+      // variants, then renders fine. Falling back on that first blip was
+      // kicking good TV streams straight to audio-only. Tolerate a single
+      // error and only give up after [_videoFallbackMaxErrors]; the timeout is
+      // the ultimate backstop for a stream that errors slowly or stalls
+      // silently without ever producing a frame.
+      if (_videoFallbackErrorCount >= _videoFallbackMaxErrors) {
         unawaited(_triggerVideoFallback(url,
-            live: live, startPosition: startPosition, reason: 'error_pre_frame'));
-      } else if (_videoFallbackErrorCount >= _videoFallbackMaxErrors) {
-        // Repeated errors after playback had started — tolerate one blip, then
-        // fall back rather than stutter forever.
-        unawaited(_triggerVideoFallback(url,
-            live: live, startPosition: startPosition, reason: 'repeated_errors'));
+            live: live,
+            startPosition: startPosition,
+            reason: 'errors_pre_frame'));
       }
     }));
     _videoFallbackTimer = Timer(_videoFallbackTimeout, () {
@@ -2834,6 +2982,110 @@ class AppAudioHandler extends BaseAudioHandler {
     _videoFallbackSubs.clear();
   }
 
+  /// Arms the post-first-frame stall watchdog for the media in video mode.
+  ///
+  /// The startup [_startVideoFallbackWatchdog] only covers the cold start (no
+  /// first frame yet); once a frame renders it disarms and never re-arms. If
+  /// the stream then stalls mid-playback (libmpv `paused-for-cache` sticks
+  /// true) nothing else recovers — the buffering-stall/frozen-position
+  /// watchdogs live on the stopped just_audio player, and
+  /// [ReconnectPolicy.shouldReconnectFrozenPosition] bails in video mode. This
+  /// fills that gap: while we intend to play and buffering outlasts
+  /// [_videoStallTimeout], it reconnects in place once, then falls back to
+  /// audio-only on a second stall. See [VideoStallPolicy]. Resets the
+  /// per-session reconnect counter, so a fresh [_enterVideoMode] gets a clean
+  /// escalation.
+  void _startVideoStallWatchdog(
+    String url, {
+    required bool live,
+  }) {
+    _cancelVideoStallWatchdog();
+    _videoStallReconnectAttempts = 0;
+    final vs = videoService;
+    _videoStallSubs.add(vs.bufferingStream.listen((buffering) {
+      if (!_videoMode) return;
+      // Only a stall while we've rendered a frame AND intend to play is worth a
+      // timer — the startup watchdog owns pre-frame, and a paused item that is
+      // merely buffering ahead is not stuck.
+      if (buffering && vs.hasRenderedFrame && vs.isPlaying) {
+        _armVideoStallTimer(url, live: live);
+      } else {
+        _videoStallTimer?.cancel();
+        _videoStallTimer = null;
+      }
+    }));
+  }
+
+  void _cancelVideoStallWatchdog() {
+    _videoStallTimer?.cancel();
+    _videoStallTimer = null;
+    for (final s in _videoStallSubs) {
+      s.cancel();
+    }
+    _videoStallSubs.clear();
+  }
+
+  void _armVideoStallTimer(String url, {required bool live}) {
+    if (_videoStallTimer != null) return; // already counting this stall
+    _log('video buffering stall — arming ${_videoStallTimeout.inSeconds}s '
+        'watchdog');
+    _videoStallTimer = Timer(_videoStallTimeout, () {
+      _videoStallTimer = null;
+      _onVideoStallTimerFired(url, live: live);
+    });
+  }
+
+  /// The stall outlasted [_videoStallTimeout]: reconnect once, else fall back.
+  void _onVideoStallTimerFired(String url, {required bool live}) {
+    if (!_videoMode) return;
+    final vs = videoService;
+    final action = VideoStallPolicy.decide(
+      hasRenderedFrame: vs.hasRenderedFrame,
+      buffering: vs.isBuffering,
+      playIntended: vs.isPlaying,
+      reconnectAttempts: _videoStallReconnectAttempts,
+    );
+    switch (action) {
+      case VideoStallAction.none:
+        return;
+      case VideoStallAction.reconnect:
+        _videoStallReconnectAttempts++;
+        unawaited(_reconnectVideoInPlace(url, live: live));
+      case VideoStallAction.fallback:
+        _log('video stall persists after reconnect → audio fallback');
+        final pos = live ? null : vs.position;
+        unawaited(_triggerVideoFallback(url,
+            live: live,
+            startPosition: pos,
+            reason: 'stall_after_reconnect'));
+    }
+  }
+
+  /// Re-opens the same URL in the video player for a seamless mid-stream
+  /// recovery, reusing [VideoPlaybackService.open] so [_configureProbing] is
+  /// re-applied. Re-arms the cold-start fallback watchdog because [open] resets
+  /// the first-frame flag — so a reconnect that never renders still drops to
+  /// audio-only.
+  Future<void> _reconnectVideoInPlace(String url, {required bool live}) async {
+    if (!_videoMode) return;
+    _log('video stall reconnect (in place) for $url');
+    final pos = live ? null : videoService.position;
+    AnalyticsService.instance.capture('video_stall_reconnect', {
+      'url': url,
+      'live': live,
+      'is_playlist': _playlistMode,
+      'station_slug': currentStation.valueOrNull?.slug,
+    });
+    try {
+      await videoService.open(url, live: live, startPosition: pos);
+      _startVideoFallbackWatchdog(url, live: live, startPosition: pos);
+    } catch (e) {
+      _log('video stall reconnect failed: $e');
+      unawaited(_triggerVideoFallback(url,
+          live: live, startPosition: pos, reason: 'reconnect_failed'));
+    }
+  }
+
   /// Hands the current (failing) video content off to the just_audio audio-only
   /// pipeline and surfaces the "Doar audio" chip. Reuses the same audio path as
   /// the background→audio handoff so the two never conflict. Records [url] as
@@ -2847,6 +3099,7 @@ class AppAudioHandler extends BaseAudioHandler {
     if (!_videoMode) return; // already left video mode (handoff/stop won)
     if (_fallenBackUrl == url) return; // already fell back for this content
     _cancelVideoFallbackWatchdog();
+    _cancelVideoStallWatchdog();
     _log('video→audio fallback ($reason) for $url');
     _fallenBackUrl = url;
     AnalyticsService.instance.capture('video_fallback_to_audio', {
@@ -2873,9 +3126,10 @@ class AppAudioHandler extends BaseAudioHandler {
   /// Leaves video mode. When [stopVideo] is true the media_kit player is
   /// stopped (keeps the texture alive for reuse).
   Future<void> _exitVideoMode({required bool stopVideo}) async {
-    // Leaving video mode (for any reason) disarms the fallback watchdog so it
-    // can never fire against content we're no longer showing.
+    // Leaving video mode (for any reason) disarms both watchdogs so neither
+    // can ever fire against content we're no longer showing.
     _cancelVideoFallbackWatchdog();
+    _cancelVideoStallWatchdog();
     if (!_videoMode) {
       if (stopVideo && videoService.isInitialized) {
         await videoService.stop();
@@ -2933,35 +3187,190 @@ class AppAudioHandler extends BaseAudioHandler {
     }
   }
 
-  /// TV station: hand off from media_kit video to just_audio audio-only, using
-  /// the standard station play() path (live-edge re-tune + metadata).
+  /// TV station: hand off from media_kit video to just_audio audio-only when the
+  /// app backgrounds — GAPLESS. The video keeps playing (audible) while
+  /// just_audio loads the same station MUTED; only once just_audio is actually
+  /// playing do we unmute it and stop the video, so the listener never hears
+  /// silence. This does NOT mark the URL fallen-back — backgrounding is not a
+  /// failure, so the later foreground resume re-attempts video (see
+  /// [_handoffTvAudioToVideo]).
   Future<void> _handoffTvVideoToAudio() async {
     if (!_videoMode) return;
-    _log('handoffTvVideoToAudio');
+    _log('handoffTvVideoToAudio (gapless)');
     if (Platform.isIOS) {
       await _startSilenceKeepAlive();
     }
-    await _exitVideoMode(stopVideo: true);
+    // Leave video mode so play() drives just_audio, but keep the video PLAYING
+    // (audible) — do NOT stop it yet. Both watchdogs are disarmed; the audible
+    // source is handed over below once audio is confirmed flowing.
+    _cancelVideoFallbackWatchdog();
+    _cancelVideoStallWatchdog();
+    _videoMode = false;
+    isVideoMode.add(false);
+    // Mute just_audio so it loads/starts silently under the still-audible video,
+    // avoiding a double-audio echo during the overlap.
+    await player.setVolume(0.0);
+    _armAudioReadySwap();
     _loadedStreamUrl = null;
     _loadedStreamType = null;
     await play();
     _stopSilenceKeepAlive();
   }
 
-  /// TV station: hand back from just_audio audio-only to media_kit video mode.
+  /// Arms the background video→audio swap: when just_audio first reports playing
+  /// (audio is really flowing), unmute it and stop the still-running video —
+  /// audio-first ordering guarantees no silent gap. A timeout backstop performs
+  /// the swap anyway so the video decoder can't stay alive in the background.
+  void _armAudioReadySwap() {
+    _cancelAudioReadySwap();
+    var done = false;
+    Future<void> swap(String reason) async {
+      if (done) return;
+      done = true;
+      _cancelAudioReadySwap();
+      _log('background swap → audio ($reason): unmute audio, stop video');
+      // Unmute audio FIRST (it becomes the audible source), then tear down the
+      // video. The brief overlap is same-content audio, never silence.
+      await player.setVolume(1.0);
+      if (videoService.isInitialized) {
+        await videoService.stop();
+      }
+    }
+
+    _audioReadySwapSub = player.playingStream.listen((playing) {
+      if (playing) unawaited(swap('playing'));
+    });
+    _audioReadySwapTimer =
+        Timer(_backgroundSwapTimeout, () => unawaited(swap('timeout')));
+  }
+
+  void _cancelAudioReadySwap() {
+    _audioReadySwapTimer?.cancel();
+    _audioReadySwapTimer = null;
+    _audioReadySwapSub?.cancel();
+    _audioReadySwapSub = null;
+  }
+
+  /// TV station: hand back from just_audio audio-only to media_kit video mode
+  /// when the app returns to the foreground — SEAMLESS. just_audio keeps playing
+  /// untouched while media_kit spins up MUTED in the background; only when the
+  /// video renders its first frame (opened at the live edge, so it is already
+  /// aligned near live) do we unmute the video and stop just_audio, giving a
+  /// swap with zero audible gap.
   Future<void> _handoffTvAudioToVideo() async {
     final station = currentStation.valueOrNull;
     if (station == null || !station.isTv) return;
     final url = _primaryStreamUrl(station);
     if (url == null) return;
-    // This stream already failed to render video — stay audio-only rather than
-    // re-attempting video and fighting the fallback on every resume.
-    if (_fallenBackUrl == url) {
-      _log('handoffTvAudioToVideo: skipped (fell back to audio for this url)');
+    if (!VideoModeDecision.shouldResumeVideoOnForeground(
+      isVideoContent: true,
+      isCarConnected: isCarConnected,
+      isCasting: isCasting,
+      hasFallenBackForUrl: _fallenBackUrl == url,
+    )) {
+      _log('handoffTvAudioToVideo: skipped (not eligible / fell back)');
       return;
     }
-    _log('handoffTvAudioToVideo');
-    await _enterVideoMode(url, live: true);
+    if (_videoMode || _resumeSwapPending) return; // already video / spinning up
+    await _seamlessResumeAudioToVideo(url, live: true);
+  }
+
+  /// Spins media_kit up MUTED under the still-playing just_audio, then atomically
+  /// swaps to video on the first rendered frame. On timeout/error it abandons
+  /// the muted video and keeps audio playing (no interruption), marking the URL
+  /// fallen-back so we don't refight it on every resume.
+  Future<void> _seamlessResumeAudioToVideo(
+    String url, {
+    required bool live,
+  }) async {
+    _log('seamless resume audio→video for $url');
+    _cancelResumeSwap();
+    _resumeSwapPending = true;
+    _resumeSwapErrorCount = 0;
+    final vs = videoService;
+    var settled = false;
+
+    void commit() {
+      if (settled) return;
+      settled = true;
+      _cancelResumeSwap(); // clears listeners/timer; keeps the video playing
+      _resumeSwapPending = false;
+      unawaited(() async {
+        _log('seamless resume: first frame → swap to video');
+        // Unmute the video (it becomes audible) BEFORE tearing down just_audio,
+        // so the overlap is same-content audio and never silence.
+        await vs.setMute(false);
+        // Respect a pause the user made during the muted spin-up.
+        if (!player.playing) await vs.pause();
+        _videoMode = true;
+        isVideoMode.add(true);
+        audioOnlyFallback.add(false);
+        _ensureVideoSubscriptions();
+        _attachRouteHandoffListeners();
+        // The frame has already rendered, so the cold-start fallback watchdog is
+        // not needed; arm the post-first-frame stall watchdog just like
+        // _enterVideoMode so a later mid-stream stall still recovers.
+        _startVideoStallWatchdog(url, live: live);
+        _broadcastState(player.playbackEvent);
+        _cancelInFlightPlay();
+        await player.stop();
+        _loadedStreamUrl = null;
+        _loadedStreamType = null;
+      }());
+    }
+
+    void abandon(String reason) {
+      if (settled) return;
+      settled = true;
+      _cancelResumeSwap();
+      _resumeSwapPending = false;
+      _log('seamless resume abandoned ($reason) → staying audio-only');
+      // A genuine failure to render — pin to audio-only so we don't refight it
+      // on every resume. just_audio keeps playing, so no interruption.
+      _fallenBackUrl = url;
+      audioOnlyFallback.add(true);
+      unawaited(vs.setMute(false));
+      unawaited(vs.stop());
+    }
+
+    // Spin up MUTED: mute before open so the media opens silent (open re-applies
+    // the mute state), then watch for the first frame / errors / timeout.
+    await vs.setMute(true);
+    _resumeSwapSubs.add(vs.hasFrameStream.listen((has) {
+      if (has) commit();
+    }));
+    _resumeSwapSubs.add(vs.errorStream.listen((e) {
+      if (settled) return;
+      _resumeSwapErrorCount++;
+      _log('seamless resume video error #$_resumeSwapErrorCount: $e');
+      if (_resumeSwapErrorCount >= _videoFallbackMaxErrors) abandon('errors');
+    }));
+    _resumeSwapTimer = Timer(_videoFallbackTimeout, () {
+      if (!vs.hasRenderedFrame) abandon('timeout');
+    });
+    try {
+      await vs.open(url, live: live);
+    } catch (e) {
+      abandon('open_failed');
+    }
+  }
+
+  /// Tears down a pending seamless-resume swap. [stopMutedVideo] additionally
+  /// stops the muted media_kit spin-up (used when a new station / stop supersedes
+  /// an in-flight resume before it committed); [commit] leaves it running.
+  void _cancelResumeSwap({bool stopMutedVideo = false}) {
+    _resumeSwapTimer?.cancel();
+    _resumeSwapTimer = null;
+    for (final s in _resumeSwapSubs) {
+      s.cancel();
+    }
+    _resumeSwapSubs.clear();
+    _resumeSwapErrorCount = 0;
+    if (stopMutedVideo && _resumeSwapPending && !_videoMode) {
+      unawaited(videoService.setMute(false));
+      if (videoService.isInitialized) unawaited(videoService.stop());
+    }
+    if (stopMutedVideo) _resumeSwapPending = false;
   }
 
   /// Clears the video→audio fallback state so genuinely new content gets a
@@ -3157,6 +3566,10 @@ class AppAudioHandler extends BaseAudioHandler {
     final backgrounded = state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden;
     if (backgrounded) {
+      // If a foreground resume was still spinning up a muted video, abandon it
+      // (kill the decoder) — just_audio is already the audible source and keeps
+      // playing in the background untouched.
+      _cancelResumeSwap(stopMutedVideo: true);
       if (_videoMode) unawaited(_handoffTvVideoToAudio());
     } else if (state == AppLifecycleState.resumed) {
       final station = currentStation.valueOrNull;
@@ -3205,6 +3618,9 @@ class AppAudioHandler extends BaseAudioHandler {
       setCastPlaying(false);
       return;
     }
+    // Abandon any in-flight background↔foreground handoff swaps.
+    _cancelResumeSwap(stopMutedVideo: true);
+    _cancelAudioReadySwap();
     // Tear down playlist / video mode before the shared cleanup below.
     if (_playlistMode) {
       await _playlistController.stop();
@@ -3520,6 +3936,7 @@ class AppAudioHandler extends BaseAudioHandler {
     }
     _videoSubs.clear();
     _cancelVideoFallbackWatchdog();
+    _cancelVideoStallWatchdog();
     await audioOnlyFallback.close();
     await _carRouteSub?.cancel();
     await _castRouteSub?.cancel();

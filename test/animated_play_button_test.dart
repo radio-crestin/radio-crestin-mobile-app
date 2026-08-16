@@ -135,10 +135,10 @@ void main() {
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
     });
 
-    testWidgets('tapping spinner cancels in-flight play via onPause', (tester) async {
-      // The widget intentionally routes spinner taps to onPause (not onStop)
-      // so a stuck buffering state doesn't kill the player and leave the
-      // button unresponsive after skip-next. See AnimatedPlayButton.build().
+    testWidgets('tapping spinner stops the stream via onStop', (tester) async {
+      // While a stream is still loading/buffering (spinner showing), tapping
+      // the button means "stop the stream": it cancels the in-flight load
+      // through onStop() (not onPause). See AnimatedPlayButton.build().
       var pauseCalled = false;
       var stopCalled = false;
       await tester.pumpWidget(buildWidget(
@@ -155,8 +155,34 @@ void main() {
       await tester.pump(const Duration(milliseconds: 50));
 
       await tester.tap(find.byType(InkWell));
-      expect(pauseCalled, true);
-      expect(stopCalled, false);
+      expect(stopCalled, true);
+      expect(pauseCalled, false);
+    });
+
+    testWidgets('tapping spinner instantly flips to the play icon', (tester) async {
+      // Instant feedback (CLAUDE.md UX rule): the spinner must disappear the
+      // moment the user taps to stop, without waiting for the real stream
+      // state to settle.
+      await tester.pumpWidget(buildWidget());
+      await tester.pump();
+
+      // Enter the loading state via optimistic intent (skip-next style) so the
+      // spinner shows while the user still intends to play.
+      playbackController.add(PlaybackState(
+        playing: true,
+        processingState: AudioProcessingState.loading,
+      ));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+      // Tap while the spinner shows — should immediately show the play icon.
+      await tester.tap(find.byType(InkWell));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(find.byIcon(Icons.play_arrow_rounded), findsOneWidget);
     });
 
     testWidgets('renders with background color when provided', (tester) async {

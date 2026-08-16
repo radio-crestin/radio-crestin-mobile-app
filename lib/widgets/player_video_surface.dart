@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:media_kit_video/media_kit_video.dart';
 import 'package:radio_crestin/theme.dart';
+import 'package:video_player/video_player.dart';
 
 import '../services/video_playback_service.dart';
 
-/// Enters landscape immersive chrome for media_kit fullscreen — mirrors the
-/// inline YouTube fullscreen pattern so both video kinds behave identically.
+/// Enters landscape immersive chrome for video fullscreen — mirrors the inline
+/// YouTube fullscreen pattern so both video kinds behave identically.
 Future<void> enterVideoFullscreenChrome() async {
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   await SystemChrome.setPreferredOrientations(const [
@@ -15,7 +15,7 @@ Future<void> enterVideoFullscreenChrome() async {
   ]);
 }
 
-/// Restores portrait + edge-to-edge chrome when leaving media_kit fullscreen.
+/// Restores portrait + edge-to-edge chrome when leaving video fullscreen.
 Future<void> exitVideoFullscreenChrome() async {
   await SystemChrome.setEnabledSystemUIMode(
     SystemUiMode.edgeToEdge,
@@ -112,13 +112,120 @@ class AudioOnlyChip extends StatelessWidget {
   }
 }
 
-/// The media_kit video output for the current source, with a buffering overlay
-/// and an optional LIVE pill for live TV.
+/// Subtle "Nu rulează în fundal" pill shown over an inline YouTube item. It is
+/// a persistent (non-auto-hiding) reminder that a YouTube video can only keep
+/// playing while the app stays open and the screen is on — locking the screen
+/// or switching apps pauses it. Mirrors [AudioOnlyChip]'s dark translucent
+/// styling so it reads as an unobtrusive status badge, not a control.
+class YoutubeBackgroundChip extends StatelessWidget {
+  const YoutubeBackgroundChip({super.key, this.compact = false});
+
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 7 : 9,
+        vertical: compact ? 3 : 4,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.info_outline_rounded,
+              size: compact ? 11 : 13, color: Colors.white),
+          SizedBox(width: compact ? 4 : 5),
+          Text(
+            'Nu rulează în fundal',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+              fontSize: compact ? 10 : 11,
+              letterSpacing: 0.3,
+              height: 1.0,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Reactively renders the video_player output for the CURRENT source on a black
+/// background, sizing itself from the active controller's reported dimensions.
 ///
-/// The [VideoController] is created and owned by the engine's
-/// [VideoPlaybackService]; this widget only reads it and mounts the `Video`
-/// widget. [ensureInitialized] is idempotent, so calling it here is safe even
-/// if the engine created the controller already.
+/// The [VideoPlayerController] is created and owned by the engine's
+/// [VideoPlaybackService]; this widget subscribes to [controllerStream] so it
+/// rebinds seamlessly whenever the controller swaps (new media, or a manual
+/// quality preload-then-swap), and to the controller's own value for size
+/// changes. Multiple [VideoRender]s can share one controller (e.g. inline +
+/// fullscreen) — video_player renders the same texture in each.
+class VideoRender extends StatelessWidget {
+  const VideoRender({
+    super.key,
+    required this.videoService,
+    this.fit = BoxFit.contain,
+  });
+
+  final VideoPlaybackService videoService;
+  final BoxFit fit;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<VideoPlayerController?>(
+      stream: videoService.controllerStream,
+      initialData: videoService.controller,
+      builder: (context, snapshot) {
+        final controller = snapshot.data ?? videoService.controller;
+        if (controller == null) {
+          return const SizedBox.expand();
+        }
+        return ValueListenableBuilder<VideoPlayerValue>(
+          valueListenable: controller,
+          builder: (context, value, _) {
+            if (!value.isInitialized ||
+                value.size.width <= 0 ||
+                value.size.height <= 0) {
+              return const SizedBox.expand();
+            }
+            final video = VideoPlayer(controller);
+            if (fit == BoxFit.cover) {
+              return SizedBox.expand(
+                child: FittedBox(
+                  fit: BoxFit.cover,
+                  clipBehavior: Clip.hardEdge,
+                  child: SizedBox(
+                    width: value.size.width,
+                    height: value.size.height,
+                    child: video,
+                  ),
+                ),
+              );
+            }
+            // contain (default): letterbox on the black background.
+            return Center(
+              child: AspectRatio(
+                aspectRatio: value.aspectRatio,
+                child: video,
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+/// The video output for the current source, with a buffering overlay and an
+/// optional LIVE pill for live TV.
+///
+/// The [VideoPlayerController] is created and owned by the engine's
+/// [VideoPlaybackService]; this widget only renders it (via [VideoRender]) and
+/// composes the optional [controls] overlay on top.
 class PlayerVideoSurface extends StatelessWidget {
   const PlayerVideoSurface({
     super.key,
@@ -127,7 +234,6 @@ class PlayerVideoSurface extends StatelessWidget {
     this.fit = BoxFit.contain,
     this.borderRadius = const BorderRadius.all(Radius.circular(12)),
     this.controls,
-    this.videoKey,
   });
 
   final VideoPlaybackService videoService;
@@ -135,15 +241,11 @@ class PlayerVideoSurface extends StatelessWidget {
   final BoxFit fit;
   final BorderRadius borderRadius;
 
-  /// Optional key onto the media_kit [Video] widget so UI outside the surface
-  /// can call `videoKey.currentState?.enterFullscreen()`.
-  final GlobalKey<VideoState>? videoKey;
-
   /// Optional custom controls builder (e.g. [VideoOverlayControls]). When
-  /// provided, the surface hands buffering and the LIVE pill to the overlay and
-  /// wires the media_kit fullscreen chrome; the built-in spinner/pill are only
-  /// used for the bare (`controls == null`) surface.
-  final VideoControlsBuilder? controls;
+  /// provided, the surface hands buffering and the LIVE pill to the overlay; the
+  /// built-in spinner/pill are only used for the bare (`controls == null`)
+  /// surface.
+  final WidgetBuilder? controls;
 
   @override
   Widget build(BuildContext context) {
@@ -155,24 +257,8 @@ class PlayerVideoSurface extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            FutureBuilder<VideoController>(
-              future: videoService.ensureInitialized(),
-              builder: (context, snapshot) {
-                final controller = snapshot.data ?? videoService.controller;
-                if (controller == null) {
-                  return const _SurfaceSpinner();
-                }
-                return Video(
-                  key: videoKey,
-                  controller: controller,
-                  controls: controls ?? NoVideoControls,
-                  fit: fit,
-                  fill: Colors.black,
-                  onEnterFullscreen: enterVideoFullscreenChrome,
-                  onExitFullscreen: exitVideoFullscreenChrome,
-                );
-              },
-            ),
+            VideoRender(videoService: videoService, fit: fit),
+            if (hasOverlay) Positioned.fill(child: Builder(builder: controls!)),
             // Bare surface only: buffering spinner + LIVE pill. With an overlay
             // present these are owned by the overlay (avoids double-rendering).
             if (!hasOverlay)

@@ -2,25 +2,67 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:media_kit/media_kit.dart';
-import 'package:media_kit_video/media_kit_video.dart';
 import 'package:radio_crestin/theme.dart';
 
 import '../services/video_playback_service.dart';
+import '../services/video_quality.dart';
 import 'player_video_surface.dart';
+
+export '../services/video_quality.dart' show VideoQuality;
 
 /// Diameter of the central play/pause control on the video overlay.
 const double kOverlayPlayButtonSize = 56.0;
 
-/// Diameter of the previous/next skip controls on the video overlay.
-///
-/// Kept deliberately small — the earlier 40+ px skip icons read as oversized
-/// on the video surface (explicit user feedback). 36 px keeps them clearly
-/// secondary to the 56 px play control.
-const double kOverlaySkipButtonSize = 36.0;
-
 /// Seconds a single double-tap seek jumps (YouTube-style).
 const int kDoubleTapSeekSeconds = 10;
+
+/// Minimum reported live-stream duration before the overlay treats a live
+/// stream as DVR-scrubbable. A live HLS window shorter than this (or a window
+/// libmpv hasn't probed yet, reported as ~0) offers no useful seek range, so
+/// the overlay keeps the plain LIVE bar instead of a near-empty scrubber.
+const Duration kMinLiveDvrWindow = Duration(seconds: 30);
+
+/// Inactivity delay before the INLINE video surface fades its controls out
+/// (the seek bar / scrubber plus the corner fullscreen and quality buttons).
+///
+/// Much longer than the fullscreen delay on purpose: inline, the video shares
+/// the screen with the title, transport and track list, so the controls are not
+/// in the way — they only need to step aside once the user has clearly settled
+/// into watching.
+const Duration kInlineControlsAutoHideDelay = Duration(seconds: 20);
+
+/// Inactivity delay for the FULLSCREEN transport overlay (YouTube-like).
+const Duration kFullscreenControlsAutoHideDelay = Duration(seconds: 3);
+
+/// The inactivity delay after which the auto-hiding controls fade out. Pure so
+/// the inline-vs-fullscreen timing contract is unit-testable without timers.
+Duration videoControlsAutoHideDelay({required bool isFullscreen}) =>
+    isFullscreen
+        ? kFullscreenControlsAutoHideDelay
+        : kInlineControlsAutoHideDelay;
+
+/// Whether the auto-hiding controls should currently be shown (and be
+/// hit-testable).
+///
+/// [userVisible] is the inactivity timer's own state — false once the timer
+/// elapsed, true again after any interaction. Playback state overrides it:
+/// while PAUSED or buffering the controls always stay up, so a paused video
+/// never strands the user without a scrubber. Pure so the whole show/hide
+/// decision is testable without pumping timers.
+bool shouldShowVideoControls({
+  required bool userVisible,
+  required bool playing,
+  required bool buffering,
+}) =>
+    userVisible || !playing || buffering;
+
+/// Formats the distance [behind] the live edge as a `-m:ss` chip for the live
+/// DVR bar, or `● LIVE`-adjacent when effectively at the edge. Pure so the
+/// threshold + formatting are unit-testable.
+String formatBehindLive(Duration behind) {
+  if (behind < const Duration(seconds: 5)) return 'LIVE';
+  return '-${formatOverlayTime(behind)}';
+}
 
 /// Formats [d] as the overlay's elapsed/total label: `m:ss`, or `h:mm:ss`
 /// past an hour. Top-level and pure so the time math is trivially unit-testable.
@@ -58,51 +100,24 @@ Duration computeDoubleTapSeek({
   return target;
 }
 
-/// A selectable video quality (an HLS variant), labeled by pixel height.
-@immutable
-class VideoQuality {
-  const VideoQuality({required this.track, required this.label});
-
-  /// The underlying libmpv video track to select.
-  final VideoTrack track;
-
-  /// Human label, e.g. `1080p`.
-  final String label;
-}
-
-/// The distinct, selectable qualities from libmpv's [tracks], highest first.
-///
-/// Drops the synthetic `auto`/`no` entries and any track without a known
-/// height, then de-dupes by height (HLS masters often list several variants at
-/// the same resolution). Pure so the label/dedupe logic is unit-testable; the
-/// quality button hides itself when this yields fewer than two entries.
-List<VideoQuality> distinctVideoQualities(List<VideoTrack> tracks) {
-  final seenHeights = <int>{};
-  final result = <VideoQuality>[];
-  for (final t in tracks) {
-    if (t.id == 'auto' || t.id == 'no') continue;
-    final h = t.h;
-    if (h == null || h <= 0) continue;
-    if (!seenHeights.add(h)) continue;
-    result.add(VideoQuality(track: t, label: '${h}p'));
-  }
-  result.sort((a, b) => (b.track.h ?? 0).compareTo(a.track.h ?? 0));
-  return result;
-}
-
-/// Shows the Material 3 quality sheet ("Auto" + [qualities], highest first)
-/// and returns the chosen track ([VideoTrack.auto] for Auto), or null when
+/// Shows the quality picker ("Auto" + [qualities], highest first) and returns
+/// the chosen [VideoQuality] ([VideoQuality.auto] for Auto), or null when
 /// dismissed. Shared by the fullscreen overlay and the below-title transport.
-Future<VideoTrack?> showVideoQualitySheet(
+///
+/// Rendered as a compact CENTERED dialog rather than a bottom sheet: a bottom
+/// sheet sizes to the bottom edge, which in the fullscreen landscape-immersive
+/// route lands partly off-screen. A centered, content-sized dialog is always
+/// fully on-screen in both inline portrait and fullscreen landscape, and reads
+/// as a native picker in either.
+Future<VideoQuality?> showVideoQualitySheet(
   BuildContext context, {
   required List<VideoQuality> qualities,
   required String selectedId,
 }) {
-  return showModalBottomSheet<VideoTrack>(
+  return showDialog<VideoQuality>(
     context: context,
-    backgroundColor: Theme.of(context).colorScheme.surface,
-    showDragHandle: true,
-    builder: (ctx) => _QualitySheet(
+    barrierColor: Colors.black.withValues(alpha: 0.45),
+    builder: (ctx) => _QualityDialog(
       qualities: qualities,
       selectedId: selectedId,
     ),
@@ -117,13 +132,23 @@ Future<VideoTrack?> showVideoQualitySheet(
 /// [VideoPlaybackService] and the media_kit fullscreen route.
 ///
 /// Behavior:
-///   - Auto-hides ~3s after playback starts; any tap on the surface toggles it.
+///   - Auto-hides after a period of inactivity WHILE PLAYING: ~3s fullscreen,
+///     20s inline ([videoControlsAutoHideDelay]). Any tap on the surface toggles
+///     the controls back on and restarts the timer; scrubbing, the quality
+///     picker and the fullscreen button restart it too.
 ///   - Stays visible while paused or buffering (buffering shows a centered
-///     spinner in place of the transport controls).
+///     spinner: inline a standalone one, fullscreen inside the play button).
+///   - Pinch-out on the surface enters fullscreen; pinch-in exits it. Tracked
+///     on raw pointers (not a `ScaleGestureRecognizer`) so it never competes
+///     with the tap/double-tap recognizers or the seek-bar drag.
 ///   - VOD (`onSeek != null`, not [isLive]) shows a thin brand seek bar with
 ///     elapsed/total labels, a fullscreen button, and double-tap ±10s seeking.
-///   - Live TV shows a `● LIVE` pill (no seek bar; a clean slot for a future
-///     DVR feature) and no double-tap seek.
+///   - Live TV with a DVR window (`isLive`, `onSeek != null`, and a reported
+///     duration ≥ [kMinLiveDvrWindow]) shows a `● LIVE` pill, a `-m:ss`
+///     behind-live label and a seek bar spanning the window (drag to the far
+///     right = the live edge). Double-tap seeking stays off for live.
+///   - Live TV without a known window shows just the `● LIVE` pill (no seek
+///     bar) and no double-tap seek.
 class VideoOverlayControls extends StatefulWidget {
   const VideoOverlayControls({
     super.key,
@@ -140,16 +165,13 @@ class VideoOverlayControls extends StatefulWidget {
     this.initialDuration,
     this.fallbackDuration,
     this.isLive = false,
-    this.showTransport = false,
     this.isFullscreen = false,
-    this.onSkipNext,
-    this.onSkipPrevious,
     this.onSeek,
     this.onToggleFullscreen,
-    this.videoTracksStream,
-    this.initialVideoTracks = const [],
-    this.selectedVideoTrackStream,
-    this.initialSelectedVideoTrack,
+    this.qualitiesStream,
+    this.initialQualities = const [],
+    this.selectedQualityStream,
+    this.initialSelectedQuality,
     this.onSelectQuality,
   });
 
@@ -174,17 +196,12 @@ class VideoOverlayControls extends StatefulWidget {
   /// double-tap seeking.
   final bool isLive;
 
-  /// Playlist mode: shows the prev/next skip controls flanking play/pause.
-  final bool showTransport;
-
   /// Whether this overlay is currently rendered inside the fullscreen route —
   /// flips the fullscreen button to its "exit" glyph.
   final bool isFullscreen;
 
   final VoidCallback onPlay;
   final VoidCallback onPause;
-  final VoidCallback? onSkipNext;
-  final VoidCallback? onSkipPrevious;
 
   /// Seek handler for VOD. Null (or [isLive]) means the media is not seekable —
   /// no seek bar and no double-tap seeking.
@@ -193,19 +210,19 @@ class VideoOverlayControls extends StatefulWidget {
   /// Enters/exits fullscreen. Null hides the fullscreen button.
   final VoidCallback? onToggleFullscreen;
 
-  /// Available video qualities (HLS variants). The quality button appears only
-  /// for video content with more than one distinct quality; null (YouTube)
-  /// hides it entirely.
-  final Stream<List<VideoTrack>>? videoTracksStream;
-  final List<VideoTrack> initialVideoTracks;
+  /// Available video qualities (HLS variants, already de-duped, no `Auto`). The
+  /// quality button appears only for video content with more than one distinct
+  /// quality; null (YouTube) hides it entirely.
+  final Stream<List<VideoQuality>>? qualitiesStream;
+  final List<VideoQuality> initialQualities;
 
-  /// The currently selected video track, so the picker can mark it.
-  final Stream<VideoTrack>? selectedVideoTrackStream;
-  final VideoTrack? initialSelectedVideoTrack;
+  /// The currently selected quality, so the picker can mark it.
+  final Stream<VideoQuality>? selectedQualityStream;
+  final VideoQuality? initialSelectedQuality;
 
-  /// Selects a quality (pass [VideoTrack.auto] for adaptive). Null disables the
-  /// quality button.
-  final ValueChanged<VideoTrack>? onSelectQuality;
+  /// Selects a quality (pass [VideoQuality.auto] for adaptive). Null disables
+  /// the quality button.
+  final ValueChanged<VideoQuality>? onSelectQuality;
 
   @override
   State<VideoOverlayControls> createState() => _VideoOverlayControlsState();
@@ -219,12 +236,12 @@ class _VideoOverlayControlsState extends State<VideoOverlayControls>
   bool _buffering = false;
   Duration _position = Duration.zero;
   Duration? _duration;
-  List<VideoTrack> _videoTracks = const [];
-  VideoTrack? _selectedTrack;
+  List<VideoQuality> _qualities = const [];
+  VideoQuality? _selectedQuality;
 
-  /// User's manual toggle for the auto-hiding controls. The effective
-  /// visibility ([_effectiveVisible]) additionally forces controls on while
-  /// paused or buffering.
+  /// The inactivity timer's state (also flipped by the user's surface taps).
+  /// The effective visibility ([_effectiveVisible]) additionally forces the
+  /// controls on while paused or buffering.
   bool _visible = true;
   Timer? _hideTimer;
 
@@ -235,7 +252,9 @@ class _VideoOverlayControlsState extends State<VideoOverlayControls>
   /// are ignored so the thumb tracks the finger.
   double? _dragValue;
 
-  static const Duration _autoHideDelay = Duration(seconds: 3);
+  /// This overlay's inactivity delay — 3s fullscreen, 20s inline.
+  Duration get _autoHideDelay =>
+      videoControlsAutoHideDelay(isFullscreen: widget.isFullscreen);
 
   // Double-tap seek ripple.
   late final AnimationController _rippleController;
@@ -244,8 +263,33 @@ class _VideoOverlayControlsState extends State<VideoOverlayControls>
   double _lastTapDx = 0;
   double _surfaceWidth = 0;
 
-  bool get _seekable =>
-      !widget.isLive && widget.onSeek != null;
+  // Pinch-to-fullscreen tracking. Raw pointer positions by pointer id — kept
+  // out of the gesture arena so pinching never steals the tap/double-tap or
+  // seek-bar gestures.
+  final Map<int, Offset> _pinchPositions = {};
+  double? _pinchBaseDistance;
+
+  /// Set once a pinch crosses a threshold; blocks re-triggering until the
+  /// fingers lift, so a single pinch toggles fullscreen exactly once.
+  bool _pinchHandled = false;
+
+  /// Pinch-out ratio (current/base finger distance) that enters fullscreen.
+  static const double _pinchOutThreshold = 1.3;
+
+  /// Pinch-in ratio that exits fullscreen.
+  static const double _pinchInThreshold = 0.75;
+
+  bool get _seekable => !widget.isLive && widget.onSeek != null;
+
+  /// A live stream that exposes a scrubbable DVR window: seekable, but with the
+  /// live-edge framing (LIVE pill + behind-live label) instead of elapsed/total.
+  /// Gated on a reported window ≥ [kMinLiveDvrWindow] so a not-yet-probed live
+  /// stream falls back to the plain LIVE bar rather than a near-empty scrubber.
+  bool get _liveDvrSeekable {
+    if (!widget.isLive || widget.onSeek == null) return false;
+    final d = _effectiveDuration;
+    return d != null && d >= kMinLiveDvrWindow;
+  }
 
   /// The stream-reported duration when known & positive, else the caller's
   /// [VideoOverlayControls.fallbackDuration] so the seek bar works immediately.
@@ -255,7 +299,11 @@ class _VideoOverlayControlsState extends State<VideoOverlayControls>
     return widget.fallbackDuration;
   }
 
-  bool get _effectiveVisible => _visible || !_playing || _buffering;
+  bool get _effectiveVisible => shouldShowVideoControls(
+        userVisible: _visible,
+        playing: _playing,
+        buffering: _buffering,
+      );
 
   @override
   void initState() {
@@ -264,8 +312,8 @@ class _VideoOverlayControlsState extends State<VideoOverlayControls>
     _buffering = widget.initialBuffering;
     _position = widget.initialPosition;
     _duration = widget.initialDuration;
-    _videoTracks = widget.initialVideoTracks;
-    _selectedTrack = widget.initialSelectedVideoTrack;
+    _qualities = widget.initialQualities;
+    _selectedQuality = widget.initialSelectedQuality;
 
     _rippleController = AnimationController(
       vsync: this,
@@ -284,16 +332,16 @@ class _VideoOverlayControlsState extends State<VideoOverlayControls>
     _subs.add(widget.durationStream.listen((d) {
       if (mounted) setState(() => _duration = d);
     }));
-    final tracksStream = widget.videoTracksStream;
-    if (tracksStream != null) {
-      _subs.add(tracksStream.listen((t) {
-        if (mounted) setState(() => _videoTracks = t);
+    final qualitiesStream = widget.qualitiesStream;
+    if (qualitiesStream != null) {
+      _subs.add(qualitiesStream.listen((q) {
+        if (mounted) setState(() => _qualities = q);
       }));
     }
-    final selectedStream = widget.selectedVideoTrackStream;
+    final selectedStream = widget.selectedQualityStream;
     if (selectedStream != null) {
-      _subs.add(selectedStream.listen((t) {
-        if (mounted) setState(() => _selectedTrack = t);
+      _subs.add(selectedStream.listen((q) {
+        if (mounted) setState(() => _selectedQuality = q);
       }));
     }
 
@@ -343,9 +391,18 @@ class _VideoOverlayControlsState extends State<VideoOverlayControls>
     });
   }
 
+  /// A tap on the video surface: hidden controls come back (and the inactivity
+  /// countdown restarts), visible controls step aside (YouTube-style toggle).
   void _onSurfaceTap() {
     setState(() => _visible = !_visible);
     if (_visible && _playing && !_buffering) _scheduleHide();
+  }
+
+  /// Keeps the controls up and restarts the inactivity countdown after a
+  /// deliberate interaction (fullscreen toggle, quality pick, scrub).
+  void _noteInteraction() {
+    if (!_visible) setState(() => _visible = true);
+    if (_playing && !_buffering) _scheduleHide();
   }
 
   void _onDoubleTapDown(TapDownDetails details) {
@@ -391,114 +448,150 @@ class _VideoOverlayControlsState extends State<VideoOverlayControls>
     }
   }
 
-  void _onSkip(VoidCallback? action) {
-    if (action == null) return;
-    action();
-    setState(() {
-      _optimisticPlaying = true;
-      _visible = true;
-    });
-    _scheduleHide();
-  }
-
   Future<void> _openQualityPicker(List<VideoQuality> qualities) async {
     _hideTimer?.cancel();
     setState(() => _visible = true);
     final chosen = await showVideoQualitySheet(
       context,
       qualities: qualities,
-      selectedId: _selectedTrack?.id ?? 'auto',
+      selectedId: _selectedQuality?.id ?? 'auto',
     );
     if (chosen != null) widget.onSelectQuality?.call(chosen);
     if (mounted && _playing && !_buffering) _scheduleHide();
+  }
+
+  double get _pinchDistance {
+    final points = _pinchPositions.values.toList();
+    return (points[0] - points[1]).distance;
+  }
+
+  void _onPinchPointerDown(PointerDownEvent event) {
+    _pinchPositions[event.pointer] = event.position;
+    if (_pinchPositions.length == 2) {
+      _pinchBaseDistance = _pinchDistance;
+      _pinchHandled = false;
+    }
+  }
+
+  void _onPinchPointerMove(PointerMoveEvent event) {
+    if (!_pinchPositions.containsKey(event.pointer)) return;
+    _pinchPositions[event.pointer] = event.position;
+    if (_pinchPositions.length != 2 || _pinchHandled) return;
+    final base = _pinchBaseDistance;
+    if (base == null || base <= 0) return;
+    final scale = _pinchDistance / base;
+    if (scale >= _pinchOutThreshold) {
+      // Pinch-out: enter fullscreen. Already fullscreen → nothing to do.
+      _pinchHandled = true;
+      if (!widget.isFullscreen) widget.onToggleFullscreen?.call();
+    } else if (scale <= _pinchInThreshold) {
+      // Pinch-in: exit fullscreen. Inline stays as it is.
+      _pinchHandled = true;
+      if (widget.isFullscreen) widget.onToggleFullscreen?.call();
+    }
+  }
+
+  void _onPinchPointerEnd(PointerEvent event) {
+    _pinchPositions.remove(event.pointer);
+    if (_pinchPositions.length < 2) _pinchBaseDistance = null;
   }
 
   @override
   Widget build(BuildContext context) {
     final showPlaying = _optimisticPlaying ?? _playing;
     // Quality button only for video content (onSelectQuality != null) exposing
-    // more than one distinct quality.
+    // more than one distinct quality. The service already de-dupes/sorts and
+    // only publishes when there is a real choice (no separate audio groups).
     final qualities = widget.onSelectQuality != null
-        ? distinctVideoQualities(_videoTracks)
+        ? _qualities
         : const <VideoQuality>[];
     final showQuality = qualities.length > 1;
     return LayoutBuilder(
       builder: (context, constraints) {
         _surfaceWidth = constraints.maxWidth;
-        return GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: _onSurfaceTap,
-          onDoubleTapDown: _seekable ? _onDoubleTapDown : null,
-          onDoubleTap: _seekable ? _onDoubleTap : null,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              // Top + bottom scrim — guarantees WCAG contrast for the white
-              // title and controls over any video frame.
-              IgnorePointer(
-                child: AnimatedOpacity(
-                  key: const ValueKey('video-overlay-scrim'),
+        return Listener(
+          // Raw-pointer pinch tracking (see _onPinchPointerMove). A Listener
+          // observes events without entering the gesture arena, so taps,
+          // double-taps and the seek-bar drag keep working unchanged.
+          onPointerDown: _onPinchPointerDown,
+          onPointerMove: _onPinchPointerMove,
+          onPointerUp: _onPinchPointerEnd,
+          onPointerCancel: _onPinchPointerEnd,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: _onSurfaceTap,
+            onDoubleTapDown: _seekable ? _onDoubleTapDown : null,
+            onDoubleTap: _seekable ? _onDoubleTap : null,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                // Top + bottom scrim — guarantees WCAG contrast for the white
+                // title and controls over any video frame.
+                IgnorePointer(
+                  child: AnimatedOpacity(
+                    key: const ValueKey('video-overlay-scrim'),
+                    duration: const Duration(milliseconds: 250),
+                    curve: Curves.easeInOut,
+                    opacity: _effectiveVisible ? 1.0 : 0.0,
+                    child: const _Scrim(),
+                  ),
+                ),
+                // Double-tap seek ripple (VOD only).
+                if (_seekable)
+                  _SeekRipple(
+                    controller: _rippleController,
+                    onLeft: !_rippleForward,
+                    seconds: _rippleSeconds,
+                  ),
+                // Controls layer. While buffering the play/pause button itself
+                // shows the spinner (a single spinner, sized-stable), so the
+                // controls stay visible instead of being replaced.
+                AnimatedOpacity(
+                  key: const ValueKey('video-overlay-controls'),
                   duration: const Duration(milliseconds: 250),
                   curve: Curves.easeInOut,
                   opacity: _effectiveVisible ? 1.0 : 0.0,
-                  child: const _Scrim(),
-                ),
-              ),
-              // Double-tap seek ripple (VOD only).
-              if (_seekable)
-                _SeekRipple(
-                  controller: _rippleController,
-                  onLeft: !_rippleForward,
-                  seconds: _rippleSeconds,
-                ),
-              // Controls layer. While buffering the play/pause button itself
-              // shows the spinner (a single spinner, sized-stable), so the
-              // controls stay visible instead of being replaced.
-              AnimatedOpacity(
-                key: const ValueKey('video-overlay-controls'),
-                duration: const Duration(milliseconds: 250),
-                curve: Curves.easeInOut,
-                opacity: _effectiveVisible ? 1.0 : 0.0,
-                child: IgnorePointer(
-                  ignoring: !_effectiveVisible,
-                  child: _ControlsLayer(
-                    title: widget.title,
-                    isLive: widget.isLive,
-                    seekable: _seekable,
-                    showTransport: widget.showTransport,
-                    isFullscreen: widget.isFullscreen,
-                    showPlaying: showPlaying,
-                    buffering: _buffering,
-                    position: _position,
-                    duration: _effectiveDuration,
-                    dragValue: _dragValue,
-                    showQuality: showQuality,
-                    onOpenQuality:
-                        showQuality ? () => _openQualityPicker(qualities) : null,
-                    onTogglePlay: _togglePlay,
-                    onSkipNext: widget.showTransport
-                        ? () => _onSkip(widget.onSkipNext)
-                        : null,
-                    onSkipPrevious: widget.showTransport
-                        ? () => _onSkip(widget.onSkipPrevious)
-                        : null,
-                    onSeekChanged: (v) {
-                      _hideTimer?.cancel();
-                      setState(() => _dragValue = v);
-                    },
-                    onSeekEnd: (v) {
-                      widget.onSeek?.call(Duration(milliseconds: v.round()));
-                      setState(() {
-                        _position = Duration(milliseconds: v.round());
-                        _dragValue = null;
-                      });
-                      if (_playing) _scheduleHide();
-                    },
-                    onToggleFullscreen: widget.onToggleFullscreen,
+                  child: IgnorePointer(
+                    ignoring: !_effectiveVisible,
+                    child: _ControlsLayer(
+                      title: widget.title,
+                      isLive: widget.isLive,
+                      seekable: _seekable,
+                      liveDvrSeekable: _liveDvrSeekable,
+                      isFullscreen: widget.isFullscreen,
+                      showPlaying: showPlaying,
+                      buffering: _buffering,
+                      position: _position,
+                      duration: _effectiveDuration,
+                      dragValue: _dragValue,
+                      showQuality: showQuality,
+                      onOpenQuality: showQuality
+                          ? () => _openQualityPicker(qualities)
+                          : null,
+                      onTogglePlay: _togglePlay,
+                      onSeekChanged: (v) {
+                        _hideTimer?.cancel();
+                        setState(() => _dragValue = v);
+                      },
+                      onSeekEnd: (v) {
+                        widget.onSeek?.call(Duration(milliseconds: v.round()));
+                        setState(() {
+                          _position = Duration(milliseconds: v.round());
+                          _dragValue = null;
+                        });
+                        if (_playing) _scheduleHide();
+                      },
+                      onToggleFullscreen: widget.onToggleFullscreen == null
+                          ? null
+                          : () {
+                              _noteInteraction();
+                              widget.onToggleFullscreen!();
+                            },
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },
@@ -530,13 +623,22 @@ class _Scrim extends StatelessWidget {
   }
 }
 
-/// Title (top) + play/pause & skips (center) + seek bar / LIVE pill (bottom).
+/// Top row (title in fullscreen + quality) + centered play/pause (fullscreen)
+/// or buffering spinner (inline) + bottom seek bar / LIVE pill carrying the
+/// bottom-right fullscreen toggle.
+///
+/// Corner layout mirrors YouTube's convention: the quality selector sits in the
+/// TOP-RIGHT corner (fullscreen AND inline), and the enter/exit-fullscreen
+/// button in the BOTTOM-RIGHT corner (below the seek line). The center holds
+/// ONLY the play/pause control (explicit user feedback: in fullscreen the
+/// middle previously showed prev/play/next/fullscreen). Skipping stays on the
+/// playlist section's below-video transport.
 class _ControlsLayer extends StatelessWidget {
   const _ControlsLayer({
     required this.title,
     required this.isLive,
     required this.seekable,
-    required this.showTransport,
+    required this.liveDvrSeekable,
     required this.isFullscreen,
     required this.showPlaying,
     required this.buffering,
@@ -546,8 +648,6 @@ class _ControlsLayer extends StatelessWidget {
     required this.showQuality,
     required this.onOpenQuality,
     required this.onTogglePlay,
-    required this.onSkipNext,
-    required this.onSkipPrevious,
     required this.onSeekChanged,
     required this.onSeekEnd,
     required this.onToggleFullscreen,
@@ -556,7 +656,7 @@ class _ControlsLayer extends StatelessWidget {
   final String title;
   final bool isLive;
   final bool seekable;
-  final bool showTransport;
+  final bool liveDvrSeekable;
   final bool isFullscreen;
   final bool showPlaying;
   final bool buffering;
@@ -566,88 +666,71 @@ class _ControlsLayer extends StatelessWidget {
   final bool showQuality;
   final VoidCallback? onOpenQuality;
   final VoidCallback onTogglePlay;
-  final VoidCallback? onSkipNext;
-  final VoidCallback? onSkipPrevious;
   final ValueChanged<double> onSeekChanged;
   final ValueChanged<double> onSeekEnd;
   final VoidCallback? onToggleFullscreen;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    // Quality sits in the TOP-RIGHT corner, both fullscreen and inline (the
+    // playlist section's transport row keeps its own picker too).
+    final topShowQuality = showQuality && onOpenQuality != null;
+    final content = Column(
       children: [
-        // Top: title.
-        Padding(
-          padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                  ),
+        // Top row: fullscreen carries the title (left) + quality (top-right
+        // corner); inline shows only the quality button in the same corner —
+        // the playlist section already shows the item title below the video.
+        if (isFullscreen || topShowQuality)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 10, 0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: isFullscreen
+                      ? Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        )
+                      : const SizedBox.shrink(),
                 ),
-              ),
-            ],
+                if (topShowQuality) _QualityButton(onTap: onOpenQuality),
+              ],
+            ),
+          ),
+        // Center: play/pause in fullscreen. Inline, the video surface stays
+        // clean — its transport lives below the video — except a standard
+        // buffering spinner so loading is visible on the surface itself.
+        Expanded(
+          child: Center(
+            child: isFullscreen
+                ? _PlayPauseButton(
+                    showPlaying: showPlaying,
+                    buffering: buffering,
+                    onTap: onTogglePlay,
+                  )
+                : AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 150),
+                    child: buffering
+                        ? const _BufferingSpinner(
+                            key: ValueKey('inline-buffering'))
+                        : const SizedBox.shrink(key: ValueKey('inline-idle')),
+                  ),
           ),
         ),
-        // Center transport — FULLSCREEN ONLY. Inline, the video surface stays
-        // clean (the transport lives below the title in the playlist
-        // section's `_Transport`). Left and right slot counts always match —
-        // an invisible spacer stands in for a missing side — so the transport
-        // cluster stays dead-center.
-        Expanded(
-          child: !isFullscreen
-              ? const SizedBox.expand()
-              : Center(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (showQuality)
-                        _QualityButton(onTap: onOpenQuality)
-                      else if (onToggleFullscreen != null)
-                        const _GhostSideButton(),
-                      if (showQuality || onToggleFullscreen != null)
-                        const SizedBox(width: 22),
-                      if (showTransport)
-                        _SkipButton(
-                          icon: Icons.skip_previous_rounded,
-                          onTap: onSkipPrevious,
-                        ),
-                      if (showTransport) const SizedBox(width: 26),
-                      _PlayPauseButton(
-                        showPlaying: showPlaying,
-                        buffering: buffering,
-                        onTap: onTogglePlay,
-                      ),
-                      if (showTransport) const SizedBox(width: 26),
-                      if (showTransport)
-                        _SkipButton(
-                          icon: Icons.skip_next_rounded,
-                          onTap: onSkipNext,
-                        ),
-                      if (showQuality || onToggleFullscreen != null)
-                        const SizedBox(width: 22),
-                      if (onToggleFullscreen != null)
-                        _FullscreenButton(
-                          isFullscreen: isFullscreen,
-                          onTap: onToggleFullscreen!,
-                        )
-                      else if (showQuality)
-                        const _GhostSideButton(),
-                    ],
-                  ),
-                ),
-        ),
-        // Bottom: VOD seek bar or LIVE pill, plus the classic bottom-right
-        // corner fullscreen toggle (enter inline, exit in fullscreen).
+        // Bottom: VOD seek bar, live DVR seek bar, or plain LIVE pill — each
+        // carrying the enter/exit-fullscreen toggle in the bottom-right corner
+        // (below the seek line, YouTube-style). Fullscreen gets extra breathing
+        // room around the bar; inline stays tighter on the small surface.
         Padding(
-          padding: const EdgeInsets.fromLTRB(6, 0, 6, 8),
+          padding: isFullscreen
+              ? const EdgeInsets.fromLTRB(10, 0, 10, 14)
+              : const EdgeInsets.fromLTRB(6, 0, 6, 8),
           child: seekable
               ? _VodBottomBar(
                   position: position,
@@ -658,13 +741,50 @@ class _ControlsLayer extends StatelessWidget {
                   isFullscreen: isFullscreen,
                   onToggleFullscreen: onToggleFullscreen,
                 )
-              : _LiveBottomBar(
-                  showLivePill: isLive,
-                  isFullscreen: isFullscreen,
-                  onToggleFullscreen: onToggleFullscreen,
-                ),
+              : liveDvrSeekable
+                  ? _LiveDvrBottomBar(
+                      position: position,
+                      duration: duration!,
+                      dragValue: dragValue,
+                      onChanged: onSeekChanged,
+                      onChangeEnd: onSeekEnd,
+                      isFullscreen: isFullscreen,
+                      onToggleFullscreen: onToggleFullscreen,
+                    )
+                  : _LiveBottomBar(
+                      showLivePill: isLive,
+                      isFullscreen: isFullscreen,
+                      onToggleFullscreen: onToggleFullscreen,
+                    ),
         ),
       ],
+    );
+    // In fullscreen, keep the corner controls (title, quality, fullscreen-exit)
+    // clear of the landscape display cutout (notch) and rounded screen edges.
+    return isFullscreen
+        ? SafeArea(
+            minimum: const EdgeInsets.symmetric(horizontal: 8),
+            child: content,
+          )
+        : content;
+  }
+}
+
+/// Standard buffering spinner (CLAUDE.md: `strokeWidth: 2.5`, brand color)
+/// shown centered on the inline surface while the video buffers. Fullscreen
+/// carries the same spinner inside [_PlayPauseButton] instead.
+class _BufferingSpinner extends StatelessWidget {
+  const _BufferingSpinner({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox(
+      width: 34,
+      height: 34,
+      child: CircularProgressIndicator(
+        strokeWidth: 2.5,
+        valueColor: AlwaysStoppedAnimation(AppColors.primary),
+      ),
     );
   }
 }
@@ -724,36 +844,8 @@ class _PlayPauseButton extends StatelessWidget {
   }
 }
 
-/// Small prev/next skip control (playlist mode only).
-class _SkipButton extends StatelessWidget {
-  const _SkipButton({required this.icon, required this.onTap});
-
-  final IconData icon;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      shape: const CircleBorder(),
-      child: InkWell(
-        onTap: onTap,
-        customBorder: const CircleBorder(),
-        child: Padding(
-          padding: const EdgeInsets.all(4),
-          child: Icon(
-            icon,
-            color: Colors.white,
-            size: kOverlaySkipButtonSize,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Thin brand seek bar with elapsed/total labels and the corner fullscreen
-/// toggle at the right end (classic bottom-right placement).
+/// Thin brand seek bar with elapsed/total labels and the enter/exit-fullscreen
+/// toggle pinned to the bottom-right corner, below the seek line (YouTube-style).
 class _VodBottomBar extends StatelessWidget {
   const _VodBottomBar({
     required this.position,
@@ -789,20 +881,6 @@ class _VodBottomBar extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: Row(
-            children: [
-              Text('$elapsed / $total', style: _labelStyle),
-              const Spacer(),
-              if (onToggleFullscreen != null)
-                _FullscreenButton(
-                  isFullscreen: isFullscreen,
-                  onTap: onToggleFullscreen!,
-                ),
-            ],
-          ),
-        ),
         SliderTheme(
           data: SliderTheme.of(context).copyWith(
             trackHeight: 3.0,
@@ -820,6 +898,20 @@ class _VodBottomBar extends StatelessWidget {
             onChangeEnd: hasDuration ? onChangeEnd : null,
           ),
         ),
+        Padding(
+          padding: const EdgeInsets.only(left: 8),
+          child: Row(
+            children: [
+              Text('$elapsed / $total', style: _labelStyle),
+              const Spacer(),
+              if (onToggleFullscreen != null)
+                _FullscreenButton(
+                  isFullscreen: isFullscreen,
+                  onTap: onToggleFullscreen!,
+                ),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -831,8 +923,85 @@ class _VodBottomBar extends StatelessWidget {
   );
 }
 
+/// Live DVR bar: the `● LIVE` pill and a `-m:ss` behind-live label over a seek
+/// bar that spans the whole DVR window. Dragging to the far right lands at the
+/// live edge (behind-live → `LIVE`). Carries the same bottom-right corner
+/// fullscreen toggle as [_VodBottomBar].
+class _LiveDvrBottomBar extends StatelessWidget {
+  const _LiveDvrBottomBar({
+    required this.position,
+    required this.duration,
+    required this.dragValue,
+    required this.onChanged,
+    required this.onChangeEnd,
+    required this.isFullscreen,
+    required this.onToggleFullscreen,
+  });
+
+  final Duration position;
+  final Duration duration;
+  final double? dragValue;
+  final ValueChanged<double> onChanged;
+  final ValueChanged<double> onChangeEnd;
+  final bool isFullscreen;
+  final VoidCallback? onToggleFullscreen;
+
+  @override
+  Widget build(BuildContext context) {
+    final totalMs = duration.inMilliseconds;
+    final positionMs = position.inMilliseconds.clamp(0, totalMs).toDouble();
+    final sliderValue = dragValue ?? positionMs;
+    final behind = Duration(
+      milliseconds: (totalMs - sliderValue).round().clamp(0, totalMs),
+    );
+    final atLiveEdge = behind < const Duration(seconds: 5);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SliderTheme(
+          data: SliderTheme.of(context).copyWith(
+            trackHeight: 3.0,
+            activeTrackColor: AppColors.primary,
+            inactiveTrackColor: Colors.white.withValues(alpha: 0.32),
+            thumbColor: AppColors.primary,
+            overlayColor: AppColors.primary.withValues(alpha: 0.25),
+            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+            overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+          ),
+          child: Slider(
+            value: sliderValue.clamp(0.0, totalMs.toDouble()),
+            max: totalMs.toDouble(),
+            onChanged: onChanged,
+            onChangeEnd: onChangeEnd,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(left: 8),
+          child: Row(
+            children: [
+              const LivePill(),
+              if (!atLiveEdge) ...[
+                const SizedBox(width: 8),
+                Text(formatBehindLive(behind),
+                    style: _VodBottomBar._labelStyle),
+              ],
+              const Spacer(),
+              if (onToggleFullscreen != null)
+                _FullscreenButton(
+                  isFullscreen: isFullscreen,
+                  onTap: onToggleFullscreen!,
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 /// LIVE pill (bottom-left) + corner fullscreen toggle (bottom-right). No seek
-/// bar — a clean slot for a future DVR feature.
+/// bar — shown for a live stream whose DVR window isn't known (or too short).
 class _LiveBottomBar extends StatelessWidget {
   const _LiveBottomBar({
     required this.showLivePill,
@@ -847,7 +1016,7 @@ class _LiveBottomBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      padding: const EdgeInsets.only(left: 8),
       child: Row(
         children: [
           if (showLivePill) const LivePill(),
@@ -863,20 +1032,8 @@ class _LiveBottomBar extends StatelessWidget {
   }
 }
 
-/// Invisible stand-in matching the side buttons' 36x36 footprint (24px icon +
-/// 6px padding), used to keep the transport cluster centered when only one
-/// side control is present.
-class _GhostSideButton extends StatelessWidget {
-  const _GhostSideButton();
-
-  @override
-  Widget build(BuildContext context) {
-    return const SizedBox(width: 36, height: 36);
-  }
-}
-
-/// Small quality (gear) control shown left of the transport for multi-quality
-/// video. Opens the [_QualitySheet].
+/// Small quality control pinned to the overlay's top-right corner for
+/// multi-quality video (fullscreen and inline). Opens the [_QualityDialog].
 class _QualityButton extends StatelessWidget {
   const _QualityButton({required this.onTap});
 
@@ -891,7 +1048,8 @@ class _QualityButton extends StatelessWidget {
         onTap: onTap,
         customBorder: const CircleBorder(),
         child: const Padding(
-          padding: EdgeInsets.all(6),
+          // 10px padding + 24px icon → ~44px comfortable corner tap target.
+          padding: EdgeInsets.all(10),
           child: Icon(
             Icons.high_quality_rounded,
             color: Colors.white,
@@ -903,10 +1061,12 @@ class _QualityButton extends StatelessWidget {
   }
 }
 
-/// Material 3 bottom sheet listing "Auto" + each distinct video quality.
-/// Returns the chosen [VideoTrack] (or [VideoTrack.auto] for Auto).
-class _QualitySheet extends StatelessWidget {
-  const _QualitySheet({required this.qualities, required this.selectedId});
+/// Compact centered dialog listing "Auto" + each distinct video quality.
+/// Returns the chosen [VideoQuality] (or [VideoQuality.auto] for Auto) on tap,
+/// and closes immediately so the selection applies at once. Works identically
+/// in inline portrait and fullscreen landscape (unlike a bottom sheet).
+class _QualityDialog extends StatelessWidget {
+  const _QualityDialog({required this.qualities, required this.selectedId});
 
   final List<VideoQuality> qualities;
   final String selectedId;
@@ -914,32 +1074,50 @@ class _QualitySheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text('Calitate video',
-                  style: theme.textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w700)),
+    return Dialog(
+      backgroundColor: theme.colorScheme.surface,
+      insetPadding: const EdgeInsets.all(24),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.all(Radius.circular(16)),
+      ),
+      child: ConstrainedBox(
+        // Cap the height so a long variant list scrolls instead of overflowing
+        // a short landscape viewport.
+        constraints: const BoxConstraints(maxWidth: 320, maxHeight: 360),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text('Calitate video',
+                    style: theme.textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w700)),
+              ),
             ),
-          ),
-          _QualityTile(
-            label: 'Auto',
-            selected: selectedId == 'auto',
-            onTap: () => Navigator.of(context).pop(VideoTrack.auto()),
-          ),
-          for (final q in qualities)
-            _QualityTile(
-              label: q.label,
-              selected: q.track.id == selectedId,
-              onTap: () => Navigator.of(context).pop(q.track),
+            Flexible(
+              child: ListView(
+                shrinkWrap: true,
+                padding: const EdgeInsets.only(bottom: 8),
+                children: [
+                  _QualityTile(
+                    label: 'Auto',
+                    selected: selectedId == 'auto',
+                    onTap: () =>
+                        Navigator.of(context).pop(VideoQuality.auto),
+                  ),
+                  for (final q in qualities)
+                    _QualityTile(
+                      label: q.label,
+                      selected: q.id == selectedId,
+                      onTap: () => Navigator.of(context).pop(q),
+                    ),
+                ],
+              ),
             ),
-          const SizedBox(height: 8),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -985,7 +1163,8 @@ class _FullscreenButton extends StatelessWidget {
         onTap: onTap,
         customBorder: const CircleBorder(),
         child: Padding(
-          padding: const EdgeInsets.all(6),
+          // 10px padding + 24px icon → ~44px comfortable corner tap target.
+          padding: const EdgeInsets.all(10),
           child: Icon(
             isFullscreen
                 ? Icons.fullscreen_exit_rounded
@@ -1032,12 +1211,8 @@ class _SeekRipple extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: Colors.black.withValues(alpha: 0.28),
                     borderRadius: BorderRadius.horizontal(
-                      left: onLeft
-                          ? Radius.zero
-                          : const Radius.circular(1000),
-                      right: onLeft
-                          ? const Radius.circular(1000)
-                          : Radius.zero,
+                      left: onLeft ? Radius.zero : const Radius.circular(1000),
+                      right: onLeft ? const Radius.circular(1000) : Radius.zero,
                     ),
                   ),
                   child: Column(
@@ -1071,15 +1246,17 @@ class _SeekRipple extends StatelessWidget {
   }
 }
 
-/// Composes [PlayerVideoSurface] with [VideoOverlayControls] and wires the
-/// media_kit fullscreen route.
+/// Composes [PlayerVideoSurface] with [VideoOverlayControls] and owns the
+/// fullscreen route.
 ///
-/// This is the widget the full player embeds for media_kit video (TV channels
-/// and video playlist items). It reads the reactive streams straight off
-/// [videoService] and drives the fullscreen button through the library's
-/// context-based `toggleFullscreen` — which re-runs this same controls builder
-/// inside the fullscreen route, so the overlay is identical there.
-class VideoPlayerStage extends StatelessWidget {
+/// This is the widget the full player embeds for video (TV channels and video
+/// playlist items). It reads the reactive streams straight off [videoService].
+/// Since video_player has no built-in fullscreen (unlike media_kit), fullscreen
+/// is a plain opaque route this widget pushes: it renders the SAME
+/// [VideoPlaybackService] controller (video_player shares one texture across
+/// widgets) with the overlay in its fullscreen layout, and enters landscape
+/// immersive chrome for the route's lifetime.
+class VideoPlayerStage extends StatefulWidget {
   const VideoPlayerStage({
     super.key,
     required this.videoService,
@@ -1087,72 +1264,130 @@ class VideoPlayerStage extends StatelessWidget {
     required this.onPlay,
     required this.onPause,
     this.isLive = false,
-    this.showTransport = false,
-    this.onSkipNext,
-    this.onSkipPrevious,
     this.onSeek,
     this.fallbackDuration,
     this.allowFullscreen = true,
-    this.videoKey,
     this.borderRadius = const BorderRadius.all(Radius.circular(16)),
   });
 
   final VideoPlaybackService videoService;
   final String title;
   final bool isLive;
-  final bool showTransport;
 
   /// Known total length for VOD when the player hasn't reported one yet (e.g.
   /// the playlist item's `duration_seconds`). Enables the seek bar immediately.
   final Duration? fallbackDuration;
 
-  /// Optional key onto the inner media_kit [Video] widget, letting UI outside
-  /// the surface (the below-title transport) drive
-  /// `videoKey.currentState?.enterFullscreen()`.
-  final GlobalKey<VideoState>? videoKey;
   final VoidCallback onPlay;
   final VoidCallback onPause;
-  final VoidCallback? onSkipNext;
-  final VoidCallback? onSkipPrevious;
   final ValueChanged<Duration>? onSeek;
   final bool allowFullscreen;
   final BorderRadius borderRadius;
 
   @override
+  State<VideoPlayerStage> createState() => _VideoPlayerStageState();
+}
+
+class _VideoPlayerStageState extends State<VideoPlayerStage> {
+  bool _fullscreenOpen = false;
+
+  VideoOverlayControls _overlay({
+    required bool isFullscreen,
+    required VoidCallback? onToggleFullscreen,
+  }) {
+    final vs = widget.videoService;
+    return VideoOverlayControls(
+      playingStream: vs.playingStream,
+      initialPlaying: vs.isPlaying,
+      bufferingStream: vs.bufferingStream,
+      initialBuffering: vs.isBuffering,
+      positionStream: vs.positionStream,
+      initialPosition: vs.position,
+      durationStream: vs.durationStream,
+      initialDuration: vs.duration,
+      fallbackDuration: widget.fallbackDuration,
+      title: widget.title,
+      isLive: widget.isLive,
+      isFullscreen: isFullscreen,
+      onPlay: widget.onPlay,
+      onPause: widget.onPause,
+      onSeek: widget.onSeek,
+      onToggleFullscreen: onToggleFullscreen,
+      qualitiesStream: vs.qualitiesStream,
+      initialQualities: vs.qualities,
+      selectedQualityStream: vs.selectedQualityStream,
+      initialSelectedQuality: vs.selectedQuality,
+      onSelectQuality: vs.setVideoQuality,
+    );
+  }
+
+  Future<void> _enterFullscreen() async {
+    if (_fullscreenOpen) return;
+    _fullscreenOpen = true;
+    await enterVideoFullscreenChrome();
+    if (!mounted) {
+      await exitVideoFullscreenChrome();
+      _fullscreenOpen = false;
+      return;
+    }
+    await Navigator.of(context, rootNavigator: true).push(
+      PageRouteBuilder<void>(
+        opaque: true,
+        barrierColor: Colors.black,
+        transitionsBuilder: (_, animation, __, child) =>
+            FadeTransition(opacity: animation, child: child),
+        pageBuilder: (_, __, ___) => _FullscreenVideoRoute(
+          videoService: widget.videoService,
+          overlayBuilder: (pop) =>
+              _overlay(isFullscreen: true, onToggleFullscreen: pop),
+        ),
+      ),
+    );
+    await exitVideoFullscreenChrome();
+    _fullscreenOpen = false;
+  }
+
+  @override
   Widget build(BuildContext context) {
     return PlayerVideoSurface(
-      videoService: videoService,
+      videoService: widget.videoService,
       fit: BoxFit.contain,
-      borderRadius: borderRadius,
-      videoKey: videoKey,
-      controls: (state) => Builder(
-        builder: (ctx) => VideoOverlayControls(
-          playingStream: videoService.playingStream,
-          initialPlaying: videoService.isPlaying,
-          bufferingStream: videoService.bufferingStream,
-          initialBuffering: videoService.isBuffering,
-          positionStream: videoService.positionStream,
-          initialPosition: videoService.position,
-          durationStream: videoService.durationStream,
-          initialDuration: videoService.duration,
-          fallbackDuration: fallbackDuration,
-          title: title,
-          isLive: isLive,
-          showTransport: showTransport,
-          isFullscreen: isFullscreen(ctx),
-          onPlay: onPlay,
-          onPause: onPause,
-          onSkipNext: onSkipNext,
-          onSkipPrevious: onSkipPrevious,
-          onSeek: onSeek,
-          onToggleFullscreen:
-              allowFullscreen ? () => toggleFullscreen(ctx) : null,
-          videoTracksStream: videoService.videoTracksStream,
-          initialVideoTracks: videoService.videoTracks,
-          selectedVideoTrackStream: videoService.selectedVideoTrackStream,
-          initialSelectedVideoTrack: videoService.selectedVideoTrack,
-          onSelectQuality: videoService.setVideoQuality,
-        ),
+      borderRadius: widget.borderRadius,
+      controls: (ctx) => _overlay(
+        isFullscreen: false,
+        onToggleFullscreen: widget.allowFullscreen ? _enterFullscreen : null,
+      ),
+    );
+  }
+}
+
+/// The fullscreen video page: the same [videoService] controller rendered
+/// edge-to-edge on black with the overlay in its fullscreen layout. The overlay
+/// receives a [pop] callback (wired to its fullscreen-exit button and pinch-in
+/// gesture) that pops this route.
+class _FullscreenVideoRoute extends StatelessWidget {
+  const _FullscreenVideoRoute({
+    required this.videoService,
+    required this.overlayBuilder,
+  });
+
+  final VideoPlaybackService videoService;
+  final Widget Function(VoidCallback pop) overlayBuilder;
+
+  @override
+  Widget build(BuildContext context) {
+    void pop() {
+      final navigator = Navigator.of(context);
+      if (navigator.canPop()) navigator.pop();
+    }
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: PlayerVideoSurface(
+        videoService: videoService,
+        fit: BoxFit.contain,
+        borderRadius: BorderRadius.zero,
+        controls: (ctx) => overlayBuilder(pop),
       ),
     );
   }

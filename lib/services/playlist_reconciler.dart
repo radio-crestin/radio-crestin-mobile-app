@@ -149,6 +149,36 @@ class PlaylistNavigator {
     return -1;
   }
 
+  /// Whether a USER-PRESSED next/previous should leave this playlist station
+  /// and move to the neighbouring STATION instead of wrapping around the list.
+  ///
+  /// True only when there is no further playable item in [direction] — the user
+  /// pressed "next" on the last item, or "previous" on the first — and
+  /// single-item repeat is off. With [repeatOne] armed, repeat semantics win
+  /// and playback stays inside the playlist.
+  ///
+  /// This governs ONLY explicit user presses. Auto-advance at the natural end
+  /// of an item keeps its existing looping behavior (`nextPlayableIndex` with
+  /// `loop: true`), so a playlist left alone still plays around.
+  static bool shouldLeaveStation({
+    required List<PlaylistItem> items,
+    required int fromIndex,
+    required bool skipYoutube,
+    required bool repeatOne,
+    required int direction,
+  }) {
+    if (repeatOne) return false;
+    if (items.isEmpty || fromIndex < 0) return false;
+    return nextPlayableIndex(
+          items: items,
+          fromIndex: fromIndex,
+          skipYoutube: skipYoutube,
+          loop: false,
+          direction: direction,
+        ) <
+        0;
+  }
+
   /// Whether [item] can be played given the current skip-youtube constraint.
   static bool _isPlayable(PlaylistItem item, {required bool skipYoutube}) {
     // Unrecognized future kinds are never playable — always skip them.

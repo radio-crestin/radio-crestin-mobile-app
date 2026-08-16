@@ -33,4 +33,32 @@ class VideoModeDecision {
     if (isCarConnected || isCasting) return false;
     return true;
   }
+
+  /// Returns true when the app returning to the foreground should hand playback
+  /// back from audio-only to media_kit video mode.
+  ///
+  /// This is [shouldUseVideoMode] with `isForeground: true` (the app just
+  /// resumed) plus the crucial extra guard [hasFallenBackForUrl]: a URL that
+  /// genuinely failed to render earlier (decode error, no first frame) is pinned
+  /// to audio-only, so the resume must NOT re-attempt video for it and fight the
+  /// fallback on every foreground.
+  ///
+  /// Backgrounding alone must never set that fallback flag — only a real
+  /// playback failure does — so a plain background→foreground round-trip of a
+  /// healthy TV stream always returns true here and the video seamlessly
+  /// resumes.
+  static bool shouldResumeVideoOnForeground({
+    required bool isVideoContent,
+    required bool isCarConnected,
+    required bool isCasting,
+    required bool hasFallenBackForUrl,
+  }) {
+    if (hasFallenBackForUrl) return false;
+    return shouldUseVideoMode(
+      isVideoContent: isVideoContent,
+      isForeground: true,
+      isCarConnected: isCarConnected,
+      isCasting: isCasting,
+    );
+  }
 }

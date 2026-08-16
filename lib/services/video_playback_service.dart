@@ -1,35 +1,55 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:media_kit/media_kit.dart';
-import 'package:media_kit_video/media_kit_video.dart';
+import 'package:http/http.dart' as http;
 import 'package:rxdart/rxdart.dart';
+import 'package:video_player/video_player.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
-/// Wraps a single media_kit ([Player] + [VideoController]) for the app's
-/// "video mode": TV channels and video playlist items played with perfect
-/// audio+video sync via libmpv.
+import 'video_quality.dart';
+
+/// Wraps the official `video_player` plugin (AVPlayer on iOS, ExoPlayer/Media3
+/// on Android) for the app's "video mode": TV channels and video playlist items
+/// played with perfect audio+video sync by the native player.
 ///
-/// Created lazily (the first [ensureInitialized]/[open]) and kept alive for
-/// reuse; [stop] halts playback without tearing down the texture so switching
-/// items is fast, while [dispose] fully releases native resources.
+/// video_player gives free HLS adaptive-bitrate (ABR) streaming and — crucially
+/// — creates NO media session / now-playing entry, so [AppAudioHandler] (backed
+/// by audio_service) stays the SINGLE owner of the lock screen, notification,
+/// CarPlay and Android Auto. This service only plays pixels + audio and exposes
+/// playback streams; it never publishes `MediaItem`/`playbackState`.
 ///
-/// The buffering is tuned to mirror the just_audio path's philosophy (generous
-/// forward + back cache) so a network blip during video playback doesn't stall
-/// the picture — see [_configureBuffering].
+/// A new [VideoPlayerController] is created per media (video_player controllers
+/// are single-URL); [open] disposes the previous one and builds the next. The
+/// rendered controller is exposed via [controller] / [controllerStream] so the
+/// surface can swap seamlessly — used both across media and for the
+/// preload-then-swap manual quality switch (see [setVideoQuality]).
 ///
-/// This service is deliberately unaware of `MediaItem`/`playbackState`: it only
-/// plays pixels and audio and exposes playback streams. [AppAudioHandler] is
-/// responsible for mapping these events onto the notification/lock-screen.
+/// Background playback is REQUIRED (`allowBackgroundPlayback: true`) for the
+/// gapless background handoff in [AppAudioHandler]: the video keeps playing
+/// audibly while just_audio spins up muted. `mixWithOthers: false` so it does
+/// not duck under other apps.
 class VideoPlaybackService {
   VideoPlaybackService();
 
-  Player? _player;
-  VideoController? _controller;
-  final List<StreamSubscription<dynamic>> _subs = [];
+  VideoPlayerController? _controller;
 
   bool _live = false;
   bool _muted = false;
   double _volume = 1.0;
+  bool _playIntended = false;
+
+  /// The master (adaptive) URL for the CURRENT media — what `Auto` plays and
+  /// what the quality parser fetched. Kept so [setVideoQuality] can return to
+  /// `Auto` by re-opening it.
+  String? _masterUrl;
+
+  /// Monotonic token so a late master-playlist fetch (or a pending quality
+  /// swap) belonging to a superseded [open] is ignored.
+  int _mediaGeneration = 0;
+
+  /// Guards against re-emitting the same error string repeatedly (video_player
+  /// keeps `hasError` set on the value).
+  String? _lastError;
 
   // Seeded so the UI/handler can subscribe before the first [open].
   final BehaviorSubject<Duration> _position =
@@ -41,60 +61,96 @@ class VideoPlaybackService {
   final BehaviorSubject<bool> _completed = BehaviorSubject<bool>.seeded(false);
   final PublishSubject<String> _error = PublishSubject<String>();
 
-  /// True once the decoder has produced a first video frame for the CURRENT
-  /// media (reset on every [open]). Drives the video→audio fallback watchdog:
-  /// on a platform that can't decode the codec (e.g. libmpv on the iOS
-  /// simulator) this stays false while the picture buffers forever, so the
-  /// handler can hand off to audio-only. Derived from the player's width/height
-  /// streams — non-null positive dimensions mean a frame was decoded.
+  /// The active [VideoPlayerController] for the surface's `VideoPlayer` widget,
+  /// re-emitted whenever it swaps (new media or manual quality change).
+  final BehaviorSubject<VideoPlayerController?> _activeController =
+      BehaviorSubject<VideoPlayerController?>.seeded(null);
+
+  /// True once the native player has produced a first video frame for the
+  /// CURRENT media (reset on every [open]). Derived from
+  /// `controller.value.isInitialized` plus a non-empty [size] — an initialized
+  /// controller reporting real pixel dimensions has decoded a frame. Drives the
+  /// video→audio fallback watchdog: on a platform/codec that never initializes,
+  /// this stays false and the handler hands off to audio-only.
   final BehaviorSubject<bool> _hasFrame = BehaviorSubject<bool>.seeded(false);
-  int? _lastWidth;
-  int? _lastHeight;
 
-  /// Available video tracks (HLS variants) for the CURRENT media, reset on every
-  /// [open]. libmpv exposes each variant as a [VideoTrack] with `w`/`h` once it
-  /// has probed the master, so the UI can offer a quality picker.
-  final BehaviorSubject<List<VideoTrack>> _videoTracks =
-      BehaviorSubject<List<VideoTrack>>.seeded(const []);
+  /// Current video pixel dimensions (null until the first frame). Surfaces size
+  /// their `AspectRatio` from these.
+  final BehaviorSubject<int?> _width = BehaviorSubject<int?>.seeded(null);
+  final BehaviorSubject<int?> _height = BehaviorSubject<int?>.seeded(null);
 
-  /// The currently selected video track (`auto` by default). Drives the quality
-  /// picker's checkmark.
-  final BehaviorSubject<VideoTrack> _selectedVideoTrack =
-      BehaviorSubject<VideoTrack>.seeded(const VideoTrack('auto', null, null));
+  /// The distinct, pinnable video qualities for the CURRENT media (NOT including
+  /// `Auto`), highest resolution first. Empty for a plain media playlist, for a
+  /// master with separate audio groups (manual pinning would drop audio — Auto
+  /// only), or before the master has been parsed. Reset on every [open].
+  final BehaviorSubject<List<VideoQuality>> _qualities =
+      BehaviorSubject<List<VideoQuality>>.seeded(const []);
 
-  /// Demuxer cache size (bytes). 64 MB — double media_kit's 32 MB default so a
-  /// live TV stream keeps several seconds of video buffered against jitter.
-  static const int _bufferSizeBytes = 64 * 1024 * 1024;
+  /// The currently selected quality (`Auto` by default). Drives the picker's
+  /// checkmark.
+  final BehaviorSubject<VideoQuality> _selectedQuality =
+      BehaviorSubject<VideoQuality>.seeded(VideoQuality.auto);
+
+  /// Forward buffer target for a LIVE stream, in seconds (2 minutes).
+  ///
+  /// With video_player, buffer sizing is owned by the native player (AVPlayer /
+  /// ExoPlayer) and is not configurable from Dart — the old libmpv
+  /// `cache-secs` / `demuxer-readahead-secs` tuning is gone. This constant is
+  /// retained ONLY as the single enforced lock-step link to the radio
+  /// (just_audio) pipeline's `FastStartConfig.liveForwardBufferTarget`: the two
+  /// live in libraries that must not import each other, so a unit test asserts
+  /// their equality. Do not wire it to the engine — it has no engine consumer
+  /// anymore.
+  @visibleForTesting
+  static const int liveForwardBufferSeconds = 120;
+
+  /// How long [open] waits for the native player to report `initialized`.
+  ///
+  /// Without a bound, a host that accepts the connection and then black-holes
+  /// the response leaves `initialize()` pending forever: the surface spins with
+  /// no error, no frame, and the video→audio fallback never fires. The timeout
+  /// turns that into a normal failure that lands in the catch below.
+  @visibleForTesting
+  static const Duration initializeTimeout = Duration(seconds: 10);
+
+  /// Upper bound on tearing down a controller that failed to initialize. When
+  /// `VideoPlayerPlatform.createWithOptions` itself throws, video_player never
+  /// completes its internal `_creatingCompleter`, so `dispose()` awaits it
+  /// forever — which would hang [open] and swallow the error.
+  static const Duration _disposeTimeout = Duration(seconds: 2);
 
   // ── Public state ──────────────────────────────────────────────────────────
 
-  /// Whether the underlying player has been created.
-  bool get isInitialized => _player != null;
+  /// Whether a controller currently exists (media has been opened).
+  bool get isInitialized => _controller != null;
 
-  /// The video output controller for the UI's `Video(controller: ...)` widget.
-  /// Null until [ensureInitialized]/[open] has run.
-  VideoController? get controller => _controller;
+  /// The active video controller for the UI's `VideoPlayer(controller)` widget.
+  /// Null until the first [open].
+  VideoPlayerController? get controller => _controller;
 
-  /// The underlying media_kit player. Prefer the wrapper methods; exposed for
-  /// advanced UI needs (e.g. track selection).
-  Player? get player => _player;
+  /// Emits the active controller whenever it swaps (new media / quality change),
+  /// so a surface can rebind its `VideoPlayer` without a black flash.
+  Stream<VideoPlayerController?> get controllerStream =>
+      _activeController.stream;
 
-  /// True when the current media was opened as a live stream (no seekable VOD
-  /// timeline). Drives `isLive` on the lock-screen media item.
+  /// True when the current media was opened as a live stream (no VOD timeline).
+  /// Drives `isLive` on the lock-screen media item.
   bool get isLive => _live;
 
-  Duration get position => _player?.state.position ?? Duration.zero;
-  Duration get duration => _player?.state.duration ?? Duration.zero;
-  bool get isPlaying => _player?.state.playing ?? false;
-  bool get isBuffering => _player?.state.buffering ?? false;
+  Duration get position => _controller?.value.position ?? Duration.zero;
+  Duration get duration => _controller?.value.duration ?? Duration.zero;
+  bool get isPlaying => _controller?.value.isPlaying ?? false;
+  bool get isBuffering => _controller?.value.isBuffering ?? false;
 
-  /// Current playback position (VOD). Fires continuously while playing.
+  /// Current playback position. For a VOD item this is the elapsed time.
   Stream<Duration> get positionStream => _position.stream;
 
-  /// Total media duration; `Duration.zero` for live streams.
+  /// Total media duration as the native player reports it (VOD length; for a
+  /// live stream this is often zero/unknown, in which case the overlay shows the
+  /// plain LIVE bar rather than a DVR scrubber).
   Stream<Duration> get durationStream => _duration.stream;
 
-  /// True while the decoder is waiting on data.
+  /// True while the native player is waiting on data.
   Stream<bool> get bufferingStream => _buffering.stream;
 
   /// True while actively playing, false when paused.
@@ -103,7 +159,7 @@ class VideoPlaybackService {
   /// Emits `true` once when the media reaches its end (VOD auto-advance).
   Stream<bool> get completedStream => _completed.stream;
 
-  /// Emits a libmpv error string when playback fails.
+  /// Emits an error string when playback fails.
   Stream<String> get errorStream => _error.stream;
 
   /// Emits `true` once the CURRENT media renders a first video frame (reset to
@@ -113,233 +169,319 @@ class VideoPlaybackService {
   /// Whether the current media has rendered a first video frame yet.
   bool get hasRenderedFrame => _hasFrame.value;
 
-  /// Available video tracks (HLS variants) for the current media.
-  Stream<List<VideoTrack>> get videoTracksStream => _videoTracks.stream;
-  List<VideoTrack> get videoTracks => _videoTracks.value;
+  /// Current video pixel width / height (null before the first frame).
+  Stream<int?> get widthStream => _width.stream;
+  Stream<int?> get heightStream => _height.stream;
+  int? get width => _width.value;
+  int? get height => _height.value;
 
-  /// The currently selected video track.
-  Stream<VideoTrack> get selectedVideoTrackStream => _selectedVideoTrack.stream;
-  VideoTrack get selectedVideoTrack => _selectedVideoTrack.value;
+  /// The distinct, pinnable video qualities for the current media (no `Auto`).
+  Stream<List<VideoQuality>> get qualitiesStream => _qualities.stream;
+  List<VideoQuality> get qualities => _qualities.value;
 
-  /// Selects [track] for output (pass [VideoTrack.auto] for adaptive quality).
-  Future<void> setVideoQuality(VideoTrack track) async {
-    await _player?.setVideoTrack(track);
-    _selectedVideoTrack.add(track);
-  }
+  /// The currently selected quality.
+  Stream<VideoQuality> get selectedQualityStream => _selectedQuality.stream;
+  VideoQuality get selectedQuality => _selectedQuality.value;
+
+  VideoPlayerOptions _options() => VideoPlayerOptions(
+        // REQUIRED for the gapless background handoff — the video keeps playing
+        // audibly while just_audio spins up muted.
+        allowBackgroundPlayback: true,
+        // Do not duck under other audio; this is a foreground media player.
+        mixWithOthers: false,
+      );
 
   // ── Lifecycle ───────────────────────────────────────────────────────────
 
-  /// Lazily creates the [Player] + [VideoController] and wires its streams.
-  /// Idempotent — safe to call before every [open].
-  Future<VideoController> ensureInitialized() async {
-    final existing = _controller;
-    if (existing != null) return existing;
-
-    // media_kit must be initialized once before any Player is constructed.
-    // This is the single init point (main.dart defers to here), so it runs on
-    // first video use rather than at startup. Timed so the deferred cost is
-    // visible in logs.
-    final initSw = Stopwatch()..start();
-    MediaKit.ensureInitialized();
-    initSw.stop();
-    debugPrint('VideoPlaybackService: MediaKit.ensureInitialized() took '
-        '${initSw.elapsedMilliseconds}ms (deferred to first video)');
-
-    final player = Player(
-      configuration: const PlayerConfiguration(
-        bufferSize: _bufferSizeBytes,
-        // 'video' matches the app's use — libmpv keeps video decoding warm.
-        title: 'Radio Crestin',
-      ),
-    );
-    _player = player;
-    await _configureBuffering(player);
-
-    final controller = VideoController(player);
-    _controller = controller;
-
-    _subs.add(player.stream.position.listen(_position.add));
-    _subs.add(player.stream.duration.listen(_duration.add));
-    _subs.add(player.stream.buffering.listen(_buffering.add));
-    _subs.add(player.stream.playing.listen(_playing.add));
-    _subs.add(player.stream.completed.listen(_completed.add));
-    _subs.add(player.stream.error.listen((e) {
-      debugPrint('VideoPlaybackService: player error: $e');
-      _error.add(e);
-    }));
-    // First-frame detection: the decoder reports the video's pixel dimensions
-    // only once it has actually decoded a frame. Track both and flip [_hasFrame]
-    // when they are known & positive. On the iOS simulator libmpv never decodes
-    // the frame, so these never arrive and the fallback watchdog fires.
-    _subs.add(player.stream.width.listen((w) {
-      _lastWidth = w;
-      _recomputeHasFrame();
-    }));
-    _subs.add(player.stream.height.listen((h) {
-      _lastHeight = h;
-      _recomputeHasFrame();
-    }));
-    // Available/selected video tracks for the quality picker. HLS variants show
-    // up here (each with its own width/height) once libmpv probes the master.
-    _subs.add(player.stream.tracks.listen((t) => _videoTracks.add(t.video)));
-    _subs.add(
-        player.stream.track.listen((t) => _selectedVideoTrack.add(t.video)));
-
-    return controller;
-  }
-
-  void _recomputeHasFrame() {
-    final has = (_lastWidth ?? 0) > 0 && (_lastHeight ?? 0) > 0;
-    if (has && !_hasFrame.value) _hasFrame.add(true);
-  }
-
-  /// Applies generous forward/back cache via libmpv, mirroring the just_audio
-  /// tuning (minBuffer 50s / forward 60s). Best-effort — properties are only
-  /// available on the native (libmpv) backend and are wrapped in try/catch so
-  /// a web/unsupported backend degrades gracefully.
-  Future<void> _configureBuffering(Player player) async {
-    final platform = player.platform;
-    if (platform is! NativePlayer) return;
-    try {
-      await platform.setProperty('cache', 'yes');
-      // NOTE: cache-secs / demuxer-readahead-secs are per-open — live keeps a
-      // bounded window while VOD fills greedily to EOF (see [_configureProbing]).
-      // Forward demuxer cache (in addition to bufferSize above).
-      await platform.setProperty('demuxer-max-bytes', '64MiB');
-      // Back cache so a small seek-back after a live-edge stall is instant.
-      await platform.setProperty('demuxer-max-back-bytes', '32MiB');
-      // Fast-start (join speed): begin playback as soon as the decoder has a
-      // frame instead of waiting for the cache to fill first. This is libmpv's
-      // default, set explicitly to lock the instant-start intent for live TV.
-      // Code-verified only — the iOS simulator can't decode video, so this
-      // path is not measurable on the test rig.
-      await platform.setProperty('cache-pause-initial', 'no');
-    } catch (e) {
-      debugPrint('VideoPlaybackService: buffering config failed: $e');
-    }
-  }
-
-  /// Tunes libmpv's probing AND cache greediness per [open].
-  ///
-  /// Live: a live HLS master (the Apple bipbop test carries ~24 variants +
-  /// alt audio/captions) otherwise spends seconds probing every variant
-  /// before the first frame — cap the analyze duration/probe size and start
-  /// at the live edge. The forward cache stays a bounded 60s window (there is
-  /// no "end" to buffer to on live).
-  ///
-  /// VOD: start promptly (a small probe still yields exact duration — mp4/HLS
-  /// carry it in container/playlist metadata), then fill the cache greedily to
-  /// EOF (huge cache-secs/readahead, bounded by the 64MiB demuxer cache) so
-  /// later playback and seeks never wait on the network.
-  ///
-  /// Must run BEFORE [Player.open] — probing properties only take effect at
-  /// demuxer init, and the player instance is reused across media.
-  Future<void> _configureProbing(Player player, bool live) async {
-    final platform = player.platform;
-    if (platform is! NativePlayer) return;
-    try {
-      if (live) {
-        // Analyze ~1s of the stream and probe at most 500 KB before playing.
-        await platform.setProperty('demuxer-lavf-analyzeduration', '1');
-        await platform.setProperty('demuxer-lavf-probesize', '500000');
-        // Start at the live edge (last segment) rather than the playlist start.
-        await platform.setProperty(
-            'demuxer-lavf-o', 'live_start_index=-1');
-        await platform.setProperty('cache-secs', '60');
-        await platform.setProperty('demuxer-readahead-secs', '60');
-      } else {
-        // Prompt start: 1 MB probe is plenty for mp4/HLS-VOD headers while
-        // keeping duration/seek indexes accurate.
-        await platform.setProperty('demuxer-lavf-analyzeduration', '0');
-        await platform.setProperty('demuxer-lavf-probesize', '1000000');
-        await platform.setProperty('demuxer-lavf-o', '');
-        // Buffer to the end: effectively unbounded time windows; the 64MiB
-        // demuxer-max-bytes cap is the real limit.
-        await platform.setProperty('cache-secs', '100000');
-        await platform.setProperty('demuxer-readahead-secs', '100000');
-      }
-    } catch (e) {
-      debugPrint('VideoPlaybackService: probing config failed: $e');
-    }
-  }
-
   /// Opens [url] and (by default) starts playing. [live] marks the media as a
-  /// live stream so no VOD timeline is exposed. [startPosition] seeks a VOD
-  /// item after load (used to carry position across a background handoff).
+  /// live stream so no VOD timeline is exposed. [startPosition] seeks a VOD item
+  /// after load (used to carry position across a background handoff).
+  ///
+  /// A new [VideoPlayerController] is created for [url]; the previous one is
+  /// disposed only AFTER the new controller is initialized and published, so the
+  /// surface never renders a disposed controller (no black flash).
   Future<void> open(
     String url, {
     bool live = false,
     bool autoPlay = true,
     Duration? startPosition,
   }) async {
-    await ensureInitialized();
-    final player = _player!;
+    final generation = ++_mediaGeneration;
     _live = live;
+    _playIntended = autoPlay;
+    _masterUrl = url;
+    _lastError = null;
+    // Announce "working on it" immediately: between here and the first frame
+    // the engine reports nothing, so without this the surface would show a
+    // plain black box with no spinner. Cleared on error/timeout below, and
+    // overwritten with the engine's own value by _bind() on success.
+    _buffering.add(true);
+    // Reset per-media state so the watchdogs re-arm and the picker clears.
     _completed.add(false);
-    // Reset first-frame tracking for the new media so the watchdog re-arms.
-    _lastWidth = null;
-    _lastHeight = null;
     _hasFrame.add(false);
-    // Reset the quality picker for the new media (tracks arrive after open).
-    _videoTracks.add(const []);
-    _selectedVideoTrack.add(VideoTrack.auto());
-    // Scope demuxer probing to this open so a live master (many HLS variants)
-    // starts fast, without leaving the tighter limits set for a later VOD.
-    await _configureProbing(player, live);
-    await player.open(Media(url), play: autoPlay);
-    // Re-apply volume/mute across media changes (libmpv keeps them, but be safe).
-    await player.setVolume(_muted ? 0.0 : _volume * 100.0);
-    if (!live && startPosition != null && startPosition > Duration.zero) {
-      // Seek after open; libmpv accepts a seek queued right after load.
-      await player.seek(startPosition);
+    _width.add(null);
+    _height.add(null);
+    _qualities.add(const []);
+    _selectedQuality.add(VideoQuality.auto);
+
+    final previous = _controller;
+
+    final next = VideoPlayerController.networkUrl(
+      Uri.parse(url),
+      videoPlayerOptions: _options(),
+    );
+    try {
+      await next.initialize().timeout(initializeTimeout);
+    } catch (e) {
+      debugPrint('VideoPlaybackService: initialize failed: $e');
+      await _disposeQuietly(next);
+      if (generation == _mediaGeneration) {
+        // Stop the spinner before the error surfaces, so the UI never shows a
+        // spinner spinning next to an error state.
+        _buffering.add(false);
+        _error.add(e.toString());
+      }
+      return;
     }
+    if (generation != _mediaGeneration) {
+      // A newer open() superseded this one while we were initializing.
+      await _disposeQuietly(next);
+      return;
+    }
+
+    await next.setVolume(_muted ? 0.0 : _volume);
+    if (!live && startPosition != null && startPosition > Duration.zero) {
+      await next.seekTo(startPosition);
+    }
+
+    _bind(next);
+    if (previous != null) await _disposeController(previous);
+
+    if (autoPlay) {
+      await next.play();
+      await _applyWakelock(true);
+    }
+    // Parse the master playlist for the quality picker (best-effort, async).
+    unawaited(_loadQualities(url, generation));
   }
 
-  Future<void> play() async => _player?.play();
+  Future<void> play() async {
+    _playIntended = true;
+    await _controller?.play();
+    await _applyWakelock(true);
+  }
 
-  Future<void> pause() async => _player?.pause();
+  Future<void> pause() async {
+    _playIntended = false;
+    await _controller?.pause();
+    await _applyWakelock(false);
+  }
 
-  /// Stops playback and clears the current media, but keeps the player and
-  /// video texture alive for a fast subsequent [open].
+  /// Stops playback (pauses and releases the wakelock) while KEEPING the
+  /// controller and its last frame alive, so a handoff/fallback leaves a still
+  /// picture rather than a black flash. [dispose] fully releases resources; the
+  /// next [open] replaces the controller.
   Future<void> stop() async {
     _completed.add(false);
-    await _player?.stop();
+    _playIntended = false;
+    await _controller?.pause();
+    await _applyWakelock(false);
   }
 
-  Future<void> seek(Duration position) async => _player?.seek(position);
+  Future<void> seek(Duration position) async =>
+      _controller?.seekTo(position);
 
-  /// Sets volume in the 0..1 range (media_kit uses 0..100 internally).
+  /// Sets volume in the 0..1 range.
   Future<void> setVolume(double volume) async {
     _volume = volume.clamp(0.0, 1.0);
-    if (!_muted) await _player?.setVolume(_volume * 100.0);
+    if (!_muted) await _controller?.setVolume(_volume);
   }
 
   Future<void> setMute(bool mute) async {
     _muted = mute;
-    await _player?.setVolume(mute ? 0.0 : _volume * 100.0);
+    await _controller?.setVolume(mute ? 0.0 : _volume);
+  }
+
+  // ── Quality (Auto ABR + preload-then-swap manual pin) ─────────────────────
+
+  /// Fetches and parses the master playlist [url] to populate the quality
+  /// picker. Best-effort: any failure (non-HLS, network error, media playlist,
+  /// audio groups present) simply leaves the picker at "Auto only".
+  Future<void> _loadQualities(String url, int generation) async {
+    try {
+      final resp = await http
+          .get(Uri.parse(url))
+          .timeout(const Duration(seconds: 6));
+      if (generation != _mediaGeneration) return;
+      if (resp.statusCode != 200) return;
+      final body = resp.body;
+      if (!body.contains('#EXTM3U')) return; // not an HLS playlist
+      final info = parseHlsMaster(body, Uri.parse(url));
+      if (generation != _mediaGeneration) return;
+      // Separate audio groups → a variant-only URL would be video-only, so
+      // pinning would drop audio. Keep Auto only in that case.
+      if (info.hasAudioGroups) return;
+      if (info.qualities.length < 2) return; // nothing worth a picker
+      _qualities.add(info.qualities);
+    } catch (e) {
+      debugPrint('VideoPlaybackService: quality parse skipped: $e');
+    }
+  }
+
+  /// Selects [quality] for output.
+  ///
+  /// `Auto` re-opens the MASTER url (native ABR). A concrete quality does a
+  /// preload-then-swap: a SECOND controller is created on the variant URL and
+  /// fully initialized (for VOD, seeked to the current position) while the OLD
+  /// controller keeps playing; only then is the rendered controller atomically
+  /// swapped and the old one disposed — no black frame, no audible gap. The new
+  /// controller is prepared MUTED so the brief overlap is never double-audio;
+  /// it is unmuted the instant it becomes the active source.
+  Future<void> setVideoQuality(VideoQuality quality) async {
+    final current = _controller;
+    if (current == null) return;
+    final targetUrl = quality.isAuto ? _masterUrl : quality.url;
+    if (targetUrl == null) return;
+    if (quality.id == _selectedQuality.value.id) return;
+
+    final generation = _mediaGeneration; // pin to the current media
+    final resumePosition = current.value.position;
+    final wasPlaying = current.value.isPlaying || _playIntended;
+
+    final next = VideoPlayerController.networkUrl(
+      Uri.parse(targetUrl),
+      videoPlayerOptions: _options(),
+    );
+    try {
+      await next.setVolume(0.0); // muted preload — no double audio in overlap
+      await next.initialize();
+      if (generation != _mediaGeneration) {
+        await next.dispose();
+        return; // media changed mid-swap
+      }
+      if (!_live && resumePosition > Duration.zero) {
+        await next.seekTo(resumePosition);
+      }
+      if (wasPlaying) await next.play();
+    } catch (e) {
+      debugPrint('VideoPlaybackService: quality swap init failed: $e');
+      await _disposeQuietly(next);
+      return; // keep the old controller playing untouched
+    }
+
+    // Atomic swap: bind + publish the new controller, then unmute it and tear
+    // down the old one.
+    _bind(next);
+    _selectedQuality.add(quality);
+    await next.setVolume(_muted ? 0.0 : _volume);
+    await _disposeController(current);
+  }
+
+  // ── Internal wiring ───────────────────────────────────────────────────────
+
+  /// Makes [c] the active controller: attaches the value listener, publishes it
+  /// on [controllerStream] and re-emits its current state onto the streams.
+  void _bind(VideoPlayerController c) {
+    _controller = c;
+    _lastError = null;
+    // The listener is removed when the controller is disposed (in
+    // [_disposeController]/[dispose]); until then a stale listener is a no-op
+    // because [_onValue] guards on identity with the active controller.
+    c.addListener(() => _onValue(c));
+    _activeController.add(c);
+    _onValue(c); // emit initial state (already initialized here)
+  }
+
+  void _onValue(VideoPlayerController c) {
+    if (!identical(c, _controller)) return; // stale listener during a swap
+    final v = c.value;
+    _position.add(v.position);
+    _duration.add(v.duration);
+    _buffering.add(v.isBuffering);
+    _playing.add(v.isPlaying);
+
+    final size = v.size;
+    final w = size.width.round();
+    final h = size.height.round();
+    if (v.isInitialized && w > 0 && h > 0) {
+      if (_width.value != w) _width.add(w);
+      if (_height.value != h) _height.add(h);
+      if (!_hasFrame.value) _hasFrame.add(true);
+    }
+
+    if (v.isCompleted && !_completed.value) _completed.add(true);
+
+    if (v.hasError) {
+      final desc = v.errorDescription ?? 'video error';
+      if (desc != _lastError) {
+        _lastError = desc;
+        debugPrint('VideoPlaybackService: player error: $desc');
+        _error.add(desc);
+      }
+    }
+  }
+
+  /// Tears down a controller that never became the active one, without ever
+  /// blocking the caller: a controller whose native creation threw leaves
+  /// video_player's `_creatingCompleter` pending, so its `dispose()` would
+  /// never return. Bounded by [_disposeTimeout]; timeouts and errors are
+  /// ignored on purpose — the native side is already gone or unreachable.
+  Future<void> _disposeQuietly(VideoPlayerController c) async {
+    try {
+      await c.dispose().timeout(_disposeTimeout);
+    } catch (e) {
+      debugPrint('VideoPlaybackService: dispose of a failed controller '
+          'did not complete: $e');
+    }
+  }
+
+  Future<void> _disposeController(VideoPlayerController c) async {
+    // Detach our listener only if it belongs to c (the active listener may have
+    // already been reassigned to the replacement controller by _bind).
+    try {
+      await c.pause();
+    } catch (_) {}
+    try {
+      await c.dispose();
+    } catch (_) {}
+  }
+
+  Future<void> _applyWakelock(bool enable) async {
+    try {
+      if (enable) {
+        await WakelockPlus.enable();
+      } else {
+        await WakelockPlus.disable();
+      }
+    } catch (e) {
+      // Wakelock is a nicety; never let it break playback.
+      debugPrint('VideoPlaybackService: wakelock toggle failed: $e');
+    }
   }
 
   /// Fully tears down native resources. After this the service must be
-  /// re-created; call [ensureInitialized] again to reuse.
+  /// re-created; a subsequent [open] rebuilds a controller.
   Future<void> dispose() async {
-    for (final s in _subs) {
-      await s.cancel();
-    }
-    _subs.clear();
-    final player = _player;
-    _player = null;
+    _mediaGeneration++;
+    final c = _controller;
     _controller = null;
-    if (player != null) {
-      await player.dispose();
+    if (c != null) {
+      try {
+        await c.dispose();
+      } catch (_) {}
     }
+    await _applyWakelock(false);
     await _position.close();
     await _duration.close();
     await _buffering.close();
     await _playing.close();
     await _completed.close();
     await _error.close();
+    await _activeController.close();
     await _hasFrame.close();
-    await _videoTracks.close();
-    await _selectedVideoTrack.close();
+    await _width.close();
+    await _height.close();
+    await _qualities.close();
+    await _selectedQuality.close();
   }
 }

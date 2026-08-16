@@ -17,6 +17,7 @@ import 'package:radio_crestin/widgets/song_history_modal.dart';
 import '../globals.dart' as globals;
 import '../services/analytics_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sliding_up_panel2/sliding_up_panel2.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:get_it/get_it.dart';
@@ -123,7 +124,8 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   List<String> _favoriteSlugs = [];
   final _playButtonKey = GlobalKey<AnimatedPlayButtonState>();
   final _likeButtonKey = GlobalKey<LikeButtonState>();
-  final StationDataService _stationDataService = GetIt.instance<StationDataService>();
+  final StationDataService _stationDataService =
+      GetIt.instance<StationDataService>();
 
   String _songInfo() {
     final title = currentStation?.songTitle ?? '';
@@ -134,13 +136,14 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   }
 
   /// Primary line under the artwork for radio/TV stations: the song title when
-  /// one is playing, a "Transmisiune live" label for an idle TV channel, or the
-  /// generic idle placeholder (so a station without metadata never looks blank).
+  /// one is playing. An idle TV channel keeps the line BLANK — no synthetic
+  /// "Transmisiune live" filler (real metadata only, explicit owner request);
+  /// idle radio keeps its generic placeholder.
   String _primaryLine() {
     final s = currentStation;
     if (s == null) return "Metadate indisponibile";
     if (s.songTitle.isNotEmpty) return s.songTitle;
-    if (s.isTv) return "Transmisiune live";
+    if (s.isTv) return "";
     return "Metadate indisponibile";
   }
 
@@ -148,7 +151,8 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   void initState() {
     super.initState();
 
-    _subscriptions.add(_stationDataService.favoriteStationSlugs.stream.listen((slugs) {
+    _subscriptions
+        .add(_stationDataService.favoriteStationSlugs.stream.listen((slugs) {
       if (mounted) {
         setState(() {
           _favoriteSlugs = slugs;
@@ -156,7 +160,8 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
       }
     }));
 
-    _subscriptions.add(widget.audioHandler.currentStation.stream.listen((Station? value) {
+    _subscriptions
+        .add(widget.audioHandler.currentStation.stream.listen((Station? value) {
       if (mounted) {
         setState(() {
           currentStation = value;
@@ -174,8 +179,8 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     }));
 
     _audioOnlyFallback = widget.audioHandler.audioOnlyFallback.value;
-    _subscriptions.add(
-        widget.audioHandler.audioOnlyFallback.stream.listen((value) {
+    _subscriptions
+        .add(widget.audioHandler.audioOnlyFallback.stream.listen((value) {
       if (mounted) {
         setState(() {
           _audioOnlyFallback = value;
@@ -186,8 +191,8 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     // Whether the panel is expanded — gates the inline YouTube surface so it is
     // hidden (but still mounted + playing) while collapsed to the mini player.
     _panelExpanded = widget.slidingUpPanelController.isExpandedSubject.value;
-    _subscriptions.add(
-        widget.slidingUpPanelController.isExpandedSubject.stream.listen((value) {
+    _subscriptions.add(widget.slidingUpPanelController.isExpandedSubject.stream
+        .listen((value) {
       if (mounted) {
         setState(() {
           _panelExpanded = value;
@@ -208,7 +213,8 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   @override
   Widget build(BuildContext context) {
     final hasYoutubeLink = (currentStation != null &&
-        (currentStation!.songArtist.isNotEmpty || currentStation!.songTitle.isNotEmpty));
+        (currentStation!.songArtist.isNotEmpty ||
+            currentStation!.songTitle.isNotEmpty));
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bgColor = Theme.of(context).scaffoldBackgroundColor;
@@ -376,8 +382,10 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                                   _buildChipRow(context, isDark,
                                       alignStart: true),
                                   SizedBox(height: compact ? 12.0 : 20.0),
-                                  _buildTransportControls(context,
-                                      lsPlayIconSize, lsSkipIconSize,
+                                  _buildTransportControls(
+                                      context,
+                                      lsPlayIconSize,
+                                      lsSkipIconSize,
                                       lsSkipSpacing,
                                       alignStart: true),
                                   SizedBox(height: compact ? 8.0 : 12.0),
@@ -430,10 +438,8 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     // row so the info column keeps room.
     final maxByWidth =
         (maxWidth * 0.44).clamp(140.0, double.infinity).toDouble();
-    final artSize = maxHeight
-        .clamp(140.0, 360.0)
-        .clamp(140.0, maxByWidth)
-        .toDouble();
+    final artSize =
+        maxHeight.clamp(140.0, 360.0).clamp(140.0, maxByWidth).toDouble();
     return (artSize, artSize);
   }
 
@@ -482,7 +488,8 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
         return FadeTransition(opacity: animation, child: child);
       },
       child: Padding(
-        key: ValueKey('song-${currentStation?.songTitle}-${currentStation?.id}'),
+        key:
+            ValueKey('song-${currentStation?.songTitle}-${currentStation?.id}'),
         padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
         child: Text(
           _primaryLine(),
@@ -508,7 +515,8 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
       },
       child: Text(
         currentStation?.songArtist ?? "",
-        key: ValueKey('artist-${currentStation?.songArtist}-${currentStation?.id}'),
+        key: ValueKey(
+            'artist-${currentStation?.songArtist}-${currentStation?.id}'),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         textAlign: textAlign,
@@ -548,20 +556,32 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
               chipBg: chipBg,
               chipRadius: chipRadius,
               onTap: () {
-                AnalyticsService.instance.capture('button_clicked', {'button_name': 'like_song', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug, 'song_id': currentStation?.songId});
+                AnalyticsService.instance.capture('button_clicked', {
+                  'button_name': 'like_song',
+                  'station_id': currentStation?.id,
+                  'station_slug': currentStation?.slug,
+                  'song_id': currentStation?.songId
+                });
                 _showReviewModal(context, initialStars: 5);
               },
             ),
             const SizedBox(width: 8),
             _buildChip(
               context,
-              icon: likeStatus == -1 ? Icons.thumb_down : Icons.thumb_down_outlined,
+              icon: likeStatus == -1
+                  ? Icons.thumb_down
+                  : Icons.thumb_down_outlined,
               label: 'Nu-mi place',
               isActive: likeStatus == -1,
               chipBg: chipBg,
               chipRadius: chipRadius,
               onTap: () {
-                AnalyticsService.instance.capture('button_clicked', {'button_name': 'dislike_song', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug, 'song_id': currentStation?.songId});
+                AnalyticsService.instance.capture('button_clicked', {
+                  'button_name': 'dislike_song',
+                  'station_id': currentStation?.id,
+                  'station_slug': currentStation?.slug,
+                  'song_id': currentStation?.songId
+                });
                 _showReviewModal(context, initialStars: 1);
               },
             ),
@@ -573,7 +593,12 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
               chipBg: chipBg,
               chipRadius: chipRadius,
               onTap: () {
-                AnalyticsService.instance.capture('button_clicked', {'button_name': 'share', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug, 'song_id': currentStation?.songId});
+                AnalyticsService.instance.capture('button_clicked', {
+                  'button_name': 'share',
+                  'station_id': currentStation?.id,
+                  'station_slug': currentStation?.slug,
+                  'song_id': currentStation?.songId
+                });
                 _showShareDialog(context);
               },
             ),
@@ -648,7 +673,11 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
         InkWell(
           customBorder: const CircleBorder(),
           onTap: () {
-            AnalyticsService.instance.capture('button_clicked', {'button_name': 'favorite', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug});
+            AnalyticsService.instance.capture('button_clicked', {
+              'button_name': 'favorite',
+              'station_id': currentStation?.id,
+              'station_slug': currentStation?.slug
+            });
             _likeButtonKey.currentState?.onTap();
           },
           child: Container(
@@ -660,10 +689,13 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                     key: _likeButtonKey,
                     size: 30,
                     bubblesSize: 30,
-                    isLiked: currentStation != null && _favoriteSlugs.contains(currentStation!.slug),
+                    isLiked: currentStation != null &&
+                        _favoriteSlugs.contains(currentStation!.slug),
                     likeBuilder: (bool isLiked) {
                       return Icon(
-                        isLiked ? Icons.favorite_sharp : Icons.favorite_border_sharp,
+                        isLiked
+                            ? Icons.favorite_sharp
+                            : Icons.favorite_border_sharp,
                         color: isLiked
                             ? Theme.of(context).primaryColor
                             : Theme.of(context).colorScheme.onSurface,
@@ -672,7 +704,8 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                     },
                     onTap: (bool isLiked) async {
                       if (currentStation != null) {
-                        widget.audioHandler.setStationIsFavorite(currentStation!, !isLiked);
+                        widget.audioHandler
+                            .setStationIsFavorite(currentStation!, !isLiked);
                       }
                       return !isLiked;
                     },
@@ -680,10 +713,11 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                 ),
                 Padding(
                   padding: const EdgeInsets.only(top: 8.0),
-                  child: Text('favorit', style: TextStyle(
-                    fontSize: 12,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  )),
+                  child: Text('favorit',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      )),
                 ),
               ],
             ),
@@ -694,7 +728,11 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
           icon: Icons.history,
           label: 'istoric',
           onTap: () {
-            AnalyticsService.instance.capture('button_clicked', {'button_name': 'song_history', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug});
+            AnalyticsService.instance.capture('button_clicked', {
+              'button_name': 'song_history',
+              'station_id': currentStation?.id,
+              'station_slug': currentStation?.slug
+            });
             if (currentStation != null) {
               SongHistoryModal.show(
                 context,
@@ -711,7 +749,11 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
           label: 'somn',
           isActive: isTimerActive,
           onTap: () {
-            AnalyticsService.instance.capture('button_clicked', {'button_name': 'sleep_timer', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug});
+            AnalyticsService.instance.capture('button_clicked', {
+              'button_name': 'sleep_timer',
+              'station_id': currentStation?.id,
+              'station_slug': currentStation?.slug
+            });
             showSleepTimerDialog(context);
           },
         ),
@@ -722,11 +764,19 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
           isEnabled: hasYoutubeLink,
           onTap: () async {
             if (!hasYoutubeLink || currentStation == null) return;
-            AnalyticsService.instance.capture('button_clicked', {'button_name': 'youtube_search', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug, 'song_id': currentStation?.songId, 'song_title': currentStation?.songTitle});
-            final query = "${currentStation?.songArtist} - ${currentStation?.songTitle}";
+            AnalyticsService.instance.capture('button_clicked', {
+              'button_name': 'youtube_search',
+              'station_id': currentStation?.id,
+              'station_slug': currentStation?.slug,
+              'song_id': currentStation?.songId,
+              'song_title': currentStation?.songTitle
+            });
+            final query =
+                "${currentStation?.songArtist} - ${currentStation?.songTitle}";
             final encodedQuery = Uri.encodeQueryComponent(query);
             final searchUrl = 'https://www.youtube.com/results?q=$encodedQuery';
-            await launchUrl(Uri.parse(searchUrl), mode: LaunchMode.externalApplication);
+            await launchUrl(Uri.parse(searchUrl),
+                mode: LaunchMode.externalApplication);
           },
         ),
       ],
@@ -764,8 +814,9 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   Widget _buildArtwork(BuildContext context, double thumbSize) {
     if (_isVideoMode) {
       // Big, edge-to-edge (minus a ~12px margin) 16:9 video with the
-      // YouTube-style overlay controls. TV channels are live, so the overlay
-      // shows the LIVE pill and no scrubber.
+      // YouTube-style overlay controls. TV channels are live; the overlay shows
+      // the LIVE pill plus a DVR scrubber once libmpv reports a seekable window
+      // (seek routes through the handler, which re-anchors within the window).
       final isLive = currentStation?.isTv ?? false;
       return AnimatedSwitcher(
         duration: const Duration(milliseconds: 300),
@@ -776,14 +827,21 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
           padding: const EdgeInsets.symmetric(horizontal: 12.0),
           child: AspectRatio(
             aspectRatio: 16 / 9,
-            child: VideoPlayerStage(
-              videoService: widget.audioHandler.videoService,
-              title: currentStation?.displayTitle ?? '',
-              isLive: isLive,
-              showTransport: false,
-              onPlay: widget.audioHandler.play,
-              onPause: widget.audioHandler.pause,
-              onSeek: isLive ? null : widget.audioHandler.seek,
+            // [IgnoreDraggableWidget] locks the sliding panel while a pointer
+            // is on the video: touches (taps, scrubs, pinches) interact with
+            // the surface instead of dragging the panel down.
+            child: IgnoreDraggableWidget(
+              child: VideoPlayerStage(
+                videoService: widget.audioHandler.videoService,
+                title: currentStation?.displayTitle ?? '',
+                isLive: isLive,
+                onPlay: widget.audioHandler.play,
+                onPause: widget.audioHandler.pause,
+                // Wired for live too: the overlay itself decides whether a live
+                // DVR scrubber is shown (only once a seekable window is
+                // reported).
+                onSeek: widget.audioHandler.seek,
+              ),
             ),
           ),
         ),
@@ -993,7 +1051,8 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
             Icon(icon, color: color, size: 24),
             Padding(
               padding: const EdgeInsets.only(top: 8.0),
-              child: Text(label, style: TextStyle(fontSize: 12, color: labelColor)),
+              child: Text(label,
+                  style: TextStyle(fontSize: 12, color: labelColor)),
             ),
           ],
         ),
@@ -1041,7 +1100,8 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     );
   }
 
-  void _showReviewModal(BuildContext context, {required int initialStars}) async {
+  void _showReviewModal(BuildContext context,
+      {required int initialStars}) async {
     if (currentStation == null) return;
     final songId = currentStation!.songId;
     final likeService = GetIt.instance<SongLikeService>();
@@ -1079,7 +1139,8 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     ShareHandler.shareApp(
       context: context,
       shareUrl: shareUrl,
-      shareMessage: 'Instalează și tu aplicația Radio Creștin și ascultă peste 60 de stații de radio creștin:\n$shareUrl',
+      shareMessage:
+          'Instalează și tu aplicația Radio Creștin și ascultă peste 60 de stații de radio creștin:\n$shareUrl',
       stationName: currentStation?.title,
       songName: currentStation?.songTitle,
       songArtist: currentStation?.songArtist,
@@ -1110,7 +1171,8 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
               for (var minutes in [5, 10, 15, 30, 60])
                 CupertinoActionSheetAction(
                   child: Text('$minutes minute'),
-                  onPressed: () => setSleepTimer(context, Duration(minutes: minutes)),
+                  onPressed: () =>
+                      setSleepTimer(context, Duration(minutes: minutes)),
                 ),
               if (isTimerActive)
                 CupertinoActionSheetAction(
@@ -1142,7 +1204,8 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                 children: [5, 10, 15, 30, 60]
                     .map((minutes) => ListTile(
                           title: Text('$minutes minute'),
-                          onTap: () => setSleepTimer(context, Duration(minutes: minutes)),
+                          onTap: () => setSleepTimer(
+                              context, Duration(minutes: minutes)),
                         ))
                     .toList()
                   ..addAll(
@@ -1170,7 +1233,10 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   }
 
   void setSleepTimer(BuildContext context, Duration duration) {
-    AnalyticsService.instance.capture('button_clicked', {'button_name': 'sleep_timer_set', 'duration_minutes': duration.inMinutes});
+    AnalyticsService.instance.capture('button_clicked', {
+      'button_name': 'sleep_timer_set',
+      'duration_minutes': duration.inMinutes
+    });
     Navigator.of(context).pop();
     Fluttertoast.showToast(
         msg: "Radioul se va opri după ${duration.inMinutes} minute",
@@ -1197,7 +1263,8 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   }
 
   void cancelSleepTimer() {
-    AnalyticsService.instance.capture('button_clicked', {'button_name': 'sleep_timer_cancel'});
+    AnalyticsService.instance
+        .capture('button_clicked', {'button_name': 'sleep_timer_cancel'});
     if (sleepTimer != null) {
       sleepTimer!.cancel();
       sleepTimer = null;

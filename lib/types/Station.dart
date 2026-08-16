@@ -56,7 +56,32 @@ class Station {
   get order => rawStationData.order;
   get stationStreams => rawStationData.station_streams;
   get totalListeners => rawStationData.total_listeners;
-  String? get thumbnailUrl => rawStationData.thumbnail_url;
+
+  /// The station's own artwork URL, falling back to the first playlist item
+  /// that ships a thumbnail when the station itself defines none.
+  ///
+  /// Playlist-type stations frequently have no station-level thumbnail; using
+  /// the first item's artwork keeps the stations list, mini/full player and
+  /// track list from showing an empty tile. Reads the raw wire items directly
+  /// (no [PlaylistItem] mapping) so it stays cheap in list builds, and returns
+  /// null when neither source has one.
+  String? get thumbnailUrl {
+    final own = rawStationData.thumbnail_url;
+    if (own != null && own.isNotEmpty) return own;
+    return _firstPlaylistItemThumbnailUrl;
+  }
+
+  /// First non-empty `thumbnail_url` across this station's playlist items, or
+  /// null. Cheap: iterates the raw items without constructing [PlaylistItem]s.
+  String? get _firstPlaylistItemThumbnailUrl {
+    final items = rawStationData.playlist_items;
+    if (items == null) return null;
+    for (final it in items) {
+      final t = it.thumbnail_url;
+      if (t != null && t.isNotEmpty) return t;
+    }
+    return null;
+  }
   String get displayTitle => rawStationData.title;
   String get displaySubtitle => Utils.getCurrentPlayedSongTitle(rawStationData);
   String get artist => Utils.getCurrentPlayedSongTitle(rawStationData);
@@ -147,9 +172,16 @@ class Station {
 
   Widget displayThumbnail({int? cacheWidth}) {
     final hasSongThumbnail = rawStationData.now_playing?.song?.thumbnail_url != null;
+    var primaryUrl = Utils.getStationThumbnailUrl(rawStationData);
+    // Playlist stations without station/song artwork: fall back to the first
+    // item's thumbnail so the artwork isn't an empty placeholder.
+    final itemFallback = _firstPlaylistItemThumbnailUrl;
+    if (primaryUrl.isEmpty && itemFallback != null) {
+      primaryUrl = itemFallback;
+    }
     return Utils.displayImage(
-      Utils.getStationThumbnailUrl(rawStationData),
-      fallbackImageUrl: rawStationData.thumbnail_url,
+      primaryUrl,
+      fallbackImageUrl: rawStationData.thumbnail_url ?? itemFallback,
       cache: true,
       cachedFilePath: cachedArtPath,
       cacheWidth: cacheWidth,

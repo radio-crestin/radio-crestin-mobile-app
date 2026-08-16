@@ -39,6 +39,57 @@ void main() {
       expect(station.thumbnailUrl, 'https://img.example.com/pic.jpg');
     });
 
+    test('thumbnailUrl falls back to the first playlist item with artwork '
+        'when the station defines none', () {
+      final station = StationFactory.createStation(
+        id: 1,
+        slug: 'playlist',
+        title: 'Playlist',
+        thumbnailUrl: null, // no station-level artwork
+        stationType: 'playlist',
+        playlistItems: [
+          StationFactory.createPlaylistItem(id: 1, thumbnailUrl: null),
+          StationFactory.createPlaylistItem(
+              id: 2, thumbnailUrl: 'https://cdn/item2.jpg'),
+          StationFactory.createPlaylistItem(
+              id: 3, thumbnailUrl: 'https://cdn/item3.jpg'),
+        ],
+      );
+      // First item has none; the fallback picks the first item that DOES.
+      expect(station.thumbnailUrl, 'https://cdn/item2.jpg');
+    });
+
+    test('thumbnailUrl prefers the station artwork over playlist items', () {
+      final station = StationFactory.createStation(
+        id: 1,
+        slug: 'playlist',
+        title: 'Playlist',
+        thumbnailUrl: 'https://cdn/station.jpg',
+        stationType: 'playlist',
+        playlistItems: [
+          StationFactory.createPlaylistItem(
+              id: 1, thumbnailUrl: 'https://cdn/item1.jpg'),
+        ],
+      );
+      expect(station.thumbnailUrl, 'https://cdn/station.jpg');
+    });
+
+    test('thumbnailUrl is null when neither the station nor any item has one',
+        () {
+      final station = StationFactory.createStation(
+        id: 1,
+        slug: 'playlist',
+        title: 'Playlist',
+        thumbnailUrl: null,
+        stationType: 'playlist',
+        playlistItems: [
+          StationFactory.createPlaylistItem(id: 1, thumbnailUrl: null),
+          StationFactory.createPlaylistItem(id: 2, thumbnailUrl: ''),
+        ],
+      );
+      expect(station.thumbnailUrl, isNull);
+    });
+
     test('isUp returns true when uptime.is_up is true', () {
       final station = StationFactory.createStation(
         id: 1,

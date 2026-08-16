@@ -144,4 +144,58 @@ void main() {
       expect(playlistItemDisplayName(item(url: 'not a url')), isNotEmpty);
     });
   });
+
+  group('PlaylistItem.publishedAt parsing', () {
+    test('is null when the backend sends no date', () {
+      final it = PlaylistItem.fromJson({'id': 1});
+      expect(it.publishedAt, isNull);
+    });
+
+    test('parses an ISO-8601 published_at (UTC)', () {
+      final it = PlaylistItem.fromJson({
+        'id': 1,
+        'published_at': '2024-08-03T18:30:00Z',
+      });
+      expect(it.publishedAt, isNotNull);
+      final utc = it.publishedAt!.toUtc();
+      expect(utc.year, 2024);
+      expect(utc.month, 8);
+      expect(utc.day, 3);
+    });
+
+    test('accepts the alternate "published" key', () {
+      final it = PlaylistItem.fromJson({
+        'id': 1,
+        'published': '2023-01-15T00:00:00Z',
+      });
+      expect(it.publishedAt!.toUtc().year, 2023);
+    });
+
+    test('parses a unix epoch in seconds and in milliseconds', () {
+      // 2021-01-01T00:00:00Z = 1609459200 s
+      final secs = PlaylistItem.fromJson(
+          {'id': 1, 'published_at': 1609459200});
+      expect(secs.publishedAt!.toUtc().year, 2021);
+      final millis = PlaylistItem.fromJson(
+          {'id': 1, 'published_at': 1609459200000});
+      expect(millis.publishedAt!.toUtc().year, 2021);
+    });
+
+    test('is null for a blank or unparseable value', () {
+      expect(PlaylistItem.fromJson({'id': 1, 'published_at': '  '}).publishedAt,
+          isNull);
+      expect(
+          PlaylistItem.fromJson({'id': 1, 'published_at': 'not-a-date'})
+              .publishedAt,
+          isNull);
+    });
+  });
+
+  group('formatPlaylistDate', () {
+    test('formats as a Romanian long date', () {
+      expect(formatPlaylistDate(DateTime(2024, 8, 3)), '3 august 2024');
+      expect(formatPlaylistDate(DateTime(2023, 1, 15)), '15 ianuarie 2023');
+      expect(formatPlaylistDate(DateTime(2022, 12, 31)), '31 decembrie 2022');
+    });
+  });
 }

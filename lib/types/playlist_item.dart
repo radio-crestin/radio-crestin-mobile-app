@@ -70,6 +70,21 @@ String? youtubePlaylistIdFromUrl(String url) {
   return null;
 }
 
+/// Romanian month names (1-indexed), for [formatPlaylistDate]. `intl` is not a
+/// dependency, so the ro locale is spelled out here.
+const List<String> _roMonths = [
+  '', // 1-indexed padding
+  'ianuarie', 'februarie', 'martie', 'aprilie', 'mai', 'iunie',
+  'iulie', 'august', 'septembrie', 'octombrie', 'noiembrie', 'decembrie',
+];
+
+/// Formats [date] as a Romanian long date, e.g. `3 august 2024`. Pure so it is
+/// trivially unit-testable; used to render a playlist item's publish date.
+String formatPlaylistDate(DateTime date) {
+  final local = date.toLocal();
+  return '${local.day} ${_roMonths[local.month]} ${local.year}';
+}
+
 /// User-facing display name for a playlist entry: its title, or the URL's
 /// host when the title is empty (never an empty string). Used by failure
 /// notifications so the user can tell WHICH element was unavailable.
@@ -96,7 +111,31 @@ class PlaylistItem {
     required this.title,
     this.thumbnailUrl,
     this.durationSeconds,
+    this.publishedAt,
   });
+
+  /// Parses an optional publish date from a wire value.
+  ///
+  /// Accepts an ISO-8601 string (`published_at` / `published`) or a unix epoch
+  /// (seconds or milliseconds). Returns null for a missing/blank/unparseable
+  /// value so a partial payload never throws.
+  static DateTime? _parsePublishedAt(Object? value) {
+    if (value == null) return null;
+    if (value is num) {
+      final n = value.toInt();
+      // Heuristic: >~ year 2001 in seconds is ~1e9; treat large values as ms.
+      final isMillis = n > 100000000000;
+      return DateTime.fromMillisecondsSinceEpoch(
+          isMillis ? n : n * 1000,
+          isUtc: true);
+    }
+    if (value is String) {
+      final trimmed = value.trim();
+      if (trimmed.isEmpty) return null;
+      return DateTime.tryParse(trimmed);
+    }
+    return null;
+  }
 
   /// Builds a [PlaylistItem] from the generated GraphQL playlist entry.
   ///
@@ -113,6 +152,10 @@ class PlaylistItem {
       title: raw.title ?? '',
       thumbnailUrl: raw.thumbnail_url,
       durationSeconds: raw.duration_seconds,
+      // The GraphQL query does not (yet) select a publish date for playlist
+      // items, so this is always null on the GraphQL path. The REST live-sync
+      // path ([fromJson]) parses one when the backend sends it.
+      publishedAt: null,
     );
   }
 
@@ -131,6 +174,9 @@ class PlaylistItem {
       title: (json['title'] as String?) ?? '',
       thumbnailUrl: json['thumbnail_url'] as String?,
       durationSeconds: (json['duration_seconds'] as num?)?.toInt(),
+      // Accept either key the backend might adopt; null when absent.
+      publishedAt: _parsePublishedAt(
+          json['published_at'] ?? json['published']),
     );
   }
 
@@ -155,4 +201,10 @@ class PlaylistItem {
 
   /// Optional total length in seconds, when known.
   final int? durationSeconds;
+
+  /// Optional publish date of the entry (e.g. when a live-stream recording was
+  /// aired). Populated only from the REST live-sync payload when the backend
+  /// sends `published_at`/`published`; null otherwise (including the GraphQL
+  /// path, whose query does not select it yet). Rendered when non-null.
+  final DateTime? publishedAt;
 }

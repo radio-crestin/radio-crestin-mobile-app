@@ -10,60 +10,104 @@ typedef RestApiTransformer = Map<String, dynamic> Function(dynamic jsonData);
 
 class GraphQLToRestInterceptorLink extends Link {
   final Map<String, RestApiConfig> queryToRestMap;
-  
-  GraphQLToRestInterceptorLink({required this.queryToRestMap});
-  
+
+  /// Factory for the per-request [http.Client]. One client per request
+  /// (mirroring `http.get`), closed in a `finally` so a timed-out request
+  /// releases its socket instead of leaking a half-open connection.
+  /// Injectable so tests can supply a fake/slow client.
+  final http.Client Function() _clientFactory;
+
+  GraphQLToRestInterceptorLink({
+    required this.queryToRestMap,
+    http.Client Function()? httpClientFactory,
+  }) : _clientFactory = httpClientFactory ?? (() => http.Client());
+
   @override
-  Stream<Response> request(Request request, [NextLink? forward]) async* {
+  Stream<Response> request(Request request, [NextLink? forward]) {
     final config = _getConfigForRequest(request);
-    
+
     if (config != null) {
-      yield* _handleRestApiRequest(request, config);
-    } else {
-      if (forward != null) {
-        yield* forward(request);
-      }
+      // Single-shot by construction: a [Future] completes exactly once, so
+      // `Stream.fromFuture` emits exactly one event and then closes. This is
+      // the root guard against the "Bad state: Future already completed"
+      // race — the REST path can no longer deliver a *second* event after a
+      // downstream consumer has already resolved its own completer.
+      //
+      // Why that race existed: graphql's `QueryManager._resolveQueryOnNetwork`
+      // wraps this stream in `.timeout(queryRequestTimeout)` and listens with
+      // an *unguarded* `completer.complete` as its onData handler. If the
+      // timeout fired first (completing the completer via the guarded error
+      // path) and this stream then emitted a late response, that second event
+      // hit `completer.complete` on an already-completed completer and threw.
+      // Emitting at most once removes our half of the race; the client is also
+      // configured with `queryRequestTimeout: null` so the interceptor's own
+      // [HttpStallGuard.restApiTimeout] bound is the single timeout authority.
+      return Stream.fromFuture(_handleRestApiRequest(request, config));
     }
+    if (forward != null) {
+      return forward(request);
+    }
+    return const Stream<Response>.empty();
   }
-  
-  Stream<Response> _handleRestApiRequest(Request request, RestApiConfig config) async* {
+
+  /// Resolves the REST call into exactly one [Response]. Never throws:
+  /// every failure (timeout, non-200, decode/transform error) is mapped to a
+  /// GraphQL error response, preserving the caller's fallback semantics.
+  Future<Response> _handleRestApiRequest(
+    Request request,
+    RestApiConfig config,
+  ) async {
+    final opName = request.operation.operationName ?? 'unknown';
     try {
       final variables = request.variables;
       final url = config.urlBuilder != null
-        ? config.urlBuilder!(variables)
-        : addTimestampToUrl(config.restApiUrl);
-      final opName = request.operation.operationName ?? 'unknown';
+          ? config.urlBuilder!(variables)
+          : addTimestampToUrl(config.restApiUrl);
+
       PerformanceMonitor.startOperation('rest_api_$opName');
-      final response = await _fetchFromRestApi(url);
-      PerformanceMonitor.endOperation('rest_api_$opName');
-      
+      final http.Response response;
+      try {
+        response = await _fetchFromRestApi(url);
+      } finally {
+        // Always close the timing window — even on timeout/error — so a
+        // failed poll can't leak a dangling start entry that would inflate
+        // the next successful measurement.
+        PerformanceMonitor.endOperation('rest_api_$opName');
+      }
+
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body);
         final transformedData = config.transformer(jsonData);
-        
-        yield _createSuccessResponse(transformedData, request.context);
-      } else {
-        yield _createErrorResponse(
-          'Failed to fetch from REST API (${config.restApiUrl}): ${response.statusCode}',
-          request.context,
-        );
+        return _createSuccessResponse(transformedData, request.context);
       }
+      return _createErrorResponse(
+        'Failed to fetch from REST API (${config.restApiUrl}): '
+        '${response.statusCode}',
+        request.context,
+      );
     } catch (e) {
-      yield _createErrorResponse(
+      return _createErrorResponse(
         'Error fetching from REST API: $e',
         request.context,
       );
     }
   }
-  
+
   Future<http.Response> _fetchFromRestApi(String url) async {
     // Total-duration bound: this is the station-data poll — an unbounded
     // request here let a silent backend stall the whole refresh pipeline.
     // A timeout surfaces as a GraphQL error response; the poller's next
     // tick retries as usual.
-    return await http
-        .get(Uri.parse(url))
-        .timeout(HttpStallGuard.restApiTimeout);
+    final client = _clientFactory();
+    try {
+      return await client
+          .get(Uri.parse(url))
+          .timeout(HttpStallGuard.restApiTimeout);
+    } finally {
+      // Close in `finally` so a timed-out (abandoned) request also releases
+      // its socket instead of piling up half-open connections.
+      client.close();
+    }
   }
   
   Response _createSuccessResponse(Map<String, dynamic> data, Context context) {

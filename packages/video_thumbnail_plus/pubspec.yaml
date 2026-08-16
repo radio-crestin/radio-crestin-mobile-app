@@ -1,0 +1,27 @@
+name: video_thumbnail_plus
+description: "Video Thumbnail Plus"
+version: 0.0.2
+homepage: "https://github.com/WutangNailao/video_thumbnail_plus.git"
+
+environment:
+  sdk: '>=2.12.0 <4.0.0'
+  flutter: '>=2.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  plugin_platform_interface: ^2.1.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: world.nailao.video_thumbnail_plus
+        pluginClass: VideoThumbnailPlusPlugin
+      ios:
+        pluginClass: VideoThumbnailPlusPlugin
+

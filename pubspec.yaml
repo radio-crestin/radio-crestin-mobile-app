@@ -40,7 +40,6 @@ dependencies:
   # Direct dep so we can subscribe to interruption + becoming-noisy events
   # for diagnostics; just_audio uses this transitively for session config.
   audio_session: ^0.2.0
-  media_kit_libs_video: ^1.0.5
   graphql_flutter: ^5.2.0-beta.6
   provider: ^6.0.5
   graphql: ^5.1.3
@@ -50,14 +49,14 @@ dependencies:
   get_it: ^9.2.0
   url_launcher: ^6.2.2
   qr_flutter: ^4.1.0
-  package_info_plus: ^9.0.0
+  package_info_plus: ^10.2.0
   http: ^1.2.0
   path_provider: ^2.1.0
   crypto: ^3.0.0
   shared_preferences: ^2.1.1
-  share_plus: ^12.0.1
-  device_info_plus: ^12.3.0
-  font_awesome_flutter: ^10.7.0
+  share_plus: ^13.2.0
+  device_info_plus: ^13.2.0
+  font_awesome_flutter: ^11.0.0
   firebase_core: ^4.4.0
   posthog_flutter: ^5.30.0
   flutter_launcher_icons: ^0.14.0
@@ -65,7 +64,7 @@ dependencies:
   fuzzywuzzy: ^1.1.6
   flutter_nfc_kit: ^3.6.2
   sliding_up_panel2: ^3.3.0+1
-  upgrader: ^12.5.0
+  upgrader: ^13.5.0
   fluttertoast: ^9.0.0
   easy_search_bar: ^2.5.0
   flutter_sticky_header: ^0.8.0
@@ -80,13 +79,13 @@ dependencies:
   firebase_app_installations: ^0.4.0+6
   # Pin to 9.1.0 to fix missing dSYM for objective_c.framework on App Store Connect.
   # Remove once Flutter stable includes the fix from flutter/flutter#181533.
-  objective_c: 9.1.0
+  objective_c: ^9.4.1
   quick_actions: ^1.1.0
-  connectivity_plus: ^6.1.5
-  google_fonts: ^6.2.1
+  connectivity_plus: ^7.2.0
+  google_fonts: ^8.1.0
   sqflite: ^2.4.2
   sqflite_common_ffi: ^2.3.6
-  sqlite3_flutter_libs: ^0.5.27
+  sqlite3_flutter_libs: ^0.6.0+eol
   flutter_svg: ^2.0.17
   # Vendored fork of dpad 2.0.2 — patched to guard geometric D-pad
   # traversal against unmounted focus nodes (off-screen list cells the
@@ -98,15 +97,31 @@ dependencies:
     path: packages/flutter_chrome_cast
   flutter_airplay:
     path: packages/flutter_airplay
-  # Video playback engine for TV channels and video playlist items. media_kit
-  # (libmpv) plays HLS/MP4 video with perfect audio+video sync in the app's
-  # "video mode". media_kit_libs_video (above) already ships the native libs.
-  media_kit: ^1.2.6
-  media_kit_video: ^2.0.1
+  # Video playback engine for TV channels and video playlist items. The OFFICIAL
+  # video_player plugin drives native players (AVPlayer on iOS, ExoPlayer/Media3
+  # on Android) in the app's "video mode", giving free HLS adaptive-bitrate (ABR)
+  # streaming and creating NO media session — audio_service stays the single
+  # owner of the lock screen / notification / CarPlay / Android Auto. Replaced
+  # media_kit (libmpv), which cannot do HLS ABR nor seamless variant switching.
+  video_player: ^2.10.0
+  # Keeps the screen awake while video is actually playing (media_kit_video used
+  # to handle this; video_player does not). Toggled by VideoPlaybackService on
+  # play/pause so the display never sleeps mid-video, and releases on pause/stop.
+  wakelock_plus: ^1.2.8
   # YouTube playlist items are rendered by the UI layer via an inline iframe
   # player; the playback engine only orchestrates (skip in car/cast, pause in
   # background) and receives ended/error callbacks from the UI.
   youtube_player_iframe: ^6.0.2
+  # First-frame thumbnails for video playlist items that ship no thumbnail_url
+  # (decoded natively from the video URL, cached in-memory per URL). Falls back
+  # gracefully to the placeholder icon when a frame can't be produced.
+  # Vendored fork of video_thumbnail_plus 0.0.2 — the native method-channel
+  # replies are now routed through a single-delivery, platform-thread-enforced
+  # wrapper (and dropped after engine detach) to close the reply-corruption
+  # class that crashed a physical iPhone at launch (EXC_BAD_ACCESS on a
+  # DartWorker thread). See packages/video_thumbnail_plus/PATCH.md.
+  video_thumbnail_plus:
+    path: packages/video_thumbnail_plus
 
 dev_dependencies:
   dependency_validator: ^5.0.3

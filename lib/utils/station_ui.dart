@@ -5,13 +5,13 @@ import '../types/playlist_item.dart';
 /// player (station list rows, mini player, full player and the CarPlay /
 /// Android Auto lists).
 ///
-/// Stations without a now-playing song must never render a blank/broken line:
+/// Subtitle rules:
 ///   - `playlist` → the current item's title when one is playing, otherwise a
 ///     "Listă de redare" label (with the item count appended when
 ///     [playlistItemCount] > 0).
-///   - `tv` → the now-playing song line when present; otherwise a
-///     "Transmisiune live" label, but only when [tvLiveFallback] is set (the
-///     car keeps its historical "song line or nothing" behavior).
+///   - `tv` → the now-playing song/program line when present; otherwise null
+///     (blank). No synthetic "Transmisiune live" filler — the area only shows
+///     real metadata (explicit owner request).
 ///   - `radio` → the now-playing song line, or null when idle (blank, as
 ///     before).
 ///
@@ -23,7 +23,6 @@ String? computeStationSubtitle({
   required bool isRomanian,
   String? playlistItemTitle,
   int playlistItemCount = 0,
-  bool tvLiveFallback = false,
 }) {
   switch (type) {
     case StationMediaType.playlist:
@@ -38,11 +37,6 @@ String? computeStationSubtitle({
       }
       return base;
     case StationMediaType.tv:
-      if (songLine.isNotEmpty) return songLine;
-      if (tvLiveFallback) {
-        return isRomanian ? 'Transmisiune live' : 'Live broadcast';
-      }
-      return null;
     case StationMediaType.radio:
       return songLine.isNotEmpty ? songLine : null;
   }

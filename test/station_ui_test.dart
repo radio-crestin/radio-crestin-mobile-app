@@ -34,39 +34,27 @@ void main() {
           type: StationMediaType.tv,
           songLine: 'Predica de pe munte',
           isRomanian: true,
-          tvLiveFallback: true,
         ),
         'Predica de pe munte',
       );
     });
 
-    test('idle tv falls back to "Transmisiune live" when enabled', () {
+    test('idle tv yields null — never a synthetic "Transmisiune live"', () {
+      // Owner request: without real now-playing metadata the subtitle area
+      // stays EMPTY. No locale ever gets a live-broadcast filler label.
       expect(
         computeStationSubtitle(
           type: StationMediaType.tv,
           songLine: '',
           isRomanian: true,
-          tvLiveFallback: true,
         ),
-        'Transmisiune live',
+        isNull,
       );
       expect(
         computeStationSubtitle(
           type: StationMediaType.tv,
           songLine: '',
           isRomanian: false,
-          tvLiveFallback: true,
-        ),
-        'Live broadcast',
-      );
-    });
-
-    test('idle tv without the fallback stays null (car parity)', () {
-      expect(
-        computeStationSubtitle(
-          type: StationMediaType.tv,
-          songLine: '',
-          isRomanian: true,
         ),
         isNull,
       );
@@ -139,8 +127,7 @@ void main() {
   });
 
   group('stationOpensFullPlayerOnTap', () {
-    Station station(String type,
-        {List<Map<String, String>> items = const []}) {
+    Station station(String type, {List<Map<String, String>> items = const []}) {
       return StationFactory.createStation(
         id: 1,
         slug: 's',

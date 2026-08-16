@@ -108,7 +108,12 @@ class AnimatedPlayButtonState extends State<AnimatedPlayButton> {
 
     if (_inGracePeriod) {
       showPlaying = _intentIsPlaying;
-      showSpinner = _streamLoading;
+      // A spinner only makes sense while the user still intends to play. The
+      // moment they tap to stop a loading stream we honor that intent
+      // instantly (play icon) instead of spinning until the real stream state
+      // catches up — that lag is what made a stop-while-loading feel like
+      // "nothing happened".
+      showSpinner = _intentIsPlaying && _streamLoading;
     } else {
       showPlaying = _streamPlaying;
       showSpinner = _streamLoading;
@@ -145,10 +150,12 @@ class AnimatedPlayButtonState extends State<AnimatedPlayButton> {
 
     final VoidCallback onTap;
     if (showSpinner) {
-      // During loading/buffering, tapping pauses (cancels in-flight play).
-      // Previously this called onStop() which killed the player entirely,
-      // making the button unresponsive after skip next.
-      onTap = () { _setIntent(false); widget.onPause(); };
+      // Still loading/buffering while the user wants it playing. Tapping now
+      // means "stop the stream": cancel the in-flight load via onStop() and
+      // flip to the play icon instantly (_setIntent(false) suppresses the
+      // spinner on the next build). A later tap on play resumes cleanly —
+      // stop() keeps currentStation/mediaItem, so play() just reloads.
+      onTap = () { _setIntent(false); widget.onStop(); };
     } else if (showPlaying) {
       onTap = () { _setIntent(false); widget.onPause(); };
     } else {

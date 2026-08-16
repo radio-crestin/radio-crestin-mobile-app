@@ -3,10 +3,12 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:rxdart/rxdart.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 
 import '../services/playlist_controller.dart';
 import '../types/playlist_item.dart';
+import 'video_overlay_controls.dart';
 
 /// Renders a playlist YouTube item inline via `youtube_player_iframe` and wires
 /// it back to the [PlaylistController] contract:
@@ -57,6 +59,18 @@ class _YoutubeIframePlayerState extends State<YoutubeIframePlayer> {
   bool _endedReported = false;
   Duration _duration = Duration.zero;
   bool _isFullscreen = false;
+
+  // Reactive streams feeding OUR overlay ([VideoOverlayControls]) drawn over the
+  // shielded iframe, so YouTube items get the exact same tap-to-reveal scrubber
+  // + fullscreen affordance as media_kit video. Fed from [_onValue]/[_onPosition].
+  final BehaviorSubject<bool> _playingSubject =
+      BehaviorSubject<bool>.seeded(false);
+  final BehaviorSubject<bool> _bufferingSubject =
+      BehaviorSubject<bool>.seeded(false);
+  final BehaviorSubject<Duration> _positionSubject =
+      BehaviorSubject<Duration>.seeded(Duration.zero);
+  final BehaviorSubject<Duration> _durationSubject =
+      BehaviorSubject<Duration>.seeded(Duration.zero);
 
   /// True once the current load has reached the iframe (any real playerState).
   /// Until then play/pause commands are held back: `playVideo()` on a player
@@ -118,9 +132,19 @@ class _YoutubeIframePlayerState extends State<YoutubeIframePlayer> {
   /// Applies the platform chrome for the player's fullscreen transitions:
   /// landscape + immersive in, portrait restored out. The iframe itself is
   /// untouched — its native controls handle fullscreen interaction.
+  ///
+  /// The package delivers this as a plain callback, NOT as a rebuild, so the
+  /// flag must be flipped inside [setState]: [build] gates the inline overlay
+  /// on it (see [InlineYoutubeOverlay]) and would otherwise keep drawing the
+  /// inline controls over YouTube's own fullscreen chrome until some unrelated
+  /// rebuild happened to come along.
   void _onFullscreenChanged(bool fullscreen) {
     if (_isFullscreen == fullscreen) return;
-    _isFullscreen = fullscreen;
+    if (mounted) {
+      setState(() => _isFullscreen = fullscreen);
+    } else {
+      _isFullscreen = fullscreen;
+    }
     if (fullscreen) {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
       SystemChrome.setPreferredOrientations(const [
@@ -156,6 +180,9 @@ class _YoutubeIframePlayerState extends State<YoutubeIframePlayer> {
     _loadedItemId = item.id;
     _endedReported = false;
     _duration = Duration.zero;
+    // Reset the overlay's scrubber for the new item (fresh position/duration).
+    _durationSubject.add(Duration.zero);
+    _positionSubject.add(Duration.zero);
     _contentStarted = false;
     // Clear the sticky error from any previous item so this item's error
     // detection starts fresh (see [_lastSeenError]).
@@ -221,7 +248,14 @@ class _YoutubeIframePlayerState extends State<YoutubeIframePlayer> {
           'error=${value.error.name} video=${value.metaData.videoId}');
     }
     final d = value.metaData.duration;
-    if (d > Duration.zero) _duration = d;
+    if (d > Duration.zero) {
+      _duration = d;
+      _durationSubject.add(d);
+    }
+    // Mirror playing/buffering to the overlay (kept independent of the app
+    // playbackState so the scrubber's spinner/visibility reacts instantly).
+    _playingSubject.add(value.playerState == PlayerState.playing);
+    _bufferingSubject.add(value.playerState == PlayerState.buffering);
 
     // First real state → the load reached the iframe; release any held
     // play/pause command (the load itself autoplays, so only a pending pause
@@ -291,6 +325,7 @@ class _YoutubeIframePlayerState extends State<YoutubeIframePlayer> {
   }
 
   void _onPosition(YoutubeVideoState state) {
+    _positionSubject.add(state.position);
     widget.controller
         .notifyYoutubePosition(state.position, _duration, itemId: widget.item.id);
   }
@@ -311,6 +346,15 @@ class _YoutubeIframePlayerState extends State<YoutubeIframePlayer> {
     _yt.seekTo(seconds: to.inMilliseconds / 1000.0, allowSeekAhead: true);
   }
 
+  /// Seek from OUR overlay's scrubber. Seeks the current video directly (this
+  /// is intra-video scrubbing, distinct from app-playlist navigation), and
+  /// optimistically advances the local position so the thumb doesn't snap back
+  /// before the next position tick.
+  void _onOverlaySeek(Duration to) {
+    _yt.seekTo(seconds: to.inMilliseconds / 1000.0, allowSeekAhead: true);
+    _positionSubject.add(to);
+  }
+
   @override
   void dispose() {
     // Defensively restore portrait if the player is torn down while fullscreen
@@ -322,6 +366,10 @@ class _YoutubeIframePlayerState extends State<YoutubeIframePlayer> {
     _shouldPlaySub?.cancel();
     _seekSub?.cancel();
     _fullscreenReqSub?.cancel();
+    _playingSubject.close();
+    _bufferingSubject.close();
+    _positionSubject.close();
+    _durationSubject.close();
     _yt.close();
     super.dispose();
   }
@@ -337,16 +385,81 @@ class _YoutubeIframePlayerState extends State<YoutubeIframePlayer> {
     // navigation (the native chrome can't do that). The same WebView instance
     // persists across the transition (the package only re-positions it), so
     // playback is never interrupted.
-    return YoutubePlayer(
-      controller: _yt,
-      aspectRatio: widget.aspectRatio,
-      controlsBuilder: (context, isFullscreen) => isFullscreen
-          ? _FullscreenEdgeSkips(
-              onPrevious: () => unawaited(widget.controller.skipToPrevious()),
-              onNext: () => unawaited(widget.controller.skipToNext()),
-            )
-          : const AbsorbPointer(child: SizedBox.expand()),
+    return Stack(
+      children: [
+        YoutubePlayer(
+          controller: _yt,
+          aspectRatio: widget.aspectRatio,
+          controlsBuilder: (context, isFullscreen) => isFullscreen
+              ? _FullscreenEdgeSkips(
+                  onPrevious: () =>
+                      unawaited(widget.controller.skipToPrevious()),
+                  onNext: () => unawaited(widget.controller.skipToNext()),
+                )
+              : const AbsorbPointer(child: SizedBox.expand()),
+        ),
+        // OUR tap-to-reveal controls, drawn OVER the shielded iframe (inline
+        // only). Its opaque gesture layer catches every inline touch, so — like
+        // the shield beneath it — YouTube's native chrome is never summoned by
+        // touch; the difference is the user now gets our seek bar + fullscreen
+        // button instead of a dead surface. In fullscreen we drop this overlay:
+        // the shield lifts, and YouTube's own chrome (+ the edge skips) owns the
+        // surface, so a second controls layer would only conflict.
+        InlineYoutubeOverlay(
+          fullscreen: _isFullscreen,
+          child: VideoOverlayControls(
+            playingStream: _playingSubject.stream,
+            initialPlaying: _playingSubject.value,
+            bufferingStream: _bufferingSubject.stream,
+            initialBuffering: _bufferingSubject.value,
+            positionStream: _positionSubject.stream,
+            initialPosition: _positionSubject.value,
+            durationStream: _durationSubject.stream,
+            initialDuration: _durationSubject.value,
+            // Enable the scrubber immediately from the item's known length,
+            // before the iframe reports its own duration.
+            fallbackDuration: widget.item.durationSeconds != null
+                ? Duration(seconds: widget.item.durationSeconds!)
+                : null,
+            title: widget.item.title,
+            isLive: false,
+            // Route play/pause through the handler so the mini player /
+            // notification stay the single source of truth.
+            onPlay: widget.controller.resume,
+            onPause: widget.controller.pause,
+            onSeek: _onOverlaySeek,
+            onToggleFullscreen: () => _yt.enterFullScreen(),
+          ),
+        ),
+      ],
     );
+  }
+}
+
+/// The inline controls layer of a YouTube surface: [child] fills the player
+/// while inline, and is REMOVED from the tree while [fullscreen] is true.
+///
+/// In fullscreen the iframe's tap shield lifts and YouTube's own chrome (plus
+/// the edge skips) owns the surface, so a second controls layer would only
+/// conflict — it must be gone, not merely invisible. Kept as its own widget so
+/// that contract is pinned by a widget test without a live WebView.
+class InlineYoutubeOverlay extends StatelessWidget {
+  const InlineYoutubeOverlay({
+    super.key,
+    required this.fullscreen,
+    required this.child,
+  });
+
+  /// True while the player is fullscreen — the overlay is dropped entirely.
+  final bool fullscreen;
+
+  /// The inline controls (a [VideoOverlayControls] in production).
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (fullscreen) return const SizedBox.shrink();
+    return Positioned.fill(child: child);
   }
 }
 

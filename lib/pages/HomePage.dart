@@ -39,7 +39,23 @@ import '../services/analytics_service.dart';
 import '../types/Station.dart';
 import '../utils/PositionRetainedScrollPhysics.dart';
 import '../widgets/song_history_modal.dart';
+import '../widgets/youtube_background_dialog.dart';
 import 'SettingsPage.dart';
+
+/// Pure decision for auto-opening the full player panel when video / YouTube
+/// content starts. Opens only on the true transition into playable content
+/// ([contentStarting]), for a not-already-suppressed item, while the panel is
+/// closed. Top-level so the rule is trivially testable without a live panel.
+bool shouldAutoOpenPlayerPanel({
+  required bool contentStarting,
+  required String? currentKey,
+  required String? suppressedKey,
+  required bool panelClosed,
+}) =>
+    contentStarting &&
+    currentKey != null &&
+    currentKey != suppressedKey &&
+    panelClosed;
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -125,6 +141,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   /// suppressed (they chose the mini player for THIS item). Cleared implicitly
   /// when a different video starts (a new key no longer matches).
   String? _suppressVideoAutoOpenKey;
+
+  /// YouTube counterpart of [_suppressVideoAutoOpenKey]: the identity of the
+  /// YouTube item for which the user explicitly collapsed the full player, so
+  /// auto-open stays suppressed for THAT item.
+  String? _suppressYoutubeAutoOpenKey;
+  StreamSubscription? _youtubeContentSub;
   StreamSubscription? _customEventSub;
   OverlayEntry? _activeConnectionToast;
   final ValueNotifier<double> _panelSlide = ValueNotifier(0.0);
@@ -244,6 +266,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _videoContentSub = _playlistController.isVideoContent
         .distinct()
         .listen((on) => _maybeAutoOpenForVideo(on));
+    // A YouTube playlist item can't play backgrounded, so land the user on the
+    // full player (where the video is visible + playing) the moment one starts.
+    // React only to the true transition (`.distinct()` + open only on `true`).
+    _youtubeContentSub = _playlistController.isYoutubeContent
+        .distinct()
+        .listen((on) => _maybeAutoOpenForYoutube(on));
 
     // Defer non-critical work to after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -268,17 +296,69 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     return null;
   }
 
+  /// The identity of the currently-playing YouTube playlist item, or null when
+  /// none. Keyed by item id so a later different item auto-opens again.
+  String? _currentYoutubeKey() {
+    if (_playlistController.isActive &&
+        _playlistController.isYoutubeContent.value) {
+      final id = _playlistController.currentItem.value?.id;
+      return id == null ? null : 'yt-$id';
+    }
+    return null;
+  }
+
   /// Opens the full player when [videoStarting] is true, unless the user
   /// already collapsed the panel for this exact video item.
   void _maybeAutoOpenForVideo(bool videoStarting) {
-    if (!videoStarting || !mounted) return;
-    final key = _currentVideoKey();
-    if (key == null) return;
-    if (key == _suppressVideoAutoOpenKey) return; // user chose the mini player
+    if (!mounted) return;
     final panel = slidingUpPanelController;
-    if (panel.isAttached && panel.isPanelClosed) {
+    if (!panel.isAttached) return;
+    if (shouldAutoOpenPlayerPanel(
+      contentStarting: videoStarting,
+      currentKey: _currentVideoKey(),
+      suppressedKey: _suppressVideoAutoOpenKey,
+      panelClosed: panel.isPanelClosed,
+    )) {
       panel.open();
     }
+  }
+
+  /// Opens the full player when a YouTube item starts, unless the user already
+  /// collapsed the panel for this exact item.
+  void _maybeAutoOpenForYoutube(bool youtubeStarting) {
+    if (!mounted) return;
+    final panel = slidingUpPanelController;
+    if (!panel.isAttached) return;
+    if (shouldAutoOpenPlayerPanel(
+      contentStarting: youtubeStarting,
+      currentKey: _currentYoutubeKey(),
+      suppressedKey: _suppressYoutubeAutoOpenKey,
+      panelClosed: panel.isPanelClosed,
+    )) {
+      panel.open();
+    }
+  }
+
+  /// Shows the one-time "YouTube can't play in the background" acknowledgment
+  /// modal when the user collapses the full player while a YouTube item is
+  /// playing. Runs after the collapse (from [onPanelClosed]) so it never blocks
+  /// it, and only until acknowledged once (see [youtubeBackgroundWarningAckKey]).
+  Future<void> _maybeShowYoutubeBackgroundWarning() async {
+    if (!mounted) return;
+    final prefs = getIt<SharedPreferences>();
+    final isYoutubePlaying = _playlistController.isActive &&
+        _playlistController.isYoutubeContent.value &&
+        _audioHandler.playbackState.value.playing;
+    if (!shouldShowYoutubeBackgroundWarning(
+      acknowledged: youtubeBackgroundWarningAcknowledged(prefs),
+      isYoutubePlaying: isYoutubePlaying,
+    )) {
+      return;
+    }
+    await showYoutubeBackgroundWarningDialog(
+      context,
+      onAcknowledge: () => acknowledgeYoutubeBackgroundWarning(prefs),
+    );
   }
 
   Future<void> _handleRefresh() async {
@@ -421,6 +501,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _connectionErrorSub?.cancel();
     _videoModeSub?.cancel();
     _videoContentSub?.cancel();
+    _youtubeContentSub?.cancel();
     _customEventSub?.cancel();
     _backOnlineTimer?.cancel();
     removeBottomToast(_activeConnectionToast);
@@ -809,6 +890,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 // deliberately chose the mini player. A different video later
                 // has a different key and will auto-open again.
                 _suppressVideoAutoOpenKey = _currentVideoKey();
+                _suppressYoutubeAutoOpenKey = _currentYoutubeKey();
+                // If a YouTube item is playing as the panel collapses, warn
+                // once (persisted) that it can't play backgrounded. Deferred to
+                // the next frame so it shows OVER the collapsed state and never
+                // blocks the collapse itself.
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  _maybeShowYoutubeBackgroundWarning();
+                });
                 // Panel hidden — stop the playlist live reconcile (playback
                 // continues; the list just isn't on screen). Harmless no-op for
                 // non-playlist stations.
