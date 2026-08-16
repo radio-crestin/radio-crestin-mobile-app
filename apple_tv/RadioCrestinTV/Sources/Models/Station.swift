@@ -255,11 +255,26 @@ struct PlaylistItem: Codable, Hashable, Identifiable {
     var isVideo: Bool { type.lowercased() == "video" }
     var isAudio: Bool { type.lowercased() == "audio" }
 
-    /// True when tvOS can render this item natively. Allowlist — only
-    /// `audio` and `video` qualify, so `youtube`, `youtube_playlist`,
-    /// and any unknown future type degrade to "not playable" instead of
-    /// handing AVPlayer a URL it cannot open.
-    var isPlayable: Bool { isAudio || isVideo }
+    /// A single YouTube clip or live broadcast.
+    var isYoutube: Bool { type.lowercased() == "youtube" }
+
+    /// A whole YouTube playlist referenced as one entry.
+    var isYoutubePlaylist: Bool { type.lowercased() == "youtube_playlist" }
+
+    /// True when the item's URL has to go through `YoutubeStreamResolver`
+    /// before AVPlayer can open it.
+    var needsYoutubeResolution: Bool { isYoutube || isYoutubePlaylist }
+
+    /// True when tvOS can render this item. Allowlist — `audio` and
+    /// `video` play directly; `youtube` / `youtube_playlist` play once
+    /// their stream URL is resolved natively (tvOS has no WebKit, so the
+    /// IFrame embed used on phones is impossible — see
+    /// `YoutubeStreamResolver`). Unknown future type strings stay
+    /// unplayable rather than handing AVPlayer a URL it cannot open.
+    var isPlayable: Bool { isAudio || isVideo || needsYoutubeResolution }
+
+    /// YouTube entries render picture, so they use the video layout.
+    var rendersVideo: Bool { isVideo || needsYoutubeResolution }
 }
 
 struct ReviewsStats: Codable, Hashable {

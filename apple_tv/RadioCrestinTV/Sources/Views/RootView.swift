@@ -93,6 +93,16 @@ struct RootView: View {
                 go(to: appState.previousStation(before: current))
             }
             await appState.loadStations()
+            #if DEBUG
+            // Dev affordance: `-openStation <slug>` opens a station
+            // straight after launch. The tvOS Simulator does not deliver
+            // a reliable "select" press, so this is the only way to drive
+            // a specific station's screen for screenshots / manual QA.
+            if let slug = UserDefaults.standard.string(forKey: "openStation"),
+               let station = appState.stations.first(where: { $0.slug == slug }) {
+                open(station)
+            }
+            #endif
         }
         .onChange(of: appState.currentStation?.id) { _, newId in
             // Restart playback only when the *station* changed — not
@@ -156,10 +166,14 @@ struct RootView: View {
                 .foregroundStyle(Theme.textTertiary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, Theme.Spacing.xxl)
-            Button("Reîncearcă") {
+            TVPillButton(
+                title: "Reîncearcă",
+                systemImage: "arrow.clockwise",
+                isProminent: true
+            ) {
                 Task { await appState.loadStations() }
             }
-            .buttonStyle(.card)
+            .padding(.top, Theme.Spacing.md)
         }
     }
 

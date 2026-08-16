@@ -19,6 +19,14 @@ struct NowPlayingView: View {
     @State private var disliked = false
     @State private var lastTrackedSongId: String?
     @State private var isSharing = false
+    #if DEBUG
+    /// Dev affordance: `-showContact 1` opens the support sheet straight
+    /// away, since the tvOS Simulator delivers no reliable "select" press.
+    @State private var isContacting =
+        UserDefaults.standard.bool(forKey: "showContact")
+    #else
+    @State private var isContacting = false
+    #endif
     @State private var focusedAction: String?
 
     /// Focus scope used to mark the play/pause button as the preferred
@@ -69,14 +77,29 @@ struct NowPlayingView: View {
                     onBack: onBack,
                     onToggleFavorite: onToggleFavorite,
                     onPrevStation: onPrev,
-                    onNextStation: onNext
+                    onNextStation: onNext,
+                    onContact: { isContacting = true }
                 )
             } else {
                 audioLayout
             }
+
+            if isContacting, player.isVideoContent {
+                ContactSheet(
+                    diagnostics: contactDiagnostics,
+                    onDismiss: { isContacting = false }
+                )
+                .transition(.opacity)
+            }
         }
         .onExitCommand {
-            if isSharing { isSharing = false } else { onBack() }
+            if isContacting {
+                isContacting = false
+            } else if isSharing {
+                isSharing = false
+            } else {
+                onBack()
+            }
         }
         .onChange(of: station.songTitle) { _, _ in
             // Reset like/dislike on song change — they're per-song.
@@ -118,15 +141,6 @@ struct NowPlayingView: View {
 
     private var audioLayout: some View {
         ZStack {
-            // Background blur ignores the safe area so it bleeds to the
-            // edges; everything else respects safe area so back button +
-            // controls don't disappear into the TV's overscan area.
-            ZStack {
-                Theme.background
-                backgroundArtwork
-            }
-            .ignoresSafeArea()
-
             // Main content — artwork + metadata centered.
             HStack(alignment: .center, spacing: Theme.Spacing.xxl) {
                 artwork
@@ -137,24 +151,18 @@ struct NowPlayingView: View {
             .padding(.top, 100)   // leave room for the back button row
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
 
-            // Persistent top bar — back button on the left, brand mark
-            // on the right so the app identity stays visible from the
-            // station screen too.
-            VStack {
-                HStack(alignment: .center) {
-                    backButton
-                    Spacer()
-                    BrandMark()
-                }
-                Spacer()
-            }
-            .padding(Theme.Spacing.lg)
-
             if isSharing, let url = shareURL {
                 ShareSheet(
                     stationTitle: station.title,
                     url: url,
                     onDismiss: { isSharing = false }
+                )
+                .transition(.opacity)
+            }
+            if isContacting {
+                ContactSheet(
+                    diagnostics: contactDiagnostics,
+                    onDismiss: { isContacting = false }
                 )
                 .transition(.opacity)
             }
@@ -165,6 +173,28 @@ struct NowPlayingView: View {
         // unreliable once each control sat inside a label-stack VStack
         // (focus engine kept landing on the leftmost focusable), so we
         // also seat focus explicitly via `controlFocus` in `.task`.
+        // The blurred station art is a BACKGROUND, not a stacked sibling.
+        // As a sibling its `.ignoresSafeArea()` extended the enclosing
+        // ZStack's layout bounds past the screen edges, so anything
+        // anchored to the top — the back button and brand mark — was
+        // positioned off-screen behind the bezel and never appeared.
+        // `.background` never contributes to layout, so the top row now
+        // lands inside the title-safe area.
+        .background {
+            ZStack {
+                Theme.background
+                backgroundArtwork
+            }
+            .ignoresSafeArea()
+        }
+        .overlay(alignment: .topLeading) {
+            HStack(alignment: .center) {
+                backButton
+                Spacer()
+                BrandMark()
+            }
+            .padding(Theme.Spacing.lg)
+        }
         .focusScope(focusScope)
         .task {
             // Yield once so the focus engine has the focusable nodes
@@ -172,6 +202,27 @@ struct NowPlayingView: View {
             try? await Task.sleep(nanoseconds: 50_000_000)
             controlFocus = .play
         }
+        // NOTE: the radio / audio now-playing screen deliberately keeps
+        // its chrome visible at all times. The 20s idle auto-hide is a
+        // VIDEO-only behaviour (`VideoNowPlaying`): with no moving picture
+        // there is nothing for the controls to obscure, and a static
+        // artwork screen that empties itself just looks broken.
+        .onPlayPauseCommand { player.togglePlayPause() }
+    }
+
+    private var isFailed: Bool {
+        if case .failed = player.state { return true }
+        return false
+    }
+
+    /// Diagnostics attached to the WhatsApp support QR from this screen.
+    private var contactDiagnostics: ContactLinks.Diagnostics {
+        ContactLinks.Diagnostics(
+            stationTitle: station.title,
+            stationSlug: station.slug,
+            failingSource: player.currentPlaylistItem?.title
+                ?? station.orderedStreams.first?.streamUrl
+        )
     }
 
     private var isPlaylist: Bool { station.kind == .playlist }
@@ -197,54 +248,42 @@ struct NowPlayingView: View {
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: 900)
                     .lineSpacing(6)
-                Button("Înapoi la posturi", action: onBack)
-                    .buttonStyle(.card)
-                    .padding(.top, Theme.Spacing.md)
+                HStack(spacing: TVPillButton.rowSpacing) {
+                    TVPillButton(
+                        title: "Înapoi la posturi",
+                        systemImage: "chevron.left",
+                        action: onBack
+                    )
+                    TVPillButton(
+                        title: "Contactează-ne",
+                        systemImage: "message.fill"
+                    ) { isContacting = true }
+                }
+                .padding(.top, Theme.Spacing.lg)
             }
             .padding(Theme.Spacing.xxl)
+
+            if isContacting {
+                ContactSheet(
+                    diagnostics: contactDiagnostics,
+                    onDismiss: { isContacting = false }
+                )
+                .transition(.opacity)
+            }
         }
     }
 
     // MARK: - Artwork
 
-    @FocusState private var backButtonFocused: Bool
-
+    /// Back affordance for the audio layout. Uses the shared pill so its
+    /// padding and focus treatment stay identical to every other text
+    /// button in the app.
     private var backButton: some View {
-        Button(action: onBack) {
-            HStack(spacing: 12) {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 26, weight: .heavy))
-                Text("Înapoi la posturi")
-                    .font(.system(size: 26, weight: .semibold))
-            }
-            .foregroundStyle(.white)
-            .padding(.horizontal, 32)
-            .padding(.vertical, 20)
-            .background(
-                Capsule().fill(
-                    backButtonFocused ? Theme.primary : Color.black.opacity(0.7)
-                )
-            )
-            .overlay(
-                Capsule().stroke(
-                    backButtonFocused ? Color.white : Color.white.opacity(0.25),
-                    lineWidth: backButtonFocused ? 4 : 1.5
-                )
-            )
-            .scaleEffect(backButtonFocused ? 1.1 : 1.0)
-            .shadow(
-                color: backButtonFocused
-                    ? Theme.primary.opacity(0.7)
-                    : .black.opacity(0.5),
-                radius: backButtonFocused ? 30 : 12, x: 0, y: 8
-            )
-            .animation(.spring(response: 0.28, dampingFraction: 0.72),
-                       value: backButtonFocused)
-        }
-        .buttonStyle(.plain)
-        // Autofocus is set declaratively via `.defaultFocus` on the body
-        // so the back affordance reliably owns focus on entry.
-        .focused($backButtonFocused)
+        TVPillButton(
+            title: "Înapoi la posturi",
+            systemImage: "chevron.left",
+            action: onBack
+        )
     }
 
     @ViewBuilder
@@ -290,6 +329,13 @@ struct NowPlayingView: View {
                 Theme.background
             }
         }
+        // A `.fill` AsyncImage has no intrinsic bound, so without this
+        // clamp the station logo inflated the enclosing ZStack far past
+        // the screen. Everything centered still looked right, but the
+        // top-anchored bar (back button + brand mark) was pushed above
+        // the visible area and appeared to be missing entirely.
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .clipped()
         .blur(radius: 60)
         .overlay(Color.black.opacity(0.65))
     }
@@ -320,13 +366,18 @@ struct NowPlayingView: View {
                 }
             }
 
-            controls
-                .padding(.top, Theme.Spacing.md)
-
-            statusLine
-            retryRow
-
-            recentSongs
+            // Transport + secondary actions fade with the rest of the
+            // chrome; the artwork and song title above stay visible.
+            VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+                controls
+                statusLine
+                retryRow
+                // Sits directly under the controls row now. The label slot
+                // inside `labeled(...)` is a fixed height, so the focused
+                // descriptor ("Pauză") appearing never shifts this list.
+                recentSongs
+            }
+            .padding(.top, Theme.Spacing.md)
         }
         // Cap the column so giant station logos / song titles don't push
         // the controls off screen.
@@ -366,11 +417,12 @@ struct NowPlayingView: View {
                 .padding(.top, Theme.Spacing.xs)
             }
 
-            playlistControls
-                .padding(.top, Theme.Spacing.sm)
-
-            statusLine
-            retryRow
+            VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+                playlistControls
+                statusLine
+                retryRow
+            }
+            .padding(.top, Theme.Spacing.sm)
         }
         .frame(maxWidth: 900, alignment: .leading)
     }
@@ -444,8 +496,17 @@ struct NowPlayingView: View {
     @ViewBuilder
     private var retryRow: some View {
         if case .failed = player.state {
-            Button("Reîncearcă") { player.retry() }
-                .buttonStyle(.card)
+            HStack(spacing: TVPillButton.rowSpacing) {
+                TVPillButton(
+                    title: "Reîncearcă",
+                    systemImage: "arrow.clockwise",
+                    isProminent: true
+                ) { player.retry() }
+                TVPillButton(
+                    title: "Contactează-ne",
+                    systemImage: "message.fill"
+                ) { isContacting = true }
+            }
         }
     }
 
@@ -483,25 +544,24 @@ struct NowPlayingView: View {
     /// nudged the layout. It is now a bare spinner inline with the station
     /// title (see `stationLine`). Action labels aren't here either — each
     /// button shows its own label directly beneath it.
+    @ViewBuilder
     private var statusLine: some View {
-        HStack(spacing: 10) {
-            switch player.state {
-            case .failed(let message):
+        // Rendered ONLY on failure. It used to reserve a fixed 40pt row at
+        // all times, which — together with the connecting text that has
+        // since moved inline — is what pushed "Melodii recente" far below
+        // the controls. Failure is a rare state that already reflows the
+        // column (it adds the retry row), so reserving space for it every
+        // time cost layout for no benefit.
+        if case .failed(let message) = player.state {
+            HStack(spacing: 10) {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .foregroundStyle(.yellow)
                 Text(message)
                     .foregroundStyle(Color.red.opacity(0.9))
                     .lineLimit(1)
-            case .connecting, .idle, .playing, .paused:
-                // Reserve the row's vertical space even when idle so a
-                // transition to .failed doesn't push the recent-songs
-                // list down.
-                Text(" ")
             }
+            .font(.system(size: 22, weight: .medium))
         }
-        .font(.system(size: 22, weight: .medium))
-        .frame(height: 40, alignment: .center)
-        .frame(maxWidth: .infinity)
     }
 
     private var displaySongTitle: String {
@@ -877,6 +937,7 @@ private struct VideoNowPlaying: View {
     let onToggleFavorite: () -> Void
     let onPrevStation: () -> Void
     let onNextStation: () -> Void
+    let onContact: () -> Void
 
     @State private var overlayVisible = true
     @State private var hideTask: Task<Void, Never>?
@@ -905,8 +966,12 @@ private struct VideoNowPlaying: View {
         if case .paused = player.state { return false }
         if case .idle = player.state { return false }
         // `readyToPlay` precedes the first decoded frame — keep the
-        // indicator up until the layer confirms it can draw.
-        return !player.isVideoReadyForDisplay || player.isBuffering
+        // indicator up until the layer confirms it can draw. `isStalled`
+        // covers the frozen-clock case, where AVPlayer still claims to be
+        // playing but nothing is moving.
+        return !player.isVideoReadyForDisplay
+            || player.isBuffering
+            || player.isStalled
     }
 
     var body: some View {
@@ -971,6 +1036,11 @@ private struct VideoNowPlaying: View {
         // hiding them would strand the user on a frozen frame); resuming
         // restarts the idle countdown.
         .onChange(of: player.isPlaying) { _, _ in reveal() }
+        // A stall must never hide behind a frozen frame: bring the chrome
+        // back so the spinner and transport are visible.
+        .onChange(of: player.isStalled) { _, stalled in
+            if stalled { reveal() }
+        }
         // An error takes over the screen — cancel any pending hide and
         // hand focus to Retry.
         .onChange(of: failureMessage) { _, message in
@@ -999,15 +1069,27 @@ private struct VideoNowPlaying: View {
                 .foregroundStyle(Theme.textTertiary)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 900)
-            HStack(spacing: Theme.Spacing.lg) {
-                Button("Reîncearcă") { player.retry() }
-                    .buttonStyle(.card)
-                    .focused($focus, equals: .retry)
-                Button("Înapoi la posturi", action: onBack)
-                    .buttonStyle(.card)
-                    .focused($focus, equals: .back)
+            HStack(spacing: TVPillButton.rowSpacing) {
+                TVPillButton(
+                    title: "Reîncearcă",
+                    systemImage: "arrow.clockwise",
+                    isProminent: true
+                ) { player.retry() }
+                .focused($focus, equals: .retry)
+                TVPillButton(
+                    title: "Contactează-ne",
+                    systemImage: "message.fill"
+                ) { onContact() }
+                TVPillButton(
+                    title: "Înapoi la posturi",
+                    systemImage: "chevron.left",
+                    action: onBack
+                )
+                .focused($focus, equals: .back)
             }
-            .padding(.top, Theme.Spacing.md)
+            // Clear separation from the subtitle above so the row reads
+            // as an action area, not a continuation of the message.
+            .padding(.top, Theme.Spacing.xl)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.black.opacity(0.82).ignoresSafeArea())
@@ -1126,18 +1208,11 @@ private struct VideoNowPlaying: View {
     }
 
     private var backButton: some View {
-        Button(action: onBack) {
-            HStack(spacing: 10) {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 24, weight: .heavy))
-                Text("Înapoi")
-                    .font(.system(size: 24, weight: .semibold))
-            }
-            .foregroundStyle(.white)
-            .padding(.horizontal, 26)
-            .padding(.vertical, 16)
-        }
-        .buttonStyle(.card)
+        TVPillButton(
+            title: "Înapoi",
+            systemImage: "chevron.left",
+            action: onBack
+        )
         .focused($focus, equals: .back)
     }
 
@@ -1207,7 +1282,8 @@ private struct VideoNowPlaying: View {
         hideTask?.cancel()
         guard ControlsAutoHidePolicy.shouldAutoHide(
             isPlaying: player.isPlaying,
-            hasError: failureMessage != nil
+            hasError: failureMessage != nil,
+            isStalled: player.isStalled
         ) else { return }
         hideTask = Task { @MainActor in
             try? await Task.sleep(

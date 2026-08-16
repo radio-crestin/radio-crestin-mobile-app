@@ -8,12 +8,16 @@
 
 /* Begin PBXBuildFile section */
 		01BFE1CC6F4D49D651A4A668 /* SortPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AE27E2F2F99A9C2738D8B60 /* SortPicker.swift */; };
+		047CF462DC13821E1AE7C697 /* YoutubeStreamResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97CE3B8E048919836625B5A5 /* YoutubeStreamResolver.swift */; };
+		09B32C3B50660EF248AF210D /* StallRecoveryPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2598D36B229CC5D5ED129EFB /* StallRecoveryPolicyTests.swift */; };
 		1063214FE9C8CF6CCBA756EA /* VideoSurfaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 897F5FA3EAF65D4BBACA9ED7 /* VideoSurfaceView.swift */; };
 		19041A779B1D9300E486A247 /* QRCodeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3C89071A1406162E69A5794 /* QRCodeView.swift */; };
+		24FAA968EA4F6A593DAF4CE0 /* YoutubeStreamResolverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A1C26FA72EA36D0130F9F93 /* YoutubeStreamResolverTests.swift */; };
 		26DBA5C19DB0B1FFBC0B8954 /* StationStreamOrderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A670E891F53697D36107A06A /* StationStreamOrderTests.swift */; };
 		26EB9DB4A133F5693FE7B8DC /* NowPlayingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4804A680D602D313E3B83192 /* NowPlayingView.swift */; };
 		2B2901FED93DE3F3AB60C982 /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = C219CB93B743E3BFF8A388ED /* PostHog */; };
 		2EA9FA0983EF4A5BB5818E37 /* StationSort.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7397F56295F5E766A046C54B /* StationSort.swift */; };
+		2F54F7AE147E46193C17AAB4 /* ContactLinksTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F44BFDBE3EFE25236BE26962 /* ContactLinksTests.swift */; };
 		310B8F64C84C4D2F5E1A1826 /* SongHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 269B67C8908EFAF83BE1CE01 /* SongHistory.swift */; };
 		3879B8C7D1CAD5216ED5262D /* StationOrderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED66D32816507315E7ADE993 /* StationOrderTests.swift */; };
 		39E1471B03134ADBB71FF093 /* PlaybackPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6719EDC205C65715945ED5D5 /* PlaybackPolicy.swift */; };
@@ -27,6 +31,7 @@
 		77FFD0188532CF4A9FDFC780 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB674E14F4409CADBF502239 /* Theme.swift */; };
 		79C4E22D3E36076AA18128BC /* SongHistoryStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A3E0F46A70C1F84A878B981 /* SongHistoryStoreTests.swift */; };
 		7F081E2384A840C5D0160341 /* StationRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2217B745B5247094D27CCEBD /* StationRepository.swift */; };
+		80A8B53AEC1924C799D90C9B /* TVPillButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BDFEDB8BFB86CB3CED89EF0 /* TVPillButton.swift */; };
 		830BC62CD732CACDFC804EAF /* StationSortTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 850054D03F1079A3F9C2E876 /* StationSortTests.swift */; };
 		8F1A6C9B453F69413E8B5804 /* StationOrder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64A3B2A662ABC3156A6E0A93 /* StationOrder.swift */; };
 		9B76A5E266B049A8A7F7EF4D /* ShareSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A628C76C5B881F09F5A607C /* ShareSheet.swift */; };
@@ -39,6 +44,7 @@
 		D7A45EB956190CE2350A81B3 /* SongTitlePlaceholderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51959F3957AF0EE5FADD177B /* SongTitlePlaceholderTests.swift */; };
 		DD26FB0F72762D5A4D267DF3 /* Station.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F7A6A97B8B9C2A4B4A27F23 /* Station.swift */; };
 		E1EB8CE1B17942A2C5248B73 /* StationArtwork.swift in Sources */ = {isa = PBXBuildFile; fileRef = 654F66EB9F649E224E0EE5D5 /* StationArtwork.swift */; };
+		E6CB43860F44C855F5A37C2E /* ContactLinks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6491289972211B6788C189A2 /* ContactLinks.swift */; };
 		FC1B3C3049FA8E758439255F /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58ABB1A505FBA87FD83C143E /* AppState.swift */; };
 		FE115CCE7C0A0F164C401DBE /* GraphQLClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB38E18FC2231B31C88C1976 /* GraphQLClient.swift */; };
 /* End PBXBuildFile section */
@@ -56,18 +62,22 @@
 /* Begin PBXFileReference section */
 		0054B91C15491A977EC8F554 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		020A2E4F53DC479FEA17360F /* InlineSpinner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InlineSpinner.swift; sourceTree = "<group>"; };
+		0BDFEDB8BFB86CB3CED89EF0 /* TVPillButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TVPillButton.swift; sourceTree = "<group>"; };
 		0FFF5E066FAA15A3DDD23763 /* RadioCrestinTVApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RadioCrestinTVApp.swift; sourceTree = "<group>"; };
 		12F5451DFA66A04B21CDAA01 /* StationGrid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StationGrid.swift; sourceTree = "<group>"; };
 		1D2518EA14E13FD106A01010 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		2217B745B5247094D27CCEBD /* StationRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StationRepository.swift; sourceTree = "<group>"; };
+		2598D36B229CC5D5ED129EFB /* StallRecoveryPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StallRecoveryPolicyTests.swift; sourceTree = "<group>"; };
 		269B67C8908EFAF83BE1CE01 /* SongHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SongHistory.swift; sourceTree = "<group>"; };
 		2B0936A6AE22F15E63C9A0D1 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		3A628C76C5B881F09F5A607C /* ShareSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareSheet.swift; sourceTree = "<group>"; };
 		4804A680D602D313E3B83192 /* NowPlayingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlayingView.swift; sourceTree = "<group>"; };
+		4A1C26FA72EA36D0130F9F93 /* YoutubeStreamResolverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YoutubeStreamResolverTests.swift; sourceTree = "<group>"; };
 		4F7A6A97B8B9C2A4B4A27F23 /* Station.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Station.swift; sourceTree = "<group>"; };
 		51959F3957AF0EE5FADD177B /* SongTitlePlaceholderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SongTitlePlaceholderTests.swift; sourceTree = "<group>"; };
 		52AAEFA45204249EE060A620 /* RadioCrestinTV.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = RadioCrestinTV.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		58ABB1A505FBA87FD83C143E /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		6491289972211B6788C189A2 /* ContactLinks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactLinks.swift; sourceTree = "<group>"; };
 		64A3B2A662ABC3156A6E0A93 /* StationOrder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StationOrder.swift; sourceTree = "<group>"; };
 		654F66EB9F649E224E0EE5D5 /* StationArtwork.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StationArtwork.swift; sourceTree = "<group>"; };
 		6719EDC205C65715945ED5D5 /* PlaybackPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackPolicy.swift; sourceTree = "<group>"; };
@@ -78,6 +88,7 @@
 		850054D03F1079A3F9C2E876 /* StationSortTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StationSortTests.swift; sourceTree = "<group>"; };
 		897F5FA3EAF65D4BBACA9ED7 /* VideoSurfaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoSurfaceView.swift; sourceTree = "<group>"; };
 		91CB5D5C822ED753150F891A /* RatingStars.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RatingStars.swift; sourceTree = "<group>"; };
+		97CE3B8E048919836625B5A5 /* YoutubeStreamResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YoutubeStreamResolver.swift; sourceTree = "<group>"; };
 		A670E891F53697D36107A06A /* StationStreamOrderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StationStreamOrderTests.swift; sourceTree = "<group>"; };
 		B3C89071A1406162E69A5794 /* QRCodeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRCodeView.swift; sourceTree = "<group>"; };
 		BB674E14F4409CADBF502239 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
@@ -88,6 +99,7 @@
 		DB38E18FC2231B31C88C1976 /* GraphQLClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphQLClient.swift; sourceTree = "<group>"; };
 		DE42B02A6F27AD11E369F759 /* Analytics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Analytics.swift; sourceTree = "<group>"; };
 		ED66D32816507315E7ADE993 /* StationOrderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StationOrderTests.swift; sourceTree = "<group>"; };
+		F44BFDBE3EFE25236BE26962 /* ContactLinksTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactLinksTests.swift; sourceTree = "<group>"; };
 		F49094E0764A27032E94E7B7 /* ContactSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactSheet.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -183,13 +195,16 @@
 		85953715B98B360F993DEBD8 /* RadioCrestinTVTests */ = {
 			isa = PBXGroup;
 			children = (
+				F44BFDBE3EFE25236BE26962 /* ContactLinksTests.swift */,
 				729772AB482F406C708D1BFF /* PlaybackPolicyTests.swift */,
 				6A3E0F46A70C1F84A878B981 /* SongHistoryStoreTests.swift */,
 				51959F3957AF0EE5FADD177B /* SongTitlePlaceholderTests.swift */,
+				2598D36B229CC5D5ED129EFB /* StallRecoveryPolicyTests.swift */,
 				D365E2A44FBE4FBF9A648BFD /* StationModelTests.swift */,
 				ED66D32816507315E7ADE993 /* StationOrderTests.swift */,
 				850054D03F1079A3F9C2E876 /* StationSortTests.swift */,
 				A670E891F53697D36107A06A /* StationStreamOrderTests.swift */,
+				4A1C26FA72EA36D0130F9F93 /* YoutubeStreamResolverTests.swift */,
 			);
 			path = RadioCrestinTVTests;
 			sourceTree = "<group>";
@@ -206,8 +221,10 @@
 			isa = PBXGroup;
 			children = (
 				DE42B02A6F27AD11E369F759 /* Analytics.swift */,
+				6491289972211B6788C189A2 /* ContactLinks.swift */,
 				DB38E18FC2231B31C88C1976 /* GraphQLClient.swift */,
 				2217B745B5247094D27CCEBD /* StationRepository.swift */,
+				97CE3B8E048919836625B5A5 /* YoutubeStreamResolver.swift */,
 			);
 			path = Network;
 			sourceTree = "<group>";
@@ -227,6 +244,7 @@
 				654F66EB9F649E224E0EE5D5 /* StationArtwork.swift */,
 				CC4A7E03F25C3EDE274E2B29 /* StationCard.swift */,
 				12F5451DFA66A04B21CDAA01 /* StationGrid.swift */,
+				0BDFEDB8BFB86CB3CED89EF0 /* TVPillButton.swift */,
 				897F5FA3EAF65D4BBACA9ED7 /* VideoSurfaceView.swift */,
 			);
 			path = Views;
@@ -334,6 +352,7 @@
 				CD31E5E9DE0C9D06EFF6C231 /* Analytics.swift in Sources */,
 				FC1B3C3049FA8E758439255F /* AppState.swift in Sources */,
 				6E3ABB672123D5A369039938 /* AudioPlayer.swift in Sources */,
+				E6CB43860F44C855F5A37C2E /* ContactLinks.swift in Sources */,
 				D09EE00F424FB264461E1E43 /* ContactSheet.swift in Sources */,
 				FE115CCE7C0A0F164C401DBE /* GraphQLClient.swift in Sources */,
 				6224CDA625FE71BBB0348B19 /* InlineSpinner.swift in Sources */,
@@ -354,8 +373,10 @@
 				8F1A6C9B453F69413E8B5804 /* StationOrder.swift in Sources */,
 				7F081E2384A840C5D0160341 /* StationRepository.swift in Sources */,
 				2EA9FA0983EF4A5BB5818E37 /* StationSort.swift in Sources */,
+				80A8B53AEC1924C799D90C9B /* TVPillButton.swift in Sources */,
 				77FFD0188532CF4A9FDFC780 /* Theme.swift in Sources */,
 				1063214FE9C8CF6CCBA756EA /* VideoSurfaceView.swift in Sources */,
+				047CF462DC13821E1AE7C697 /* YoutubeStreamResolver.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -363,13 +384,16 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2F54F7AE147E46193C17AAB4 /* ContactLinksTests.swift in Sources */,
 				459D66EA29156909D66F8A75 /* PlaybackPolicyTests.swift in Sources */,
 				79C4E22D3E36076AA18128BC /* SongHistoryStoreTests.swift in Sources */,
 				D7A45EB956190CE2350A81B3 /* SongTitlePlaceholderTests.swift in Sources */,
+				09B32C3B50660EF248AF210D /* StallRecoveryPolicyTests.swift in Sources */,
 				AA9F7E15365C6186FDC543CC /* StationModelTests.swift in Sources */,
 				3879B8C7D1CAD5216ED5262D /* StationOrderTests.swift in Sources */,
 				830BC62CD732CACDFC804EAF /* StationSortTests.swift in Sources */,
 				26DBA5C19DB0B1FFBC0B8954 /* StationStreamOrderTests.swift in Sources */,
+				24FAA968EA4F6A593DAF4CE0 /* YoutubeStreamResolverTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

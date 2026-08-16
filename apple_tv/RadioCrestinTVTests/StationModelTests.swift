@@ -183,8 +183,10 @@ final class StationModelTests: XCTestCase {
                          title: "Future", thumbnailUrl: nil, durationSeconds: nil),
         ]
         let s = makeStation(stationType: "playlist", playlistItems: items)
-        // youtube, youtube_playlist, and unknown types all excluded.
-        XCTAssertEqual(s.playableItems.map(\.id), [1, 3])
+        // YouTube entries are playable on tvOS now — they resolve to a
+        // native stream (see `YoutubeStreamResolver`). Only genuinely
+        // unknown types stay excluded.
+        XCTAssertEqual(s.playableItems.map(\.id), [1, 2, 3, 4])
         XCTAssertFalse(s.hasOnlyUnplayableItems)
     }
 
@@ -195,20 +197,22 @@ final class StationModelTests: XCTestCase {
         }
         XCTAssertTrue(item("Audio").isPlayable)
         XCTAssertTrue(item("VIDEO").isPlayable)
-        XCTAssertFalse(item("youtube").isPlayable)
-        XCTAssertFalse(item("YouTube_Playlist").isPlayable)
+        // Resolved natively rather than embedded — tvOS has no WebKit.
+        XCTAssertTrue(item("youtube").isPlayable)
+        XCTAssertTrue(item("YouTube_Playlist").isPlayable)
+        XCTAssertTrue(item("youtube").needsYoutubeResolution)
+        XCTAssertTrue(item("YouTube_Playlist").needsYoutubeResolution)
         XCTAssertFalse(item("").isPlayable)
     }
 
     func test_hasOnlyUnplayableItems_true_when_nothing_playable() {
         let items = [
-            PlaylistItem(id: 1, order: 0, type: "youtube", url: "y1",
+            PlaylistItem(id: 1, order: 0, type: "hologram", url: "y1",
                          title: "1", thumbnailUrl: nil, durationSeconds: nil),
-            PlaylistItem(id: 2, order: 1, type: "YouTube_Playlist", url: "y2",
+            PlaylistItem(id: 2, order: 1, type: "vr_scene", url: "y2",
                          title: "2", thumbnailUrl: nil, durationSeconds: nil),
-            PlaylistItem(id: 3, order: 2, type: "vr_scene", url: "y3",
-                         title: "3", thumbnailUrl: nil, durationSeconds: nil),
         ]
+        // Only unknown future types can empty a playlist now.
         let s = makeStation(stationType: "playlist", playlistItems: items)
         XCTAssertTrue(s.hasOnlyUnplayableItems)
         XCTAssertTrue(s.playableItems.isEmpty)
@@ -275,9 +279,9 @@ final class StationModelTests: XCTestCase {
             PlaylistItem(id: 3, order: 2, type: "youtube", url: "y",
                          title: "Y", thumbnailUrl: nil, durationSeconds: nil),
         ]
-        // youtube is unplayable → 2 counted.
+        // YouTube counts as playable now → all 3 counted.
         let s = makeStation(stationType: "playlist", playlistItems: items)
-        XCTAssertEqual(s.cardSubtitle, "Listă de redare · 2 piese")
+        XCTAssertEqual(s.cardSubtitle, "Listă de redare · 3 piese")
     }
 
     func test_cardSubtitle_playlist_singular_item() {
@@ -290,14 +294,14 @@ final class StationModelTests: XCTestCase {
     }
 
     func test_cardSubtitle_playlist_label_when_nothing_countable() {
-        // YouTube-only, empty, or missing lists still get a meaningful
-        // label — never an empty second line.
-        let youtubeOnly = [
-            PlaylistItem(id: 1, order: 0, type: "youtube", url: "y",
-                         title: "Y", thumbnailUrl: nil, durationSeconds: nil),
+        // Unknown-type-only, empty, or missing lists still get a
+        // meaningful label — never an empty second line.
+        let unknownOnly = [
+            PlaylistItem(id: 1, order: 0, type: "hologram", url: "h",
+                         title: "H", thumbnailUrl: nil, durationSeconds: nil),
         ]
         XCTAssertEqual(
-            makeStation(stationType: "playlist", playlistItems: youtubeOnly).cardSubtitle,
+            makeStation(stationType: "playlist", playlistItems: unknownOnly).cardSubtitle,
             "Listă de redare"
         )
         XCTAssertEqual(

@@ -78,11 +78,57 @@ enum PlaybackTimeoutPolicy {
 /// errored outright.
 enum PlaybackError: Error, LocalizedError {
     case connectTimeout(seconds: TimeInterval)
+    case stalled
 
     var errorDescription: String? {
         switch self {
         case .connectTimeout(let seconds):
             return "Stream did not start within \(Int(seconds))s"
+        case .stalled:
+            return "Playback clock stopped advancing"
+        }
+    }
+}
+
+// MARK: - Stall recovery
+
+/// Detects and escalates recovery for a stream that has frozen mid-play.
+///
+/// `AVPlayer.timeControlStatus` cannot be trusted on its own here: a
+/// frozen player can report `.playing` while its clock stands still
+/// (measured on tvOS). Comparing successive `currentTime()` samples is
+/// the only signal that reflects what the user actually experiences.
+enum StallRecoveryPolicy {
+    /// How often the watchdog samples the playback clock.
+    static let sampleInterval: TimeInterval = 2
+
+    /// Clock movement below this between samples counts as "frozen".
+    static let minimumProgress: Double = 0.05
+
+    /// How long the clock may stand still before we intervene. Long
+    /// enough not to fight AVPlayer's own rebuffering, short enough that
+    /// a user doesn't sit on a dead frame.
+    static let stallGrace: TimeInterval = 6
+
+    /// What to do on the Nth consecutive stall (1-based).
+    enum Action: Equatable {
+        case seekToLiveEdge
+        case reloadItem
+        case giveUp
+    }
+
+    static func isStalled(frozenFor: TimeInterval) -> Bool {
+        frozenFor >= stallGrace
+    }
+
+    /// Escalates: cheap re-seek, then a full item reload, then hand back
+    /// to the stream/item fallback chain.
+    static func action(for attempt: Int) -> Action {
+        switch attempt {
+        case ..<1: return .seekToLiveEdge
+        case 1: return .seekToLiveEdge
+        case 2: return .reloadItem
+        default: return .giveUp
         }
     }
 }
@@ -101,9 +147,13 @@ enum ControlsAutoHidePolicy {
 
     /// True when the overlay may fade itself out. Controls stay pinned
     /// while paused (the user is looking at a frozen frame and needs the
-    /// transport visible) and while an error is on screen (its Retry
-    /// button must remain reachable).
-    static func shouldAutoHide(isPlaying: Bool, hasError: Bool) -> Bool {
-        isPlaying && !hasError
+    /// transport visible), while an error is on screen (its Retry button
+    /// must remain reachable), and while playback is stalled — hiding the
+    /// chrome over a frozen frame would misrepresent a stuck stream as a
+    /// playing one.
+    static func shouldAutoHide(
+        isPlaying: Bool, hasError: Bool, isStalled: Bool = false
+    ) -> Bool {
+        isPlaying && !hasError && !isStalled
     }
 }

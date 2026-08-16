@@ -27,7 +27,10 @@ struct QRCodeView: View {
         let context = CIContext()
         let filter = CIFilter.qrCodeGenerator()
         filter.message = Data(string.utf8)
-        filter.correctionLevel = "M"
+        // High correction: the payload carries diagnostics and the code is
+        // read from across a room, often off a reflective TV panel, so the
+        // extra redundancy is worth the denser grid.
+        filter.correctionLevel = "H"
         guard let output = filter.outputImage else { return nil }
         // Scale up so the QR code is sharp at the displayed size.
         let scaled = output.transformed(by: CGAffineTransform(scaleX: 12, y: 12))

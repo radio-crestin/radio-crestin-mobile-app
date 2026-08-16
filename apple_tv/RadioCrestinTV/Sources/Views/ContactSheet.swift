@@ -5,12 +5,14 @@ import SwiftUI
 /// the user's phone prefilled with the app version and device identity
 /// (see `lib/tv/pages/tv_settings.dart` and `quick_actions_service.dart`).
 struct ContactSheet: View {
+    /// Diagnostics folded into the prefilled WhatsApp message. Defaults to
+    /// the plain "no known failure" form used by Settings.
+    var diagnostics: ContactLinks.Diagnostics = .init()
     let onDismiss: () -> Void
 
     @FocusState private var closeFocused: Bool
 
-    private static let whatsappNumber = "40766338046"
-    private static let phoneDisplay = "+40 766 338 046"
+    private static let phoneDisplay = ContactLinks.whatsAppDisplayNumber
     /// WhatsApp brand green (#25D366) — same accent the Flutter apps use.
     private static let whatsappGreen = Color(red: 0.145, green: 0.827, blue: 0.4)
 
@@ -40,8 +42,8 @@ struct ContactSheet: View {
                         }
 
                         Text("Scanează codul QR cu telefonul pentru a ne scrie "
-                            + "direct pe WhatsApp. Mesajul include automat "
-                            + "versiunea aplicației.")
+                            + "direct pe WhatsApp. Mesajul conține deja "
+                            + "detaliile postului și ale dispozitivului.")
                             .font(.system(size: 24))
                             .foregroundStyle(Theme.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
@@ -54,15 +56,9 @@ struct ContactSheet: View {
                     .frame(maxWidth: 540, alignment: .leading)
                 }
 
-                Button(action: onDismiss) {
-                    Text("Închide")
-                        .font(.system(size: 26, weight: .semibold))
-                        .padding(.horizontal, Theme.Spacing.xl)
-                        .padding(.vertical, Theme.Spacing.sm)
-                }
-                .buttonStyle(.card)
-                .focused($closeFocused)
-                .padding(.top, Theme.Spacing.md)
+                TVPillButton(title: "Închide", action: onDismiss)
+                    .focused($closeFocused)
+                    .padding(.top, Theme.Spacing.md)
             }
             .padding(Theme.Spacing.xxl)
             .background(Theme.surface, in: RoundedRectangle(cornerRadius: 28))
@@ -83,28 +79,11 @@ struct ContactSheet: View {
 
     @ViewBuilder
     private var qrCode: some View {
-        if let url = Self.whatsappURL {
+        if let url = ContactLinks.whatsAppURL(diagnostics) {
             QRCodeView(string: url.absoluteString)
         } else {
             Color.gray
         }
     }
 
-    /// The same `wa.me` URL the mobile and Android TV apps build, with the
-    /// platform set to "Apple TV". The prefilled message embeds the app
-    /// version and the PostHog device identity so support can correlate a
-    /// message with the device's analytics.
-    private static var whatsappURL: URL? {
-        let version =
-            Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
-        let info = "[RadioCrestin/Apple TV/v\(version)/\(Analytics.distinctId)]"
-        let message = "\(info)\n\nBuna ziua,\n"
-        // Mirror Dart's `Uri.encodeComponent` / JS `encodeURIComponent`:
-        // encode everything except the RFC 3986 unreserved + sub-delims set
-        // it leaves alone, so spaces become %20 and newlines %0A.
-        let allowed = CharacterSet(charactersIn:
-            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.!~*'()")
-        let encoded = message.addingPercentEncoding(withAllowedCharacters: allowed) ?? ""
-        return URL(string: "https://wa.me/\(whatsappNumber)?text=\(encoded)")
-    }
 }

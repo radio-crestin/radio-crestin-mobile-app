@@ -50,6 +50,12 @@ final class AudioPlayer: ObservableObject {
     /// gate on `isVideoContent` as well.
     @Published private(set) var isVideoReadyForDisplay: Bool = false
 
+    /// True when playback intent is "playing" but the clock has stopped
+    /// moving — the honest signal for a frozen stream. Drives the loading
+    /// spinner and pins the controls open, so the user never faces a
+    /// frozen frame with hidden chrome.
+    @Published private(set) var isStalled: Bool = false
+
     /// The playlist entry currently playing, or nil for radio/TV stations.
     @Published private(set) var currentPlaylistItem: PlaylistItem?
 
@@ -92,6 +98,12 @@ final class AudioPlayer: ObservableObject {
     /// whenever the state becomes `connecting`, cancelled on the first
     /// `readyToPlay`, on failure, and on `stop()`.
     private var connectTimeoutTask: Task<Void, Never>?
+
+    /// Progress watchdog state — see `startProgressWatchdog`.
+    private var progressWatchdog: Task<Void, Never>?
+    private var lastClockSample: Double?
+    private var lastClockMovedAt: Date?
+    private var stallRecoveries = 0
 
     /// Fired when a manual "next" press lands past the last playlist item —
     /// the caller (RootView) advances to the next station in list order.
@@ -200,9 +212,6 @@ final class AudioPlayer: ObservableObject {
             streams = station.orderedStreams
             attemptIndex = 0
             state = .connecting(station.title)
-            // One budget for the whole tune-in, sequential stream
-            // fallbacks included — the bound is on the user's wait.
-            armConnectTimeout()
             // `loadCurrentAttempt` starts playback itself (the live
             // fast-start path), so there is no extra `player.play()` here.
             loadCurrentAttempt()
@@ -220,8 +229,9 @@ final class AudioPlayer: ObservableObject {
             }
             playlistItems = items
             playlistCount = items.count
+            // `loadPlaylistItem` starts playback itself once the item's
+            // media URL is known (YouTube entries resolve first).
             loadPlaylistItem(at: 0)
-            player.play()
         }
     }
 
@@ -233,6 +243,7 @@ final class AudioPlayer: ObservableObject {
                 // Playlist items are on-demand files — a soft pause keeps
                 // the buffered position so resume continues seamlessly.
                 player.pause()
+                stopProgressWatchdog()
                 state = .paused(station.title)
             } else {
                 // Pause is a hard stop for live radio/TV. Holding the
@@ -245,12 +256,14 @@ final class AudioPlayer: ObservableObject {
                 statusObserver = nil
                 currentStreamType = nil
                 isVideoReadyForDisplay = false
+                stopProgressWatchdog()
                 state = .paused(station.title)
             }
         case .paused:
             if playbackMode == .playlist, player.currentItem != nil {
                 // Resume the same on-demand item where it left off.
                 player.play()
+                startProgressWatchdog()
                 state = .playing(station.title)
             } else {
                 // Resume live = re-tune at the live edge (fresh playlist).
@@ -274,6 +287,7 @@ final class AudioPlayer: ObservableObject {
     func stop() {
         connectTimeoutTask?.cancel()
         connectTimeoutTask = nil
+        stopProgressWatchdog()
         player.pause()
         player.replaceCurrentItem(with: nil)
         stopPlaylistSync()
@@ -311,12 +325,44 @@ final class AudioPlayer: ObservableObject {
         }
     }
 
-    /// The stream never produced media inside its budget. Tear the item
-    /// down (so the dead connection is closed rather than left hanging)
-    /// and surface the recoverable error state.
+    /// This attempt never produced media inside its budget.
+    ///
+    /// A hard error is the LAST resort: while the station still has
+    /// untried entries in `station_streams` we walk to the next one (for
+    /// a TV station that is typically a lower-bitrate or audio-only
+    /// variant), and a playlist walks to its next item. Only when there
+    /// is nothing left to try does the error screen appear.
     private func failOnConnectTimeout() {
+        let error = PlaybackError.connectTimeout(
+            seconds: PlaybackTimeoutPolicy.connectTimeout
+        )
+        Analytics.captureError(
+            error,
+            context: "avplayer_connect_timeout",
+            extra: [
+                "station_slug": currentStation?.slug ?? "?",
+                "station_kind": currentStation?.kindAnalyticsValue ?? "?",
+                "attempt_index": attemptIndex,
+                "stream_count": streams.count,
+                "timeout_seconds": Int(PlaybackTimeoutPolicy.connectTimeout)
+            ]
+        )
+        switch playbackMode {
+        case .stream:
+            // `advanceOrFail` loads the next stream (which re-arms the
+            // budget) or surfaces the failure when the list is exhausted.
+            advanceOrFail(error: error)
+        case .playlist:
+            advancePlaylistItem(dueToError: true)
+        }
+    }
+
+    /// Tear the current item down and surface the recoverable error
+    /// state. Used once every fallback avenue is exhausted.
+    private func surfaceFailure(_ message: String) {
         statusObserver?.invalidate()
         statusObserver = nil
+        stopProgressWatchdog()
         removeEndObserver()
         removeTimeObserver()
         player.pause()
@@ -324,18 +370,134 @@ final class AudioPlayer: ObservableObject {
         currentStreamType = nil
         isVideoReadyForDisplay = false
         isBuffering = false
-        state = .failed(PlaybackTimeoutPolicy.timeoutMessage)
-        Analytics.captureError(
-            PlaybackError.connectTimeout(
-                seconds: PlaybackTimeoutPolicy.connectTimeout
-            ),
-            context: "avplayer_connect_timeout",
-            extra: [
-                "station_slug": currentStation?.slug ?? "?",
-                "station_kind": currentStation?.kindAnalyticsValue ?? "?",
-                "timeout_seconds": Int(PlaybackTimeoutPolicy.connectTimeout)
-            ]
-        )
+        isStalled = false
+        state = .failed(message)
+    }
+
+    // MARK: - Live edge
+
+    /// Jump to the live edge of the current HLS window.
+    ///
+    /// Honors the playlist's `EXT-X-START:TIME-OFFSET` when present:
+    /// AVFoundation surfaces it as `recommendedTimeOffsetFromLive`, and
+    /// the radiocrestin playlists do declare it (`TIME-OFFSET=-12`). When
+    /// no offset is advertised we land on the end of the seekable range.
+    ///
+    /// Called on join and after a stall so we never resume a position
+    /// that has drifted minutes behind the broadcast.
+    private func seekToLiveEdge() {
+        guard playbackMode == .stream,
+              let item = player.currentItem,
+              let range = item.seekableTimeRanges.last?.timeRangeValue,
+              range.duration.seconds.isFinite, range.duration.seconds > 0
+        else { return }
+        let edge = CMTimeRangeGetEnd(range)
+        let offset = item.recommendedTimeOffsetFromLive
+        let target = offset.isValid && offset.seconds.isFinite && offset.seconds > 0
+            ? CMTimeSubtract(edge, offset)
+            : edge
+        player.seek(
+            to: target,
+            toleranceBefore: .positiveInfinity,
+            toleranceAfter: .zero
+        ) { [weak self] _ in
+            Task { @MainActor in self?.player.play() }
+        }
+    }
+
+    // MARK: - Stall detection & recovery
+
+    /// Periodic check that the playback clock is actually moving.
+    ///
+    /// `timeControlStatus` alone is not enough: a frozen AVPlayer can sit
+    /// at `.playing` with a clock that never advances (this is exactly
+    /// what the old fast-start config produced). Comparing successive
+    /// `currentTime()` samples is the only honest signal.
+    private func startProgressWatchdog() {
+        stopProgressWatchdog()
+        lastClockSample = nil
+        lastClockMovedAt = Date()
+        stallRecoveries = 0
+        progressWatchdog = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(
+                    nanoseconds: UInt64(
+                        StallRecoveryPolicy.sampleInterval * 1_000_000_000
+                    )
+                )
+                guard !Task.isCancelled, let self else { return }
+                self.sampleProgress()
+            }
+        }
+    }
+
+    private func stopProgressWatchdog() {
+        progressWatchdog?.cancel()
+        progressWatchdog = nil
+        isStalled = false
+    }
+
+    /// One watchdog tick.
+    private func sampleProgress() {
+        // Only meaningful while the user expects sound/picture.
+        guard case .playing = state else {
+            lastClockMovedAt = Date()
+            isStalled = false
+            return
+        }
+        let now = player.currentTime().seconds
+        let moved = lastClockSample.map { previous in
+            now.isFinite && abs(now - previous) > StallRecoveryPolicy.minimumProgress
+        } ?? true
+        lastClockSample = now.isFinite ? now : nil
+
+        if moved {
+            lastClockMovedAt = Date()
+            isStalled = false
+            return
+        }
+        let frozenFor = Date().timeIntervalSince(lastClockMovedAt ?? Date())
+        guard StallRecoveryPolicy.isStalled(frozenFor: frozenFor) else { return }
+        // Surface the stall honestly before attempting anything, so the
+        // UI shows a spinner rather than a frozen frame.
+        isStalled = true
+        recoverFromStall()
+    }
+
+    /// Escalating stall recovery: re-seek to the live edge first (cheap,
+    /// keeps the connection), then reload the item, then move on to the
+    /// next stream / surface the error.
+    private func recoverFromStall() {
+        stallRecoveries += 1
+        switch StallRecoveryPolicy.action(for: stallRecoveries) {
+        case .seekToLiveEdge:
+            lastClockMovedAt = Date()
+            if playbackMode == .stream {
+                seekToLiveEdge()
+            } else {
+                player.play()
+            }
+        case .reloadItem:
+            lastClockMovedAt = Date()
+            switch playbackMode {
+            case .stream: loadCurrentAttempt()
+            case .playlist: loadPlaylistItem(at: playlistIndex)
+            }
+        case .giveUp:
+            Analytics.captureError(
+                PlaybackError.stalled,
+                context: "avplayer_stall_unrecovered",
+                extra: [
+                    "station_slug": currentStation?.slug ?? "?",
+                    "station_kind": currentStation?.kindAnalyticsValue ?? "?",
+                    "stream_type": currentStreamType ?? "?"
+                ]
+            )
+            switch playbackMode {
+            case .stream: advanceOrFail(error: PlaybackError.stalled)
+            case .playlist: advancePlaylistItem(dueToError: true)
+            }
+        }
     }
 
     // MARK: - Live playlist sync
@@ -433,7 +595,6 @@ final class AudioPlayer: ObservableObject {
             afterRemoved: currentId, oldItems: previousItems, newItems: items
         )
         loadPlaylistItem(at: target)
-        player.play()
     }
 
     /// Index (in `newItems`) of the first item that follows the removed
@@ -464,6 +625,7 @@ final class AudioPlayer: ObservableObject {
     private func depletePlaylist() {
         connectTimeoutTask?.cancel()
         connectTimeoutTask = nil
+        stopProgressWatchdog()
         removeEndObserver()
         removeTimeObserver()
         statusObserver?.invalidate()
@@ -510,7 +672,6 @@ final class AudioPlayer: ObservableObject {
         case .item(let index):
             consecutivePlaylistErrors = 0
             loadPlaylistItem(at: index)
-            player.play()
         case .nextStation:
             onRequestNextStation?()
         case .previousStation:
@@ -582,13 +743,11 @@ final class AudioPlayer: ObservableObject {
             // the user sees something happened, then surface failure.
             connectTimeoutTask?.cancel()
             connectTimeoutTask = nil
-            state = .failed("Nu am putut conecta la flux")
-            currentStreamType = nil
+            surfaceFailure("Nu am putut conecta la flux")
             return
         }
 
         currentStreamType = streams[attemptIndex].type
-        let isHls = currentStreamType == "HLS"
         let item = AVPlayerItem(url: url)
         // Cap the forward buffer at 6s so the audio the user hears stays
         // close to the live broadcast moment. The HLS playlists ship 6s
@@ -596,16 +755,23 @@ final class AudioPlayer: ObservableObject {
         // is enough to keep stalls rare while keeping the now-playing
         // metadata visibly in sync with the audio.
         item.preferredForwardBufferDuration = 6
-        // Feature B — live fast-start, HLS ONLY. For segmented HLS we drop
-        // AVPlayer's conservative anti-stall buffering and join the live
-        // edge the instant the first segment decodes (measured ~15% faster
-        // on the tvOS simulator). Direct Icecast MP3/AAC streams are
-        // deliberately excluded: with `automaticallyWaitsToMinimizeStalling
-        // = false` a continuous direct stream reaches `readyToPlay` but
-        // AVPlayer leaves it PAUSED (timeControlStatus == .paused) and it
-        // never advances — verified on the simulator — so they keep the
-        // default waiting behavior and a plain `play()`.
-        player.automaticallyWaitsToMinimizeStalling = isHls ? false : true
+        // `automaticallyWaitsToMinimizeStalling` MUST stay true.
+        //
+        // This used to be `false` for HLS (a "live fast-start" that
+        // skipped AVPlayer's anti-stall buffering). Measured on the tvOS
+        // simulator against both a live TV stream and a radio HLS stream,
+        // that setting FREEZES playback: the item reaches `readyToPlay`
+        // in ~0.3s, but the playback clock never advances — 0.00s of
+        // progress over 4 seconds. Worse, with a plain `play()` the
+        // player even reports `timeControlStatus == .playing` while
+        // frozen, so nothing downstream can detect it. The exclusion note
+        // that used to live here claimed only direct MP3 streams were
+        // affected; they are not — HLS breaks the same way.
+        //
+        // Ready-time is identical with waiting enabled (0.17-0.31s in the
+        // same measurements), so the optimization bought nothing and cost
+        // all playback.
+        player.automaticallyWaitsToMinimizeStalling = true
         observe(item: item)
         // Only radio streams carry EXT-X-DATERANGE song announcements that
         // should drive an out-of-cycle metadata poll. TV video streams may
@@ -614,11 +780,11 @@ final class AudioPlayer: ObservableObject {
             attachDateRangeCollector(to: item)
         }
         player.replaceCurrentItem(with: item)
-        if isHls {
-            player.playImmediately(atRate: 1.0)
-        } else {
-            player.play()
-        }
+        player.play()
+        // Per-attempt budget: if this stream never produces media we move
+        // on to the next one rather than giving up on the station.
+        armConnectTimeout()
+        startProgressWatchdog()
     }
 
     // MARK: - Playlist playback
@@ -630,7 +796,7 @@ final class AudioPlayer: ObservableObject {
         playlistIndex = index
         let playlistItem = playlistItems[index]
         currentPlaylistItem = playlistItem
-        isVideoContent = playlistItem.isVideo
+        isVideoContent = playlistItem.rendersVideo
         currentStreamType = nil          // playlist items aren't HLS-synced
         vodPosition = 0
         vodDuration = playlistItem.durationSeconds.map(Double.init) ?? 0
@@ -638,26 +804,77 @@ final class AudioPlayer: ObservableObject {
         // The surface has no picture for the new item yet; the loading
         // indicator stays up until `AVPlayerLayer` says otherwise.
         isVideoReadyForDisplay = false
+        if let title = currentStation?.title { state = .connecting(title) }
+        armConnectTimeout()
 
+        // YouTube entries carry a page URL, not a media URL — they have to
+        // be resolved to a real stream first (tvOS has no WebKit for the
+        // IFrame embed). Everything else plays straight away.
+        guard !playlistItem.needsYoutubeResolution else {
+            resolveAndLoadYoutubeItem(playlistItem, at: index)
+            return
+        }
         guard let url = Self.trackedURL(for: playlistItem.url) else {
             advancePlaylistItem(dueToError: true)
             return
         }
-        if let title = currentStation?.title { state = .connecting(title) }
-        armConnectTimeout()
+        startPlaylistItem(url: url, isHLS: false)
+    }
 
+    /// Hands a resolved media URL to AVPlayer and arms the playlist-item
+    /// observers. Shared by the direct and the YouTube-resolved paths.
+    private func startPlaylistItem(url: URL, isHLS: Bool) {
         let item = AVPlayerItem(url: url)
         // VOD: let AVPlayer choose the buffer (0 = automatic). The 6s live
         // cap used for radio/TV would starve on-demand playback.
         item.preferredForwardBufferDuration = 0
-        // On-demand items keep AVPlayer's default anti-stall waiting — the
-        // live fast-start (instant-join) is only for live HLS streams, and
-        // a prior HLS join may have turned waiting off on the shared player.
+        // Always let AVPlayer manage anti-stall buffering — disabling it
+        // freezes playback outright on tvOS (see `loadCurrentAttempt`).
         player.automaticallyWaitsToMinimizeStalling = true
         observe(item: item)
         player.replaceCurrentItem(with: item)
         addEndObserver(for: item)
         addTimeObserver()
+        player.play()
+        startProgressWatchdog()
+    }
+
+    /// Resolves a YouTube entry to a playable stream, then starts it.
+    ///
+    /// Resolution failure is NOT fatal: the item is treated exactly like
+    /// any other broken entry, so the playlist advances and — if nothing
+    /// in the station resolves — the UI lands on the friendly skip-card
+    /// instead of hanging. The connect-timeout watchdog is already armed,
+    /// so even a wedged network can't leave the user waiting.
+    private func resolveAndLoadYoutubeItem(_ playlistItem: PlaylistItem, at index: Int) {
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                let resolved = try await YoutubeStreamResolver.shared
+                    .resolve(pageURL: playlistItem.url)
+                // The user may have skipped on while we were resolving.
+                guard self.playbackMode == .playlist,
+                      self.playlistIndex == index,
+                      self.currentPlaylistItem?.id == playlistItem.id
+                else { return }
+                // A live broadcast has no meaningful duration/scrubber.
+                if resolved.isLive { self.vodDuration = 0 }
+                self.startPlaylistItem(url: resolved.url, isHLS: resolved.isHLS)
+            } catch {
+                guard self.playbackMode == .playlist,
+                      self.playlistIndex == index else { return }
+                Analytics.captureError(
+                    error,
+                    context: "youtube_resolve_failed",
+                    extra: [
+                        "station_slug": self.currentStation?.slug ?? "?",
+                        "item_type": playlistItem.type,
+                        "item_url": playlistItem.url
+                    ]
+                )
+                self.advancePlaylistItem(dueToError: true)
+            }
+        }
     }
 
     /// Advance to the next item, looping at the end. When `dueToError` and
@@ -669,15 +886,12 @@ final class AudioPlayer: ObservableObject {
             if consecutivePlaylistErrors >= playlistItems.count {
                 connectTimeoutTask?.cancel()
                 connectTimeoutTask = nil
-                state = .failed("Nu am putut reda playlistul")
-                removeEndObserver()
-                removeTimeObserver()
+                surfaceFailure("Nu am putut reda playlistul")
                 return
             }
         }
         let next = playlistIndex + 1
         loadPlaylistItem(at: next < playlistItems.count ? next : 0)
-        player.play()
     }
 
     /// Register the end-of-item notification that drives auto-advance/loop.
@@ -732,6 +946,7 @@ final class AudioPlayer: ObservableObject {
     private func resetPlaylistState() {
         connectTimeoutTask?.cancel()
         connectTimeoutTask = nil
+        stopProgressWatchdog()
         isVideoReadyForDisplay = false
         removeEndObserver()
         removeTimeObserver()
@@ -808,6 +1023,11 @@ final class AudioPlayer: ObservableObject {
                     if let station = self.currentStation {
                         self.state = .playing(station.title)
                     }
+                    // Live join: start at the broadcast edge (honoring
+                    // EXT-X-START) instead of wherever the window began.
+                    if self.playbackMode == .stream {
+                        self.seekToLiveEdge()
+                    }
                     // A clean start clears the broken-playlist error budget.
                     if self.playbackMode == .playlist {
                         self.consecutivePlaylistErrors = 0
@@ -848,10 +1068,7 @@ final class AudioPlayer: ObservableObject {
         } else {
             connectTimeoutTask?.cancel()
             connectTimeoutTask = nil
-            state = .failed(
-                error?.localizedDescription ?? "Eroare flux audio"
-            )
-            currentStreamType = nil
+            surfaceFailure(error?.localizedDescription ?? "Eroare flux audio")
             if let error {
                 Analytics.captureError(
                     error,
