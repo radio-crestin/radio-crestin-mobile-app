@@ -1,6 +1,5 @@
 import 'dart:io' show Platform;
 
-import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
 import 'package:radio_crestin/theme.dart';
@@ -9,13 +8,17 @@ import 'package:radio_crestin/widgets/animated_play_button.dart';
 import 'package:radio_crestin/widgets/station_type_badge.dart';
 import 'package:sliding_up_panel2/sliding_up_panel2.dart';
 
+import '../appAudioHandler.dart';
 import '../services/playlist_controller.dart';
 import '../types/playlist_item.dart';
 import '../utils/station_ui.dart';
 
 class MiniAudioPlayer extends StatelessWidget {
   final Station? currentStation;
-  final AudioHandler audioHandler;
+
+  /// The app handler (not the bare `AudioHandler`): the mini player's pause is
+  /// a USER tap, so it routes through [AppAudioHandler.pauseFromUser].
+  final AppAudioHandler audioHandler;
   final PanelController panelController;
 
   const MiniAudioPlayer({
@@ -130,7 +133,7 @@ class MiniAudioPlayer extends StatelessWidget {
                       iconSize: 38,
                       iconColor: Theme.of(context).iconTheme.color!,
                       onPlay: audioHandler.play,
-                      onPause: audioHandler.pause,
+                      onPause: audioHandler.pauseFromUser,
                       onStop: audioHandler.stop,
                     ),
                   ),

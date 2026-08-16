@@ -112,7 +112,7 @@ class _DesktopNowPlayingSheetState extends State<DesktopNowPlayingSheet> {
 
   void _close() => Navigator.of(context).maybePop();
   void _togglePlay() =>
-      _isPlaying ? _audioHandler.pause() : _audioHandler.play();
+      _isPlaying ? _audioHandler.pauseFromUser() : _audioHandler.play();
   void _toggleLike() {
     setState(() {
       _liked = !_liked;

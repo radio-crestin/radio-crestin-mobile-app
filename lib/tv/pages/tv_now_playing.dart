@@ -147,7 +147,7 @@ class _TvNowPlayingState extends State<TvNowPlaying> {
   void _togglePlayback() {
     if (_showPause) {
       setState(() => _pressedPlay = false);
-      _audioHandler.pause();
+      _audioHandler.pauseFromUser();
     } else {
       setState(() => _pressedPlay = true);
       _audioHandler.play();

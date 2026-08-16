@@ -259,9 +259,23 @@ class PlaylistController {
   }
 
   Future<void> _stopPlayback() async {
+    // A YouTube item runs in a webview that holds the system's Now Playing /
+    // remote-command role. Ask it to pause and let the command reach WebKit
+    // BEFORE the widget is dropped: a webview torn down mid-playback makes iOS
+    // deliver a stray remote-command pause a beat later, which then lands on
+    // whatever started next (see [StationHandoffPauseGuard]).
+    if (currentItem.value?.type.isYoutube ?? false) {
+      youtubeShouldPlay.add(false);
+      await Future<void>.delayed(_youtubeReleaseDelay);
+    }
     youtubeRequest.add(null);
     await _handler.stopPlaylistPlayback();
   }
+
+  /// Time given to the inline YouTube player to act on the pause command before
+  /// its webview is unmounted. One frame is not enough (the command crosses the
+  /// JS bridge); a tenth of a second is imperceptible and plenty.
+  static const Duration _youtubeReleaseDelay = Duration(milliseconds: 120);
 
   // ── Item playback ─────────────────────────────────────────────────────────
 
@@ -398,7 +412,9 @@ class PlaylistController {
     await _handler.seek(to);
   }
 
-  Future<void> pause() async => _handler.pause();
+  /// Pause asked for by the player UI — never the platform, so it goes through
+  /// [AppAudioHandler.pauseFromUser] and always wins over the handoff guard.
+  Future<void> pause() async => _handler.pauseFromUser();
   Future<void> resume() async => _handler.play();
 
   /// Resumes the inline YouTube player. Routed here by [AppAudioHandler.play]

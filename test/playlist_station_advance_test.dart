@@ -40,6 +40,10 @@ class _FakeAudioHandler extends Fake implements AppAudioHandler {
   /// Station-level hand-overs, in order ('next' / 'previous').
   final List<String> stationSkips = [];
 
+  /// Ordered trace of the teardown calls the controller makes on the handler,
+  /// used to pin that the YouTube iframe is paused BEFORE it is unmounted.
+  final List<String> teardown = [];
+
   bool carConnected = false;
 
   @override
@@ -72,7 +76,16 @@ class _FakeAudioHandler extends Fake implements AppAudioHandler {
       playedIndexes.add(index);
 
   @override
-  Future<void> stopPlaylistPlayback() async {}
+  Future<void> stopPlaylistPlayback() async => teardown.add('stopPlayback');
+
+  @override
+  Future<void> pauseFromUser() async => teardown.add('pauseFromUser');
+
+  @override
+  void exitPlaylistMode() {}
+
+  @override
+  void enterPlaylistMode() {}
 
   @override
   void setPlaylistYoutubeActive(bool active, {bool playing = false}) {}
@@ -251,6 +264,36 @@ void main() {
       expect(handler.stationSkips, isEmpty);
       expect(handler.playedIndexes, [0]);
       expect(controller.currentIndex.value, 0);
+    });
+
+    test('leaving a YouTube item pauses the iframe BEFORE unmounting it',
+        () async {
+      // Arrange: a YouTube item is the active one (a UI-owned webview).
+      seed(0, list: [_yt(1), _yt(2)]);
+      final shouldPlay = <bool>[];
+      controller.youtubeShouldPlay.stream.listen(shouldPlay.add);
+      final requests = <int?>[];
+      controller.youtubeRequest.stream.listen((i) => requests.add(i?.id));
+
+      // Act: the station advance tears the playlist down.
+      await controller.stop();
+
+      // Assert: the pause command reaches the iframe first, and the widget is
+      // only dropped afterwards. A webview destroyed mid-playback makes iOS
+      // deliver a stray remote-command pause onto the NEXT station's stream —
+      // the "Postul următor doesn't start playing" bug.
+      expect(shouldPlay.last, isFalse);
+      expect(requests.last, isNull);
+      expect(controller.currentItem.value, isNull);
+    });
+
+    test('a UI pause routes through pauseFromUser (never the guarded pause)',
+        () async {
+      seed(0);
+
+      await controller.pause();
+
+      expect(handler.teardown, ['pauseFromUser']);
     });
 
     test('auto-advance at the natural end of the last item still loops',

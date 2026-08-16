@@ -15,6 +15,7 @@ import '../utils.dart';
 import 'animated_play_button.dart';
 import 'bottom_toast.dart';
 import 'default_artwork.dart';
+import 'player_transport.dart';
 import 'player_video_surface.dart';
 import 'video_overlay_controls.dart';
 import 'video_thumbnail_image.dart';
@@ -59,11 +60,8 @@ const double kPlaylistScrubberSlotHeight = 66.0;
 /// the elapsed / total labels).
 const double kPlaylistSliderHeight = 46.0;
 
-/// Height of the transport row: [AnimatedPlayButton] at `iconSize: 48` plus its
-/// 8px ring padding.
-const double kPlaylistTransportRowHeight = 64.0;
-
-/// Height of the "next station" row below the transport.
+/// Height of the "next station" row, which sits ABOVE the transport (between
+/// the item metadata and the queue header).
 const double kPlaylistNextStationRowHeight = 44.0;
 
 /// Height of the collapsed playlist header (the tappable queue pill).
@@ -71,26 +69,34 @@ const double kPlaylistQueueHeaderHeight = 60.0;
 
 /// Vertical gaps between the fixed slots, in layout order.
 const double _gapAfterMedia = 12.0;
-const double _gapAfterTransport = 6.0;
+const double _gapAfterMeta = 8.0;
 const double _gapAfterNextStation = 10.0;
 const double _gapAfterQueueHeader = 8.0;
 
+/// Space kept below the transport row, so the prev/play/next cluster sits in
+/// the same bottom-anchored band as the classic radio full player's transport
+/// (`FullAudioPlayer`, which leaves a gap above its own action row) instead of
+/// being glued to the action row underneath the section.
+const double _gapBelowTransport = 24.0;
+
 /// Space the layout reserves below the media surface for everything that is not
-/// the playlist itself.
+/// the playlist itself, given the shared [playerTransportRowHeight].
 ///
 /// The 16:9 media box is capped to what is left so the transport can never be
 /// pushed into the panel's clipped region — where its prev/next taps silently
 /// did nothing (the reported "next button doesn't work" bug).
-const double kPlaylistControlsReservedHeight = _gapAfterMedia +
+double playlistControlsReservedHeight(double transportRowHeight) =>
+    _gapAfterMedia +
     kPlaylistTitleSlotHeight +
     kPlaylistMetaSlotHeight +
-    kPlaylistScrubberSlotHeight +
-    kPlaylistTransportRowHeight +
-    _gapAfterTransport +
+    _gapAfterMeta +
     kPlaylistNextStationRowHeight +
     _gapAfterNextStation +
     kPlaylistQueueHeaderHeight +
-    _gapAfterQueueHeader;
+    _gapAfterQueueHeader +
+    kPlaylistScrubberSlotHeight +
+    transportRowHeight +
+    _gapBelowTransport;
 
 /// Expand / collapse animation of the playlist list.
 const Duration kPlaylistExpandDuration = Duration(milliseconds: 300);
@@ -309,7 +315,7 @@ class _PlaylistPlayerSectionState extends State<PlaylistPlayerSection> {
         repeatOne: _repeatOne,
         onToggleRepeat: _controller.toggleRepeatOne,
         onPlay: widget.audioHandler.play,
-        onPause: widget.audioHandler.pause,
+        onPause: widget.audioHandler.pauseFromUser,
         onStop: widget.audioHandler.stop,
         onPrevious: widget.audioHandler.skipToPrevious,
         onNext: widget.audioHandler.skipToNext,
@@ -341,10 +347,22 @@ class _PlaylistPlayerSectionState extends State<PlaylistPlayerSection> {
   }
 }
 
-/// The playlist player's stable-layout body: a fixed media slot, fixed title /
-/// date / scrubber slots, the transport row at a constant vertical position, a
-/// "next station" action, and a playlist that is COLLAPSED into a compact
-/// header by default and expands in place.
+/// The playlist player's stable-layout body, top to bottom:
+///
+///   media surface → title → date → "Postul următor" → queue header
+///   → *expandable playlist* → scrubber → transport
+///
+/// Everything above the playlist is a fixed-height slot and everything below it
+/// is bottom-anchored, so the prev/play/next cluster keeps a constant offset
+/// from the bottom of the section — the same offset for every station type,
+/// item type, title length, and whether the playlist is open or closed. The
+/// playlist itself is the only elastic band: it takes the space between the
+/// queue header and the scrubber, which is empty (not absent) while collapsed.
+///
+/// The order deliberately puts the station-advance pill and the queue card
+/// ABOVE the transport so the cluster lands in the same bottom band as the
+/// classic radio full player's ([FullAudioPlayer]) — the one control the user
+/// reaches for blind never moves between the two layouts.
 ///
 /// Presentational and service-free (widgets and callbacks only) so the whole
 /// layout contract — "the transport never moves" and the expand/collapse
@@ -416,17 +434,20 @@ class _PlaylistPlayerLayoutState extends State<PlaylistPlayerLayout> {
 
   @override
   Widget build(BuildContext context) {
+    final double transportRowHeight =
+        playerTransportRowHeight(playerLayoutOf(context));
+    final double reserved = playlistControlsReservedHeight(transportRowHeight);
+
     return LayoutBuilder(
       builder: (context, constraints) {
         // Cap the 16:9 media so every fixed slot below it (title, date,
-        // scrubber, transport, next-station, playlist header) still fits. The
+        // next-station, playlist header, scrubber, transport) still fits. The
         // media is the part that yields — on a very short panel (landscape) it
         // shrinks away entirely rather than pushing the transport into the
         // clipped region, where its taps would silently do nothing.
         final double availWidth = constraints.maxWidth - 24.0; // 12px padding
         final double maxMediaHeight = constraints.maxHeight.isFinite
-            ? (constraints.maxHeight - kPlaylistControlsReservedHeight)
-                .clamp(0.0, 100000.0)
+            ? (constraints.maxHeight - reserved).clamp(0.0, 100000.0)
             : double.infinity;
         double mediaWidth = availWidth;
         double mediaHeight = mediaWidth * 9 / 16;
@@ -448,20 +469,7 @@ class _PlaylistPlayerLayoutState extends State<PlaylistPlayerLayout> {
             const SizedBox(height: _gapAfterMedia),
             _TitleSlot(title: widget.title, titleKey: widget.titleKey),
             _MetaSlot(subtitle: widget.subtitle),
-            SizedBox(
-              height: kPlaylistScrubberSlotHeight,
-              child: widget.scrubber == null
-                  ? null
-                  : Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: widget.scrubber,
-                    ),
-            ),
-            SizedBox(
-              height: kPlaylistTransportRowHeight,
-              child: widget.transport,
-            ),
-            const SizedBox(height: _gapAfterTransport),
+            const SizedBox(height: _gapAfterMeta),
             SizedBox(
               height: kPlaylistNextStationRowHeight,
               child: Center(
@@ -480,20 +488,41 @@ class _PlaylistPlayerLayoutState extends State<PlaylistPlayerLayout> {
               ),
             ),
             const SizedBox(height: _gapAfterQueueHeader),
-            // The list grows into (and scrolls within) whatever space is left —
-            // never unbounded. Collapsed it animates down to nothing.
-            Flexible(
+            // The expandable playlist lives in the ONE flexible band of the
+            // layout, between the queue header and the bottom-anchored
+            // scrubber + transport block. [Expanded] keeps that band the same
+            // size whether the list is shown or not, so expanding never moves
+            // the transport — the list simply fills (and scrolls inside) the
+            // space that was already empty, animating open via [AnimatedSize].
+            Expanded(
               child: ClipRect(
-                child: AnimatedSize(
-                  duration: kPlaylistExpandDuration,
-                  curve: Curves.fastOutSlowIn,
+                child: Align(
                   alignment: Alignment.topCenter,
-                  child: _expanded
-                      ? widget.list
-                      : const SizedBox(width: double.infinity, height: 0),
+                  child: AnimatedSize(
+                    duration: kPlaylistExpandDuration,
+                    curve: Curves.fastOutSlowIn,
+                    alignment: Alignment.topCenter,
+                    child: _expanded
+                        ? widget.list
+                        : const SizedBox(width: double.infinity, height: 0),
+                  ),
                 ),
               ),
             ),
+            SizedBox(
+              height: kPlaylistScrubberSlotHeight,
+              child: widget.scrubber == null
+                  ? null
+                  : Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: widget.scrubber,
+                    ),
+            ),
+            SizedBox(
+              height: transportRowHeight,
+              child: widget.transport,
+            ),
+            const SizedBox(height: _gapBelowTransport),
           ],
         );
       },
@@ -756,7 +785,7 @@ class _MediaSurface extends StatelessWidget {
         title: item?.title ?? station.displayTitle,
         isLive: false,
         onPlay: audioHandler.play,
-        onPause: audioHandler.pause,
+        onPause: audioHandler.pauseFromUser,
         onSeek: (d) => controller.seek(d),
         // Enable the seek bar right away using the item's known length, before
         // libmpv reports its own duration.
@@ -965,6 +994,11 @@ class _VodProgressBarState extends State<_VodProgressBar> {
 /// `playbackState`) — for YouTube items the handler forwards to the inline
 /// iframe, so that stream stays the one source of truth for icon and action.
 ///
+/// The prev / play / next trio is [PlayerTransportControls], the very same
+/// widget (and the very same [computePlayerLayout] metrics) the classic radio
+/// full player uses, so the cluster is pixel-identical across station types.
+/// Only the repeat / quality / fullscreen extras are playlist-specific.
+///
 /// Takes streams and callbacks rather than the handler itself so the row (and
 /// the layout it sits in) is widget-testable without the audio stack.
 class PlaylistTransport extends StatelessWidget {
@@ -1008,14 +1042,20 @@ class PlaylistTransport extends StatelessWidget {
   /// player's fullscreen, YouTube items the iframe fullscreen.
   final VoidCallback? onFullscreen;
 
-  /// Side length of the round secondary buttons (10px padding + 30px icon) —
-  /// also the size of the invisible spacer that keeps the prev/play/next
-  /// cluster dead-center when the two sides hold a different number of buttons.
-  static const double _sideButtonSize = 50.0;
+  /// Icon size of the secondary (repeat / quality / fullscreen) controls.
+  /// Deliberately fixed and smaller than the responsive prev/play/next trio,
+  /// which they must never crowd out on a narrow phone.
+  static const double _secondaryIconSize = 24.0;
+
+  /// Footprint of a secondary control ([_secondaryIconSize] + a 6px ring).
+  static const double _secondaryButtonSize = _secondaryIconSize + 12.0;
 
   @override
   Widget build(BuildContext context) {
     final onSurface = Theme.of(context).colorScheme.onSurface;
+    // Same metrics the radio full player uses — see [PlayerTransportControls].
+    final metrics = playerLayoutOf(context);
+    const iconSize = _secondaryIconSize;
 
     // Left cluster: repeat (always). Right cluster: fullscreen and/or quality.
     // Both sides are padded with invisible ghosts to equal width so the
@@ -1024,6 +1064,7 @@ class PlaylistTransport extends StatelessWidget {
     final leftControls = <Widget>[
       _RoundIconButton(
         icon: Icons.repeat_rounded,
+        iconSize: iconSize,
         color: repeatOne ? AppColors.primary : onSurface,
         onTap: onToggleRepeat,
       ),
@@ -1032,72 +1073,54 @@ class PlaylistTransport extends StatelessWidget {
       if (onFullscreen != null)
         _RoundIconButton(
           icon: Icons.fullscreen_rounded,
+          iconSize: iconSize,
           color: onSurface,
           onTap: onFullscreen!,
         ),
       if (onQuality != null)
         _RoundIconButton(
           icon: Icons.high_quality_rounded,
+          iconSize: iconSize,
           color: onSurface,
           onTap: onQuality!,
         ),
     ];
     // Balance the two sides with ghosts so the center trio never shifts.
+    const ghost = SizedBox.square(dimension: _secondaryButtonSize);
     while (leftControls.length < rightControls.length) {
-      leftControls.insert(0, const _GhostButton());
+      leftControls.insert(0, ghost);
     }
     while (rightControls.length < leftControls.length) {
-      rightControls.add(const _GhostButton());
+      rightControls.add(ghost);
     }
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        for (final w in leftControls) ...[w, const SizedBox(width: 12)],
-        _RoundIconButton(
-          icon: Icons.skip_previous_rounded,
-          color: onSurface,
-          onTap: () {
-            playButtonKey.currentState?.notifyWillPlay();
-            onPrevious();
-          },
-        ),
-        const SizedBox(width: 12),
-        AnimatedPlayButton(
-          key: playButtonKey,
-          playbackStateStream: playbackStateStream,
-          iconSize: 48,
-          iconColor: Theme.of(context).colorScheme.onPrimary,
-          backgroundColor: Theme.of(context).bottomAppBarTheme.color,
-          onPlay: onPlay,
-          onPause: onPause,
-          onStop: onStop,
-        ),
-        const SizedBox(width: 12),
-        _RoundIconButton(
-          icon: Icons.skip_next_rounded,
-          color: onSurface,
-          onTap: () {
-            playButtonKey.currentState?.notifyWillPlay();
-            onNext();
-          },
-        ),
-        for (final w in rightControls) ...[const SizedBox(width: 12), w],
-      ],
+    return PlayerTransportControls(
+      metrics: metrics,
+      playbackStateStream: playbackStateStream,
+      playButtonKey: playButtonKey,
+      onPlay: onPlay,
+      onPause: onPause,
+      onStop: onStop,
+      onPrevious: onPrevious,
+      onNext: onNext,
+      leading: leftControls,
+      trailing: rightControls,
     );
   }
 }
 
-/// Round, tappable secondary transport control (repeat / prev / next /
-/// fullscreen / quality): a 30px icon with 10px padding (50x50 hit target).
+/// Round, tappable secondary transport control (repeat / fullscreen / quality):
+/// an icon of [iconSize] inside a 6px ring.
 class _RoundIconButton extends StatelessWidget {
   const _RoundIconButton({
     required this.icon,
+    required this.iconSize,
     required this.color,
     required this.onTap,
   });
 
   final IconData icon;
+  final double iconSize;
   final Color color;
   final VoidCallback onTap;
 
@@ -1107,23 +1130,9 @@ class _RoundIconButton extends StatelessWidget {
       customBorder: const CircleBorder(),
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.all(10.0),
-        child: Icon(icon, size: 30, color: color),
+        padding: const EdgeInsets.all(6.0),
+        child: Icon(icon, size: iconSize, color: color),
       ),
-    );
-  }
-}
-
-/// Invisible 50x50 stand-in matching [_RoundIconButton]'s footprint, used to
-/// keep the prev/play/next trio centered when the two sides differ in count.
-class _GhostButton extends StatelessWidget {
-  const _GhostButton();
-
-  @override
-  Widget build(BuildContext context) {
-    return const SizedBox(
-      width: PlaylistTransport._sideButtonSize,
-      height: PlaylistTransport._sideButtonSize,
     );
   }
 }

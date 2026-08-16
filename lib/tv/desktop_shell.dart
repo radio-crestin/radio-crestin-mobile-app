@@ -517,7 +517,7 @@ class _DesktopShellState extends State<DesktopShell> {
             station: station,
             isPlaying: _isPlaying,
             onTap: _openNowPlaying,
-            onPlayPause: () => _isPlaying ? _audioHandler.pause() : _audioHandler.play(),
+            onPlayPause: () => _isPlaying ? _audioHandler.pauseFromUser() : _audioHandler.play(),
             onPrevious: () => _audioHandler.skipToPrevious(),
             onNext: () => _audioHandler.skipToNext(),
           ),

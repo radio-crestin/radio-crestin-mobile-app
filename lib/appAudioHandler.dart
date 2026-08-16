@@ -29,6 +29,7 @@ import 'package:radio_crestin/services/review_service.dart';
 import 'package:radio_crestin/services/song_history_service.dart';
 import 'package:radio_crestin/services/song_like_service.dart';
 import 'package:radio_crestin/services/station_data_service.dart';
+import 'package:radio_crestin/services/station_handoff_pause_guard.dart';
 import 'package:radio_crestin/stream_failover.dart';
 import 'package:radio_crestin/services/video_playback_service.dart';
 import 'package:radio_crestin/services/video_mode_decision.dart';
@@ -719,6 +720,11 @@ class AppAudioHandler extends BaseAudioHandler {
   bool _playlistYoutubeActive = false;
   bool _youtubePlaying = false;
   Duration _youtubePosition = Duration.zero;
+
+  /// Drops the stray platform pause iOS delivers when a YouTube item's webview
+  /// is torn down by a station advance — see [StationHandoffPauseGuard].
+  final StationHandoffPauseGuard _handoffPauseGuard =
+      StationHandoffPauseGuard();
   AppLifecycleState _lifecycleState = AppLifecycleState.resumed;
   final List<StreamSubscription<dynamic>> _videoSubs = [];
   StreamSubscription<bool>? _carRouteSub;
@@ -1751,20 +1757,32 @@ class AppAudioHandler extends BaseAudioHandler {
     _cancelResumeSwap(stopMutedVideo: true);
     _cancelAudioReadySwap();
 
+    // Enter "connecting" state BEFORE any teardown that stops a player, so
+    // every state broadcast in between says processingState=loading. Otherwise
+    // the teardown's own idle → ready mapping reads as a SETTLED not-playing
+    // state and [AnimatedPlayButton] throws away the optimistic play intent the
+    // tap just set — the paused-glyph flash mid-switch.
+    _isConnecting = true;
+    _broadcastState(player.playbackEvent);
+
     // Tearing down the previous station: leave any active playlist and stop
     // video mode so the new station starts from a clean slate.
     if (_playlistMode && !station.isPlaylist) {
+      // Leaving a UI-owned YouTube item destroys its webview, and iOS answers
+      // that with a stray remote-command pause a beat later — which would land
+      // on the station we are about to start. Arm the one-shot guard so it is
+      // dropped instead of silently pausing the new station.
+      final leavingYoutube = _playlistYoutubeActive;
       await _playlistController.stop();
+      if (leavingYoutube) _handoffPauseGuard.arm(DateTime.now());
     }
     if (_videoMode) {
       await _exitVideoMode(stopVideo: true);
     }
 
-    // Enter "connecting" state BEFORE stopping the player so that
-    // _broadcastState emits processingState=loading (not ready).
-    // Without this, player.stop() → idle → mapped to ready → AnimatedPlayButton
-    // treats it as settled state and clears the optimistic play intent,
-    // causing the pause button to stop working during the transition.
+    // Re-assert "connecting": the teardown above runs _cancelInFlightPlay(),
+    // which clears the flag. Everything from here to the first audio frame must
+    // read as loading, not as a settled paused state.
     _isConnecting = true;
     _broadcastState(player.playbackEvent);
 
@@ -2345,9 +2363,38 @@ class AppAudioHandler extends BaseAudioHandler {
     return start;
   }
 
+  /// Pause requested by the USER (a transport / mini-player / player-page tap).
+  ///
+  /// Distinct from [pause], which is also the platform's entry point (lock
+  /// screen, CarPlay, `MPRemoteCommandCenter`). A user tap always wins over the
+  /// station-handoff suppression window, so pausing right after switching
+  /// stations works exactly as it always did.
+  Future<void> pauseFromUser() {
+    _handoffPauseGuard.disarm();
+    return pause();
+  }
+
   @override
   Future<void> pause() async {
-    _log("pause (isCasting=$isCasting)");
+    // Every pause is logged with _logAlways, not _log: this is also the
+    // PLATFORM's entry point (lock screen, CarPlay, MPRemoteCommandCenter), and
+    // a stray system pause was invisible on a physical device because _log's
+    // developer.log output never reaches `flutter run` there.
+    _logAlways('pause: casting=$isCasting playlistMode=$_playlistMode '
+        'videoMode=$_videoMode youtubeActive=$_playlistYoutubeActive '
+        'connecting=$_isConnecting playing=${player.playing} '
+        'handoffGuard=${_handoffPauseGuard.isArmed}');
+    // A YouTube item's webview teardown makes iOS deliver one bogus pause after
+    // the station advance already started the new stream. Drop exactly that one
+    // (see [StationHandoffPauseGuard]); everything else pauses as usual.
+    if (_handoffPauseGuard.shouldIgnorePause(DateTime.now())) {
+      _logAlways('pause: ignoring stray system pause during the '
+          'youtube→station handoff');
+      AnalyticsService.instance.capture('spurious_pause_ignored', {
+        'station_slug': currentStation.valueOrNull?.slug,
+      });
+      return;
+    }
     if (isCasting) {
       GetIt.instance<CastService>().pause();
       setCastPlaying(false);
@@ -3472,6 +3519,15 @@ class AppAudioHandler extends BaseAudioHandler {
       if (myOpId != _playOperationId) return;
       await player.play();
     } catch (e) {
+      // A load this method was told to abandon (station switch, skip, stop)
+      // throws here too — just_audio interrupts the pending load. That is NOT
+      // an item failure: reporting it would make the controller "skip" to the
+      // next item, re-entering playlist mode over the station we just switched
+      // to. Only a failure of the load we still own is a real error.
+      if (myOpId != _playOperationId) {
+        _log('playPlaylistAudioItem: superseded load threw ($e) — ignoring');
+        return;
+      }
       _isConnecting = false;
       _log('playPlaylistAudioItem failed: $e');
       onPlaylistItemError?.call(e);

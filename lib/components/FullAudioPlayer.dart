@@ -25,79 +25,17 @@ import 'package:radio_crestin/services/station_data_service.dart';
 import '../appAudioHandler.dart';
 import '../types/Station.dart';
 import '../widgets/animated_play_button.dart';
+import '../widgets/player_transport.dart';
 import '../widgets/player_video_surface.dart';
 import '../widgets/playlist_player_section.dart';
 import '../widgets/video_overlay_controls.dart';
 
-/// Responsive sizing for the full-screen player, derived from the screen size.
-@immutable
-class PlayerLayoutMetrics {
-  /// Side length of the square station artwork.
-  final double thumbSize;
-
-  /// Diameter of the central play/pause control.
-  final double playIconSize;
-
-  /// Diameter of the skip-forward / skip-back controls.
-  final double skipIconSize;
-
-  /// Horizontal gap between the play control and the skip controls.
-  final double skipSpacing;
-
-  const PlayerLayoutMetrics({
-    required this.thumbSize,
-    required this.playIconSize,
-    required this.skipIconSize,
-    required this.skipSpacing,
-  });
-}
-
-/// Computes the responsive player layout from the current screen size.
-///
-/// Pure and side-effect free so the sizing math can be unit tested. The
-/// artwork grows with the available panel height but is bounded both by a
-/// fixed `[140, 300]` range and by the usable width.
-///
-/// Guards the degenerate case where the panel is laid out before the window
-/// has real dimensions (`MediaQuery.size == Size.zero`, common on iOS during
-/// launch / return-from-background). There `maxThumbWidth` becomes negative;
-/// previously `(...).clamp(140.0, maxThumbWidth)` threw
-/// `ArgumentError: Invalid argument(s): 140.0` whenever the upper limit fell
-/// below the 140 lower limit — the single highest-volume crash in production
-/// (PostHog issue 019d8f95…, 1100+ occurrences). Clamping the upper bound to a
-/// 140 floor keeps `clamp` well-formed.
-PlayerLayoutMetrics computePlayerLayout({
-  required double screenWidth,
-  required double screenHeight,
-  required double textScale,
-}) {
-  final scale = textScale.clamp(1.0, 1.5);
-  final panelHeight = screenHeight * 0.9;
-
-  // Fixed elements budget: drag handle(7) + title(~30) + song+artist(~50)
-  //   + chips(~50) + transport(~90) + bottom row(~75) + spacers(~110) + bottom(~24)
-  final fixedBudget = 420.0 * scale;
-
-  // The artwork must also fit horizontally with 32px padding on each side.
-  // The upper bound is floored at 140 so it can never drop below the lower
-  // bound and make num.clamp throw.
-  final maxThumbWidth = (screenWidth - 64.0).clamp(140.0, double.infinity);
-  final thumbSize = (panelHeight - fixedBudget)
-      .clamp(140.0, 300.0)
-      .clamp(140.0, maxThumbWidth)
-      .toDouble();
-
-  // Smoothly interpolate transport controls based on available thumb space.
-  // t=0 at thumbSize 140, t=1 at thumbSize 240+.
-  final t = ((thumbSize - 140.0) / 100.0).clamp(0.0, 1.0).toDouble();
-
-  return PlayerLayoutMetrics(
-    thumbSize: thumbSize,
-    playIconSize: 48.0 + 14.0 * t, // 48..62
-    skipIconSize: 36.0 + 10.0 * t, // 36..46
-    skipSpacing: 20.0 + 12.0 * t, // 20..32
-  );
-}
+// The player sizing math and the shared transport cluster live in
+// `widgets/player_transport.dart` so the radio layout below and the playlist /
+// video layout render the exact same controls. Re-exported here because this
+// file has long been their public home.
+export '../widgets/player_transport.dart'
+    show PlayerLayoutMetrics, computePlayerLayout, PlayerTransportControls;
 
 class FullAudioPlayer extends StatefulWidget {
   final AppAudioHandler audioHandler;
@@ -613,51 +551,22 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   Widget _buildTransportControls(BuildContext context, double playIconSize,
       double skipIconSize, double skipSpacing,
       {bool alignStart = false}) {
-    return Row(
-      mainAxisAlignment:
-          alignStart ? MainAxisAlignment.start : MainAxisAlignment.center,
-      children: <Widget>[
-        InkWell(
-          onTap: () {
-            _playButtonKey.currentState?.notifyWillPlay();
-            widget.audioHandler.skipToPrevious();
-          },
-          child: Padding(
-            padding: const EdgeInsets.all(10.0),
-            child: Icon(
-              Icons.skip_previous,
-              size: skipIconSize,
-              color: Theme.of(context).colorScheme.onSurface,
-            ),
-          ),
-        ),
-        SizedBox(width: skipSpacing),
-        AnimatedPlayButton(
-          key: _playButtonKey,
-          playbackStateStream: widget.audioHandler.playbackState,
-          iconSize: playIconSize,
-          iconColor: Theme.of(context).colorScheme.onPrimary,
-          backgroundColor: Theme.of(context).bottomAppBarTheme.color,
-          onPlay: widget.audioHandler.play,
-          onPause: widget.audioHandler.pause,
-          onStop: widget.audioHandler.stop,
-        ),
-        SizedBox(width: skipSpacing),
-        InkWell(
-          onTap: () {
-            _playButtonKey.currentState?.notifyWillPlay();
-            widget.audioHandler.skipToNext();
-          },
-          child: Padding(
-            padding: const EdgeInsets.all(10.0),
-            child: Icon(
-              Icons.skip_next_rounded,
-              size: skipIconSize,
-              color: Theme.of(context).colorScheme.onSurface,
-            ),
-          ),
-        ),
-      ],
+    // Shared with the playlist / video player so the two can never drift.
+    return PlayerTransportControls(
+      metrics: PlayerLayoutMetrics(
+        thumbSize: 0,
+        playIconSize: playIconSize,
+        skipIconSize: skipIconSize,
+        skipSpacing: skipSpacing,
+      ),
+      playbackStateStream: widget.audioHandler.playbackState,
+      playButtonKey: _playButtonKey,
+      onPlay: widget.audioHandler.play,
+      onPause: widget.audioHandler.pauseFromUser,
+      onStop: widget.audioHandler.stop,
+      onPrevious: widget.audioHandler.skipToPrevious,
+      onNext: widget.audioHandler.skipToNext,
+      alignStart: alignStart,
     );
   }
 
@@ -836,7 +745,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                 title: currentStation?.displayTitle ?? '',
                 isLive: isLive,
                 onPlay: widget.audioHandler.play,
-                onPause: widget.audioHandler.pause,
+                onPause: widget.audioHandler.pauseFromUser,
                 // Wired for live too: the overlay itself decides whether a live
                 // DVR scrubber is shown (only once a seekable window is
                 // reported).
