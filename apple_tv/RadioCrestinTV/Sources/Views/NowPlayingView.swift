@@ -324,6 +324,7 @@ struct NowPlayingView: View {
                 .padding(.top, Theme.Spacing.md)
 
             statusLine
+            retryRow
 
             recentSongs
         }
@@ -341,6 +342,7 @@ struct NowPlayingView: View {
                     .font(.system(size: 20, weight: .bold))
                     .tracking(2)
                     .foregroundStyle(Theme.textSecondary)
+                InlineSpinner(isActive: player.isConnecting, size: 20)
                 if player.playlistCount > 0 {
                     Text("\(player.playlistIndex + 1) / \(player.playlistCount)")
                         .font(.system(size: 18, weight: .semibold))
@@ -368,6 +370,7 @@ struct NowPlayingView: View {
                 .padding(.top, Theme.Spacing.sm)
 
             statusLine
+            retryRow
         }
         .frame(maxWidth: 900, alignment: .leading)
     }
@@ -413,6 +416,17 @@ struct NowPlayingView: View {
                     onFocusChange: setFocusedAction
                 ) { player.seek(by: 10) }
             }
+            // Leaves the playlist outright. "Următor" above walks items
+            // and only crosses over at the last one; this is the direct
+            // jump, so the next station is always one press away.
+            labeled("Postul următor") {
+                CircleControl(
+                    icon: "forward.end.alt.fill",
+                    label: "Postul următor",
+                    onFocusChange: setFocusedAction,
+                    action: onNext
+                )
+            }
             labeled(isFavorite ? "Elimină din favorite" : "Adaugă la favorite") {
                 CircleControl(
                     icon: isFavorite ? "heart.fill" : "heart",
@@ -424,12 +438,26 @@ struct NowPlayingView: View {
         }
     }
 
+    /// Recovery affordance for the audio layouts. Mirrors the video
+    /// overlay's error state: a stream that timed out or failed always
+    /// leaves the user a focusable way to try again.
+    @ViewBuilder
+    private var retryRow: some View {
+        if case .failed = player.state {
+            Button("Reîncearcă") { player.retry() }
+                .buttonStyle(.card)
+        }
+    }
+
     private var stationLine: some View {
         HStack(spacing: Theme.Spacing.md) {
             Text(station.title.uppercased())
                 .font(.system(size: 20, weight: .bold))
                 .tracking(2)
                 .foregroundStyle(Theme.textSecondary)
+            // Connecting feedback lives here, inline with the title, in a
+            // permanently reserved slot — never as a separate message row.
+            InlineSpinner(isActive: player.isConnecting, size: 20)
             if let listeners = station.totalListeners, listeners > 0 {
                 HStack(spacing: 6) {
                     Image(systemName: "headphones")
@@ -448,29 +476,26 @@ struct NowPlayingView: View {
         }
     }
 
-    /// Fixed-height status line that surfaces the connection spinner or
-    /// stream error. Action labels are no longer rendered here — each
-    /// button shows its own label directly below it (see `controls`),
-    /// which puts the descriptor right under the user's focused target.
+    /// Fixed-height status line reserved for stream ERRORS only.
+    ///
+    /// Connecting no longer renders here: a "Se conectează…" row sat below
+    /// the title as its own message line, which read like a fault and
+    /// nudged the layout. It is now a bare spinner inline with the station
+    /// title (see `stationLine`). Action labels aren't here either — each
+    /// button shows its own label directly beneath it.
     private var statusLine: some View {
         HStack(spacing: 10) {
             switch player.state {
-            case .connecting:
-                ProgressView()
-                    .controlSize(.small)
-                    .tint(Theme.textSecondary)
-                Text("Se conectează…")
-                    .foregroundStyle(Theme.textSecondary)
             case .failed(let message):
                 Image(systemName: "exclamationmark.triangle.fill")
                     .foregroundStyle(.yellow)
                 Text(message)
                     .foregroundStyle(Color.red.opacity(0.9))
                     .lineLimit(1)
-            case .idle, .playing, .paused:
-                // Reserve the row's vertical space even when idle so
-                // transitions to .connecting / .failed don't push the
-                // recent-songs list down.
+            case .connecting, .idle, .playing, .paused:
+                // Reserve the row's vertical space even when idle so a
+                // transition to .failed doesn't push the recent-songs
+                // list down.
                 Text(" ")
             }
         }
@@ -833,8 +858,17 @@ enum PlaybackTime {
 
 /// Full-bleed video surface with a self-managing, auto-hiding control
 /// overlay — the standard tvOS video idiom. Used for TV stations (live
-/// video) and playlist video items (VOD). The overlay fades out after ~4s
-/// of inactivity and reappears on any remote interaction.
+/// video) and playlist video items (VOD).
+///
+/// tvOS draws no chrome of its own here: the surface is a bare
+/// `AVPlayerLayer` (see `VideoSurfaceView`), deliberately not an
+/// `AVPlayerViewController`, so the system's loading spinner and its
+/// controls auto-hide are unavailable. Both are implemented here:
+///  * a loading overlay covering the entire pre-first-frame window plus
+///    any mid-playback rebuffer, and a bounded-wait error state with a
+///    focusable Retry (`PlaybackTimeoutPolicy`);
+///  * a 20s idle auto-hide that pauses while playback is paused or an
+///    error is showing (`ControlsAutoHidePolicy`).
 private struct VideoNowPlaying: View {
     let station: Station
     @ObservedObject var player: AudioPlayer
@@ -847,39 +881,68 @@ private struct VideoNowPlaying: View {
     @State private var overlayVisible = true
     @State private var hideTask: Task<Void, Never>?
 
-    /// The two targets we seat focus on programmatically. Other controls
-    /// take focus through normal D-pad navigation.
-    private enum Focusable: Hashable { case catcher, back, play }
+    /// The targets we seat focus on programmatically. Other controls take
+    /// focus through normal D-pad navigation.
+    private enum Focusable: Hashable { case catcher, back, play, retry }
     @FocusState private var focus: Focusable?
 
     private var isPlaylist: Bool { station.kind == .playlist }
     private var isVOD: Bool { player.vodDuration > 0 }
 
+    /// The stream failed (or timed out). Swaps the whole overlay for a
+    /// recoverable error state.
+    private var failureMessage: String? {
+        if case .failed(let message) = player.state { return message }
+        return nil
+    }
+
+    /// True whenever the surface has nothing meaningful to show yet: still
+    /// tuning in, or tuned in but no decoded frame, or rebuffering
+    /// mid-playback. Anything but a plain black rectangle.
+    private var isLoadingPicture: Bool {
+        guard failureMessage == nil else { return false }
+        if player.isConnecting { return true }
+        if case .paused = player.state { return false }
+        if case .idle = player.state { return false }
+        // `readyToPlay` precedes the first decoded frame — keep the
+        // indicator up until the layer confirms it can draw.
+        return !player.isVideoReadyForDisplay || player.isBuffering
+    }
+
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
-            VideoSurfaceView(player: player.avPlayer)
-                .ignoresSafeArea()
-
-            if player.isConnecting {
-                connectingOverlay
+            VideoSurfaceView(player: player.avPlayer) { ready in
+                player.setVideoReadyForDisplay(ready)
             }
+            .ignoresSafeArea()
 
-            if overlayVisible {
-                overlay
+            if let failureMessage {
+                errorOverlay(failureMessage)
                     .transition(.opacity)
             } else {
-                // Invisible focusable catcher: the first remote interaction
-                // while controls are hidden simply brings them back.
-                Color.clear
-                    .contentShape(Rectangle())
-                    .focusable(true)
-                    .focused($focus, equals: .catcher)
-                    .onMoveCommand { _ in reveal() }
-                    .onTapGesture { reveal() }
+                if isLoadingPicture {
+                    connectingOverlay
+                        .transition(.opacity)
+                }
+
+                if overlayVisible {
+                    overlay
+                        .transition(.opacity)
+                } else {
+                    // Invisible focusable catcher: the first remote
+                    // interaction while controls are hidden brings them back.
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .focusable(true)
+                        .focused($focus, equals: .catcher)
+                        .onMoveCommand { _ in reveal() }
+                        .onTapGesture { reveal() }
+                }
             }
         }
         .animation(.easeInOut(duration: 0.3), value: overlayVisible)
+        .animation(.easeInOut(duration: 0.25), value: isLoadingPicture)
         .onPlayPauseCommand {
             player.togglePlayPause()
             reveal()
@@ -904,7 +967,50 @@ private struct VideoNowPlaying: View {
         .onChange(of: focus) { _, newValue in
             if overlayVisible, newValue != nil { scheduleHide() }
         }
+        // Pausing pins the controls (nothing is moving on screen, so
+        // hiding them would strand the user on a frozen frame); resuming
+        // restarts the idle countdown.
+        .onChange(of: player.isPlaying) { _, _ in reveal() }
+        // An error takes over the screen — cancel any pending hide and
+        // hand focus to Retry.
+        .onChange(of: failureMessage) { _, message in
+            hideTask?.cancel()
+            if message != nil {
+                seatFocus(.retry)
+            } else {
+                overlayVisible = true
+            }
+        }
         .onDisappear { hideTask?.cancel() }
+    }
+
+    // MARK: error state
+
+    private func errorOverlay(_ message: String) -> some View {
+        VStack(spacing: Theme.Spacing.lg) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 80))
+                .foregroundStyle(.yellow)
+            Text("Fluxul nu a putut porni")
+                .font(.system(size: 34, weight: .bold))
+                .foregroundStyle(Theme.textPrimary)
+            Text(message)
+                .font(.system(size: 22))
+                .foregroundStyle(Theme.textTertiary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 900)
+            HStack(spacing: Theme.Spacing.lg) {
+                Button("Reîncearcă") { player.retry() }
+                    .buttonStyle(.card)
+                    .focused($focus, equals: .retry)
+                Button("Înapoi la posturi", action: onBack)
+                    .buttonStyle(.card)
+                    .focused($focus, equals: .back)
+            }
+            .padding(.top, Theme.Spacing.md)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.black.opacity(0.82).ignoresSafeArea())
     }
 
     // MARK: overlay chrome
@@ -925,10 +1031,13 @@ private struct VideoNowPlaying: View {
             Spacer()
 
             VStack(alignment: .leading, spacing: Theme.Spacing.md) {
-                Text(station.title.uppercased())
-                    .font(.system(size: 20, weight: .bold))
-                    .tracking(2)
-                    .foregroundStyle(Theme.textSecondary)
+                HStack(spacing: Theme.Spacing.md) {
+                    Text(station.title.uppercased())
+                        .font(.system(size: 20, weight: .bold))
+                        .tracking(2)
+                        .foregroundStyle(Theme.textSecondary)
+                    InlineSpinner(isActive: isLoadingPicture, size: 20)
+                }
                 Text(currentTitle)
                     .font(.system(size: 40, weight: .heavy))
                     .foregroundStyle(.white)
@@ -975,6 +1084,10 @@ private struct VideoNowPlaying: View {
             if isPlaylist {
                 iconControl("forward.fill") { player.nextItem() }
                 iconControl("goforward.10") { player.seek(by: 10) }
+                // Direct jump out of the playlist. `forward.fill` above
+                // walks items (and rolls over to the next station at the
+                // last one); this skips straight there.
+                iconControl("forward.end.alt.fill") { onNextStation() }
             } else {
                 iconControl("forward.fill") { onNextStation() }
             }
@@ -1049,17 +1162,17 @@ private struct VideoNowPlaying: View {
             .background(.black.opacity(0.6), in: Capsule())
     }
 
+    /// Loading feedback over the video surface: a spinner and nothing
+    /// else. Deliberately wordless — the picture area is not the place for
+    /// a status sentence, and the same state is echoed inline next to the
+    /// title in the overlay below.
     private var connectingOverlay: some View {
-        VStack(spacing: Theme.Spacing.md) {
-            ProgressView()
-                .controlSize(.large)
-                .tint(.white)
-            Text("Se conectează…")
-                .font(.system(size: 22))
-                .foregroundStyle(.white)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.black.opacity(0.3).ignoresSafeArea())
+        ProgressView()
+            .controlSize(.large)
+            .tint(.white)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color.black.opacity(0.3).ignoresSafeArea())
+            .accessibilityLabel("Se încarcă")
     }
 
     // MARK: overlay timing
@@ -1077,16 +1190,31 @@ private struct VideoNowPlaying: View {
     /// Seat focus on the play/pause control after a short yield so the
     /// focus engine has registered the freshly-shown nodes.
     private func seatPlayFocus() {
+        guard failureMessage == nil else { return }
+        seatFocus(.play)
+    }
+
+    private func seatFocus(_ target: Focusable) {
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: 40_000_000)
-            focus = .play
+            focus = target
         }
     }
 
+    /// Restart the idle countdown. Controls stay pinned while paused or
+    /// while an error is showing — see `ControlsAutoHidePolicy`.
     private func scheduleHide() {
         hideTask?.cancel()
+        guard ControlsAutoHidePolicy.shouldAutoHide(
+            isPlaying: player.isPlaying,
+            hasError: failureMessage != nil
+        ) else { return }
         hideTask = Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 4_000_000_000)
+            try? await Task.sleep(
+                nanoseconds: UInt64(
+                    ControlsAutoHidePolicy.idleTimeout * 1_000_000_000
+                )
+            )
             guard !Task.isCancelled else { return }
             overlayVisible = false
         }

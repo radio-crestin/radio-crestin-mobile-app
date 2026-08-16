@@ -37,7 +37,16 @@ final class AppState: ObservableObject {
     private let defaults: UserDefaults
 
     // MARK: - Published state
-    @Published private(set) var stations: [Station] = []
+    @Published private(set) var stations: [Station] = [] {
+        didSet { refreshOrderedStations() }
+    }
+
+    /// The station list in its frozen display order — the single source of
+    /// truth for BOTH the "Pentru tine" grid and the prev/next controls.
+    /// Never reshuffles on a metadata poll, a play, or a favorite toggle;
+    /// see `StationOrderFreezer`.
+    @Published private(set) var orderedStations: [Station] = []
+
     @Published private(set) var isLoading = false
     @Published private(set) var loadError: String?
 
@@ -45,8 +54,15 @@ final class AppState: ObservableObject {
     @Published private(set) var recentSlugs: [String] = []
     @Published private(set) var playCounts: [String: Int] = [:]
     @Published var sortOption: StationSort = .recommended {
-        didSet { defaults.set(sortOption.rawValue, forKey: Keys.sort) }
+        didSet {
+            defaults.set(sortOption.rawValue, forKey: Keys.sort)
+            refreshOrderedStations()
+        }
     }
+
+    /// Owns the frozen display order. Recomputes only when the catalog
+    /// membership or the sort option changes.
+    private var orderFreezer = StationOrderFreezer()
 
     @Published var currentStation: Station?
     let songHistory = SongHistoryStore()
@@ -163,6 +179,15 @@ final class AppState: ObservableObject {
             self.privateStations = cached
             self.stations = withPrivate([])
         }
+        // Property observers don't fire for assignments made inside init,
+        // so seed the display order explicitly.
+        refreshOrderedStations()
+    }
+
+    /// Test seam: installs a station list without a network round-trip so
+    /// the ordering guarantees can be exercised directly.
+    func replaceStationsForTesting(_ stations: [Station]) {
+        self.stations = stations
     }
 
     deinit {
@@ -609,39 +634,42 @@ final class AppState: ObservableObject {
         songHistory.seed(entries, for: slug)
     }
 
-    /// Stations sorted using the user's saved preference. Private
-    /// stations pin to the very top in every sort mode; favorites bubble
-    /// to the top of the recommended list (matches the Flutter behavior).
-    var sortedStations: [Station] {
-        StationSortService.sort(
+    /// Recomputes `orderedStations` from the frozen order. Cheap on the
+    /// common path — the expensive sort runs only when the catalog
+    /// membership or the sort option changed.
+    ///
+    /// Private stations pin to the very top in every sort mode; favorites
+    /// bubble to the top of the recommended list (matches Flutter).
+    private func refreshOrderedStations() {
+        orderedStations = orderFreezer.order(
             stations,
-            by: sortOption,
-            playCounts: playCounts,
-            favoriteSlugs: favoriteSlugs,
-            privateIds: privateStationIds
+            sort: sortOption,
+            freshOrder: { [stations, sortOption, playCounts, favoriteSlugs,
+                           privateStationIds] in
+                StationSortService.sort(
+                    stations,
+                    by: sortOption,
+                    playCounts: playCounts,
+                    favoriteSlugs: favoriteSlugs,
+                    privateIds: privateStationIds
+                )
+            }
         )
     }
 
-    /// Returns the next station in the current sort order, wrapping
-    /// around at the end. Used by the prev/next controls in Now Playing.
+    /// The list the grids render. Same array the prev/next controls walk —
+    /// keeping one source of truth is what makes "next" traverse exactly
+    /// what the user sees.
+    var sortedStations: [Station] { orderedStations }
+
+    /// Returns the next station in display order, wrapping at the end.
     func nextStation(after station: Station) -> Station? {
-        let list = sortedStations
-        guard !list.isEmpty else { return nil }
-        guard let idx = list.firstIndex(where: { $0.id == station.id }) else {
-            return list.first
-        }
-        return list[(idx + 1) % list.count]
+        StationCycle.next(after: station.id, in: orderedStations)
     }
 
-    /// Returns the previous station in the current sort order, wrapping
-    /// around at the beginning.
+    /// Returns the previous station in display order, wrapping at the start.
     func previousStation(before station: Station) -> Station? {
-        let list = sortedStations
-        guard !list.isEmpty else { return nil }
-        guard let idx = list.firstIndex(where: { $0.id == station.id }) else {
-            return list.last
-        }
-        return list[idx == 0 ? list.count - 1 : idx - 1]
+        StationCycle.previous(before: station.id, in: orderedStations)
     }
 
     private func incrementPlayCount(slug: String) {

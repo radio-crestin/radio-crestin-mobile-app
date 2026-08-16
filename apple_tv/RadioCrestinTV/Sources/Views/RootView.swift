@@ -80,6 +80,18 @@ struct RootView: View {
                     await appState?.refreshMetadataNow()
                 }
             }
+            // Playlist edge navigation: "next" on the last item and
+            // "previous" on the first leave the playlist and move a
+            // station in the current list order, rather than wrapping
+            // back inside the same playlist.
+            player.onRequestNextStation = {
+                guard let current = appState.currentStation else { return }
+                go(to: appState.nextStation(after: current))
+            }
+            player.onRequestPreviousStation = {
+                guard let current = appState.currentStation else { return }
+                go(to: appState.previousStation(before: current))
+            }
             await appState.loadStations()
         }
         .onChange(of: appState.currentStation?.id) { _, newId in
@@ -161,6 +173,7 @@ struct RootView: View {
                 stations: appState.sortedStations,
                 appState: appState,
                 onSelect: open,
+                connectingStationId: connectingStationId,
                 emptyTitle: "Nu sunt posturi",
                 emptySystemImage: "radio",
                 emptyMessage: ""
@@ -174,6 +187,7 @@ struct RootView: View {
                 stations: appState.favoriteStations,
                 appState: appState,
                 onSelect: open,
+                connectingStationId: connectingStationId,
                 emptyTitle: "Nu ai posturi favorite",
                 emptySystemImage: "heart",
                 emptyMessage: "Adaugă posturi la favorite din Acum Redă"
@@ -187,6 +201,7 @@ struct RootView: View {
                 stations: appState.recentStations,
                 appState: appState,
                 onSelect: open,
+                connectingStationId: connectingStationId,
                 emptyTitle: "Nicio redare recentă",
                 emptySystemImage: "clock",
                 emptyMessage: "Posturile redate apar aici"
@@ -199,6 +214,12 @@ struct RootView: View {
                 .tag(Tab.settings)
         }
         .tint(Theme.primary)
+    }
+
+    /// The station currently tuning in, if any — drives the inline
+    /// spinner on its grid card. Nil once playback starts or fails.
+    private var connectingStationId: Int? {
+        player.isConnecting ? appState.currentStation?.id : nil
     }
 
     private func open(_ station: Station) {

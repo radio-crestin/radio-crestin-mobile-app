@@ -77,6 +77,31 @@ targets:
           CODE_SIGN_IDENTITY: "Apple Distribution"
           PROVISIONING_PROFILE_SPECIFIER: "Radio Crestin TV App Store"
 
+  # Unit tests for the pure logic layers (models, sorting, song history,
+  # playback policies). Hosted by the app so `@testable import` works.
+  # Ad-hoc signed in both configs — tests only ever run on the simulator.
+  RadioCrestinTVTests:
+    type: bundle.unit-test
+    platform: tvOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: RadioCrestinTVTests
+    dependencies:
+      - target: RadioCrestinTV
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ro.radiocrestin.radiocrestintv.tests
+        GENERATE_INFOPLIST_FILE: YES
+      configs:
+        Debug:
+          CODE_SIGN_STYLE: Manual
+          CODE_SIGN_IDENTITY: "-"
+          PROVISIONING_PROFILE_SPECIFIER: ""
+        Release:
+          CODE_SIGN_STYLE: Manual
+          CODE_SIGN_IDENTITY: "-"
+          PROVISIONING_PROFILE_SPECIFIER: ""
+
 schemes:
   RadioCrestinTV:
     build:
@@ -89,8 +114,14 @@ schemes:
     # the team has no registered tvOS devices, blocking archive.
     run:
       config: Release
+    # Test is the one exception: it never runs in the release flow (only
+    # locally / in CI against the simulator), and Release would demand the
+    # Distribution identity for the test bundle too. Debug + ad-hoc signing
+    # keeps `xcodebuild test` working without any provisioning profile.
     test:
-      config: Release
+      config: Debug
+      targets:
+        - RadioCrestinTVTests
     profile:
       config: Release
     analyze:

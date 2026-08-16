@@ -87,8 +87,34 @@ struct Station: Codable, Identifiable, Hashable {
 
     /// Streams in API order (the audio handler tries them sequentially on
     /// playback failure — the same fallback contract Android implements).
+    ///
+    /// `order` is a **ranking hint only, never an index**: the backend
+    /// hands out arbitrary values with gaps (0 and 2 with no 1 is the most
+    /// common shape) and sometimes duplicates (two streams both at 0). So
+    /// this sorts by `order`, keeps ties in wire order via an explicit
+    /// index tiebreak (Swift's `sorted` is not guaranteed stable), and the
+    /// player then walks the result by array position.
+    ///
+    /// Unusable entries are dropped up front rather than burning a
+    /// fallback attempt: blank URLs, URLs `URL` refuses to parse, and
+    /// repeats of a URL already in the list.
     var orderedStreams: [StationStream] {
-        stationStreams.sorted { $0.order < $1.order }
+        var seen = Set<String>()
+        return stationStreams
+            .enumerated()
+            .sorted { lhs, rhs in
+                lhs.element.order != rhs.element.order
+                    ? lhs.element.order < rhs.element.order
+                    : lhs.offset < rhs.offset
+            }
+            .map(\.element)
+            .filter { stream in
+                let url = stream.streamUrl.trimmingCharacters(
+                    in: .whitespacesAndNewlines
+                )
+                guard !url.isEmpty, URL(string: url) != nil else { return false }
+                return seen.insert(url).inserted
+            }
     }
 
     /// True when the primary (lowest-order) stream is HLS. Used by the
@@ -97,7 +123,23 @@ struct Station: Codable, Identifiable, Hashable {
         orderedStreams.first?.type == "HLS"
     }
 
-    var songTitle: String { nowPlaying?.song?.name ?? "" }
+    /// Placeholder `now_playing` names some stations publish when they
+    /// have no real track metadata. They are not songs, so they must not
+    /// render as one — and "LIVE" in particular must never appear next to
+    /// a radio station on tvOS, where the LIVE wording is reserved for TV
+    /// stations. `radio-micul-samaritean` ships exactly this today.
+    private static let placeholderSongTitles: Set<String> = [
+        "live", "live stream", "n/a", "na", "-", "--",
+        "unknown", "necunoscut", "no title", "untitled"
+    ]
+
+    var songTitle: String {
+        let raw = nowPlaying?.song?.name ?? ""
+        let key = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        return Self.placeholderSongTitles.contains(key) ? "" : raw
+    }
+
     var songArtist: String { nowPlaying?.song?.artist?.name ?? "" }
     var songThumbnailUrl: String? {
         nowPlaying?.song?.thumbnailUrl ?? nowPlaying?.song?.artist?.thumbnailUrl

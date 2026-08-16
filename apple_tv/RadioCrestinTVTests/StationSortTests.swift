@@ -29,7 +29,8 @@ final class StationSortTests: XCTestCase {
                 numberOfReviews: reviewCount
             ),
             stationType: nil,
-            playlistItems: nil
+            playlistItems: nil,
+            hlsDvrStreamUrl: nil
         )
     }
 

@@ -10,6 +10,12 @@ struct StationCard: View {
     let station: Station
     let isPlaying: Bool
     let isFavorite: Bool
+
+    /// This card's station is the one currently tuning in. Renders as a
+    /// bare spinner inline with the title — no caption, same rule as the
+    /// Now Playing screen.
+    var isConnecting: Bool = false
+
     let onSelect: () -> Void
 
     var body: some View {
@@ -38,10 +44,17 @@ struct StationCard: View {
                     }
                 }
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(station.title)
-                        .font(.system(size: 22, weight: .semibold))
-                        .foregroundStyle(Theme.textPrimary)
-                        .lineLimit(1)
+                    HStack(spacing: 8) {
+                        Text(station.title)
+                            .font(.system(size: 22, weight: .semibold))
+                            .foregroundStyle(Theme.textPrimary)
+                            .lineLimit(1)
+                        // Reserved slot: only rendered for the connecting
+                        // card, so idle cards keep their full title width.
+                        if isConnecting {
+                            InlineSpinner(isActive: true, size: 20)
+                        }
+                    }
                     // Radio: current song (blank when none). TV / playlist
                     // carry no now-playing song, so they show a typed label
                     // instead of an empty line.

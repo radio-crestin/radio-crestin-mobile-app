@@ -9,6 +9,10 @@ struct StationGrid<TrailingHeader: View>: View {
     let appState: AppState
     let onSelect: (Station) -> Void
 
+    /// Id of the station currently tuning in, if any. Drives the inline
+    /// spinner on that one card.
+    var connectingStationId: Int?
+
     /// Empty-state copy when the filtered list has no entries.
     let emptyTitle: String
     let emptySystemImage: String
@@ -23,6 +27,7 @@ struct StationGrid<TrailingHeader: View>: View {
         stations: [Station],
         appState: AppState,
         onSelect: @escaping (Station) -> Void,
+        connectingStationId: Int? = nil,
         emptyTitle: String,
         emptySystemImage: String,
         emptyMessage: String,
@@ -33,6 +38,7 @@ struct StationGrid<TrailingHeader: View>: View {
         self.stations = stations
         self.appState = appState
         self.onSelect = onSelect
+        self.connectingStationId = connectingStationId
         self.emptyTitle = emptyTitle
         self.emptySystemImage = emptySystemImage
         self.emptyMessage = emptyMessage
@@ -86,6 +92,7 @@ struct StationGrid<TrailingHeader: View>: View {
                     station: station,
                     isPlaying: appState.currentStation?.id == station.id,
                     isFavorite: appState.isFavorite(station),
+                    isConnecting: connectingStationId == station.id,
                     onSelect: { onSelect(station) }
                 )
             }
