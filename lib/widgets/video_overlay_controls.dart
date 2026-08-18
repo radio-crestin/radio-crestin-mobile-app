@@ -307,11 +307,16 @@ class _VideoOverlayControlsState extends State<VideoOverlayControls>
     return d != null && d >= kMinLiveDvrWindow;
   }
 
-  /// The stream-reported duration when known & positive, else the caller's
+  /// The stream-reported duration when it is PLAUSIBLE, else the caller's
   /// [VideoOverlayControls.fallbackDuration] so the seek bar works immediately.
+  ///
+  /// The engine's indefinite-duration artefact is not a real media length (a
+  /// live stream arrives as 1ms — see [kIndefiniteDurationSentinel]); honouring
+  /// it pinned the scrubber thumb at the end, showed 0:00/0:00 and turned every
+  /// drag into a seek back to the start.
   Duration? get _effectiveDuration {
     final d = _duration;
-    if (d != null && d > Duration.zero) return d;
+    if (isPlausibleMediaDuration(d)) return d;
     return widget.fallbackDuration;
   }
 
