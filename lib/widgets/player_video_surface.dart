@@ -165,11 +165,13 @@ class YoutubeBackgroundChip extends StatelessWidget {
 const Size _kFallbackVideoSize = Size(16, 9);
 
 /// The size to lay the texture out at: the engine's own when it reports one,
-/// else [_kFallbackVideoSize].
-Size _renderedSize(Size reported) =>
-    (reported.width > 0 && reported.height > 0)
-        ? reported
-        : _kFallbackVideoSize;
+/// else the one [VideoPlaybackService] recovered from the stream's variant list
+/// ([VideoPlaybackService.videoSize]), else [_kFallbackVideoSize].
+Size renderedVideoSize(Size reported, Size? known) {
+  if (reported.width > 0 && reported.height > 0) return reported;
+  if (known != null && known.width > 0 && known.height > 0) return known;
+  return _kFallbackVideoSize;
+}
 
 /// Reactively renders the video_player output for the CURRENT source on a black
 /// background, sizing itself from the active controller's reported dimensions.
@@ -204,31 +206,34 @@ class VideoRender extends StatelessWidget {
           valueListenable: controller,
           builder: (context, value, _) {
             if (!value.isInitialized) return const SizedBox.expand();
-            final size = _renderedSize(value.size);
-            final video = VideoPlayer(controller);
-            if (fit == BoxFit.cover) {
-              return SizedBox.expand(
-                child: FittedBox(
-                  fit: BoxFit.cover,
-                  clipBehavior: Clip.hardEdge,
-                  child: SizedBox(
-                    width: size.width,
-                    height: size.height,
-                    child: video,
-                  ),
-                ),
-              );
-            }
-            // contain (default): letterbox on the black background.
-            return Center(
-              child: AspectRatio(
-                aspectRatio: size.width / size.height,
-                child: video,
+            return StreamBuilder<Size?>(
+              stream: videoService.videoSizeStream,
+              initialData: videoService.videoSize,
+              builder: (context, sizeSnapshot) => _buildVideo(
+                controller,
+                renderedVideoSize(value.size, sizeSnapshot.data),
               ),
             );
           },
         );
       },
+    );
+  }
+
+  Widget _buildVideo(VideoPlayerController controller, Size size) {
+    final video = VideoPlayer(controller);
+    if (fit == BoxFit.cover) {
+      return SizedBox.expand(
+        child: FittedBox(
+          fit: BoxFit.cover,
+          clipBehavior: Clip.hardEdge,
+          child: SizedBox(width: size.width, height: size.height, child: video),
+        ),
+      );
+    }
+    // contain (default): letterbox on the black background.
+    return Center(
+      child: AspectRatio(aspectRatio: size.width / size.height, child: video),
     );
   }
 }

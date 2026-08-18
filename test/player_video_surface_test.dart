@@ -180,4 +180,29 @@ void main() {
       expect(find.byType(LivePill), findsNothing);
     });
   });
+
+  group('renderedVideoSize', () {
+    test('prefers the engine\'s own report', () {
+      // Assert.
+      expect(
+        renderedVideoSize(const Size(720, 1280), const Size(1920, 1080)),
+        const Size(720, 1280),
+      );
+    });
+
+    test('falls back to the size recovered from the variant list', () {
+      // Assert: AVFoundation answers (0,0) for live HLS forever, so the real
+      // resolution has to come from the HLS master playlist instead.
+      expect(
+        renderedVideoSize(Size.zero, const Size(1440, 1080)),
+        const Size(1440, 1080),
+      );
+    });
+
+    test('falls back to 16:9 when nothing knows the size', () {
+      // Assert.
+      expect(renderedVideoSize(Size.zero, null), const Size(16, 9));
+      expect(renderedVideoSize(Size.zero, Size.zero), const Size(16, 9));
+    });
+  });
 }

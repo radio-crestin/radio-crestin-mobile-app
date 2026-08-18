@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show Size;
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -105,10 +106,14 @@ class VideoPlaybackService {
   /// decoder is running and counts as a first frame.
   final BehaviorSubject<bool> _hasFrame = BehaviorSubject<bool>.seeded(false);
 
-  /// Current video pixel dimensions (null until the first frame). Surfaces size
+  /// Current video pixel dimensions (null until they are known). Surfaces size
   /// their `AspectRatio` from these.
   final BehaviorSubject<int?> _width = BehaviorSubject<int?>.seeded(null);
   final BehaviorSubject<int?> _height = BehaviorSubject<int?>.seeded(null);
+
+  /// The same dimensions as one value, so a surface can rebuild on a single
+  /// stream instead of racing two.
+  final BehaviorSubject<Size?> _videoSize = BehaviorSubject<Size?>.seeded(null);
 
   /// The distinct, pinnable video qualities for the CURRENT media (NOT including
   /// `Auto`), highest resolution first. Empty for a plain media playlist, for a
@@ -281,11 +286,16 @@ class VideoPlaybackService {
   /// Whether the current media has rendered a first video frame yet.
   bool get hasRenderedFrame => _hasFrame.value;
 
-  /// Current video pixel width / height (null before the first frame).
+  /// Current video pixel width / height (null while still unknown).
   Stream<int?> get widthStream => _width.stream;
   Stream<int?> get heightStream => _height.stream;
   int? get width => _width.value;
   int? get height => _height.value;
+
+  /// The known picture size, or null while it is still unknown — what a surface
+  /// shapes its `AspectRatio` from.
+  Stream<Size?> get videoSizeStream => _videoSize.stream;
+  Size? get videoSize => _videoSize.value;
 
   /// The distinct, pinnable video qualities for the current media (no `Auto`).
   Stream<List<VideoQuality>> get qualitiesStream => _qualities.stream;
@@ -350,8 +360,7 @@ class VideoPlaybackService {
     // Reset per-media state so the watchdogs re-arm and the picker clears.
     _completed.add(false);
     _hasFrame.add(false);
-    _width.add(null);
-    _height.add(null);
+    _publishSize(null, null);
     _position.add(Duration.zero);
     _qualities.add(const []);
     _selectedQuality.add(VideoQuality.auto);
@@ -658,6 +667,7 @@ class VideoPlaybackService {
   void _bind(VideoPlayerController c, String url) {
     _controller = c;
     _activeUrl = url;
+    unawaited(_probeVideoSize(c, _mediaGeneration));
     _retiring = null;
     _lastError = null;
     _lastRawPosition = null;
@@ -667,6 +677,79 @@ class VideoPlaybackService {
     c.addListener(() => _onValue(c));
     _activeController.add(c);
     _onValue(c); // emit initial state (already initialized here)
+  }
+
+  /// Single writer for the picture size and the three streams that carry it.
+  void _publishSize(int? w, int? h) {
+    if (_width.value != w) _width.add(w);
+    if (_height.value != h) _height.add(h);
+    final size = (w != null && h != null)
+        ? Size(w.toDouble(), h.toDouble())
+        : null;
+    if (_videoSize.value != size) _videoSize.add(size);
+  }
+
+  /// How many times the HLS variant list is asked for a picture size before
+  /// giving up (see [_probeVideoSize]).
+  static const int _videoSizeProbeAttempts = 5;
+
+  /// Gap between those attempts.
+  static const Duration _videoSizeProbeInterval = Duration(milliseconds: 400);
+
+  /// Learns the real picture size from the stream's own variant list when the
+  /// engine will not report one.
+  ///
+  /// AVFoundation answers `(0,0)` for a live HLS `presentationSize` and never
+  /// updates it (flutter/flutter#107882), which used to leave every TV channel
+  /// laid out at a guessed 16:9 — wrong for any channel that is not 16:9. The
+  /// video-track API (video_player 2.14+) reads the RESOLUTION attributes off
+  /// the master playlist instead, which is the truth the guess was standing in
+  /// for.
+  ///
+  /// Best-effort throughout: unsupported platforms (web, iOS 13-14) and empty
+  /// or size-less track lists simply leave the size unknown and the surface on
+  /// its 16:9 fallback. This never sets [hasRenderedFrame] — a playlist entry
+  /// is metadata, not a decoded frame.
+  Future<void> _probeVideoSize(VideoPlayerController c, int generation) async {
+    if (!c.isVideoTrackSupportAvailable()) return;
+    for (var attempt = 0; attempt < _videoSizeProbeAttempts; attempt++) {
+      if (generation != _mediaGeneration || !identical(c, _controller)) return;
+      if (_videoSize.value != null) return; // the engine got there first
+      List<VideoTrack> tracks;
+      try {
+        tracks = await c.getVideoTracks();
+      } catch (e) {
+        debugPrint('VideoPlaybackService: video tracks unavailable: $e');
+        return;
+      }
+      if (generation != _mediaGeneration || !identical(c, _controller)) return;
+      if (_videoSize.value != null) return;
+      final size = sizeOfVideoTracks(tracks);
+      if (size != null) {
+        _publishSize(size.width.round(), size.height.round());
+        return;
+      }
+      await Future<void>.delayed(_videoSizeProbeInterval);
+    }
+  }
+
+  /// The picture size to take from [tracks]: the variant the engine has
+  /// selected, else the largest one that declares a resolution.
+  ///
+  /// Every variant of one stream shares an aspect ratio, so any of them answers
+  /// the only question the surface is asking.
+  @visibleForTesting
+  static Size? sizeOfVideoTracks(List<VideoTrack> tracks) {
+    Size? best;
+    for (final t in tracks) {
+      final w = t.width;
+      final h = t.height;
+      if (w == null || h == null || w <= 0 || h <= 0) continue;
+      final size = Size(w.toDouble(), h.toDouble());
+      if (t.isSelected) return size;
+      if (best == null || w * h > best.width * best.height) best = size;
+    }
+    return best;
   }
 
   /// Single writer for the "no usable timeline" flag and its stream.
@@ -709,8 +792,7 @@ class VideoPlaybackService {
     final w = size.width.round();
     final h = size.height.round();
     if (v.isInitialized && w > 0 && h > 0) {
-      if (_width.value != w) _width.add(w);
-      if (_height.value != h) _height.add(h);
+      _publishSize(w, h);
       if (!_hasFrame.value) _hasFrame.add(true);
     }
 
@@ -868,6 +950,7 @@ class VideoPlaybackService {
     await _hasFrame.close();
     await _width.close();
     await _height.close();
+    await _videoSize.close();
     await _qualities.close();
     await _selectedQuality.close();
     await _indefinite.close();

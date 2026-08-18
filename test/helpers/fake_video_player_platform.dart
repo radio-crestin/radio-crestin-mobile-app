@@ -18,7 +18,6 @@ export 'package:video_player_platform_interface/video_player_platform_interface.
         VideoEvent,
         VideoEventType,
         VideoPlayerPlatform,
-        VideoTrack,
         VideoViewType;
 
 /// How a fake player behaves once `initialize()` subscribes to its event
@@ -244,6 +243,31 @@ class FakeVideoPlayerPlatform extends VideoPlayerPlatform {
 
   @override
   Future<void> setAllowBackgroundPlayback(bool allow) async {}
+
+  // ── Video tracks (video_player 2.14+) ────────────────────────────────────
+
+  /// Whether this platform claims to answer track queries at all (web and iOS
+  /// 13-14 do not).
+  bool videoTrackSupport = false;
+
+  /// playerId → the HLS variants it should report.
+  final Map<int, List<VideoTrack>> videoTracks = {};
+
+  /// How many times [getVideoTracks] was called, so a test can prove the probe
+  /// stops rather than spinning.
+  int videoTrackQueries = 0;
+
+  @override
+  bool isVideoTrackSupportAvailable() => videoTrackSupport;
+
+  @override
+  Future<List<VideoTrack>> getVideoTracks(int playerId) async {
+    videoTrackQueries++;
+    return videoTracks[playerId] ?? const <VideoTrack>[];
+  }
+
+  @override
+  Future<void> selectVideoTrack(int playerId, VideoTrack? track) async {}
 
   @override
   Widget buildViewWithOptions(VideoViewOptions options) =>

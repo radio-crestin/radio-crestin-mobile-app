@@ -10,6 +10,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:radio_crestin/services/video_playback_service.dart';
 import 'package:radio_crestin/services/video_quality.dart';
 import 'package:video_player/video_player.dart';
+// The fake platform speaks the platform-interface VideoTrack; video_player's
+// own same-named wrapper is what the service consumes, so both are in scope.
+import 'package:video_player_platform_interface/video_player_platform_interface.dart'
+    as vpp;
 
 import 'helpers/fake_video_player_platform.dart';
 
@@ -1171,6 +1175,127 @@ void main() {
       // Assert.
       expect(platform.seeksFor(id), isEmpty);
       expect(service.isSeeking, isFalse);
+    });
+  });
+
+  group('picture size recovered from the HLS variant list', () {
+    const bogus = Duration(milliseconds: 1);
+
+    /// Opens a live channel whose engine reports no picture size at all —
+    /// AVFoundation's `(0,0)` presentationSize for live HLS.
+    Future<int> openSizeless(String media) async {
+      platform.script(
+        media,
+        const FakeMediaScript(duration: bogus, size: Size.zero),
+      );
+      await service.open(media, live: true);
+      return platform.idFor(media);
+    }
+
+    test('the variant resolution replaces the 16:9 guess', () async {
+      // Arrange.
+      platform.videoTrackSupport = true;
+      final media = url('/live.m3u8');
+      final id = await openSizeless(media);
+      platform.videoTracks[id] = const [
+        vpp.VideoTrack(id: '0', isSelected: false, width: 640, height: 480),
+        vpp.VideoTrack(id: '1', isSelected: false, width: 1440, height: 1080),
+      ];
+
+      // Act.
+      await _settle(500);
+
+      // Assert: the largest declared variant answers the aspect ratio.
+      expect(service.width, 1440);
+      expect(service.height, 1080);
+      expect(service.videoSize, const Size(1440, 1080));
+      // Metadata is not a decoded frame — the fallback watchdog must not be
+      // told otherwise.
+      expect(service.hasRenderedFrame, isFalse);
+    });
+
+    test('the selected variant wins over a larger one', () async {
+      // Arrange.
+      platform.videoTrackSupport = true;
+      final media = url('/live.m3u8');
+      final id = await openSizeless(media);
+      platform.videoTracks[id] = const [
+        vpp.VideoTrack(id: '0', isSelected: true, width: 1280, height: 720),
+        vpp.VideoTrack(id: '1', isSelected: false, width: 1920, height: 1080),
+      ];
+
+      // Act.
+      await _settle(500);
+
+      // Assert.
+      expect(service.videoSize, const Size(1280, 720));
+    });
+
+    test('a platform without track support is never asked', () async {
+      // Arrange: web and iOS 13-14.
+      platform.videoTrackSupport = false;
+      final media = url('/live.m3u8');
+      await openSizeless(media);
+
+      // Act.
+      await _settle(500);
+
+      // Assert: the surface keeps its 16:9 fallback instead of a wrong size.
+      expect(platform.videoTrackQueries, 0);
+      expect(service.videoSize, isNull);
+    });
+
+    test('an empty or size-less track list leaves the size unknown', () async {
+      // Arrange.
+      platform.videoTrackSupport = true;
+      final media = url('/live.m3u8');
+      final id = await openSizeless(media);
+      platform.videoTracks[id] = const [
+        vpp.VideoTrack(id: '0', isSelected: true),
+      ];
+
+      // Act: long enough for every retry to have run and stopped.
+      await _settle(2600);
+
+      // Assert.
+      expect(service.videoSize, isNull);
+      expect(platform.videoTrackQueries, lessThanOrEqualTo(5));
+    });
+
+    test('a size the engine reports itself is never overridden', () async {
+      // Arrange.
+      platform.videoTrackSupport = true;
+      final media = url('/clip.mp4');
+      platform.script(media, const FakeMediaScript(size: Size(720, 1280)));
+      await service.open(media);
+      platform.videoTracks[platform.idFor(media)] = const [
+        vpp.VideoTrack(id: '0', isSelected: true, width: 1920, height: 1080),
+      ];
+
+      // Act.
+      await _settle(500);
+
+      // Assert: a portrait video stays portrait.
+      expect(service.videoSize, const Size(720, 1280));
+    });
+
+    test('picks the largest resolution across the variants', () {
+      // Assert: pure helper, no engine involved.
+      expect(
+        VideoPlaybackService.sizeOfVideoTracks(const [
+          VideoTrack(id: 'a', isSelected: false, width: 640, height: 360),
+          VideoTrack(id: 'b', isSelected: false, width: 1920, height: 1080),
+          VideoTrack(id: 'c', isSelected: false),
+        ]),
+        const Size(1920, 1080),
+      );
+      expect(VideoPlaybackService.sizeOfVideoTracks(const []), isNull);
+      expect(
+        VideoPlaybackService.sizeOfVideoTracks(const [
+          VideoTrack(id: 'a', isSelected: false, width: 0, height: 0),
+        ]),
+        isNull,
+      );
     });
   });
 }
