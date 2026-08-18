@@ -348,10 +348,24 @@ class VideoPlaybackService {
 
   // ── Quality (Auto ABR + preload-then-swap manual pin) ─────────────────────
 
+  /// Whether [url] looks like an HLS playlist — the ONLY thing worth fetching
+  /// for the quality picker.
+  ///
+  /// `http.get` buffers the whole response body, so probing a progressive MP4
+  /// downloaded tens of megabytes into memory in parallel with the player's own
+  /// startup and starved it on weak networks.
+  @visibleForTesting
+  static bool looksLikeHlsPlaylist(String url) {
+    final path = Uri.tryParse(url)?.path.toLowerCase();
+    if (path == null) return false;
+    return path.endsWith('.m3u8') || path.endsWith('.m3u');
+  }
+
   /// Fetches and parses the master playlist [url] to populate the quality
   /// picker. Best-effort: any failure (non-HLS, network error, media playlist,
   /// audio groups present) simply leaves the picker at "Auto only".
   Future<void> _loadQualities(String url, int generation) async {
+    if (!looksLikeHlsPlaylist(url)) return;
     try {
       final resp = await http
           .get(Uri.parse(url))

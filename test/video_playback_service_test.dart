@@ -76,6 +76,10 @@ void main() {
 
   String url(String path) => 'http://127.0.0.1:${server.port}$path';
 
+  /// Every path the loopback server was actually asked for — so a test can
+  /// assert that a media was NEVER probed (see the `.mp4` gate).
+  final requestedPaths = <String>[];
+
   setUpAll(() async {
     // TestWidgetsFlutterBinding stubs every HttpClient with one that answers
     // 400, which would make the master-playlist fetch untestable. Dropping the
@@ -84,6 +88,7 @@ void main() {
     HttpOverrides.global = null;
     server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     server.listen((request) async {
+      requestedPaths.add(request.uri.path);
       final body = bodies[request.uri.path];
       if (body == null) {
         request.response.statusCode = HttpStatus.notFound;
@@ -100,6 +105,7 @@ void main() {
     platform = FakeVideoPlayerPlatform();
     VideoPlayerPlatform.instance = platform;
     service = VideoPlaybackService();
+    requestedPaths.clear();
   });
 
   tearDown(() async {
@@ -679,6 +685,26 @@ void main() {
 
       // Assert.
       expect(service.qualities, isEmpty);
+    });
+
+    test('a non-playlist media is never even fetched', () async {
+      // Arrange + Act: `http.get` buffers the whole body, so probing an MP4
+      // downloaded the entire file into memory alongside the starting player.
+      await service.open(url('/movie.mp4'), autoPlay: false);
+      await _settleQualities();
+
+      // Assert.
+      expect(requestedPaths, isEmpty);
+      expect(service.qualities, isEmpty);
+    });
+
+    test('a playlist URL carrying a query string is still probed', () async {
+      // Arrange + Act: signed/token-carrying HLS URLs must not be skipped.
+      await service.open(url('/master.m3u8?token=abc'), autoPlay: false);
+      await _settleQualities();
+
+      // Assert.
+      expect(service.qualities, hasLength(3));
     });
   });
 
