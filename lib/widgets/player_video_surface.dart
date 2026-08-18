@@ -155,6 +155,22 @@ class YoutubeBackgroundChip extends StatelessWidget {
   }
 }
 
+/// Shape used when the engine reports no picture size at all.
+///
+/// iOS reports a `(0,0)` `presentationSize` for live HLS and never updates it,
+/// yet AVPlayer keeps drawing decoded frames into the texture. Skipping the
+/// [VideoPlayer] on a zero size therefore left live TV as a permanently black
+/// box; a 16:9 box shows the picture, and the real dimensions take over the
+/// moment the engine reports them.
+const Size _kFallbackVideoSize = Size(16, 9);
+
+/// The size to lay the texture out at: the engine's own when it reports one,
+/// else [_kFallbackVideoSize].
+Size _renderedSize(Size reported) =>
+    (reported.width > 0 && reported.height > 0)
+        ? reported
+        : _kFallbackVideoSize;
+
 /// Reactively renders the video_player output for the CURRENT source on a black
 /// background, sizing itself from the active controller's reported dimensions.
 ///
@@ -187,11 +203,8 @@ class VideoRender extends StatelessWidget {
         return ValueListenableBuilder<VideoPlayerValue>(
           valueListenable: controller,
           builder: (context, value, _) {
-            if (!value.isInitialized ||
-                value.size.width <= 0 ||
-                value.size.height <= 0) {
-              return const SizedBox.expand();
-            }
+            if (!value.isInitialized) return const SizedBox.expand();
+            final size = _renderedSize(value.size);
             final video = VideoPlayer(controller);
             if (fit == BoxFit.cover) {
               return SizedBox.expand(
@@ -199,8 +212,8 @@ class VideoRender extends StatelessWidget {
                   fit: BoxFit.cover,
                   clipBehavior: Clip.hardEdge,
                   child: SizedBox(
-                    width: value.size.width,
-                    height: value.size.height,
+                    width: size.width,
+                    height: size.height,
                     child: video,
                   ),
                 ),
@@ -209,7 +222,7 @@ class VideoRender extends StatelessWidget {
             // contain (default): letterbox on the black background.
             return Center(
               child: AspectRatio(
-                aspectRatio: value.aspectRatio,
+                aspectRatio: size.width / size.height,
                 child: video,
               ),
             );

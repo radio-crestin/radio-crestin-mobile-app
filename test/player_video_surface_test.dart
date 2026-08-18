@@ -11,7 +11,9 @@ import 'helpers/fake_video_player_platform.dart';
 ///
 /// Two contracts matter here:
 ///   * the surface renders NOTHING (not a broken/black texture) until there is
-///     an initialized controller with real pixel dimensions, and
+///     an initialized controller — and once there is one it renders the
+///     texture even when the engine reports no picture size (live HLS on iOS),
+///     falling back to a 16:9 shape, and
 ///   * when a custom [controls] overlay is supplied it owns buffering and the
 ///     LIVE badge — the built-in spinner and pill must stand down so nothing is
 ///     drawn twice.
@@ -55,7 +57,7 @@ void main() {
         home: Scaffold(body: SizedBox(width: 320, height: 180, child: child)),
       );
 
-  group('nothing is rendered without a usable picture', () {
+  group('what gets rendered for a given controller state', () {
     testWidgets('a service that never opened anything renders no video',
         (tester) async {
       // Arrange + Act.
@@ -67,9 +69,12 @@ void main() {
       expect(find.byType(VideoRender), findsOneWidget);
     });
 
-    testWidgets('an initialized controller reporting a zero size renders no '
-        'video', (tester) async {
-      // Arrange: initialized, but the decoder never produced pixels.
+    testWidgets(
+        'an initialized controller reporting a zero size still renders the '
+        'texture at 16:9 (iOS live HLS never reports a size)', (tester) async {
+      // Arrange: initialized with presentationSize (0,0) — exactly what
+      // AVFoundation reports for a live HLS channel, forever. The texture does
+      // receive frames, so skipping it left live TV permanently black.
       await openMedia(tester, 'https://example.com/nosize.m3u8',
           size: Size.zero);
 
@@ -77,9 +82,14 @@ void main() {
       await tester.pumpWidget(host(PlayerVideoSurface(videoService: service)));
       await tester.pump();
 
-      // Assert.
+      // Assert: rendered, at the 16:9 fallback shape.
       expect(service.isInitialized, isTrue);
-      expect(find.byType(VideoPlayer), findsNothing);
+      expect(find.byType(VideoPlayer), findsOneWidget);
+      final aspect = tester.widget<AspectRatio>(find.ancestor(
+        of: find.byType(VideoPlayer),
+        matching: find.byType(AspectRatio),
+      ));
+      expect(aspect.aspectRatio, closeTo(16 / 9, 0.001));
     });
 
     testWidgets('a real size renders the video view', (tester) async {
