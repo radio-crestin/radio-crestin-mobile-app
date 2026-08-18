@@ -240,6 +240,89 @@ void main() {
     });
   });
 
+  group('open() handoff (the outgoing media must go quiet)', () {
+    test('the previous media is paused while the next one is still loading',
+        () async {
+      // Arrange: item A is playing; item B will hang in initialize — the whole
+      // point, because `allowBackgroundPlayback` kept A audible for the entire
+      // (up to 10s) load of B.
+      final a = url('/a.m3u8');
+      final b = url('/b.m3u8');
+      await service.open(a);
+      await _settle();
+      final idA = platform.idFor(a);
+      final pausesBefore = platform.pauseCount(idA);
+
+      // Act: start B and leave it loading.
+      platform.script(
+          b, const FakeMediaScript(behavior: FakeInitBehavior.manual));
+      final pending = service.open(b);
+      await _settle();
+
+      // Assert: A is silent, but still bound and rendered (its last frame is
+      // what keeps the handoff from flashing black).
+      expect(platform.pauseCount(idA), pausesBefore + 1);
+      expect(platform.isDisposed(idA), isFalse);
+      expect(service.controller!.playerId, idA);
+
+      // Cleanup.
+      platform.completeInit(platform.idFor(b));
+      await pending;
+    });
+
+    test('a failed open leaves the previous media paused, not playing',
+        () async {
+      // Arrange: a playing item.
+      final good = url('/good.m3u8');
+      final bad = url('/bad.m3u8');
+      await service.open(good);
+      await _settle();
+      final goodId = platform.idFor(good);
+      final pausesBefore = platform.pauseCount(goodId);
+
+      // Act: the next item cannot be loaded at all.
+      platform.script(
+          bad, const FakeMediaScript(behavior: FakeInitBehavior.fail));
+      await service.open(bad);
+      await _settle();
+
+      // Assert: nothing is left playing — the old item must not keep going
+      // behind an error surface.
+      expect(platform.pauseCount(goodId), greaterThan(pausesBefore));
+      expect(service.isPlaying, isFalse);
+      expect(platform.isDisposed(platform.idFor(bad)), isTrue);
+    });
+
+    test('a completion from the retired media never reaches completedStream',
+        () async {
+      // Arrange: item A playing, item B loading.
+      final a = url('/a.m3u8');
+      final b = url('/b.m3u8');
+      await service.open(a);
+      await _settle();
+      final idA = platform.idFor(a);
+      platform.script(
+          b, const FakeMediaScript(behavior: FakeInitBehavior.manual));
+      final pending = service.open(b);
+      await _settle();
+
+      // Act: the dying controller reports end-of-media (its playhead ran out
+      // while we were loading its successor).
+      platform.emit(
+          idA, VideoEvent(eventType: VideoEventType.completed));
+      await _settle();
+
+      // Assert: the playlist must not auto-advance off the item that is
+      // currently being opened.
+      expect(service.isCompleted, isFalse);
+      expect(service.isPlaying, isTrue);
+
+      // Cleanup.
+      platform.completeInit(platform.idFor(b));
+      await pending;
+    });
+  });
+
   group('open() initialize failure', () {
     test('emits exactly one error and keeps the previous controller',
         () async {
@@ -266,11 +349,14 @@ void main() {
       await service.open(bad, autoPlay: false);
       await _settle();
 
-      // Assert: one error, old controller untouched and still rendered.
+      // Assert: one error; the old controller is still bound and rendered (no
+      // black flash) — paused, but never disposed.
       expect(errors, hasLength(1));
       expect(errors.single, contains('codec not supported'));
       expect(service.controller, same(previous));
       expect(platform.isDisposed(previousId), isFalse);
+      expect(platform.pauseCount(previousId), greaterThan(1),
+          reason: 'the outgoing media must not stay audible');
       expect(platform.isDisposed(platform.idFor(bad)), isTrue,
           reason: 'the failed controller must not leak');
       expect(published, [previous],
@@ -436,6 +522,147 @@ void main() {
       expect(service.hasRenderedFrame, isFalse);
       expect(service.width, isNull);
       expect(service.height, isNull);
+    });
+  });
+
+  group('live HLS reported with the iOS 1ms duration artefact', () {
+    /// AVFoundation reports an INDEFINITE duration for live HLS, which reaches
+    /// Dart as exactly 1ms (an int64 overflow in video_player's conversion).
+    const bogus = Duration(milliseconds: 1);
+
+    /// Opens [media] as a live stream whose engine duration is the artefact,
+    /// with a native playhead that is already well past it — which is what
+    /// makes video_player clamp the position and latch `isCompleted`.
+    Future<void> openLiveArtefact(String media,
+        {Size size = const Size(1280, 720)}) async {
+      platform.script(media, FakeMediaScript(duration: bogus, size: size));
+      await service.open(media, live: true);
+      platform.setPosition(platform.idFor(media), const Duration(seconds: 42));
+      // Long enough for video_player's own 100ms position poll to clamp.
+      await _settle(300);
+    }
+
+    test('the bogus duration is published as unknown, never as 1ms', () async {
+      // Arrange + Act.
+      await openLiveArtefact(url('/live.m3u8'));
+
+      // Assert: "unknown", so the overlay keeps the plain LIVE bar instead of
+      // a 0:00/0:00 scrubber pinned at its end.
+      expect(service.duration, Duration.zero);
+    });
+
+    test('a completion latched by the 1ms clamp is ignored and the play '
+        'intent survives', () async {
+      // Arrange.
+      final media = url('/live.m3u8');
+      final playing = <bool>[];
+      final sub = service.playingStream.listen(playing.add);
+
+      // Act.
+      await openLiveArtefact(media);
+
+      // Assert: the engine really did latch isCompleted (the bug's source)…
+      expect(service.controller!.value.isCompleted, isTrue,
+          reason: 'the clamp-to-1ms artefact must be reproduced');
+      // …but the service refuses it: a live stream never ends, so the
+      // transport button, the lock screen and the auto-hide timer all keep
+      // seeing "playing".
+      expect(service.isCompleted, isFalse);
+      expect(service.isPlaying, isTrue);
+      expect(playing, [false, true]);
+      await sub.cancel();
+    });
+
+    test('the NATIVE playhead is published, not the one clamped to 1ms',
+        () async {
+      // Arrange + Act.
+      await openLiveArtefact(url('/live.m3u8'));
+      await _settle(700); // one native-playhead poll
+
+      // Assert: a position frozen at 1ms is what made the handler's stall
+      // watchdog think a healthy channel had a frozen clock.
+      expect(service.controller!.value.position, bogus);
+      expect(service.position, const Duration(seconds: 42));
+    });
+
+    test('an advancing playhead counts as a first frame when the engine '
+        'reports no picture size', () async {
+      // Arrange: live HLS on iOS reports presentationSize (0,0) forever, so the
+      // size-based first-frame test alone kicked good TV to audio-only.
+      final media = url('/live.m3u8');
+      await openLiveArtefact(media, size: Size.zero);
+      expect(service.hasRenderedFrame, isFalse,
+          reason: 'one sample proves nothing yet');
+
+      // Act: the playhead moves on.
+      await _settle(600);
+      platform.setPosition(platform.idFor(media), const Duration(seconds: 43));
+      await _settle(700);
+
+      // Assert.
+      expect(service.hasRenderedFrame, isTrue);
+      expect(service.width, isNull, reason: 'no size was ever reported');
+    });
+
+    test('seekToLiveEdge re-snaps with pause→play instead of seeking to the '
+        'bogus window end', () async {
+      // Arrange: with a 1ms duration every seek target clamps to 1ms, i.e. the
+      // START of the DVR window — the exact opposite of the live edge.
+      final media = url('/live.m3u8');
+      await openLiveArtefact(media);
+      final id = platform.idFor(media);
+      final pausesBefore = platform.pauseCount(id);
+      final playsBefore = platform.playCount(id);
+
+      // Act.
+      await service.seekToLiveEdge();
+      await _settle();
+
+      // Assert: a pause→play re-snap (both engines return toward the live edge
+      // on resume), and never a seek to the artefact.
+      expect(platform.pauseCount(id), pausesBefore + 1);
+      expect(platform.playCount(id), greaterThan(playsBefore));
+      expect(platform.seeksFor(id), isNot(contains(bogus)));
+    });
+
+    test('an arbitrary seek is refused while the media has no real length',
+        () async {
+      // Arrange: the scrubber (or a double-tap) must not be able to clamp a
+      // live stream back to the start of its window.
+      final media = url('/live.m3u8');
+      await openLiveArtefact(media);
+      final id = platform.idFor(media);
+      final seeksBefore = platform.seeksFor(id).length;
+
+      // Act.
+      await service.seek(const Duration(seconds: 10));
+      await _settle();
+
+      // Assert.
+      expect(platform.seeksFor(id), hasLength(seeksBefore));
+    });
+
+    test('a real DVR window is still honoured', () async {
+      // Arrange: the positive control — a live stream whose window the engine
+      // does report.
+      final media = url('/dvr.m3u8');
+      platform.script(
+          media, const FakeMediaScript(duration: Duration(minutes: 30)));
+      await service.open(media, live: true);
+      await _settle();
+
+      // Act.
+      await service.seekToLiveEdge();
+      await _settle();
+
+      // Assert.
+      expect(service.duration, const Duration(minutes: 30));
+      expect(
+        platform.seeks
+            .where((e) => e.key == platform.idFor(media))
+            .map((e) => e.value),
+        contains(const Duration(minutes: 30)),
+      );
     });
   });
 

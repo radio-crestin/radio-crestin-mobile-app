@@ -8,6 +8,24 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 
 import 'video_quality.dart';
 
+/// The duration a live stream ends up reported with — an INDEFINITE length.
+///
+/// Both platforms send `-9223372036854775807` milliseconds (iOS
+/// `CMTIME_IS_INDEFINITE`, Android `C.TIME_UNSET`), and video_player's
+/// `Duration(milliseconds: …)` conversion overflows that to exactly 1000
+/// microseconds. A 1ms "media" then makes video_player clamp every position to
+/// its end, which latched `isCompleted` (transport button stuck on "play",
+/// controls never auto-hiding, playlists skipping instantly), pinned the
+/// scrubber at 0:00/0:00 and turned every seek into a jump to the start of the
+/// DVR window. Upstream: flutter/flutter#102366, #107882 (both still open).
+const Duration kIndefiniteDurationSentinel = Duration(microseconds: 1000);
+
+/// Whether [d] is a usable media length: strictly positive, and not the
+/// [kIndefiniteDurationSentinel] artefact. [Duration.zero] means "not resolved
+/// yet", which is equally unusable.
+bool isPlausibleMediaDuration(Duration? d) =>
+    d != null && d > Duration.zero && d != kIndefiniteDurationSentinel;
+
 /// Wraps the official `video_player` plugin (AVPlayer on iOS, ExoPlayer/Media3
 /// on Android) for the app's "video mode": TV channels and video playlist items
 /// played with perfect audio+video sync by the native player.
@@ -32,6 +50,12 @@ class VideoPlaybackService {
   VideoPlaybackService();
 
   VideoPlayerController? _controller;
+
+  /// The controller of the media being REPLACED, kept bound (and paused) only
+  /// so its last frame stays on screen during [open]'s handoff window. Its
+  /// value events are ignored — they describe media the app has moved on from,
+  /// and a completion from a dying controller would auto-advance the playlist.
+  VideoPlayerController? _retiring;
 
   bool _live = false;
   bool _muted = false;
@@ -70,10 +94,16 @@ class VideoPlaybackService {
 
   /// True once the native player has produced a first video frame for the
   /// CURRENT media (reset on every [open]). Derived from
-  /// `controller.value.isInitialized` plus a non-empty [size] — an initialized
+  /// `controller.value.isInitialized` plus a non-empty size — an initialized
   /// controller reporting real pixel dimensions has decoded a frame. Drives the
   /// video→audio fallback watchdog: on a platform/codec that never initializes,
   /// this stays false and the handler hands off to audio-only.
+  ///
+  /// LIVE media gets a second signal: iOS reports a `(0,0)` `presentationSize`
+  /// for live HLS and never updates it, so the size test alone would keep a
+  /// perfectly good TV channel at "no frame" until the watchdog kicked it to
+  /// audio-only. A playhead that ADVANCES (see [_sampleRawPosition]) proves the
+  /// decoder is running and counts as a first frame.
   final BehaviorSubject<bool> _hasFrame = BehaviorSubject<bool>.seeded(false);
 
   /// Current video pixel dimensions (null until the first frame). Surfaces size
@@ -121,6 +151,16 @@ class VideoPlaybackService {
   /// forever — which would hang [open] and swallow the error.
   static const Duration _disposeTimeout = Duration(seconds: 2);
 
+  /// How often the native playhead is polled while the reported duration is
+  /// unusable (see [_sampleRawPosition]).
+  static const Duration _rawPositionInterval = Duration(milliseconds: 500);
+
+  /// Runs only while the current media has no trustworthy duration.
+  Timer? _rawPositionTimer;
+
+  /// Previous native playhead sample, to detect that it is ADVANCING.
+  Duration? _lastRawPosition;
+
   // ── Public state ──────────────────────────────────────────────────────────
 
   /// Whether a controller currently exists (media has been opened).
@@ -139,8 +179,14 @@ class VideoPlaybackService {
   /// Drives `isLive` on the lock-screen media item.
   bool get isLive => _live;
 
-  Duration get position => _controller?.value.position ?? Duration.zero;
-  Duration get duration => _controller?.value.duration ?? Duration.zero;
+  /// The published playhead — the native one for media whose duration the
+  /// engine cannot report (video_player clamps `value.position` to a bogus
+  /// duration, which reads as a frozen clock to the handler's watchdogs).
+  Duration get position => _position.value;
+
+  /// The published duration: [Duration.zero] when the engine's value is not
+  /// plausible (live HLS on iOS), meaning "unknown".
+  Duration get duration => _duration.value;
 
   /// Whether playback is ON — the play/pause INTENT, exactly like just_audio's
   /// `player.playing`, and NOT the decoder's momentary rate.
@@ -223,6 +269,8 @@ class VideoPlaybackService {
   /// after load (used to carry position across a background handoff).
   ///
   /// A new [VideoPlayerController] is created for [url]; the previous one is
+  /// PAUSED at once (it would otherwise keep playing audibly for the whole
+  /// initialize window — `allowBackgroundPlayback` keeps it running) but is
   /// disposed only AFTER the new controller is initialized and published, so the
   /// surface never renders a disposed controller (no black flash).
   Future<void> open(
@@ -246,10 +294,17 @@ class VideoPlaybackService {
     _hasFrame.add(false);
     _width.add(null);
     _height.add(null);
+    _position.add(Duration.zero);
     _qualities.add(const []);
     _selectedQuality.add(VideoQuality.auto);
+    _stopRawPositionPolling();
 
+    // Retire the outgoing media BEFORE the (up to [initializeTimeout]) load:
+    // it keeps its last frame on screen, but it must not be heard — and its
+    // events must not be mistaken for the incoming media's.
     final previous = _controller;
+    _retiring = previous;
+    if (previous != null) await _pauseQuietly(previous);
 
     final next = VideoPlayerController.networkUrl(
       Uri.parse(url),
@@ -263,7 +318,10 @@ class VideoPlaybackService {
       if (generation == _mediaGeneration) {
         // Stop the spinner before the error surfaces, so the UI never shows a
         // spinner spinning next to an error state. Nothing can be playing after
-        // a failed load, so the intent drops too.
+        // a failed load, so the intent drops too. The previous controller stays
+        // bound (its last frame keeps the surface from flashing black) but it
+        // stays PAUSED and retired — the media it holds is not what the app is
+        // trying to play any more.
         _buffering.add(false);
         _setPlayIntent(false);
         _error.add(e.toString());
@@ -293,6 +351,9 @@ class VideoPlaybackService {
   }
 
   Future<void> play() async {
+    // A media that (however wrongly) latched "completed" must not stay latched
+    // through a resume, or the next end-of-media event would be swallowed.
+    if (_completed.value) _completed.add(false);
     _setPlayIntent(true);
     await _controller?.play();
     await _applyWakelock(true);
@@ -315,23 +376,42 @@ class VideoPlaybackService {
     await _applyWakelock(false);
   }
 
-  Future<void> seek(Duration position) async =>
-      _controller?.seekTo(position);
+  /// Seeks to [position] — ignored while the media has no usable length.
+  ///
+  /// `VideoPlayerController.seekTo` clamps every target to `value.duration`, so
+  /// on a live stream (duration = [kIndefiniteDurationSentinel]) ANY seek
+  /// collapses to 1ms, i.e. the very start of the DVR window.
+  Future<void> seek(Duration position) async {
+    final c = _controller;
+    if (c == null || !isPlausibleMediaDuration(c.value.duration)) return;
+    await c.seekTo(position);
+  }
 
   /// Jumps back to the live edge of a live stream.
   ///
   /// The cheapest recovery for a live picture whose clock has frozen: the
   /// connection and the decoder stay up, only the playhead moves. Seeking to
   /// the end of the reported window is enough — the engine clamps it into the
-  /// seekable live range. When no window has been probed yet there is nothing
-  /// to seek to, so this just nudges playback instead. Playback is resumed
-  /// afterwards when the user's intent is still "playing", because a seek can
-  /// leave the engine paused.
+  /// seekable live range.
+  ///
+  /// Without a PLAUSIBLE window this must not seek at all: video_player clamps
+  /// every `seekTo` to `value.duration`, so with the indefinite-duration
+  /// artefact (see [kIndefiniteDurationSentinel]) a seek lands at the very START
+  /// of the DVR window — the exact opposite of the live edge. The buffered
+  /// ranges are no substitute (they clamp the same way, and Android synthesises
+  /// a single range starting at zero). What does work on both engines is a
+  /// pause→play cycle: AVPlayer and ExoPlayer both re-snap a live HLS stream
+  /// toward its live edge on resume. Playback is resumed afterwards when the
+  /// user's intent is still "playing", because a seek can leave the engine
+  /// paused.
   Future<void> seekToLiveEdge() async {
     final c = _controller;
     if (c == null || !c.value.isInitialized) return;
-    final window = c.value.duration;
-    if (window > Duration.zero) await c.seekTo(window);
+    if (isPlausibleMediaDuration(c.value.duration)) {
+      await c.seekTo(c.value.duration); // a real DVR window: jump to its end
+    } else {
+      await c.pause();
+    }
     if (_playIntended) await c.play();
   }
 
@@ -441,7 +521,9 @@ class VideoPlaybackService {
   /// on [controllerStream] and re-emits its current state onto the streams.
   void _bind(VideoPlayerController c) {
     _controller = c;
+    _retiring = null;
     _lastError = null;
+    _lastRawPosition = null;
     // The listener is removed when the controller is disposed (in
     // [_disposeController]/[dispose]); until then a stale listener is a no-op
     // because [_onValue] guards on identity with the active controller.
@@ -460,9 +542,16 @@ class VideoPlaybackService {
 
   void _onValue(VideoPlayerController c) {
     if (!identical(c, _controller)) return; // stale listener during a swap
+    if (identical(c, _retiring)) return; // media the app has moved on from
     final v = c.value;
-    _position.add(v.position);
-    _duration.add(v.duration);
+    final known = isPlausibleMediaDuration(v.duration) ? v.duration : null;
+    if (_duration.value != (known ?? Duration.zero)) {
+      _duration.add(known ?? Duration.zero);
+    }
+    _syncRawPositionPolling(known != null);
+    // With an unknown duration the engine's own position is clamped to it and
+    // therefore meaningless; [_sampleRawPosition] publishes the native one.
+    if (_rawPositionTimer == null) _position.add(v.position);
     _buffering.add(v.isBuffering);
 
     final size = v.size;
@@ -476,7 +565,7 @@ class VideoPlaybackService {
 
     // Reaching the end (VOD) or failing outright genuinely ends playback — the
     // only two engine events that legitimately clear the play intent.
-    if (v.isCompleted && !_completed.value) {
+    if (!_completed.value && _isGenuineCompletion(v, known)) {
       _setPlayIntent(false);
       _completed.add(true);
     }
@@ -489,6 +578,79 @@ class VideoPlaybackService {
         debugPrint('VideoPlaybackService: player error: $desc');
         _error.add(desc);
       }
+    }
+  }
+
+  /// Whether the engine's `isCompleted` really means "this media reached its
+  /// end", and not the 1ms-duration artefact described on
+  /// [kIndefiniteDurationSentinel].
+  ///
+  /// video_player sets `isCompleted` whenever the playhead equals the duration,
+  /// so a live stream reporting a 1ms duration "completes" ~100ms after play
+  /// starts. A completion is only believed for on-demand media with a plausible
+  /// duration whose playhead actually reached the end.
+  bool _isGenuineCompletion(VideoPlayerValue v, Duration? knownDuration) {
+    if (!v.isCompleted) return false;
+    if (_live) return false; // a live stream never ends
+    if (knownDuration == null) return false;
+    return v.position >= knownDuration - _completionTolerance;
+  }
+
+  /// How far short of the end the playhead may still be when the engine reports
+  /// a completion (the end-of-media event lands before the final position
+  /// update).
+  static const Duration _completionTolerance = Duration(seconds: 2);
+
+  /// Starts/stops the native playhead poll for the current media.
+  void _syncRawPositionPolling(bool durationKnown) {
+    if (durationKnown) {
+      _stopRawPositionPolling();
+    } else {
+      _rawPositionTimer ??=
+          Timer.periodic(_rawPositionInterval, (_) => _sampleRawPosition());
+    }
+  }
+
+  void _stopRawPositionPolling() {
+    _rawPositionTimer?.cancel();
+    _rawPositionTimer = null;
+    _lastRawPosition = null;
+  }
+
+  /// Publishes the NATIVE playhead for a media whose duration the engine cannot
+  /// report.
+  ///
+  /// `VideoPlayerValue.position` is clamped to `value.duration`, so on iOS live
+  /// HLS (duration = the 1ms artefact) it stands still forever — which reads as
+  /// a frozen clock to the handler's stall watchdog. `controller.position` goes
+  /// straight to the platform, unclamped. A playhead that MOVES also proves the
+  /// decoder is producing frames, which is the only first-frame signal live HLS
+  /// offers on iOS (its `presentationSize` stays `(0,0)`).
+  Future<void> _sampleRawPosition() async {
+    final c = _controller;
+    if (c == null || !c.value.isInitialized) return;
+    Duration? sample;
+    try {
+      sample = await c.position;
+    } catch (e) {
+      return; // a disposed/failed controller has no playhead
+    }
+    if (sample == null || !identical(c, _controller)) return;
+    _position.add(sample);
+    final previous = _lastRawPosition;
+    _lastRawPosition = sample;
+    if (_live && !_hasFrame.value && previous != null && sample > previous) {
+      _hasFrame.add(true);
+    }
+  }
+
+  /// Pauses [c] without ever letting a failing native side block the caller —
+  /// used on the outgoing media at the top of [open].
+  Future<void> _pauseQuietly(VideoPlayerController c) async {
+    try {
+      await c.pause().timeout(_disposeTimeout);
+    } catch (e) {
+      debugPrint('VideoPlaybackService: pausing the outgoing media failed: $e');
     }
   }
 
@@ -534,8 +696,10 @@ class VideoPlaybackService {
   /// re-created; a subsequent [open] rebuilds a controller.
   Future<void> dispose() async {
     _mediaGeneration++;
+    _stopRawPositionPolling();
     final c = _controller;
     _controller = null;
+    _retiring = null;
     if (c != null) {
       try {
         await c.dispose();

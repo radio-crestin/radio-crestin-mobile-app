@@ -98,6 +98,20 @@ class FakeVideoPlayerPlatform extends VideoPlayerPlatform {
   /// The most recent id created for [url].
   int lastIdFor(String url) => idsOf[url]!.last;
 
+  /// How many times [playerId] was played / paused.
+  ///
+  /// video_player calls `pause` once by itself right after `initialized` (its
+  /// `_applyPlayPause` for a not-yet-playing controller), so only a CHANGE in
+  /// these counts proves the app asked for it.
+  int playCount(int playerId) => played.where((id) => id == playerId).length;
+  int pauseCount(int playerId) => paused.where((id) => id == playerId).length;
+
+  /// Seek targets applied to [playerId], in call order.
+  List<Duration> seeksFor(int playerId) => seeks
+      .where((e) => e.key == playerId)
+      .map((e) => e.value)
+      .toList(growable: false);
+
   List<double> volumesFor(int playerId) => volumes
       .where((e) => e.key == playerId)
       .map((e) => e.value)
