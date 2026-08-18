@@ -7,8 +7,18 @@ import 'package:rxdart/rxdart.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 
 import '../services/playlist_controller.dart';
+import '../tv/tv_platform.dart';
 import '../types/playlist_item.dart';
 import 'video_overlay_controls.dart';
+
+/// Whether a fullscreen transition may touch the platform's orientation and
+/// system bars.
+///
+/// Handhelds: yes — fullscreen means landscape + immersive, and leaving it
+/// restores portrait. TV and desktop: never. Those windows have no orientation
+/// to pin, and pinning one squeezes the whole large-screen shell into a narrow
+/// column (the bug that hit Android TV when leaving an embedded YouTube item).
+bool shouldApplyFullscreenSystemChrome({required bool isTv}) => !isTv;
 
 /// Renders a playlist YouTube item inline via `youtube_player_iframe` and wires
 /// it back to the [PlaylistController] contract:
@@ -33,6 +43,8 @@ class YoutubeIframePlayer extends StatefulWidget {
     required this.item,
     required this.controller,
     this.aspectRatio = 16 / 9,
+    this.showInlineOverlay = true,
+    this.overlayBuilder,
   });
 
   /// The YouTube (video or playlist) item to render.
@@ -42,6 +54,21 @@ class YoutubeIframePlayer extends StatefulWidget {
   final PlaylistController controller;
 
   final double aspectRatio;
+
+  /// Whether to draw the touch overlay ([VideoOverlayControls]) over the
+  /// shielded iframe. The phone wants it; the TV shell composes its own
+  /// D-pad chrome instead, so it passes false and gets a bare surface.
+  final bool showInlineOverlay;
+
+  /// Chrome drawn INSIDE the player's own controls layer, above the iframe.
+  ///
+  /// The TV shell passes its D-pad chrome here rather than stacking it over
+  /// this widget: when the embed goes fullscreen the package hoists the whole
+  /// player into an `OverlayPortal` above the page, so anything stacked
+  /// outside would be covered. Supplying it here keeps the chrome on top in
+  /// both modes. When set, YouTube's fullscreen edge-skips are dropped — the
+  /// supplied chrome owns navigation.
+  final WidgetBuilder? overlayBuilder;
 
   @override
   State<YoutubeIframePlayer> createState() => _YoutubeIframePlayerState();
@@ -145,6 +172,11 @@ class _YoutubeIframePlayerState extends State<YoutubeIframePlayer> {
     } else {
       _isFullscreen = fullscreen;
     }
+    // Orientation and system bars are a HANDHELD concern. A TV (or desktop)
+    // window has no orientation to set: pinning it portrait squeezes the whole
+    // large-screen shell into a narrow column — which is exactly what leaving
+    // an embedded YouTube item used to do on Android TV.
+    if (!shouldApplyFullscreenSystemChrome(isTv: TvPlatform.isTV)) return;
     if (fullscreen) {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
       SystemChrome.setPreferredOrientations(const [
@@ -360,7 +392,10 @@ class _YoutubeIframePlayerState extends State<YoutubeIframePlayer> {
     // Defensively restore portrait if the player is torn down while fullscreen
     // (e.g. the item advances mid-fullscreen) so the app never gets stuck
     // landscape / immersive.
-    if (_isFullscreen) _restorePortraitChrome();
+    if (_isFullscreen &&
+        shouldApplyFullscreenSystemChrome(isTv: TvPlatform.isTV)) {
+      _restorePortraitChrome();
+    }
     _stateSub?.cancel();
     _positionSub?.cancel();
     _shouldPlaySub?.cancel();
@@ -390,13 +425,27 @@ class _YoutubeIframePlayerState extends State<YoutubeIframePlayer> {
         YoutubePlayer(
           controller: _yt,
           aspectRatio: widget.aspectRatio,
-          controlsBuilder: (context, isFullscreen) => isFullscreen
-              ? _FullscreenEdgeSkips(
-                  onPrevious: () =>
-                      unawaited(widget.controller.skipToPrevious()),
-                  onNext: () => unawaited(widget.controller.skipToNext()),
-                )
-              : const AbsorbPointer(child: SizedBox.expand()),
+          controlsBuilder: (context, isFullscreen) {
+            final overlayBuilder = widget.overlayBuilder;
+            if (overlayBuilder != null) {
+              // Shield first (YouTube's own chrome stays unreachable), the
+              // caller's chrome on top of it.
+              return Stack(
+                fit: StackFit.expand,
+                children: [
+                  const AbsorbPointer(child: SizedBox.expand()),
+                  overlayBuilder(context),
+                ],
+              );
+            }
+            return isFullscreen
+                ? _FullscreenEdgeSkips(
+                    onPrevious: () =>
+                        unawaited(widget.controller.skipToPrevious()),
+                    onNext: () => unawaited(widget.controller.skipToNext()),
+                  )
+                : const AbsorbPointer(child: SizedBox.expand());
+          },
         ),
         // OUR tap-to-reveal controls, drawn OVER the shielded iframe (inline
         // only). Its opaque gesture layer catches every inline touch, so — like
@@ -406,7 +455,7 @@ class _YoutubeIframePlayerState extends State<YoutubeIframePlayer> {
         // the shield lifts, and YouTube's own chrome (+ the edge skips) owns the
         // surface, so a second controls layer would only conflict.
         InlineYoutubeOverlay(
-          fullscreen: _isFullscreen,
+          fullscreen: _isFullscreen || !widget.showInlineOverlay,
           child: VideoOverlayControls(
             playingStream: _playingSubject.stream,
             initialPlaying: _playingSubject.value,

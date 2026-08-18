@@ -239,26 +239,22 @@ final class AudioPlayer: ObservableObject {
         guard let station = currentStation else { return }
         switch state {
         case .playing:
-            if playbackMode == .playlist {
-                // Playlist items are on-demand files — a soft pause keeps
-                // the buffered position so resume continues seamlessly.
-                player.pause()
-                stopProgressWatchdog()
-                state = .paused(station.title)
-            } else {
-                // Pause is a hard stop for live radio/TV. Holding the
-                // buffered segments would let "resume" replay stale content
-                // now seconds-to-minutes behind the live edge. Drop the
-                // item to close the connection and clear the buffer.
-                player.pause()
+            player.pause()
+            stopProgressWatchdog()
+            // Video keeps its item so the surface holds the last decoded
+            // frame — a paused picture, not a black rectangle. Live audio
+            // drops it to close the connection. See `PausePolicy`.
+            if PausePolicy.dropsItem(
+                isVideo: isVideoContent,
+                isPlaylist: playbackMode == .playlist
+            ) {
                 player.replaceCurrentItem(with: nil)
                 statusObserver?.invalidate()
                 statusObserver = nil
                 currentStreamType = nil
                 isVideoReadyForDisplay = false
-                stopProgressWatchdog()
-                state = .paused(station.title)
             }
+            state = .paused(station.title)
         case .paused:
             if playbackMode == .playlist, player.currentItem != nil {
                 // Resume the same on-demand item where it left off.

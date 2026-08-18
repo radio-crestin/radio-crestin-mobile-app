@@ -203,7 +203,7 @@ struct NowPlayingView: View {
             controlFocus = .play
         }
         // NOTE: the radio / audio now-playing screen deliberately keeps
-        // its chrome visible at all times. The 20s idle auto-hide is a
+        // its chrome visible at all times. The 5s idle auto-hide is a
         // VIDEO-only behaviour (`VideoNowPlaying`): with no moving picture
         // there is nothing for the controls to obscure, and a static
         // artwork screen that empties itself just looks broken.
@@ -927,7 +927,7 @@ enum PlaybackTime {
 ///  * a loading overlay covering the entire pre-first-frame window plus
 ///    any mid-playback rebuffer, and a bounded-wait error state with a
 ///    focusable Retry (`PlaybackTimeoutPolicy`);
-///  * a 20s idle auto-hide that pauses while playback is paused or an
+///  * a 5s idle auto-hide that pauses while playback is paused or an
 ///    error is showing (`ControlsAutoHidePolicy`).
 private struct VideoNowPlaying: View {
     let station: Station

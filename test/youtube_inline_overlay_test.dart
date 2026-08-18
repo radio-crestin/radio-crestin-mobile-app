@@ -189,4 +189,17 @@ void main() {
       expect(tester.element(find.byKey(const Key('iframe'))), same(element));
     });
   });
+
+  group('fullscreen system chrome', () {
+    test('handhelds manage orientation and system bars', () {
+      // Phone: fullscreen means landscape + immersive, exit restores portrait.
+      expect(shouldApplyFullscreenSystemChrome(isTv: false), isTrue);
+    });
+
+    test('TV and desktop never pin an orientation', () {
+      // Pinning portrait on a TV squeezes the large-screen shell into a
+      // narrow column — what leaving an embedded YouTube item used to do.
+      expect(shouldApplyFullscreenSystemChrome(isTv: true), isFalse);
+    });
+  });
 }

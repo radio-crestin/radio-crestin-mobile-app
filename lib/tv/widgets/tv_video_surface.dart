@@ -12,6 +12,15 @@ import '../../widgets/player_video_surface.dart';
 import '../tv_platform.dart';
 import '../tv_theme.dart';
 
+/// Idle delay before the TV video chrome (back button, title scrim and the
+/// transport row) fades out over a moving picture.
+///
+/// Deliberately short: on a 10-foot screen the chrome is a band of UI sitting
+/// on top of the content, so it has to step aside quickly once the user has
+/// settled into watching. Any remote press brings it straight back, and it
+/// stays pinned while paused or buffering (see `shouldShowVideoControls`).
+const Duration kTvVideoChromeAutoHideDelay = Duration(seconds: 5);
+
 /// video_player output for the TV / desktop shells, with a dark buffering
 /// overlay. Overlay chrome (title, LIVE pill, counter, controls) is composed by
 /// the caller so it can share the page's focus tree.

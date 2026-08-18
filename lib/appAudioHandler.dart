@@ -32,6 +32,7 @@ import 'package:radio_crestin/services/station_data_service.dart';
 import 'package:radio_crestin/services/station_handoff_pause_guard.dart';
 import 'package:radio_crestin/stream_failover.dart';
 import 'package:radio_crestin/services/video_playback_service.dart';
+import 'package:radio_crestin/services/video_clock_stall_policy.dart';
 import 'package:radio_crestin/services/video_mode_decision.dart';
 import 'package:radio_crestin/services/playlist_controller.dart';
 import 'package:radio_crestin/types/playlist_item.dart';
@@ -768,6 +769,20 @@ class AppAudioHandler extends BaseAudioHandler {
   /// [_videoFallbackTimeout]: a mid-stream rebuffer deserves more patience than
   /// a cold start that never rendered anything.
   static const Duration _videoStallTimeout = Duration(seconds: 12);
+
+  // ── Frozen-clock watchdog ──────────────────────────────────────────────
+  // The buffering watchdog above only fires when the engine ADMITS it is
+  // stuck. A frozen stream can also sit there reporting "playing, not
+  // buffering" with a clock that never advances (this is what froze live HLS
+  // on tvOS). Sampling the playback position is the only honest signal, so
+  // this watchdog compares successive positions and escalates through
+  // [VideoClockStallPolicy]: live-edge seek → reload in place → audio
+  // fallback. Armed and cancelled together with the buffering watchdog.
+  Timer? _videoClockTimer;
+  Duration? _lastVideoClockSample;
+  DateTime? _videoClockMovedAt;
+  // Frozen-clock recoveries spent in the CURRENT video session.
+  int _videoClockRecoveries = 0;
 
   // ── Seamless background↔foreground handoff (TV live) ───────────────────
   // Backgrounding a TV video hands off to just_audio; returning to foreground
@@ -3061,6 +3076,7 @@ class AppAudioHandler extends BaseAudioHandler {
   }) {
     _cancelVideoStallWatchdog();
     _videoStallReconnectAttempts = 0;
+    _startVideoClockWatchdog(url, live: live);
     final vs = videoService;
     _videoStallSubs.add(vs.bufferingStream.listen((buffering) {
       if (!_videoMode) return;
@@ -3077,12 +3093,102 @@ class AppAudioHandler extends BaseAudioHandler {
   }
 
   void _cancelVideoStallWatchdog() {
+    _cancelVideoClockWatchdog();
     _videoStallTimer?.cancel();
     _videoStallTimer = null;
     for (final s in _videoStallSubs) {
       s.cancel();
     }
     _videoStallSubs.clear();
+  }
+
+  /// Arms the frozen-clock watchdog for the media in video mode.
+  ///
+  /// Samples the playback position every [VideoClockStallPolicy.sampleInterval]
+  /// and, once it has stood still for [VideoClockStallPolicy.stallGrace] while
+  /// we intend to play, escalates: live-edge seek → reload in place → audio
+  /// fallback. This is the detector for stalls the engine never admits to —
+  /// "playing, not buffering", clock frozen — which the buffering watchdog
+  /// alone cannot see. Armed by (and cancelled with) [_startVideoStallWatchdog].
+  void _startVideoClockWatchdog(String url, {required bool live}) {
+    _cancelVideoClockWatchdog();
+    _videoClockRecoveries = 0;
+    _videoClockMovedAt = DateTime.now();
+    _videoClockTimer = Timer.periodic(
+      VideoClockStallPolicy.sampleInterval,
+      (_) => _sampleVideoClock(url, live: live),
+    );
+  }
+
+  void _cancelVideoClockWatchdog() {
+    _videoClockTimer?.cancel();
+    _videoClockTimer = null;
+    _lastVideoClockSample = null;
+    _videoClockMovedAt = null;
+  }
+
+  /// One watchdog tick: compare this position sample with the previous one.
+  void _sampleVideoClock(String url, {required bool live}) {
+    if (!_videoMode) return;
+    final vs = videoService;
+    // Only meaningful once there IS a picture and the user expects it to
+    // move. A paused item, or one still opening, is not stuck — and the
+    // cold-start watchdog owns the pre-first-frame window.
+    // An on-demand item that reached its end is standing still legitimately —
+    // the playlist advance owns that moment, not a stall recovery.
+    if (!vs.isPlaying || !vs.hasRenderedFrame || vs.isCompleted) {
+      _lastVideoClockSample = null;
+      _videoClockMovedAt = DateTime.now();
+      return;
+    }
+    final now = vs.position;
+    final previous = _lastVideoClockSample;
+    _lastVideoClockSample = now;
+    if (previous == null ||
+        VideoClockStallPolicy.moved(previous: previous, current: now)) {
+      _videoClockMovedAt = DateTime.now();
+      return;
+    }
+    final frozenSince = _videoClockMovedAt ?? DateTime.now();
+    final frozenFor = DateTime.now().difference(frozenSince);
+    if (!VideoClockStallPolicy.isStalled(frozenFor)) return;
+    _recoverFromFrozenVideoClock(url, live: live, frozenFor: frozenFor);
+  }
+
+  /// The clock has been frozen past the grace period — escalate one step.
+  void _recoverFromFrozenVideoClock(
+    String url, {
+    required bool live,
+    required Duration frozenFor,
+  }) {
+    _videoClockRecoveries++;
+    final action = VideoClockStallPolicy.action(_videoClockRecoveries);
+    _logAlways('video clock frozen for ${frozenFor.inSeconds}s '
+        '(attempt $_videoClockRecoveries) → ${action.name}');
+    AnalyticsService.instance.capture('video_clock_stall', {
+      'url': url,
+      'live': live,
+      'attempt': _videoClockRecoveries,
+      'action': action.name,
+      'frozen_for_ms': frozenFor.inMilliseconds,
+      'station_slug': currentStation.valueOrNull?.slug,
+    });
+    // Restart the measurement so the next tick judges the recovery, not the
+    // stall that triggered it.
+    _lastVideoClockSample = null;
+    _videoClockMovedAt = DateTime.now();
+    switch (action) {
+      case FrozenClockAction.seekToLiveEdge:
+        // Live: jump back to the edge. On-demand: there is no edge to seek
+        // to, so nudge the engine back into playing.
+        unawaited(live ? videoService.seekToLiveEdge() : videoService.play());
+      case FrozenClockAction.reload:
+        unawaited(_reconnectVideoInPlace(url, live: live));
+      case FrozenClockAction.giveUp:
+        final pos = live ? null : videoService.position;
+        unawaited(_triggerVideoFallback(url,
+            live: live, startPosition: pos, reason: 'clock_frozen'));
+    }
   }
 
   void _armVideoStallTimer(String url, {required bool live}) {

@@ -133,6 +133,25 @@ enum StallRecoveryPolicy {
     }
 }
 
+// MARK: - Pause
+
+/// How a pause is carried out, per content kind.
+enum PausePolicy {
+    /// True when pausing must DROP the player item (closing the connection
+    /// and clearing the buffer); false when a plain `pause()` is enough.
+    ///
+    /// Live audio drops it: holding buffered segments would let a later
+    /// resume replay content already seconds-to-minutes behind the live
+    /// edge, and there is no picture to lose. Anything with a picture —
+    /// live TV or a playlist video — keeps its item, so the last decoded
+    /// frame stays frozen on screen instead of blanking to black. Nothing
+    /// stale gets played from it either: live resumes re-tune from the top
+    /// and on-demand items are supposed to continue where they left off.
+    static func dropsItem(isVideo: Bool, isPlaylist: Bool) -> Bool {
+        !isVideo && !isPlaylist
+    }
+}
+
 // MARK: - Controls auto-hide
 
 /// Governs the app-drawn video overlay (scrubber + transport buttons).
@@ -142,8 +161,11 @@ enum StallRecoveryPolicy {
 /// no system chrome and provides no system auto-hide — this policy is the
 /// only thing that hides the controls.
 enum ControlsAutoHidePolicy {
-    /// Idle time before the overlay fades out during playback.
-    static let idleTimeout: TimeInterval = 20
+    /// Idle time before the overlay fades out during playback. Short on
+    /// purpose: on a 10-foot screen the chrome sits on top of the picture,
+    /// so it has to step aside quickly once the user settles into watching.
+    /// Any remote interaction restarts the countdown.
+    static let idleTimeout: TimeInterval = 5
 
     /// True when the overlay may fade itself out. Controls stay pinned
     /// while paused (the user is looking at a frozen frame and needs the

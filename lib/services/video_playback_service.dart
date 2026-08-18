@@ -180,6 +180,10 @@ class VideoPlaybackService {
   /// Emits `true` once when the media reaches its end (VOD auto-advance).
   Stream<bool> get completedStream => _completed.stream;
 
+  /// True once the current media has played to its end (on-demand items only;
+  /// a live stream never completes).
+  bool get isCompleted => _completed.value;
+
   /// Emits an error string when playback fails.
   Stream<String> get errorStream => _error.stream;
 
@@ -313,6 +317,23 @@ class VideoPlaybackService {
 
   Future<void> seek(Duration position) async =>
       _controller?.seekTo(position);
+
+  /// Jumps back to the live edge of a live stream.
+  ///
+  /// The cheapest recovery for a live picture whose clock has frozen: the
+  /// connection and the decoder stay up, only the playhead moves. Seeking to
+  /// the end of the reported window is enough — the engine clamps it into the
+  /// seekable live range. When no window has been probed yet there is nothing
+  /// to seek to, so this just nudges playback instead. Playback is resumed
+  /// afterwards when the user's intent is still "playing", because a seek can
+  /// leave the engine paused.
+  Future<void> seekToLiveEdge() async {
+    final c = _controller;
+    if (c == null || !c.value.isInitialized) return;
+    final window = c.value.duration;
+    if (window > Duration.zero) await c.seekTo(window);
+    if (_playIntended) await c.play();
+  }
 
   /// Sets volume in the 0..1 range.
   Future<void> setVolume(double volume) async {

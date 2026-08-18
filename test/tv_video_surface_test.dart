@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:radio_crestin/services/video_playback_service.dart';
 import 'package:radio_crestin/tv/widgets/tv_video_surface.dart';
+import 'package:radio_crestin/widgets/video_overlay_controls.dart'
+    show shouldShowVideoControls;
 import 'package:video_player/video_player.dart';
 
 import 'helpers/fake_video_player_platform.dart';
@@ -59,5 +61,34 @@ void main() {
     // Assert.
     expect(find.byType(VideoPlayer), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsNothing);
+  });
+
+  group('TV video chrome auto-hide', () {
+    test('the chrome steps aside after 5 idle seconds', () {
+      // A 10-foot overlay sits on top of the picture, so it has to go away
+      // quickly once the user has settled into watching.
+      expect(kTvVideoChromeAutoHideDelay, const Duration(seconds: 5));
+    });
+
+    test('paused or buffering keeps the chrome pinned', () {
+      // Nothing is moving — hiding the transport would leave the user
+      // staring at a still frame with no way to tell what happened.
+      expect(
+        shouldShowVideoControls(
+            userVisible: false, playing: false, buffering: false),
+        isTrue,
+      );
+      expect(
+        shouldShowVideoControls(
+            userVisible: false, playing: true, buffering: true),
+        isTrue,
+      );
+      // Playing + idle timer elapsed → the picture is left alone.
+      expect(
+        shouldShowVideoControls(
+            userVisible: false, playing: true, buffering: false),
+        isFalse,
+      );
+    });
   });
 }

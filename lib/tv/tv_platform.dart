@@ -20,6 +20,15 @@ class TvPlatform {
   /// True for macOS, Linux, or Windows desktop.
   static bool get isDesktop => _isDesktop;
 
+  /// Whether this large-screen shell can EMBED a YouTube item (the
+  /// `youtube_player_iframe` webview).
+  ///
+  /// Android TV ships the system WebView, so a YouTube playlist item plays
+  /// there exactly like it does on the phone. The desktop shells have no
+  /// webview implementation, so they fall back to the "up next" card that
+  /// counts down and skips the item.
+  static bool get canEmbedYoutube => Platform.isAndroid;
+
   /// Initialize platform detection. Must be called before runApp.
   static Future<void> initialize() async {
     // Desktop detection — no async needed

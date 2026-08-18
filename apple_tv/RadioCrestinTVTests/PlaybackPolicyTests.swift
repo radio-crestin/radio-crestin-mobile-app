@@ -107,10 +107,33 @@ final class PlaybackPolicyTests: XCTestCase {
         )
     }
 
+    // MARK: - Pause
+
+    func test_live_audio_pause_drops_the_item() {
+        XCTAssertTrue(
+            PausePolicy.dropsItem(isVideo: false, isPlaylist: false)
+        )
+    }
+
+    func test_live_video_pause_keeps_the_item_so_the_frame_stays() {
+        XCTAssertFalse(
+            PausePolicy.dropsItem(isVideo: true, isPlaylist: false)
+        )
+    }
+
+    func test_playlist_pause_keeps_the_item() {
+        XCTAssertFalse(
+            PausePolicy.dropsItem(isVideo: false, isPlaylist: true)
+        )
+        XCTAssertFalse(
+            PausePolicy.dropsItem(isVideo: true, isPlaylist: true)
+        )
+    }
+
     // MARK: - Controls auto-hide
 
-    func test_auto_hide_idle_window_is_twenty_seconds() {
-        XCTAssertEqual(ControlsAutoHidePolicy.idleTimeout, 20)
+    func test_auto_hide_idle_window_is_five_seconds() {
+        XCTAssertEqual(ControlsAutoHidePolicy.idleTimeout, 5)
     }
 
     func test_controls_auto_hide_while_playing() {
