@@ -561,12 +561,14 @@ void main() {
       // Act.
       await openLiveArtefact(media);
 
-      // Assert: the engine really did latch isCompleted (the bug's source)…
-      expect(service.controller!.value.isCompleted, isTrue,
-          reason: 'the clamp-to-1ms artefact must be reproduced');
-      // …but the service refuses it: a live stream never ends, so the
-      // transport button, the lock screen and the auto-hide timer all keep
-      // seeing "playing".
+      // Assert: the artefact never even reaches the controller any more —
+      // LiveDurationVideoPlatform swapped the 1ms length for an unreachable
+      // one, so there is nothing for the playhead to "complete" against.
+      expect(service.controller!.value.isCompleted, isFalse,
+          reason: 'the decorator must neutralise the clamp at its source');
+      // The service's own guard stays as defence in depth: a live stream never
+      // ends, so the transport button, the lock screen and the auto-hide timer
+      // all keep seeing "playing".
       expect(service.isCompleted, isFalse);
       expect(service.isPlaying, isTrue);
       expect(playing, [false, true]);
@@ -580,8 +582,10 @@ void main() {
       await _settle(700); // one native-playhead poll
 
       // Assert: a position frozen at 1ms is what made the handler's stall
-      // watchdog think a healthy channel had a frozen clock.
-      expect(service.controller!.value.position, bogus);
+      // watchdog think a healthy channel had a frozen clock. With the
+      // decorator in place the controller's own clock runs free too.
+      expect(service.controller!.value.position, const Duration(seconds: 42),
+          reason: 'nothing clamps the playhead once the length is unreachable');
       expect(service.position, const Duration(seconds: 42));
     });
 
@@ -964,6 +968,8 @@ void main() {
       await expectLater(service.heightStream, emitsThrough(emitsDone));
       await expectLater(service.qualitiesStream, emitsThrough(emitsDone));
       await expectLater(service.selectedQualityStream, emitsThrough(emitsDone));
+      await expectLater(service.indefiniteStream, emitsThrough(emitsDone));
+      await expectLater(service.seekingStream, emitsThrough(emitsDone));
     });
 
     test('disposing an untouched service does not throw', () async {
@@ -972,6 +978,199 @@ void main() {
 
       // Act + Assert.
       await expectLater(fresh.dispose(), completes);
+    });
+  });
+
+  group('indefinite media (the live-stream signal)', () {
+    const bogus = Duration(milliseconds: 1);
+
+    test('a live stream that reports the artefact is flagged indefinite',
+        () async {
+      // Arrange + Act.
+      final media = url('/live.m3u8');
+      platform.script(media, const FakeMediaScript(duration: bogus));
+      await service.open(media, live: true);
+      await _settle(120);
+
+      // Assert: the flag comes from the decorator's record of the RAW length,
+      // and the published duration stays "unknown" — never the stand-in.
+      expect(service.isIndefinite, isTrue);
+      expect(service.duration, Duration.zero);
+      expect(service.controller!.value.duration, kIndefiniteDurationStandIn);
+    });
+
+    test('an on-demand item with a real length is not indefinite', () async {
+      // Arrange + Act.
+      final media = url('/clip.mp4');
+      platform.script(
+          media, const FakeMediaScript(duration: Duration(minutes: 3)));
+      await service.open(media);
+      await _settle(120);
+
+      // Assert.
+      expect(service.isIndefinite, isFalse);
+      expect(service.duration, const Duration(minutes: 3));
+    });
+
+    test('the flag follows the media across an open()', () async {
+      // Arrange: a live channel…
+      final live = url('/live.m3u8');
+      final vod = url('/clip.mp4');
+      platform.script(live, const FakeMediaScript(duration: bogus));
+      platform.script(
+          vod, const FakeMediaScript(duration: Duration(minutes: 3)));
+      await service.open(live, live: true);
+      await _settle(120);
+      expect(service.isIndefinite, isTrue);
+
+      // Act: …then an on-demand item.
+      await service.open(vod);
+      await _settle(120);
+
+      // Assert.
+      expect(service.isIndefinite, isFalse);
+    });
+
+    test('a zero-length report is treated as indefinite too', () async {
+      // Arrange + Act: some engines answer 0 rather than the overflowed
+      // sentinel for a stream with no timeline.
+      final media = url('/zero.m3u8');
+      platform.script(media, const FakeMediaScript(duration: Duration.zero));
+      await service.open(media, live: true);
+      await _settle(120);
+
+      // Assert.
+      expect(service.isIndefinite, isTrue);
+      expect(service.duration, Duration.zero);
+    });
+  });
+
+  group('resuming a live stream (the play() rewind)', () {
+    const bogus = Duration(milliseconds: 1);
+
+    test('pause then play again never seeks the stream back to zero',
+        () async {
+      // Arrange: video_player's play() opens with
+      //   `if (value.position == value.duration) await seekTo(Duration.zero)`
+      // and its _updatePosition clamps the playhead to the duration — so with
+      // the 1ms artefact that test was ALWAYS true and every resume threw the
+      // viewer back to the start of the DVR window.
+      final media = url('/live.m3u8');
+      platform.script(media, const FakeMediaScript(duration: bogus));
+      await service.open(media, live: true);
+      final id = platform.idFor(media);
+      platform.setPosition(id, const Duration(seconds: 42));
+      await _settle(300);
+
+      // Act.
+      await service.pause();
+      await service.play();
+      await _settle(120);
+
+      // Assert: not one seek was issued, and the intent is back to playing.
+      expect(platform.seeksFor(id), isEmpty,
+          reason: 'a resume must not move a live playhead');
+      expect(service.isPlaying, isTrue);
+    });
+
+    test('an on-demand item that really ended still rewinds on replay',
+        () async {
+      // Arrange: the decorator must not disable video_player's legitimate
+      // "replay from the start" behaviour for media with a real length.
+      final media = url('/clip.mp4');
+      const length = Duration(minutes: 3);
+      platform.script(media, const FakeMediaScript(duration: length));
+      await service.open(media, autoPlay: false);
+      final id = platform.idFor(media);
+      await service.seek(length);
+      await _settle(120);
+
+      // Act.
+      await service.play();
+
+      // Assert: the seek back to zero that a replay needs.
+      expect(platform.seeksFor(id), contains(Duration.zero));
+    });
+  });
+
+  group('optimistic seek settling', () {
+    const length = Duration(minutes: 10);
+    const target = Duration(minutes: 4);
+
+    /// Opens a VOD item whose native playhead is deliberately STALE, which is
+    /// what used to snap the scrubber back under the user's thumb.
+    Future<String> openVod() async {
+      final media = url('/clip.mp4');
+      platform.script(media, const FakeMediaScript(duration: length));
+      await service.open(media, autoPlay: false);
+      await _settle(60);
+      return media;
+    }
+
+    test('the target is published immediately and held while seeking',
+        () async {
+      // Arrange.
+      await openVod();
+
+      // Act.
+      await service.seek(target);
+
+      // Assert.
+      expect(service.position, target);
+      expect(service.isSeeking, isTrue);
+    });
+
+    test('a stale position arriving mid-seek is ignored', () async {
+      // Arrange.
+      final media = await openVod();
+      final id = platform.idFor(media);
+      platform.seekUpdatesPosition = false;
+      await service.seek(target);
+
+      // Act: the engine has accepted the seek but its playhead is still where
+      // it was, and keeps saying so.
+      platform.setPosition(id, const Duration(seconds: 3));
+      await _settle(500);
+
+      // Assert: the scrubber stays where the user put it.
+      expect(service.position, target);
+      expect(service.isSeeking, isTrue);
+    });
+
+    test('tracking resumes once the playhead lands near the target', () async {
+      // Arrange.
+      final media = await openVod();
+      final id = platform.idFor(media);
+      platform.seekUpdatesPosition = false;
+      await service.seek(target);
+      expect(service.isSeeking, isTrue);
+
+      // Act: the engine arrives, a keyframe short of the exact target.
+      final landed = target - const Duration(milliseconds: 900);
+      platform.setPosition(id, landed);
+      await _settle(500);
+
+      // Assert.
+      expect(service.isSeeking, isFalse);
+      expect(service.position, landed);
+    });
+
+    test('a seek is refused — and never starts settling — on live media',
+        () async {
+      // Arrange.
+      final media = url('/live.m3u8');
+      platform.script(
+          media, const FakeMediaScript(duration: Duration(milliseconds: 1)));
+      await service.open(media, live: true);
+      await _settle(120);
+      final id = platform.idFor(media);
+
+      // Act.
+      await service.seek(const Duration(minutes: 2));
+
+      // Assert.
+      expect(platform.seeksFor(id), isEmpty);
+      expect(service.isSeeking, isFalse);
     });
   });
 }

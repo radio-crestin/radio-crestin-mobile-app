@@ -6,25 +6,18 @@ import 'package:rxdart/rxdart.dart';
 import 'package:video_player/video_player.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
+import 'live_duration_video_platform.dart';
 import 'video_quality.dart';
 
-/// The duration a live stream ends up reported with — an INDEFINITE length.
-///
-/// Both platforms send `-9223372036854775807` milliseconds (iOS
-/// `CMTIME_IS_INDEFINITE`, Android `C.TIME_UNSET`), and video_player's
-/// `Duration(milliseconds: …)` conversion overflows that to exactly 1000
-/// microseconds. A 1ms "media" then makes video_player clamp every position to
-/// its end, which latched `isCompleted` (transport button stuck on "play",
-/// controls never auto-hiding, playlists skipping instantly), pinned the
-/// scrubber at 0:00/0:00 and turned every seek into a jump to the start of the
-/// DVR window. Upstream: flutter/flutter#102366, #107882 (both still open).
-const Duration kIndefiniteDurationSentinel = Duration(microseconds: 1000);
-
-/// Whether [d] is a usable media length: strictly positive, and not the
-/// [kIndefiniteDurationSentinel] artefact. [Duration.zero] means "not resolved
-/// yet", which is equally unusable.
-bool isPlausibleMediaDuration(Duration? d) =>
-    d != null && d > Duration.zero && d != kIndefiniteDurationSentinel;
+// The indefinite-duration vocabulary now lives with the platform decorator that
+// neutralises the artefact ([LiveDurationVideoPlatform]); re-exported here so
+// every existing importer of this file keeps compiling.
+export 'live_duration_video_platform.dart'
+    show
+        kIndefiniteDurationSentinel,
+        kIndefiniteDurationStandIn,
+        kMaxPlausibleMediaDuration,
+        isPlausibleMediaDuration;
 
 /// Wraps the official `video_player` plugin (AVPlayer on iOS, ExoPlayer/Media3
 /// on Android) for the app's "video mode": TV channels and video playlist items
@@ -66,6 +59,12 @@ class VideoPlaybackService {
   /// what the quality parser fetched. Kept so [setVideoQuality] can return to
   /// `Auto` by re-opening it.
   String? _masterUrl;
+
+  /// The URL the ACTIVE controller was created for (the master URL, or the
+  /// variant URL after a manual quality pin). Used to ask
+  /// [LiveDurationVideoPlatform] whether this media reported an indefinite
+  /// length — `VideoPlayerController.playerId` is `@visibleForTesting`.
+  String? _activeUrl;
 
   /// Monotonic token so a late master-playlist fetch (or a pending quality
   /// swap) belonging to a superseded [open] is ignored.
@@ -123,6 +122,32 @@ class VideoPlaybackService {
   final BehaviorSubject<VideoQuality> _selectedQuality =
       BehaviorSubject<VideoQuality>.seeded(VideoQuality.auto);
 
+  /// Whether the CURRENT media has NO usable timeline — a live stream, or
+  /// anything else whose length the engine cannot report.
+  ///
+  /// The authoritative source is [LiveDurationVideoPlatform], which saw the raw
+  /// indefinite length before video_player could turn it into a 1ms media (see
+  /// that class for why the substitution has to happen down there). The
+  /// duration test is kept as defence-in-depth for the case where the decorator
+  /// is not installed. This is what the UI asks "is there a scrubber?" — never
+  /// a duration heuristic of its own.
+  final BehaviorSubject<bool> _indefinite = BehaviorSubject<bool>.seeded(false);
+
+  /// True while a seek is in flight: the engine has been asked to move but its
+  /// playhead has not arrived yet. Surfaces show their buffering spinner and
+  /// hold the scrubber at the TARGET, instead of snapping back to whatever
+  /// stale position is still streaming in. See [seek].
+  final BehaviorSubject<bool> _seeking = BehaviorSubject<bool>.seeded(false);
+
+  /// Where the in-flight seek is headed (null when none is in flight).
+  Duration? _seekTarget;
+
+  /// Polls the NATIVE playhead while a seek settles (see [_sampleSeekSettle]).
+  Timer? _seekSettlePoll;
+
+  /// Fires if a seek never lands, so the UI can never be stuck on the target.
+  Timer? _seekSettleTimer;
+
   /// Forward buffer target for a LIVE stream, in seconds (2 minutes).
   ///
   /// With video_player, buffer sizing is owned by the native player (AVPlayer /
@@ -157,6 +182,22 @@ class VideoPlaybackService {
 
   /// Runs only while the current media has no trustworthy duration.
   Timer? _rawPositionTimer;
+
+  /// How close the engine's playhead must land to the seek target before the UI
+  /// is handed back the real position (see [seek]). Generous on purpose: a
+  /// network seek lands on the nearest keyframe, not on the exact target.
+  @visibleForTesting
+  static const Duration seekSettleTolerance = Duration(seconds: 2);
+
+  /// Upper bound on holding the UI at a seek target. A seek that never reports
+  /// a nearby position (a dropped connection mid-scrub) must not freeze the
+  /// scrubber and the spinner forever.
+  @visibleForTesting
+  static const Duration seekSettleTimeout = Duration(seconds: 10);
+
+  /// How often the native playhead is asked whether the seek has landed.
+  @visibleForTesting
+  static const Duration seekSettleInterval = Duration(milliseconds: 200);
 
   /// Previous native playhead sample, to detect that it is ADVANCING.
   Duration? _lastRawPosition;
@@ -254,6 +295,16 @@ class VideoPlaybackService {
   Stream<VideoQuality> get selectedQualityStream => _selectedQuality.stream;
   VideoQuality get selectedQuality => _selectedQuality.value;
 
+  /// Whether the current media has no usable timeline (see [_indefinite]).
+  /// The single answer to "can this be scrubbed?" for every surface.
+  Stream<bool> get indefiniteStream => _indefinite.stream;
+  bool get isIndefinite => _indefinite.value;
+
+  /// True while a seek is in flight and the published position is the TARGET
+  /// rather than the engine's own playhead (see [seek]).
+  Stream<bool> get seekingStream => _seeking.stream;
+  bool get isSeeking => _seeking.value;
+
   VideoPlayerOptions _options() => VideoPlayerOptions(
         // REQUIRED for the gapless background handoff — the video keeps playing
         // audibly while just_audio spins up muted.
@@ -279,8 +330,15 @@ class VideoPlaybackService {
     bool autoPlay = true,
     Duration? startPosition,
   }) async {
+    // The decorator MUST be in place before any controller is built — it can
+    // only rewrite an `initialized` event it is there to see.
+    LiveDurationVideoPlatform.ensureInstalled();
     final generation = ++_mediaGeneration;
     _live = live;
+    // Believe the caller until the engine reports: a live stream has no
+    // timeline, an on-demand item is assumed to have one.
+    _setIndefinite(live);
+    _clearSeekSettling();
     _setPlayIntent(autoPlay);
     _masterUrl = url;
     _lastError = null;
@@ -339,7 +397,7 @@ class VideoPlaybackService {
       await next.seekTo(startPosition);
     }
 
-    _bind(next);
+    _bind(next, url);
     if (previous != null) await _disposeController(previous);
 
     if (autoPlay) {
@@ -379,12 +437,89 @@ class VideoPlaybackService {
   /// Seeks to [position] — ignored while the media has no usable length.
   ///
   /// `VideoPlayerController.seekTo` clamps every target to `value.duration`, so
-  /// on a live stream (duration = [kIndefiniteDurationSentinel]) ANY seek
-  /// collapses to 1ms, i.e. the very start of the DVR window.
+  /// on media with no real timeline ANY seek collapses to its start.
+  ///
+  /// The seek is OPTIMISTIC: [position] is published at once and held there
+  /// while [isSeeking] is true, so the scrubber stays under the user's thumb
+  /// instead of snapping back to the stale playhead that keeps streaming in
+  /// until the engine actually moves. Tracking of the real position resumes the
+  /// moment it lands within [seekSettleTolerance] of the target (or after
+  /// [seekSettleTimeout], so a seek that never lands cannot freeze the UI).
   Future<void> seek(Duration position) async {
     final c = _controller;
-    if (c == null || !isPlausibleMediaDuration(c.value.duration)) return;
-    await c.seekTo(position);
+    if (c == null || !_isSeekableNow(c)) return;
+    _beginSeekSettling(position);
+    try {
+      await c.seekTo(position);
+    } catch (e) {
+      debugPrint('VideoPlaybackService: seek failed: $e');
+      _clearSeekSettling();
+    }
+  }
+
+  /// Whether [c] can be scrubbed right now: a real, reachable timeline.
+  bool _isSeekableNow(VideoPlayerController c) =>
+      !_isIndefiniteMedia() && isPlausibleMediaDuration(c.value.duration);
+
+  /// Whether the decorator saw the ACTIVE media report an indefinite length.
+  bool _isIndefiniteMedia() {
+    final url = _activeUrl;
+    return url != null && LiveDurationVideoPlatform.isIndefiniteUrl(url);
+  }
+
+  /// Publishes [target] as the position and holds it there until the engine's
+  /// own playhead catches up (see [seek]).
+  void _beginSeekSettling(Duration target) {
+    _seekTarget = target;
+    _position.add(target);
+    if (!_seeking.value) _seeking.add(true);
+    _seekSettleTimer?.cancel();
+    _seekSettleTimer = Timer(seekSettleTimeout, _clearSeekSettling);
+    _seekSettlePoll?.cancel();
+    _seekSettlePoll =
+        Timer.periodic(seekSettleInterval, (_) => _sampleSeekSettle());
+  }
+
+  /// Asks the ENGINE where it actually is and ends the settling window once it
+  /// has arrived near the target.
+  ///
+  /// The native playhead is the only honest answer here:
+  /// `VideoPlayerController.seekTo` writes the target straight into
+  /// `value.position` before the engine has moved at all, so `value` would
+  /// report every seek as instantly settled.
+  Future<void> _sampleSeekSettle() async {
+    final c = _controller;
+    final target = _seekTarget;
+    if (c == null || target == null || !c.value.isInitialized) return;
+    Duration? sample;
+    try {
+      sample = await c.position;
+    } catch (e) {
+      return; // a disposed/failed controller has no playhead
+    }
+    if (sample == null || !identical(c, _controller)) return;
+    if (_seekTarget != target) return; // superseded by a newer seek
+    if ((sample - target).abs() > seekSettleTolerance) return;
+    _clearSeekSettling();
+    _position.add(sample);
+  }
+
+  /// Hands position tracking back to the engine.
+  void _clearSeekSettling() {
+    _seekSettleTimer?.cancel();
+    _seekSettleTimer = null;
+    _seekSettlePoll?.cancel();
+    _seekSettlePoll = null;
+    _seekTarget = null;
+    if (_seeking.value) _seeking.add(false);
+  }
+
+  /// Publishes [sample] — unless a seek is settling, in which case the target
+  /// stays on screen and [_sampleSeekSettle] decides when to hand tracking
+  /// back.
+  void _publishPosition(Duration sample) {
+    if (_seekTarget != null) return;
+    _position.add(sample);
   }
 
   /// Jumps back to the live edge of a live stream.
@@ -407,7 +542,7 @@ class VideoPlaybackService {
   Future<void> seekToLiveEdge() async {
     final c = _controller;
     if (c == null || !c.value.isInitialized) return;
-    if (isPlausibleMediaDuration(c.value.duration)) {
+    if (_isSeekableNow(c)) {
       await c.seekTo(c.value.duration); // a real DVR window: jump to its end
     } else {
       await c.pause();
@@ -476,6 +611,7 @@ class VideoPlaybackService {
   /// controller is prepared MUTED so the brief overlap is never double-audio;
   /// it is unmuted the instant it becomes the active source.
   Future<void> setVideoQuality(VideoQuality quality) async {
+    LiveDurationVideoPlatform.ensureInstalled();
     final current = _controller;
     if (current == null) return;
     final targetUrl = quality.isAuto ? _masterUrl : quality.url;
@@ -509,7 +645,7 @@ class VideoPlaybackService {
 
     // Atomic swap: bind + publish the new controller, then unmute it and tear
     // down the old one.
-    _bind(next);
+    _bind(next, targetUrl);
     _selectedQuality.add(quality);
     await next.setVolume(_muted ? 0.0 : _volume);
     await _disposeController(current);
@@ -519,8 +655,9 @@ class VideoPlaybackService {
 
   /// Makes [c] the active controller: attaches the value listener, publishes it
   /// on [controllerStream] and re-emits its current state onto the streams.
-  void _bind(VideoPlayerController c) {
+  void _bind(VideoPlayerController c, String url) {
     _controller = c;
+    _activeUrl = url;
     _retiring = null;
     _lastError = null;
     _lastRawPosition = null;
@@ -530,6 +667,11 @@ class VideoPlaybackService {
     c.addListener(() => _onValue(c));
     _activeController.add(c);
     _onValue(c); // emit initial state (already initialized here)
+  }
+
+  /// Single writer for the "no usable timeline" flag and its stream.
+  void _setIndefinite(bool indefinite) {
+    if (_indefinite.value != indefinite) _indefinite.add(indefinite);
   }
 
   /// Single writer for the play/pause intent and its stream. Emits only on a
@@ -544,14 +686,23 @@ class VideoPlaybackService {
     if (!identical(c, _controller)) return; // stale listener during a swap
     if (identical(c, _retiring)) return; // media the app has moved on from
     final v = c.value;
-    final known = isPlausibleMediaDuration(v.duration) ? v.duration : null;
+    // The decorator's memory beats any duration test: it saw the raw indefinite
+    // length, whereas by now `v.duration` is the (deliberately unreachable)
+    // stand-in it put there. Publishing that stand-in would hand the UI a
+    // 30000-day scrubber, so it publishes Duration.zero — "unknown" — instead.
+    final known = isPlausibleMediaDuration(v.duration) && !_isIndefiniteMedia()
+        ? v.duration
+        : null;
+    // Only an initialized player has said anything about its timeline; before
+    // that the caller's `live` flag (seeded in [open]) stands.
+    if (v.isInitialized) _setIndefinite(known == null);
     if (_duration.value != (known ?? Duration.zero)) {
       _duration.add(known ?? Duration.zero);
     }
     _syncRawPositionPolling(known != null);
     // With an unknown duration the engine's own position is clamped to it and
     // therefore meaningless; [_sampleRawPosition] publishes the native one.
-    if (_rawPositionTimer == null) _position.add(v.position);
+    if (_rawPositionTimer == null) _publishPosition(v.position);
     _buffering.add(v.isBuffering);
 
     final size = v.size;
@@ -636,7 +787,7 @@ class VideoPlaybackService {
       return; // a disposed/failed controller has no playhead
     }
     if (sample == null || !identical(c, _controller)) return;
-    _position.add(sample);
+    _publishPosition(sample);
     final previous = _lastRawPosition;
     _lastRawPosition = sample;
     if (_live && !_hasFrame.value && previous != null && sample > previous) {
@@ -697,6 +848,7 @@ class VideoPlaybackService {
   Future<void> dispose() async {
     _mediaGeneration++;
     _stopRawPositionPolling();
+    _clearSeekSettling();
     final c = _controller;
     _controller = null;
     _retiring = null;
@@ -718,5 +870,7 @@ class VideoPlaybackService {
     await _height.close();
     await _qualities.close();
     await _selectedQuality.close();
+    await _indefinite.close();
+    await _seeking.close();
   }
 }

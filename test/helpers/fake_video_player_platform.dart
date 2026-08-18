@@ -11,7 +11,15 @@ import 'package:video_player_platform_interface/video_player_platform_interface.
 // Re-exported so test files can install/drive the fake without importing the
 // transitive package themselves.
 export 'package:video_player_platform_interface/video_player_platform_interface.dart'
-    show VideoEvent, VideoEventType, VideoPlayerPlatform;
+    show
+        DataSource,
+        DataSourceType,
+        VideoCreationOptions,
+        VideoEvent,
+        VideoEventType,
+        VideoPlayerPlatform,
+        VideoTrack,
+        VideoViewType;
 
 /// How a fake player behaves once `initialize()` subscribes to its event
 /// stream.
@@ -80,6 +88,14 @@ class FakeVideoPlayerPlatform extends VideoPlayerPlatform {
 
   final Map<int, StreamController<VideoEvent>> _events = {};
   final Map<int, Duration> _positions = {};
+
+  /// Whether `seekTo` also moves the position `getPosition` reports.
+  ///
+  /// Real engines answer with the target almost at once, so this defaults to
+  /// `true`. Set it to `false` to model a seek the engine has ACCEPTED but not
+  /// executed yet — the window in which a stale playhead used to yank the
+  /// scrubber back out from under the user's thumb.
+  bool seekUpdatesPosition = true;
 
   int _nextId = 1;
 
@@ -210,7 +226,7 @@ class FakeVideoPlayerPlatform extends VideoPlayerPlatform {
   @override
   Future<void> seekTo(int playerId, Duration position) async {
     seeks.add(MapEntry(playerId, position));
-    _positions[playerId] = position;
+    if (seekUpdatesPosition) _positions[playerId] = position;
   }
 
   @override
