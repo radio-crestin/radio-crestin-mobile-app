@@ -103,7 +103,12 @@ dependencies:
   # streaming and creating NO media session — audio_service stays the single
   # owner of the lock screen / notification / CarPlay / Android Auto. Replaced
   # media_kit (libmpv), which cannot do HLS ABR nor seamless variant switching.
-  video_player: ^2.10.0
+  video_player: ^2.14.0
+  # Pinned DIRECTLY (video_player's own constraint would settle for an older
+  # one): 2.12.0 is the first ExoPlayer build that answers `getVideoTracks()` —
+  # the HLS master-playlist resolutions VideoPlaybackService needs to publish a
+  # real aspect ratio for a live stream whose presentationSize is (0,0).
+  video_player_android: ^2.12.0
   # Keeps the screen awake while video is actually playing (media_kit_video used
   # to handle this; video_player does not). Toggled by VideoPlaybackService on
   # play/pause so the display never sleeps mid-video, and releases on pause/stop.
