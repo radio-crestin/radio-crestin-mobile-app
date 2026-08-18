@@ -106,8 +106,11 @@ class VideoOverlayControls extends StatefulWidget {
     required this.positionStream,
     required this.durationStream,
     required this.title,
+    this.titleStream,
     required this.onPlay,
     required this.onPause,
+    this.onPrevious,
+    this.onNext,
     this.initialPlaying = false,
     this.initialBuffering = false,
     this.initialPosition = Duration.zero,
@@ -140,6 +143,11 @@ class VideoOverlayControls extends StatefulWidget {
   /// Title shown along the top of the overlay (single line, ellipsized).
   final String title;
 
+  /// Live title updates, so the fullscreen route keeps naming what is actually
+  /// playing after the user skips to another station or track — the route
+  /// outlives the widget that pushed it and cannot be rebuilt from above.
+  final Stream<String>? titleStream;
+
   /// Live stream: shows the LIVE pill, hides the seek bar and disables
   /// double-tap seeking.
   final bool isLive;
@@ -168,6 +176,13 @@ class VideoOverlayControls extends StatefulWidget {
   final VoidCallback onPlay;
   final VoidCallback onPause;
 
+  /// Previous / next, flanking play/pause in the fullscreen centre. What they
+  /// mean is the caller's business: inside a playlist station they move between
+  /// tracks, otherwise between stations. Null hides them (inline surfaces keep
+  /// their transport below the video).
+  final VoidCallback? onPrevious;
+  final VoidCallback? onNext;
+
   /// Seek handler for VOD. Null (or [isLive]) means the media is not seekable —
   /// no seek bar and no double-tap seeking.
   final ValueChanged<Duration>? onSeek;
@@ -183,6 +198,7 @@ class _VideoOverlayControlsState extends State<VideoOverlayControls>
     with SingleTickerProviderStateMixin {
   final List<StreamSubscription<dynamic>> _subs = [];
 
+  String _title = '';
   bool _playing = false;
   bool _buffering = false;
   bool _indefinite = false;
@@ -273,6 +289,7 @@ class _VideoOverlayControlsState extends State<VideoOverlayControls>
   @override
   void initState() {
     super.initState();
+    _title = widget.title;
     _playing = widget.initialPlaying;
     _buffering = widget.initialBuffering;
     _indefinite = widget.initialIndefinite;
@@ -297,6 +314,12 @@ class _VideoOverlayControlsState extends State<VideoOverlayControls>
     _subs.add(widget.durationStream.listen((d) {
       if (mounted) setState(() => _duration = d);
     }));
+    final titleStream = widget.titleStream;
+    if (titleStream != null) {
+      _subs.add(titleStream.listen((t) {
+        if (mounted) setState(() => _title = t);
+      }));
+    }
     final indefiniteStream = widget.indefiniteStream;
     if (indefiniteStream != null) {
       _subs.add(indefiniteStream.listen((v) {
@@ -309,6 +332,16 @@ class _VideoOverlayControlsState extends State<VideoOverlayControls>
     }
 
     if (_playing && !_showSpinner) _scheduleHide();
+  }
+
+  @override
+  void didUpdateWidget(VideoOverlayControls oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Surfaces that rebuild from above (the inline overlay) still own their
+    // title; only the fullscreen route needs the stream.
+    if (widget.titleStream == null && widget.title != oldWidget.title) {
+      _title = widget.title;
+    }
   }
 
   @override
@@ -446,6 +479,18 @@ class _VideoOverlayControlsState extends State<VideoOverlayControls>
   /// confirming anything.
   static const Duration _seekHoldTimeout = Duration(seconds: 5);
 
+  /// Runs a prev/next skip with instant feedback: the button shows "playing"
+  /// at once (the new media always starts playing) and the controls stay up so
+  /// the user can keep skipping.
+  void _skip(VoidCallback action) {
+    setState(() {
+      _optimisticPlaying = true;
+      _visible = true;
+    });
+    action();
+    _scheduleHide();
+  }
+
   void _togglePlay() {
     final showPlaying = _optimisticPlaying ?? _playing;
     setState(() {
@@ -548,7 +593,7 @@ class _VideoOverlayControlsState extends State<VideoOverlayControls>
                   child: IgnorePointer(
                     ignoring: !_effectiveVisible,
                     child: _ControlsLayer(
-                      title: widget.title,
+                      title: _title,
                       isLive: widget.isLive,
                       showScrubber: _showScrubber,
                       isFullscreen: widget.isFullscreen,
@@ -558,6 +603,12 @@ class _VideoOverlayControlsState extends State<VideoOverlayControls>
                       duration: _effectiveDuration,
                       dragValue: _dragValue,
                       onTogglePlay: _togglePlay,
+                      onPrevious: widget.onPrevious == null
+                          ? null
+                          : () => _skip(widget.onPrevious!),
+                      onNext: widget.onNext == null
+                          ? null
+                          : () => _skip(widget.onNext!),
                       onSeekChanged: (v) {
                         _hideTimer?.cancel();
                         setState(() => _dragValue = v);
@@ -625,6 +676,8 @@ class _ControlsLayer extends StatelessWidget {
     required this.duration,
     required this.dragValue,
     required this.onTogglePlay,
+    required this.onPrevious,
+    required this.onNext,
     required this.onSeekChanged,
     required this.onSeekEnd,
     required this.onToggleFullscreen,
@@ -640,6 +693,8 @@ class _ControlsLayer extends StatelessWidget {
   final Duration? duration;
   final double? dragValue;
   final VoidCallback onTogglePlay;
+  final VoidCallback? onPrevious;
+  final VoidCallback? onNext;
   final ValueChanged<double> onSeekChanged;
   final ValueChanged<double> onSeekEnd;
   final VoidCallback? onToggleFullscreen;
@@ -670,10 +725,12 @@ class _ControlsLayer extends StatelessWidget {
         Expanded(
           child: Center(
             child: isFullscreen
-                ? _PlayPauseButton(
+                ? _TransportRow(
                     showPlaying: showPlaying,
                     buffering: buffering,
-                    onTap: onTogglePlay,
+                    onTogglePlay: onTogglePlay,
+                    onPrevious: onPrevious,
+                    onNext: onNext,
                   )
                 : AnimatedSwitcher(
                     duration: const Duration(milliseconds: 150),
@@ -719,6 +776,73 @@ class _ControlsLayer extends StatelessWidget {
             child: content,
           )
         : content;
+  }
+}
+
+/// The fullscreen centre transport: previous, play/pause, next.
+///
+/// Skip buttons sit at 80% of the play button's diameter — the standard media
+/// hierarchy, where the primary action reads first and the two skips read as a
+/// pair beside it. Absent callbacks simply drop their button, so a surface with
+/// nothing to skip to keeps a centred play/pause.
+class _TransportRow extends StatelessWidget {
+  const _TransportRow({
+    required this.showPlaying,
+    required this.buffering,
+    required this.onTogglePlay,
+    required this.onPrevious,
+    required this.onNext,
+  });
+
+  final bool showPlaying;
+  final bool buffering;
+  final VoidCallback onTogglePlay;
+  final VoidCallback? onPrevious;
+  final VoidCallback? onNext;
+
+  /// Diameter of the skip discs.
+  static const double _skipSize = kOverlayPlayButtonSize * 0.8;
+
+  @override
+  Widget build(BuildContext context) {
+    final previous = onPrevious;
+    final next = onNext;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (previous != null) ...[
+          OverlayCircleButton(
+            size: _skipSize,
+            onTap: previous,
+            semanticLabel: 'Precedent',
+            child: const Icon(
+              Icons.skip_previous_rounded,
+              color: Colors.white,
+              size: _skipSize * 0.55,
+            ),
+          ),
+          const SizedBox(width: 20),
+        ],
+        _PlayPauseButton(
+          showPlaying: showPlaying,
+          buffering: buffering,
+          onTap: onTogglePlay,
+        ),
+        if (next != null) ...[
+          const SizedBox(width: 20),
+          OverlayCircleButton(
+            size: _skipSize,
+            onTap: next,
+            semanticLabel: 'Următor',
+            child: const Icon(
+              Icons.skip_next_rounded,
+              color: Colors.white,
+              size: _skipSize * 0.55,
+            ),
+          ),
+        ],
+      ],
+    );
   }
 }
 
@@ -1043,9 +1167,15 @@ class VideoPlayerStage extends StatefulWidget {
     super.key,
     required this.videoService,
     required this.title,
+    this.titleStream,
     required this.onPlay,
     required this.onPause,
+    this.onPrevious,
+    this.onNext,
     this.isLive = false,
+    this.hasVideoStream,
+    this.initialHasVideo = true,
+    this.fullscreenAudioBuilder,
     this.onSeek,
     this.fallbackDuration,
     this.allowFullscreen = true,
@@ -1054,7 +1184,25 @@ class VideoPlayerStage extends StatefulWidget {
 
   final VideoPlaybackService videoService;
   final String title;
+
+  /// Live title updates for the fullscreen route, which outlives this widget
+  /// and therefore cannot be rebuilt from above when the station changes.
+  final Stream<String>? titleStream;
   final bool isLive;
+
+  /// Whether video is the thing currently playing. When this goes false while
+  /// the fullscreen route is up — the user skipped from a TV channel to a radio
+  /// station — the route swaps to [fullscreenAudioBuilder] instead of dropping
+  /// the user back to the list.
+  final Stream<bool>? hasVideoStream;
+  final bool initialHasVideo;
+
+  /// Builds the fullscreen face for audio-only playback (station artwork,
+  /// title, metadata and the same transport). Supplied by the caller because
+  /// only it knows the audio side; null keeps the old behaviour of showing the
+  /// (empty) video surface.
+  final Widget Function(BuildContext context, VoidCallback exitFullscreen)?
+      fullscreenAudioBuilder;
 
   /// Known total length for VOD when the player hasn't reported one yet (e.g.
   /// the playlist item's `duration_seconds`). Enables the seek bar immediately.
@@ -1062,6 +1210,13 @@ class VideoPlayerStage extends StatefulWidget {
 
   final VoidCallback onPlay;
   final VoidCallback onPause;
+
+  /// Previous / next, flanking play/pause in the fullscreen centre. What they
+  /// mean is the caller's business: inside a playlist station they move between
+  /// tracks, otherwise between stations. Null hides them (inline surfaces keep
+  /// their transport below the video).
+  final VoidCallback? onPrevious;
+  final VoidCallback? onNext;
   final ValueChanged<Duration>? onSeek;
   final bool allowFullscreen;
   final BorderRadius borderRadius;
@@ -1089,6 +1244,7 @@ class _VideoPlayerStageState extends State<VideoPlayerStage> {
       initialDuration: vs.duration,
       fallbackDuration: widget.fallbackDuration,
       title: widget.title,
+      titleStream: widget.titleStream,
       isLive: widget.isLive,
       indefiniteStream: vs.indefiniteStream,
       initialIndefinite: vs.isIndefinite,
@@ -1097,6 +1253,10 @@ class _VideoPlayerStageState extends State<VideoPlayerStage> {
       isFullscreen: isFullscreen,
       onPlay: widget.onPlay,
       onPause: widget.onPause,
+      // Skipping belongs to the fullscreen layout only: inline, the transport
+      // already sits below the video and a second one would be a duplicate.
+      onPrevious: isFullscreen ? widget.onPrevious : null,
+      onNext: isFullscreen ? widget.onNext : null,
       onSeek: widget.onSeek,
       onToggleFullscreen: onToggleFullscreen,
     );
@@ -1111,6 +1271,15 @@ class _VideoPlayerStageState extends State<VideoPlayerStage> {
       _fullscreenOpen = false;
       return;
     }
+    // Capture everything the route needs NOW: this state is disposed the
+    // moment playback moves to an audio-only station, and the route has to keep
+    // working (and keep the user in fullscreen) after that.
+    final videoService = widget.videoService;
+    final hasVideoStream = widget.hasVideoStream;
+    final initialHasVideo = widget.initialHasVideo;
+    final audioBuilder = widget.fullscreenAudioBuilder;
+    VideoOverlayControls overlay(VoidCallback pop) =>
+        _overlay(isFullscreen: true, onToggleFullscreen: pop);
     await Navigator.of(context, rootNavigator: true).push(
       PageRouteBuilder<void>(
         opaque: true,
@@ -1118,9 +1287,11 @@ class _VideoPlayerStageState extends State<VideoPlayerStage> {
         transitionsBuilder: (_, animation, __, child) =>
             FadeTransition(opacity: animation, child: child),
         pageBuilder: (_, __, ___) => _FullscreenVideoRoute(
-          videoService: widget.videoService,
-          overlayBuilder: (pop) =>
-              _overlay(isFullscreen: true, onToggleFullscreen: pop),
+          videoService: videoService,
+          hasVideoStream: hasVideoStream,
+          initialHasVideo: initialHasVideo,
+          audioBuilder: audioBuilder,
+          overlayBuilder: overlay,
         ),
       ),
     );
@@ -1142,33 +1313,91 @@ class _VideoPlayerStageState extends State<VideoPlayerStage> {
   }
 }
 
-/// The fullscreen video page: the same [videoService] controller rendered
-/// edge-to-edge on black with the overlay in its fullscreen layout. The overlay
-/// receives a [pop] callback (wired to its fullscreen-exit button and pinch-in
-/// gesture) that pops this route.
-class _FullscreenVideoRoute extends StatelessWidget {
+/// The fullscreen page.
+///
+/// Normally: the same [videoService] controller rendered edge-to-edge on black
+/// with the overlay in its fullscreen layout — video_player shares one texture
+/// across widgets, so this is the SAME engine the inline surface was showing,
+/// never a second one.
+///
+/// When playback moves to something with no picture (the user skips from a TV
+/// channel to a radio station) the page swaps its body for [audioBuilder]'s
+/// audio face and stays exactly where it is. Dropping the user back to the
+/// station list on a skip would punish them for using the skip button.
+///
+/// The overlay receives a [pop] callback (wired to its fullscreen-exit button
+/// and pinch-in gesture) that pops this route.
+class _FullscreenVideoRoute extends StatefulWidget {
   const _FullscreenVideoRoute({
     required this.videoService,
     required this.overlayBuilder,
+    required this.hasVideoStream,
+    required this.initialHasVideo,
+    required this.audioBuilder,
   });
 
   final VideoPlaybackService videoService;
   final Widget Function(VoidCallback pop) overlayBuilder;
+  final Stream<bool>? hasVideoStream;
+  final bool initialHasVideo;
+  final Widget Function(BuildContext context, VoidCallback pop)? audioBuilder;
+
+  @override
+  State<_FullscreenVideoRoute> createState() => _FullscreenVideoRouteState();
+}
+
+class _FullscreenVideoRouteState extends State<_FullscreenVideoRoute> {
+  StreamSubscription<bool>? _hasVideoSub;
+  late bool _hasVideo;
+
+  @override
+  void initState() {
+    super.initState();
+    _hasVideo = widget.initialHasVideo;
+    final stream = widget.hasVideoStream;
+    if (stream != null) {
+      _hasVideoSub = stream.listen((v) {
+        if (mounted) setState(() => _hasVideo = v);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _hasVideoSub?.cancel();
+    super.dispose();
+  }
+
+  void _pop() {
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) navigator.pop();
+  }
 
   @override
   Widget build(BuildContext context) {
-    void pop() {
-      final navigator = Navigator.of(context);
-      if (navigator.canPop()) navigator.pop();
-    }
-
+    final audioBuilder = widget.audioBuilder;
+    final showAudioFace = !_hasVideo && audioBuilder != null;
     return Scaffold(
       backgroundColor: Colors.black,
-      body: PlayerVideoSurface(
-        videoService: videoService,
-        fit: BoxFit.contain,
-        borderRadius: BorderRadius.zero,
-        controls: (ctx) => overlayBuilder(pop),
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 250),
+        switchInCurve: Curves.easeInOut,
+        switchOutCurve: Curves.easeInOut,
+        transitionBuilder: _uniqueFade,
+        child: showAudioFace
+            ? KeyedSubtree(
+                key: const ValueKey('fullscreen-audio'),
+                child: audioBuilder(context, _pop),
+              )
+            : KeyedSubtree(
+                key: const ValueKey('fullscreen-video'),
+                child: PlayerVideoSurface(
+                  videoService: widget.videoService,
+                  fit: BoxFit.contain,
+                  borderRadius: BorderRadius.zero,
+                  controls: (ctx) => widget.overlayBuilder(_pop),
+                ),
+              ),
       ),
     );
   }

@@ -18,6 +18,7 @@ import 'contact_support_button.dart';
 import 'default_artwork.dart';
 import 'player_transport.dart';
 import 'player_video_surface.dart';
+import 'fullscreen_audio_stage.dart';
 import 'video_overlay_controls.dart';
 import 'video_thumbnail_image.dart';
 import 'youtube_iframe_player.dart';
@@ -895,9 +896,27 @@ class _MediaSurface extends StatelessWidget {
       child = VideoPlayerStage(
         videoService: audioHandler.videoService,
         title: item?.title ?? station.displayTitle,
+        // The fullscreen route outlives this widget, so it follows the playing
+        // item (and, after a station skip, the station) by stream.
+        titleStream: controller.currentItem.stream
+            .map((i) => i?.title ?? station.displayTitle)
+            .distinct(),
         isLive: false,
         onPlay: audioHandler.play,
         onPause: audioHandler.pauseFromUser,
+        // Context-aware by construction: the handler moves between playlist
+        // items here, and rolls on to the next station past the last one.
+        onPrevious: audioHandler.skipToPrevious,
+        onNext: audioHandler.skipToNext,
+        // Skipping onto an audio item (or an audio-only station) must not eject
+        // the user from fullscreen.
+        hasVideoStream: audioHandler.isVideoMode.stream,
+        initialHasVideo: audioHandler.isVideoMode.value,
+        fullscreenAudioBuilder: (context, exitFullscreen) =>
+            FullscreenAudioStage(
+          audioHandler: audioHandler,
+          onExitFullscreen: exitFullscreen,
+        ),
         onSeek: (d) => controller.seek(d),
         // Enable the seek bar right away using the item's known length, before
         // libmpv reports its own duration.

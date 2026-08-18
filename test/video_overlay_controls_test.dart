@@ -181,6 +181,8 @@ void main() {
       Duration? fallbackDuration,
       ValueChanged<Duration>? onSeek,
       VoidCallback? onToggleFullscreen,
+      VoidCallback? onPrevious,
+      VoidCallback? onNext,
     }) {
       return MaterialApp(
         home: Scaffold(
@@ -207,6 +209,8 @@ void main() {
                 onPlay: () {},
                 onPause: () {},
                 onSeek: onSeek,
+                onPrevious: onPrevious,
+                onNext: onNext,
                 onToggleFullscreen: onToggleFullscreen,
               ),
             ),
@@ -535,21 +539,117 @@ void main() {
       expect(slider.max, const Duration(minutes: 2).inMilliseconds.toDouble());
     });
 
-    testWidgets(
-        'fullscreen center shows ONLY play/pause — no prev/next in the middle',
+    testWidgets('fullscreen centre flanks play/pause with prev and next',
+        (tester) async {
+      await tester.pumpWidget(build(
+        isFullscreen: true,
+        onToggleFullscreen: () {},
+        onPrevious: () {},
+        onNext: () {},
+      ));
+      await tester.pump();
+
+      // Standard media layout: [prev] [play/pause] [next], left to right.
+      expect(find.byIcon(Icons.skip_previous_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.play_arrow_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.skip_next_rounded), findsOneWidget);
+      final prev = tester.getCenter(find.byIcon(Icons.skip_previous_rounded));
+      final play = tester.getCenter(find.byIcon(Icons.play_arrow_rounded));
+      final next = tester.getCenter(find.byIcon(Icons.skip_next_rounded));
+      expect(prev.dx, lessThan(play.dx));
+      expect(next.dx, greaterThan(play.dx));
+      // …and the fullscreen-exit control still sits in the bottom bar.
+      expect(find.byIcon(Icons.fullscreen_exit_rounded), findsOneWidget);
+    });
+
+    testWidgets('a surface with nothing to skip to keeps a centred play/pause',
         (tester) async {
       await tester
           .pumpWidget(build(isFullscreen: true, onToggleFullscreen: () {}));
       await tester.pump();
-      // Center is play/pause only (explicit user feedback): the middle no
-      // longer carries prev/next/fullscreen. Skipping stays on the playlist
-      // section's below-video transport; fullscreen-exit lives in the bottom
-      // bar (its own fullscreen glyph below).
       expect(find.byIcon(Icons.skip_previous_rounded), findsNothing);
       expect(find.byIcon(Icons.skip_next_rounded), findsNothing);
       expect(find.byIcon(Icons.play_arrow_rounded), findsOneWidget);
-      // The fullscreen-exit control is present (in the bottom bar), not absent.
-      expect(find.byIcon(Icons.fullscreen_exit_rounded), findsOneWidget);
+    });
+
+    testWidgets('inline keeps its skip buttons off the video surface',
+        (tester) async {
+      // Inline, the transport already sits below the video; a second one on
+      // the picture would be a duplicate.
+      await tester.pumpWidget(build(
+        onToggleFullscreen: () {},
+        onPrevious: () {},
+        onNext: () {},
+      ));
+      await tester.pump();
+      expect(find.byIcon(Icons.skip_previous_rounded), findsNothing);
+      expect(find.byIcon(Icons.skip_next_rounded), findsNothing);
+    });
+
+    testWidgets('next fires its callback and flips the button optimistically',
+        (tester) async {
+      // Arrange: paused, so the optimistic flip is visible.
+      var nexts = 0;
+      await tester.pumpWidget(build(
+        isFullscreen: true,
+        onToggleFullscreen: () {},
+        onNext: () => nexts++,
+      ));
+      await tester.pump();
+      expect(find.byIcon(Icons.play_arrow_rounded), findsOneWidget);
+
+      // Act.
+      await tester.tap(find.byIcon(Icons.skip_next_rounded));
+      await tester.pump(const Duration(milliseconds: 400));
+
+      // Assert: the tap never feels ignored while the next media loads.
+      expect(nexts, 1);
+      expect(find.byIcon(Icons.pause_rounded), findsOneWidget);
+    });
+
+    testWidgets('previous fires its callback', (tester) async {
+      var prevs = 0;
+      await tester.pumpWidget(build(
+        isFullscreen: true,
+        onToggleFullscreen: () {},
+        onPrevious: () => prevs++,
+      ));
+      await tester.pump();
+
+      await tester.tap(find.byIcon(Icons.skip_previous_rounded));
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(prevs, 1);
+    });
+
+    testWidgets('the fullscreen title follows its stream', (tester) async {
+      // The fullscreen route outlives the widget that pushed it, so the title
+      // cannot be refreshed by a rebuild from above.
+      final title = StreamController<String>.broadcast();
+      addTearDown(title.close);
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: VideoOverlayControls(
+            playingStream: playing.stream,
+            bufferingStream: buffering.stream,
+            positionStream: position.stream,
+            durationStream: duration.stream,
+            title: 'Postul A',
+            titleStream: title.stream,
+            isLive: true,
+            isFullscreen: true,
+            onPlay: () {},
+            onPause: () {},
+          ),
+        ),
+      ));
+      await tester.pump();
+      expect(find.text('Postul A'), findsOneWidget);
+
+      title.add('Postul B');
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('Postul B'), findsOneWidget);
+      expect(find.text('Postul A'), findsNothing);
     });
 
     testWidgets(

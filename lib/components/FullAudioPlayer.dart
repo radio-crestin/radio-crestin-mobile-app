@@ -29,6 +29,7 @@ import '../widgets/contact_support_button.dart';
 import '../widgets/player_transport.dart';
 import '../widgets/player_video_surface.dart';
 import '../widgets/playlist_player_section.dart';
+import '../widgets/fullscreen_audio_stage.dart';
 import '../widgets/video_overlay_controls.dart';
 
 // The player sizing math and the shared transport cluster live in
@@ -724,9 +725,9 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   Widget _buildArtwork(BuildContext context, double thumbSize) {
     if (_isVideoMode) {
       // Big, edge-to-edge (minus a ~12px margin) 16:9 video with the
-      // YouTube-style overlay controls. TV channels are live; the overlay shows
-      // the LIVE pill plus a DVR scrubber once libmpv reports a seekable window
-      // (seek routes through the handler, which re-anchors within the window).
+      // YouTube-style overlay controls. TV channels are live, so the overlay
+      // shows the LIVE pill and no scrubber; seek stays wired for the video
+      // playlist items that DO have a timeline.
       final isLive = currentStation?.isTv ?? false;
       return AnimatedSwitcher(
         duration: const Duration(milliseconds: 300),
@@ -744,12 +745,28 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
               child: VideoPlayerStage(
                 videoService: widget.audioHandler.videoService,
                 title: currentStation?.displayTitle ?? '',
+                // The fullscreen route outlives this widget (skipping to a
+                // radio station unmounts it), so the title it shows has to come
+                // from a stream rather than a rebuild from here.
+                titleStream: widget.audioHandler.currentStation.stream
+                    .map((s) => s?.displayTitle ?? '')
+                    .distinct(),
                 isLive: isLive,
                 onPlay: widget.audioHandler.play,
                 onPause: widget.audioHandler.pauseFromUser,
-                // Wired for live too: the overlay itself decides whether a live
-                // DVR scrubber is shown (only once a seekable window is
-                // reported).
+                // Context-aware by construction: inside a playlist station the
+                // handler moves between tracks, otherwise between stations.
+                onPrevious: widget.audioHandler.skipToPrevious,
+                onNext: widget.audioHandler.skipToNext,
+                // Skipping to an audio-only station must not eject the user
+                // from fullscreen — the route swaps to the audio face instead.
+                hasVideoStream: widget.audioHandler.isVideoMode.stream,
+                initialHasVideo: widget.audioHandler.isVideoMode.value,
+                fullscreenAudioBuilder: (context, exitFullscreen) =>
+                    FullscreenAudioStage(
+                  audioHandler: widget.audioHandler,
+                  onExitFullscreen: exitFullscreen,
+                ),
                 onSeek: widget.audioHandler.seek,
               ),
             ),
