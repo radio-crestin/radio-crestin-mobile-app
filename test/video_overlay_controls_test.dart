@@ -87,13 +87,26 @@ void main() {
   });
 
   group('videoControlsAutoHideDelay', () {
-    test('inline waits 20s of inactivity, fullscreen keeps its 3s', () {
+    test('inline waits 20s of inactivity, fullscreen 5s', () {
       expect(kInlineControlsAutoHideDelay, const Duration(seconds: 20));
-      expect(kFullscreenControlsAutoHideDelay, const Duration(seconds: 3));
+      expect(kFullscreenControlsAutoHideDelay, const Duration(seconds: 5));
       expect(videoControlsAutoHideDelay(isFullscreen: false),
           const Duration(seconds: 20));
       expect(videoControlsAutoHideDelay(isFullscreen: true),
-          const Duration(seconds: 3));
+          const Duration(seconds: 5));
+    });
+
+    test('every surface reads its delay from the one config', () {
+      // One product decision ("how long do controls linger over a moving
+      // picture?"), one place — the phone's fullscreen and the TV's remote
+      // deliberately agree.
+      expect(videoControlsAutoHideDelayFor(VideoControlsSurface.inline),
+          kInlineControlsAutoHideDelay);
+      expect(videoControlsAutoHideDelayFor(VideoControlsSurface.fullscreen),
+          kFullscreenControlsAutoHideDelay);
+      expect(videoControlsAutoHideDelayFor(VideoControlsSurface.tv),
+          kTvVideoChromeAutoHideDelay);
+      expect(kFullscreenControlsAutoHideDelay, kTvVideoChromeAutoHideDelay);
     });
   });
 
@@ -214,19 +227,21 @@ void main() {
       await tester.pump();
       expect(controlsOpacity(tester), 1.0);
 
-      // Well past the 3s auto-hide window — still visible while paused.
-      await tester.pump(const Duration(seconds: 4));
+      // Well past the fullscreen auto-hide window — still visible while paused.
+      await tester.pump(kFullscreenControlsAutoHideDelay +
+          const Duration(seconds: 2));
       expect(controlsOpacity(tester), 1.0);
     });
 
     testWidgets(
-        'fullscreen playing controls auto-hide after ~3s, tap brings them back',
+        'fullscreen playing controls auto-hide after ~5s, tap brings them back',
         (tester) async {
       await tester.pumpWidget(build(initialPlaying: true, isFullscreen: true));
       await tester.pump();
       expect(controlsOpacity(tester), 1.0);
 
-      await tester.pump(const Duration(seconds: 4));
+      await tester.pump(kFullscreenControlsAutoHideDelay +
+          const Duration(seconds: 1));
       expect(controlsOpacity(tester), 0.0);
 
       // Any tap on the (now pass-through) surface toggles controls back on.
@@ -907,7 +922,7 @@ void main() {
       expect(controlsOpacity(tester), 1.0);
     });
 
-    testWidgets('fullscreen keeps its own 3s auto-hide (unchanged)',
+    testWidgets('fullscreen keeps its own, shorter auto-hide window',
         (tester) async {
       await tester.pumpWidget(build(
         initialPlaying: true,
@@ -916,7 +931,10 @@ void main() {
       ));
       await tester.pump();
       expect(controlsOpacity(tester), 1.0);
-      await tester.pump(const Duration(seconds: 4));
+      await tester.pump(kFullscreenControlsAutoHideDelay -
+          const Duration(seconds: 1));
+      expect(controlsOpacity(tester), 1.0);
+      await tester.pump(const Duration(seconds: 2));
       expect(controlsOpacity(tester), 0.0);
     });
 

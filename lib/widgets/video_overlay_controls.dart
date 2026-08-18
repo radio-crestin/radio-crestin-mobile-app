@@ -6,46 +6,17 @@ import 'package:radio_crestin/theme.dart';
 
 import '../services/video_playback_service.dart';
 import 'player_video_surface.dart';
+import 'video_controls_visibility.dart';
+
+// Control-visibility timing and the show/hide rule are shared with the TV
+// chrome; re-exported so this file stays the one import a video surface needs.
+export 'video_controls_visibility.dart';
 
 /// Diameter of the central play/pause control on the video overlay.
 const double kOverlayPlayButtonSize = 56.0;
 
 /// Seconds a single double-tap seek jumps (YouTube-style).
 const int kDoubleTapSeekSeconds = 10;
-
-/// Inactivity delay before the INLINE video surface fades its controls out
-/// (the seek bar / scrubber plus the corner fullscreen and quality buttons).
-///
-/// Much longer than the fullscreen delay on purpose: inline, the video shares
-/// the screen with the title, transport and track list, so the controls are not
-/// in the way — they only need to step aside once the user has clearly settled
-/// into watching.
-const Duration kInlineControlsAutoHideDelay = Duration(seconds: 20);
-
-/// Inactivity delay for the FULLSCREEN transport overlay (YouTube-like).
-const Duration kFullscreenControlsAutoHideDelay = Duration(seconds: 3);
-
-/// The inactivity delay after which the auto-hiding controls fade out. Pure so
-/// the inline-vs-fullscreen timing contract is unit-testable without timers.
-Duration videoControlsAutoHideDelay({required bool isFullscreen}) =>
-    isFullscreen
-        ? kFullscreenControlsAutoHideDelay
-        : kInlineControlsAutoHideDelay;
-
-/// Whether the auto-hiding controls should currently be shown (and be
-/// hit-testable).
-///
-/// [userVisible] is the inactivity timer's own state — false once the timer
-/// elapsed, true again after any interaction. Playback state overrides it:
-/// while PAUSED or buffering the controls always stay up, so a paused video
-/// never strands the user without a scrubber. Pure so the whole show/hide
-/// decision is testable without pumping timers.
-bool shouldShowVideoControls({
-  required bool userVisible,
-  required bool playing,
-  required bool buffering,
-}) =>
-    userVisible || !playing || buffering;
 
 /// Fade transition for the overlay's [AnimatedSwitcher]s that never collides
 /// with itself.
