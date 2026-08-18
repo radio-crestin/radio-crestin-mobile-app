@@ -342,6 +342,16 @@ class _VideoOverlayControlsState extends State<VideoOverlayControls>
     if (widget.titleStream == null && widget.title != oldWidget.title) {
       _title = widget.title;
     }
+    // A surface that switches between inline and fullscreen IN PLACE — the
+    // YouTube player keeps ONE overlay for both modes instead of pushing a
+    // second one in a route — would otherwise carry the countdown of the mode
+    // the user just left (20s of controls sitting over a fullscreen video).
+    if (widget.isFullscreen != oldWidget.isFullscreen &&
+        _visible &&
+        _playing &&
+        !_showSpinner) {
+      _scheduleHide();
+    }
   }
 
   @override

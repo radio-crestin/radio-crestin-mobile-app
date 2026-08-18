@@ -1038,6 +1038,39 @@ void main() {
       expect(controlsOpacity(tester), 0.0);
     });
 
+    testWidgets(
+        'switching to fullscreen in place adopts the shorter window',
+        (tester) async {
+      // The YouTube surface flips this flag on ONE overlay (no second route),
+      // so the countdown must be restarted under the new mode's delay —
+      // otherwise the controls sat over a fullscreen video for the inline 20s.
+
+      // Arrange: inline and playing.
+      await tester.pumpWidget(build(
+        initialPlaying: true,
+        onSeek: (_) {},
+        initialDuration: const Duration(minutes: 10),
+        onToggleFullscreen: () {},
+      ));
+      await tester.pump();
+      expect(controlsOpacity(tester), 1.0);
+
+      // Act: the player goes fullscreen.
+      await tester.pumpWidget(build(
+        initialPlaying: true,
+        isFullscreen: true,
+        onSeek: (_) {},
+        initialDuration: const Duration(minutes: 10),
+        onToggleFullscreen: () {},
+      ));
+      await tester.pump();
+
+      // Assert: gone one second past the FULLSCREEN delay, not the inline one.
+      await tester.pump(kFullscreenControlsAutoHideDelay +
+          const Duration(seconds: 1));
+      expect(controlsOpacity(tester), 0.0);
+    });
+
     testWidgets('double-tap does nothing on a live stream', (tester) async {
       Duration? seeked;
       await tester.pumpWidget(build(
