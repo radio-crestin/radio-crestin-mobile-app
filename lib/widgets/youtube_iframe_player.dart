@@ -20,6 +20,30 @@ import 'video_overlay_controls.dart';
 /// column (the bug that hit Android TV when leaving an embedded YouTube item).
 bool shouldApplyFullscreenSystemChrome({required bool isTv}) => !isTv;
 
+/// The parameters every YouTube embed in the app is loaded with.
+///
+/// `controls: 0` (and no fullscreen button) is the load-bearing part: the
+/// iframe draws NO chrome of its own on any platform. Everything the user sees
+/// over the picture is a Flutter widget in the player's controls layer — the
+/// same overlay the rest of the app's video uses, and the only kind a TV remote
+/// can reach at all, since a WebView cannot receive D-pad input.
+///
+/// Leaving YouTube's chrome on would not be a free extra: it is drawn INSIDE
+/// the picture, under our translucent overlay, and YouTube raises it by itself
+/// whenever the video pauses — two stacked play buttons, only one reachable.
+const YoutubePlayerParams kYoutubePlayerParams = YoutubePlayerParams(
+  showControls: false,
+  showFullscreenButton: false,
+  mute: false,
+  loop: false,
+  enableCaption: false,
+  // youtube-nocookie.com host; avoids setting tracking cookies.
+  privacyEnhancedMode: true,
+  // Keep the related-video grid to the same channel where possible.
+  strictRelatedVideos: true,
+  playsInline: true,
+);
+
 /// Renders a playlist YouTube item inline via `youtube_player_iframe` and wires
 /// it back to the [PlaylistController] contract:
 ///   - end-of-video / end-of-playlist → [PlaylistController.notifyYoutubeItemEnded]
@@ -126,30 +150,7 @@ class _YoutubeIframePlayerState extends State<YoutubeIframePlayer> {
   @override
   void initState() {
     super.initState();
-    _yt = YoutubePlayerController(
-      params: const YoutubePlayerParams(
-        // `controls=0`: the iframe draws NO chrome of its own, on any
-        // platform. Every control the user sees is a Flutter widget in the
-        // player's own controls layer (see [_buildControls]) — the same
-        // overlay the rest of the app's video uses, and the only kind a TV
-        // remote can reach at all (a WebView cannot receive D-pad input).
-        //
-        // Leaving YouTube's chrome on is not a free "bonus": it is drawn
-        // INSIDE the picture, under our translucent overlay, and YouTube
-        // raises it by itself whenever the video pauses — two stacked play
-        // buttons, only one of them reachable.
-        showControls: false,
-        showFullscreenButton: false,
-        mute: false,
-        loop: false,
-        enableCaption: false,
-        // youtube-nocookie.com host; avoids setting tracking cookies.
-        privacyEnhancedMode: true,
-        // Keep the related-video grid to the same channel where possible.
-        strictRelatedVideos: true,
-        playsInline: true,
-      ),
-    );
+    _yt = YoutubePlayerController(params: kYoutubePlayerParams);
 
     _stateSub = _yt.stream.listen(_onValue);
     _positionSub = _yt.videoStateStream.listen(_onPosition);

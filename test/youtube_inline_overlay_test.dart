@@ -16,6 +16,22 @@ import 'package:radio_crestin/widgets/youtube_iframe_player.dart';
 /// which platforms may touch orientation on a fullscreen transition.
 
 void main() {
+  group('kYoutubePlayerParams', () {
+    test('the iframe never draws chrome of its own', () {
+      // `controls=0` is what makes the app's own overlay the ONLY control
+      // layer. With YouTube's chrome on, it renders inside the picture under
+      // our translucent overlay (two stacked play buttons), and on a TV it is
+      // unreachable anyway — a WebView cannot receive D-pad input.
+      expect(kYoutubePlayerParams.showControls, isFalse);
+      expect(kYoutubePlayerParams.showFullscreenButton, isFalse);
+    });
+
+    test('embeds stay inline and cookie-free', () {
+      expect(kYoutubePlayerParams.playsInline, isTrue);
+      expect(kYoutubePlayerParams.privacyEnhancedMode, isTrue);
+    });
+  });
+
   group('youtubeFlickIntent', () {
     // A quick upward flick: 100px in 100ms → 1000 px/s.
     const fast = Duration(milliseconds: 100);
