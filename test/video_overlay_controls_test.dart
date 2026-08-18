@@ -32,18 +32,6 @@ void main() {
     });
   });
 
-  group('formatBehindLive', () {
-    test('at (or within 5s of) the live edge reads LIVE', () {
-      expect(formatBehindLive(Duration.zero), 'LIVE');
-      expect(formatBehindLive(const Duration(seconds: 4)), 'LIVE');
-    });
-
-    test('behind the edge reads -m:ss', () {
-      expect(formatBehindLive(const Duration(seconds: 30)), '-0:30');
-      expect(formatBehindLive(const Duration(minutes: 2, seconds: 5)), '-2:05');
-    });
-  });
-
   group('computeDoubleTapSeek', () {
     test('forward adds 10s, backward subtracts 10s', () {
       expect(
@@ -149,12 +137,16 @@ void main() {
     late StreamController<bool> buffering;
     late StreamController<Duration> position;
     late StreamController<Duration> duration;
+    late StreamController<bool> indefinite;
+    late StreamController<bool> seeking;
 
     setUp(() {
       playing = StreamController<bool>.broadcast();
       buffering = StreamController<bool>.broadcast();
       position = StreamController<Duration>.broadcast();
       duration = StreamController<Duration>.broadcast();
+      indefinite = StreamController<bool>.broadcast();
+      seeking = StreamController<bool>.broadcast();
     });
 
     tearDown(() {
@@ -162,6 +154,8 @@ void main() {
       buffering.close();
       position.close();
       duration.close();
+      indefinite.close();
+      seeking.close();
     });
 
     Widget build({
@@ -169,6 +163,7 @@ void main() {
       bool initialBuffering = false,
       bool isLive = false,
       bool isFullscreen = false,
+      bool useSeekingStream = false,
       Duration initialPosition = Duration.zero,
       Duration? initialDuration,
       Duration? fallbackDuration,
@@ -195,6 +190,9 @@ void main() {
                 fallbackDuration: fallbackDuration,
                 title: 'Emisiune live • Radio Creștin',
                 isLive: isLive,
+                indefiniteStream: indefinite.stream,
+                initialIndefinite: isLive,
+                seekingStream: useSeekingStream ? seeking.stream : null,
                 isFullscreen: isFullscreen,
                 onPlay: () {},
                 onPause: () {},
@@ -358,8 +356,10 @@ void main() {
     });
 
     testWidgets(
-        'live DVR variant (window ≥ min) shows the LIVE pill AND a seek bar',
+        'a live stream never gets a scrubber, however long its window reads',
         (tester) async {
+      // Neither engine can honour a seek inside a live window, so a draggable
+      // thumb there promises something it cannot deliver.
       await tester.pumpWidget(build(
         isLive: true,
         onSeek: (_) {},
@@ -367,19 +367,135 @@ void main() {
       ));
       await tester.pump();
       expect(find.byType(LivePill), findsOneWidget);
-      expect(find.byType(Slider), findsOneWidget);
+      expect(find.byType(Slider), findsNothing);
     });
 
     testWidgets(
-        'live with too-short window keeps the plain LIVE bar (no seek bar)',
+        'media the engine flags as indefinite loses its scrubber too',
         (tester) async {
+      // Arrange: a VOD-looking surface that reports a length…
       await tester.pumpWidget(build(
-        isLive: true,
+        isLive: false,
         onSeek: (_) {},
-        initialDuration: const Duration(seconds: 10),
+        initialDuration: const Duration(minutes: 11),
       ));
       await tester.pump();
-      expect(find.byType(LivePill), findsOneWidget);
+      expect(find.byType(Slider), findsOneWidget);
+
+      // Act: …until the service says the media has no timeline at all.
+      indefinite.add(true);
+      await tester.pump();
+      await tester.pump();
+
+      // Assert.
+      expect(find.byType(Slider), findsNothing);
+    });
+
+
+    testWidgets(
+        'releasing the scrubber holds the thumb at the target while the seek '
+        'is in flight', (tester) async {
+      // Arrange: a 10-minute VOD whose engine will keep reporting the OLD
+      // position for a moment after the seek — the snap-back that used to
+      // yank the thumb out from under the finger.
+      Duration? seeked;
+      await tester.pumpWidget(build(
+        initialPlaying: true,
+        onSeek: (d) => seeked = d,
+        initialDuration: const Duration(minutes: 10),
+        useSeekingStream: true,
+        onToggleFullscreen: () {},
+      ));
+      await tester.pump();
+
+      // Act: drag and release.
+      await tester.drag(find.byType(Slider), const Offset(60, 0));
+      await tester.pump();
+      expect(seeked, isNotNull);
+      final target = tester.widget<Slider>(find.byType(Slider)).value;
+      expect(target, greaterThan(0));
+
+      // The service reports the seek in flight, and the engine keeps sending
+      // its stale playhead.
+      seeking.add(true);
+      position.add(const Duration(seconds: 2));
+      await tester.pump();
+      await tester.pump();
+
+      // Assert: the thumb has not moved, and the spinner says "loading".
+      expect(tester.widget<Slider>(find.byType(Slider)).value, target);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      // Let the double-tap recognizer's own timer expire.
+      await tester.pump(const Duration(milliseconds: 400));
+    });
+
+    testWidgets('the thumb tracks the engine again once the seek settles',
+        (tester) async {
+      // Arrange.
+      await tester.pumpWidget(build(
+        initialPlaying: true,
+        onSeek: (_) {},
+        initialDuration: const Duration(minutes: 10),
+        useSeekingStream: true,
+        onToggleFullscreen: () {},
+      ));
+      await tester.pump();
+      await tester.drag(find.byType(Slider), const Offset(60, 0));
+      await tester.pump();
+      seeking.add(true);
+      await tester.pump();
+      await tester.pump();
+
+      // Act: the engine lands and the service clears its seeking flag.
+      seeking.add(false);
+      position.add(const Duration(minutes: 5));
+      await tester.pump();
+      await tester.pump();
+
+      // Assert.
+      expect(
+        tester.widget<Slider>(find.byType(Slider)).value,
+        const Duration(minutes: 5).inMilliseconds.toDouble(),
+      );
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      await tester.pump(const Duration(milliseconds: 400));
+    });
+
+    testWidgets('a held thumb is released even if the seek never settles',
+        (tester) async {
+      // Arrange: no "settled" ever arrives (a dropped connection mid-scrub).
+      await tester.pumpWidget(build(
+        initialPlaying: true,
+        onSeek: (_) {},
+        initialDuration: const Duration(minutes: 10),
+        useSeekingStream: true,
+        onToggleFullscreen: () {},
+      ));
+      await tester.pump();
+      await tester.drag(find.byType(Slider), const Offset(60, 0));
+      await tester.pump();
+
+      // Act: past the hold cap, with the engine reporting a real position.
+      await tester.pump(const Duration(seconds: 6));
+      position.add(const Duration(minutes: 2));
+      await tester.pump();
+      await tester.pump();
+
+      // Assert: the UI is never permanently stuck on a stale target.
+      expect(
+        tester.widget<Slider>(find.byType(Slider)).value,
+        const Duration(minutes: 2).inMilliseconds.toDouble(),
+      );
+    });
+
+    testWidgets('a VOD with no plausible length shows no scrubber',
+        (tester) async {
+      await tester.pumpWidget(build(
+        isLive: false,
+        onSeek: (_) {},
+        initialDuration: Duration.zero,
+      ));
+      await tester.pump();
       expect(find.byType(Slider), findsNothing);
     });
 

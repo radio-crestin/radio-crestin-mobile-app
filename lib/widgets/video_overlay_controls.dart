@@ -16,12 +16,6 @@ const double kOverlayPlayButtonSize = 56.0;
 /// Seconds a single double-tap seek jumps (YouTube-style).
 const int kDoubleTapSeekSeconds = 10;
 
-/// Minimum reported live-stream duration before the overlay treats a live
-/// stream as DVR-scrubbable. A live HLS window shorter than this (or a window
-/// libmpv hasn't probed yet, reported as ~0) offers no useful seek range, so
-/// the overlay keeps the plain LIVE bar instead of a near-empty scrubber.
-const Duration kMinLiveDvrWindow = Duration(seconds: 30);
-
 /// Inactivity delay before the INLINE video surface fades its controls out
 /// (the seek bar / scrubber plus the corner fullscreen and quality buttons).
 ///
@@ -71,14 +65,6 @@ bool shouldShowVideoControls({
 /// drives the switch in the first place).
 Widget _uniqueFade(Widget child, Animation<double> animation) =>
     FadeTransition(opacity: animation, child: child);
-
-/// Formats the distance [behind] the live edge as a `-m:ss` chip for the live
-/// DVR bar, or `● LIVE`-adjacent when effectively at the edge. Pure so the
-/// threshold + formatting are unit-testable.
-String formatBehindLive(Duration behind) {
-  if (behind < const Duration(seconds: 5)) return 'LIVE';
-  return '-${formatOverlayTime(behind)}';
-}
 
 /// Formats [d] as the overlay's elapsed/total label: `m:ss`, or `h:mm:ss`
 /// past an hour. Top-level and pure so the time math is trivially unit-testable.
@@ -157,14 +143,17 @@ Future<VideoQuality?> showVideoQualitySheet(
 ///   - Pinch-out on the surface enters fullscreen; pinch-in exits it. Tracked
 ///     on raw pointers (not a `ScaleGestureRecognizer`) so it never competes
 ///     with the tap/double-tap recognizers or the seek-bar drag.
-///   - VOD (`onSeek != null`, not [isLive]) shows a thin brand seek bar with
-///     elapsed/total labels, a fullscreen button, and double-tap ±10s seeking.
-///   - Live TV with a DVR window (`isLive`, `onSeek != null`, and a reported
-///     duration ≥ [kMinLiveDvrWindow]) shows a `● LIVE` pill, a `-m:ss`
-///     behind-live label and a seek bar spanning the window (drag to the far
-///     right = the live edge). Double-tap seeking stays off for live.
-///   - Live TV without a known window shows just the `● LIVE` pill (no seek
-///     bar) and no double-tap seek.
+///   - VOD (`onSeek != null`, not [isLive]/indefinite) with a plausible length
+///     shows a thin brand seek bar with elapsed/total labels, a fullscreen
+///     button, and double-tap ±10s seeking.
+///   - Live TV — and anything else the engine gives no timeline for — shows the
+///     `● LIVE` pill and NO scrubber, ever. Neither AVPlayer nor ExoPlayer can
+///     honour a seek inside a live window (every target clamps to its start),
+///     so a draggable thumb there was an affordance that could not keep its
+///     promise. Double-tap seeking is off for the same reason.
+///   - Releasing the scrubber keeps the thumb at the target and shows the
+///     spinner until the engine reports the seek settled ([seekingStream]),
+///     rather than snapping back to a position the engine has not left yet.
 class VideoOverlayControls extends StatefulWidget {
   const VideoOverlayControls({
     super.key,
@@ -182,6 +171,10 @@ class VideoOverlayControls extends StatefulWidget {
     this.fallbackDuration,
     this.isLive = false,
     this.isFullscreen = false,
+    this.indefiniteStream,
+    this.initialIndefinite = false,
+    this.seekingStream,
+    this.initialSeeking = false,
     this.onSeek,
     this.onToggleFullscreen,
     this.qualitiesStream,
@@ -211,6 +204,23 @@ class VideoOverlayControls extends StatefulWidget {
   /// Live stream: shows the LIVE pill, hides the seek bar and disables
   /// double-tap seeking.
   final bool isLive;
+
+  /// Whether the media has NO usable timeline, straight from
+  /// [VideoPlaybackService.indefiniteStream].
+  ///
+  /// This is the ONLY thing that decides whether a scrubber can exist — the
+  /// overlay never infers "this is live" from a duration of its own. A live
+  /// stream gets no scrubber at any window length: the engines cannot honour a
+  /// seek inside one (every target clamps to the start), so a draggable thumb
+  /// was an affordance that could not keep its promise.
+  final Stream<bool>? indefiniteStream;
+  final bool initialIndefinite;
+
+  /// Whether a seek is in flight ([VideoPlaybackService.seekingStream]).
+  /// While true the thumb stays at the target the user released it on and the
+  /// buffering spinner shows, instead of snapping back to a stale position.
+  final Stream<bool>? seekingStream;
+  final bool initialSeeking;
 
   /// Whether this overlay is currently rendered inside the fullscreen route —
   /// flips the fullscreen button to its "exit" glyph.
@@ -250,6 +260,8 @@ class _VideoOverlayControlsState extends State<VideoOverlayControls>
 
   bool _playing = false;
   bool _buffering = false;
+  bool _indefinite = false;
+  bool _seeking = false;
   Duration _position = Duration.zero;
   Duration? _duration;
   List<VideoQuality> _qualities = const [];
@@ -265,8 +277,14 @@ class _VideoOverlayControlsState extends State<VideoOverlayControls>
   bool? _optimisticPlaying;
 
   /// In-flight seek-bar drag value (ms). While set, position stream updates
-  /// are ignored so the thumb tracks the finger.
+  /// are ignored so the thumb tracks the finger — and it STAYS set after the
+  /// release until the engine confirms the seek landed, so the thumb never
+  /// snaps back to a stale position (see [_onSeekEnd]).
   double? _dragValue;
+
+  /// Hard cap on holding the thumb at a released seek target, in case the
+  /// engine never reports the seek settling.
+  Timer? _seekHoldTimer;
 
   /// This overlay's inactivity delay — 3s fullscreen, 20s inline.
   Duration get _autoHideDelay =>
@@ -295,17 +313,16 @@ class _VideoOverlayControlsState extends State<VideoOverlayControls>
   /// Pinch-in ratio that exits fullscreen.
   static const double _pinchInThreshold = 0.75;
 
-  bool get _seekable => !widget.isLive && widget.onSeek != null;
+  /// Whether this media can be seeked at all — the gate for double-tap ±10s.
+  /// Live and otherwise-timeline-less media can not.
+  bool get _seekable =>
+      !widget.isLive && !_indefinite && widget.onSeek != null;
 
-  /// A live stream that exposes a scrubbable DVR window: seekable, but with the
-  /// live-edge framing (LIVE pill + behind-live label) instead of elapsed/total.
-  /// Gated on a reported window ≥ [kMinLiveDvrWindow] so a not-yet-probed live
-  /// stream falls back to the plain LIVE bar rather than a near-empty scrubber.
-  bool get _liveDvrSeekable {
-    if (!widget.isLive || widget.onSeek == null) return false;
-    final d = _effectiveDuration;
-    return d != null && d >= kMinLiveDvrWindow;
-  }
+  /// Whether to draw the scrubber: a seekable media whose length is known.
+  /// Without a plausible length a slider has no scale to draw, so the bottom
+  /// bar keeps just its labels and the fullscreen toggle.
+  bool get _showScrubber =>
+      _seekable && isPlausibleMediaDuration(_effectiveDuration);
 
   /// The stream-reported duration when it is PLAUSIBLE, else the caller's
   /// [VideoOverlayControls.fallbackDuration] so the seek bar works immediately.
@@ -320,10 +337,14 @@ class _VideoOverlayControlsState extends State<VideoOverlayControls>
     return widget.fallbackDuration;
   }
 
+  /// What the user should read as "loading": the engine waiting on data, or a
+  /// seek that has not landed yet.
+  bool get _showSpinner => _buffering || _seeking;
+
   bool get _effectiveVisible => shouldShowVideoControls(
         userVisible: _visible,
         playing: _playing,
-        buffering: _buffering,
+        buffering: _showSpinner,
       );
 
   @override
@@ -331,6 +352,8 @@ class _VideoOverlayControlsState extends State<VideoOverlayControls>
     super.initState();
     _playing = widget.initialPlaying;
     _buffering = widget.initialBuffering;
+    _indefinite = widget.initialIndefinite;
+    _seeking = widget.initialSeeking;
     _position = widget.initialPosition;
     _duration = widget.initialDuration;
     _qualities = widget.initialQualities;
@@ -353,6 +376,16 @@ class _VideoOverlayControlsState extends State<VideoOverlayControls>
     _subs.add(widget.durationStream.listen((d) {
       if (mounted) setState(() => _duration = d);
     }));
+    final indefiniteStream = widget.indefiniteStream;
+    if (indefiniteStream != null) {
+      _subs.add(indefiniteStream.listen((v) {
+        if (mounted) setState(() => _indefinite = v);
+      }));
+    }
+    final seekingStream = widget.seekingStream;
+    if (seekingStream != null) {
+      _subs.add(seekingStream.listen(_onSeeking));
+    }
     final qualitiesStream = widget.qualitiesStream;
     if (qualitiesStream != null) {
       _subs.add(qualitiesStream.listen((q) {
@@ -366,7 +399,7 @@ class _VideoOverlayControlsState extends State<VideoOverlayControls>
       }));
     }
 
-    if (_playing && !_buffering) _scheduleHide();
+    if (_playing && !_showSpinner) _scheduleHide();
   }
 
   @override
@@ -375,6 +408,7 @@ class _VideoOverlayControlsState extends State<VideoOverlayControls>
       s.cancel();
     }
     _hideTimer?.cancel();
+    _seekHoldTimer?.cancel();
     _rippleController.dispose();
     super.dispose();
   }
@@ -396,17 +430,37 @@ class _VideoOverlayControlsState extends State<VideoOverlayControls>
   void _onBuffering(bool buffering) {
     if (!mounted) return;
     setState(() => _buffering = buffering);
-    if (buffering) {
+    if (_showSpinner) {
       _hideTimer?.cancel();
     } else if (_playing) {
       _scheduleHide();
     }
   }
 
+  /// The engine's answer to a released seek: while it is still in flight the
+  /// thumb stays at the target; once it lands the real position takes over.
+  void _onSeeking(bool seeking) {
+    if (!mounted) return;
+    setState(() => _seeking = seeking);
+    if (seeking) {
+      _hideTimer?.cancel();
+    } else {
+      _releaseSeekHold();
+      if (_playing) _scheduleHide();
+    }
+  }
+
+  /// Hands the thumb back to the position stream.
+  void _releaseSeekHold() {
+    _seekHoldTimer?.cancel();
+    _seekHoldTimer = null;
+    if (mounted && _dragValue != null) setState(() => _dragValue = null);
+  }
+
   void _scheduleHide() {
     _hideTimer?.cancel();
     _hideTimer = Timer(_autoHideDelay, () {
-      if (mounted && _playing && !_buffering && _dragValue == null) {
+      if (mounted && _playing && !_showSpinner && _dragValue == null) {
         setState(() => _visible = false);
       }
     });
@@ -416,14 +470,14 @@ class _VideoOverlayControlsState extends State<VideoOverlayControls>
   /// countdown restarts), visible controls step aside (YouTube-style toggle).
   void _onSurfaceTap() {
     setState(() => _visible = !_visible);
-    if (_visible && _playing && !_buffering) _scheduleHide();
+    if (_visible && _playing && !_showSpinner) _scheduleHide();
   }
 
   /// Keeps the controls up and restarts the inactivity countdown after a
   /// deliberate interaction (fullscreen toggle, quality pick, scrub).
   void _noteInteraction() {
     if (!_visible) setState(() => _visible = true);
-    if (_playing && !_buffering) _scheduleHide();
+    if (_playing && !_showSpinner) _scheduleHide();
   }
 
   void _onDoubleTapDown(TapDownDetails details) {
@@ -454,6 +508,35 @@ class _VideoOverlayControlsState extends State<VideoOverlayControls>
     if (_playing) _scheduleHide();
   }
 
+  /// The user let go of the scrubber.
+  ///
+  /// The thumb STAYS at the target — the engine keeps streaming its old
+  /// position for a moment after a seek, and clearing the drag value here is
+  /// what used to yank the thumb backwards right after the release. It is
+  /// handed back to the position stream by [_onSeeking] when the engine
+  /// confirms the seek landed, or by [_seekHoldTimeout] if it never does.
+  void _onSeekEnd(double v) {
+    final target = Duration(milliseconds: v.round());
+    widget.onSeek?.call(target);
+    setState(() {
+      _position = target;
+      _dragValue = v;
+    });
+    if (widget.seekingStream == null) {
+      // No settling signal to wait for (YouTube surfaces): the old immediate
+      // hand-back is the best available.
+      _releaseSeekHold();
+    } else {
+      _seekHoldTimer?.cancel();
+      _seekHoldTimer = Timer(_seekHoldTimeout, _releaseSeekHold);
+    }
+    if (_playing) _scheduleHide();
+  }
+
+  /// Longest the thumb is pinned to a released target without the engine
+  /// confirming anything.
+  static const Duration _seekHoldTimeout = Duration(seconds: 5);
+
   void _togglePlay() {
     final showPlaying = _optimisticPlaying ?? _playing;
     setState(() {
@@ -478,7 +561,7 @@ class _VideoOverlayControlsState extends State<VideoOverlayControls>
       selectedId: _selectedQuality?.id ?? 'auto',
     );
     if (chosen != null) widget.onSelectQuality?.call(chosen);
-    if (mounted && _playing && !_buffering) _scheduleHide();
+    if (mounted && _playing && !_showSpinner) _scheduleHide();
   }
 
   double get _pinchDistance {
@@ -577,11 +660,10 @@ class _VideoOverlayControlsState extends State<VideoOverlayControls>
                     child: _ControlsLayer(
                       title: widget.title,
                       isLive: widget.isLive,
-                      seekable: _seekable,
-                      liveDvrSeekable: _liveDvrSeekable,
+                      showScrubber: _showScrubber,
                       isFullscreen: widget.isFullscreen,
                       showPlaying: showPlaying,
-                      buffering: _buffering,
+                      buffering: _showSpinner,
                       position: _position,
                       duration: _effectiveDuration,
                       dragValue: _dragValue,
@@ -594,14 +676,7 @@ class _VideoOverlayControlsState extends State<VideoOverlayControls>
                         _hideTimer?.cancel();
                         setState(() => _dragValue = v);
                       },
-                      onSeekEnd: (v) {
-                        widget.onSeek?.call(Duration(milliseconds: v.round()));
-                        setState(() {
-                          _position = Duration(milliseconds: v.round());
-                          _dragValue = null;
-                        });
-                        if (_playing) _scheduleHide();
-                      },
+                      onSeekEnd: _onSeekEnd,
                       onToggleFullscreen: widget.onToggleFullscreen == null
                           ? null
                           : () {
@@ -658,8 +733,7 @@ class _ControlsLayer extends StatelessWidget {
   const _ControlsLayer({
     required this.title,
     required this.isLive,
-    required this.seekable,
-    required this.liveDvrSeekable,
+    required this.showScrubber,
     required this.isFullscreen,
     required this.showPlaying,
     required this.buffering,
@@ -676,8 +750,7 @@ class _ControlsLayer extends StatelessWidget {
 
   final String title;
   final bool isLive;
-  final bool seekable;
-  final bool liveDvrSeekable;
+  final bool showScrubber;
   final bool isFullscreen;
   final bool showPlaying;
   final bool buffering;
@@ -753,31 +826,21 @@ class _ControlsLayer extends StatelessWidget {
           padding: isFullscreen
               ? const EdgeInsets.fromLTRB(10, 0, 10, 14)
               : const EdgeInsets.fromLTRB(6, 0, 6, 8),
-          child: seekable
+          child: showScrubber
               ? _VodBottomBar(
                   position: position,
-                  duration: duration,
+                  duration: duration!,
                   dragValue: dragValue,
                   onChanged: onSeekChanged,
                   onChangeEnd: onSeekEnd,
                   isFullscreen: isFullscreen,
                   onToggleFullscreen: onToggleFullscreen,
                 )
-              : liveDvrSeekable
-                  ? _LiveDvrBottomBar(
-                      position: position,
-                      duration: duration!,
-                      dragValue: dragValue,
-                      onChanged: onSeekChanged,
-                      onChangeEnd: onSeekEnd,
-                      isFullscreen: isFullscreen,
-                      onToggleFullscreen: onToggleFullscreen,
-                    )
-                  : _LiveBottomBar(
-                      showLivePill: isLive,
-                      isFullscreen: isFullscreen,
-                      onToggleFullscreen: onToggleFullscreen,
-                    ),
+              : _LiveBottomBar(
+                  showLivePill: isLive,
+                  isFullscreen: isFullscreen,
+                  onToggleFullscreen: onToggleFullscreen,
+                ),
         ),
       ],
     );
@@ -881,7 +944,7 @@ class _VodBottomBar extends StatelessWidget {
   });
 
   final Duration position;
-  final Duration? duration;
+  final Duration duration;
   final double? dragValue;
   final ValueChanged<double> onChanged;
   final ValueChanged<double> onChangeEnd;
@@ -890,16 +953,12 @@ class _VodBottomBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final totalMs = duration?.inMilliseconds ?? 0;
-    final hasDuration = totalMs > 0;
-    final positionMs = position.inMilliseconds
-        .clamp(0, hasDuration ? totalMs : position.inMilliseconds)
-        .toDouble();
+    final totalMs = duration.inMilliseconds;
+    final positionMs = position.inMilliseconds.clamp(0, totalMs).toDouble();
     final sliderValue = dragValue ?? positionMs;
-    final maxValue = hasDuration ? totalMs.toDouble() : 1.0;
-    final elapsed = formatOverlayTime(
-        Duration(milliseconds: (dragValue ?? positionMs).round()));
-    final total = hasDuration ? formatOverlayTime(duration!) : '--:--';
+    final maxValue = totalMs.toDouble();
+    final elapsed = formatOverlayTime(Duration(milliseconds: sliderValue.round()));
+    final total = formatOverlayTime(duration);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -917,8 +976,8 @@ class _VodBottomBar extends StatelessWidget {
           child: Slider(
             value: sliderValue.clamp(0.0, maxValue),
             max: maxValue,
-            onChanged: hasDuration ? onChanged : null,
-            onChangeEnd: hasDuration ? onChangeEnd : null,
+            onChanged: onChanged,
+            onChangeEnd: onChangeEnd,
           ),
         ),
         Padding(
@@ -944,83 +1003,6 @@ class _VodBottomBar extends StatelessWidget {
     fontSize: 12,
     fontFeatures: [FontFeature.tabularFigures()],
   );
-}
-
-/// Live DVR bar: the `● LIVE` pill and a `-m:ss` behind-live label over a seek
-/// bar that spans the whole DVR window. Dragging to the far right lands at the
-/// live edge (behind-live → `LIVE`). Carries the same bottom-right corner
-/// fullscreen toggle as [_VodBottomBar].
-class _LiveDvrBottomBar extends StatelessWidget {
-  const _LiveDvrBottomBar({
-    required this.position,
-    required this.duration,
-    required this.dragValue,
-    required this.onChanged,
-    required this.onChangeEnd,
-    required this.isFullscreen,
-    required this.onToggleFullscreen,
-  });
-
-  final Duration position;
-  final Duration duration;
-  final double? dragValue;
-  final ValueChanged<double> onChanged;
-  final ValueChanged<double> onChangeEnd;
-  final bool isFullscreen;
-  final VoidCallback? onToggleFullscreen;
-
-  @override
-  Widget build(BuildContext context) {
-    final totalMs = duration.inMilliseconds;
-    final positionMs = position.inMilliseconds.clamp(0, totalMs).toDouble();
-    final sliderValue = dragValue ?? positionMs;
-    final behind = Duration(
-      milliseconds: (totalMs - sliderValue).round().clamp(0, totalMs),
-    );
-    final atLiveEdge = behind < const Duration(seconds: 5);
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SliderTheme(
-          data: SliderTheme.of(context).copyWith(
-            trackHeight: 3.0,
-            activeTrackColor: AppColors.primary,
-            inactiveTrackColor: Colors.white.withValues(alpha: 0.32),
-            thumbColor: AppColors.primary,
-            overlayColor: AppColors.primary.withValues(alpha: 0.25),
-            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-            overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
-          ),
-          child: Slider(
-            value: sliderValue.clamp(0.0, totalMs.toDouble()),
-            max: totalMs.toDouble(),
-            onChanged: onChanged,
-            onChangeEnd: onChangeEnd,
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.only(left: 8),
-          child: Row(
-            children: [
-              const LivePill(),
-              if (!atLiveEdge) ...[
-                const SizedBox(width: 8),
-                Text(formatBehindLive(behind),
-                    style: _VodBottomBar._labelStyle),
-              ],
-              const Spacer(),
-              if (onToggleFullscreen != null)
-                _FullscreenButton(
-                  isFullscreen: isFullscreen,
-                  onTap: onToggleFullscreen!,
-                ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
 }
 
 /// LIVE pill (bottom-left) + corner fullscreen toggle (bottom-right). No seek
@@ -1331,6 +1313,10 @@ class _VideoPlayerStageState extends State<VideoPlayerStage> {
       fallbackDuration: widget.fallbackDuration,
       title: widget.title,
       isLive: widget.isLive,
+      indefiniteStream: vs.indefiniteStream,
+      initialIndefinite: vs.isIndefinite,
+      seekingStream: vs.seekingStream,
+      initialSeeking: vs.isSeeking,
       isFullscreen: isFullscreen,
       onPlay: widget.onPlay,
       onPause: widget.onPause,
