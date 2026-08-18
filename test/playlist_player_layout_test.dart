@@ -514,7 +514,6 @@ void main() {
         );
 
     Widget playlistTransport({
-      VoidCallback? onQuality,
       VoidCallback? onFullscreen,
     }) =>
         MaterialApp(
@@ -530,7 +529,6 @@ void main() {
                 onStop: () {},
                 onPrevious: () {},
                 onNext: () {},
-                onQuality: onQuality,
                 onFullscreen: onFullscreen,
               ),
             ),
@@ -595,7 +593,7 @@ void main() {
       await tester.pump();
       final plain = tester.getSize(find.byType(AnimatedPlayButton));
 
-      await pump(tester, playlistTransport(onQuality: () {}));
+      await pump(tester, playlistTransport(onFullscreen: () {}));
       await tester.pump();
       expect(tester.getSize(find.byType(AnimatedPlayButton)), plain);
 

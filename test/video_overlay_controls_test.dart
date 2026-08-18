@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:radio_crestin/services/video_quality.dart';
 import 'package:radio_crestin/theme.dart';
 import 'package:radio_crestin/widgets/player_video_surface.dart';
 import 'package:radio_crestin/widgets/video_overlay_controls.dart';
@@ -169,8 +168,6 @@ void main() {
       Duration? fallbackDuration,
       ValueChanged<Duration>? onSeek,
       VoidCallback? onToggleFullscreen,
-      List<VideoQuality> initialQualities = const [],
-      ValueChanged<VideoQuality>? onSelectQuality,
     }) {
       return MaterialApp(
         home: Scaffold(
@@ -198,23 +195,12 @@ void main() {
                 onPause: () {},
                 onSeek: onSeek,
                 onToggleFullscreen: onToggleFullscreen,
-                initialQualities: initialQualities,
-                onSelectQuality: onSelectQuality,
               ),
             ),
           ),
         ),
       );
     }
-
-    /// A selectable quality at [h] pixels tall, for the quality picker.
-    VideoQuality qualityTrack(String id, int h) => VideoQuality(
-          id: id,
-          label: '${h}p',
-          width: h * 16 ~/ 9,
-          height: h,
-          url: id,
-        );
 
     double controlsOpacity(WidgetTester tester) {
       final opacity = tester.widget<AnimatedOpacity>(
@@ -576,97 +562,35 @@ void main() {
     });
 
     testWidgets(
-        'fullscreen: quality selector sits in the TOP-RIGHT corner (multi-'
-        'quality video)', (tester) async {
+        'the quality picker is gone — the corner always carries fullscreen',
+        (tester) async {
+      // The adaptive stream already picks a variant better than a person can,
+      // and the corner is far more useful as a permanent fullscreen toggle.
       await tester.pumpWidget(build(
         isFullscreen: true,
         onToggleFullscreen: () {},
-        initialQualities: [qualityTrack('a', 720), qualityTrack('b', 1080)],
-        onSelectQuality: (_) {},
       ));
-      await tester.pump();
-
-      final quality = find.byIcon(Icons.high_quality_rounded);
-      expect(quality, findsOneWidget);
-
-      // Pinned to the top-right quadrant of the overlay.
-      final center = tester.getCenter(find.byType(VideoOverlayControls));
-      final qualityCenter = tester.getCenter(quality);
-      expect(qualityCenter.dx, greaterThan(center.dx));
-      expect(qualityCenter.dy, lessThan(center.dy));
-    });
-
-    testWidgets(
-        'fullscreen: tapping the top-right quality selector opens the picker',
-        (tester) async {
-      await tester.pumpWidget(build(
-        isFullscreen: true,
-        onToggleFullscreen: () {},
-        initialQualities: [qualityTrack('a', 720), qualityTrack('b', 1080)],
-        onSelectQuality: (_) {},
-      ));
-      await tester.pump();
-
-      await tester.tap(find.byIcon(Icons.high_quality_rounded));
-      await tester.pumpAndSettle();
-      expect(find.text('Calitate video'), findsOneWidget);
-    });
-
-    testWidgets(
-        'inline: quality selector sits in the TOP-RIGHT corner too '
-        '(multi-quality video)', (tester) async {
-      await tester.pumpWidget(build(
-        isFullscreen: false,
-        onToggleFullscreen: () {},
-        initialQualities: [qualityTrack('a', 720), qualityTrack('b', 1080)],
-        onSelectQuality: (_) {},
-      ));
-      await tester.pump();
-
-      final quality = find.byIcon(Icons.high_quality_rounded);
-      expect(quality, findsOneWidget);
-
-      // Pinned to the top-right quadrant of the inline surface.
-      final center = tester.getCenter(find.byType(VideoOverlayControls));
-      final qualityCenter = tester.getCenter(quality);
-      expect(qualityCenter.dx, greaterThan(center.dx));
-      expect(qualityCenter.dy, lessThan(center.dy));
-
-      // Same picker interaction as fullscreen.
-      await tester.tap(quality);
-      await tester.pumpAndSettle();
-      expect(find.text('Calitate video'), findsOneWidget);
-    });
-
-    testWidgets('inline quality button auto-hides with the other controls',
-        (tester) async {
-      await tester.pumpWidget(build(
-        initialPlaying: true,
-        onToggleFullscreen: () {},
-        initialQualities: [qualityTrack('a', 720), qualityTrack('b', 1080)],
-        onSelectQuality: (_) {},
-      ));
-      await tester.pump();
-      expect(controlsOpacity(tester), 1.0);
-      // The quality button lives inside the fading controls layer, so it hides
-      // with everything else after the inline auto-hide delay.
-      await tester.pump(kInlineControlsAutoHideDelay + const Duration(seconds: 1));
-      expect(controlsOpacity(tester), 0.0);
-      expect(
-        find.descendant(
-          of: find.byKey(const ValueKey('video-overlay-controls')),
-          matching: find.byIcon(Icons.high_quality_rounded),
-        ),
-        findsOneWidget,
-      );
-    });
-
-    testWidgets(
-        'quality selector is absent without a quality callback '
-        '(YouTube surfaces)', (tester) async {
-      await tester.pumpWidget(build(onToggleFullscreen: () {}));
       await tester.pump();
       expect(find.byIcon(Icons.high_quality_rounded), findsNothing);
+      expect(find.byIcon(Icons.fullscreen_exit_rounded), findsOneWidget);
+    });
+
+    testWidgets('the fullscreen button is the same disc as play/pause',
+        (tester) async {
+      // Arrange: fullscreen shows both, so their footprints are comparable.
+      await tester.pumpWidget(build(
+        isFullscreen: true,
+        onToggleFullscreen: () {},
+      ));
+      await tester.pump();
+
+      // Assert.
+      final buttons = tester.widgetList<OverlayCircleButton>(
+          find.byType(OverlayCircleButton));
+      expect(buttons.length, greaterThanOrEqualTo(2));
+      for (final b in buttons) {
+        expect(b.size, kOverlayPlayButtonSize);
+      }
     });
 
     // Runs a two-finger pinch on the overlay: both pointers start around the
@@ -847,15 +771,13 @@ void main() {
       return ignorePointer.ignoring;
     }
 
-    /// An inline VOD overlay with a scrubber, a fullscreen button and a
-    /// quality button — i.e. everything the 20s inactivity fade covers.
+    /// An inline VOD overlay with a scrubber and a fullscreen button — i.e.
+    /// everything the inactivity fade covers.
     Widget inlineVod({bool playing = true}) => build(
           initialPlaying: playing,
           onSeek: (_) {},
           initialDuration: const Duration(minutes: 10),
           onToggleFullscreen: () {},
-          initialQualities: [qualityTrack('a', 720), qualityTrack('b', 1080)],
-          onSelectQuality: (_) {},
         );
 
     testWidgets(
@@ -868,10 +790,9 @@ void main() {
       await tester.pump(const Duration(seconds: 25));
       expect(controlsOpacity(tester), 1.0);
       expect(controlsIgnored(tester), isFalse);
-      // The scrubber and both corner buttons are still on screen and hittable.
+      // The scrubber and the corner button are still on screen and hittable.
       expect(find.byType(Slider), findsOneWidget);
       expect(find.byIcon(Icons.fullscreen_rounded), findsOneWidget);
-      expect(find.byIcon(Icons.high_quality_rounded), findsOneWidget);
     });
 
     testWidgets(
@@ -964,19 +885,25 @@ void main() {
     });
 
     testWidgets(
-        'inline: hidden controls are not hittable — a tap on the quality '
+        'inline: hidden controls are not hittable — a tap on the fullscreen '
         'corner only reveals them', (tester) async {
-      await tester.pumpWidget(inlineVod());
+      var toggles = 0;
+      await tester.pumpWidget(build(
+        initialPlaying: true,
+        onSeek: (_) {},
+        initialDuration: const Duration(minutes: 10),
+        onToggleFullscreen: () => toggles++,
+      ));
       await tester.pump();
       await tester.pump(const Duration(seconds: 21));
       expect(controlsIgnored(tester), isTrue);
 
-      // Tapping where the quality button sits must NOT open the picker while
-      // the controls are faded out; it just brings them back.
-      await tester.tap(find.byIcon(Icons.high_quality_rounded),
+      // Tapping where the fullscreen button sits must NOT trigger it while the
+      // controls are faded out; it just brings them back.
+      await tester.tap(find.byIcon(Icons.fullscreen_rounded),
           warnIfMissed: false);
       await tester.pumpAndSettle();
-      expect(find.text('Calitate video'), findsNothing);
+      expect(toggles, 0);
       expect(controlsOpacity(tester), 1.0);
     });
 

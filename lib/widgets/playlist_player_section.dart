@@ -8,7 +8,6 @@ import 'package:sliding_up_panel2/sliding_up_panel2.dart';
 
 import '../appAudioHandler.dart';
 import '../services/playlist_controller.dart';
-import '../services/video_quality.dart';
 import '../types/Station.dart';
 import '../types/playlist_item.dart';
 import '../utils.dart';
@@ -181,7 +180,6 @@ class _PlaylistPlayerSectionState extends State<PlaylistPlayerSection> {
   bool _repeatOne = false;
   bool _audioOnlyFallback = false;
   Set<int> _failedIds = const {};
-  List<VideoQuality> _qualities = const [];
   OverlayEntry? _skipToast;
 
   /// The persistent below-video scrubber is shown only for audio items: video
@@ -244,22 +242,6 @@ class _PlaylistPlayerSectionState extends State<PlaylistPlayerSection> {
     _subs.add(c.repeatOne.stream.listen((v) {
       if (mounted) setState(() => _repeatOne = v);
     }));
-    _qualities = widget.audioHandler.videoService.qualities;
-    _subs.add(widget.audioHandler.videoService.qualitiesStream.listen((q) {
-      if (mounted) setState(() => _qualities = q);
-    }));
-  }
-
-  /// Opens the shared quality sheet for the current video item and applies
-  /// the selection on the video player.
-  Future<void> _openQualitySheet() async {
-    final vs = widget.audioHandler.videoService;
-    final chosen = await showVideoQualitySheet(
-      context,
-      qualities: _qualities,
-      selectedId: vs.selectedQuality.id,
-    );
-    if (chosen != null) await vs.setVideoQuality(chosen);
   }
 
   @override
@@ -329,7 +311,7 @@ class _PlaylistPlayerSectionState extends State<PlaylistPlayerSection> {
       scrubber: _showBelowScrubber
           ? _VodProgressBar(controller: _controller, seekable: true)
           : null,
-      // Transport: [repeat] [prev] [play/pause] [next] [fullscreen?/quality?].
+      // Transport: [repeat] [prev] [play/pause] [next] [fullscreen?].
       // Video items expose fullscreen on the video surface's own bottom-right
       // corner button (so no redundant transport one here); YouTube items have
       // no such corner button (the iframe owns its chrome), so they keep a
@@ -345,9 +327,6 @@ class _PlaylistPlayerSectionState extends State<PlaylistPlayerSection> {
         onStop: widget.audioHandler.stop,
         onPrevious: widget.audioHandler.skipToPrevious,
         onNext: widget.audioHandler.skipToNext,
-        onQuality: _isVideoContent && _qualities.length > 1
-            ? _openQualitySheet
-            : null,
         onFullscreen:
             _isYoutubeContent ? _controller.requestYoutubeFullscreen : null,
       ),
@@ -1165,7 +1144,6 @@ class PlaylistTransport extends StatelessWidget {
     required this.onStop,
     required this.onPrevious,
     required this.onNext,
-    this.onQuality,
     this.onFullscreen,
   });
 
@@ -1187,14 +1165,11 @@ class PlaylistTransport extends StatelessWidget {
   final VoidCallback onPrevious;
   final VoidCallback onNext;
 
-  /// Quality picker, shown right of "next" for multi-quality video items.
-  final VoidCallback? onQuality;
-
   /// Fullscreen action shown right of "next" — video items enter the video
   /// player's fullscreen, YouTube items the iframe fullscreen.
   final VoidCallback? onFullscreen;
 
-  /// Icon size of the secondary (repeat / quality / fullscreen) controls.
+  /// Icon size of the secondary (repeat / fullscreen) controls.
   /// Deliberately fixed and smaller than the responsive prev/play/next trio,
   /// which they must never crowd out on a narrow phone.
   static const double _secondaryIconSize = 24.0;
@@ -1209,8 +1184,8 @@ class PlaylistTransport extends StatelessWidget {
     final metrics = playerLayoutOf(context);
     const iconSize = _secondaryIconSize;
 
-    // Left cluster: repeat (always). Right cluster: fullscreen and/or quality.
-    // Both sides are padded with invisible ghosts to equal width so the
+    // Left cluster: repeat (always). Right cluster: fullscreen, when the item
+    // has one. Both sides are padded with invisible ghosts to equal width so the
     // prev/play/next trio stays dead-center regardless of how many secondary
     // controls the current item exposes.
     final leftControls = <Widget>[
@@ -1228,13 +1203,6 @@ class PlaylistTransport extends StatelessWidget {
           iconSize: iconSize,
           color: onSurface,
           onTap: onFullscreen!,
-        ),
-      if (onQuality != null)
-        _RoundIconButton(
-          icon: Icons.high_quality_rounded,
-          iconSize: iconSize,
-          color: onSurface,
-          onTap: onQuality!,
         ),
     ];
     // Balance the two sides with ghosts so the center trio never shifts.
