@@ -1,192 +1,225 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:radio_crestin/widgets/video_overlay_controls.dart';
 import 'package:radio_crestin/widgets/youtube_iframe_player.dart';
 
-/// Regression tests for the inline YouTube controls layer.
+/// Contracts for the YouTube player's fullscreen gestures and system chrome.
 ///
-/// BUG: `_YoutubeIframePlayerState._onFullscreenChanged` mutated the
-/// `_isFullscreen` flag WITHOUT `setState`, even though `build` gates the
-/// inline [VideoOverlayControls] on it. Entering fullscreen therefore left our
-/// controls layer drawn over YouTube's own fullscreen chrome until some
-/// unrelated rebuild happened to come along — two competing control layers,
-/// non-deterministically.
+/// BUG (fixed here): the app's controls layer was a sibling stacked over
+/// [YoutubeIframePlayer]. Since youtube_player_iframe 6.0 the WebView is
+/// hoisted into an `OverlayPortal` floating above the page, so that sibling
+/// painted and hit-tested BEHIND the picture — the fullscreen button on the
+/// video was invisible and dead. The controls now go through
+/// `YoutubePlayer.controlsBuilder`, which renders inside that same overlay.
 ///
-/// FIX: the flag flips inside `setState` (mounted-guarded), and the gating
-/// itself moved into [InlineYoutubeOverlay] so this contract is pinned here
-/// without needing a live WebView: fullscreen REMOVES the overlay from the
-/// tree, exiting fullscreen puts it back.
-
-/// Mirrors the production surface: a [Stack] with a stand-in for the iframe and
-/// the gated overlay on top, whose fullscreen flag flips via `setState` exactly
-/// as the fixed `_onFullscreenChanged` does.
-class _FullscreenHost extends StatefulWidget {
-  const _FullscreenHost({super.key, required this.overlay});
-
-  final Widget overlay;
-
-  @override
-  State<_FullscreenHost> createState() => _FullscreenHostState();
-}
-
-class _FullscreenHostState extends State<_FullscreenHost> {
-  bool fullscreen = false;
-
-  void setFullscreen(bool value) => setState(() => fullscreen = value);
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        const SizedBox(width: 320, height: 180, key: Key('iframe')),
-        InlineYoutubeOverlay(fullscreen: fullscreen, child: widget.overlay),
-      ],
-    );
-  }
-}
-
-Widget _overlay({
-  required StreamController<bool> playing,
-  required StreamController<Duration> position,
-}) {
-  return VideoOverlayControls(
-    playingStream: playing.stream,
-    bufferingStream: const Stream<bool>.empty(),
-    positionStream: position.stream,
-    durationStream: const Stream<Duration>.empty(),
-    initialDuration: const Duration(minutes: 3),
-    title: 'Inline item',
-    onPlay: () {},
-    onPause: () {},
-    onSeek: (_) {},
-    onToggleFullscreen: () {},
-  );
-}
+/// The pieces testable without a live WebView are pinned here: the flick rule
+/// ([youtubeFlickIntent]), the detector that applies it, and the rule for
+/// which platforms may touch orientation on a fullscreen transition.
 
 void main() {
-  late StreamController<bool> playing;
-  late StreamController<Duration> position;
+  group('youtubeFlickIntent', () {
+    // A quick upward flick: 100px in 100ms → 1000 px/s.
+    const fast = Duration(milliseconds: 100);
 
-  setUp(() {
-    playing = StreamController<bool>.broadcast();
-    position = StreamController<Duration>.broadcast();
-  });
-
-  tearDown(() async {
-    await playing.close();
-    await position.close();
-  });
-
-  group('InlineYoutubeOverlay gating', () {
-    testWidgets('inline: the controls layer fills the surface', (tester) async {
+    test('flick up enters fullscreen', () {
       // Arrange + Act.
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: Stack(children: [
-            InlineYoutubeOverlay(
-              fullscreen: false,
-              child: _overlay(playing: playing, position: position),
-            ),
-          ]),
-        ),
-      ));
+      final intent = youtubeFlickIntent(
+        travel: const Offset(0, -100),
+        elapsed: fast,
+        isFullscreen: false,
+      );
 
-      // Assert: present, and positioned to fill its Stack parent.
-      expect(find.byType(VideoOverlayControls), findsOneWidget);
-      final positioned = tester.widget<Positioned>(find.descendant(
-        of: find.byType(InlineYoutubeOverlay),
-        matching: find.byType(Positioned),
-      ));
-      expect(positioned.left, 0);
-      expect(positioned.top, 0);
-      expect(positioned.right, 0);
-      expect(positioned.bottom, 0);
+      // Assert.
+      expect(intent, YoutubeFlickIntent.enter);
     });
 
-    testWidgets('fullscreen: the controls layer is absent from the tree',
-        (tester) async {
-      // Arrange + Act.
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: Stack(children: [
-            InlineYoutubeOverlay(
-              fullscreen: true,
-              child: _overlay(playing: playing, position: position),
-            ),
-          ]),
-        ),
-      ));
-
-      // Assert: gone entirely — not merely invisible (an invisible layer would
-      // still swallow taps meant for YouTube's own chrome).
-      expect(find.byType(VideoOverlayControls), findsNothing);
+    test('flick down exits fullscreen', () {
       expect(
-        find.descendant(
-          of: find.byType(InlineYoutubeOverlay),
-          matching: find.byType(Positioned),
+        youtubeFlickIntent(
+          travel: const Offset(0, 100),
+          elapsed: fast,
+          isFullscreen: true,
         ),
-        findsNothing,
+        YoutubeFlickIntent.exit,
+      );
+    });
+
+    test('a flick asking for the state already in place does nothing', () {
+      // Up while already fullscreen, down while already inline.
+      expect(
+        youtubeFlickIntent(
+          travel: const Offset(0, -100),
+          elapsed: fast,
+          isFullscreen: true,
+        ),
+        YoutubeFlickIntent.none,
+      );
+      expect(
+        youtubeFlickIntent(
+          travel: const Offset(0, 100),
+          elapsed: fast,
+          isFullscreen: false,
+        ),
+        YoutubeFlickIntent.none,
+      );
+    });
+
+    test('a slow drag is not a flick', () {
+      // 100px over 2s → 50 px/s, far under the threshold: this is somebody
+      // moving a finger, not asking for fullscreen.
+      expect(
+        youtubeFlickIntent(
+          travel: const Offset(0, -100),
+          elapsed: const Duration(seconds: 2),
+          isFullscreen: false,
+        ),
+        YoutubeFlickIntent.none,
+      );
+    });
+
+    test('a tiny fast twitch is not a flick', () {
+      expect(
+        youtubeFlickIntent(
+          travel: const Offset(0, -10),
+          elapsed: const Duration(milliseconds: 8),
+          isFullscreen: false,
+        ),
+        YoutubeFlickIntent.none,
+      );
+    });
+
+    test('a mostly horizontal swipe is not a flick', () {
+      // The scrubber drag lives on this surface — it must never be read as a
+      // fullscreen request.
+      expect(
+        youtubeFlickIntent(
+          travel: const Offset(200, -60),
+          elapsed: fast,
+          isFullscreen: false,
+        ),
+        YoutubeFlickIntent.none,
+      );
+    });
+
+    test('a zero-length gesture is not a flick', () {
+      expect(
+        youtubeFlickIntent(
+          travel: Offset.zero,
+          elapsed: Duration.zero,
+          isFullscreen: false,
+        ),
+        YoutubeFlickIntent.none,
       );
     });
   });
 
-  group('fullscreen transitions rebuild the surface (the regression)', () {
-    testWidgets('entering fullscreen REMOVES the inline overlay, exiting '
-        'restores it', (tester) async {
-      // Arrange: the inline surface, overlay visible.
-      final key = GlobalKey<_FullscreenHostState>();
+  group('YoutubeFlickDetector', () {
+    Future<List<YoutubeFlickIntent>> pumpDetector(
+      WidgetTester tester, {
+      required bool isFullscreen,
+    }) async {
+      final intents = <YoutubeFlickIntent>[];
       await tester.pumpWidget(MaterialApp(
         home: Scaffold(
-          body: _FullscreenHost(
-            key: key,
-            overlay: _overlay(playing: playing, position: position),
+          body: Center(
+            child: YoutubeFlickDetector(
+              isFullscreen: isFullscreen,
+              onFlick: intents.add,
+              child: const SizedBox(
+                width: 300,
+                height: 200,
+                child: ColoredBox(color: Colors.black),
+              ),
+            ),
           ),
         ),
       ));
-      expect(find.byType(VideoOverlayControls), findsOneWidget);
+      return intents;
+    }
 
-      // Act: the player reports it entered fullscreen.
-      key.currentState!.setFullscreen(true);
-      await tester.pump();
-
-      // Assert: the overlay is gone on the very next frame — no extra,
-      // unrelated rebuild needed (that was the bug).
-      expect(find.byType(VideoOverlayControls), findsNothing);
-      expect(find.byKey(const Key('iframe')), findsOneWidget);
-
-      // Act: back out of fullscreen.
-      key.currentState!.setFullscreen(false);
-      await tester.pump();
-
-      // Assert: the inline controls are back.
-      expect(find.byType(VideoOverlayControls), findsOneWidget);
-    });
-
-    testWidgets('the iframe stand-in survives both transitions (no remount)',
+    testWidgets('a fling up over the player asks for fullscreen',
         (tester) async {
       // Arrange.
-      final key = GlobalKey<_FullscreenHostState>();
+      final intents = await pumpDetector(tester, isFullscreen: false);
+
+      // Act.
+      await tester.fling(
+        find.byType(YoutubeFlickDetector),
+        const Offset(0, -120),
+        1000,
+      );
+      await tester.pumpAndSettle();
+
+      // Assert.
+      expect(intents, [YoutubeFlickIntent.enter]);
+    });
+
+    testWidgets('a fling down while fullscreen asks to leave it',
+        (tester) async {
+      final intents = await pumpDetector(tester, isFullscreen: true);
+
+      await tester.fling(
+        find.byType(YoutubeFlickDetector),
+        const Offset(0, 120),
+        1000,
+      );
+      await tester.pumpAndSettle();
+
+      expect(intents, [YoutubeFlickIntent.exit]);
+    });
+
+    testWidgets('a plain tap asks for nothing', (tester) async {
+      final intents = await pumpDetector(tester, isFullscreen: false);
+
+      await tester.tap(find.byType(YoutubeFlickDetector));
+      await tester.pumpAndSettle();
+
+      expect(intents, isEmpty);
+    });
+
+    testWidgets('the detector never steals the gesture from a scroll view',
+        (tester) async {
+      // Arrange: the player sits inside a list, exactly as it does in the
+      // full player. Watching raw pointers (rather than entering the gesture
+      // arena) is what keeps the list scrollable from on top of the video.
+      final intents = <YoutubeFlickIntent>[];
+      final scrollController = ScrollController();
+      addTearDown(scrollController.dispose);
       await tester.pumpWidget(MaterialApp(
         home: Scaffold(
-          body: _FullscreenHost(
-            key: key,
-            overlay: _overlay(playing: playing, position: position),
+          body: ListView(
+            controller: scrollController,
+            children: [
+              YoutubeFlickDetector(
+                isFullscreen: false,
+                onFlick: intents.add,
+                child: const SizedBox(height: 200),
+              ),
+              for (var i = 0; i < 20; i++) SizedBox(height: 100, key: ValueKey(i)),
+            ],
           ),
         ),
       ));
-      final element = tester.element(find.byKey(const Key('iframe')));
 
-      // Act.
-      key.currentState!.setFullscreen(true);
-      await tester.pump();
-      key.currentState!.setFullscreen(false);
-      await tester.pump();
+      // Act: drag slowly upward (20px per 200ms → 100 px/s, well under the
+      // flick threshold), starting on the player. Timestamps are explicit —
+      // a synthetic gesture reports Duration.zero otherwise, which would make
+      // this pass for the wrong reason.
+      var stamp = Duration.zero;
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byType(YoutubeFlickDetector)),
+      );
+      for (var i = 0; i < 10; i++) {
+        stamp += const Duration(milliseconds: 200);
+        await gesture.moveBy(const Offset(0, -20), timeStamp: stamp);
+        await tester.pump(const Duration(milliseconds: 200));
+      }
+      stamp += const Duration(milliseconds: 200);
+      await gesture.up(timeStamp: stamp);
+      await tester.pumpAndSettle();
 
-      // Assert: the player element is the SAME one — dropping the overlay must
-      // never tear down the iframe (that would interrupt playback).
-      expect(tester.element(find.byKey(const Key('iframe'))), same(element));
+      // Assert: the list scrolled, and no fullscreen was requested.
+      expect(scrollController.offset, greaterThan(0));
+      expect(intents, isEmpty);
     });
   });
 

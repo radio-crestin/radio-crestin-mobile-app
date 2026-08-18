@@ -105,8 +105,8 @@ class PlaylistController {
 
   /// Fullscreen requests for the inline YouTube player. The external transport
   /// row's fullscreen button emits here; the iframe widget subscribes and
-  /// enters the package's fullscreen (exit happens via YouTube's own chrome or
-  /// the back gesture).
+  /// enters the package's (pure-Flutter) fullscreen. Leaving it is the
+  /// overlay's own exit button, the back gesture, a pinch-in or a flick down.
   final PublishSubject<void> youtubeFullscreenRequests = PublishSubject<void>();
 
   /// UI hook for the external fullscreen button (YouTube items only).

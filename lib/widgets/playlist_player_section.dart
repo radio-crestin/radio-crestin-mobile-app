@@ -307,17 +307,17 @@ class _PlaylistPlayerSectionState extends State<PlaylistPlayerSection> {
       subtitle: _currentItem?.publishedAt != null
           ? formatPlaylistDate(_currentItem!.publishedAt!)
           : null,
-      // Persistent scrubber for audio items only (video → overlay scrubber,
-      // YouTube → native controls); the slot stays reserved for the others.
+      // Persistent scrubber for audio items only (video and YouTube both carry
+      // their own on the picture); the slot stays reserved for the others.
       scrubber: _showBelowScrubber
           ? _VodProgressBar(controller: _controller, seekable: true)
           : null,
       // Transport: [repeat] [prev] [play/pause] [next] [fullscreen?].
       // Video items expose fullscreen on the video surface's own bottom-right
-      // corner button (so no redundant transport one here); YouTube items have
-      // no such corner button (the iframe owns its chrome), so they keep a
-      // transport fullscreen affordance. Play/pause routes through the handler
-      // for every item type.
+      // corner button, so no redundant transport one here. YouTube items now
+      // have that corner button too, but keep this one as well: it is the one
+      // affordance that is visible without first waking the auto-hiding
+      // overlay. Play/pause routes through the handler for every item type.
       transport: PlaylistTransport(
         playbackStateStream: widget.audioHandler.playbackState,
         playButtonKey: _playButtonKey,
@@ -877,16 +877,17 @@ class _MediaSurface extends StatelessWidget {
       // The webview lives in the app overlay and follows an inline placeholder;
       // Offstage stops the placeholder compositing so the overlay unlinks and
       // hides while collapsed, WITHOUT unmounting the iframe — audio keeps
-      // playing (the play/pause command channel is unaffected). The rounded
-      // clip matches the media_kit video frame for a consistent maximized look.
-      child = ClipRRect(
-        borderRadius: const BorderRadius.all(Radius.circular(16)),
-        child: Offstage(
-          offstage: !panelExpanded,
-          child: YoutubeIframePlayer(
-            item: item!,
-            controller: controller,
-          ),
+      // playing (the play/pause command channel is unaffected).
+      //
+      // No rounded clip here, unlike the video surface: the picture is not our
+      // child to clip. It is painted by an `OverlayPortal` floating above this
+      // subtree, which no ancestor `ClipRRect` can reach (youtube_player_iframe
+      // #1169), so a clip would only be a comment claiming something untrue.
+      child = Offstage(
+        offstage: !panelExpanded,
+        child: YoutubeIframePlayer(
+          item: item!,
+          controller: controller,
         ),
       );
     } else if (isVideoContent) {
