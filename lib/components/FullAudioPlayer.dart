@@ -695,12 +695,15 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
           label: 'istoric',
           onTap: () {
             AnalyticsService.instance.capture('button_clicked', {'button_name': 'song_history', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug});
-            if (currentStation != null) {
+            final station = currentStation;
+            if (station != null) {
               SongHistoryModal.show(
                 context,
-                stationSlug: currentStation!.slug,
-                stationTitle: currentStation!.title,
-                stationThumbnailUrl: currentStation!.thumbnailUrl,
+                stationSlug: station.slug,
+                stationTitle: station.title,
+                stationThumbnailUrl: station.thumbnailUrl,
+                playedCutoff: () =>
+                    _stationDataService.playedCutoffFor(station.id),
               );
             }
           },

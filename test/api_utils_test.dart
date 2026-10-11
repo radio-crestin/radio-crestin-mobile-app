@@ -25,6 +25,20 @@ void main() {
         expect(diff, lessThanOrEqualTo(130));
       });
 
+      // Moved from metadata_timestamp_sync_test.dart (C14).
+      test('is a Unix epoch in seconds', () {
+        final ts = getRoundedTimestamp();
+        expect(ts, greaterThan(1577836800)); // 2020-01-01
+        expect(ts, lessThan(2208988800)); // 2040-01-01
+      });
+
+      test('is a multiple of 10 for any offset', () {
+        for (var i = 0; i < 20; i++) {
+          final ts = getRoundedTimestamp(offset: Duration(seconds: i * 7));
+          expect(ts % 10, 0, reason: 'offset ${i * 7}s');
+        }
+      });
+
       test('zero offset returns same as no offset', () {
         final a = getRoundedTimestamp();
         final b = getRoundedTimestamp(offset: Duration.zero);
@@ -49,6 +63,15 @@ void main() {
 
         expect(uri.queryParameters['foo'], 'bar');
         expect(uri.queryParameters.containsKey('timestamp'), true);
+      });
+
+      test('the timestamp stays 10s-aligned with an offset', () {
+        final url = addTimestampToUrl(
+          'https://api.example.com/data',
+          offset: const Duration(minutes: 2),
+        );
+        final ts = int.parse(Uri.parse(url).queryParameters['timestamp']!);
+        expect(ts % 10, 0);
       });
 
       test('applies offset to timestamp', () {

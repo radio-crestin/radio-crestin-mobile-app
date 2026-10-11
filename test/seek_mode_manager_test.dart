@@ -44,6 +44,27 @@ void main() {
       });
     });
 
+    group('car / unstable connection override', () {
+      // Moved from metadata_timestamp_sync_test.dart (C14).
+      test('car connected forces 5 minutes regardless of the seek mode', () {
+        SeekModeManager.changeSeekMode(SeekMode.instant);
+        SeekModeManager.changeCarConnected(true);
+        expect(SeekModeManager.currentOffset, const Duration(minutes: 5));
+      });
+
+      test('unstable connection forces 5 minutes', () {
+        SeekModeManager.changeSeekMode(SeekMode.twoMinutes);
+        SeekModeManager.changeUnstableConnection(true);
+        expect(SeekModeManager.currentOffset, const Duration(minutes: 5));
+      });
+
+      test('effectiveSeekMode reflects the override', () {
+        SeekModeManager.changeSeekMode(SeekMode.instant);
+        SeekModeManager.changeCarConnected(true);
+        expect(SeekModeManager.effectiveSeekMode, SeekMode.fiveMinutes);
+      });
+    });
+
     group('currentOffset', () {
       test('returns Duration.zero for instant mode', () {
         SeekModeManager.changeSeekMode(SeekMode.instant);

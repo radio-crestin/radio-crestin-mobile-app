@@ -9,22 +9,30 @@ import 'package:http/http.dart' as http;
 import 'package:radio_crestin/constants.dart';
 import 'package:radio_crestin/performance_monitor.dart';
 import 'package:radio_crestin/seek_mode_manager.dart';
+import 'package:radio_crestin/services/audible_now_playing_resolver.dart';
+import 'package:radio_crestin/services/audible_song_policy.dart';
 import 'package:radio_crestin/services/network_service.dart';
+import 'package:radio_crestin/services/now_playing_sanitizer.dart';
 import 'package:radio_crestin/services/play_count_service.dart';
 import 'package:radio_crestin/services/private_stations_service.dart';
+import 'package:radio_crestin/services/song_history_service.dart';
 import 'package:radio_crestin/services/station_sort_service.dart';
 import 'package:radio_crestin/queries/getStations.graphql.dart';
 import 'package:radio_crestin/graphql_rest_mappings.dart';
+import 'package:radio_crestin/services/hls_timeline.dart' show SongBoundaryHint;
 import 'package:radio_crestin/services/image_cache_service.dart';
 import 'package:radio_crestin/types/Station.dart';
-import 'package:radio_crestin/utils/api_utils.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Why a metadata sync was requested. Drives the choice between full refresh,
-/// audio-aligned offset diff, and live-timeline diff. Listed in priority
-/// order — when multiple reasons coalesce while a sync is in flight, the
-/// lower index (= higher priority) wins.
+/// Why a live sync was requested. Listed in priority order: of the reasons
+/// queued while a sync is in flight, the lowest index decides the work.
+///
+/// Invariant: each reason's work is a superset of every later reason's work
+/// (a full refresh includes the live fetch), so promoting or coalescing
+/// reasons never loses work. All of it is live work: the time-shifted song of
+/// the playing station is resolved outside this queue
+/// ([StationDataService.refreshMetadataNow]).
 enum SyncReason {
   /// Initial bootstrap on app start.
   startup,
@@ -35,12 +43,12 @@ enum SyncReason {
   /// User picked a station to play.
   stationPlayed,
 
-  /// User changed the "încărcare în avans" pre-buffer setting.
-  seekOffsetChanged,
+  /// Pull-to-refresh, back to the TV browse list, CarPlay connect.
+  manualRefresh,
 
-  /// HLS DATERANGE flipped, ICY tag changed, or ID3 metadata fired —
-  /// the audio just told us a new song is playing.
-  audioMetadataChanged,
+  /// A live stream announced a new song (ICY tag, Android TV playlist
+  /// METADATA-CHANGED): fetch the live list now.
+  liveMetadataChanged,
 
   /// 60s wall-clock tick — keep the visible station list reasonably fresh.
   periodic,
@@ -53,6 +61,14 @@ class StationDataService {
   /// the fetch policy state machine; this service parses its raw output into
   /// [Station]s and merges them into the public catalog.
   final PrivateStationsService _privateStationsService;
+
+  /// REST client for `/stations-metadata` and the history endpoint.
+  final http.Client _http;
+  final bool _ownsHttpClient;
+
+  /// Wall clock and delay, injectable so tests control time.
+  final DateTime Function() _now;
+  final Future<void> Function(Duration) _wait;
 
   // ---------------------------------------------------------------------------
   // Sync engine state
@@ -67,74 +83,93 @@ class StationDataService {
   /// of reason) once elapsed, to pull GraphQL stations + reviews drift.
   static const _fullRefreshInterval = Duration(minutes: 10);
 
-  /// If the audio metadata channel hasn't said anything in this long, the
-  /// next periodic tick adds an offset fetch as a safety net so the
-  /// player UI doesn't sit on a stale audio-aligned now_playing.
-  static const _audioEventSafetyNet = Duration(minutes: 5);
-
-  /// Settle delay between detecting an audio metadata change locally
-  /// (HLS DATERANGE / ICY tag) and querying the backend. Gives the
-  /// `/stations-metadata` ingestion path a moment to pick up the new
-  /// song before we ask for it; without this we sometimes diff against
-  /// stale data and have to refetch on the next tick.
-  static const _audioEventSettleDelay = Duration(seconds: 2);
-
-  /// Maximum gap (seconds) between consecutive offset-fetch timestamps
-  /// before the differential is dropped and a full payload is requested.
-  /// Guards against stale cursors after long pauses, app backgrounding, or
-  /// shifts between the synthetic offset and the precise PROGRAM-DATE-TIME.
-  static const int _maxOffsetDiffGapSeconds = 60;
+  /// How far each live diff re-reads behind the cursor. Rows are dated when
+  /// the song started but become visible up to ~38 s later (ingestion lag);
+  /// without the overlap a diff issued in between skips them for good. Merges
+  /// are idempotent, so re-delivered stations cost nothing.
+  static const _liveCursorOverlap = Duration(seconds: 60);
 
   Timer? _periodicTimer;
 
   /// Mutex over the sync pipeline. All paths funnel through `enqueueSync`,
   /// so a single in-flight call is enough — overlapping triggers coalesce
-  /// into [_pendingReason].
+  /// into [_pendingReasons].
   bool _isSyncing = false;
 
-  /// Highest-priority reason queued while a sync is in flight. Drained on
-  /// completion of the current sync. `null` means nothing pending.
-  SyncReason? _pendingReason;
+  /// Reasons queued while a sync is in flight, drained together on
+  /// completion of the current sync. Empty means nothing pending.
+  Set<SyncReason> _pendingReasons = <SyncReason>{};
 
-  /// Live-timeline cursor (Unix seconds, 10s-rounded). Sent as
-  /// `changes_from_timestamp` on the next live diff.
-  int _lastFetchTimestamp = 0;
+  /// Completes when the pending reasons have run, so a coalesced caller
+  /// awaits the work it asked for instead of returning early.
+  Completer<void>? _pendingDone;
 
-  /// Offset-timeline cursor (Unix seconds, 10s-rounded). Stored as the
-  /// value sent on the request, not wall-clock now, so it matches the
-  /// server's cache key. Reset to 0 whenever the offset frame may have
-  /// shifted (full refresh, error recovery, init).
-  int _lastOffsetFetchTimestamp = 0;
+  /// Live-timeline cursor (Unix seconds, 10s-rounded): the `timestamp` of
+  /// the last live fetch that succeeded. Never advanced by a failed fetch.
+  int _liveCursor = 0;
 
   /// When the last full refresh (GraphQL + REST) was performed.
   DateTime? _lastFullRefreshTime;
 
-  /// Last time the audio layer reported a metadata change (DATERANGE
-  /// flip, ICY tag, ID3). Used by the periodic safety net.
-  DateTime? _lastAudioEventTime;
+  // ---------------------------------------------------------------------------
+  // Audible (time-shifted) now-playing of the playing station
+  // ---------------------------------------------------------------------------
+
+  /// With no successful aligned resolution for this long, the periodic tick
+  /// re-anchors the playing station (safety net for a missed boundary).
+  static const _audibleSafetyNet = Duration(minutes: 5);
+
+  /// An ICY title change means the live row started within this window.
+  static const _icyLookback = Duration(seconds: 30);
+
+  /// Gaps between live re-fetches while a signalled change is not in the
+  /// live list yet; each lands in a newer 10 s bucket, so a new edge key.
+  static const _liveFollowUpDelays = [
+    Duration(seconds: 10),
+    Duration(seconds: 10),
+    Duration(seconds: 20),
+  ];
+
+  late final AudibleNowPlayingResolver _resolver;
+
+  /// The song the listener hears on time-shifted HLS (the overlay). Applied
+  /// to the published station only while it is the playing one; never
+  /// written into [_publicStations], which stay live.
+  AudibleNowPlaying? _audible;
+
+  /// When an aligned song was last applied or an anchor last started: the
+  /// safety-net clock, so a station is re-anchored at most every
+  /// [_audibleSafetyNet] when nothing else resolves it.
+  DateTime? _lastAudibleCheckAt;
+
+  /// Bumped by every aligned request and by [onAlignedPlaybackEnded]: a
+  /// result is applied only if no newer request or end came meanwhile.
+  int _audibleRequest = 0;
+
+  /// Bumped to cancel a scheduled anchor re-check.
+  int _audibleRecheck = 0;
+
+  /// Bumped to cancel an in-flight live follow-up (latest signal wins).
+  int _liveFollowUp = 0;
 
   // ---------------------------------------------------------------------------
   // Audio sync hooks (set by AppAudioHandler after init)
   // ---------------------------------------------------------------------------
 
-  /// Returns the actual stream type ('HLS', 'direct_stream', etc.) if the
-  /// given station ID is currently playing, or null if it's not the
-  /// active station.
-  String? Function(int stationId)? getPlayingStreamType;
+  /// True while the local player has a live HLS stream loaded (playing,
+  /// paused or buffering): the playing station's now-playing must then come
+  /// from the audible timeline, never the live one.
+  bool Function()? isTimeShiftedHlsActive;
 
-  /// Returns the actual offset from the live edge for the currently
-  /// playing HLS stream, derived from `player.duration - player.position`.
-  /// Returns null if not playing HLS or if duration/position is unavailable.
-  Duration? Function()? getActualPlaybackOffset;
+  /// Server wall-clock instant of the audio the listener hears (or would
+  /// hear on resume). Frozen while paused/buffering. Null when not
+  /// time-shifted HLS, or while the timeline is still anchoring (an anchored
+  /// refresh follows automatically).
+  DateTime? Function()? getAudibleInstant;
 
-  /// Returns the precise Unix timestamp (10s-aligned) of the audio
-  /// currently being played, derived from EXT-X-PROGRAM-DATE-TIME +
-  /// player.position. Returns null when not playing HLS or when the
-  /// playlist hasn't been parsed yet.
-  int? Function()? getHlsPlaybackTimestamp;
-
-  /// Returns true when HLS is the active stream type.
-  bool Function()? isPlayingHls;
+  /// Id of the station the player is on (playing, paused or loading), or
+  /// null.
+  int? Function()? getPlayingStationId;
 
   /// When true, show LIVE now-playing metadata for the playing station instead
   /// of the HLS-buffered (delayed) metadata. Set on Android TV: the buffered
@@ -202,11 +237,26 @@ class StationDataService {
     'station_to_station_groups': 'StationToStationGroupType',
   };
 
+  /// [httpClient], [clock] and [wait] default to the real network, wall
+  /// clock and timers; tests inject a fake backend and controlled time.
   StationDataService({
     required this.graphqlClient,
     PrivateStationsService? privateStationsService,
-  }) : _privateStationsService =
-            privateStationsService ?? PrivateStationsService() {
+    http.Client? httpClient,
+    DateTime Function()? clock,
+    Future<void> Function(Duration)? wait,
+  })  : _privateStationsService =
+            privateStationsService ?? PrivateStationsService(),
+        _http = httpClient ?? http.Client(),
+        _ownsHttpClient = httpClient == null,
+        _now = clock ?? DateTime.now,
+        _wait = wait ?? Future<void>.delayed {
+    _resolver = AudibleNowPlayingResolver(
+      fetchHistory: (slug, window) =>
+          SongHistoryService.fetchPage(slug, window, client: _http),
+      now: _now,
+      wait: _wait,
+    );
     // Wire the frozen-order stream up front (not in initialize) so
     // orderedStations tracks `stations` from the very first emission.
     _initOrderedStationsStream();
@@ -220,7 +270,9 @@ class StationDataService {
   // stations, and a private refresh can never disturb the frozen public order.
   // ---------------------------------------------------------------------------
 
-  /// Latest public station list (the only source `/stations-metadata` updates).
+  /// Latest public station list, live data only (the only source
+  /// `/stations-metadata` updates). The playing station's time-shifted song
+  /// is an overlay applied at publish time, never stored here.
   List<Station> _publicStations = <Station>[];
 
   /// Latest private station list, in the backend-provided order. Their
@@ -242,37 +294,112 @@ class StationDataService {
     await _bootstrap();
   }
 
-  /// Single entry point for every refresh. Coalesces overlapping triggers
-  /// and runs them in priority order so concurrent callers can fire and
-  /// forget.
-  Future<void> enqueueSync(SyncReason reason) async {
+  /// Single entry point for every live refresh. Overlapping triggers coalesce
+  /// and run once the current sync finishes; the returned future completes
+  /// when the work this call asked for has run.
+  Future<void> enqueueSync(SyncReason reason) {
     if (_isSyncing) {
-      // Coalesce into the pending slot if this reason is higher priority
-      // (lower enum index) than what's already queued.
-      if (_pendingReason == null || reason.index < _pendingReason!.index) {
-        _pendingReason = reason;
+      if (_pendingReasons.add(reason)) {
         _log("queue: $reason (pending after current sync)");
       }
-      return;
+      return (_pendingDone ??= Completer<void>()).future;
     }
+    return _drain({reason});
+  }
+
+  Future<void> _drain(Set<SyncReason> first) async {
     _isSyncing = true;
     try {
-      var current = reason;
-      while (true) {
-        await _executeSync(current);
-        final next = _pendingReason;
-        if (next == null) break;
-        _pendingReason = null;
-        current = next;
+      await _runSync(first);
+      while (_pendingReasons.isNotEmpty) {
+        final reasons = _pendingReasons;
+        final done = _pendingDone;
+        _pendingReasons = <SyncReason>{};
+        _pendingDone = null;
+        try {
+          await _runSync(reasons);
+        } finally {
+          if (done != null && !done.isCompleted) done.complete();
+        }
       }
     } finally {
       _isSyncing = false;
     }
   }
 
-  /// Convenience wrappers — keep call sites readable.
-  Future<void> refreshStations() => enqueueSync(SyncReason.seekOffsetChanged);
-  Future<void> refreshMetadataNow() => enqueueSync(SyncReason.audioMetadataChanged);
+  Future<void> _runSync(Set<SyncReason> reasons) async {
+    try {
+      await _executeSync(reasons);
+    } catch (e) {
+      _log("sync failed: $e");
+    }
+  }
+
+  /// Pull-to-refresh, TV browse, CarPlay connect: a full live refresh.
+  Future<void> refreshStations() => enqueueSync(SyncReason.manualRefresh);
+
+  /// The audio announced (or the audible timeline reached) a song change.
+  ///
+  /// [boundary]: the song boundary the audible instant just reached (null
+  /// for the anchored refresh and for non-HLS triggers). [hint]: the new
+  /// song's attributes when the playlist carried them (backend B14).
+  ///
+  /// On time-shifted HLS of a public station this resolves the song the
+  /// listener hears (a change at [boundary], or the song at the audible
+  /// instant after a (re)anchor) into the overlay; everywhere else it
+  /// follows the live list until the signalled change shows up.
+  Future<void> refreshMetadataNow({
+    DateTime? boundary,
+    SongBoundaryHint? hint,
+  }) {
+    _log('refreshMetadataNow(boundary: ${boundary?.toIso8601String()}'
+        '${hint == null ? '' : ', hint: ${hint.songId} ${hint.title}'})');
+    final id = getPlayingStationId?.call();
+    if (id == null) return enqueueSync(SyncReason.liveMetadataChanged);
+    if (_alignable(id)) {
+      return boundary == null
+          ? _resolveAnchor(id)
+          : _resolveChange(id, boundary, hint);
+    }
+    final timeShifted = isTimeShiftedHlsActive?.call() ?? false;
+    if (timeShifted && boundary == null) {
+      // An anchored refresh (TV or a private station): no change was
+      // signalled, so one live fetch is all there is to do.
+      return enqueueSync(SyncReason.liveMetadataChanged);
+    }
+    return _followLiveChange(id,
+        changedAtOrAfter:
+            boundary?.subtract(AudibleSongPolicy.changeRowLead) ??
+                _now().subtract(_icyLookback));
+  }
+
+  /// The player left time-shifted HLS playback for good (station switch,
+  /// stop, error, non-HLS load, cast start): cancel every aligned request
+  /// and show the station's live song again.
+  void onAlignedPlaybackEnded() {
+    _audibleRequest++;
+    _audibleRecheck++;
+    _resolver.cancelAll();
+    _lastAudibleCheckAt = null;
+    if (_audible == null) return;
+    _audible = null;
+    _log('audible: overlay cleared (aligned playback ended)');
+    _publishMerged();
+  }
+
+  /// The "recently played" cutoff for [stationId]: the audible instant for
+  /// the time-shifted station (its last resolved instant while the clock is
+  /// unknown, e.g. paused past the disconnect), now for every other one.
+  DateTime playedCutoffFor(int stationId) {
+    final audible = getAudibleInstant?.call();
+    final playing = getPlayingStationId?.call() == stationId;
+    if (playing && audible != null && _alignable(stationId)) return audible;
+    final overlay = _audible;
+    if (overlay != null && overlay.stationId == stationId) {
+      return audible ?? overlay.heardAt;
+    }
+    return _now();
+  }
 
   /// Called when the app resumes from background.
   Future<void> onAppResumed() async {
@@ -304,9 +431,33 @@ class StationDataService {
     );
   }
 
+  /// Stops all background work but keeps the service usable: the periodic
+  /// tick, a live follow-up and every aligned request.
+  ///
+  /// For the app's task being removed (swiped away). The process, and with
+  /// it this singleton, can survive that: audio_service keeps the Flutter
+  /// engine cached, so a relaunch reuses this instance and the app-resume
+  /// path ([onAppResumed] → [resumePeriodic]) restarts it. [dispose] would
+  /// close the HTTP client for good.
+  void suspend() {
+    pausePeriodic();
+    _liveFollowUp++;
+    onAlignedPlaybackEnded();
+  }
+
+  /// Final teardown: the service is never used again.
   void dispose() {
     _periodicTimer?.cancel();
     _periodicTimer = null;
+    _resolver.cancelAll();
+    _audibleRequest++;
+    _audibleRecheck++;
+    _liveFollowUp++;
+    final pending = _pendingDone;
+    _pendingDone = null;
+    _pendingReasons = <SyncReason>{};
+    if (pending != null && !pending.isCompleted) pending.complete();
+    if (_ownsHttpClient) _http.close();
   }
 
   // Backward-compatible aliases — older call sites used these names.
@@ -317,52 +468,49 @@ class StationDataService {
   // Sync engine internals
   // ---------------------------------------------------------------------------
 
-  /// One sync iteration. Promotes any reason to a full refresh when the
-  /// 10-min window has elapsed; otherwise dispatches by reason kind. The
-  /// private-stations fetch (when due for this reason) runs in parallel with
-  /// the public path — a fully independent request.
-  Future<void> _executeSync(SyncReason reason) async {
+  /// One sync iteration for every reason queued together. The highest-priority
+  /// reason picks the public work (its work covers the others'); a reason's
+  /// side work (private stations, audible checks) runs if any reason asks for
+  /// it. Promotes to a full refresh when the 10-min window has elapsed.
+  Future<void> _executeSync(Set<SyncReason> reasons) async {
+    final lead = reasons.reduce((a, b) => a.index <= b.index ? a : b);
     // A resume is a fresh chance for private stations: reopen the gate an
     // authoritative-empty / not-deployed response may have closed this session.
-    if (reason == SyncReason.appResumed) {
+    if (reasons.contains(SyncReason.appResumed)) {
       _privateStationsService.reopenSessionGate();
     }
 
     final privateFuture =
-        _shouldFetchPrivate(reason) ? _syncPrivateStations() : null;
+        reasons.any(_shouldFetchPrivate) ? _syncPrivateStations() : null;
 
     final fullDue = _lastFullRefreshTime == null ||
-        DateTime.now().difference(_lastFullRefreshTime!) >= _fullRefreshInterval;
+        _now().difference(_lastFullRefreshTime!) >= _fullRefreshInterval;
+    final isFullReason = lead.index <= SyncReason.manualRefresh.index;
 
-    final isFullReason = reason == SyncReason.startup ||
-        reason == SyncReason.appResumed ||
-        reason == SyncReason.stationPlayed ||
-        reason == SyncReason.seekOffsetChanged;
-
-    final Future<void> publicFuture;
     if (isFullReason || fullDue) {
-      publicFuture = _doFullRefresh(reason, becausePromoted: !isFullReason);
-    } else if (reason == SyncReason.audioMetadataChanged) {
-      publicFuture = _doAudioDiff();
+      await _doFullRefresh(lead, becausePromoted: !isFullReason);
     } else {
-      publicFuture = _doPeriodicDiff();
+      await _doLiveDiff();
     }
-
-    await publicFuture;
     if (privateFuture != null) await privateFuture;
+
+    if (reasons.contains(SyncReason.periodic)) _checkAudibleOnTick();
+    if (reasons.contains(SyncReason.appResumed)) {
+      unawaited(_revalidateAudible());
+    }
   }
 
   /// Private stations are fetched on startup, on resume, and on the 60s
   /// periodic tick (which piggybacks the same timer). Other reasons
-  /// (stationPlayed, seek offset, audio-metadata diff) leave the private list
-  /// untouched — nothing about them changes the allowlist.
+  /// (stationPlayed, manual refresh, live metadata change) leave the private
+  /// list untouched — nothing about them changes the allowlist.
   bool _shouldFetchPrivate(SyncReason reason) =>
       reason == SyncReason.startup ||
       reason == SyncReason.appResumed ||
       reason == SyncReason.periodic;
 
-  /// Full refresh: GraphQL stations + live metadata, merged in one shot.
-  /// Resets the offset cursor — the next audio event will repopulate it.
+  /// Full refresh: GraphQL stations + live metadata, merged in one shot. The
+  /// live cursor moves only when the metadata fetch succeeded.
   Future<void> _doFullRefresh(SyncReason reason, {required bool becausePromoted}) async {
     _log("full refresh: $reason${becausePromoted ? ' (promoted: 10-min window)' : ''}");
     // NOTE: deliberately does NOT invalidate the sort cache. The recommended
@@ -370,165 +518,255 @@ class StationDataService {
     // sort options stay stable within a session too. Only an explicit
     // user-initiated sort-option change calls invalidateSortCache().
     try {
-      await _fetchStationsWithMetadata();
-      _lastFullRefreshTime = DateTime.now();
-      _lastFetchTimestamp = getRoundedTimestamp();
-      _lastOffsetFetchTimestamp = 0;
+      final liveTs = _roundedNow();
+      final metadataApplied = await _fetchStationsWithMetadata(liveTs);
+      _lastFullRefreshTime = _now();
+      if (metadataApplied) _liveCursor = liveTs;
       _preCacheStationThumbnails();
     } catch (e) {
       _log("full refresh failed: $e");
     }
   }
 
-  /// Audio-event diff: fetch metadata at the audio's timestamp so the
-  /// playing station's now_playing matches what the user actually hears.
-  /// Single request — no live fetch, no parallelism.
-  Future<void> _doAudioDiff() async {
+  /// Live diff: every station that changed since the cursor (minus the
+  /// overlap), at the live timestamp. A failed fetch leaves the cursor, so
+  /// the next diff covers the gap.
+  Future<void> _doLiveDiff() async {
     if (stations.value.isEmpty) return;
-    _lastAudioEventTime = DateTime.now();
-
-    // Brief settle so the backend ingestion has caught up with the
-    // song change the audio just announced. Coalesced ID3/DATERANGE
-    // bursts pay this once because the mutex holds the whole window.
-    _log("audio diff: settling ${_audioEventSettleDelay.inSeconds}s before fetch");
-    await Future.delayed(_audioEventSettleDelay);
-
-    // TV: fetch the LIVE timeline so the displayed song matches the station's
-    // current song, not the HLS-buffered audio. Still real-time — it runs off
-    // the same stream metadata-change signal as the delayed path below.
-    if (preferLiveMetadata) {
-      final liveTs = getRoundedTimestamp();
-      final canDiffLive = _lastFetchTimestamp > 0;
-      final result = await _fetchMetadata(
-        liveTs,
-        changesFromTimestamp: canDiffLive ? _lastFetchTimestamp : null,
-      );
-      _lastFetchTimestamp = liveTs;
-      if (result == null || result.isEmpty) return;
-      _applyMerge(liveMetadata: result, offsetMetadata: null);
-      return;
-    }
-
-    final hlsActive = isPlayingHls?.call() ?? false;
-    final hlsTimestamp = getHlsPlaybackTimestamp?.call();
-    final int audioTs;
-    if (hlsTimestamp != null) {
-      audioTs = hlsTimestamp;
-    } else if (hlsActive) {
-      final actualOffset = getActualPlaybackOffset?.call();
-      final configuredOffset = SeekModeManager.currentOffset;
-      audioTs = getRoundedTimestamp(offset: actualOffset ?? configuredOffset);
-    } else {
-      // Direct/MP3 stream — audio is "live", so use wall-clock.
-      audioTs = getRoundedTimestamp();
-    }
-
-    final canDiff = _lastOffsetFetchTimestamp > 0 &&
-        audioTs > _lastOffsetFetchTimestamp &&
-        (audioTs - _lastOffsetFetchTimestamp) <= _maxOffsetDiffGapSeconds;
-
-    final result = await _fetchMetadata(
-      audioTs,
-      changesFromTimestamp: canDiff ? _lastOffsetFetchTimestamp : null,
-    );
-    _lastOffsetFetchTimestamp = audioTs;
-    if (result == null || result.isEmpty) return;
-
-    _applyMerge(liveMetadata: null, offsetMetadata: result);
-  }
-
-  /// 60s safety-net diff: refreshes the visible station list at the live
-  /// timeline. When audio events have gone quiet for [_audioEventSafetyNet],
-  /// also includes an offset fetch so the player UI doesn't sit stale.
-  Future<void> _doPeriodicDiff() async {
-    if (stations.value.isEmpty) return;
-
-    final liveTs = getRoundedTimestamp();
-    final hlsActive = isPlayingHls?.call() ?? false;
-    final audioStale = _lastAudioEventTime == null ||
-        DateTime.now().difference(_lastAudioEventTime!) > _audioEventSafetyNet;
-    final wantOffsetSafetyNet = hlsActive && audioStale;
-
-    int offsetTs = liveTs;
-    if (wantOffsetSafetyNet) {
-      final hlsTimestamp = getHlsPlaybackTimestamp?.call();
-      offsetTs = hlsTimestamp ??
-          getRoundedTimestamp(
-            offset: getActualPlaybackOffset?.call() ?? SeekModeManager.currentOffset,
-          );
-    }
-    final fetchOffset = wantOffsetSafetyNet && offsetTs != liveTs;
-
-    final canDiffLive = _lastFetchTimestamp > 0;
-    final canDiffOffset = fetchOffset &&
-        _lastOffsetFetchTimestamp > 0 &&
-        offsetTs > _lastOffsetFetchTimestamp &&
-        (offsetTs - _lastOffsetFetchTimestamp) <= _maxOffsetDiffGapSeconds;
-
+    final liveTs = _roundedNow();
+    final canDiff = _liveCursor > 0 && _liveCursor <= liveTs;
     PerformanceMonitor.startOperation('periodic_sync');
-    Map<int, Map<String, dynamic>>? liveMeta;
-    Map<int, Map<String, dynamic>>? offsetMeta;
-    if (fetchOffset) {
-      final results = await Future.wait([
-        _fetchMetadata(liveTs, changesFromTimestamp: canDiffLive ? _lastFetchTimestamp : null),
-        _fetchMetadata(offsetTs, changesFromTimestamp: canDiffOffset ? _lastOffsetFetchTimestamp : null),
-      ]);
-      liveMeta = results[0];
-      offsetMeta = results[1];
-    } else {
-      liveMeta = await _fetchMetadata(
-        liveTs,
-        changesFromTimestamp: canDiffLive ? _lastFetchTimestamp : null,
-      );
-    }
+    final live = await _fetchMetadata(
+      liveTs,
+      changesFromTimestamp:
+          canDiff ? _liveCursor - _liveCursorOverlap.inSeconds : null,
+    );
     PerformanceMonitor.endOperation('periodic_sync');
-
-    _lastFetchTimestamp = liveTs;
-    if (fetchOffset) _lastOffsetFetchTimestamp = offsetTs;
-
-    if (liveMeta == null && offsetMeta == null) {
-      _log("periodic: both fetches failed, skipping");
-      return;
-    }
-    _applyMerge(liveMetadata: liveMeta, offsetMetadata: offsetMeta);
+    if (live == null) return;
+    _liveCursor = liveTs;
+    _applyLiveMetadata(live);
   }
 
-  /// Merges fetched metadata into the in-memory station list. Either map
-  /// may be null when only one source was fetched. Per-station, picks the
-  /// HLS-aligned (offset) source for the playing station and the live
-  /// source for everyone else, then publishes to the [stations] stream
-  /// only if a user-visible field actually changed.
-  void _applyMerge({
-    required Map<int, Map<String, dynamic>>? liveMetadata,
-    required Map<int, Map<String, dynamic>>? offsetMetadata,
-  }) {
-    if (liveMetadata == null && offsetMetadata == null) return;
-
-    // The metadata endpoint carries public stations only, so it can only ever
-    // update `_publicStations`. Private stations are refreshed by their own
-    // fetch and re-appended by [_publishMerged] — never touched here.
-    final currentPublic = _publicStations;
-    final updatedPublic = currentPublic.map((station) {
-      final useOffset = _shouldUseOffsetMetadata(station);
-      final primarySource = useOffset ? offsetMetadata : liveMetadata;
-      final fallbackSource = useOffset ? liveMetadata : offsetMetadata;
-      final metadata = primarySource?[station.id] ?? fallbackSource?[station.id];
-      if (metadata == null) return station;
-      final liveNowPlaying = liveMetadata?[station.id]?['now_playing'];
-      final liveListeners = liveNowPlaying is Map<String, dynamic>
-          ? liveNowPlaying['listeners'] as int?
-          : null;
-      return _mergeStationWithMetadata(station, metadata, liveListeners: liveListeners);
-    }).toList();
-
-    if (_hasStationsChanged(currentPublic, updatedPublic)) {
-      _publicStations = updatedPublic;
-      _publishMerged();
-      _log("merge: stations updated");
-      if (SeekModeManager.isUnstableConnection) {
-        _preCacheSongThumbnails(updatedPublic);
-      }
+  /// Merges live metadata into [_publicStations]. A station absent from
+  /// [live] is unchanged (a diff only lists the stations that changed).
+  void _applyLiveMetadata(Map<int, Map<String, dynamic>> live) {
+    _publicStations = [
+      for (final station in _publicStations)
+        live[station.id] == null
+            ? station
+            : _mergeStationWithMetadata(station, live[station.id]!),
+    ];
+    if (!_publishMerged()) return;
+    _log("merge: stations updated");
+    if (SeekModeManager.isUnstableConnection) {
+      _preCacheSongThumbnails(_publicStations);
     }
+  }
+
+  int _roundedNow() => _now().millisecondsSinceEpoch ~/ 10000 * 10;
+
+  // ---------------------------------------------------------------------------
+  // Audible overlay: the song the listener hears on time-shifted HLS
+  // ---------------------------------------------------------------------------
+
+  /// Time-shifted HLS on a public station, and not the TV live-metadata mode.
+  /// Private stations are unknown to the public history API.
+  bool _alignable(int stationId) =>
+      !preferLiveMetadata &&
+      (isTimeShiftedHlsActive?.call() ?? false) &&
+      _publicStationById(stationId) != null;
+
+  /// (Re)anchor: the song audible at the audible instant. A null instant
+  /// (still anchoring) is a no-op; the timeline calls again once anchored.
+  /// An unsettled answer gets one re-check ([allowRecheck]), never a chain:
+  /// in instant mode the re-check's own answer is unsettled again.
+  Future<void> _resolveAnchor(int stationId, {bool allowRecheck = true}) async {
+    final audible = getAudibleInstant?.call();
+    final station = _publicStationById(stationId);
+    if (audible == null || station == null) return;
+    _forgetOtherStation(stationId);
+    _lastAudibleCheckAt = _now();
+    final request = ++_audibleRequest;
+    final result = await _resolver.resolveAnchor(
+      stationId: stationId,
+      slug: station.slug,
+      audible: audible,
+      live: _liveRow(stationId),
+      heard: _audible,
+      liveCursor: _liveCursor,
+    );
+    if (result == null || request != _audibleRequest) return;
+    _applyAudible(result);
+    if (allowRecheck && !result.settled) _scheduleAudibleRecheck(audible);
+  }
+
+  /// Change: the audible instant reached [boundary].
+  Future<void> _resolveChange(
+    int stationId,
+    DateTime boundary,
+    SongBoundaryHint? hint,
+  ) async {
+    final station = _publicStationById(stationId);
+    if (station == null) return;
+    _forgetOtherStation(stationId);
+    final request = ++_audibleRequest;
+    final result = await _resolver.resolveChange(
+      stationId: stationId,
+      slug: station.slug,
+      boundary: boundary,
+      hint: hint,
+      live: _liveRow(stationId),
+      songBefore: _audible?.row.songId,
+    );
+    if (result == null || request != _audibleRequest) return;
+    _applyAudible(result);
+  }
+
+  /// The overlay of a previous station never seeds a new one.
+  void _forgetOtherStation(int stationId) {
+    if (_audible?.stationId != stationId) _audible = null;
+  }
+
+  /// Applies [result] when its station is still the playing one (a late
+  /// result for a station the user left is dropped). No monotonic guard: a
+  /// re-anchor further back must be able to show an older song.
+  void _applyAudible(AudibleNowPlaying result) {
+    if (result.stationId != getPlayingStationId?.call()) {
+      _log('audible: dropped a result for station ${result.stationId}');
+      return;
+    }
+    _audible = result;
+    _lastAudibleCheckAt = _now();
+    _log('audible: ${result.source.name} song ${result.row.songId} '
+        'started ${result.row.startedAt.toIso8601String()} '
+        '(heard ${result.heardAt.toIso8601String()})');
+    _publishMerged();
+  }
+
+  /// An anchor resolved before ingestion settled may miss a row that started
+  /// just before the instant (its boundary was dropped as already heard):
+  /// re-anchor once after the ingestion window.
+  void _scheduleAudibleRecheck(DateTime audible) {
+    final recheck = ++_audibleRecheck;
+    final due = audible
+        .add(AudibleSongPolicy.ingestionSafety)
+        .difference(_now());
+    unawaited(_wait(due.isNegative ? Duration.zero : due).then((_) {
+      if (recheck != _audibleRecheck) return;
+      unawaited(_revalidateAudible(allowRecheck: false));
+    }));
+  }
+
+  /// Safety net on the periodic tick, after the live diff: a live list that
+  /// proves a different audible song means a boundary was missed; with
+  /// nothing resolved for [_audibleSafetyNet], re-anchor. Also covers a
+  /// station without an audible song yet (a failed first anchor, or a
+  /// platform whose clock never anchors, such as Windows/Linux), which
+  /// would otherwise show the live song until the next boundary. Skipped
+  /// while a request is in flight, so it never cancels a change that is
+  /// still retrying.
+  void _checkAudibleOnTick() {
+    final id = getPlayingStationId?.call();
+    final audible = getAudibleInstant?.call();
+    if (id == null || audible == null) return;
+    if (!_alignable(id) || _resolver.isBusy) return;
+    final overlay = _audible?.stationId == id ? _audible : null;
+    final live = _liveRow(id);
+    if (live != null &&
+        live.songId != overlay?.row.songId &&
+        AudibleSongPolicy.liveProvesAudible(
+            live: live, audible: audible, liveCursor: _liveCursor)) {
+      _applyAudible(AudibleNowPlaying(
+          stationId: id,
+          row: live,
+          source: AudibleSource.live,
+          heardAt: audible));
+      return;
+    }
+    final last = _lastAudibleCheckAt;
+    if (last == null || _now().difference(last) >= _audibleSafetyNet) {
+      unawaited(_revalidateAudible());
+    }
+  }
+
+  /// Re-anchors the playing station unless a request is already in flight.
+  Future<void> _revalidateAudible({bool allowRecheck = true}) async {
+    final id = getPlayingStationId?.call();
+    if (id == null || !_alignable(id) || _resolver.isBusy) return;
+    await _resolveAnchor(id, allowRecheck: allowRecheck);
+  }
+
+  /// A live stream (ICY, Android TV) signalled a song change: fetch the live
+  /// list until the station's row starting at or after [changedAtOrAfter]
+  /// shows up (it may not be ingested yet), at most
+  /// `_liveFollowUpDelays.length` retries. The latest signal wins.
+  Future<void> _followLiveChange(
+    int stationId, {
+    required DateTime changedAtOrAfter,
+  }) async {
+    final followUp = ++_liveFollowUp;
+    for (var attempt = 0;; attempt++) {
+      await enqueueSync(SyncReason.liveMetadataChanged);
+      if (followUp != _liveFollowUp) return;
+      if (_publicStationById(stationId) == null) return;
+      final live = _liveRow(stationId);
+      if (live != null && !live.startedAt.isBefore(changedAtOrAfter)) return;
+      if (attempt == _liveFollowUpDelays.length) return;
+      await _wait(_liveFollowUpDelays[attempt]);
+      if (followUp != _liveFollowUp) return;
+    }
+  }
+
+  /// The station's raw live row (pre-overlay, pre-sanitizer), so timing is
+  /// never lost.
+  NowPlayingRow? _liveRow(int stationId) => NowPlayingRow.fromNowPlayingJson(
+      _publicStationById(stationId)?.rawStationData.now_playing?.toJson());
+
+  Station? _publicStationById(int stationId) {
+    for (final station in _publicStations) {
+      if (station.id == stationId) return station;
+    }
+    return null;
+  }
+
+  /// The playing station with the audible song in place of its live one.
+  /// Only `now_playing` changes; listeners and uptime stay live.
+  List<Station> _withAudibleOverlay(List<Station> merged) {
+    final overlay = _audible;
+    if (overlay == null ||
+        preferLiveMetadata ||
+        overlay.stationId != getPlayingStationId?.call()) {
+      return merged;
+    }
+    return [
+      for (final station in merged)
+        station.id == overlay.stationId
+            ? _rebuild(station,
+                (json) => _withNowPlaying(json, overlay.row.nowPlaying))
+            : station,
+    ];
+  }
+
+  /// Hides stale or placeholder now-playing values for display (C12).
+  List<Station> _sanitizedForDisplay(List<Station> merged) {
+    final now = _now();
+    return [
+      for (final station in merged) _sanitized(station, now),
+    ];
+  }
+
+  Station _sanitized(Station station, DateTime now) {
+    final nowPlaying = station.rawStationData.now_playing;
+    final verdict = NowPlayingSanitizer.verdict(
+      stationTitle: station.rawStationData.title,
+      startedAt: DateTime.tryParse(nowPlaying?.timestamp ?? ''),
+      songName: nowPlaying?.song?.name,
+      artistName: nowPlaying?.song?.artist?.name,
+      now: now,
+    );
+    if (verdict == NowPlayingVerdict.keep) return station;
+    return _rebuild(
+        station, (json) => NowPlayingSanitizer.apply(json, verdict));
   }
 
   // ---------------------------------------------------------------------------
@@ -559,14 +797,17 @@ class StationDataService {
     return [...privateOnly, ..._publicStations];
   }
 
-  /// Publishes the merged catalog to [stations]. Change-gated by default so a
-  /// no-op refresh doesn't churn downstream streams; [force] bypasses the gate
-  /// for structural changes (bootstrap, full refresh, private list cleared).
-  void _publishMerged({bool force = false}) {
-    final merged = _mergePublicPrivate();
-    if (force || _hasStationsChanged(stations.value, merged)) {
-      stations.add(merged);
-    }
+  /// Publishes the merged catalog (with the audible overlay and the display
+  /// sanitizer) to [stations]. Change-gated by default so a no-op refresh
+  /// doesn't churn downstream streams; [force] bypasses the gate for
+  /// structural changes (bootstrap, full refresh, private list cleared).
+  /// Returns whether it emitted.
+  bool _publishMerged({bool force = false}) {
+    final merged =
+        _sanitizedForDisplay(_withAudibleOverlay(_mergePublicPrivate()));
+    if (!force && !_hasStationsChanged(stations.value, merged)) return false;
+    stations.add(merged);
+    return true;
   }
 
   // ---------------------------------------------------------------------------
@@ -700,41 +941,54 @@ class StationDataService {
     stationGroups.add(data.station_groups);
   }
 
-  /// Fetches stations + live metadata, merges, applies in a single UI
-  /// update. Used by full-refresh paths only — periodic and audio-event
-  /// paths skip the heavy GraphQL hop.
-  Future<void> _fetchStationsWithMetadata() async {
-    final liveTs = getRoundedTimestamp();
-    final futures = <Future>[
-      graphqlClient.query(
-        Options$Query$GetStations(fetchPolicy: FetchPolicy.networkOnly),
-      ),
+  /// Fetches stations + live metadata at [liveTs], merges, applies in a
+  /// single UI update. Used by full-refresh paths only — live diffs skip the
+  /// heavy GraphQL hop. When GraphQL fails, the live metadata is still
+  /// applied to the stations already shown. Returns whether the live
+  /// metadata was fetched.
+  Future<bool> _fetchStationsWithMetadata(int liveTs) async {
+    final results = await Future.wait<Object?>([
+      _queryStations(),
       _fetchMetadata(liveTs),
-    ];
-    final results = await Future.wait(futures);
-    final stationsResult = results[0] as QueryResult<Query$GetStations>;
+    ]);
+    final parsedData = results[0] as Query$GetStations?;
     final liveMetadata = results[1] as Map<int, Map<String, dynamic>>?;
 
-    final parsedData = stationsResult.parsedData;
     if (parsedData != null && parsedData.stations.length >= _minStationsForCache) {
-      final stationsWithMetadata = parsedData.stations.map((r) {
-        var station = _createStation(r);
-        final metadata = liveMetadata?[station.id];
-        if (metadata != null) {
-          final liveNowPlaying = metadata['now_playing'];
-          final liveListeners = liveNowPlaying is Map<String, dynamic>
-              ? liveNowPlaying['listeners'] as int?
-              : null;
-          station = _mergeStationWithMetadata(station, metadata, liveListeners: liveListeners);
-        }
-        return station;
-      }).toList();
-
-      _publicStations = stationsWithMetadata;
+      _publicStations = [
+        for (final raw in parsedData.stations)
+          _withLiveMetadata(_createStation(raw), liveMetadata),
+      ];
       _publishMerged(force: true);
       stationGroups.add(parsedData.station_groups);
       _cacheStationsData(parsedData);
+    } else if (liveMetadata != null) {
+      _applyLiveMetadata(liveMetadata);
     }
+    return liveMetadata != null;
+  }
+
+  /// The GraphQL station list, or null when the query failed.
+  Future<Query$GetStations?> _queryStations() async {
+    try {
+      final result = await graphqlClient.query(
+        Options$Query$GetStations(fetchPolicy: FetchPolicy.networkOnly),
+      );
+      return result.parsedData;
+    } catch (e) {
+      _log("stations query failed: $e");
+      return null;
+    }
+  }
+
+  Station _withLiveMetadata(
+    Station station,
+    Map<int, Map<String, dynamic>>? liveMetadata,
+  ) {
+    final metadata = liveMetadata?[station.id];
+    return metadata == null
+        ? station
+        : _mergeStationWithMetadata(station, metadata);
   }
 
   // ---------------------------------------------------------------------------
@@ -842,7 +1096,8 @@ class StationDataService {
     _log("→ metadata fetch [$mode] ts=$timestamp"
         "${isDiff ? ' from=$changesFromTimestamp' : ''}");
     try {
-      final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 8));
+      final response =
+          await _http.get(Uri.parse(url)).timeout(const Duration(seconds: 8));
       stopwatch.stop();
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body) as Map<String, dynamic>;
@@ -869,61 +1124,86 @@ class StationDataService {
     }
   }
 
-  /// Merges lightweight metadata (uptime, now_playing, listeners) into an
-  /// existing station. Preserves all other fields (station_streams,
+  /// Merges lightweight live metadata (uptime, now_playing, listeners) into
+  /// an existing station. Preserves all other fields (station_streams,
   /// posts, reviews, etc.).
-  Station _mergeStationWithMetadata(Station station, Map<String, dynamic> metadata, {int? liveListeners}) {
-    final stationJson = station.rawStationData.toJson();
+  Station _mergeStationWithMetadata(
+    Station station,
+    Map<String, dynamic> metadata,
+  ) =>
+      _rebuild(station, (json) {
+        _withUptime(json, metadata['uptime']);
+        final nowPlaying = metadata['now_playing'];
+        if (nowPlaying is! Map<String, dynamic>) return json;
+        json['total_listeners'] = nowPlaying['listeners'];
+        return _withNowPlaying(json, nowPlaying);
+      });
 
-    final metadataUptime = metadata['uptime'];
-    if (metadataUptime is Map<String, dynamic>) {
-      stationJson['uptime'] = {
-        '__typename': 'StationUptimeType',
-        'is_up': metadataUptime['is_up'],
-        'latency_ms': metadataUptime['latency_ms'],
-        'timestamp': metadataUptime['timestamp'],
-      };
-    }
-
-    final metadataNowPlaying = metadata['now_playing'];
-    if (metadataNowPlaying is Map<String, dynamic>) {
-      stationJson['total_listeners'] = liveListeners ?? metadataNowPlaying['listeners'];
-
-      final metadataSong = metadataNowPlaying['song'];
-      Map<String, dynamic>? songJson;
-      if (metadataSong is Map<String, dynamic>) {
-        final metadataArtist = metadataSong['artist'];
-        songJson = {
-          '__typename': 'SongType',
-          'id': metadataSong['id'],
-          'name': metadataSong['name'],
-          'thumbnail_url': metadataSong['thumbnail_url'],
-          'artist': metadataArtist is Map<String, dynamic>
-              ? {
-                  '__typename': 'ArtistType',
-                  'id': metadataArtist['id'],
-                  'name': metadataArtist['name'],
-                  'thumbnail_url': metadataArtist['thumbnail_url'],
-                }
-              : null,
-        };
-      }
-
-      // Metadata API doesn't include now_playing.id; reuse previous value or default to 0
-      stationJson['now_playing'] = {
-        '__typename': 'StationNowPlayingType',
-        'id': station.rawStationData.now_playing?.id ?? 0,
-        'timestamp': metadataNowPlaying['timestamp'],
-        'song': songJson,
-      };
-    }
-
+  /// Rebuilds [station] from its JSON after [edit], keeping its review
+  /// stats.
+  Station _rebuild(
+    Station station,
+    Map<String, dynamic> Function(Map<String, dynamic> json) edit,
+  ) {
     final stats = reviewsStatsCache[station.id];
     return Station(
-      rawStationData: Query$GetStations$stations.fromJson(stationJson),
+      rawStationData: Query$GetStations$stations.fromJson(
+          edit(station.rawStationData.toJson())),
       averageRating: stats?.averageRating ?? station.averageRating,
       numberOfReviews: stats?.numberOfReviews ?? station.reviewCount,
     );
+  }
+
+  static void _withUptime(Map<String, dynamic> stationJson, Object? uptime) {
+    if (uptime is! Map<String, dynamic>) return;
+    stationJson['uptime'] = {
+      '__typename': 'StationUptimeType',
+      'is_up': uptime['is_up'],
+      'latency_ms': uptime['latency_ms'],
+      'timestamp': uptime['timestamp'],
+    };
+  }
+
+  /// [stationJson] with `now_playing` taken from an API-shaped [nowPlaying]
+  /// (live list, history row or B14 hint). Shared by the live merge and the
+  /// audible overlay.
+  static Map<String, dynamic> _withNowPlaying(
+    Map<String, dynamic> stationJson,
+    Map<String, dynamic> nowPlaying,
+  ) {
+    final previous = stationJson['now_playing'];
+    stationJson['now_playing'] = {
+      '__typename': 'StationNowPlayingType',
+      // The metadata API has no now_playing.id; keep the previous one.
+      'id': previous is Map<String, dynamic> ? previous['id'] ?? 0 : 0,
+      'timestamp': nowPlaying['timestamp'],
+      'song': _songJson(nowPlaying['song']),
+    };
+    return stationJson;
+  }
+
+  /// GraphQL `SongType` JSON, or null when [song] lacks an id or a name.
+  static Map<String, dynamic>? _songJson(Object? song) {
+    if (song is! Map<String, dynamic>) return null;
+    if (song['id'] is! int || song['name'] is! String) return null;
+    final artist = song['artist'];
+    final hasArtist = artist is Map<String, dynamic> &&
+        artist['id'] is int &&
+        artist['name'] is String;
+    return {
+      '__typename': 'SongType',
+      'id': song['id'],
+      'name': song['name'],
+      'thumbnail_url': song['thumbnail_url'],
+      'artist': hasArtist
+          ? {
+              '__typename': 'ArtistType',
+              'id': artist['id'],
+              'name': artist['name'],
+              'thumbnail_url': artist['thumbnail_url'],
+            }
+          : null,
+    };
   }
 
   // ---------------------------------------------------------------------------
@@ -1158,23 +1438,6 @@ class StationDataService {
       }
     }
     return false;
-  }
-
-  /// For the currently playing station, check the actual stream type in use.
-  /// For all other stations, fall back to the configured primary stream type.
-  bool _shouldUseOffsetMetadata(Station station) {
-    // TV always shows the live song, never the HLS-buffered one.
-    if (preferLiveMetadata) return false;
-    final playingType = getPlayingStreamType?.call(station.id);
-    if (playingType != null) return playingType == 'HLS';
-    return _isStationHls(station);
-  }
-
-  bool _isStationHls(Station station) {
-    final List<Query$GetStations$stations$station_streams>? streams = station.stationStreams;
-    if (streams == null || streams.isEmpty) return false;
-    final primary = streams.reduce((a, b) => a.order <= b.order ? a : b);
-    return primary.type == 'HLS';
   }
 
   void _injectTypenames(Map<String, dynamic> data, [String typename = 'queryRoot']) {

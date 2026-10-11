@@ -3,6 +3,7 @@ import 'dart:developer' as developer;
 
 import 'package:http/http.dart' as http;
 import 'package:radio_crestin/constants.dart';
+import 'package:radio_crestin/services/audible_song_policy.dart';
 
 /// A single item in the song history timeline.
 class SongHistoryItem {
@@ -44,6 +45,28 @@ class SongHistoryItem {
   bool get hasSong => songName != null && songName!.isNotEmpty;
 
   DateTime get dateTime => DateTime.parse(timestamp);
+
+  /// This item in the API's `now_playing` shape, so history rows and live
+  /// rows go through the same merge. An item without a song id gives
+  /// `song: null`, as does one whose artist lacks an id or name.
+  Map<String, dynamic> toNowPlayingJson() => {
+        'timestamp': timestamp,
+        'listeners': listeners,
+        'song': songId == null || songName == null
+            ? null
+            : {
+                'id': songId,
+                'name': songName,
+                'thumbnail_url': songThumbnailUrl,
+                'artist': artistId == null || artistName == null
+                    ? null
+                    : {
+                        'id': artistId,
+                        'name': artistName,
+                        'thumbnail_url': artistThumbnailUrl,
+                      },
+              },
+      };
 }
 
 /// Response from the stations-metadata-history API.
@@ -113,38 +136,113 @@ class SongHistoryService {
     developer.log("SongHistoryService: $message");
   }
 
+  /// A hung request must not stall the recently-played lists or the audible
+  /// song resolution, which retries on its own schedule.
+  static const _requestTimeout = Duration(seconds: 8);
+
   /// Fetches song history for a station within a time range.
-  /// [fromTimestamp] and [toTimestamp] are Unix seconds.
+  /// [fromTimestamp] and [toTimestamp] are Unix seconds; the server defaults
+  /// a missing `from` to `now − 3600` and a missing `to` to now.
   static Future<SongHistoryResponse?> fetchHistory(
     String stationSlug, {
     int? fromTimestamp,
     int? toTimestamp,
+    http.Client? client,
   }) async {
-    var url = '${CONSTANTS.STATIONS_METADATA_HISTORY_URL}?station_slug=${Uri.encodeComponent(stationSlug)}';
-    if (fromTimestamp != null) {
-      url += '&from_timestamp=$fromTimestamp';
-    }
-    if (toTimestamp != null) {
-      url += '&to_timestamp=$toTimestamp';
-    }
-
     try {
-      final response = await http.get(Uri.parse(url));
-      if (response.statusCode == 200) {
-        final jsonData = json.decode(response.body) as Map<String, dynamic>;
-        final historyData = jsonData['data']?['stations_metadata_history'];
-        if (historyData is Map<String, dynamic>) {
-          return SongHistoryResponse.fromJson(historyData);
-        }
-        return null;
-      } else {
+      final response = await _get(
+          _historyUri(stationSlug, from: fromTimestamp, to: toTimestamp),
+          client);
+      if (response.statusCode != 200) {
         _log("History fetch failed: ${response.statusCode}");
         return null;
       }
+      return _parseResponse(response.body);
     } catch (e) {
       _log("Error fetching history: $e");
       return null;
     }
+  }
+
+  /// One history window for the audible-song resolver: the rows in API order
+  /// plus when the origin generated them. Null on an HTTP error, a timeout or
+  /// an API error body (such as "to_timestamp cannot be in the future").
+  static Future<HistoryPage?> fetchPage(
+    String stationSlug,
+    HistoryWindow window, {
+    http.Client? client,
+  }) async {
+    try {
+      final response = await _get(
+          _historyUri(stationSlug, from: window.from, to: window.to), client);
+      if (response.statusCode != 200) return null;
+      final history = _parseResponse(response.body);
+      if (history == null) return null;
+      final rows = [
+        for (final item in history.history)
+          NowPlayingRow.fromNowPlayingJson(item.toNowPlayingJson()),
+      ].whereType<NowPlayingRow>().toList();
+      return HistoryPage(
+          rows, AudibleSongPolicy.generationTime(response.headers));
+    } catch (e) {
+      _log("Error fetching history page: $e");
+      return null;
+    }
+  }
+
+  /// The songs of [items] that were heard by [cutoff], newest first.
+  ///
+  /// [cutoff] is the audible instant for a time-shifted station, so the
+  /// "recently played" lists never show a song the listener has not reached.
+  static List<SongHistoryItem> playedBefore(
+    Iterable<SongHistoryItem> items,
+    DateTime cutoff,
+  ) =>
+      items
+          .where((item) => item.hasSong && !item.dateTime.isAfter(cutoff))
+          .toList()
+        ..sort((a, b) => b.dateTime.compareTo(a.dateTime));
+
+  /// The first one-hour page of the history modal: it ends at the hour
+  /// boundary after [cutoff], never later than [now].
+  static HistoryWindow initialPage({
+    required DateTime cutoff,
+    required DateTime now,
+  }) {
+    const hourMs = 3600 * 1000;
+    final ceilHour =
+        (cutoff.millisecondsSinceEpoch + hourMs - 1) ~/ hourMs * 3600;
+    final nowEpoch = now.millisecondsSinceEpoch ~/ 1000;
+    final to = ceilHour < nowEpoch ? ceilHour : nowEpoch;
+    return HistoryWindow(to - 3600, to);
+  }
+
+  static Uri _historyUri(String slug, {int? from, int? to}) {
+    var url = '${CONSTANTS.STATIONS_METADATA_HISTORY_URL}'
+        '?station_slug=${Uri.encodeComponent(slug)}';
+    if (from != null) url += '&from_timestamp=$from';
+    if (to != null) url += '&to_timestamp=$to';
+    return Uri.parse(url);
+  }
+
+  /// GET through [client], or through a one-off client that is closed after.
+  static Future<http.Response> _get(Uri uri, http.Client? client) async {
+    if (client != null) return client.get(uri).timeout(_requestTimeout);
+    final owned = http.Client();
+    try {
+      return await owned.get(uri).timeout(_requestTimeout);
+    } finally {
+      owned.close();
+    }
+  }
+
+  /// The history payload, or null for an API error body (`data: null`).
+  static SongHistoryResponse? _parseResponse(String body) {
+    final jsonData = json.decode(body) as Map<String, dynamic>;
+    final historyData = jsonData['data']?['stations_metadata_history'];
+    return historyData is Map<String, dynamic>
+        ? SongHistoryResponse.fromJson(historyData)
+        : null;
   }
 
   /// Groups history items by date and hour for display, sorted descending.

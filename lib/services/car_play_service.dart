@@ -419,18 +419,18 @@ class CarPlayService {
     if (station == null) return;
 
     try {
-      final nowSeconds = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-      final history = await SongHistoryService.fetchHistory(station.slug, toTimestamp: nowSeconds);
+      // The default window (last hour) is one URL per station shared at the
+      // edge; a per-second `to_timestamp` would never be shared.
+      final history = await SongHistoryService.fetchHistory(station.slug);
       if (history == null || history.history.isEmpty) {
         _log("No song history available for ${station.slug}");
         return;
       }
 
-      final now = DateTime.now();
-      final pastSongs = history.history
-          .where((item) => item.hasSong && item.dateTime.isBefore(now))
-          .toList()
-        ..sort((a, b) => b.dateTime.compareTo(a.dateTime));
+      // Only songs already heard: on time-shifted HLS the newest rows are
+      // still ahead of the audible instant.
+      final pastSongs = SongHistoryService.playedBefore(history.history,
+          _audioHandler.stationDataService.playedCutoffFor(station.id));
       final items = pastSongs
           .take(30)
           .map((item) {
@@ -567,8 +567,9 @@ class CarPlayService {
         final wasPlaying = _audioHandler.playbackState.value.playing;
         _audioHandler.refreshCurrentMetadata();
         if (wasPlaying) {
-          // Already playing from phone — don't interrupt the stream.
-          // Just refresh station metadata for the new seek offset.
+          // Already playing from phone — don't interrupt the stream. The
+          // audible clock follows the real stream, so the playing station
+          // stays aligned; refresh the live list shown on the car screen.
           _audioHandler.stationDataService.refreshStations();
           _log("Already playing, skipping autoplay — refreshed metadata only");
         } else {

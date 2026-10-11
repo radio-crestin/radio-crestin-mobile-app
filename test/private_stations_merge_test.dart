@@ -200,7 +200,10 @@ void main() {
         title: 'Private Parsed',
         averageRating: 4.5,
         numberOfReviews: 12,
-        nowPlaying: StationFactory.createNowPlaying(songName: 'Live Song'),
+        nowPlaying: StationFactory.createNowPlaying(
+          songName: 'Live Song',
+          timestamp: DateTime.now().toUtc().toIso8601String(),
+        ),
       );
       final client = MockClient(
         (_) async => http.Response(

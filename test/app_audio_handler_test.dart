@@ -59,48 +59,37 @@ void main() {
   });
 
   group('Tracking URL parameters', () {
-    // Test the URL parameter logic without needing a full AppAudioHandler instance.
-    // The addTrackingParametersToUrl method adds ref and s query params.
+    String tracked(String url) => AppAudioHandler.withTrackingParameters(
+          url,
+          source: 'ios',
+          deviceId: 'test-device-123',
+        );
 
-    test('adds ref and device ID to URL', () {
-      // Replicate the logic from addTrackingParametersToUrl
-      const url = 'https://stream.example.com/live.mp3';
-      final platform = Platform.isIOS ? "ios" : (Platform.isAndroid ? "android" : "unknown");
-      const deviceId = 'test-device-123';
-
-      final uri = Uri.parse(url);
-      final queryParams = Map<String, String>.from(uri.queryParameters);
-      queryParams['ref'] = 'radio-crestin-mobile-app-$platform';
-      queryParams['s'] = deviceId;
-      final result = uri.replace(queryParameters: queryParams).toString();
-
-      expect(result, contains('ref=radio-crestin-mobile-app-'));
-      expect(result, contains('s=test-device-123'));
+    test('adds ref (playback source) and s (device id)', () {
+      final uri = Uri.parse(tracked('https://stream.example.com/live.mp3'));
+      expect(uri.queryParameters['ref'], 'radio-crestin-ios');
+      expect(uri.queryParameters['s'], 'test-device-123');
     });
 
-    test('preserves existing query parameters', () {
-      const url = 'https://stream.example.com/live.mp3?quality=high';
-      const deviceId = 'dev1';
-
-      final uri = Uri.parse(url);
-      final queryParams = Map<String, String>.from(uri.queryParameters);
-      queryParams['ref'] = 'radio-crestin-mobile-app-unknown';
-      queryParams['s'] = deviceId;
-      final result = uri.replace(queryParameters: queryParams).toString();
-
-      expect(result, contains('quality=high'));
-      expect(result, contains('ref='));
-      expect(result, contains('s=dev1'));
+    test('keeps existing query parameters', () {
+      final uri =
+          Uri.parse(tracked('https://stream.example.com/live.mp3?quality=hi'));
+      expect(uri.queryParameters['quality'], 'hi');
+      expect(uri.queryParameters['ref'], 'radio-crestin-ios');
     });
 
-    test('HLS URLs are not modified', () {
-      // addTrackingParametersToUrl returns URL as-is when isHls=true
-      const url = 'https://stream.example.com/live.m3u8';
-      const isHls = true;
+    test('tags HLS URLs too', () {
+      final uri = Uri.parse(
+          tracked('https://hls.radiocrestin.ro/hls/rve-suceava/index.m3u8'));
+      expect(uri.path, '/hls/rve-suceava/index.m3u8');
+      expect(uri.queryParameters['s'], 'test-device-123');
+    });
 
-      // When isHls is true, the method returns the url unchanged
-      final result = isHls ? url : 'modified';
-      expect(result, url);
+    test('overwrites an existing ref', () {
+      final uri = Uri.parse(
+          tracked('https://stream.example.com/live.mp3?ref=old&s=other'));
+      expect(uri.queryParameters['ref'], 'radio-crestin-ios');
+      expect(uri.queryParameters['s'], 'test-device-123');
     });
   });
 

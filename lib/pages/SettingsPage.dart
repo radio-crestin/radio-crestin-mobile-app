@@ -333,7 +333,7 @@ class _SettingsPageState extends State<SettingsPage> {
       case StreamEventKind.lostIdle:
       case StreamEventKind.bufferingDrop:
       case StreamEventKind.audioInterruption:
-      case StreamEventKind.microStall:
+      case StreamEventKind.hlsStalled:
         return const Color(0xffff9500);
     }
   }

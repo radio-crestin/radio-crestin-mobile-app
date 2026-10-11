@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:radio_crestin/seek_mode_manager.dart';
 import 'package:radio_crestin/services/analytics_service.dart';
 import 'package:radio_crestin/services/song_history_service.dart';
 import 'package:radio_crestin/theme.dart';
@@ -15,11 +14,17 @@ class SongHistoryModal extends StatefulWidget {
   final String stationTitle;
   final String? stationThumbnailUrl;
 
+  /// The newest instant the listener has heard on this station (the audible
+  /// instant on time-shifted HLS); later songs are not listed yet. Defaults
+  /// to now.
+  final DateTime Function()? playedCutoff;
+
   const SongHistoryModal({
     super.key,
     required this.stationSlug,
     required this.stationTitle,
     this.stationThumbnailUrl,
+    this.playedCutoff,
   });
 
   static Future<void> show(
@@ -27,6 +32,7 @@ class SongHistoryModal extends StatefulWidget {
     required String stationSlug,
     required String stationTitle,
     String? stationThumbnailUrl,
+    DateTime Function()? playedCutoff,
   }) {
     return showModalBottomSheet(
       context: context,
@@ -37,6 +43,7 @@ class SongHistoryModal extends StatefulWidget {
         stationSlug: stationSlug,
         stationTitle: stationTitle,
         stationThumbnailUrl: stationThumbnailUrl,
+        playedCutoff: playedCutoff,
       ),
     );
   }
@@ -53,11 +60,18 @@ class _SongHistoryModalState extends State<SongHistoryModal> {
   bool _hasMore = true;
   int? _oldestTimestamp;
 
+  /// Songs after this instant are not shown (not heard yet, or after the
+  /// filter's date and time).
+  DateTime _cutoff = DateTime.now();
+
   // Date filter state
   DateTime? _filterDate;
   TimeOfDay? _filterTime;
 
   static const _pageSize = 3600; // 1 hour in seconds
+
+  /// Older one-hour pages fetched together with the first one.
+  static const _preloadedPages = 3;
 
   @override
   void initState() {
@@ -87,53 +101,37 @@ class _SongHistoryModalState extends State<SongHistoryModal> {
       _oldestTimestamp = null;
     });
 
-    final nowUnix = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    // When buffer delay is active (2 or 5 min), show history relative to
-    // what the user is actually hearing (offset time), not live time.
-    final offset = SeekModeManager.currentOffset;
-    final effectiveNow = nowUnix - offset.inSeconds;
-    final ts = targetTimestamp ?? effectiveNow;
-    // Align to hour ceiling, cap at now
-    final aligned = [((ts / 3600).ceil() * 3600), nowUnix].reduce((a, b) => a < b ? a : b);
+    final now = DateTime.now();
+    final played = widget.playedCutoff?.call() ?? now;
+    final target = targetTimestamp == null
+        ? null
+        : DateTime.fromMillisecondsSinceEpoch(targetTimestamp * 1000);
+    _cutoff = target != null && target.isBefore(played) ? target : played;
+    final first = SongHistoryService.initialPage(cutoff: _cutoff, now: now);
 
-    final data = await SongHistoryService.fetchHistory(
-      widget.stationSlug,
-      toTimestamp: aligned,
-    );
+    // The first hour plus 3 preloaded ones, in parallel. Every page sends
+    // both bounds: without `from_timestamp` the server starts the window at
+    // now − 1 h, so a past date would come back empty.
+    final pages = await Future.wait([
+      for (var k = 0; k <= _preloadedPages; k++)
+        SongHistoryService.fetchHistory(
+          widget.stationSlug,
+          fromTimestamp: first.from - _pageSize * k,
+          toTimestamp: first.to - _pageSize * k,
+        ),
+    ]);
 
     if (!mounted) return;
-
-    final items = data?.history ?? [];
-    final fromTs = data?.fromTimestamp;
-
-    if (fromTs != null) {
-      // Preload 3 hours in parallel
-      final results = await Future.wait([
-        SongHistoryService.fetchHistory(widget.stationSlug, fromTimestamp: fromTs - _pageSize, toTimestamp: fromTs),
-        SongHistoryService.fetchHistory(widget.stationSlug, fromTimestamp: fromTs - _pageSize * 2, toTimestamp: fromTs - _pageSize),
-        SongHistoryService.fetchHistory(widget.stationSlug, fromTimestamp: fromTs - _pageSize * 3, toTimestamp: fromTs - _pageSize * 2),
-      ]);
-
-      if (!mounted) return;
-
-      final allItems = <SongHistoryItem>[
-        ...items,
-        ...results.expand((r) => r?.history ?? <SongHistoryItem>[]),
-      ];
-      _deduplicateAndSet(allItems, fromTs - _pageSize * 3);
-    } else {
-      setState(() {
-        _history = items;
-        _hasMore = items.isNotEmpty;
-        _isLoading = false;
-      });
-    }
+    _deduplicateAndSet(
+      [for (final page in pages) ...?page?.history],
+      first.from - _pageSize * _preloadedPages,
+    );
   }
 
   void _deduplicateAndSet(List<SongHistoryItem> allItems, int oldestTs) {
     final seen = <String>{};
     final deduped = <SongHistoryItem>[];
-    for (final item in allItems) {
+    for (final item in SongHistoryService.playedBefore(allItems, _cutoff)) {
       if (seen.add(item.timestamp)) {
         deduped.add(item);
       }
@@ -167,7 +165,9 @@ class _SongHistoryModalState extends State<SongHistoryModal> {
       });
     } else {
       final existing = _history.map((s) => s.timestamp).toSet();
-      final fresh = items.where((s) => !existing.contains(s.timestamp)).toList();
+      final fresh = SongHistoryService.playedBefore(items, _cutoff)
+          .where((s) => !existing.contains(s.timestamp))
+          .toList();
       setState(() {
         _history = [..._history, ...fresh];
         _oldestTimestamp = from;

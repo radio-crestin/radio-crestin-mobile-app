@@ -36,6 +36,7 @@ import '../widgets/mini_player_bottom_inset.dart';
 import '../widgets/promo_notification_card.dart';
 import '../services/promo_notification_service.dart';
 import '../services/analytics_service.dart';
+import '../services/background_polling_policy.dart';
 import '../types/Station.dart';
 import '../utils/PositionRetainedScrollPhysics.dart';
 import '../widgets/song_history_modal.dart';
@@ -212,10 +213,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _customEventSub = _audioHandler.customEvent.listen((event) {
       if (!mounted) return;
       if (event is Map && event['action'] == 'showSongHistory') {
+        final stationId = event['stationId'] as int?;
         final slug = event['stationSlug'] as String?;
         final title = event['stationTitle'] as String?;
         final thumbUrl = event['stationThumbnailUrl'] as String?;
-        if (slug != null && title != null) {
+        if (stationId != null && slug != null && title != null) {
           // Open full player panel, then show song history modal
           if (slidingUpPanelController.isAttached) {
             slidingUpPanelController.open();
@@ -227,6 +229,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               stationSlug: slug,
               stationTitle: title,
               stationThumbnailUrl: thumbUrl,
+              playedCutoff: () =>
+                  _stationDataService.playedCutoffFor(stationId),
             );
           });
         }
@@ -409,6 +413,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         stationSlug: station.slug,
         stationTitle: station.title,
         stationThumbnailUrl: station.thumbnailUrl,
+        playedCutoff: () => _stationDataService.playedCutoffFor(station.id),
       );
     });
   }
@@ -671,11 +676,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       // App went to background — keep polling if car or cast is connected
       // (user sees metadata on car/cast screen). During casting, player.playing
       // is false (playback is on Cast device), so we must check isCasting too.
-      final carConnected = _audioHandler.isCarConnected;
-      final casting = _audioHandler.isCasting;
-      if (!carConnected && !casting && (_networkService.isOnMobileData.value || !_audioHandler.player.playing)) {
-        _stationDataService.pausePolling();
-      }
+      final pause = BackgroundPollingPolicy.shouldPause(
+        carConnected: _audioHandler.isCarConnected,
+        casting: _audioHandler.isCasting,
+        onMobileData: _networkService.isOnMobileData.value,
+        playing: _audioHandler.player.playing,
+      );
+      if (pause) _stationDataService.pausePolling();
     } else if (state == AppLifecycleState.detached) {
       // Flush listening session and analytics before the app is terminated
       AnalyticsService.instance.endListening(reason: 'app_killed');

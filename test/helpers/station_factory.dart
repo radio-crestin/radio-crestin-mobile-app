@@ -105,16 +105,20 @@ class StationFactory {
     );
   }
 
+  /// [timestamp] is when the song started; rows older than 14 days are
+  /// hidden on publish (`NowPlayingSanitizer`), so pass a fresh one when the
+  /// song must show in `StationDataService.stations`.
   static Query$GetStations$stations$now_playing createNowPlaying({
     int id = 1,
     String songName = 'Test Song',
     String? songThumbnailUrl,
     String? artistName = 'Test Artist',
     String? artistThumbnailUrl,
+    String timestamp = '2024-01-01T00:00:00Z',
   }) {
     return Query$GetStations$stations$now_playing(
       id: id,
-      timestamp: '2024-01-01T00:00:00Z',
+      timestamp: timestamp,
       song: Query$GetStations$stations$now_playing$song(
         id: id,
         name: songName,

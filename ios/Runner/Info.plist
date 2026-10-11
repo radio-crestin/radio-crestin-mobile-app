@@ -108,15 +108,15 @@
 		<array>
 			<dict>
 				<key>CFBundleURLName</key>
-				<string></string>
+				<string>com.radiocrestinsoftware.radioApp</string>
 				<key>CFBundleURLSchemes</key>
 				<array>
-					<string>yourScheme</string>
+					<string>radiocrestin</string>
 				</array>
 			</dict>
 		</array>
 		<key>FlutterDeepLinkingEnabled</key>
-		<true/>
+		<false/>
 		<key>NSUserActivityTypes</key>
 		<array>
 			<string>NSUserActivityTypeBrowsingWeb</string>

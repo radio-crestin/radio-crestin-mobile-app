@@ -26,6 +26,8 @@ import 'package:radio_crestin/services/play_count_service.dart';
 import 'package:radio_crestin/services/network_service.dart';
 import 'package:radio_crestin/services/review_service.dart';
 import 'package:radio_crestin/services/song_history_service.dart';
+import 'package:radio_crestin/services/hls_health_watchdog_flag.dart';
+import 'package:radio_crestin/services/hls_timeline.dart';
 import 'package:radio_crestin/services/song_like_service.dart';
 import 'package:radio_crestin/services/station_data_service.dart';
 import 'package:radio_crestin/stream_failover.dart';
@@ -58,72 +60,96 @@ enum ReconnectTrigger {
   terminalState,      // processingState == completed/idle (honor debounce)
 }
 
-/// What to do when a new EXT-X-RC-METADATA-CHANGED epoch is seen on
-/// the HLS playlist. Returned by [MetadataChangeAlignment.decide].
-enum MetadataAlignmentAction {
-  /// Refresh metadata immediately. Either we have no playback timeline
-  /// anchor (so we can't align), or playback is already at/past the
-  /// change-epoch.
-  refreshNow,
+/// Why the live-HLS liveness watchdog decided the stream went silent.
+/// Returned by [ReconnectPolicy.liveHlsStall].
+enum LiveHlsStall {
+  none,
 
-  /// Schedule a delayed refresh — playback is behind the change-epoch
-  /// (user is seeking behind live edge). [MetadataAlignmentDecision.delay]
-  /// carries the delay.
-  scheduleAfterDelay,
+  /// The playhead's segment left the server window (ffmpeg restart, window
+  /// reset): the stream is healthy, only our playhead is outside it.
+  evicted,
 
-  /// Skip — the lag is too large to be trustworthy (probably a stale
-  /// PDT anchor). The next playlist poll will retry.
-  skipUnsafe,
+  /// The origin stopped publishing and the playhead reached the end of the
+  /// published media (frozen playlist, playlist errors).
+  pastLiveEdge,
+
+  /// The origin publishes but no new media loads (segments failing).
+  starving,
 }
 
-class MetadataAlignmentDecision {
-  final MetadataAlignmentAction action;
-  final Duration delay; // only meaningful for scheduleAfterDelay
-  const MetadataAlignmentDecision(this.action, [this.delay = Duration.zero]);
+/// What to do about a liveness fire. See [LiveHlsStallRecovery].
+enum LiveHlsRecoveryAction {
+  /// Nothing this tick (rate-limited).
+  none,
+
+  /// Reload the stream without marking it failed.
+  reloadSameStream,
+
+  /// Mark the stream failed (failover skips it) and reload.
+  failOverAndReload,
 }
 
-/// Pure alignment policy for the EXT-X-RC-METADATA-CHANGED signal. The
-/// signal carries the source-timeline epoch when the current song
-/// started; we must refresh metadata when *playback* reaches that
-/// epoch, not when we see the tag — because the user may be seeking
-/// behind live edge by 2-4 minutes. Refreshing immediately while audio
-/// still plays the previous song would flash "now playing X" before
-/// the user hears X.
-class MetadataChangeAlignment {
-  /// Treat lags within this window as "now". Smaller than the playlist
-  /// poll cadence so a poll landing on the song change doesn't get
-  /// spuriously deferred by 1s of clock skew.
-  static const Duration nowTolerance = Duration(seconds: 2);
+/// Pure escalation policy for liveness fires.
+///
+/// A single fire must not fail a stream over: one `recordFailure` makes the
+/// next load skip HLS for 90 s, which is the very symptom the old position
+/// watchdog produced. The first `pastLiveEdge` / `starving` fire for a URL
+/// reloads it; only a repeat within [repeatWindowFor] the listening offset
+/// records the failure. `evicted` never does (the stream is fine). Reloads
+/// are rate-limited per station.
+class LiveHlsStallRecovery {
+  /// Shortest repeat window (instant and 2-min geometry).
+  static const Duration repeatWindow = Duration(minutes: 3);
 
-  /// Largest lag we'll arm a timer for. SeekModeManager allows up to
-  /// 4 min behind live edge; anything beyond ~5 min suggests our PDT
-  /// anchor is stale or the server emitted a future epoch. Falling
-  /// back to next-poll alignment is safer than firing a long-delayed
-  /// refresh that may be invalidated by user actions in the meantime.
-  static const Duration maxScheduleLag = Duration(minutes: 5);
+  /// Slack on top of the offset: grace (20 s), the staleness proof (~20 s),
+  /// the 5-TD edge margin (30 s), and poll and tick granularity (15 s).
+  static const Duration repeatMargin = Duration(minutes: 2);
 
-  /// Pure: compute what to do given the current playback position vs
-  /// the change-epoch. Caller does the I/O.
-  static MetadataAlignmentDecision decide({
-    required int? hlsFirstSegmentEpoch,
-    required Duration playerPosition,
-    required int changedAtEpoch,
+  static const Duration minReloadInterval = Duration(seconds: 30);
+
+  final Map<String, DateTime> _lastFireByUrl = {};
+  final Map<String, DateTime> _lastReloadByStation = {};
+
+  /// How long a repeat fire still counts as the same fault.
+  ///
+  /// A reload seeks [offset] behind the edge again, so on a frozen origin
+  /// the listener first replays [offset] of stale audio before the same
+  /// rule can fire: a fixed 3 min would treat every 5-min repeat as a first
+  /// fire and reload a dead origin forever.
+  static Duration repeatWindowFor(Duration offset) {
+    final scaled = offset + repeatMargin;
+    return scaled > repeatWindow ? scaled : repeatWindow;
+  }
+
+  /// [offset] is the listener's seek offset behind the live edge.
+  LiveHlsRecoveryAction decide({
+    required LiveHlsStall stall,
+    required String url,
+    required String station,
+    required Duration offset,
+    required DateTime now,
   }) {
-    if (hlsFirstSegmentEpoch == null) {
-      return const MetadataAlignmentDecision(MetadataAlignmentAction.refreshNow);
+    if (stall == LiveHlsStall.none) return LiveHlsRecoveryAction.none;
+    _forget(now, repeatWindowFor(offset));
+    final lastReload = _lastReloadByStation[station];
+    if (lastReload != null && now.difference(lastReload) < minReloadInterval) {
+      return LiveHlsRecoveryAction.none;
     }
-    final playbackEpoch = hlsFirstSegmentEpoch + playerPosition.inSeconds;
-    final lagSeconds = changedAtEpoch - playbackEpoch;
-    if (lagSeconds <= nowTolerance.inSeconds) {
-      return const MetadataAlignmentDecision(MetadataAlignmentAction.refreshNow);
+    _lastReloadByStation[station] = now;
+    if (stall == LiveHlsStall.evicted) {
+      return LiveHlsRecoveryAction.reloadSameStream;
     }
-    if (lagSeconds > maxScheduleLag.inSeconds) {
-      return const MetadataAlignmentDecision(MetadataAlignmentAction.skipUnsafe);
-    }
-    return MetadataAlignmentDecision(
-      MetadataAlignmentAction.scheduleAfterDelay,
-      Duration(seconds: lagSeconds),
-    );
+    final repeated = _lastFireByUrl.containsKey(url);
+    _lastFireByUrl[url] = now;
+    return repeated
+        ? LiveHlsRecoveryAction.failOverAndReload
+        : LiveHlsRecoveryAction.reloadSameStream;
+  }
+
+  void _forget(DateTime now, Duration window) {
+    _lastFireByUrl.removeWhere((_, t) => now.difference(t) >= window);
+    _lastReloadByStation
+        .removeWhere((_, t) => now.difference(t) >= minReloadInterval);
   }
 }
 
@@ -194,29 +220,60 @@ class ReconnectPolicy {
   /// shortens the silence window — it does not bypass any safety net.
   static const Duration bufferingStallTimeout = Duration(seconds: 3);
 
-  /// How often the position-advancement watchdog samples `player.position`.
-  /// A cheap periodic poll (not a positionStream subscription) — the goal is
-  /// only to notice a hard freeze, so a coarse cadence keeps it near-free.
-  static const Duration positionWatchdogInterval = Duration(seconds: 5);
+  /// How often the live-HLS liveness rules ([liveHlsStall]) are evaluated.
+  static const Duration liveHlsWatchdogInterval = Duration(seconds: 5);
 
-  /// How long `player.position` may stay frozen — while the player reports
-  /// `ready` + `playing`, so buffering (which has its own stall timer) is not
-  /// the cause — before we treat the stream as silently dead and reconnect.
-  /// This is the safety net for the DVR-window case: the server deletes the
-  /// segment under the playhead and AVPlayer keeps saying `ready`/`playing`
-  /// with no error or state change, so no other recovery path ever fires.
-  static const Duration positionFrozenTimeout = Duration(seconds: 10);
+  /// No liveness rule fires this soon after playback (re)started advancing:
+  /// initial fill, seek settle, resume. Also spans at least two polls.
+  static const Duration liveHlsGrace = Duration(seconds: 20);
 
-  /// Grace after a load or seek during which a frozen position is expected
-  /// (initial buffer fill / seek settle legitimately holds position still).
-  /// Kept just above [positionFrozenTimeout] so a slow-but-legit start never
-  /// trips the watchdog on its first evaluation.
-  static const Duration positionFrozenGrace = Duration(seconds: 12);
+  /// `evicted` margin behind the window's first segment, absorbing the
+  /// poll granularity. Measured playhead lag at a real eviction: 131.7 s.
+  static const int evictedMarginSegments = 1;
 
-  /// Minimum position delta between two samples that counts as "advanced".
-  /// A healthy stream advances ~one interval per interval; a frozen one
-  /// advances zero. The epsilon only absorbs sub-second sampling jitter.
-  static const Duration positionAdvanceEpsilon = Duration(milliseconds: 500);
+  /// AVPlayer stops ~29.5 s (≈ 5 target durations) before the end of a
+  /// frozen playlist (measured f1/f4), so `pastLiveEdge` fires within 5 TD
+  /// of the newest published media — at about the real death.
+  static const int pastLiveEdgeTargetDurations = 5;
+
+  /// Instant / near-edge geometry (the playhead already within 5 TD of the
+  /// edge when the stall was proven): `pastLiveEdge` fires once the playhead
+  /// ran this many target durations past the newest published media.
+  ///
+  /// Measured (review R1.6, macOS AVPlayer at offset 0, runs i1/i5/i6): the
+  /// player plays to the very end of the published media (0.2 s left) and
+  /// then stays silent for good, even when the playlist grows again 7 or 22 s
+  /// later (rate 0 for the remaining 2 min while its buffer refilled). So a
+  /// stall shorter than the 18 s hold-back never gets here, and one that
+  /// does has already silenced the player. One TD absorbs a projected
+  /// anchor's error (< 1 segment).
+  static const int pastEndTargetDurations = 1;
+
+  /// Playlist polls failing for this long (two or more in a row) count as a
+  /// dead origin for `pastLiveEdge` (playlist 503: silent at f4 t=189.5).
+  static const Duration originUnreachableAfter = Duration(seconds: 45);
+
+  /// A dead origin also needs the player's own loading to have stopped for
+  /// this long, so failed app polls alone (our request failing while the
+  /// player's succeed) never fire: a playing AVPlayer moves its buffered
+  /// position at least every 6.2 s (measured). Same value as [starvingAfter].
+  static const Duration deadOriginBufferStagnantAfter = Duration(seconds: 45);
+
+  /// Native buffered position unchanged for this long while the origin
+  /// keeps publishing means new segments do not load. Healthy Darwin gaps
+  /// are <= 6.2 s (x7 margin); fires before the ~60 s forward buffer drains.
+  static const Duration starvingAfter = Duration(seconds: 45);
+
+  /// `starving` only when the origin published within this window.
+  static const Duration originFreshWithin = Duration(seconds: 30);
+
+  /// Whether this platform's player can go silent while just_audio still
+  /// reports ready+playing. Only AVPlayer does: just_audio ignores
+  /// `AVPlayerTimeControlStatusPaused`. ExoPlayer turns the same origin
+  /// faults into idle/error/buffering, which the existing paths handle, or
+  /// rides through them inaudibly; evicting it from a healthy buffer would
+  /// only cause a needless reload (measured).
+  static bool get silentStallPossible => Platform.isIOS || Platform.isMacOS;
 
   /// Fraction of the trailing-edge runway we let elapse while paused before
   /// forcing a reload (re-anchor) instead of resuming in place. 0.6 leaves a
@@ -229,33 +286,78 @@ class ReconnectPolicy {
   /// as little as ~60s, so a stale playhead goes bad fast.
   static const Duration fastResumeMaxPauseFallback = Duration(seconds: 45);
 
-  /// Returns true when the position-advancement watchdog should force a full
-  /// reconnect. Pure function: no I/O, no clock side-effects (caller passes
-  /// [now]). Only fires for the pathological "ready + playing but position
-  /// stuck" case — buffering is deliberately excluded (the buffering stall
-  /// timer owns it), as are casting and video/playlist mode.
-  static bool shouldReconnectFrozenPosition({
+  /// Which liveness rule, if any, says the live HLS stream went silent while
+  /// just_audio still reports ready + playing. Pure: [now] is passed in.
+  ///
+  /// Every rule reads the media-time playhead and the app's own successful
+  /// polls, never `player.position` (an extrapolation capped at `duration`,
+  /// which froze ~10 s after every behind-live seek and failed over healthy
+  /// streams). Gated on [silentStallPossible], playing + ready, a local live
+  /// HLS stream, an anchored playhead and [liveHlsGrace].
+  static LiveHlsStall liveHlsStall({
     required bool playing,
     required ProcessingState processingState,
-    required bool hasLiveStreamLoaded,
+    required bool hasLiveHlsLoaded,
     required bool isCasting,
-    required bool isVideoMode,
+    required bool isVideoOrPlaylistMode,
+    required bool silentStallPossible,
     required DateTime now,
-    required DateTime? lastPositionAdvanceAt,
-    required DateTime? lastLoadOrSeekAt,
+    required LiveHlsHealthSample s,
   }) {
-    if (!playing) return false;
-    if (isCasting || isVideoMode) return false;
-    if (!hasLiveStreamLoaded) return false;
-    // Buffering has its own 3s stall timer — only the "player insists it is
-    // playing yet the clock is stuck" case belongs to this watchdog.
-    if (processingState != ProcessingState.ready) return false;
-    if (lastLoadOrSeekAt != null &&
-        now.difference(lastLoadOrSeekAt) < positionFrozenGrace) {
-      return false;
+    if (!silentStallPossible || !playing) return LiveHlsStall.none;
+    if (processingState != ProcessingState.ready) return LiveHlsStall.none;
+    if (!hasLiveHlsLoaded || isCasting || isVideoOrPlaylistMode) {
+      return LiveHlsStall.none;
     }
-    if (lastPositionAdvanceAt == null) return false;
-    return now.difference(lastPositionAdvanceAt) >= positionFrozenTimeout;
+    final since = s.advancingSince;
+    final seq = s.playheadSeq;
+    if (since == null || seq == null) return LiveHlsStall.none;
+    if (now.difference(since) < liveHlsGrace) return LiveHlsStall.none;
+    if (_isEvicted(s, seq)) return LiveHlsStall.evicted;
+    if (_isPastLiveEdge(s, now)) return LiveHlsStall.pastLiveEdge;
+    if (_isStarving(s, now)) return LiveHlsStall.starving;
+    return LiveHlsStall.none;
+  }
+
+  /// The playhead's segment left the server window (or the sequence
+  /// restarted): AVPlayer stays at rate 1 outside its loaded ranges.
+  static bool _isEvicted(LiveHlsHealthSample s, int playheadSeq) {
+    if (s.windowReset) return true;
+    final first = s.windowFirstSeq;
+    return first != null && playheadSeq < first - evictedMarginSegments;
+  }
+
+  /// The origin stopped publishing and the playhead reached the end of the
+  /// published media.
+  static bool _isPastLiveEdge(LiveHlsHealthSample s, DateTime now) {
+    final lag = s.edgeLagSeconds;
+    final td = s.targetDuration;
+    if (lag == null || lag > pastLiveEdgeTargetDurations * td) return false;
+    if (_isOriginDead(s, now)) return true;
+    if (s.originStaleFor == null) return false;
+    final atStall = s.edgeLagAtStall;
+    final nearEdge =
+        atStall == null || atStall < pastLiveEdgeTargetDurations * td;
+    return !nearEdge || lag <= -pastEndTargetDurations * td;
+  }
+
+  /// Our polls fail and the player loads nothing either.
+  static bool _isOriginDead(LiveHlsHealthSample s, DateTime now) {
+    final unreachable = s.originUnreachableFor;
+    final bufferedAt = s.bufferedChangedAt;
+    return unreachable != null &&
+        unreachable >= originUnreachableAfter &&
+        bufferedAt != null &&
+        now.difference(bufferedAt) >= deadOriginBufferStagnantAfter;
+  }
+
+  /// The origin keeps publishing but the player loads nothing.
+  static bool _isStarving(LiveHlsHealthSample s, DateTime now) {
+    final bufferedAt = s.bufferedChangedAt;
+    final advancedAt = s.originAdvancedAt;
+    if (bufferedAt == null || advancedAt == null) return false;
+    return now.difference(bufferedAt) >= starvingAfter &&
+        now.difference(advancedAt) <= originFreshWithin;
   }
 
   /// Returns true when a paused live-HLS stream has aged past the point where
@@ -387,7 +489,7 @@ enum StreamEventKind {
   playerError,        // playbackEventStream raised (error not tied to load attempt)
   audioInterruption,  // AVAudioSession interruption begin/end (route change, call, lock)
   lifecycle,          // app lifecycle transitions (resumed/inactive/paused/hidden)
-  microStall,         // position didn't advance while playing (sub-buffering glitch)
+  hlsStalled,         // live HLS silent while reported playing (liveness)
 }
 
 /// Lightweight event record kept in a capped ring buffer for the in-app
@@ -503,28 +605,37 @@ class AppAudioHandler extends BaseAudioHandler {
       GetIt.instance<CarPlayService>().isConnected;
   bool get isCasting => GetIt.instance.isRegistered<CastService>() &&
       GetIt.instance<CastService>().isCasting.value;
+
+  /// The local player has a live HLS stream loaded (playing, paused or
+  /// buffering): its now-playing must follow the audible timeline.
+  bool get _isLocalLiveHls =>
+      _loadedStreamType == 'HLS' && !_videoMode && !_playlistMode && !isCasting;
   bool _hasBeenPlayed = false;
   Timer? _disconnectTimer;
 
-  // HLS EXT-X-PROGRAM-DATE-TIME tracking — used to compute the exact
-  // Unix timestamp of the audio the user is hearing, for metadata sync.
-  int? _hlsFirstSegmentEpoch;
-  Timer? _hlsPlaylistRefreshTimer;
-  // Most recent EXT-X-DATERANGE `ID` parsed from the active HLS playlist.
-  // Compared (not counted) so the same group seen across consecutive
-  // playlist windows does not retrigger a refresh.
-  String? _lastSeenDateRangeId;
-  // Most recent EXT-X-RC-METADATA-CHANGED EPOCH value seen on the active
-  // HLS playlist. Server emits this when the current song's started_at
-  // flips — a real-time signal that fills the gap left by the
-  // (intentionally-suppressed) DATERANGE for the current song.
-  // Compared so we only react to actual transitions, not every poll.
-  int? _lastSeenMetadataChangedEpoch;
-  // Pending refresh scheduled because the metadata change is at a
-  // playback-future epoch (user is seeking behind live edge — refreshing
-  // now would show "now playing X" while the user is still hearing the
-  // previous song). Cancelled and rescheduled on every poll.
-  Timer? _alignedMetadataRefreshTimer;
+  // ── Live HLS timeline ────────────────────────────────────────────────
+  // The audible clock (what the listener hears, in server wall-clock time),
+  // origin progress for the liveness rules, and the song boundaries the
+  // playlist announced. Fed by player events and the app's own playlist
+  // poll; never by `player.position`, which is a duration-capped
+  // extrapolation for live HLS.
+  final HlsTimeline _hlsTimeline = HlsTimeline();
+  final SongBoundaryQueue _songBoundaries = SongBoundaryQueue();
+  final LiveHlsStallRecovery _liveHlsRecovery = LiveHlsStallRecovery();
+  Timer? _hlsPlaylistPollTimer;
+  // One timer for the earliest pending song boundary.
+  Timer? _songBoundaryTimer;
+  // Anchor re-checks while the clock is not exactly anchored (settle tick,
+  // snapshot retries, projection deadline). See [_armHlsAnchorChecks].
+  Timer? _hlsAnchorTimer;
+  int _hlsAnchorCheckIndex = 0;
+  DateTime? _hlsAnchorRunStart;
+  // Bumped on every (re)load and stop, so a playlist response that started
+  // for a previous stream is discarded.
+  int _hlsLoadGeneration = 0;
+  // Android TV: the last METADATA-CHANGED instant seen (live refresh key).
+  DateTime? _lastMetadataChangedAt;
+  StreamSubscription<bool>? _castSessionSub;
   // Most recent ICY (SHOUTcast) `StreamTitle` for direct/MP3 streams.
   // Compared so the same title repeated by the player doesn't fire
   // duplicate metadata refreshes mid-song.
@@ -534,19 +645,14 @@ class AppAudioHandler extends BaseAudioHandler {
   // can assert on a single source of truth.
   static const _bufferingStallTimeout = ReconnectPolicy.bufferingStallTimeout;
 
-  // ── Position-advancement watchdog (silent-stall safety net) ───────────
-  // AVPlayer can keep reporting `ready`/`playing==true` while the playhead
-  // is stuck (e.g. the DVR segment under it was evicted server-side) — no
-  // error, no state change, so no other recovery path fires. This periodic
-  // sampler notices the frozen clock and forces a full reconnect. See
-  // [ReconnectPolicy.shouldReconnectFrozenPosition] for the decision logic.
-  Timer? _positionWatchdogTimer;
-  Duration _watchdogLastPosition = Duration.zero;
-  DateTime? _watchdogLastAdvanceAt;
-  // Wall-clock of the most recent load or seek — the watchdog's grace window
-  // (position legitimately holds still during initial buffer fill / seek
-  // settle) and nothing else keys off it.
-  DateTime? _lastLoadOrSeekAt;
+  // ── Live-HLS liveness watchdog (silent-stall safety net) ──────────────
+  // AVPlayer can go silent while just_audio keeps reporting ready+playing
+  // (frozen or failing playlist, window reset). This Darwin-only periodic
+  // check evaluates [ReconnectPolicy.liveHlsStall] and reloads.
+  Timer? _liveHlsWatchdogTimer;
+  // When the player last stopped playing (pause, interruption); null while
+  // playing. Freezes the approximate audible instant (see _audibleInstant).
+  DateTime? _stoppedPlayingAt;
   // Wall-clock when the station stream was last paused — Fix 2 uses it to
   // decide whether a fast resume would land on an evicted DVR segment.
   DateTime? _pausedAt;
@@ -564,8 +670,8 @@ class AppAudioHandler extends BaseAudioHandler {
   // Never anchor the playhead closer than this to the window's trailing
   // (oldest) edge. A 5-min offset on a window only ~6 min deep would otherwise
   // land within seconds of the edge, where the segment is evicted almost
-  // immediately. 75s comfortably exceeds the position-frozen watchdog timeout,
-  // so a genuine stall is still caught rather than masked by a doomed anchor.
+  // immediately. 75s comfortably exceeds the liveness watchdog's grace, so a
+  // genuine stall is still caught rather than masked by a doomed anchor.
   static const _dvrTrailingSafetyMargin = Duration(seconds: 75);
 
   // ── Fast-start instrumentation (debug-mode only) ──────────────────────
@@ -938,18 +1044,24 @@ class AppAudioHandler extends BaseAudioHandler {
 
     try {
       print('RC_DEBUG: fetching history for ${station.slug}');
+      // The default window (the last hour, no from/to) is one URL per
+      // station, shared at the edge by every listener: cached 5 s near now
+      // (backend B2), which is fine at this volume. The audible instant
+      // trails now by at most a few minutes, so the window always covers it.
       final history = await SongHistoryService.fetchHistory(station.slug);
       print('RC_DEBUG: history result: ${history?.history.length ?? "null"} items');
+      // The listener switched station while this was in flight: the newer
+      // station's own update owns the queue.
+      if (currentStation.valueOrNull?.id != station.id) return;
       if (history == null || history.history.isEmpty) {
         queue.add([]);
         return;
       }
       final stationThumbUrl = station.thumbnailUrl;
-      final now = DateTime.now();
-      final pastSongs = history.history
-          .where((item) => item.hasSong && item.dateTime.isBefore(now))
-          .toList()
-        ..sort((a, b) => b.dateTime.compareTo(a.dateTime));
+      // Only songs the listener already heard: on time-shifted HLS the
+      // newest rows are still ahead of the audible instant.
+      final pastSongs = SongHistoryService.playedBefore(history.history,
+          stationDataService.playedCutoffFor(station.id));
       final items = pastSongs
           .take(30)
           .map((item) {
@@ -1013,30 +1125,10 @@ class AppAudioHandler extends BaseAudioHandler {
   final StreamFailover _failover = StreamFailover();
 
   AppAudioHandler({required this.graphqlClient, required this.player}) {
-    stationDataService.getPlayingStreamType = (stationId) {
-      if (currentStation.value?.id == stationId) return _loadedStreamType;
-      return null;
-    };
-    stationDataService.getActualPlaybackOffset = () {
-      if (_loadedStreamType != 'HLS' || !player.playing) return null;
-      final duration = player.duration;
-      final position = player.position;
-      if (duration == null || duration.inSeconds < 10) return null;
-      final offset = duration - position;
-      // Sanity check: offset should be positive and reasonable (< 10 minutes)
-      if (offset.inSeconds <= 0 || offset.inMinutes > 10) return null;
-      return offset;
-    };
-    stationDataService.getHlsPlaybackTimestamp = () {
-      if (_loadedStreamType != 'HLS' || !player.playing) return null;
-      if (_hlsFirstSegmentEpoch == null) return null;
-      final positionSec = player.position.inSeconds;
-      final epoch = _hlsFirstSegmentEpoch! + positionSec;
-      // Align to 10s to match the API's timestamp granularity
-      return (epoch ~/ 10) * 10;
-    };
-    stationDataService.isPlayingHls = () =>
-        _loadedStreamType == 'HLS' && player.playing;
+    stationDataService.getPlayingStationId =
+        () => currentStation.valueOrNull?.id;
+    stationDataService.isTimeShiftedHlsActive = () => _isLocalLiveHls;
+    stationDataService.getAudibleInstant = _audibleInstant;
     // TV shows live metadata (not the HLS-buffered song) — see
     // [StationDataService.preferLiveMetadata].
     stationDataService.preferLiveMetadata = TvPlatform.isAndroidTV;
@@ -1059,7 +1151,10 @@ class AppAudioHandler extends BaseAudioHandler {
     // AVAudio session resets, transient HLS segment errors) and without them
     // a brief glitch leaves no trace in the diagnostic log.
     player.playbackEventStream.listen(
-      _broadcastState,
+      (event) {
+        _broadcastState(event);
+        _onPlayerEventForTimeline(event);
+      },
       onError: _onPlayerStreamError,
     );
 
@@ -1067,9 +1162,12 @@ class AppAudioHandler extends BaseAudioHandler {
     // playbackEventStream fires on position/buffer changes but may not fire
     // promptly on play()/pause() transitions. playingStream fires exactly
     // when the playing state flips, guaranteeing CarPlay/Android Auto sync.
-    player.playingStream.listen((_) {
+    player.playingStream.listen((playing) {
+      _stoppedPlayingAt =
+          playing ? null : (_stoppedPlayingAt ?? DateTime.now());
       _broadcastState(player.playbackEvent);
-      _syncPositionWatchdog();
+      _syncLiveHlsWatchdog();
+      _onPlayerEventForTimeline(player.playbackEvent);
     });
 
     // Fast-start measurement: catch the first position advance while playing.
@@ -1080,14 +1178,25 @@ class AppAudioHandler extends BaseAudioHandler {
 
     // ICY tag listener (direct/MP3 streams). just_audio surfaces SHOUTcast
     // ICY metadata (`StreamTitle`) on this stream — when the title flips,
-    // the audio is announcing a new song. Trigger an offset diff so the
-    // station's now-playing line catches up immediately. HLS streams use
-    // EXT-X-DATERANGE (handled in `_refreshHlsPlaylistTimestamp`) instead.
+    // the audio is announcing a new song. The live list is re-fetched until
+    // the new row shows up, so the station's now-playing line catches up
+    // immediately. HLS streams use the playlist's song boundaries
+    // (`_queueSongBoundaries`) instead.
     player.icyMetadataStream.listen((icy) {
       final title = icy?.info?.title;
       if (title == null || title.isEmpty) return;
       if (title == _lastIcyTitle) return;
+      final firstOfStream = _lastIcyTitle == null;
       _lastIcyTitle = title;
+      if (firstOfStream) {
+        // The song already playing when the stream started, not a change:
+        // its row may have started minutes ago, so a follow-up waiting for
+        // a fresh row would only repeat the live fetch for 40 s.
+        _log("icy metadata: first title $title — refreshing live");
+        unawaited(
+            stationDataService.enqueueSync(SyncReason.liveMetadataChanged));
+        return;
+      }
       _log("icy metadata change: $title — refreshing");
       unawaited(stationDataService.refreshMetadataNow());
     });
@@ -1465,6 +1574,7 @@ class AppAudioHandler extends BaseAudioHandler {
         // Also notify the phone UI if already in foreground
         customEvent.add({
           'action': 'showSongHistory',
+          'stationId': station.id,
           'stationSlug': station.slug,
           'stationTitle': station.title,
           'stationThumbnailUrl': station.thumbnailUrl,
@@ -1611,16 +1721,20 @@ class AppAudioHandler extends BaseAudioHandler {
     _isConnecting = true;
     _broadcastState(player.playbackEvent);
 
-    // Stop and clean up the previous station before starting the new one
+    // Stop and clean up the previous station before starting the new one.
+    // Aligned playback ends only after the new station is selected: ending
+    // it here would publish the old station's live (not yet heard) song
+    // while it is still current, and the stations listener would push it
+    // to the lock screen, CarPlay and the Android Auto queue.
     _disconnectTimer?.cancel();
-    _stopHlsPlaylistRefresh();
+    _stopHlsPlaylistRefresh(endAlignedPlayback: false);
     if (player.playing || player.processingState != ProcessingState.idle) {
       await player.stop();
     }
     _loadedStreamUrl = null;
     _loadedStreamType = null;
     _bufferingStartedAt = null;
-    _stopPositionWatchdog();
+    _stopLiveHlsWatchdog();
     _lastPlayerErrorCode = null;
     _lastPlayerErrorMessage = null;
     // Reset the ICY-title dedupe so the next stream's first title fires a refresh.
@@ -1632,6 +1746,9 @@ class AppAudioHandler extends BaseAudioHandler {
     AnalyticsService.instance.setCurrentStream(url: null, type: null, index: null, total: null);
 
     await selectStation(station);
+    // The previous station is no longer current, so clearing its overlay
+    // only shows its live song in the list.
+    stationDataService.onAlignedPlaybackEnded();
 
     // Tell the sync engine the user just picked this station — drives a
     // full refresh so the playing-station UI sees the freshest now-playing
@@ -1776,16 +1893,24 @@ class AppAudioHandler extends BaseAudioHandler {
     return Platform.isIOS ? 'ios' : (Platform.isAndroid ? 'android' : 'unknown');
   }
 
-  String addTrackingParametersToUrl(String url) {
-    final source = _getPlaybackSource();
-    final deviceId = globals.deviceId;
+  String addTrackingParametersToUrl(String url) => withTrackingParameters(
+        url,
+        source: _getPlaybackSource(),
+        deviceId: globals.deviceId,
+      );
 
+  /// [url] with the stream-analytics parameters: `ref` names the playback
+  /// [source] (overwriting any previous one), `s` the device. Existing
+  /// parameters are kept.
+  static String withTrackingParameters(
+    String url, {
+    required String source,
+    required String deviceId,
+  }) {
     final uri = Uri.parse(url);
     final queryParams = Map<String, String>.from(uri.queryParameters);
-
     queryParams['ref'] = 'radio-crestin-$source';
     queryParams['s'] = deviceId;
-
     return uri.replace(queryParameters: queryParams).toString();
   }
 
@@ -1962,6 +2087,14 @@ class AppAudioHandler extends BaseAudioHandler {
         }
         final trackedUrl = addTrackingParametersToUrl(streamUrl);
         final loadUrl = trackedUrl;
+        // New load: forget the previous stream's timeline. For HLS, fetch
+        // the playlist concurrently with the player's own fetch, so the
+        // anchoring snapshot shows (nearly) the window the player sees.
+        final hlsGeneration = _beginHlsLoad();
+        if (isHls) {
+          unawaited(
+              _pollHlsPlaylist(url: streamUrl, generation: hlsGeneration));
+        }
         // Hard load timeout — a hanging playlist/stream request counts as
         // a failure and advances to the next stream (StreamFailover owns
         // the values so they are asserted in tests).
@@ -1978,7 +2111,6 @@ class AppAudioHandler extends BaseAudioHandler {
         _loadedStreamUrl = streamUrl;
         _loadedStreamType = streamType;
         _lastSuccessfulLoadAt = DateTime.now();
-        _lastLoadOrSeekAt = _lastSuccessfulLoadAt; // watchdog grace baseline
         _failover.recordSuccess(streamUrl);
         final elapsedMs = DateTime.now().difference(attemptStart).inMilliseconds;
         _log("play: source loaded successfully ($trackedUrl)");
@@ -2114,10 +2246,15 @@ class AppAudioHandler extends BaseAudioHandler {
 
     if (_loadedStreamType == 'HLS') {
       _seekBehindLiveEdge(); // non-blocking: seek starts, play() follows immediately
-      _startHlsPlaylistRefresh(); // parse EXT-X-PROGRAM-DATE-TIME for metadata sync
+      // The concurrent fetch issued with the load is already in flight.
+      _startHlsPlaylistPoll(skipInitialFetch: true);
     } else {
       _stopHlsPlaylistRefresh();
     }
+    // The watchdog's run condition includes the loaded stream, which just
+    // changed. A reload while playing (liveness recovery, offset change)
+    // never flips `playing`, so the playing listener would not re-sync it.
+    _syncLiveHlsWatchdog();
 
     return player.play();
   }
@@ -2177,9 +2314,13 @@ class AppAudioHandler extends BaseAudioHandler {
     _cancelInFlightPlay();
     _hasBeenPlayed = false;
     _pausedAt = DateTime.now(); // Fix 2: age the paused playhead on resume
-    _stopPositionWatchdog();
+    _stopLiveHlsWatchdog();
     AnalyticsService.instance.endListening(reason: 'pause');
     await player.pause();
+    // The audible clock is frozen while paused; the timeline listener also
+    // cancels on advancing=false, this keeps the intent explicit. The poll
+    // keeps running (skew and boundaries stay fresh) until the disconnect.
+    _cancelSongBoundaryTimer();
 
     // Disconnect after 60s of being paused to save bandwidth.
     // If the user resumes within 60s, play() will fast-resume without reconnecting.
@@ -2188,6 +2329,9 @@ class AppAudioHandler extends BaseAudioHandler {
       _log("pause: disconnecting idle stream after ${_disconnectDelay.inSeconds}s");
       _loadedStreamUrl = null;
       _loadedStreamType = null;
+      // The paused title stays until resume (the resume reloads and
+      // re-anchors), so aligned playback does not end here.
+      _stopHlsPlaylistRefresh(endAlignedPlayback: false);
       currentStreamInfo.add(null);
       AnalyticsService.instance.setCurrentStream(url: null, type: null, index: null, total: null);
       // Fire-and-forget idle preload. A later play()/resume can supersede it,
@@ -2211,12 +2355,10 @@ class AppAudioHandler extends BaseAudioHandler {
     return super.pause();
   }
 
-  /// Applies a new seek offset: refreshes station metadata (so now_playing
-  /// matches the new offset) and restarts the HLS stream if currently playing.
+  /// Applies a new seek offset: restarts the HLS stream if currently
+  /// playing. The station list is live and does not depend on the offset;
+  /// the reload's anchored refresh re-resolves the playing station's song.
   Future<void> reapplySeekOffset() async {
-    // Immediately re-fetch stations with the new timestamp offset
-    stationDataService.refreshStations();
-
     if (_loadedStreamType != 'HLS' || !player.playing) return;
     _log('reapplySeekOffset: restarting HLS stream with new offset');
     _loadedStreamUrl = null;
@@ -2248,7 +2390,7 @@ class AppAudioHandler extends BaseAudioHandler {
   void _seekBehindLiveEdge() {
     final offset = SeekModeManager.currentOffset;
     if (offset == Duration.zero) {
-      _log('_seekBehindLiveEdge: instant mode, skipping');
+      _stayAtLiveEdge('instant mode');
       return;
     }
     final duration = player.duration;
@@ -2256,7 +2398,6 @@ class AppAudioHandler extends BaseAudioHandler {
       _log('_seekBehindLiveEdge: no duration or too short ($duration), skipping');
       return;
     }
-    _lastLoadOrSeekAt = DateTime.now(); // watchdog grace baseline
     // Clamp the offset so the playhead never lands closer than
     // _dvrTrailingSafetyMargin to the window's trailing (oldest) edge. Without
     // this a 5-min offset on a window only ~6 min deep would anchor within
@@ -2266,8 +2407,7 @@ class AppAudioHandler extends BaseAudioHandler {
     if (maxOffset <= Duration.zero) {
       // Window shallower than our safety margin — any back-seek lands at/before
       // the trailing edge. Stay near the live edge instead.
-      _log('_seekBehindLiveEdge: window ($duration) too shallow for a safe '
-          'offset, staying near live edge');
+      _stayAtLiveEdge('window ($duration) too shallow for a safe offset');
       return;
     }
     final effectiveOffset = offset > maxOffset ? maxOffset : offset;
@@ -2278,69 +2418,159 @@ class AppAudioHandler extends BaseAudioHandler {
     });
   }
 
-  /// Starts or stops the position-advancement watchdog based on whether a
-  /// live HLS stream is actively playing on the local player. Idempotent —
-  /// safe to call on every playing-state flip.
-  void _syncPositionWatchdog() {
-    final shouldRun = player.playing &&
-        _loadedStreamType == 'HLS' &&
-        _loadedStreamUrl != null &&
-        !_videoMode &&
-        !_playlistMode &&
-        !isCasting;
-    if (shouldRun) {
-      if (_positionWatchdogTimer == null) _startPositionWatchdog();
-    } else {
-      _stopPositionWatchdog();
-    }
-  }
-
-  void _startPositionWatchdog() {
-    _positionWatchdogTimer?.cancel();
-    _watchdogLastPosition = player.position;
-    _watchdogLastAdvanceAt = DateTime.now();
-    _positionWatchdogTimer = Timer.periodic(
-      ReconnectPolicy.positionWatchdogInterval,
-      (_) => _checkPositionWatchdog(),
-    );
-  }
-
-  void _stopPositionWatchdog() {
-    _positionWatchdogTimer?.cancel();
-    _positionWatchdogTimer = null;
-  }
-
-  /// Periodic tick: refresh the frozen-position clock, then reconnect if the
-  /// playhead has been stuck past [ReconnectPolicy.positionFrozenTimeout].
-  void _checkPositionWatchdog() {
-    final now = DateTime.now();
-    final pos = player.position;
-    if ((pos - _watchdogLastPosition).abs() >
-        ReconnectPolicy.positionAdvanceEpsilon) {
-      _watchdogLastPosition = pos;
-      _watchdogLastAdvanceAt = now;
-    }
-    if (!ReconnectPolicy.shouldReconnectFrozenPosition(
-      playing: player.playing,
-      processingState: player.processingState,
-      hasLiveStreamLoaded: _loadedStreamType == 'HLS' && _loadedStreamUrl != null,
-      isCasting: isCasting,
-      isVideoMode: _videoMode || _playlistMode,
-      now: now,
-      lastPositionAdvanceAt: _watchdogLastAdvanceAt,
-      lastLoadOrSeekAt: _lastLoadOrSeekAt,
-    )) {
+  /// Keeps a fresh live load at the live point, where it starts anyway.
+  ///
+  /// On Darwin a reload while playing (offset change, liveness recovery)
+  /// leaves the new item at rate 0: just_audio's `play()` is a no-op while
+  /// `playing`, and only a seek completion re-applies the rate. Without the
+  /// seek AVPlayer buffers until full and never advances, silent while it
+  /// reports playing (measured on the iOS simulator), so it seeks to the
+  /// live point there instead of skipping.
+  void _stayAtLiveEdge(String reason) {
+    final duration = player.duration;
+    if (!ReconnectPolicy.silentStallPossible ||
+        !player.playing ||
+        duration == null) {
+      _log('_seekBehindLiveEdge: $reason, skipping');
       return;
     }
-    _log('watchdog: position frozen for '
-        '${ReconnectPolicy.positionFrozenTimeout.inSeconds}s, forcing reconnect');
-    final lastInfo = currentStreamInfo.valueOrNull;
-    _recordStreamEvent(
-      StreamEventKind.microStall,
-      'Position frozen ${ReconnectPolicy.positionFrozenTimeout.inSeconds}s — '
-      'forcing reconnect',
+    _log('_seekBehindLiveEdge: $reason, reloaded while playing: seeking to '
+        'the live point ($duration) so the player resumes');
+    player.seek(duration).catchError((e) {
+      _log('_seekBehindLiveEdge: live-point seek failed ($e)');
+    });
+  }
+
+  /// Starts or stops the live-HLS liveness watchdog. It runs only while a
+  /// local live HLS stream plays on a player that can go silent while still
+  /// reporting playing (Darwin), and while the remote kill switch allows it.
+  /// Idempotent — safe to call on every playing-state flip.
+  void _syncLiveHlsWatchdog() {
+    final shouldRun = player.playing &&
+        _isLocalLiveHls &&
+        _loadedStreamUrl != null &&
+        ReconnectPolicy.silentStallPossible &&
+        HlsHealthWatchdogFlag.instance.enabled;
+    if (!shouldRun) {
+      _stopLiveHlsWatchdog();
+      return;
+    }
+    if (_liveHlsWatchdogTimer != null) return;
+    _log('live-hls watchdog: started');
+    _liveHlsWatchdogTimer = Timer.periodic(
+      ReconnectPolicy.liveHlsWatchdogInterval,
+      (_) => _checkLiveHlsHealth(),
     );
-    AnalyticsService.instance.capture('stream_position_frozen', {
+  }
+
+  void _stopLiveHlsWatchdog() {
+    _liveHlsWatchdogTimer?.cancel();
+    _liveHlsWatchdogTimer = null;
+  }
+
+  /// Periodic tick: evaluates [ReconnectPolicy.liveHlsStall] and, when a rule
+  /// fires, recovers (see [_recoverFromLiveHlsStall]).
+  ///
+  /// The remote kill switch is re-read on every tick, so turning it off
+  /// stops a watchdog that is already running instead of waiting for the
+  /// next playing flip (which, in a car, may not come for the whole drive).
+  void _checkLiveHlsHealth() {
+    if (!HlsHealthWatchdogFlag.instance.enabled) {
+      _log('live-hls watchdog: disabled by the remote flag, stopping');
+      _stopLiveHlsWatchdog();
+      return;
+    }
+    final now = DateTime.now();
+    final url = _loadedStreamUrl;
+    final sample = _hlsTimeline.healthSample(now);
+    final stall = ReconnectPolicy.liveHlsStall(
+      playing: player.playing,
+      processingState: player.processingState,
+      hasLiveHlsLoaded: _isLocalLiveHls && url != null,
+      isCasting: isCasting,
+      isVideoOrPlaylistMode: _videoMode || _playlistMode,
+      silentStallPossible: ReconnectPolicy.silentStallPossible,
+      now: now,
+      s: sample,
+    );
+    if (stall == LiveHlsStall.none || url == null) return;
+    _recoverFromLiveHlsStall(stall, url, sample, now);
+  }
+
+  /// Reloads after a liveness fire, failing the stream over only on a
+  /// repeat fire (see [LiveHlsStallRecovery]).
+  ///
+  /// The watchdog keeps running through the reload: while the load is in
+  /// flight there is no loaded URL (the check is a no-op), and the new
+  /// load restarts the grace period. `play()` re-syncs it once the new
+  /// source is loaded, which is what lets a second fire escalate.
+  void _recoverFromLiveHlsStall(
+    LiveHlsStall stall,
+    String url,
+    LiveHlsHealthSample sample,
+    DateTime now,
+  ) {
+    final action = _liveHlsRecovery.decide(
+      stall: stall,
+      url: url,
+      station: currentStation.valueOrNull?.slug ?? '',
+      offset: SeekModeManager.currentOffset,
+      now: now,
+    );
+    if (action == LiveHlsRecoveryAction.none) return;
+    _reportLiveHlsStall(stall, action, sample, now);
+    if (stall == LiveHlsStall.starving) _recordStreamTrouble('hls_starving');
+    if (action == LiveHlsRecoveryAction.failOverAndReload) {
+      _failover.recordFailure(url, now);
+    }
+    // Clear the loaded URL so play() takes the fresh-load path (which
+    // re-seeks behind the live edge and re-anchors the timeline).
+    _loadedStreamUrl = null;
+    _loadedStreamType = null;
+    play();
+  }
+
+  /// Test seam: runs the recovery for [stall] as if the watchdog tick at
+  /// [now] had detected it on the loaded stream. The rules themselves are
+  /// covered by the pure [ReconnectPolicy.liveHlsStall] tests and the
+  /// recorded-run replays; this drives the handler wiring around them.
+  @visibleForTesting
+  void debugRecoverFromLiveHlsStall(LiveHlsStall stall, DateTime now) {
+    final url = _loadedStreamUrl;
+    if (url == null || stall == LiveHlsStall.none) return;
+    _recoverFromLiveHlsStall(stall, url, _hlsTimeline.healthSample(now), now);
+  }
+
+  /// Whether the live-HLS liveness watchdog timer is armed.
+  @visibleForTesting
+  bool get isLiveHlsWatchdogRunning => _liveHlsWatchdogTimer != null;
+
+  /// Log line, diagnostic ring entry and `stream_hls_stalled` analytics for
+  /// a liveness fire.
+  void _reportLiveHlsStall(
+    LiveHlsStall stall,
+    LiveHlsRecoveryAction action,
+    LiveHlsHealthSample s,
+    DateTime now,
+  ) {
+    double? since(DateTime? t) =>
+        t == null ? null : now.difference(t).inMilliseconds / 1000;
+    double? secs(Duration? d) => d == null ? null : d.inMilliseconds / 1000;
+    final audible = _audibleInstant();
+    final verb = action == LiveHlsRecoveryAction.failOverAndReload
+        ? 'failing over'
+        : 'reloading';
+    final edgeLag = s.edgeLagSeconds?.toStringAsFixed(1);
+    _log('live-hls watchdog: ${stall.name} — $verb '
+        '(edgeLag=${edgeLag}s originStale=${secs(s.originStaleFor)}s '
+        'unreachable=${secs(s.originUnreachableFor)}s '
+        'bufferStagnant=${since(s.bufferedChangedAt)}s)');
+    _recordStreamEvent(
+      StreamEventKind.hlsStalled,
+      'HLS silent (${stall.name}) — $verb',
+    );
+    final lastInfo = currentStreamInfo.valueOrNull;
+    AnalyticsService.instance.capture('stream_hls_stalled', {
       'station_slug':
           lastInfo?.stationSlug ?? currentStation.valueOrNull?.slug ?? '',
       'station_id': currentStation.valueOrNull?.id,
@@ -2348,22 +2578,15 @@ class AppAudioHandler extends BaseAudioHandler {
       'stream_type': lastInfo?.type,
       'stream_index': lastInfo?.attemptIndex,
       'total_streams': lastInfo?.totalStreams,
-      'frozen_seconds': ReconnectPolicy.positionFrozenTimeout.inSeconds,
+      'reason': stall.name,
+      'action': action.name,
+      'playhead_lag_s': s.edgeLagSeconds,
+      'latency_s': since(audible),
+      'origin_stale_s': since(s.originAdvancedAt),
+      'origin_unreachable_s': secs(s.originUnreachableFor),
+      'buffer_stagnant_s': since(s.bufferedChangedAt),
+      'anchor_quality': _hlsTimeline.anchorQuality?.name,
     });
-    _recordStreamTrouble('position_frozen');
-    _stopPositionWatchdog();
-    // A frozen stream is a failed stream even though its load "succeeded"
-    // (a stale-but-serving HLS playlist passes the load step every time).
-    // Remembering it makes the reconnect start at the next stream, breaking
-    // the "stuck on dead HLS forever" loop.
-    if (_loadedStreamUrl != null) {
-      _failover.recordFailure(_loadedStreamUrl!, now);
-    }
-    // Clear the loaded URL so play() takes the fresh-load path (which
-    // re-seeks behind the live edge) rather than resuming in place.
-    _loadedStreamUrl = null;
-    _loadedStreamType = null;
-    play();
   }
 
   /// Records a stream-trouble event and, once enough accumulate within
@@ -2388,165 +2611,310 @@ class AppAudioHandler extends BaseAudioHandler {
     });
   }
 
-  /// Fetch the HLS playlist and extract the first EXT-X-PROGRAM-DATE-TIME epoch
-  /// plus the latest EXT-X-DATERANGE entry. The PROGRAM-DATE-TIME is the
-  /// authoritative timestamp for the first segment — combined with
-  /// `player.position` it gives the exact epoch of the audio being played,
-  /// used for metadata sync. The DATERANGE block carries the song-change
-  /// signal: when the `ID` flips relative to the last fetch, fire an
-  /// out-of-cycle metadata poll. This is **additive** over the 10s
-  /// `/stations-metadata` REST poll — at 30s cadence it adds at most ~3
-  /// extra lightweight HTTP fetches per minute and only triggers
-  /// `refreshMetadataNow` when the song actually changes.
-  Future<void> _refreshHlsPlaylistTimestamp() async {
-    final url = _loadedStreamUrl;
-    if (url == null || _loadedStreamType != 'HLS') return;
-    try {
-      final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 5));
-      if (response.statusCode != 200) return;
-      bool epochResolved = false;
-      String? latestDateRangeId;
-      DateTime? latestDateRangeStart;
-      int? metadataChangedEpoch;
-      for (final line in response.body.split('\n')) {
-        if (!epochResolved && line.startsWith('#EXT-X-PROGRAM-DATE-TIME:')) {
-          final dateStr = line.substring('#EXT-X-PROGRAM-DATE-TIME:'.length).trim();
-          final dt = DateTime.tryParse(dateStr);
-          if (dt != null) {
-            _hlsFirstSegmentEpoch = dt.millisecondsSinceEpoch ~/ 1000;
-            _log('_refreshHlsPlaylistTimestamp: first segment epoch=$_hlsFirstSegmentEpoch');
-            epochResolved = true;
-          }
-        } else if (line.startsWith('#EXT-X-RC-METADATA-CHANGED:')) {
-          // Custom backend tag (per RFC 8216 §4.1, AVPlayer/ExoPlayer ignore
-          // unknown tags). EPOCH= carries the current song's started_at as
-          // Unix-seconds UTC — a numeric duplicate of STARTED-AT="…ISO…" so
-          // we can compare without ISO-decoding.
-          final match = RegExp(r'EPOCH=(\d+)').firstMatch(line);
-          if (match != null) {
-            metadataChangedEpoch = int.tryParse(match.group(1)!);
-          }
-        } else if (line.startsWith('#EXT-X-DATERANGE:')) {
-          // Server emits multiple DATERANGE entries (window covers ~5 min of
-          // segments) — pick the most recent by START-DATE so we react to the
-          // currently announced song, not a stale one from the playlist tail.
-          final match = RegExp(
-            r'ID="([^"]+)".*?START-DATE="([^"]+)"',
-          ).firstMatch(line);
-          if (match != null) {
-            final id = match.group(1)!;
-            final start = DateTime.tryParse(match.group(2)!);
-            if (start != null &&
-                (latestDateRangeStart == null ||
-                    start.isAfter(latestDateRangeStart))) {
-              latestDateRangeId = id;
-              latestDateRangeStart = start;
-            }
-          }
-        }
-      }
-      // Refresh routing: METADATA-CHANGED supersedes DATERANGE when both
-      // are present. They fire on the same poll for the same song change
-      // (DATERANGE: previous song's tag just got published; METADATA-CHANGED:
-      // current song's started_at just flipped) — but only METADATA-CHANGED
-      // routes through MetadataChangeAlignment, which is critical for users
-      // seeking behind live edge by 2-4 min. An unaligned DATERANGE refresh
-      // would flash the new title while the previous song is still audible.
-      //
-      // DATERANGE is still PARSED so we can dedup the ID across polls, but
-      // the refresh trigger is skipped when METADATA-CHANGED is available.
-      // Old backends without METADATA-CHANGED keep working unchanged.
-      final hasMetadataChangedSignal = metadataChangedEpoch != null;
-      if (latestDateRangeId != null &&
-          latestDateRangeId != _lastSeenDateRangeId) {
-        _lastSeenDateRangeId = latestDateRangeId;
-        if (!hasMetadataChangedSignal) {
-          _log('_refreshHlsPlaylistTimestamp: new DATERANGE id=$latestDateRangeId, '
-              'refreshing metadata (no METADATA-CHANGED on this stream)');
-          // refreshMetadataNow has its own in-flight guard, so a duplicate
-          // trigger from a near-simultaneous REST tick is a safe no-op.
-          unawaited(stationDataService.refreshMetadataNow());
-        } else {
-          _log('_refreshHlsPlaylistTimestamp: new DATERANGE id=$latestDateRangeId, '
-              'deferring to METADATA-CHANGED for aligned refresh');
-        }
-      }
-      if (hasMetadataChangedSignal &&
-          metadataChangedEpoch != _lastSeenMetadataChangedEpoch) {
-        _lastSeenMetadataChangedEpoch = metadataChangedEpoch;
-        _onMetadataChangedSignal(metadataChangedEpoch);
-      }
-    } catch (e) {
-      _log('_refreshHlsPlaylistTimestamp: $e');
-    }
-  }
+  // ── Live HLS timeline: playlist poll, anchoring, song boundaries ───────
 
-  /// Handle an EXT-X-RC-METADATA-CHANGED transition. Decision logic
-  /// lives in [MetadataChangeAlignment] for unit-testability.
-  void _onMetadataChangedSignal(int changedAtEpoch) {
-    _alignedMetadataRefreshTimer?.cancel();
-    // TV shows live metadata, so don't defer the refresh to the buffered
-    // playback position — update as soon as the change is detected.
-    if (TvPlatform.isAndroidTV) {
-      _log('metadata-changed: refreshing now (TV live metadata)');
-      unawaited(stationDataService.refreshMetadataNow());
-      return;
-    }
-    final decision = MetadataChangeAlignment.decide(
-      hlsFirstSegmentEpoch: _hlsFirstSegmentEpoch,
-      playerPosition: player.position,
-      changedAtEpoch: changedAtEpoch,
-    );
-    switch (decision.action) {
-      case MetadataAlignmentAction.refreshNow:
-        _log('metadata-changed: refreshing now');
-        unawaited(stationDataService.refreshMetadataNow());
-      case MetadataAlignmentAction.scheduleAfterDelay:
-        _log('metadata-changed: scheduling refresh in '
-            '${decision.delay.inSeconds}s '
-            '(playback behind live edge)');
-        _alignedMetadataRefreshTimer = Timer(decision.delay, () {
-          _log('metadata-changed: aligned timer fired, refreshing');
-          unawaited(stationDataService.refreshMetadataNow());
-        });
-      case MetadataAlignmentAction.skipUnsafe:
-        _log('metadata-changed: lag exceeds cap, '
-            'will retry on next playlist poll');
-    }
-  }
-
-  /// Start periodic refresh of HLS playlist timestamps.
-  ///
-  /// Cadence: 10s (was 30s). The playlist is served by nginx as a static
-  /// file (atomic rename in playlist_rewriter.py guarantees no torn
-  /// reads), so an extra HTTP fetch every 10s costs nothing on the
-  /// backend. The win is real-time metadata signaling — paired with the
-  /// EXT-X-RC-METADATA-CHANGED tag, song changes propagate within 0-10s
-  /// instead of 0-30s.
+  /// Playlist poll cadence. nginx serves the playlist as a static file, so a
+  /// fetch every 10 s costs nothing; it keeps the skew estimate, the origin
+  /// progress and the announced song boundaries fresh.
   static const _hlsPlaylistRefreshInterval = Duration(seconds: 10);
 
-  void _startHlsPlaylistRefresh() {
-    _hlsPlaylistRefreshTimer?.cancel();
-    // Initial fetch, then refresh on the cadence above as the playlist
-    // window slides and the metadata-changed marker flips.
-    _refreshHlsPlaylistTimestamp();
-    _hlsPlaylistRefreshTimer = Timer.periodic(_hlsPlaylistRefreshInterval, (_) {
-      _refreshHlsPlaylistTimestamp();
-    });
+  static const _hlsPollTimeout = Duration(seconds: 5);
+
+  /// Anchor re-checks, from the start of a playing && ready run: a tick
+  /// right after [HlsPlayheadClock.settle] (ExoPlayer reports once, ~0.1 s
+  /// after ready, then nothing), snapshot retries 1, 2 and 4 s apart when
+  /// no snapshot matches the report, and the projection deadline.
+  static const List<Duration> _hlsAnchorCheckpoints = [
+    Duration(milliseconds: 1100),
+    Duration(milliseconds: 3100),
+    Duration(milliseconds: 7100),
+    Duration(milliseconds: 10100),
+  ];
+
+  /// Starts a new load generation: forgets the previous stream's clock,
+  /// boundaries and timers. Returns the new generation.
+  int _beginHlsLoad() {
+    _hlsPlaylistPollTimer?.cancel();
+    _hlsPlaylistPollTimer = null;
+    _cancelSongBoundaryTimer();
+    _cancelHlsAnchorChecks();
+    _hlsTimeline.beginLoad();
+    _songBoundaries.clear();
+    _lastMetadataChangedAt = null;
+    return ++_hlsLoadGeneration;
   }
 
-  /// Stop periodic refresh and clear HLS playlist state.
-  void _stopHlsPlaylistRefresh() {
-    _hlsPlaylistRefreshTimer?.cancel();
-    _hlsPlaylistRefreshTimer = null;
-    _alignedMetadataRefreshTimer?.cancel();
-    _alignedMetadataRefreshTimer = null;
-    _hlsFirstSegmentEpoch = null;
-    // Reset so the first DATERANGE / metadata-changed marker seen on the
-    // next stream registers as a change rather than colliding with the
-    // previous stream's last value.
-    _lastSeenDateRangeId = null;
-    _lastSeenMetadataChangedEpoch = null;
+  /// Server wall-clock instant of the audio the listener hears (or would
+  /// hear on resume). Null when no local live HLS is loaded, or while the
+  /// timeline anchors (an anchored refresh follows automatically).
+  DateTime? _audibleInstant() {
+    if (!_isLocalLiveHls) return null;
+    final now = DateTime.now();
+    if (HlsTimeline.isSupportedPlatform &&
+        !_hlsTimeline.lacksProgramDateTime) {
+      return _hlsTimeline.audibleInstant(now);
+    }
+    // Documented approximation for Windows/Linux (mpv live-HLS positions
+    // are unvalidated) and playlists without PROGRAM-DATE-TIME. Frozen
+    // while not playing, like the real clock.
+    final heardAt = player.playing ? now : (_stoppedPlayingAt ?? now);
+    return heardAt.subtract(HlsTimeline.approximateLatency(
+      SeekModeManager.currentOffset,
+      darwin: Platform.isIOS || Platform.isMacOS,
+    ));
+  }
+
+  /// Feeds a player event to the timeline, then reacts to an anchor or to
+  /// playback starting/stopping to advance.
+  void _onPlayerEventForTimeline(PlaybackEvent e) {
+    if (!_isLocalLiveHls || !HlsTimeline.isSupportedPlatform) return;
+    final wasAdvancing = _hlsTimeline.isAdvancing;
+    _hlsTimeline.onPlayerEvent(
+      playing: player.playing,
+      ready: e.processingState == ProcessingState.ready,
+      updatePosition: e.updatePosition,
+      updateTime: e.updateTime,
+      bufferedPosition: e.bufferedPosition,
+      now: DateTime.now(),
+    );
+    if (_hlsTimeline.takeJustAnchored()) {
+      _onHlsTimelineAnchored();
+    } else if (_hlsTimeline.isAdvancing != wasAdvancing) {
+      _planSongBoundaries();
+    }
+    _armHlsAnchorChecks();
+  }
+
+  /// Schedules the anchor re-checks for the current playing && ready run
+  /// while the clock is not exactly anchored. Idempotent per run.
+  void _armHlsAnchorChecks() {
+    final runStart = _hlsTimeline.advancingSince;
+    if (runStart == null ||
+        _hlsTimeline.isExactlyAnchored ||
+        _hlsTimeline.lacksProgramDateTime) {
+      _cancelHlsAnchorChecks();
+      return;
+    }
+    if (_hlsAnchorRunStart == runStart) return;
+    _cancelHlsAnchorChecks();
+    _hlsAnchorRunStart = runStart;
+    _scheduleHlsAnchorCheck(_hlsLoadGeneration);
+  }
+
+  void _scheduleHlsAnchorCheck(int generation) {
+    final runStart = _hlsAnchorRunStart;
+    if (runStart == null ||
+        _hlsAnchorCheckIndex >= _hlsAnchorCheckpoints.length) {
+      return;
+    }
+    final due = runStart.add(_hlsAnchorCheckpoints[_hlsAnchorCheckIndex]);
+    final delay = due.difference(DateTime.now());
+    _hlsAnchorTimer = Timer(delay.isNegative ? Duration.zero : delay,
+        () => _runHlsAnchorCheck(generation, runStart));
+  }
+
+  void _runHlsAnchorCheck(int generation, DateTime runStart) {
+    if (generation != _hlsLoadGeneration ||
+        _hlsTimeline.advancingSince != runStart) {
+      return;
+    }
+    final now = DateTime.now();
+    _hlsTimeline.tick(now);
+    if (_hlsTimeline.takeJustAnchored()) _onHlsTimelineAnchored();
+    if (_hlsTimeline.isExactlyAnchored) return;
+    final isLast = _hlsAnchorCheckIndex == _hlsAnchorCheckpoints.length - 1;
+    if (!isLast && _hlsTimeline.needsAnchorSnapshot(now)) {
+      _log('hls-timeline: no snapshot matches the native position, '
+          'refetching the playlist');
+      unawaited(_pollHlsPlaylist(generation: generation));
+    }
+    _hlsAnchorCheckIndex++;
+    _scheduleHlsAnchorCheck(generation);
+  }
+
+  void _cancelHlsAnchorChecks() {
+    _hlsAnchorTimer?.cancel();
+    _hlsAnchorTimer = null;
+    _hlsAnchorRunStart = null;
+    _hlsAnchorCheckIndex = 0;
+  }
+
+  /// The clock (re)anchored: drop boundaries already heard, issue the
+  /// anchored refresh (station start, offset change, reconnect, stale
+  /// resume) and plan the next boundary.
+  void _onHlsTimelineAnchored() {
+    final now = DateTime.now();
+    final audible = _audibleInstant();
+    final pdt = _hlsTimeline.playheadPdt(now);
+    final latency = audible == null
+        ? null
+        : now.difference(audible).inMilliseconds / 1000;
+    final gap = _hlsTimeline.anchorSnapshotGap;
+    _log('hls-timeline: anchored '
+        'playheadPdt=${pdt == null ? '-' : _isoFromSeconds(pdt)} '
+        'skew=${_hlsTimeline.skewSeconds(now)?.toStringAsFixed(2)} '
+        'latency=${latency?.toStringAsFixed(1)}s '
+        'anchorQuality=${_hlsTimeline.anchorQuality?.name} '
+        'snapshotAge=${gap == null ? '-' : gap.inMilliseconds / 1000}s');
+    AnalyticsService.instance.logDebug('hls timeline anchored', {
+      'station_slug': currentStation.valueOrNull?.slug,
+      'anchor_quality': _hlsTimeline.anchorQuality?.name,
+      'latency_s': latency,
+      'skew_s': _hlsTimeline.skewSeconds(now),
+      'snapshot_age_s': gap == null ? null : gap.inMilliseconds / 1000,
+    });
+    // Only what is already heard: a boundary within the next 2 s is not
+    // the song the anchor resolves, so planning takes it as a change.
+    if (audible != null) _songBoundaries.dropHeard(audible);
+    unawaited(stationDataService.refreshMetadataNow());
+    _planSongBoundaries();
+  }
+
+  static String _isoFromSeconds(double seconds) =>
+      DateTime.fromMicrosecondsSinceEpoch((seconds * 1e6).round(),
+              isUtc: true)
+          .toIso8601String();
+
+  /// Fetches the playlist once and feeds the timeline and the boundary
+  /// queue. [url]/[generation] default to the loaded stream; a response
+  /// that started for a previous load is discarded (station-switch race).
+  Future<void> _pollHlsPlaylist({String? url, int? generation}) async {
+    final u = url ?? _loadedStreamUrl;
+    final gen = generation ?? _hlsLoadGeneration;
+    if (u == null) return;
+    HlsPlaylistSnapshot? snapshot;
+    var withoutPdt = false;
+    try {
+      final r = await http.get(Uri.parse(u)).timeout(_hlsPollTimeout);
+      if (r.statusCode == 200) {
+        snapshot = HlsPlaylistSnapshot.parse(r.body,
+            fetchedAt: DateTime.now(),
+            lastModifiedHeader: r.headers['last-modified']);
+        withoutPdt = snapshot == null &&
+            HlsPlaylistSnapshot.isMediaPlaylistWithoutPdt(r.body);
+      } else {
+        _log('hls poll: HTTP ${r.statusCode}');
+      }
+    } catch (e) {
+      _log('hls poll: $e');
+    }
+    if (!_isCurrentHlsPoll(u, gen)) return;
+    final now = DateTime.now();
+    if (snapshot != null) {
+      _hlsTimeline.onSnapshot(snapshot, now);
+    } else if (withoutPdt) {
+      _hlsTimeline.onPlaylistWithoutPdt(now);
+    } else {
+      _hlsTimeline.onPollFailed(now);
+      return;
+    }
+    // Queue this poll's boundaries before handling an anchor it caused:
+    // the anchor drops the ones already heard, so none of them is later
+    // taken as a change that supersedes the anchored refresh.
+    if (snapshot != null) _queueSongBoundaries(snapshot);
+    if (_hlsTimeline.takeJustAnchored()) {
+      _onHlsTimelineAnchored();
+    } else if (snapshot != null) {
+      _planSongBoundaries();
+    }
+  }
+
+  /// Whether a poll for [url] issued in [generation] still belongs to the
+  /// loaded stream. Before the load completes, the concurrent fetch is
+  /// accepted by generation alone.
+  bool _isCurrentHlsPoll(String url, int generation) {
+    if (generation != _hlsLoadGeneration) return false;
+    final loaded = _loadedStreamUrl;
+    return loaded == null || (loaded == url && _loadedStreamType == 'HLS');
+  }
+
+  /// Queues the song boundaries a poll announced; the caller re-plans. On
+  /// Android TV ([StationDataService.preferLiveMetadata]) the live title
+  /// shows, so a new METADATA-CHANGED instant refreshes right away instead.
+  void _queueSongBoundaries(HlsPlaylistSnapshot s) {
+    if (stationDataService.preferLiveMetadata) {
+      final changedAt = s.metadataChangedAt;
+      if (changedAt == null || changedAt == _lastMetadataChangedAt) return;
+      _lastMetadataChangedAt = changedAt;
+      _log('song-boundary: METADATA-CHANGED '
+          '${changedAt.toIso8601String()}, refreshing live (TV)');
+      unawaited(stationDataService.refreshMetadataNow(boundary: changedAt));
+      return;
+    }
+    _songBoundaries.add(s.songBoundaries);
+  }
+
+  /// Refreshes for the newest boundary the audible instant reached, and
+  /// arms one timer for the next. The timer re-evaluates the instant when
+  /// it fires, never trusting the delay it was armed with. Suspended while
+  /// paused or buffering (the instant is frozen); re-planned on resume.
+  void _planSongBoundaries() {
+    _cancelSongBoundaryTimer();
+    final now = DateTime.now();
+    final audible = _audibleInstant();
+    final usesTimeline = HlsTimeline.isSupportedPlatform &&
+        !_hlsTimeline.lacksProgramDateTime;
+    final advancing = usesTimeline
+        ? _hlsTimeline.isAdvancing
+        : player.playing && player.processingState == ProcessingState.ready;
+    if (audible == null || !advancing) return;
+    if (_songBoundaries.reopenAfter(audible)) {
+      _log('song-boundary: audible instant moved back, re-syncing');
+      unawaited(stationDataService.refreshMetadataNow());
+    }
+    final due = _songBoundaries.takeReached(audible);
+    if (due != null) {
+      _log('song-boundary: reached ${due.at.toIso8601String()} '
+          '(audible ${audible.toIso8601String()})');
+      unawaited(stationDataService.refreshMetadataNow(
+          boundary: due.at, hint: due.hint));
+    }
+    final delay = _songBoundaries.delayUntilNext(audible, now);
+    if (delay != null) _songBoundaryTimer = Timer(delay, _planSongBoundaries);
+  }
+
+  void _cancelSongBoundaryTimer() {
+    _songBoundaryTimer?.cancel();
+    _songBoundaryTimer = null;
+  }
+
+  /// Starts the periodic playlist poll ([_hlsPlaylistRefreshInterval]).
+  /// [skipInitialFetch] when a fetch for this load is already in flight.
+  void _startHlsPlaylistPoll({bool skipInitialFetch = false}) {
+    _hlsPlaylistPollTimer?.cancel();
+    if (!skipInitialFetch) unawaited(_pollHlsPlaylist());
+    _hlsPlaylistPollTimer = Timer.periodic(
+      _hlsPlaylistRefreshInterval,
+      (_) => unawaited(_pollHlsPlaylist()),
+    );
+  }
+
+  /// Stops the poll and every timeline timer, and forgets the timeline. A
+  /// response still in flight is discarded (generation bump).
+  ///
+  /// [endAlignedPlayback]: the listener left time-shifted playback for good
+  /// (station switch, stop, error, non-HLS load, cast). False only for the
+  /// 60 s pause disconnect, so the paused title stays until resume.
+  void _stopHlsPlaylistRefresh({bool endAlignedPlayback = true}) {
+    _hlsPlaylistPollTimer?.cancel();
+    _hlsPlaylistPollTimer = null;
+    _cancelSongBoundaryTimer();
+    _cancelHlsAnchorChecks();
+    _hlsLoadGeneration++;
+    _hlsTimeline.reset();
+    _songBoundaries.clear();
+    _lastMetadataChangedAt = null;
+    if (endAlignedPlayback) stationDataService.onAlignedPlaybackEnded();
+  }
+
+  /// Subscribes to Cast sessions (the service registers after the first
+  /// frame). Casting stops the local player, so a rising edge ends the
+  /// local time-shifted session. Idempotent.
+  void watchCastSessions(CastService castService) {
+    if (_castSessionSub != null) return;
+    _castSessionSub = castService.isCasting.distinct().listen((casting) {
+      if (casting) _stopHlsPlaylistRefresh();
+    });
   }
 
   // ── Fast-start measurement ────────────────────────────────────────────
@@ -3131,7 +3499,8 @@ class AppAudioHandler extends BaseAudioHandler {
     _hasBeenPlayed = false;
     _disconnectTimer?.cancel();
     _bufferingStallTimer?.cancel();
-    _stopPositionWatchdog();
+    _stopLiveHlsWatchdog();
+    _stopHlsPlaylistRefresh();
     _bufferingStartedAt = null;
     _stopSilenceKeepAlive();
     _lastPlayerErrorCode = null;
@@ -3163,7 +3532,7 @@ class AppAudioHandler extends BaseAudioHandler {
     AnalyticsService.instance.endListening();
     _disconnectTimer?.cancel();
     _bufferingStallTimer?.cancel();
-    _stopPositionWatchdog();
+    _stopLiveHlsWatchdog();
     _bufferingStartedAt = null;
     _stopSilenceKeepAlive();
     _lastPlayerErrorCode = null;
@@ -3446,13 +3815,16 @@ class AppAudioHandler extends BaseAudioHandler {
     } catch (_) {}
     _cancelInFlightPlay();
     _disconnectTimer?.cancel();
-    _stopPositionWatchdog();
+    _stopLiveHlsWatchdog();
+    _stopHlsPlaylistRefresh();
     _loadedStreamUrl = null;
     _loadedStreamType = null;
     AnalyticsService.instance.endListening(reason: 'app_killed');
     AnalyticsService.instance.flush();
     player.stop();
-    stationDataService.dispose();
+    // Not dispose(): the process can outlive the task (audio_service caches
+    // the engine), and a relaunch reuses this very service.
+    stationDataService.suspend();
     return super.onTaskRemoved();
   }
 
@@ -3462,6 +3834,8 @@ class AppAudioHandler extends BaseAudioHandler {
     _cancelInFlightPlay();
     _disconnectTimer?.cancel();
     _bufferingStallTimer?.cancel();
+    _stopLiveHlsWatchdog();
+    _stopHlsPlaylistRefresh();
     _stopSilenceKeepAlive();
     for (final s in _videoSubs) {
       await s.cancel();
@@ -3471,6 +3845,7 @@ class AppAudioHandler extends BaseAudioHandler {
     await audioOnlyFallback.close();
     await _carRouteSub?.cancel();
     await _castRouteSub?.cancel();
+    await _castSessionSub?.cancel();
     await _exitVideoMode(stopVideo: true);
     _loadedStreamUrl = null;
     _loadedStreamType = null;

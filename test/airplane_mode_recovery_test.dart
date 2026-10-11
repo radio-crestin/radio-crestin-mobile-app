@@ -2,6 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:just_audio/just_audio.dart' show ProcessingState;
 
 import 'package:radio_crestin/appAudioHandler.dart';
+import 'package:radio_crestin/services/hls_health_watchdog_flag.dart';
+import 'package:radio_crestin/services/hls_timeline.dart';
 
 /// Reproduction + regression suite for the "audio doesn't come back after
 /// airplane mode" bug.
@@ -273,80 +275,328 @@ void main() {
     });
   });
 
-  // ── Fix 1: position-advancement watchdog ────────────────────────────────
-  group('ReconnectPolicy.shouldReconnectFrozenPosition', () {
-    final now = DateTime.now();
-    final wellPastGrace =
-        now.subtract(const Duration(seconds: 30)); // outside 12s grace
-    final frozenLongEnough =
-        now.subtract(const Duration(seconds: 15)); // past 10s frozen timeout
+  // ── Fix 1: live-HLS liveness rules (replaces the position watchdog) ─────
+  group('ReconnectPolicy.liveHlsStall', () {
+    final now = DateTime.utc(2026, 10, 11, 12);
+    DateTime ago(num seconds) =>
+        now.subtract(Duration(milliseconds: (seconds * 1000).round()));
+    Duration secs(num s) => Duration(milliseconds: (s * 1000).round());
 
-    bool call({
+    /// h1 at 137 s (2-min offset, healthy): the playhead 138 s behind the
+    /// newest media, the edge grew 3 s ago, a segment loaded 2 s ago. The
+    /// old watchdog fired here: `player.position` was capped at `duration`.
+    LiveHlsHealthSample healthy({
+      int? playheadSeq = 1000,
+      double? edgeLag = 138,
+      int? windowFirstSeq = 920,
+      bool windowReset = false,
+      DateTime? originAdvancedAt,
+      Duration? originStaleFor,
+      Duration? originUnreachableFor,
+      double? edgeLagAtStall,
+      DateTime? bufferedChangedAt,
+      DateTime? advancingSince,
+    }) =>
+        LiveHlsHealthSample(
+          playheadSeq: playheadSeq,
+          edgeLagSeconds: edgeLag,
+          windowFirstSeq: windowFirstSeq,
+          windowReset: windowReset,
+          originAdvancedAt: originAdvancedAt ?? ago(3),
+          originStaleFor: originStaleFor,
+          originUnreachableFor: originUnreachableFor,
+          edgeLagAtStall: edgeLagAtStall,
+          bufferedChangedAt: bufferedChangedAt ?? ago(2),
+          advancingSince: advancingSince ?? ago(135),
+          targetDuration: 6,
+        );
+
+    LiveHlsStall call(
+      LiveHlsHealthSample s, {
       bool playing = true,
       ProcessingState state = ProcessingState.ready,
-      bool hasLiveStreamLoaded = true,
+      bool hasLiveHlsLoaded = true,
       bool isCasting = false,
-      bool isVideoMode = false,
-      DateTime? lastAdvance,
-      DateTime? lastLoadOrSeek,
-    }) {
-      return ReconnectPolicy.shouldReconnectFrozenPosition(
-        playing: playing,
-        processingState: state,
-        hasLiveStreamLoaded: hasLiveStreamLoaded,
-        isCasting: isCasting,
-        isVideoMode: isVideoMode,
-        now: now,
-        lastPositionAdvanceAt: lastAdvance ?? frozenLongEnough,
-        lastLoadOrSeekAt: lastLoadOrSeek ?? wellPastGrace,
-      );
-    }
+      bool isVideoOrPlaylistMode = false,
+      bool silentStallPossible = true,
+    }) =>
+        ReconnectPolicy.liveHlsStall(
+          playing: playing,
+          processingState: state,
+          hasLiveHlsLoaded: hasLiveHlsLoaded,
+          isCasting: isCasting,
+          isVideoOrPlaylistMode: isVideoOrPlaylistMode,
+          silentStallPossible: silentStallPossible,
+          now: now,
+          s: s,
+        );
 
-    test('frozen past timeout while ready+playing → reconnect (the bug)', () {
-      expect(call(), isTrue);
+    test('healthy 2-min playback at 137 s → none (the old false freeze)', () {
+      expect(call(healthy()), LiveHlsStall.none);
     });
 
-    test('position advanced recently → no-op', () {
-      expect(call(lastAdvance: now.subtract(const Duration(seconds: 3))),
-          isFalse);
+    test('healthy instant / 5-min geometries → none', () {
+      expect(call(healthy(edgeLag: 18)), LiveHlsStall.none);
+      expect(call(healthy(edgeLag: 318, windowFirstSeq: 948)),
+          LiveHlsStall.none);
     });
 
-    test('paused → no-op', () {
-      expect(call(playing: false), isFalse);
+    group('evicted', () {
+      test('playhead 2 segments before the window → evicted', () {
+        expect(call(healthy(playheadSeq: 918)), LiveHlsStall.evicted);
+      });
+
+      test('within the 1-segment margin → none', () {
+        expect(call(healthy(playheadSeq: 919)), LiveHlsStall.none);
+        expect(call(healthy(playheadSeq: 920)), LiveHlsStall.none);
+      });
+
+      test('a window reset (sequence restart) → evicted', () {
+        expect(call(healthy(windowReset: true)), LiveHlsStall.evicted);
+      });
     });
 
-    test('buffering → no-op (buffering stall timer owns it)', () {
-      expect(call(state: ProcessingState.buffering), isFalse);
+    group('pastLiveEdge', () {
+      LiveHlsHealthSample stale({
+        required double edgeLag,
+        Duration? staleFor,
+        double edgeLagAtStall = 100,
+      }) =>
+          healthy(
+            edgeLag: edgeLag,
+            originAdvancedAt: ago(120),
+            originStaleFor: staleFor ?? secs(100),
+            edgeLagAtStall: edgeLagAtStall,
+          );
+
+      test('proven stale origin: fires at 5 target durations (±1 s)', () {
+        expect(call(stale(edgeLag: 29)), LiveHlsStall.pastLiveEdge);
+        expect(call(stale(edgeLag: 30)), LiveHlsStall.pastLiveEdge);
+        expect(call(stale(edgeLag: 31)), LiveHlsStall.none);
+      });
+
+      test('normal geometry needs only proven staleness (≥ 3 TD)', () {
+        expect(call(stale(edgeLag: 20, staleFor: secs(18))),
+            LiveHlsStall.pastLiveEdge);
+      });
+
+      test(
+          'near-edge geometry fires once the playhead ran one target '
+          'duration past the published media (±1 s)', () {
+        LiveHlsHealthSample nearEdge(num edgeLag) =>
+            stale(edgeLag: edgeLag.toDouble(), edgeLagAtStall: 18);
+        expect(call(nearEdge(5)), LiveHlsStall.none,
+            reason: 'media left: the player still plays');
+        expect(call(nearEdge(-5)), LiveHlsStall.none);
+        expect(call(nearEdge(-6)), LiveHlsStall.pastLiveEdge);
+        expect(call(nearEdge(-7)), LiveHlsStall.pastLiveEdge);
+      });
+
+      test('staleness never proven (only failed polls) → no fire', () {
+        expect(
+            call(healthy(
+                edgeLag: 0, originAdvancedAt: ago(40), originStaleFor: null)),
+            LiveHlsStall.none);
+      });
+
+      LiveHlsHealthSample dead(num unreachable, {num? loadedAgo}) => healthy(
+          edgeLag: 25,
+          originAdvancedAt: ago(unreachable + 5),
+          originUnreachableFor: secs(unreachable),
+          bufferedChangedAt: ago(loadedAgo ?? unreachable));
+
+      test('origin unreachable (polls failing) for 45 s (±1 s)', () {
+        expect(call(dead(44)), LiveHlsStall.none);
+        expect(call(dead(45)), LiveHlsStall.pastLiveEdge);
+        expect(call(dead(46)), LiveHlsStall.pastLiveEdge);
+      });
+
+      test(
+          'failed polls alone never fire: the player must have stopped '
+          'loading for 45 s too (±1 s)', () {
+        expect(call(dead(120, loadedAgo: 4)), LiveHlsStall.none);
+        expect(call(dead(120, loadedAgo: 44)), LiveHlsStall.none);
+        expect(call(dead(120, loadedAgo: 45)), LiveHlsStall.pastLiveEdge);
+      });
     });
 
-    test('within load/seek grace → no-op (initial buffer fill is legit)', () {
-      expect(call(lastLoadOrSeek: now.subtract(const Duration(seconds: 5))),
-          isFalse);
+    group('starving', () {
+      LiveHlsHealthSample starving(num stagnant, {num originAge = 7}) =>
+          healthy(
+              bufferedChangedAt: ago(stagnant),
+              originAdvancedAt: ago(originAge));
+
+      test('buffer stagnant 45 s while the origin publishes (±1 s)', () {
+        expect(call(starving(44)), LiveHlsStall.none);
+        expect(call(starving(45)), LiveHlsStall.starving);
+        expect(call(starving(46)), LiveHlsStall.starving);
+      });
+
+      test('only while the origin is fresh (advanced ≤ 30 s ago)', () {
+        expect(call(starving(60, originAge: 30)), LiveHlsStall.starving);
+        expect(call(starving(60, originAge: 31)), LiveHlsStall.none);
+      });
     });
 
-    test('casting → no-op', () {
-      expect(call(isCasting: true), isFalse);
-    });
-
-    test('video/playlist mode → no-op', () {
-      expect(call(isVideoMode: true), isFalse);
-    });
-
-    test('no live stream loaded → no-op', () {
-      expect(call(hasLiveStreamLoaded: false), isFalse);
-    });
-
-    test('watchdog thresholds are window-independent time constants', () {
-      expect(ReconnectPolicy.positionFrozenTimeout,
-          const Duration(seconds: 10));
-      expect(ReconnectPolicy.positionWatchdogInterval,
-          const Duration(seconds: 5));
-      // Grace must exceed the frozen timeout so a slow-but-legit start does
-      // not trip the watchdog on its first evaluation.
+    test('Android (silentStallPossible: false) never stalls: a_jump and '
+        'a_stale geometries', () {
+      // a_jump: playhead 113 s (19 segments) before the truncated window.
       expect(
-        ReconnectPolicy.positionFrozenGrace,
-        greaterThan(ReconnectPolicy.positionFrozenTimeout),
-      );
+          call(healthy(playheadSeq: 901), silentStallPossible: false),
+          LiveHlsStall.none);
+      // a_stale: origin stale 91 s, playhead 29 s before the newest media.
+      expect(
+          call(
+              healthy(
+                  edgeLag: 29,
+                  originAdvancedAt: ago(91),
+                  originStaleFor: secs(91),
+                  edgeLagAtStall: 120),
+              silentStallPossible: false),
+          LiveHlsStall.none);
+      expect(call(healthy(bufferedChangedAt: ago(60)),
+              silentStallPossible: false),
+          LiveHlsStall.none);
+    });
+
+    test('grace, paused, buffering, casting, video, not loaded, unanchored → '
+        'none', () {
+      final evicting = healthy(playheadSeq: 900);
+      expect(call(evicting), LiveHlsStall.evicted, reason: 'control');
+      expect(
+          call(healthy(playheadSeq: 900, advancingSince: ago(19))),
+          LiveHlsStall.none);
+      expect(
+          call(healthy(playheadSeq: 900, advancingSince: ago(20))),
+          LiveHlsStall.evicted);
+      expect(call(evicting, playing: false), LiveHlsStall.none);
+      expect(call(evicting, state: ProcessingState.buffering),
+          LiveHlsStall.none);
+      expect(call(evicting, isCasting: true), LiveHlsStall.none);
+      expect(call(evicting, isVideoOrPlaylistMode: true), LiveHlsStall.none);
+      expect(call(evicting, hasLiveHlsLoaded: false), LiveHlsStall.none);
+      expect(call(healthy(playheadSeq: null)), LiveHlsStall.none);
+    });
+
+    test('thresholds and cadence', () {
+      expect(ReconnectPolicy.liveHlsWatchdogInterval,
+          const Duration(seconds: 5));
+      expect(ReconnectPolicy.liveHlsGrace, const Duration(seconds: 20));
+      expect(ReconnectPolicy.pastEndTargetDurations, 1);
+      expect(ReconnectPolicy.originUnreachableAfter,
+          const Duration(seconds: 45));
+      expect(ReconnectPolicy.deadOriginBufferStagnantAfter,
+          const Duration(seconds: 45));
+      expect(ReconnectPolicy.starvingAfter, const Duration(seconds: 45));
+      expect(ReconnectPolicy.originFreshWithin, const Duration(seconds: 30));
+      expect(ReconnectPolicy.pastLiveEdgeTargetDurations, 5);
+    });
+  });
+
+  group('LiveHlsStallRecovery (escalation)', () {
+    final t0 = DateTime.utc(2026, 10, 11, 12);
+    DateTime at(int s) => t0.add(Duration(seconds: s));
+    const url = 'https://hls.radiocrestin.ro/hls/rve-suceava/index.m3u8';
+    const instant = Duration.zero;
+    const twoMin = Duration(minutes: 2);
+    const fiveMin = Duration(minutes: 5);
+
+    LiveHlsRecoveryAction fire(
+      LiveHlsStallRecovery r,
+      int s, {
+      LiveHlsStall stall = LiveHlsStall.pastLiveEdge,
+      Duration offset = instant,
+      String station = 's',
+      String fireUrl = url,
+    }) =>
+        r.decide(
+            stall: stall,
+            url: fireUrl,
+            station: station,
+            offset: offset,
+            now: at(s));
+
+    test('first pastLiveEdge/starving fire reloads; a repeat within 3 min '
+        'fails over', () {
+      final r = LiveHlsStallRecovery();
+      expect(fire(r, 0), LiveHlsRecoveryAction.reloadSameStream);
+      expect(fire(r, 60, stall: LiveHlsStall.starving),
+          LiveHlsRecoveryAction.failOverAndReload);
+    });
+
+    test('a fire more than 3 min after the previous one reloads again', () {
+      final r = LiveHlsStallRecovery();
+      fire(r, 0);
+      expect(fire(r, 181), LiveHlsRecoveryAction.reloadSameStream);
+    });
+
+    test('the repeat window covers the stale audio a reload replays', () {
+      expect(LiveHlsStallRecovery.repeatWindowFor(instant),
+          const Duration(minutes: 3));
+      expect(LiveHlsStallRecovery.repeatWindowFor(twoMin),
+          const Duration(minutes: 4));
+      expect(LiveHlsStallRecovery.repeatWindowFor(fiveMin),
+          const Duration(minutes: 7));
+    });
+
+    test(
+        '5-min listener on a frozen origin: each reload replays ~270 s of '
+        'stale audio, and the repeat fire still fails over', () {
+      // A reload seeks 300 s behind the frozen edge; pastLiveEdge needs the
+      // playhead within 5 TD (30 s) again: 270 s of playback, plus grace,
+      // the tick and the load.
+      final r = LiveHlsStallRecovery();
+      expect(fire(r, 0, offset: fiveMin),
+          LiveHlsRecoveryAction.reloadSameStream);
+      expect(fire(r, 290, offset: fiveMin),
+          LiveHlsRecoveryAction.failOverAndReload);
+      // A 2-min listener's repeat comes ~95 s later; 4 min still covers it.
+      final r2 = LiveHlsStallRecovery();
+      fire(r2, 0, offset: twoMin);
+      expect(fire(r2, 230, offset: twoMin),
+          LiveHlsRecoveryAction.failOverAndReload);
+      expect(fire(r2, 480, offset: twoMin),
+          LiveHlsRecoveryAction.reloadSameStream);
+    });
+
+    test('evicted never fails over (the stream is healthy)', () {
+      final r = LiveHlsStallRecovery();
+      for (var i = 0; i < 4; i++) {
+        expect(fire(r, 40 * i, stall: LiveHlsStall.evicted),
+            LiveHlsRecoveryAction.reloadSameStream);
+      }
+    });
+
+    test('rate limit: one liveness reload per 30 s per station', () {
+      final r = LiveHlsStallRecovery();
+      fire(r, 0, stall: LiveHlsStall.evicted);
+      expect(fire(r, 29, stall: LiveHlsStall.starving),
+          LiveHlsRecoveryAction.none);
+      expect(
+          fire(r, 29,
+              stall: LiveHlsStall.starving,
+              station: 'other',
+              fireUrl: 'https://hls.radiocrestin.ro/hls/other/index.m3u8'),
+          LiveHlsRecoveryAction.reloadSameStream);
+      expect(fire(r, 30, stall: LiveHlsStall.starving),
+          LiveHlsRecoveryAction.reloadSameStream);
+    });
+
+    test('none → none', () {
+      expect(fire(LiveHlsStallRecovery(), 0, stall: LiveHlsStall.none),
+          LiveHlsRecoveryAction.none);
+    });
+  });
+
+  group('HlsHealthWatchdogFlag (kill switch)', () {
+    test('an undefined flag keeps the watchdog on; a defined one decides', () {
+      expect(HlsHealthWatchdogFlag.isEnabled(flagExists: false), isTrue);
+      expect(
+          HlsHealthWatchdogFlag.isEnabled(flagExists: true, flagOn: true),
+          isTrue);
+      expect(
+          HlsHealthWatchdogFlag.isEnabled(flagExists: true, flagOn: false),
+          isFalse);
     });
   });
 
@@ -422,6 +672,39 @@ void main() {
           pausedFor: const Duration(seconds: 1),
         ),
         isFalse,
+      );
+    });
+
+    test('real live windows (Darwin 642 s, ExoPlayer 660 s): the 60 s '
+        'disconnect comes first at 2 min; 5 min reloads after ~205 s', () {
+      const windows = [Duration(seconds: 642), Duration(seconds: 660)];
+      for (final window in windows) {
+        // 2 min: runway 522-540 s → budget 313-324 s, never reached before
+        // the 60 s pause disconnect.
+        expect(
+          ReconnectPolicy.shouldReloadAfterPause(
+            offset: twoMin,
+            windowDepth: window,
+            pausedFor: const Duration(seconds: 60),
+          ),
+          isFalse,
+        );
+        expect(
+          ReconnectPolicy.shouldReloadAfterPause(
+            offset: twoMin,
+            windowDepth: window,
+            pausedFor: const Duration(seconds: 313),
+          ),
+          isFalse,
+        );
+      }
+      expect(
+        ReconnectPolicy.shouldReloadAfterPause(
+          offset: fiveMin,
+          windowDepth: const Duration(seconds: 642),
+          pausedFor: const Duration(seconds: 206),
+        ),
+        isTrue,
       );
     });
 

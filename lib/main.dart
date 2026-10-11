@@ -41,6 +41,7 @@ import 'package:flutter_airplay/flutter_airplay.dart' as flutter_airplay;
 import 'services/analytics_service.dart';
 import 'services/device_registration_service.dart';
 import 'services/error_filter.dart';
+import 'services/hls_health_watchdog_flag.dart';
 import 'services/image_cache_service.dart';
 import 'services/log_flush_guard.dart';
 import 'services/remote_debug_controller.dart';
@@ -289,6 +290,7 @@ void main() async {
   // Does not block on the network.
   await SessionReplayController.instance.loadCache(prefs);
   await RemoteDebugController.instance.loadCache(prefs);
+  await HlsHealthWatchdogFlag.instance.loadCache(prefs);
 
   // Developer mode (Settings hidden gesture) ships debug-level logs.
   AnalyticsService.instance
@@ -308,6 +310,7 @@ void main() async {
     onFeatureFlagsLoaded: () {
       unawaited(SessionReplayController.instance.onFlagsLoaded());
       unawaited(RemoteDebugController.instance.onFlagsLoaded());
+      unawaited(HlsHealthWatchdogFlag.instance.onFlagsLoaded());
     },
     appVersion: packageInfo.version,
   );
@@ -436,6 +439,7 @@ void main() async {
 
       // Chromecast session management — only one output at a time
       final audioHandler = getIt<AppAudioHandler>();
+      audioHandler.watchCastSessions(castService);
       bool hasEverCasted = false;
 
       // ─── Cast session lifecycle ──────────────────────────────────
