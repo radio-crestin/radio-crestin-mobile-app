@@ -121,14 +121,14 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   final StationDataService _stationDataService = GetIt.instance<StationDataService>();
 
   /// Primary line under the artwork for radio/TV stations: the song title when
-  /// one is playing, a "Transmisiune live" label for an idle TV channel, or the
-  /// generic idle placeholder (so a station without metadata never looks blank).
+  /// one is playing, a "Transmisiune live" label for an idle TV channel, and
+  /// empty for a radio station without metadata. The empty line keeps its
+  /// height, so nothing moves when a title arrives.
   String _primaryLine() {
     final s = currentStation;
-    if (s == null) return "Metadate indisponibile";
+    if (s == null) return "";
     if (s.songTitle.isNotEmpty) return s.songTitle;
-    if (s.isTv) return "Transmisiune live";
-    return "Metadate indisponibile";
+    return s.isTv ? "Transmisiune live" : "";
   }
 
   @override
