@@ -505,6 +505,10 @@ class FakePlayer {
   /// The station the player is on (`getPlayingStationId`).
   int? playingId;
 
+  /// A stream that plays live is loaded (`isLiveStreamActive`), e.g. after
+  /// an HLS failover to the direct stream.
+  bool liveStream = false;
+
   /// `getAudibleInstant`: null while anchoring or not time-shifted.
   DateTime? get audible {
     if (frozenAudible != null) return frozenAudible;
@@ -527,5 +531,6 @@ class FakePlayer {
     service.getAudibleInstant = () => audible;
     service.isTimeShiftedHlsActive = () => active;
     service.getPlayingStationId = () => playingId;
+    service.isLiveStreamActive = () => liveStream;
   }
 }

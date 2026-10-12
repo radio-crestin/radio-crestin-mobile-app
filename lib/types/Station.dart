@@ -97,6 +97,14 @@ class Station {
     return url;
   }
 
+  /// Whether the preferred stream (lowest `order`) is HLS, which the player
+  /// starts a seek offset behind live; a direct stream plays live.
+  bool get prefersHls {
+    final streams = rawStationData.station_streams;
+    if (streams.isEmpty) return false;
+    return streams.reduce((a, b) => b.order < a.order ? b : a).type == 'HLS';
+  }
+
   /// Whether this station is a live TV channel.
   bool get isTv => stationType == StationMediaType.tv;
 

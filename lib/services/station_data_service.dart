@@ -30,8 +30,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 ///
 /// Invariant: each reason's work is a superset of every later reason's work
 /// (a full refresh includes the live fetch), so promoting or coalescing
-/// reasons never loses work. All of it is live work: the time-shifted song of
-/// the playing station is resolved outside this queue
+/// reasons never loses work. Side work (private stations, the listening
+/// timeline, audible checks) runs if any queued reason asks for it. The
+/// time-shifted song of the playing station is resolved outside this queue
 /// ([StationDataService.refreshMetadataNow]).
 enum SyncReason {
   /// Initial bootstrap on app start.
@@ -49,6 +50,10 @@ enum SyncReason {
   /// A live stream announced a new song (ICY tag, Android TV playlist
   /// METADATA-CHANGED): fetch the live list now.
   liveMetadataChanged,
+
+  /// The listening delay changed (seek offset, car, cast): move the
+  /// listening timeline now.
+  listeningDelayChanged,
 
   /// 60s wall-clock tick — keep the visible station list reasonably fresh.
   periodic,
@@ -83,11 +88,12 @@ class StationDataService {
   /// of reason) once elapsed, to pull GraphQL stations + reviews drift.
   static const _fullRefreshInterval = Duration(minutes: 10);
 
-  /// How far each live diff re-reads behind the cursor. Rows are dated when
-  /// the song started but become visible up to ~38 s later (ingestion lag);
-  /// without the overlap a diff issued in between skips them for good. Merges
-  /// are idempotent, so re-delivered stations cost nothing.
-  static const _liveCursorOverlap = Duration(seconds: 60);
+  /// How far each diff (live or listening) re-reads behind its cursor. Rows
+  /// are dated when the song started but become visible up to ~38 s later
+  /// (ingestion lag); without the overlap a diff issued in between skips
+  /// them for good. Merges are idempotent, so re-delivered stations cost
+  /// nothing.
+  static const _diffOverlap = Duration(seconds: 60);
 
   Timer? _periodicTimer;
 
@@ -153,6 +159,25 @@ class StationDataService {
   int _liveFollowUp = 0;
 
   // ---------------------------------------------------------------------------
+  // Listening timeline: the list at now − the listening delay
+  // ---------------------------------------------------------------------------
+
+  /// Each public station's `now_playing` at now − the listening delay. A
+  /// station heard through time-shifted HLS shows it instead of its live
+  /// row, so its card shows what tapping it plays, and keeps showing that
+  /// once the player leaves it. Empty while the delay is zero.
+  Map<int, Map<String, dynamic>> _listeningNowPlaying = {};
+
+  /// Listening-timeline cursor (Unix seconds, 10s-rounded), like
+  /// [_liveCursor]; 0 while the timeline is not fetched.
+  int _listeningCursor = 0;
+
+  /// Stations already rebuilt with their listening row, so a publish only
+  /// rebuilds those whose live data or listening row changed.
+  final Map<int, ({Station live, Map<String, dynamic> row, Station shown})>
+      _listeningShown = {};
+
+  // ---------------------------------------------------------------------------
   // Audio sync hooks (set by AppAudioHandler after init)
   // ---------------------------------------------------------------------------
 
@@ -170,6 +195,16 @@ class StationDataService {
   /// Id of the station the player is on (playing, paused or loading), or
   /// null.
   int? Function()? getPlayingStationId;
+
+  /// True while the player has a stream loaded that plays live (a direct
+  /// stream, e.g. after an HLS failover): the playing station then shows
+  /// its live row, not the listening timeline.
+  bool Function()? isLiveStreamActive;
+
+  /// How far behind live a station tapped now is heard: the seek offset
+  /// plus the player's hold-back on time-shifted HLS, zero while casting.
+  /// Null (tests, before wiring) keeps the whole list live.
+  Duration Function()? getListeningDelay;
 
   /// When true, show LIVE now-playing metadata for the playing station instead
   /// of the HLS-buffered (delayed) metadata. Set on Android TV: the buffered
@@ -290,9 +325,10 @@ class StationDataService {
   // stations, and a private refresh can never disturb the frozen public order.
   // ---------------------------------------------------------------------------
 
-  /// Latest public station list, live data only (the only source
-  /// `/stations-metadata` updates). The playing station's time-shifted song
-  /// is an overlay applied at publish time, never stored here.
+  /// Latest public station list, live data only (the only source the live
+  /// `/stations-metadata` fetch updates). The listening timeline and the
+  /// playing station's time-shifted song are overlays applied at publish
+  /// time, never stored here.
   List<Station> _publicStations = <Station>[];
 
   /// Latest private station list, in the backend-provided order. Their
@@ -407,9 +443,17 @@ class StationDataService {
     _publishMerged();
   }
 
+  /// The listening delay changed: move the listening timeline now instead
+  /// of on the next tick. Before the first load the startup sync reads it.
+  void onListeningDelayChanged() {
+    if (stations.value.isEmpty) return;
+    unawaited(enqueueSync(SyncReason.listeningDelayChanged));
+  }
+
   /// The "recently played" cutoff for [stationId]: the audible instant for
   /// the time-shifted station (its last resolved instant while the clock is
-  /// unknown, e.g. paused past the disconnect), now for every other one.
+  /// unknown, e.g. paused past the disconnect), now − the listening delay
+  /// for a station shown on the listening timeline, now for every other one.
   DateTime playedCutoffFor(int stationId) {
     final audible = getAudibleInstant?.call();
     final playing = getPlayingStationId?.call() == stationId;
@@ -417,6 +461,10 @@ class StationDataService {
     final overlay = _audible;
     if (overlay != null && overlay.stationId == stationId) {
       return audible ?? overlay.heardAt;
+    }
+    final station = _publicStationById(stationId);
+    if (station != null && _listeningRowFor(station) != null) {
+      return _now().subtract(_listeningDelay);
     }
     return _now();
   }
@@ -490,8 +538,9 @@ class StationDataService {
 
   /// One sync iteration for every reason queued together. The highest-priority
   /// reason picks the public work (its work covers the others'); a reason's
-  /// side work (private stations, audible checks) runs if any reason asks for
-  /// it. Promotes to a full refresh when the 10-min window has elapsed.
+  /// side work (private stations, listening timeline, audible checks) runs if
+  /// any reason asks for it. Promotes to a full refresh when the 10-min
+  /// window has elapsed.
   Future<void> _executeSync(Set<SyncReason> reasons) async {
     final lead = reasons.reduce((a, b) => a.index <= b.index ? a : b);
     // A resume is a fresh chance for private stations: reopen the gate an
@@ -506,6 +555,9 @@ class StationDataService {
     final fullDue = _lastFullRefreshTime == null ||
         _now().difference(_lastFullRefreshTime!) >= _fullRefreshInterval;
     final isFullReason = lead.index <= SyncReason.manualRefresh.index;
+    final listeningFuture = reasons.any(_shouldSyncListening)
+        ? _syncListeningTimeline(full: isFullReason || fullDue)
+        : null;
 
     if (isFullReason || fullDue) {
       await _doFullRefresh(lead, becausePromoted: !isFullReason);
@@ -513,6 +565,8 @@ class StationDataService {
       await _doLiveDiff();
     }
     if (privateFuture != null) await privateFuture;
+    // Change-gated: a no-op when the public publish already carried it.
+    if (listeningFuture != null && await listeningFuture) _publishMerged();
 
     if (reasons.contains(SyncReason.periodic)) _checkAudibleOnTick();
     if (reasons.contains(SyncReason.appResumed)) {
@@ -528,6 +582,12 @@ class StationDataService {
       reason == SyncReason.startup ||
       reason == SyncReason.appResumed ||
       reason == SyncReason.periodic;
+
+  /// Every reason but a live stream's song change moves the listening
+  /// timeline: that signal is about the live list, and its follow-ups would
+  /// only repeat the same delayed fetch.
+  bool _shouldSyncListening(SyncReason reason) =>
+      reason != SyncReason.liveMetadataChanged;
 
   /// Full refresh: GraphQL stations + live metadata, merged in one shot. The
   /// live cursor moves only when the metadata fetch succeeded.
@@ -559,7 +619,7 @@ class StationDataService {
     final live = await _fetchMetadata(
       liveTs,
       changesFromTimestamp:
-          canDiff ? _liveCursor - _liveCursorOverlap.inSeconds : null,
+          canDiff ? _liveCursor - _diffOverlap.inSeconds : null,
     );
     PerformanceMonitor.endOperation('periodic_sync');
     if (live == null) return;
@@ -583,7 +643,96 @@ class StationDataService {
     }
   }
 
-  int _roundedNow() => _now().millisecondsSinceEpoch ~/ 10000 * 10;
+  int _roundedNow() => _roundedEpoch(_now());
+
+  /// Unix seconds of [t], floored to 10 s: the shared cache key bucket.
+  static int _roundedEpoch(DateTime t) =>
+      t.millisecondsSinceEpoch ~/ 10000 * 10;
+
+  // ---------------------------------------------------------------------------
+  // Listening timeline: what tapping a station plays
+  // ---------------------------------------------------------------------------
+
+  /// The listening delay, zero on the TV live-metadata mode.
+  Duration get _listeningDelay => preferLiveMetadata
+      ? Duration.zero
+      : getListeningDelay?.call() ?? Duration.zero;
+
+  /// Moves the listening timeline to now − the listening delay: a diff from
+  /// [_listeningCursor] like the live diff, or the whole list when [full],
+  /// without a cursor, or when the delay grew (the instant moved back). A
+  /// zero delay forgets the timeline. Returns whether its rows changed.
+  Future<bool> _syncListeningTimeline({required bool full}) async {
+    final delay = _listeningDelay;
+    if (delay <= Duration.zero) {
+      if (_listeningCursor == 0) return false;
+      _listeningNowPlaying = {};
+      _listeningShown.clear();
+      _listeningCursor = 0;
+      return true;
+    }
+    final ts = _roundedEpoch(_now().subtract(delay));
+    final canDiff = !full && _listeningCursor > 0 && _listeningCursor <= ts;
+    final rows = await _fetchMetadata(
+      ts,
+      changesFromTimestamp:
+          canDiff ? _listeningCursor - _diffOverlap.inSeconds : null,
+      timeline: 'listening',
+    );
+    if (rows == null) return false;
+    final next = canDiff
+        ? Map.of(_listeningNowPlaying)
+        : <int, Map<String, dynamic>>{};
+    rows.forEach((id, metadata) {
+      final nowPlaying = metadata['now_playing'];
+      if (nowPlaying is Map<String, dynamic>) {
+        next[id] = nowPlaying;
+      } else {
+        next.remove(id);
+      }
+    });
+    _listeningNowPlaying = next;
+    _listeningCursor = ts;
+    return true;
+  }
+
+  /// [station]'s row on the listening timeline when that is what the
+  /// listener hears on it, or would on tapping it: a radio station whose
+  /// preferred stream is time-shifted HLS. Null shows the live row: a direct
+  /// stream, or the playing station on a live stream (an HLS failover).
+  Map<String, dynamic>? _listeningRowFor(Station station) {
+    final row = _listeningNowPlaying[station.id];
+    if (row == null ||
+        station.stationType != StationMediaType.radio ||
+        !station.prefersHls) {
+      return null;
+    }
+    final playsLive = getPlayingStationId?.call() == station.id &&
+        (isLiveStreamActive?.call() ?? false);
+    return playsLive ? null : row;
+  }
+
+  /// Every station heard on the listening timeline with its listening row
+  /// in place of the live one. Only `now_playing` changes; listeners and
+  /// uptime stay live.
+  List<Station> _withListeningTimeline(List<Station> merged) {
+    if (_listeningNowPlaying.isEmpty) return merged;
+    return [for (final station in merged) _onListeningTimeline(station)];
+  }
+
+  Station _onListeningTimeline(Station station) {
+    final row = _listeningRowFor(station);
+    if (row == null) return station;
+    final memo = _listeningShown[station.id];
+    if (memo != null &&
+        identical(memo.live, station) &&
+        identical(memo.row, row)) {
+      return memo.shown;
+    }
+    final shown = _rebuild(station, (json) => _withNowPlaying(json, row));
+    _listeningShown[station.id] = (live: station, row: row, shown: shown);
+    return shown;
+  }
 
   // ---------------------------------------------------------------------------
   // Audible overlay: the song the listener hears on time-shifted HLS
@@ -749,8 +898,9 @@ class StationDataService {
     return null;
   }
 
-  /// The playing station with the audible song in place of its live one.
-  /// Only `now_playing` changes; listeners and uptime stay live.
+  /// The playing station with the audible song in place of its live (or
+  /// listening) one. Only `now_playing` changes; listeners and uptime stay
+  /// live.
   List<Station> _withAudibleOverlay(List<Station> merged) {
     final overlay = _audible;
     if (overlay == null ||
@@ -817,14 +967,14 @@ class StationDataService {
     return [...privateOnly, ..._publicStations];
   }
 
-  /// Publishes the merged catalog (with the audible overlay and the display
-  /// sanitizer) to [stations]. Change-gated by default so a no-op refresh
-  /// doesn't churn downstream streams; [force] bypasses the gate for
-  /// structural changes (bootstrap, full refresh, private list cleared).
-  /// Returns whether it emitted.
+  /// Publishes the merged catalog (with the listening timeline, the audible
+  /// overlay on top of it and the display sanitizer) to [stations].
+  /// Change-gated by default so a no-op refresh doesn't churn downstream
+  /// streams; [force] bypasses the gate for structural changes (bootstrap,
+  /// full refresh, private list cleared). Returns whether it emitted.
   bool _publishMerged({bool force = false}) {
-    final merged =
-        _sanitizedForDisplay(_withAudibleOverlay(_mergePublicPrivate()));
+    final merged = _sanitizedForDisplay(_withAudibleOverlay(
+        _withListeningTimeline(_mergePublicPrivate())));
     if (!force && !hasStationsChanged(stations.value, merged)) return false;
     stations.add(merged);
     return true;
@@ -1130,17 +1280,18 @@ class StationDataService {
   /// Fetches metadata from REST API.
   /// When [changesFromTimestamp] is provided, only returns stations that
   /// changed since that timestamp (differential update, like the
-  /// radiocrestin.ro web app).
+  /// radiocrestin.ro web app). [timeline] only labels the logs.
   Future<Map<int, Map<String, dynamic>>?> _fetchMetadata(
     int timestamp, {
     int? changesFromTimestamp,
+    String timeline = 'live',
   }) async {
     var url = '${CONSTANTS.STATIONS_METADATA_URL}?timestamp=$timestamp';
     if (changesFromTimestamp != null && changesFromTimestamp > 0) {
       url += '&changes_from_timestamp=$changesFromTimestamp';
     }
     final isDiff = changesFromTimestamp != null && changesFromTimestamp > 0;
-    final mode = isDiff ? 'diff' : 'full';
+    final mode = '$timeline ${isDiff ? 'diff' : 'full'}';
     final stopwatch = Stopwatch()..start();
     _log("→ metadata fetch [$mode] ts=$timestamp"
         "${isDiff ? ' from=$changesFromTimestamp' : ''}");

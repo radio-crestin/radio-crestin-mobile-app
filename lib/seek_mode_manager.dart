@@ -23,6 +23,16 @@ class SeekModeManager {
   static ValueNotifier<bool> get autoSlowConnection =>
       _autoSlowConnectionNotifier;
 
+  /// Notifies whenever [currentOffset] may have changed: the setting, a car
+  /// connection, the unstable-connection toggle or the auto-detected slow
+  /// connection.
+  static final Listenable offsetChanges = Listenable.merge([
+    _seekModeNotifier,
+    _unstableConnectionNotifier,
+    _carConnectedNotifier,
+    _autoSlowConnectionNotifier,
+  ]);
+
   static bool get isUnstableConnection => _unstableConnectionNotifier.value;
   static bool get isCarConnected => _carConnectedNotifier.value;
   static bool get isAutoSlowConnection => _autoSlowConnectionNotifier.value;

@@ -1167,6 +1167,8 @@ class AppAudioHandler extends BaseAudioHandler {
     stationDataService.getPlayingStationId =
         () => currentStation.valueOrNull?.id;
     stationDataService.isTimeShiftedHlsActive = () => _isLocalLiveHls;
+    stationDataService.isLiveStreamActive =
+        () => _loadedStreamType != null && _loadedStreamType != 'HLS';
     stationDataService.getAudibleInstant = _audibleInstant;
     // TV shows live metadata (not the HLS-buffered song) — see
     // [StationDataService.preferLiveMetadata].
@@ -3034,6 +3036,8 @@ class AppAudioHandler extends BaseAudioHandler {
   /// A falling edge (disconnect) leaves the local player stopped by design
   /// (main.dart), so it clears the play intent: otherwise the next
   /// foreground or network restore would start the phone's speaker.
+  ///
+  /// Either edge changes the listening delay (the receiver plays live).
   void watchCastSessions(CastService castService) {
     if (_castSessionSub != null) return;
     var wasCasting = false;
@@ -3043,6 +3047,7 @@ class AppAudioHandler extends BaseAudioHandler {
       } else if (wasCasting) {
         _hasBeenPlayed = false;
       }
+      if (casting != wasCasting) stationDataService.onListeningDelayChanged();
       wasCasting = casting;
     });
   }

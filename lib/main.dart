@@ -42,6 +42,7 @@ import 'services/analytics_service.dart';
 import 'services/device_registration_service.dart';
 import 'services/error_filter.dart';
 import 'services/hls_health_watchdog_flag.dart';
+import 'services/hls_timeline.dart';
 import 'services/image_cache_service.dart';
 import 'services/log_flush_guard.dart';
 import 'services/remote_debug_controller.dart';
@@ -266,7 +267,13 @@ void main() async {
   getIt.registerSingleton<NetworkService>(networkService);
   getIt.registerSingleton<ImageCacheService>(imageCacheService);
 
-  final stationDataService = StationDataService(graphqlClient: graphqlClient);
+  // The seek offset sets the listening delay the station list follows, so
+  // it is known before the first sync and tracked from then on.
+  SeekModeManager.initializeFromPrefs(prefs);
+  final stationDataService = StationDataService(graphqlClient: graphqlClient)
+    ..getListeningDelay = _listeningDelay;
+  SeekModeManager.offsetChanges
+      .addListener(stationDataService.onListeningDelayChanged);
   getIt.registerSingleton<StationDataService>(stationDataService);
 
   final playCountService = PlayCountService();
@@ -390,9 +397,8 @@ void main() async {
   final audioHandler = await audioHandlerFuture;
   getIt.registerSingleton<AppAudioHandler>(audioHandler);
 
-  // Initialize theme and seek mode synchronously using already-loaded prefs (no async overhead)
+  // Initialize theme synchronously using already-loaded prefs (no async overhead)
   ThemeManager.initializeFromPrefs(prefs);
-  SeekModeManager.initializeFromPrefs(prefs);
 
   PerformanceMonitor.markAppReady();
   PerformanceMonitor.startFrameMonitoring();
@@ -607,6 +613,20 @@ void main() async {
       }
     });
   }
+}
+
+/// How far behind live a station tapped now is heard: local time-shifted
+/// HLS plays the seek offset plus the player's hold-back behind the live
+/// edge; a Cast receiver and Android TV (live metadata) play live.
+Duration _listeningDelay() {
+  final getIt = GetIt.instance;
+  final casting =
+      getIt.isRegistered<CastService>() && getIt<CastService>().isCasting.value;
+  if (casting || TvPlatform.isAndroidTV) return Duration.zero;
+  return HlsTimeline.approximateLatency(
+    SeekModeManager.currentOffset,
+    darwin: Platform.isIOS || Platform.isMacOS,
+  );
 }
 
 /// Returns the current list of stations, waiting up to [timeout] for the

@@ -341,4 +341,35 @@ void main() {
       );
     });
   });
+
+  group('Station.prefersHls', () {
+    Query$GetStations$stations$station_streams stream(int order, String type) =>
+        Query$GetStations$stations$station_streams(
+            order: order, type: type, stream_url: 'https://s.example.com/$order');
+
+    test('is decided by the lowest order, not the list position', () {
+      final hls = StationFactory.createStation(
+        id: 1,
+        slug: 'hls',
+        title: 'HLS',
+        stationStreams: [stream(2, 'direct_stream'), stream(0, 'HLS')],
+      );
+      final direct = StationFactory.createStation(
+        id: 2,
+        slug: 'direct',
+        title: 'Direct',
+        stationStreams: [stream(1, 'HLS'), stream(0, 'direct_stream')],
+      );
+
+      expect(hls.prefersHls, isTrue);
+      expect(direct.prefersHls, isFalse);
+    });
+
+    test('is false without streams', () {
+      final station = StationFactory.createStation(
+          id: 1, slug: 'none', title: 'None', stationStreams: const []);
+
+      expect(station.prefersHls, isFalse);
+    });
+  });
 }

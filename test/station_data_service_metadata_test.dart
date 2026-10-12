@@ -1023,6 +1023,170 @@ void main() {
     });
   });
 
+  group('listening timeline', () {
+    // iOS on the 2-minute offset: 120 s plus AVPlayer's 18 s hold-back. The
+    // listening timestamp at t0 is floor10(t0 - 138 s) = t-140.
+    const delay = Duration(seconds: 138);
+    var listeningDelay = Duration.zero;
+
+    /// [start] with the listening delay wired before the startup sync, as
+    /// main.dart does.
+    Future<StationDataService> startListening(Duration value) async {
+      listeningDelay = value;
+      final s = backend.newService(prefs);
+      player.attach(s);
+      s.getListeningDelay = () => listeningDelay;
+      current = s;
+      await s.enqueueSync(SyncReason.startup);
+      return s;
+    }
+
+    List<Uri> metadataAt(DateTime instant) => backend.metadataRequests
+        .where((u) => u.queryParameters['timestamp'] == '${epochOf(instant)}')
+        .toList();
+
+    setUp(() {
+      backend
+        ..addStation(20, 'hls-a', 'HLS A', hls: true)
+        ..addStation(21, 'hls-b', 'HLS B', hls: true);
+    });
+
+    test(
+        'an HLS station shows its song at now - delay with live listeners; '
+        'a direct stream stays live', () async {
+      backend.songChange(20, t(-300), x, listeners: 10);
+      backend.songChange(20, t(-60), y, listeners: 42);
+      backend.songChange(2, t(-300), p);
+      backend.songChange(2, t(-60), q);
+
+      await startListening(delay);
+
+      expect(songOf(20), 'Song X', reason: 'what tapping it plays');
+      expect(stationOf(20).totalListeners, 42);
+      expect(songOf(2), 'Song Q', reason: 'a direct stream plays live');
+      final listening = metadataAt(t(-140)).single;
+      expect(listening.queryParameters['changes_from_timestamp'], isNull);
+    });
+
+    test(
+        'leaving a station keeps its song: the audible overlay hands over to '
+        'the listening row instead of jumping to the live one', () async {
+      backend.songChange(20, t(-300), x);
+      backend.songChange(20, t(-60), y);
+      await startListening(delay);
+      player.playHls(20, delay);
+      await drive(service().refreshMetadataNow());
+      expect(songOf(20), 'Song X');
+
+      player
+        ..playingId = 21
+        ..active = false;
+      service().onAlignedPlaybackEnded();
+
+      expect(songOf(20), 'Song X');
+    });
+
+    test('a tapped station shows the song it plays before the anchor',
+        () async {
+      backend.songChange(21, t(-300), p);
+      backend.songChange(21, t(-60), q);
+      await startListening(delay);
+      expect(songOf(21), 'Song P');
+
+      player
+        ..playHls(21, delay)
+        ..latency = null; // still anchoring
+      await drive(service().onStationPlayed());
+
+      expect(songOf(21), 'Song P', reason: 'never the live song first');
+    });
+
+    test('periodic ticks diff the listening timeline from its own cursor',
+        () async {
+      backend.songChange(20, t(-300), x);
+      await startListening(delay);
+      backend.songChange(20, t(-100), y);
+      backend.songChange(20, t(30), z);
+
+      await tick();
+
+      final diff = metadataAt(t(-80)).single;
+      expect(
+          diff.queryParameters['changes_from_timestamp'], '${epochOf(t(-200))}');
+      expect(songOf(20), 'Song Y', reason: 'Song Z is still ahead');
+    });
+
+    test(
+        'a longer delay refetches the whole list at the earlier instant; a '
+        'zero delay shows the live list again', () async {
+      backend.songChange(20, t(-400), x);
+      backend.songChange(20, t(-200), y);
+      backend.songChange(20, t(-60), z);
+      await startListening(delay);
+      expect(songOf(20), 'Song Y');
+
+      listeningDelay = const Duration(seconds: 318); // 5 min + hold-back
+      service().onListeningDelayChanged();
+      await clock.settle();
+
+      expect(songOf(20), 'Song X');
+      expect(metadataAt(t(-320)).single.queryParameters,
+          isNot(contains('changes_from_timestamp')));
+
+      listeningDelay = Duration.zero;
+      service().onListeningDelayChanged();
+      await clock.settle();
+
+      expect(songOf(20), 'Song Z');
+    });
+
+    test('the playing station on a live stream (HLS failover) shows live',
+        () async {
+      backend.songChange(20, t(-300), x);
+      backend.songChange(20, t(-60), y);
+      await startListening(delay);
+
+      player
+        ..playingId = 20
+        ..liveStream = true;
+      await drive(service().onStationPlayed());
+
+      expect(songOf(20), 'Song Y');
+    });
+
+    test('playedCutoffFor follows the listening timeline', () async {
+      backend.songChange(20, t(-300), x);
+      backend.songChange(2, t(-300), p);
+      await startListening(delay);
+
+      expect(service().playedCutoffFor(20), t(-138));
+      expect(service().playedCutoffFor(2), t0, reason: 'direct stream');
+    });
+
+    test('a live stream song change does not refetch the listening timeline',
+        () async {
+      await startListening(delay);
+      final before = backend.metadataRequests.length;
+
+      await drive(service().enqueueSync(SyncReason.liveMetadataChanged));
+
+      expect(backend.metadataRequests, hasLength(before + 1));
+      expect(metadataAt(t(-140)), hasLength(1));
+    });
+
+    test('no delay or the TV live mode makes no listening request', () async {
+      await startListening(Duration.zero);
+      expect(backend.metadataRequests, hasLength(1));
+
+      final tv = backend.newService(prefs)
+        ..getListeningDelay = (() => delay)
+        ..preferLiveMetadata = true;
+      await tv.enqueueSync(SyncReason.startup);
+      tv.dispose();
+      expect(backend.metadataRequests, hasLength(2));
+    });
+  });
+
   group('B14 two-sighting flow', () {
     test(
         'EPOCH first without X-*, then with them: the boundary reaches the '
