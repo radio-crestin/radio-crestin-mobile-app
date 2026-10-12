@@ -26,6 +26,7 @@ import 'package:radio_crestin/tv/tv_platform.dart';
 import 'package:radio_crestin/services/play_count_service.dart';
 import 'package:radio_crestin/services/network_service.dart';
 import 'package:radio_crestin/services/review_service.dart';
+import 'package:radio_crestin/services/sleep_timer_service.dart';
 import 'package:radio_crestin/services/song_history_service.dart';
 import 'package:radio_crestin/services/hls_health_watchdog_flag.dart';
 import 'package:radio_crestin/services/hls_timeline.dart';
@@ -802,6 +803,22 @@ class AppAudioHandler extends BaseAudioHandler {
   /// The media_kit video service (audio+video). Exposed so the UI can read the
   /// `VideoController` for TV playback.
   VideoPlaybackService get videoService => GetIt.instance<VideoPlaybackService>();
+
+  /// The "somn" timer. Lives here rather than in the player widget so it
+  /// keeps running when the full player is collapsed or rebuilt.
+  late final SleepTimerService sleepTimer = SleepTimerService(
+    stopPlayback: stop,
+    setVolume: _setOutputVolume,
+  );
+
+  /// Applies [volume] (0..1) to every local engine that can be audible: the
+  /// just_audio radio player and media_kit (TV, video and playlist items).
+  Future<void> _setOutputVolume(double volume) async {
+    await player.setVolume(volume);
+    if (GetIt.instance.isRegistered<VideoPlaybackService>()) {
+      await videoService.setVolume(volume);
+    }
+  }
 
   PlaylistController get _playlistController =>
       GetIt.instance<PlaylistController>();

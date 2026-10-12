@@ -1,9 +1,4 @@
-import 'dart:async';
-import 'dart:io' show Platform;
-
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'package:like_button/like_button.dart';
 import 'package:radio_crestin/theme.dart';
 import 'package:radio_crestin/pages/HomePage.dart';
@@ -23,6 +18,8 @@ import '../types/Station.dart';
 import '../widgets/animated_play_button.dart';
 import '../widgets/player_video_surface.dart';
 import '../widgets/playlist_player_section.dart';
+import '../widgets/sleep_timer_button.dart';
+import '../widgets/sleep_timer_sheet.dart';
 import '../widgets/video_overlay_controls.dart';
 
 /// Responsive sizing for the full-screen player, derived from the screen size.
@@ -110,8 +107,6 @@ class FullAudioPlayer extends StatefulWidget {
 }
 
 class _FullAudioPlayerState extends State<FullAudioPlayer> {
-  Timer? sleepTimer;
-  bool isTimerActive = false;
   Station? currentStation;
   bool _isVideoMode = false;
   bool _audioOnlyFallback = false;
@@ -187,7 +182,6 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
 
   @override
   void dispose() {
-    sleepTimer?.cancel();
     for (final subscription in _subscriptions) {
       subscription.cancel();
     }
@@ -628,7 +622,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     );
   }
 
-  /// Bottom action row: favorit | istoric | somn | youtube. [alignStart]
+  /// Bottom action row: favorit | somn | istoric | youtube. [alignStart]
   /// left-aligns the cluster as a single block for the landscape right-hand
   /// column; the default spreads it evenly (portrait).
   Widget _buildBottomActionRow(BuildContext context, bool hasYoutubeLink,
@@ -681,6 +675,13 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
             ),
           ),
         ),
+        SleepTimerButton(
+          service: widget.audioHandler.sleepTimer,
+          onTap: () {
+            AnalyticsService.instance.capture('button_clicked', {'button_name': 'sleep_timer', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug});
+            _showSleepTimerSheet(context);
+          },
+        ),
         _buildActionButton(
           context,
           icon: Icons.history,
@@ -698,16 +699,6 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                     _stationDataService.playedCutoffFor(station.id),
               );
             }
-          },
-        ),
-        _buildActionButton(
-          context,
-          icon: Icons.nights_stay_sharp,
-          label: 'somn',
-          isActive: isTimerActive,
-          onTap: () {
-            AnalyticsService.instance.capture('button_clicked', {'button_name': 'sleep_timer', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug});
-            showSleepTimerDialog(context);
           },
         ),
         _buildActionButton(
@@ -936,18 +927,15 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                     _showShareDialog(context);
                   },
                 ),
-                _buildActionButton(
-                  context,
-                  icon: Icons.nights_stay_sharp,
-                  label: 'somn',
-                  isActive: isTimerActive,
+                SleepTimerButton(
+                  service: widget.audioHandler.sleepTimer,
                   onTap: () {
                     AnalyticsService.instance.capture('button_clicked', {
                       'button_name': 'sleep_timer',
                       'station_id': station.id,
                       'station_slug': station.slug,
                     });
-                    showSleepTimerDialog(context);
+                    _showSleepTimerSheet(context);
                   },
                 ),
               ],
@@ -1090,128 +1078,22 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     );
   }
 
-  Future<void> showSleepTimerDialog(BuildContext context) async {
-    if (Platform.isIOS) {
-      // Cupertino dialog for iOS
-      return showCupertinoModalPopup<void>(
-        context: context,
-        builder: (BuildContext context) {
-          return CupertinoActionSheet(
-            title: const Text(
-              'Programare închidere',
-              style: TextStyle(fontSize: 18),
-            ),
-            actions: <Widget>[
-              for (var minutes in [5, 10, 15, 30, 60])
-                CupertinoActionSheetAction(
-                  child: Text('$minutes minute'),
-                  onPressed: () => setSleepTimer(context, Duration(minutes: minutes)),
-                ),
-              if (isTimerActive)
-                CupertinoActionSheetAction(
-                  child: const Text('Anulează închiderea'),
-                  onPressed: cancelSleepTimer,
-                ),
-            ],
-            cancelButton: CupertinoActionSheetAction(
-              child: const Text('Renunță'),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-          );
+  /// Opens the sleep timer sheet.
+  void _showSleepTimerSheet(BuildContext context) {
+    SleepTimerSheet.show(
+      context,
+      service: widget.audioHandler.sleepTimer,
+      onDurationChosen: (duration) => AnalyticsService.instance.capture(
+        'button_clicked',
+        {
+          'button_name': 'sleep_timer_set',
+          'duration_minutes': duration.inMinutes,
         },
-      );
-    } else {
-      // Material dialog for Android and other platforms
-      return showDialog<void>(
-        context: context,
-        barrierDismissible: true,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: const Text(
-              'Oprește radioul după:',
-              style: TextStyle(fontSize: 18),
-            ),
-            backgroundColor: Theme.of(context).colorScheme.surface,
-            content: SingleChildScrollView(
-              child: Column(
-                children: [5, 10, 15, 30, 60]
-                    .map((minutes) => ListTile(
-                          title: Text('$minutes minute'),
-                          onTap: () => setSleepTimer(context, Duration(minutes: minutes)),
-                        ))
-                    .toList()
-                  ..addAll(
-                    isTimerActive
-                        ? [
-                            ListTile(
-                              title: const Text('Anulează închiderea'),
-                              onTap: cancelSleepTimer,
-                            ),
-                          ]
-                        : [],
-                  ),
-              ),
-            ),
-            actions: <Widget>[
-              TextButton(
-                child: const Text('Renunță'),
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-            ],
-          );
-        },
-      );
-    }
-  }
-
-  void setSleepTimer(BuildContext context, Duration duration) {
-    AnalyticsService.instance.capture('button_clicked', {'button_name': 'sleep_timer_set', 'duration_minutes': duration.inMinutes});
-    Navigator.of(context).pop();
-    Fluttertoast.showToast(
-        msg: "Radioul se va opri după ${duration.inMinutes} minute",
-        toastLength: Toast.LENGTH_SHORT,
-        gravity: ToastGravity.BOTTOM,
-        timeInSecForIosWeb: 1,
-        backgroundColor: AppColors.primaryDark,
-        textColor: Colors.white,
-        fontSize: 14.0);
-
-    setState(() {
-      isTimerActive = true;
-    });
-
-    // The dialog offers new durations while a timer is armed; an orphaned
-    // previous timer would still stop playback and clear the newer reference,
-    // so it could no longer be cancelled.
-    sleepTimer?.cancel();
-    sleepTimer = Timer(duration, () {
-      widget.audioHandler.stop();
-      sleepTimer = null;
-      if (mounted) {
-        setState(() {
-          isTimerActive = false;
-        });
-      }
-    });
-  }
-
-  void cancelSleepTimer() {
-    AnalyticsService.instance.capture('button_clicked', {'button_name': 'sleep_timer_cancel'});
-    if (sleepTimer != null) {
-      sleepTimer!.cancel();
-      sleepTimer = null;
-      setState(() {
-        isTimerActive = false;
-      });
-      Fluttertoast.showToast(
-          msg: "Programarea închiderii a fost anulată",
-          toastLength: Toast.LENGTH_SHORT,
-          gravity: ToastGravity.BOTTOM,
-          timeInSecForIosWeb: 1,
-          backgroundColor: AppColors.primaryDark,
-          textColor: Colors.white,
-          fontSize: 14.0);
-    }
-    Navigator.of(context).pop();
+      ),
+      onCancelled: () => AnalyticsService.instance.capture(
+        'button_clicked',
+        {'button_name': 'sleep_timer_cancel'},
+      ),
+    );
   }
 }
