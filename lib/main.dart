@@ -461,7 +461,7 @@ void main() async {
   // Defer Chromecast/AirPlay discovery to after first frame
   if (!TvPlatform.isTV) {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final castService = CastService();
+      final castService = CastService(prefs: getIt<SharedPreferences>());
       await castService.initialize();
       getIt.registerSingleton<CastService>(castService);
 
