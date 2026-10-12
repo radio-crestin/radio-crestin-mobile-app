@@ -130,6 +130,21 @@ user with permission on the `com.radiocrestin.radio_crestin` app — Play
 Console → Users and permissions → Invite new users → paste the service
 account email from the JSON.
 
+### Crash symbols (PostHog dSYMs)
+`make release-ios` and `make release-ios-appstore` upload the archive's
+dSYMs to PostHog Error Tracking (project `radio-crestin-mobile-app`, EU), so
+native iOS crashes show function names and lines instead of addresses. A
+failed upload only prints a warning — retry with `make upload-dsyms-ios`.
+Dart errors need no symbols (builds are not obfuscated).
+
+**One-time setup** (per machine):
+```bash
+brew install posthog/tap/posthog-cli
+posthog-cli --host https://eu.posthog.com login   # pick project radio-crestin-mobile-app
+```
+In CI, set `POSTHOG_CLI_API_KEY` (personal API key with `error tracking
+write` + `organization read`) and `POSTHOG_CLI_PROJECT_ID=222020` instead.
+
 ### Apple TV (`apple_tv/`)
 The tvOS app is a separate native SwiftUI Xcode project, not a Flutter target.
 `apple_tv/ExportOptions.plist` is committed with team `2KNY2RZVGC` and

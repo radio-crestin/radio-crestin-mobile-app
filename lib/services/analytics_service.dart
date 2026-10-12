@@ -237,8 +237,14 @@ class AnalyticsService {
   /// symbolicated stack trace — the same rich, unminified view as auto-captured
   /// Flutter errors — instead of a truncated string on a custom event. Use for
   /// caught exceptions in try/catch blocks that shouldn't crash the app but
-  /// should still be tracked.
-  void captureException(Object error, StackTrace? stackTrace, {String? context}) {
+  /// should still be tracked. [properties] ride on the exception event and
+  /// its log record (e.g. which station failed).
+  void captureException(
+    Object error,
+    StackTrace? stackTrace, {
+    String? context,
+    Map<String, Object?>? properties,
+  }) {
     if (!_initialized) {
       developer.log('PostHog not initialized, dropping error: $error');
       return;
@@ -249,6 +255,7 @@ class AnalyticsService {
         stackTrace.toString().contains('StorageBackendVm.compact')) {
       return;
     }
+    final extra = _filterNulls(properties);
     // Fire-and-forget: the native capture is async but callers don't await.
     // The full stack trace is sent untruncated so PostHog can resolve every
     // frame to source.
@@ -256,6 +263,7 @@ class AnalyticsService {
       error: error,
       stackTrace: stackTrace,
       properties: {
+        ...extra,
         if (context != null) 'context': context,
       },
     ));
@@ -270,6 +278,7 @@ class AnalyticsService {
         if (context != null) 'context': context,
         if (stackTrace != null) 'stack_trace': stackTrace.toString(),
         ..._logContext(),
+        ...extra,
       },
     );
 

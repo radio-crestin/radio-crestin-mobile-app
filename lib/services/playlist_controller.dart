@@ -7,6 +7,7 @@ import 'package:rxdart/rxdart.dart';
 
 import '../appAudioHandler.dart';
 import '../services/analytics_service.dart';
+import '../services/playback_failure.dart';
 import '../types/Station.dart';
 import '../types/playlist_item.dart';
 import 'playlist_reconciler.dart';
@@ -419,10 +420,15 @@ class PlaylistController {
     final count = itemCount;
     if (count > 0 && _consecutiveFailures >= count) {
       _log('all $count item(s) failed in a row → stopping with error surface');
-      AnalyticsService.instance.capture('playlist_all_items_failed', {
-        'station_slug': _activeStation?.slug,
-        'item_count': count,
-      });
+      PlaybackFailure.report(
+        PlaybackFailureKind.playlistFailed,
+        properties: {
+          'station_slug': _activeStation?.slug,
+          'item_count': count,
+          'last_item_type': item?.type.name,
+          'last_error': error.toString(),
+        },
+      );
       _surfacePlaylistError();
       unawaited(_stopPlayback());
       return;

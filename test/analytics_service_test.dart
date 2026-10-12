@@ -10,6 +10,8 @@ import 'package:posthog_flutter/src/posthog_flutter_platform_interface.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:radio_crestin/services/analytics_service.dart';
+import 'package:radio_crestin/services/network_service.dart';
+import 'package:radio_crestin/services/playback_failure.dart';
 
 class _CapturedEvent {
   final String eventName;
@@ -329,6 +331,21 @@ void main() {
       expect(fake.capturedExceptions, hasLength(1));
     });
 
+    test('attaches extra properties, dropping nulls', () async {
+      await analytics.initialize();
+      fake.capturedExceptions.clear();
+
+      analytics.captureException(
+        StateError('boom'),
+        StackTrace.current,
+        properties: {'station_slug': 'rve', 'station_id': null},
+      );
+
+      final props = fake.capturedExceptions.single.properties;
+      expect(props?['station_slug'], 'rve');
+      expect(props?.containsKey('station_id'), isFalse);
+    });
+
     test('forwards the full, untruncated stack trace so every frame resolves', () async {
       await analytics.initialize();
       fake.capturedExceptions.clear();
@@ -338,6 +355,53 @@ void main() {
 
       final ex = fake.capturedExceptions.single;
       expect(ex.stackTrace.toString().length, 5000);
+    });
+  });
+
+  group('PlaybackFailure', () {
+    late NetworkService network;
+
+    setUp(() async {
+      // A fresh NetworkService replaces the singleton; subjects seed online.
+      network = NetworkService();
+      await analytics.initialize();
+      fake.capturedExceptions.clear();
+    });
+
+    tearDown(() => network.isOffline.add(false));
+
+    test('the message holds only kind and reason, one issue per cause', () {
+      expect(
+        const PlaybackFailure(PlaybackFailureKind.allStreamsFailed,
+                reason: 'timeout')
+            .toString(),
+        'all streams failed (timeout)',
+      );
+      expect(const PlaybackFailure(PlaybackFailureKind.streamEnded).toString(),
+          'stream ended unexpectedly');
+    });
+
+    test('report sends a handled exception with an issue name', () {
+      PlaybackFailure.report(
+        PlaybackFailureKind.allStreamsFailed,
+        reason: 'timeout',
+        properties: {'station_slug': 'rve'},
+      );
+
+      final ex = fake.capturedExceptions.single;
+      expect(ex.error, isA<PlaybackFailure>());
+      expect(ex.properties?[r'$issue_name'],
+          'Playback: all streams failed (timeout)');
+      expect(ex.properties?['context'], 'playback');
+      expect(ex.properties?['station_slug'], 'rve');
+    });
+
+    test('report is skipped while the device is offline', () {
+      network.isOffline.add(true);
+
+      PlaybackFailure.report(PlaybackFailureKind.streamEnded);
+
+      expect(fake.capturedExceptions, isEmpty);
     });
   });
 

@@ -90,6 +90,14 @@ OP_VAULT            := radio-crestin-app
 APPSTORE_KEY_FILE   := /tmp/radio-crestin-appstore-key.p8
 PLAY_JSON_FILE      := /tmp/radio-crestin-play-key.json
 
+# PostHog Error Tracking: iOS dSYMs, so native crashes symbolicate.
+# Auth once per machine: posthog-cli --host $(POSTHOG_HOST) login
+# (or export POSTHOG_CLI_API_KEY + POSTHOG_CLI_PROJECT_ID). See README.
+POSTHOG_HOST        := https://eu.posthog.com
+IOS_BUNDLE_ID       := com.radiocrestinsoftware.radioApp
+IOS_DSYMS_DIR       := build/ios/archive/Runner.xcarchive/dSYMs
+IOS_DSYMS_STAGE     := build/ios/posthog-dsyms
+
 .PHONY: release-help print-version
 release-help:
 	@echo "Local release flow (no CI, no secrets in repo):"
@@ -114,6 +122,7 @@ release-help:
 	@echo "  make upload-testflight     send app-store IPA to App Store Connect/TestFlight"
 	@echo "  make upload-play-internal  send AAB to Play Store internal testing track"
 	@echo "  make upload-stores         both of the above (TestFlight + Play internal)"
+	@echo "  make upload-dsyms-ios      iOS dSYMs -> PostHog (auto after release-ios*)"
 	@echo
 	@echo "  make latest-links          print /releases/latest/download/* URLs"
 	@echo "  make clean-release         remove $(DIST)/ + flutter clean"
@@ -141,6 +150,8 @@ release-ios: | $(DIST)
 	  [ -n "$$ipa" ] || { echo "ERROR: no IPA produced — check Xcode signing config"; exit 1; }; \
 	  cp "$$ipa" $(IOS_IPA); \
 	  ls -lh $(IOS_IPA)
+	@$(MAKE) --no-print-directory upload-dsyms-ios \
+	  || echo "WARNING: dSYM upload to PostHog failed — native iOS crashes won't symbolicate. Retry: make upload-dsyms-ios"
 
 # ----- iOS (app-store IPA for TestFlight upload) -----------------------------
 .PHONY: release-ios-appstore
@@ -150,6 +161,27 @@ release-ios-appstore: | $(DIST)
 	  [ -n "$$ipa" ] || { echo "ERROR: app-store IPA not produced — check Xcode signing"; exit 1; }; \
 	  cp "$$ipa" $(IOS_APPSTORE_IPA); \
 	  ls -lh $(IOS_APPSTORE_IPA)
+	@$(MAKE) --no-print-directory upload-dsyms-ios \
+	  || echo "WARNING: dSYM upload to PostHog failed — native iOS crashes won't symbolicate. Retry: make upload-dsyms-ios"
+
+# ----- iOS dSYMs -> PostHog Error Tracking -----------------------------------
+# Runs after release-ios / release-ios-appstore; a failure there only warns,
+# it never blocks a release. Uploads every dSYM in the archive that
+# `flutter build ipa` just produced, tagged with the pubspec version + build.
+# The archive repeats some dSYMs as "X 1.dSYM" copies (same UUID), which
+# PostHog rejects, so one bundle per UUID is staged first.
+.PHONY: upload-dsyms-ios
+upload-dsyms-ios:
+	@command -v posthog-cli >/dev/null || { echo "ERROR: posthog-cli required: brew install posthog/tap/posthog-cli, then: posthog-cli --host $(POSTHOG_HOST) login"; exit 1; }
+	@[ -d "$(IOS_DSYMS_DIR)" ] || { echo "ERROR: no dSYMs in $(IOS_DSYMS_DIR) — run make release-ios-appstore first"; exit 1; }
+	@scripts/stage_unique_dsyms.sh "$(IOS_DSYMS_DIR)" "$(IOS_DSYMS_STAGE)"
+	posthog-cli --host $(POSTHOG_HOST) dsym upload \
+	  --directory "$(IOS_DSYMS_STAGE)" \
+	  --main-dsym Runner.app.dSYM \
+	  --release-name $(IOS_BUNDLE_ID) \
+	  --release-version $(VERSION) \
+	  --build $(BUILD_NUM) \
+	  --skip-on-conflict
 
 # ----- macOS DMG -------------------------------------------------------------
 # TODO: codesign + xcrun notarytool to avoid Gatekeeper warning on download.

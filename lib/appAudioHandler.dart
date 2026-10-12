@@ -24,6 +24,7 @@ import 'package:radio_crestin/services/cast_service.dart';
 import 'package:flutter_chrome_cast/flutter_chrome_cast.dart' show CastMediaPlayerState;
 import 'package:radio_crestin/tv/tv_platform.dart';
 import 'package:radio_crestin/services/play_count_service.dart';
+import 'package:radio_crestin/services/playback_failure.dart';
 import 'package:radio_crestin/services/network_service.dart';
 import 'package:radio_crestin/services/review_service.dart';
 import 'package:radio_crestin/services/sleep_timer_service.dart';
@@ -1326,7 +1327,7 @@ class AppAudioHandler extends BaseAudioHandler {
             StreamEventKind.nonHlsCompleted,
             'Non-HLS stream completed — stopping',
           );
-          AnalyticsService.instance.logWarning('stream unexpected completion', {
+          final completionProps = <String, Object?>{
             'station_slug': lastInfo?.stationSlug ?? currentStation.valueOrNull?.slug ?? '',
             'station_id': currentStation.valueOrNull?.id,
             'stream_url': lastInfo?.url,
@@ -1336,7 +1337,13 @@ class AppAudioHandler extends BaseAudioHandler {
             'ms_since_loaded': lastInfo == null
                 ? null
                 : DateTime.now().difference(lastInfo.loadedAt).inMilliseconds,
-          });
+          };
+          AnalyticsService.instance
+              .logWarning('stream unexpected completion', completionProps);
+          PlaybackFailure.report(
+            PlaybackFailureKind.streamEnded,
+            properties: completionProps,
+          );
           final stationName = currentStation.valueOrNull?.title ?? '';
           connectionError.add(ConnectionError(
             stationName: stationName,
@@ -2314,13 +2321,17 @@ class AppAudioHandler extends BaseAudioHandler {
           final stationName = currentStation.valueOrNull?.title ?? '';
           final classified = _classifyError(stationName, lastError);
           connectionError.add(classified);
-          AnalyticsService.instance.capture('stream_all_failed', {
-            'station_slug': stationSlug,
-            if (stationId != null) 'station_id': stationId,
-            'total_streams': totalStreams,
-            'retries': retry,
-            'reason': classified.reason.name,
-          });
+          PlaybackFailure.report(
+            PlaybackFailureKind.allStreamsFailed,
+            reason: classified.reason.name,
+            properties: {
+              'station_slug': stationSlug,
+              'station_id': stationId,
+              'total_streams': totalStreams,
+              'retries': retry,
+              'details': classified.details,
+            },
+          );
         }
       }
     }
