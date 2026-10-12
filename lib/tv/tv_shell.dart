@@ -239,7 +239,7 @@ class _TvShellState extends State<TvShell> with WidgetsBindingObserver {
     );
 
     if (station != null) {
-      _audioHandler.playStation(station);
+      _audioHandler.playStation(station, fromFavorites: false);
       if (mounted) setState(() => _browsing = false);
     } else {
       developer.log('Station not found for slug: $slug', name: 'TvShell');
@@ -259,7 +259,7 @@ class _TvShellState extends State<TvShell> with WidgetsBindingObserver {
   void _closeSettings() => setState(() => _showSettings = false);
 
   void _onStationSelected(Station station) {
-    _audioHandler.playStation(station);
+    _audioHandler.playStation(station, fromFavorites: false);
     setState(() => _browsing = false);
   }
 

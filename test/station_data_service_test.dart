@@ -176,16 +176,16 @@ void main() {
       expect(service.getPreviousStation('anything'), isNull);
     });
 
-    test('startedFromFavorites=true reorders playlist with favorites first', () {
-      // Favorites: ['c']. Sorted: [a, b, c]. Reordered playlist: [c, a, b].
-      service.favoriteStationSlugs.add(['c']);
+    test('startedFromFavorites=true narrows the playlist to favorites', () {
+      // Favorites: ['a', 'c']. Sorted: [a, b, c]. Playlist: [a, c].
+      service.favoriteStationSlugs.add(['a', 'c']);
       service.startedFromFavorites = true;
 
-      // From 'c' (idx 0) → 'a' (idx 1).
+      expect(service.getNextStation('a')?.slug, 'c');
+      // Wraps within the favorites, skipping 'b'.
       expect(service.getNextStation('c')?.slug, 'a');
-      // From 'a' (idx 1) → previous is 'c' (idx 0).
       expect(service.getPreviousStation('a')?.slug, 'c');
-      // From 'b' (idx 2) wraps next → 'c' (idx 0).
+      // 'b' is not a favorite: continue to the next favorite after it.
       expect(service.getNextStation('b')?.slug, 'c');
     });
 

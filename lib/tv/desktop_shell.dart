@@ -148,7 +148,7 @@ class _DesktopShellState extends State<DesktopShell> {
   }
 
   void _playStation(Station station) {
-    _audioHandler.playStation(station);
+    _audioHandler.playStation(station, fromFavorites: false);
   }
 
   void _openNowPlaying() {
