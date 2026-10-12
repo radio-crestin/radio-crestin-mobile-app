@@ -114,7 +114,10 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   final List _subscriptions = [];
   List<String> _favoriteSlugs = [];
   final _playButtonKey = GlobalKey<AnimatedPlayButtonState>();
-  final _likeButtonKey = GlobalKey<LikeButtonState>();
+  // Replaced for every station: LikeButton plays its "liked" burst whenever
+  // `isLiked` turns true on a live button, so reusing one would celebrate
+  // each favorite that next/previous lands on instead of just showing it.
+  var _likeButtonKey = GlobalKey<LikeButtonState>();
   final StationDataService _stationDataService = GetIt.instance<StationDataService>();
 
   /// Primary line under the artwork for radio/TV stations: the song title when
@@ -132,6 +135,9 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   void initState() {
     super.initState();
 
+    // Seeded synchronously so the first frame already shows the right heart,
+    // rather than one that fills in (and animates) a frame later.
+    _favoriteSlugs = _stationDataService.favoriteStationSlugs.value;
     _subscriptions.add(_stationDataService.favoriteStationSlugs.stream.listen((slugs) {
       if (mounted) {
         setState(() {
@@ -140,9 +146,13 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
       }
     }));
 
+    currentStation = widget.audioHandler.currentStation.value;
     _subscriptions.add(widget.audioHandler.currentStation.stream.listen((Station? value) {
       if (mounted) {
         setState(() {
+          if (value?.slug != currentStation?.slug) {
+            _likeButtonKey = GlobalKey<LikeButtonState>();
+          }
           currentStation = value;
         });
       }
