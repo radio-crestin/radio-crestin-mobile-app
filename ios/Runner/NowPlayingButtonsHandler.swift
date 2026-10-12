@@ -62,16 +62,33 @@ class NowPlayingButtonsHandler: NSObject, FlutterPlugin, CPNowPlayingTemplateObs
             // CPNowPlayingTemplate.shared reflects the correct play/pause state.
             // audio_service updates this via its own bridge, but the CarPlay scene
             // may not pick up those updates in a multi-scene setup.
+            //
+            // Called on every playbackState emission (buffer ticks included),
+            // so only write when the real center's rate differs: comparing
+            // against the center, not a cache, still repairs a divergence
+            // left by audio_service's own writes.
             if let args = call.arguments as? [String: Any],
                let isPlaying = args["isPlaying"] as? Bool {
                 let rate: Double = isPlaying ? 1.0 : 0.0
-                NSLog("NowPlayingButtonsHandler: syncPlaybackState isPlaying=\(isPlaying) rate=\(rate)")
-                var info = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
-                let oldRate = info[MPNowPlayingInfoPropertyPlaybackRate] as? Double ?? -1
-                NSLog("NowPlayingButtonsHandler: old playbackRate=\(oldRate), setting to \(rate)")
+                let center = MPNowPlayingInfoCenter.default()
+                var info = center.nowPlayingInfo ?? [:]
+                if (info[MPNowPlayingInfoPropertyPlaybackRate] as? Double) == rate {
+                    result(true)
+                    return
+                }
+                #if DEBUG
+                NSLog("NowPlayingButtonsHandler: syncPlaybackState rate -> \(rate)")
+                #endif
                 info[MPNowPlayingInfoPropertyPlaybackRate] = rate
-                info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = 0
-                MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+                // Live items have no duration; keep their elapsed at 0. Items
+                // with a duration (playlist / VOD) keep audio_service's
+                // elapsed, or the progress bar would jump back to 0:00.
+                let duration =
+                    (info[MPMediaItemPropertyPlaybackDuration] as? Double) ?? 0
+                if duration <= 0 {
+                    info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = 0
+                }
+                center.nowPlayingInfo = info
                 result(true)
             } else {
                 result(FlutterError(code: "INVALID_ARGUMENTS", message: "Missing isPlaying argument", details: nil))

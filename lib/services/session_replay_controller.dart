@@ -141,6 +141,9 @@ class SessionReplayController {
     );
     if (record == _recording) return;
     _recording = record;
+    // Keeps a not-yet-mounted PostHogWidget in step with the decision, so a
+    // device that is not recording never runs the snapshot loop.
+    AnalyticsService.instance.setReplayCaptureArmed(record);
     AnalyticsService.instance.logDebug('replay decision', {
       'variant': _variant ?? 'null',
       'wifi_only': _wifiOnly,

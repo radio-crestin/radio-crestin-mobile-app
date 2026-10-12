@@ -227,6 +227,50 @@ void main() {
       expect(result.length, 4);
     });
 
+    group('with a phone station group selected', () {
+      // Catalog z, a, m, b; the phone shows only the group {z, m}.
+      final catalog = [
+        StationFactory.createStation(id: 1, slug: 'z', title: 'Z'),
+        StationFactory.createStation(id: 2, slug: 'a', title: 'A'),
+        StationFactory.createStation(id: 3, slug: 'm', title: 'M'),
+        StationFactory.createStation(id: 4, slug: 'b', title: 'B'),
+      ];
+      final group = [catalog[0], catalog[2]];
+
+      List<String> slugsOf(List<Station> stations) =>
+          stations.map((s) => s.slug as String).toList();
+
+      setUp(() {
+        service.stations.add(catalog);
+        service.filteredStations.add(group);
+        service.favoriteStationSlugs.add([]);
+      });
+
+      test('the phone list is narrowed to the group', () {
+        expect(slugsOf(service.getSortedStations()), ['m', 'z']);
+      });
+
+      test('applyGroupFilter: false returns the whole catalog, sorted', () {
+        expect(
+          slugsOf(service.getSortedStations(applyGroupFilter: false)),
+          ['a', 'b', 'm', 'z'],
+        );
+      });
+
+      test('a sort cached while the group was shown still sorts every '
+          'station', () {
+        service.getSortedStations(); // cache miss while filtered
+
+        expect(
+          slugsOf(service.getSortedStations(applyGroupFilter: false)),
+          ['a', 'b', 'm', 'z'],
+        );
+        // The user switches the phone back to "Toate".
+        service.filteredStations.add(catalog);
+        expect(slugsOf(service.getSortedStations()), ['a', 'b', 'm', 'z']);
+      });
+    });
+
     test('respects the saved sort option (alphabetical by default in setUp)', () {
       service.filteredStations.add([
         StationFactory.createStation(id: 1, slug: 'z', title: 'Z'),

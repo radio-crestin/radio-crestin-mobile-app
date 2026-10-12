@@ -728,14 +728,18 @@ void main() {
     late List<StreamSubscription> subscriptions;
     late int forceUpdateCallCount;
 
-    /// Mirrors CarPlayService._updateCarPlayStationMetadata
+    /// Mirrors CarPlayService._updateCarPlayStationMetadata: only changed
+    /// rows are pushed, and the root is refreshed only if one was.
     void updateCarPlayStationMetadata(List<Station> updatedStations) {
+      var changed = false;
       for (final station in updatedStations) {
-        if (carPlayItemDetailTexts.containsKey(station.slug)) {
+        final current = carPlayItemDetailTexts[station.slug];
+        if (current != null && current != station.displaySubtitle) {
           carPlayItemDetailTexts[station.slug] = station.displaySubtitle;
+          changed = true;
         }
       }
-      forceUpdateCallCount++;
+      if (changed) forceUpdateCallCount++;
     }
 
     setUp(() {
@@ -784,10 +788,21 @@ void main() {
       expect(carPlayItemDetailTexts['station-2'], contains('Song B'));
     });
 
-    test('forceUpdateRootTemplate called after metadata update', () async {
+    test('forceUpdateRootTemplate only when a row changed', () async {
       stationsStream.add(stations);
       await Future.delayed(Duration.zero);
-      expect(forceUpdateCallCount, greaterThan(0));
+      expect(forceUpdateCallCount, 0,
+          reason: 'A poll with identical metadata must not touch CarPlay');
+
+      stationsStream.add([
+        StationFactory.createStation(
+          id: 1, slug: 'station-1', title: 'Station 1',
+          nowPlaying: StationFactory.createNowPlaying(songName: 'New Song', artistName: 'New Artist'),
+        ),
+        stations[1],
+      ]);
+      await Future.delayed(Duration.zero);
+      expect(forceUpdateCallCount, 1);
     });
   });
 }

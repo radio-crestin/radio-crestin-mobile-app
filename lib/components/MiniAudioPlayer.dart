@@ -155,7 +155,7 @@ class _MiniSubtitle extends StatelessWidget {
     if (value.isEmpty) return const SizedBox.shrink();
     return Text(
       value,
-      style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13.0),
+      style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 13.0),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
     );

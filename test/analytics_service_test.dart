@@ -477,6 +477,84 @@ void main() {
     });
   });
 
+  group('ensureListening', () {
+    test('starts a session when nothing is tracked', () {
+      // A slug no earlier test used, so no paused session can be resumed.
+      analytics.ensureListening('fresh', 'Fresh', stationId: 7);
+
+      final ev =
+          fake.events.singleWhere((e) => e.eventName == 'listening_started');
+      expect(ev.properties?['station_slug'], 'fresh');
+      expect(ev.properties?['station_id'], 7);
+      expect(analytics.isListening, isTrue);
+    });
+
+    test('is a no-op while the same station is already tracked', () {
+      analytics.startListening('rve', 'RVE');
+      fake.events.clear();
+
+      analytics.ensureListening('rve', 'RVE');
+
+      expect(fake.events, isEmpty);
+      expect(analytics.isListening, isTrue);
+    });
+
+    test('resumes a paused session of the same station', () {
+      analytics.startListening('rve', 'RVE', stationId: 7);
+      analytics.endListening(reason: 'pause');
+      fake.events.clear();
+
+      analytics.ensureListening('rve', 'RVE', stationId: 7);
+
+      expect(fake.events.map((e) => e.eventName), ['listening_resumed']);
+      expect(analytics.isListening, isTrue);
+    });
+
+    test('switches to a different station, ending the previous session', () {
+      analytics.startListening('a', 'A');
+      fake.events.clear();
+
+      analytics.ensureListening('b', 'B');
+
+      expect(
+        fake.events.map((e) => e.eventName),
+        ['listening_stopped', 'listening_started'],
+      );
+      expect(fake.events.first.properties?['reason'], 'station_switch');
+      expect(fake.events.last.properties?['station_slug'], 'b');
+    });
+
+    test('starts a new session after a stop cleared the station', () {
+      analytics.startListening('rve', 'RVE');
+      analytics.endListening(reason: 'stop');
+      fake.events.clear();
+
+      analytics.ensureListening('rve', 'RVE');
+
+      expect(fake.events.map((e) => e.eventName), ['listening_started']);
+    });
+  });
+
+  group('setReplayCaptureArmed', () {
+    test('toggles config.sessionReplay when replay was installed', () async {
+      await analytics.initialize(sessionReplayAtSetup: true);
+
+      analytics.setReplayCaptureArmed(false);
+      expect(fake.receivedConfig?.sessionReplay, isFalse);
+
+      analytics.setReplayCaptureArmed(true);
+      expect(fake.receivedConfig?.sessionReplay, isTrue);
+    });
+
+    test('never arms when replay was not installed at setup', () async {
+      await analytics.initialize(sessionReplayAtSetup: false);
+
+      analytics.setReplayCaptureArmed(true);
+
+      expect(fake.receivedConfig?.sessionReplay, isFalse);
+    });
+  });
+
   group('skip / favorite / review tracking', () {
     test('trackStationSkip emits station_skip with from/to/direction', () {
       analytics.trackStationSkip('a', 'b', 'next');

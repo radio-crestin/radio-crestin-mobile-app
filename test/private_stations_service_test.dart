@@ -223,6 +223,70 @@ void main() {
     });
   });
 
+  group('Persist throttling', () {
+    const cacheKey = PrivateStationsService.cacheKey;
+    final s1 =
+        StationFactory.createRawStationJson(id: 1, slug: 's1', title: 'S1');
+    final s2 =
+        StationFactory.createRawStationJson(id: 2, slug: 's2', title: 'S2');
+
+    late DateTime now;
+    late List<List<Map<String, dynamic>>> responses;
+
+    PrivateStationsService throttled() => PrivateStationsService(
+          httpClient: MockClient((_) async =>
+              http.Response(stationsBody(responses.removeAt(0)), 200)),
+          prefs: prefs,
+          deviceIdProvider: () => 'device-1',
+          clock: () => now,
+        );
+
+    setUp(() => now = DateTime.utc(2026, 1, 1, 12));
+
+    test('an unchanged list is rewritten at most every 30 minutes', () async {
+      responses = [[s1], [s1], [s1]];
+      final svc = throttled();
+
+      await svc.fetch();
+      expect(prefs.getString(cacheKey), isNotNull,
+          reason: 'the first write of the instance always happens');
+      await prefs.remove(cacheKey);
+
+      now = now.add(const Duration(minutes: 29));
+      await svc.fetch();
+      expect(prefs.getString(cacheKey), isNull);
+
+      now = now.add(const Duration(minutes: 2));
+      await svc.fetch();
+      expect(prefs.getString(cacheKey), isNotNull);
+    });
+
+    test('a changed list is persisted immediately', () async {
+      responses = [[s1], [s1, s2]];
+      final svc = throttled();
+
+      await svc.fetch();
+      await prefs.remove(cacheKey);
+      await svc.fetch();
+
+      expect(prefs.getString(cacheKey), contains('s2'));
+    });
+
+    test('the same list persists immediately after an authoritative empty',
+        () async {
+      responses = [[s1], [], [s1]];
+      final svc = throttled();
+
+      await svc.fetch();
+      await svc.fetch();
+      expect(prefs.getString(cacheKey), isNull);
+      svc.reopenSessionGate();
+      await svc.fetch();
+
+      expect(prefs.getString(cacheKey), contains('s1'));
+    });
+  });
+
   group('loadCachedRaw', () {
     test('returns persisted stations for instant bootstrap', () async {
       final station = StationFactory.createRawStationJson(

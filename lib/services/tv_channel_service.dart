@@ -43,9 +43,12 @@ class TvChannelService {
     // pin any station they want. Listen on `.stream` (replays the seed
     // value to new subscribers) and skip empty seeds; debounce so we
     // batch the GraphQL initial load + first poll into one sync.
+    // Native only inserts new slugs and deletes gone ones, so song-only
+    // updates are dropped here instead of costing two TV-provider queries.
     _subscriptions.add(
       _stationDataService.stations.stream
           .where((stations) => stations.isNotEmpty)
+          .distinct((a, b) => _channelKey(a) == _channelKey(b))
           .debounceTime(const Duration(milliseconds: 1000))
           .listen((stations) => _syncChannel(stations)),
     );
@@ -53,6 +56,12 @@ class TvChannelService {
     developer.log('initialized, awaiting non-empty stations',
         name: 'TvChannelService');
   }
+
+  /// What the home-screen channel shows per station. Deliberately excludes
+  /// `songTitle`, which changes every few minutes and native ignores.
+  static String _channelKey(List<Station> stations) => stations
+      .map((s) => '${s.slug}|${s.title}|${s.thumbnailUrl}')
+      .join('\n');
 
   Future<void> _syncChannel(List<Station> stations) async {
     try {

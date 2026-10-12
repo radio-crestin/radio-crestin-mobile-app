@@ -3,6 +3,8 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 import 'package:radio_crestin/services/image_cache_service.dart';
@@ -28,7 +30,12 @@ void main() {
     TestWidgetsFlutterBinding.ensureInitialized();
     tempDir = await Directory.systemTemp.createTemp('img_cache_');
     PathProviderPlatform.instance = _FakePathProvider(tempDir.path);
-    await ImageCacheService().initialize();
+    // The singleton builds its HTTP client on construction, so creating it
+    // inside this zone routes every download to [_fakeCdn].
+    await http.runWithClient(
+      () => ImageCacheService().initialize(),
+      () => MockClient(_fakeCdn),
+    );
   });
 
   tearDownAll(() {
@@ -76,6 +83,61 @@ void main() {
     });
   });
 
+  group('ImageCacheService — downloads', () {
+    String cachedFileFor(String url) {
+      final hash = md5.convert(utf8.encode(url)).toString();
+      return '${tempDir.path}/image_cache/$hash.webp';
+    }
+
+    List<String> partFiles() => Directory('${tempDir.path}/image_cache')
+        .listSync()
+        .map((e) => e.path)
+        .where((p) => p.endsWith('.part'))
+        .toList();
+
+    test('an image is cached at its final path with no temp file left',
+        () async {
+      const url = 'https://cdn.example.com/logo.webp';
+
+      final file = await ImageCacheService().getOrDownload(url);
+
+      expect(file?.path, cachedFileFor(url));
+      expect(file!.readAsBytesSync(), _imageBytes);
+      expect(ImageCacheService().getCachedPath(url), cachedFileFor(url));
+      expect(partFiles(), isEmpty);
+    });
+
+    test('a 200 that is not an image (CDN error page) is not cached',
+        () async {
+      const url = 'https://cdn.example.com/error-page.webp';
+
+      final file = await ImageCacheService().getOrDownload(url);
+
+      expect(file, isNull);
+      expect(File(cachedFileFor(url)).existsSync(), isFalse);
+      expect(ImageCacheService().getCachedPath(url), isNull);
+      expect(partFiles(), isEmpty);
+    });
+
+    test('a response without a content type is accepted', () async {
+      const url = 'https://cdn.example.com/no-type.webp';
+
+      final file = await ImageCacheService().getOrDownload(url);
+
+      expect(file?.readAsBytesSync(), _imageBytes);
+    });
+
+    test('a 0-byte file left by an older build is downloaded again',
+        () async {
+      const url = 'https://cdn.example.com/truncated.webp';
+      File(cachedFileFor(url)).writeAsBytesSync(const []);
+
+      final file = await ImageCacheService().getOrDownload(url);
+
+      expect(file?.readAsBytesSync(), _imageBytes);
+    });
+  });
+
   // Pure logic the service relies on internally — tested independently so
   // refactors of `_hashUrl` / `_getExtension` are caught even if the
   // singleton happens to be in a strange state.
@@ -115,4 +177,21 @@ void main() {
       expect(getExtension('https://x/a.png?v=1'), '.png');
     });
   });
+}
+
+const _imageBytes = [0x52, 0x49, 0x46, 0x46, 1, 2, 3, 4];
+
+/// Serves an image for every path except `/error-page.webp` (an HTML error
+/// page with status 200) and `/no-type.webp` (no content-type header).
+Future<http.Response> _fakeCdn(http.Request request) async {
+  switch (request.url.path) {
+    case '/error-page.webp':
+      return http.Response('<html>Bad gateway</html>', 200,
+          headers: {'content-type': 'text/html; charset=utf-8'});
+    case '/no-type.webp':
+      return http.Response.bytes(_imageBytes, 200);
+    default:
+      return http.Response.bytes(_imageBytes, 200,
+          headers: {'content-type': 'image/webp'});
+  }
 }

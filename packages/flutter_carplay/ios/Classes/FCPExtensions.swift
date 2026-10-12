@@ -30,21 +30,33 @@ extension String {
     }
 }
 
-func makeSafeUIPlaceholder() -> UIImage {
-  if Thread.isMainThread {
-    return makeUIPlaceholder()
-  } else {
-    return DispatchQueue.main.sync {
-      makeUIPlaceholder()
-    }
-  }
-}
+// One immutable transparent placeholder shared by every list item. A fresh
+// screen-scale bitmap per item cost ~350 KB each (~25 MB at launch, when
+// all station rows are built). Global `let` initialisation is lazy and
+// thread-safe, so no main-queue hop is needed.
+private let sharedPlaceholderImage: UIImage = {
+  let format = UIGraphicsImageRendererFormat()
+  format.opaque = false
+  format.scale = 1
+  return UIGraphicsImageRenderer(
+    size: CGSize(width: 100, height: 100),
+    format: format
+  ).image { _ in }
+}()
 
-func makeUIPlaceholder() -> UIImage {
-  UIGraphicsBeginImageContextWithOptions(CGSize(width: 100, height: 100), false, 0)
-  let img = UIGraphicsGetImageFromCurrentImageContext()!
-  UIGraphicsEndImageContext()
-  return img
+func makeSafeUIPlaceholder() -> UIImage { sharedPlaceholderImage }
+
+func makeUIPlaceholder() -> UIImage { sharedPlaceholderImage }
+
+// Resolves a Flutter asset to an image, or nil when the name is empty or the
+// asset isn't bundled. `UIImage(imageLiteralResourceName:)` traps on a
+// missing asset, and an unparseable URL also lands here as an asset name.
+private func loadFlutterAssetImage(named name: String) -> UIImage? {
+  guard !name.isEmpty,
+        let registrar = SwiftFlutterCarplayPlugin.registrar else {
+    return nil
+  }
+  return UIImage(named: registrar.lookupKey(forAsset: name))
 }
 
 // UIImage creation (MAIN THREAD ONLY)
@@ -59,8 +71,8 @@ func makeUIImage(from source: ImageSource) -> UIImage {
         return UIImage(contentsOfFile: path) ?? UIImage(systemName: "questionmark")!
 
     case .flutterAsset(let name):
-        let key = SwiftFlutterCarplayPlugin.registrar!.lookupKey(forAsset: name)
-        return UIImage(imageLiteralResourceName: key)
+        return loadFlutterAssetImage(named: name)
+            ?? UIImage(systemName: "questionmark")!
     }
 }
 
@@ -89,10 +101,9 @@ func loadUIImageAsync(from source: ImageSource, completion: @escaping (UIImage?)
         }
 
     case .flutterAsset(let name):
+        // nil keeps the caller's placeholder (callers only set non-nil).
         DispatchQueue.main.async {
-            let key = SwiftFlutterCarplayPlugin.registrar!.lookupKey(forAsset: name)
-            let image = UIImage(imageLiteralResourceName: key)
-            completion(image)
+            completion(loadFlutterAssetImage(named: name))
         }
     }
 }

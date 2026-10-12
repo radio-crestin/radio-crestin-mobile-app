@@ -144,4 +144,23 @@ class PlaylistItem {
 
   /// Optional total length in seconds, when known.
   final int? durationSeconds;
+
+  // Value equality lets the 5s live sync tell an unchanged poll (a freshly
+  // parsed but identical list) from a real change, so it can skip re-emitting
+  // state that would rebuild the player and re-scroll the track list.
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is PlaylistItem &&
+          other.id == id &&
+          other.order == order &&
+          other.type == type &&
+          other.url == url &&
+          other.title == title &&
+          other.thumbnailUrl == thumbnailUrl &&
+          other.durationSeconds == durationSeconds;
+
+  @override
+  int get hashCode => Object.hash(
+      id, order, type, url, title, thumbnailUrl, durationSeconds);
 }

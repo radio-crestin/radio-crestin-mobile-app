@@ -94,13 +94,38 @@ class CarPlayService {
     }
   }
 
-  /// Returns file:// URI if cached, otherwise the original network URL.
-  String? _cachedOrNetworkUrl(String? url) {
-    if (url == null || url.isEmpty) return url;
-    final cachedPath = _imageCacheService?.getCachedPath(url);
-    if (cachedPath != null) return 'file://$cachedPath';
-    return url;
+  /// Pure core for a car list/player image: a `file://` URI when
+  /// [cachedPathFor] has the image on disk, otherwise [url] itself.
+  ///
+  /// An empty URL becomes null (no image). Native CarPlay treats any
+  /// non-null image string it can't parse as a bundled asset name, and
+  /// looking up a missing asset traps — at every iOS launch, since the
+  /// templates are built whether or not a car is connected.
+  static String? resolveCarImageUrl(
+    String? url,
+    String? Function(String url) cachedPathFor,
+  ) {
+    if (url == null || url.isEmpty) return null;
+    final cachedPath = cachedPathFor(url);
+    return cachedPath != null ? 'file://$cachedPath' : url;
   }
+
+  /// Pure core for a song-history row's image source: the song artwork,
+  /// or the station logo when the song has none. An empty string counts as
+  /// "none" — `??` alone would let it through.
+  static String? songHistoryThumbnailSource(
+    String? songThumbnailUrl,
+    String? stationThumbnailUrl,
+  ) =>
+      (songThumbnailUrl != null && songThumbnailUrl.isNotEmpty)
+          ? songThumbnailUrl
+          : stationThumbnailUrl;
+
+  /// Returns file:// URI if cached, otherwise the original network URL.
+  String? _cachedOrNetworkUrl(String? url) => resolveCarImageUrl(
+        url,
+        (u) => _imageCacheService?.getCachedPath(u),
+      );
 
   static void _log(String message) {
     developer.log("CarPlayService: $message");
@@ -438,7 +463,10 @@ class CarPlayService {
             final timeStr = '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
             final title = item.songName ?? (_isRomanian ? 'Necunoscut' : 'Unknown');
             final artist = item.artistName != null ? '$timeStr - ${item.artistName}' : timeStr;
-            final thumbUrl = _cachedOrNetworkUrl(item.songThumbnailUrl ?? station.thumbnailUrl);
+            final thumbUrl = _cachedOrNetworkUrl(songHistoryThumbnailSource(
+              item.songThumbnailUrl,
+              station.thumbnailUrl,
+            ));
             return CPListItem(
               text: title,
               detailText: artist,
@@ -468,6 +496,12 @@ class CarPlayService {
     for (final entry in _favoriteListItems.entries) {
       final shouldBePlaying = entry.key == currentSlug && isPlaying;
       if (entry.value.isPlaying != shouldBePlaying) {
+        if (!_isFavorite(entry.key)) {
+          // Not in the native favorites list: store the state only; it is
+          // sent with the next favorites section update.
+          entry.value.isPlaying = shouldBePlaying;
+          continue;
+        }
         entry.value.setIsPlaying(shouldBePlaying);
         anyChanged = true;
       }
@@ -488,14 +522,18 @@ class CarPlayService {
     if (_favoriteTemplate == null || _flutterCarplay == null) return;
 
     final favoriteSlugs = _stationDataService.favoriteStationSlugs.value;
-    final sortedStations = _stationDataService.getSortedStations();
+    // The phone's station-group filter must not narrow the car lists.
+    final sortedStations =
+        _stationDataService.getSortedStations(applyGroupFilter: false);
 
-    // Update star prefix in "Toate statiile" items
+    // Update star prefix in "Toate statiile" items (only those that changed;
+    // each update is a native round trip).
     for (final station in sortedStations) {
       final item = _allStationsListItems[station.slug];
       if (item == null) continue;
       final isFavorite = favoriteSlugs.contains(station.slug);
-      item.setText(isFavorite ? "★ ${station.title}" : station.title);
+      final text = isFavorite ? "★ ${station.title}" : station.title;
+      if (item.text != text) item.setText(text);
     }
 
     // Get favorite items (reusing pre-created CPListItem objects)
@@ -517,7 +555,8 @@ class CarPlayService {
   void _reorderCarPlayStations() {
     if (_favoriteTemplate == null || _allStationsTemplate == null || _flutterCarplay == null) return;
 
-    final sortedStations = _stationDataService.getSortedStations();
+    final sortedStations =
+        _stationDataService.getSortedStations(applyGroupFilter: false);
     final favoriteSlugs = _stationDataService.favoriteStationSlugs.value;
 
     // Reorder favorites list
@@ -598,8 +637,10 @@ class CarPlayService {
       return;
     }
 
-    // Use filteredStations which is properly sorted by order (same as app)
-    final stations = _stationDataService.filteredStations.value;
+    // Readiness gate only: the lists are built from getSortedStations().
+    // Unfiltered, so a phone group filter matching nothing can't keep the
+    // car on the loading template.
+    final stations = _stationDataService.stations.value;
     if (stations.isEmpty) {
       _log("Stations not loaded yet, setting up listener");
       _setLoadingTemplate();
@@ -641,7 +682,7 @@ class CarPlayService {
         return;
       }
 
-      final stations = _stationDataService.filteredStations.value;
+      final stations = _stationDataService.stations.value;
       if (stations.isNotEmpty) {
         timer.cancel();
         _setupCarPlayWithStations(stations);
@@ -659,7 +700,9 @@ class CarPlayService {
     _log("Setting up CarPlay with ${stations.length} stations");
 
     final favoriteSlugs = _stationDataService.favoriteStationSlugs.value;
-    final sortedStations = _stationDataService.getSortedStations();
+    // Full catalog: the phone's group filter can't be changed from the car.
+    final sortedStations =
+        _stationDataService.getSortedStations(applyGroupFilter: false);
 
     final currentSlug = _audioHandler.currentStation.value?.slug;
     final isCurrentlyPlaying = _audioHandler.playbackState.value.playing;
@@ -755,26 +798,59 @@ class CarPlayService {
     }
   }
 
+  /// Pure core for pushing fresh subtitles into car list [items].
+  ///
+  /// `stations` emits on almost every poll (listener counts change), so
+  /// unchanged rows are skipped: each update is a native round trip. Items
+  /// whose slug fails [isOnTemplate] are in no native template (the
+  /// favorites map holds every station), so their text is only stored;
+  /// `toJson` carries it with the next section update. A null detail text
+  /// counts as empty. Returns whether any on-template item was updated.
+  static bool syncListDetailTexts({
+    required Map<String, CPListItem> items,
+    required Map<String, Station> stationsBySlug,
+    required String Function(Station station) subtitleFor,
+    bool Function(String slug)? isOnTemplate,
+  }) {
+    var changed = false;
+    for (final entry in items.entries) {
+      final station = stationsBySlug[entry.key];
+      if (station == null) continue;
+      final item = entry.value;
+      final text = subtitleFor(station);
+      if ((item.detailText ?? '') == text) continue;
+      if (isOnTemplate?.call(entry.key) ?? true) {
+        item.setDetailText(text);
+        changed = true;
+      } else {
+        item.detailText = text;
+      }
+    }
+    return changed;
+  }
+
   /// Updates CarPlay list item detail text with current song metadata.
   void _updateCarPlayStationMetadata(List<Station> updatedStations) {
-    final stationMap = <String, Station>{};
-    for (final s in updatedStations) {
-      stationMap[s.slug] = s;
-    }
+    final stationMap = <String, Station>{
+      for (final s in updatedStations) s.slug: s,
+    };
+    String subtitle(Station s) => _stationListSubtitle(s) ?? '';
 
-    for (final slug in _favoriteListItems.keys) {
-      final station = stationMap[slug];
-      if (station == null) continue;
-      _favoriteListItems[slug]!.setDetailText(_stationListSubtitle(station) ?? '');
-    }
+    final favoritesChanged = syncListDetailTexts(
+      items: _favoriteListItems,
+      stationsBySlug: stationMap,
+      subtitleFor: subtitle,
+      isOnTemplate: _isFavorite,
+    );
+    final allChanged = syncListDetailTexts(
+      items: _allStationsListItems,
+      stationsBySlug: stationMap,
+      subtitleFor: subtitle,
+    );
 
-    for (final slug in _allStationsListItems.keys) {
-      final station = stationMap[slug];
-      if (station == null) continue;
-      _allStationsListItems[slug]!.setDetailText(_stationListSubtitle(station) ?? '');
+    if (favoritesChanged || allChanged) {
+      _flutterCarplay?.forceUpdateRootTemplate();
     }
-
-    _flutterCarplay?.forceUpdateRootTemplate();
   }
 
   // iOS CarPlay only: listen for connection errors and network state.
@@ -875,6 +951,13 @@ class CarPlayService {
       if (isCarConnected.value == connected) return;
       isCarConnected.add(connected);
       SeekModeManager.changeCarConnected(connected);
+      if (!connected && _audioHandler.playbackState.value.playing) {
+        // Pause before reapplying the offset: pause() stops the player
+        // synchronously, so reapply skips a stream reload that the pause
+        // would cancel anyway (while the new source kept loading).
+        _log("Android Auto disconnected while playing, pausing");
+        _audioHandler.pause();
+      }
       _audioHandler.reapplySeekOffset();
       _audioHandler.refreshCurrentMetadata();
       if (connected) {
@@ -891,10 +974,6 @@ class CarPlayService {
         _lastPlayerArtist = null;
         _lastPlayerIsPlaying = null;
         _lastPlayerIsFavorite = null;
-        if (_audioHandler.playbackState.value.playing) {
-          _log("Android Auto disconnected while playing, pausing");
-          _audioHandler.pause();
-        }
       }
     });
 
@@ -1052,8 +1131,10 @@ class CarPlayService {
       return;
     }
 
-    // Use filteredStations which is properly sorted by order (same as app)
-    final stations = _stationDataService.filteredStations.value;
+    // Readiness gate only: the lists are built from getSortedStations().
+    // Unfiltered, so a phone group filter matching nothing can't keep the
+    // car on the loading template.
+    final stations = _stationDataService.stations.value;
     if (stations.isEmpty) {
       _log("Stations not loaded yet for Android Auto");
       _setAndroidAutoLoadingTemplate();
@@ -1096,7 +1177,7 @@ class CarPlayService {
         return;
       }
 
-      final stations = _stationDataService.filteredStations.value;
+      final stations = _stationDataService.stations.value;
       if (stations.isNotEmpty) {
         timer.cancel();
         _setupAndroidAutoWithStations(stations);
@@ -1166,7 +1247,9 @@ class CarPlayService {
   }
 
   void _updateSortedAndroidAutoStations() {
-    _sortedAndroidAutoStations = _stationDataService.getSortedStations();
+    // Full catalog: the phone's group filter can't be changed from the car.
+    _sortedAndroidAutoStations =
+        _stationDataService.getSortedStations(applyGroupFilter: false);
   }
 
   // Android Auto hard limit: max 100 items per GridTemplate/ListTemplate

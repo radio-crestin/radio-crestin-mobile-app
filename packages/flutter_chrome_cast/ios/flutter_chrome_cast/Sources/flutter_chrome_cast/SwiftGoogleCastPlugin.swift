@@ -25,8 +25,13 @@ public class SwiftGoogleCastPlugin: NSObject, GCKLoggerDelegate, FlutterPlugin, 
     // MARK: - Properties
     
     /// Debug logging flag for Google Cast SDK
-    /// Set to `true` to enable verbose logging for debugging Cast operations
+    /// Debug builds only: in release every line would still be formatted
+    /// for a console nobody reads.
+    #if DEBUG
     let kDebugLoggingEnabled = true
+    #else
+    let kDebugLoggingEnabled = false
+    #endif
     
     /// Whether to stop casting when the app is terminated
     /// This is set from Flutter via GoogleCastOptions.stopCastingOnAppTerminated
@@ -145,12 +150,18 @@ public class SwiftGoogleCastPlugin: NSObject, GCKLoggerDelegate, FlutterPlugin, 
         // Initialize the shared Cast context with parsed options
        GCKCastContext.setSharedInstanceWith(option)
         
-        // Enable console logging for debugging
+        // Verbose SDK logging in debug builds only. The SDK is very chatty
+        // (scanner, mDNS, heartbeats) and discovery runs from launch, so
+        // release builds keep errors only.
+        let filter = GCKLoggerFilter.init()
+        #if DEBUG
         GCKLogger.sharedInstance().consoleLoggingEnabled = true
         GCKLogger.sharedInstance().delegate = self
-
-        let filter = GCKLoggerFilter.init()
         filter.minimumLevel = GCKLoggerLevel.verbose
+        #else
+        GCKLogger.sharedInstance().consoleLoggingEnabled = false
+        filter.minimumLevel = GCKLoggerLevel.error
+        #endif
         GCKLogger.sharedInstance().filter = filter
         
         // Register listeners for Cast events

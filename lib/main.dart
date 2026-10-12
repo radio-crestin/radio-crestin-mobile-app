@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as developer;
-import 'dart:io' show PathNotFoundException, Platform;
+import 'dart:io' show Platform;
 
 import 'package:device_info_plus/device_info_plus.dart';
 
@@ -85,6 +85,13 @@ Future<void> initializeFirebaseMessaging() async {
           developer.log("Firebase Messaging service not available - likely running on emulator without Google Play Services");
         }
       }
+      // FCM rotates tokens (and may deliver the first one late, after a
+      // failed getToken), so keep the backend's copy current.
+      FirebaseMessaging.instance.onTokenRefresh.listen((token) {
+        if (token == globals.fcmToken) return;
+        globals.fcmToken = token;
+        DeviceRegistrationService.instance.register();
+      }, onError: (Object _) {});
     }
   } catch (e, stackTrace) {
     developer.log("Firebase Messaging initialization failed", error: e, stackTrace: stackTrace);
@@ -148,6 +155,11 @@ void main() async {
 
   final prefsFuture = SharedPreferences.getInstance();
   final packageInfoFuture = PackageInfo.fromPlatform();
+  // Neither needs Hive or GetIt; both are awaited before AudioService.init.
+  // TV detection is a device-info platform call; the likes DB open + cache
+  // load never throws (memory-only fallback), so it is safe to start early.
+  final tvPlatformFuture = TvPlatform.initialize();
+  final songLikeFuture = SongLikeService.init();
 
   // Construct services early (sync constructors) and start their async init
   // in parallel with hive — they only need path_provider / connectivity, not hive.
@@ -183,7 +195,7 @@ void main() async {
   globals.deviceId = persistentDeviceId;
 
   // Detect TV/desktop platform (Android TV, macOS, Windows, Linux)
-  await TvPlatform.initialize();
+  await tvPlatformFuture;
 
   if (prefs.getString('_reviewStatus') == null) {
     var defaultReviewStatus = {
@@ -214,6 +226,10 @@ void main() async {
   GraphQLClient graphqlClient = GraphQLClient(
     link: graphqlLink,
     cache: graphQlCache,
+    // The 5 s default is too tight for the ~200 KB station catalog on slow
+    // links (it never refreshes). 8 s matches the metadata call, so a full
+    // refresh, which awaits both, does not hold the sync lock any longer.
+    queryRequestTimeout: const Duration(seconds: 8),
     defaultPolicies: DefaultPolicies(
       query: Policies(
         fetch: FetchPolicy.cacheAndNetwork,
@@ -256,7 +272,7 @@ void main() async {
   final playCountService = PlayCountService();
   getIt.registerSingleton<PlayCountService>(playCountService);
 
-  final songLikeService = await SongLikeService.init();
+  final songLikeService = await songLikeFuture;
   getIt.registerSingleton<SongLikeService>(songLikeService);
 
   // Video-playback engine + playlist orchestration. Registered before
@@ -335,10 +351,15 @@ void main() async {
     onReportableError: SessionReplayController.instance.notifyErrorCaptured,
   );
 
+  globals.appVersion = packageInfo.version;
+  globals.buildNumber = packageInfo.buildNumber;
+
   // Identify user immediately after PostHog init — before any events fire.
-  // deviceId is already set above; appVersion/buildNumber come later.
+  // One call carries the full identity: packageInfo is already resolved.
   await AnalyticsService.instance.identify(
     userId: globals.deviceId,
+    appVersion: packageInfo.version,
+    buildNumber: packageInfo.buildNumber,
     platform: Platform.isAndroid ? 'android' : Platform.isIOS ? 'ios' : Platform.isMacOS ? 'macos' : Platform.isWindows ? 'windows' : Platform.isLinux ? 'linux' : 'other',
   );
 
@@ -346,24 +367,27 @@ void main() async {
     AnalyticsService.instance.setUserProperty('personalized_n', 'true');
   }
 
-  if (_firebaseSupported) {
-    PerformanceMonitor.trackAsync('firebase_messaging_init', () => initializeFirebaseMessaging());
+  // The likes DB opened before PostHog was up, so a memory-only fallback
+  // could not be reported at the time. After identify, so the error is
+  // attributed to this device.
+  final songLikeFailure = SongLikeService.initFailure;
+  if (songLikeFailure != null) {
+    AnalyticsService.instance.captureException(
+      songLikeFailure.error,
+      songLikeFailure.stackTrace,
+      context: 'song_like_db_init',
+    );
   }
+
+  // Kept so the first device registration can wait for the FCM token.
+  final Future<void> fcmInitFuture = _firebaseSupported
+      ? PerformanceMonitor.trackAsync(
+          'firebase_messaging_init', initializeFirebaseMessaging)
+      : Future<void>.value();
 
   // Wait for audio (packageInfo already resolved above)
   final audioHandler = await audioHandlerFuture;
   getIt.registerSingleton<AppAudioHandler>(audioHandler);
-
-  globals.appVersion = packageInfo.version;
-  globals.buildNumber = packageInfo.buildNumber;
-
-  // Update PostHog user with app version info now that packageInfo is available
-  await AnalyticsService.instance.identify(
-    userId: globals.deviceId,
-    appVersion: packageInfo.version,
-    buildNumber: packageInfo.buildNumber,
-    platform: Platform.isAndroid ? 'android' : Platform.isIOS ? 'ios' : Platform.isMacOS ? 'macos' : Platform.isWindows ? 'windows' : Platform.isLinux ? 'linux' : 'other',
-  );
 
   // Initialize theme and seek mode synchronously using already-loaded prefs (no async overhead)
   ThemeManager.initializeFromPrefs(prefs);
@@ -405,8 +429,12 @@ void main() async {
   // forget — never blocks startup; runs on every launch so the stored model,
   // OS, app version, locale and FCM token stay current. The IP is recorded
   // server-side. Deferred to post-frame so it never competes with first paint.
+  // On a fresh install the FCM token needs a round trip to FCM, so wait for
+  // it (bounded) or the backend would only get the token on the next launch.
   WidgetsBinding.instance.addPostFrameCallback((_) {
-    DeviceRegistrationService.instance.register();
+    unawaited(fcmInitFuture
+        .timeout(const Duration(seconds: 5), onTimeout: () {})
+        .whenComplete(() => DeviceRegistrationService.instance.register()));
   });
 
   // Defer CarPlay/Android Auto init to after first frame (mobile only)
@@ -523,6 +551,9 @@ void main() async {
           castService.lastCastSlug = null;
           await audioHandler.player.stop();
           audioHandler.setCastPlaying(false);
+          // Nothing plays after a disconnect; without this the heartbeat
+          // keeps reporting `listening_active` for a silent session.
+          AnalyticsService.instance.endListening();
         }
       });
 
@@ -595,6 +626,30 @@ Future<List<Station>> _waitForStations(
   }
 }
 
+/// Re-checks the store on resume at most every 12 h.
+///
+/// Android reports `resumed` on every window-focus regain (e.g. closing the
+/// notification shade), and each check downloads and parses the Play Store
+/// page on the UI isolate. The launch check runs through `initialize()` and
+/// is unaffected.
+class _ThrottledUpgrader extends Upgrader {
+  static const _minInterval = Duration(hours: 12);
+  DateTime _lastCheck = DateTime.now();
+
+  @override
+  Future<void> didChangeAppLifecycleState(AppLifecycleState state) async {
+    if (state != AppLifecycleState.resumed) return;
+    final now = DateTime.now();
+    if (now.difference(_lastCheck) < _minInterval) return;
+    _lastCheck = now;
+    await super.didChangeAppLifecycleState(state);
+  }
+}
+
+/// One app-lifetime instance: building it inside the theme builder leaked an
+/// observer and an HTTP client on every theme change.
+final Upgrader _upgrader = _ThrottledUpgrader();
+
 class RadioCrestinApp extends StatelessWidget {
   const RadioCrestinApp({super.key});
 
@@ -634,7 +689,7 @@ class RadioCrestinApp extends StatelessWidget {
               dialogStyle: Platform.isIOS
                   ? UpgradeDialogStyle.cupertino
                   : UpgradeDialogStyle.material,
-              upgrader: Upgrader(),
+              upgrader: _upgrader,
               child: const HomePage(),
             ),
           );

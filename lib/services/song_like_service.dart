@@ -34,9 +34,32 @@ class SongLikeService {
 
   SongLikeService._();
 
+  /// Why the last [init] fell back to memory-only, or null when the DB
+  /// opened.
+  ///
+  /// [init] runs before PostHog is set up, so `main` reports this once
+  /// analytics is ready.
+  static ({Object error, StackTrace stackTrace})? initFailure;
+
+  /// Opens the likes DB and loads the cache.
+  ///
+  /// Never throws: a broken or full DB must not block startup (it is
+  /// awaited before `runApp`, with the native splash still up). On failure
+  /// likes stay in memory for this session, since every method already
+  /// tolerates a null `_db`.
   static Future<SongLikeService> init() async {
     final service = SongLikeService._();
-    await service._initDb();
+    initFailure = null;
+    try {
+      await service._initDb();
+    } catch (e, st) {
+      _log('init failed, falling back to memory-only: $e');
+      initFailure = (error: e, stackTrace: st);
+      try {
+        await service._db?.close();
+      } catch (_) {}
+      service._db = null;
+    }
     _instance = service;
     return service;
   }

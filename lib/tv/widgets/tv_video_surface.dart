@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:dpad/dpad.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -10,6 +11,7 @@ import '../../types/playlist_item.dart';
 import '../../utils.dart';
 import '../tv_platform.dart';
 import '../tv_theme.dart';
+import '../tv_youtube_auto_advance.dart';
 
 /// media_kit video output for the TV / desktop shells, with a dark buffering
 /// overlay. Overlay chrome (title, LIVE pill, counter, controls) is composed by
@@ -114,57 +116,36 @@ class TvLivePill extends StatelessWidget {
 }
 
 /// Shown on TV / desktop when a playlist reaches a YouTube item, which cannot be
-/// embedded there. Displays the item, counts down ~4s and then advances via
-/// [onAutoAdvance]. Desktop additionally offers "Deschide pe YouTube"; TV offers
-/// a focusable skip button.
-class TvYoutubeUpNextCard extends StatefulWidget {
+/// embedded there. Displays the item and the countdown to the next one.
+/// Desktop additionally offers "Deschide pe YouTube"; TV offers a focusable
+/// skip button.
+///
+/// The always-mounted shell's [TvYoutubeAutoAdvance] does the advancing, so
+/// the playlist moves on even when this card is not on screen. The card only
+/// renders that [countdown]: its bar ends when the playlist actually moves
+/// on, however late the card was opened, and it waits while paused.
+class TvYoutubeUpNextCard extends StatelessWidget {
   const TvYoutubeUpNextCard({
     super.key,
     required this.item,
-    required this.onAutoAdvance,
-    this.autoAdvance = const Duration(seconds: 4),
+    required this.countdown,
+    required this.onSkip,
+    this.delay = kTvYoutubeAutoAdvanceDelay,
   });
 
   final PlaylistItem item;
-  final VoidCallback onAutoAdvance;
-  final Duration autoAdvance;
 
-  @override
-  State<TvYoutubeUpNextCard> createState() => _TvYoutubeUpNextCardState();
-}
+  /// The shell's countdown ([TvYoutubeAutoAdvance.countdown]).
+  final ValueListenable<TvYoutubeCountdown?> countdown;
 
-class _TvYoutubeUpNextCardState extends State<TvYoutubeUpNextCard> {
-  Timer? _timer;
-  bool _advanced = false;
+  /// Moves past [item] right away.
+  final VoidCallback onSkip;
 
-  @override
-  void initState() {
-    super.initState();
-    _arm();
-  }
-
-  @override
-  void didUpdateWidget(covariant TvYoutubeUpNextCard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.item.id != oldWidget.item.id) {
-      _advanced = false;
-      _arm();
-    }
-  }
-
-  void _arm() {
-    _timer?.cancel();
-    _timer = Timer(widget.autoAdvance, _advance);
-  }
-
-  void _advance() {
-    if (_advanced) return;
-    _advanced = true;
-    widget.onAutoAdvance();
-  }
+  /// The countdown's full length ([TvYoutubeAutoAdvance.delay]).
+  final Duration delay;
 
   Future<void> _openOnYoutube() async {
-    final url = widget.item.url;
+    final url = item.url;
     if (url.isEmpty) return;
     try {
       await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
@@ -174,14 +155,7 @@ class _TvYoutubeUpNextCardState extends State<TvYoutubeUpNextCard> {
   }
 
   @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final item = widget.item;
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 520),
@@ -253,24 +227,13 @@ class _TvYoutubeUpNextCardState extends State<TvYoutubeUpNextCard> {
                 ],
               ),
               const SizedBox(height: TvSpacing.md),
-              Text(
-                'Se redă următorul element…',
-                style: TvTypography.body.copyWith(color: TvColors.textSecondary),
-              ),
-              const SizedBox(height: TvSpacing.sm),
-              // Countdown bar.
-              ClipRRect(
-                borderRadius: BorderRadius.circular(3),
-                child: TweenAnimationBuilder<double>(
-                  tween: Tween(begin: 0.0, end: 1.0),
-                  duration: widget.autoAdvance,
-                  builder: (context, value, _) => LinearProgressIndicator(
-                    value: value,
-                    minHeight: 4,
-                    backgroundColor: TvColors.surfaceVariant,
-                    valueColor:
-                        const AlwaysStoppedAnimation(TvColors.primary),
-                  ),
+              ValueListenableBuilder<TvYoutubeCountdown?>(
+                valueListenable: countdown,
+                builder: (context, running, _) => _UpNextCountdown(
+                  // Another item's countdown (a stale frame) shows as paused.
+                  deadline:
+                      running?.itemId == item.id ? running?.deadline : null,
+                  delay: delay,
                 ),
               ),
               const SizedBox(height: TvSpacing.md),
@@ -281,7 +244,7 @@ class _TvYoutubeUpNextCardState extends State<TvYoutubeUpNextCard> {
                     _DesktopAction(
                       label: 'Sari peste',
                       icon: Icons.skip_next_rounded,
-                      onTap: _advance,
+                      onTap: onSkip,
                     ),
                     const SizedBox(width: TvSpacing.sm),
                     _DesktopAction(
@@ -293,11 +256,90 @@ class _TvYoutubeUpNextCardState extends State<TvYoutubeUpNextCard> {
                   ],
                 )
               else
-                _TvSkipButton(onSkip: _advance),
+                _TvSkipButton(onSkip: onSkip),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+/// The up-next status line and countdown bar.
+///
+/// Running ([deadline] set): the bar fills from the time already elapsed and
+/// reaches the end at [deadline]. Paused (null): an empty bar, since a
+/// resume restarts the full countdown.
+class _UpNextCountdown extends StatelessWidget {
+  const _UpNextCountdown({required this.deadline, required this.delay});
+
+  final DateTime? deadline;
+  final Duration delay;
+
+  @override
+  Widget build(BuildContext context) {
+    final deadline = this.deadline;
+    final running = deadline != null;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 250),
+          child: Text(
+            running ? 'Se redă următorul element…' : 'În pauză',
+            key: ValueKey(running),
+            style: TvTypography.body.copyWith(color: TvColors.textSecondary),
+          ),
+        ),
+        const SizedBox(height: TvSpacing.sm),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(3),
+          child: running
+              ? _RunningCountdownBar(deadline: deadline, delay: delay)
+              : const _CountdownBar(value: 0),
+        ),
+      ],
+    );
+  }
+}
+
+class _RunningCountdownBar extends StatelessWidget {
+  const _RunningCountdownBar({required this.deadline, required this.delay});
+
+  final DateTime deadline;
+  final Duration delay;
+
+  @override
+  Widget build(BuildContext context) {
+    var remaining = deadline.difference(DateTime.now());
+    if (remaining.isNegative) remaining = Duration.zero;
+    if (remaining > delay) remaining = delay;
+    final elapsed = delay == Duration.zero
+        ? 1.0
+        : 1 - remaining.inMicroseconds / delay.inMicroseconds;
+    return TweenAnimationBuilder<double>(
+      // A new deadline (a resume, or the same item again) restarts the bar;
+      // later rebuilds keep the running animation.
+      key: ValueKey(deadline),
+      tween: Tween(begin: elapsed, end: 1.0),
+      duration: remaining,
+      builder: (context, value, _) => _CountdownBar(value: value),
+    );
+  }
+}
+
+class _CountdownBar extends StatelessWidget {
+  const _CountdownBar({required this.value});
+
+  final double value;
+
+  @override
+  Widget build(BuildContext context) {
+    return LinearProgressIndicator(
+      value: value,
+      minHeight: 4,
+      backgroundColor: TvColors.surfaceVariant,
+      valueColor: const AlwaysStoppedAnimation(TvColors.primary),
     );
   }
 }

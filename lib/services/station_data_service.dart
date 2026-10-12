@@ -223,6 +223,10 @@ class StationDataService {
   static const _favoriteStationsKey = 'favoriteStationSlugs';
   static const _cachedStationsKey = 'cached_stations_data';
   static const _minStationsForCache = 10;
+
+  /// Minimum gap between rewrites of an unchanged catalog cache.
+  static const _stationsCacheMinInterval = Duration(minutes: 30);
+
   static const _fieldTypenames = {
     'stations': 'StationType',
     'station_streams': 'StationStreamType',
@@ -236,6 +240,11 @@ class StationDataService {
     'station_groups': 'StationGroupType',
     'station_to_station_groups': 'StationToStationGroupType',
   };
+
+  /// Fingerprint and time of the last persisted catalog. Null until the
+  /// first write of the session, which therefore always happens.
+  String? _lastCachedStationsKey;
+  DateTime? _lastCachedStationsAt;
 
   /// [httpClient], [clock] and [wait] default to the real network, wall
   /// clock and timers; tests inject a fake backend and controlled time.
@@ -805,7 +814,7 @@ class StationDataService {
   bool _publishMerged({bool force = false}) {
     final merged =
         _sanitizedForDisplay(_withAudibleOverlay(_mergePublicPrivate()));
-    if (!force && !_hasStationsChanged(stations.value, merged)) return false;
+    if (!force && !hasStationsChanged(stations.value, merged)) return false;
     stations.add(merged);
     return true;
   }
@@ -892,7 +901,21 @@ class StationDataService {
     }
   }
 
+  /// Persists [data] for the next cold start, at most every
+  /// [_stationsCacheMinInterval] unless the catalog's structure changed.
+  ///
+  /// The blob is ~140 KB and lives in the shared prefs file, so each write
+  /// costs a UI-isolate encode plus a rewrite of the whole file. The live
+  /// fields that change every refresh (now_playing, uptime) are replaced by
+  /// the startup sync within a second of launch anyway.
   Future<void> _cacheStationsData(Query$GetStations data) async {
+    final key = _stationsCacheKey(data);
+    final lastAt = _lastCachedStationsAt;
+    if (key == _lastCachedStationsKey &&
+        lastAt != null &&
+        _now().difference(lastAt) < _stationsCacheMinInterval) {
+      return;
+    }
     try {
       final SharedPreferences prefs = GetIt.instance<SharedPreferences>();
       final dataJson = data.toJson();
@@ -905,11 +928,23 @@ class StationDataService {
         }
       }
       await prefs.setString(_cachedStationsKey, json.encode(dataJson));
+      _lastCachedStationsKey = key;
+      _lastCachedStationsAt = _now();
       _log("Cached ${data.stations.length} stations to prefs");
     } catch (e) {
       _log("Error caching stations: $e");
     }
   }
+
+  /// Cheap fingerprint of what a cold start renders before the network
+  /// answers: the station set, names, logos, stream URLs and groups.
+  static String _stationsCacheKey(Query$GetStations data) => [
+        for (final s in data.stations)
+          '${s.id}|${s.slug}|${s.title}|${s.thumbnail_url}|${s.station_type}|'
+              '${s.station_streams.map((e) => e.stream_url).join(',')}',
+        for (final g in data.station_groups)
+          'g${g.id}:${g.station_to_station_groups.length}',
+      ].join(';');
 
   Future<Query$GetStations?> _loadFallbackStations() async {
     try {
@@ -972,7 +1007,10 @@ class StationDataService {
   Future<Query$GetStations?> _queryStations() async {
     try {
       final result = await graphqlClient.query(
-        Options$Query$GetStations(fetchPolicy: FetchPolicy.networkOnly),
+        // noCache: nothing reads the GraphQL cache back (bootstrap uses its
+        // own prefs copy), so normalizing ~270 entities into Hive on every
+        // full refresh was pure UI-isolate and disk work.
+        Options$Query$GetStations(fetchPolicy: FetchPolicy.noCache),
       );
       return result.parsedData;
     } catch (e) {
@@ -1028,7 +1066,7 @@ class StationDataService {
       case PrivateFetchOutcome.updated:
         _privateStations = _parsePrivateStations(result.rawStations!);
         // Change-gated: private now_playing / listeners / uptime.is_up are all
-        // covered by [_hasStationsChanged], so meaningful changes still emit
+        // covered by [hasStationsChanged], so meaningful changes still emit
         // while identical polls stay quiet.
         _publishMerged();
         return;
@@ -1214,11 +1252,17 @@ class StationDataService {
   /// This is THE single source of truth for station order across
   /// phone, CarPlay, and Android Auto.
   ///
+  /// [applyGroupFilter] narrows the result to the station group picked on
+  /// the phone's home screen. Car and media-browser callers pass `false`:
+  /// the group cannot be seen or changed from the car, so they always get
+  /// the full catalog (in the same order).
+  ///
   /// The sort order is cached so it stays stable during the session.
   /// It only re-sorts on manual refresh, sort option change, or when
   /// the station set changes (new/removed stations).
-  List<Station> getSortedStations() {
-    final allStations = filteredStations.value;
+  List<Station> getSortedStations({bool applyGroupFilter = true}) {
+    final allStations =
+        applyGroupFilter ? filteredStations.value : stations.value;
     if (allStations.isEmpty) return allStations;
     final sortOption = StationSortService.loadSavedSort();
 
@@ -1242,41 +1286,51 @@ class StationDataService {
     final cacheValid =
         _cachedSortOrder != null && _cachedSortOption == sortOption;
 
-    if (cacheValid) {
-      // Reorder current public stations by the cached slug order, preserving
-      // fresh metadata (listeners, now_playing, etc.)
-      final stationMap = {for (final s in publicOnly) s.slug: s};
-      final result = <Station>[];
-      for (final slug in _cachedSortOrder!) {
-        final station = stationMap.remove(slug);
-        if (station != null) result.add(station);
-      }
-      // Append any new stations not in the cache (e.g. added since last sort)
-      result.addAll(stationMap.values);
-      return [...privatePinned, ...result];
+    if (!cacheValid) {
+      // Sort the FULL public set, not just the group being shown: the cache
+      // outlives group changes and is shared with the unfiltered car lists,
+      // so a group-only cache would leave every other station unsorted.
+      // [publicOnly] is merged in because [filteredStations] can be one
+      // emission ahead of or behind [stations].
+      final fullPublic = <String, Station>{
+        for (final s in stations.value)
+          if (!privateIds.contains(s.id)) s.slug: s,
+        for (final s in publicOnly) s.slug: s,
+      }.values.toList();
+
+      // Refresh play counts from disk so the Android Auto engine (separate
+      // isolate) sees counts written by the phone engine this session.
+      final playCountService = GetIt.instance.isRegistered<PlayCountService>()
+          ? GetIt.instance<PlayCountService>()
+          : null;
+      playCountService?.refresh();
+      final sorted = StationSortService.sort(
+        stations: fullPublic,
+        sortBy: sortOption,
+        playCounts: playCountService?.playCounts ?? <String, int>{},
+        favoriteSlugs: favoriteStationSlugs.value,
+      ).sorted;
+
+      _cachedSortOrder = sorted.map<String>((s) => s.slug).toList();
+      _cachedSortOption = sortOption;
     }
 
-    // Cache miss — compute fresh sort
-    // Refresh play counts from disk so the Android Auto engine (separate isolate)
-    // sees counts written by the phone engine during the current session.
-    final playCountService = GetIt.instance.isRegistered<PlayCountService>()
-        ? GetIt.instance<PlayCountService>()
-        : null;
-    playCountService?.refresh();
-    final playCounts = playCountService?.playCounts ?? <String, int>{};
-    final favSlugs = favoriteStationSlugs.value;
-    final sorted = StationSortService.sort(
-      stations: publicOnly,
-      sortBy: sortOption,
-      playCounts: playCounts,
-      favoriteSlugs: favSlugs,
-    ).sorted;
+    return [...privatePinned, ..._projectByCachedOrder(publicOnly)];
+  }
 
-    // Cache the (public) order
-    _cachedSortOrder = sorted.map<String>((s) => s.slug).toList();
-    _cachedSortOption = sortOption;
-
-    return [...privatePinned, ...sorted];
+  /// Orders [publicOnly] by the cached slug order, keeping each station's
+  /// fresh metadata (listeners, now_playing). Stations missing from the
+  /// cache (added since the last sort) are appended at the end, so existing
+  /// positions never shift.
+  List<Station> _projectByCachedOrder(List<Station> publicOnly) {
+    final bySlug = {for (final s in publicOnly) s.slug: s};
+    final result = <Station>[];
+    for (final slug in _cachedSortOrder!) {
+      final station = bySlug.remove(slug);
+      if (station != null) result.add(station);
+    }
+    result.addAll(bySlug.values);
+    return result;
   }
 
   /// Extracts the private stations present in [source], ordered by their
@@ -1404,34 +1458,66 @@ class StationDataService {
   // ---------------------------------------------------------------------------
 
   void _initFilteredStationsStream() {
-    Rx.combineLatest2<Query$GetStations$station_groups?, List<Station>, List<Station>>(
+    Rx.combineLatest2<Query$GetStations$station_groups?, List<Station>,
+        List<Station>>(
       selectedStationGroup.stream,
       stations.stream,
-      (selectedGroup, allStations) {
-        allStations.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-        if (selectedGroup == null) return allStations;
-        selectedGroup.station_to_station_groups
-            .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-        final selectedStationsIds =
-            selectedGroup.station_to_station_groups.map((e) => e.station_id);
-        return allStations.where((s) => selectedStationsIds.contains(s.id)).toList();
-      },
+      filterByGroup,
     ).listen((filtered) => filteredStations.add(filtered));
+  }
+
+  /// The [filteredStations] combiner: [allStations] ordered by `order`,
+  /// narrowed to [group] when one is selected.
+  ///
+  /// Always returns a new list and never mutates its inputs: [allStations]
+  /// is the published [stations] value, which the change gate compares
+  /// against the next merge in API order. Ties keep their input order,
+  /// because `List.sort` is unstable above 32 elements and the API sends
+  /// every station with the same `order`.
+  @visibleForTesting
+  static List<Station> filterByGroup(
+    Query$GetStations$station_groups? group,
+    List<Station> allStations,
+  ) {
+    final indexed = [
+      for (var i = 0; i < allStations.length; i++) (i, allStations[i]),
+    ];
+    indexed.sort((a, b) {
+      final byOrder =
+          (a.$2.order as int? ?? 0).compareTo(b.$2.order as int? ?? 0);
+      return byOrder != 0 ? byOrder : a.$1.compareTo(b.$1);
+    });
+    final ordered = [for (final e in indexed) e.$2];
+    if (group == null) return ordered;
+    final ids = {
+      for (final e in group.station_to_station_groups) e.station_id,
+    };
+    return ordered.where((s) => ids.contains(s.id)).toList();
   }
 
   // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------
 
-  bool _hasStationsChanged(List<Station> oldStations, List<Station> newStations) {
+  /// Whether [newStations] differs from [oldStations] in anything the UI,
+  /// CarPlay or Android Auto shows (title, song, artist, artwork,
+  /// listeners, availability).
+  @visibleForTesting
+  static bool hasStationsChanged(
+    List<Station> oldStations,
+    List<Station> newStations,
+  ) {
     if (oldStations.length != newStations.length) return true;
     for (int i = 0; i < oldStations.length; i++) {
       final o = oldStations[i];
       final n = newStations[i];
       if (o.id != n.id ||
           o.title != n.title ||
+          o.thumbnailUrl != n.thumbnailUrl ||
           o.songId != n.songId ||
           o.songTitle != n.songTitle ||
+          o.songArtist != n.songArtist ||
+          _songThumbnailOf(o) != _songThumbnailOf(n) ||
           o.totalListeners != n.totalListeners ||
           o.isUp != n.isUp) {
         return true;
@@ -1439,6 +1525,9 @@ class StationDataService {
     }
     return false;
   }
+
+  static String? _songThumbnailOf(Station station) =>
+      station.rawStationData.now_playing?.song?.thumbnail_url;
 
   void _injectTypenames(Map<String, dynamic> data, [String typename = 'queryRoot']) {
     data['__typename'] = typename;

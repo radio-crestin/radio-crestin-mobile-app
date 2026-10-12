@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import 'package:audio_service/audio_service.dart';
 import 'package:dpad/dpad.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get_it/get_it.dart';
@@ -15,6 +16,7 @@ import '../../types/Station.dart';
 import '../../types/playlist_item.dart';
 import '../tv_shell.dart';
 import '../tv_theme.dart';
+import '../tv_youtube_auto_advance.dart';
 import '../widgets/tv_video_surface.dart';
 
 /// TV-only now-playing page.
@@ -24,10 +26,14 @@ class TvNowPlaying extends StatefulWidget {
   final VoidCallback onBrowse;
   final List<TvSongEntry> songHistory;
 
+  /// The shell's YouTube auto-advance, shown by the "up next" card.
+  final ValueListenable<TvYoutubeCountdown?> youtubeCountdown;
+
   const TvNowPlaying({
     super.key,
     required this.onBrowse,
     required this.songHistory,
+    required this.youtubeCountdown,
   });
 
   @override
@@ -125,12 +131,20 @@ class _TvNowPlayingState extends State<TvNowPlaying> {
         final loading =
             state.processingState == AudioProcessingState.loading ||
                 state.processingState == AudioProcessingState.buffering;
+        // Settled into a real paused state → drop the optimistic intent.
+        final pressed =
+            state.playing ? true : (!loading ? false : _pressedPlay);
+        // playbackState re-emits on every position tick in video mode (about
+        // the frame rate); rebuild only when what this page shows changes.
+        if (state.playing == _isPlaying &&
+            loading == _isBuffering &&
+            pressed == _pressedPlay) {
+          return;
+        }
         setState(() {
           _isPlaying = state.playing;
           _isBuffering = loading;
-          if (state.playing) _pressedPlay = true;
-          // Settled into a real paused state → drop the optimistic intent.
-          if (!loading && !state.playing) _pressedPlay = false;
+          _pressedPlay = pressed;
         });
       }),
     );
@@ -249,7 +263,8 @@ class _TvNowPlayingState extends State<TvNowPlaying> {
 
     // Playlist reached a YouTube item — cannot embed on TV/desktop, show the
     // auto-advancing "up next" card instead.
-    if (_youtubeItem != null) return _wrap(_buildYoutubeLayout(station));
+    final youtubeItem = _youtubeItem;
+    if (youtubeItem != null) return _wrap(_buildYoutubeLayout(youtubeItem));
     // TV video mode (live TV or a playlist video item) — full-bleed video.
     if (_isVideoMode) return _wrap(_buildVideoLayout(station));
 
@@ -743,7 +758,7 @@ class _TvNowPlayingState extends State<TvNowPlaying> {
   }
 
   /// Layout shown when a playlist reaches a YouTube item on TV/desktop.
-  Widget _buildYoutubeLayout(Station station) {
+  Widget _buildYoutubeLayout(PlaylistItem item) {
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -769,8 +784,13 @@ class _TvNowPlayingState extends State<TvNowPlaying> {
           padding: EdgeInsets.symmetric(
               horizontal: TvSpacing.marginHorizontal, vertical: TvSpacing.xl),
           child: TvYoutubeUpNextCard(
-            item: _youtubeItem!,
-            onAutoAdvance: _playlistController.notifyYoutubeItemEnded,
+            // A fresh card per item, so focus starts on its skip button.
+            key: ValueKey(item.id),
+            item: item,
+            countdown: widget.youtubeCountdown,
+            // Scoped to this item, so a late press can't skip the next one.
+            onSkip: () =>
+                _playlistController.notifyYoutubeItemEnded(itemId: item.id),
           ),
         ),
       ],

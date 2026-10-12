@@ -3,7 +3,6 @@ package com.radiocrestin.radio_crestin
 import android.content.ContentUris
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -19,7 +18,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
-import java.net.URL
 
 data class StationDto(
     val slug: String,
@@ -34,8 +32,24 @@ class TvChannelManager(private val context: Context) {
         private const val TAG = "TvChannelManager"
         private const val CHANNEL_INTERNAL_ID = "radio_crestin_favorites_v1"
         private const val IMAGE_DIR = "tv_channel_images"
-        private const val POSTER_WIDTH = 320
-        private const val POSTER_HEIGHT = 180
+
+        // Posters older versions composed into IMAGE_DIR; swept once per
+        // process (a new manager is created for every sync call).
+        @Volatile
+        private var legacyPostersDeleted = false
+    }
+
+    /** The launcher-visible fields of a stored program, diffed before updating. */
+    private data class ExistingProgram(
+        val id: Long,
+        val title: String?,
+        val description: String?,
+        val posterArtUri: String?
+    ) {
+        fun differsFrom(program: PreviewProgram): Boolean =
+            title != program.title ||
+                description != program.description ||
+                posterArtUri != program.posterArtUri?.toString()
     }
 
     private val helper = PreviewChannelHelper(context)
@@ -60,27 +74,35 @@ class TvChannelManager(private val context: Context) {
             val existingPrograms = queryExistingPrograms(channelId)
             val currentSlugs = stations.map { it.slug }.toSet()
 
-            // Insert only new programs (skip existing ones to avoid redundant I/O)
+            // Insert new programs; update existing ones only when something the
+            // launcher shows changed (skips redundant provider writes). The
+            // update also migrates posters older versions stored as
+            // app-private file:// URIs, which the launcher can't read.
             for (station in stations) {
-                if (station.slug in existingPrograms) continue
                 try {
-                    val posterUri = downloadAndCacheImage(station.thumbnailUrl, station.slug)
-                    val program = buildProgram(channelId, station, posterUri)
-                    withContext(Dispatchers.IO) {
-                        helper.publishPreviewProgram(program)
+                    val program = buildProgram(channelId, station)
+                    val existing = existingPrograms[station.slug]
+                    if (existing == null) {
+                        withContext(Dispatchers.IO) {
+                            helper.publishPreviewProgram(program)
+                        }
+                    } else if (existing.differsFrom(program)) {
+                        withContext(Dispatchers.IO) {
+                            helper.updatePreviewProgram(existing.id, program)
+                        }
                     }
                 } catch (e: Exception) {
-                    Log.e(TAG, "Failed to insert program for ${station.slug}", e)
+                    Log.e(TAG, "Failed to upsert program for ${station.slug}", e)
                 }
             }
 
             // Delete programs for stations that no longer exist
-            for ((slug, programId) in existingPrograms) {
+            for ((slug, existing) in existingPrograms) {
                 if (slug !in currentSlugs) {
                     try {
                         withContext(Dispatchers.IO) {
                             context.contentResolver.delete(
-                                TvContractCompat.buildPreviewProgramUri(programId),
+                                TvContractCompat.buildPreviewProgramUri(existing.id),
                                 null, null
                             )
                         }
@@ -90,6 +112,7 @@ class TvChannelManager(private val context: Context) {
                 }
             }
 
+            deleteLegacyPosters()
             Log.d(TAG, "Channel synced: ${stations.size} programs")
         } catch (e: SecurityException) {
             Log.e(TAG, "SecurityException - WRITE_EPG_DATA permission missing?", e)
@@ -165,18 +188,21 @@ class TvChannelManager(private val context: Context) {
     }
 
     /**
-     * Query all existing programs for a channel, returning a map of internalProviderId -> programId.
+     * Query all existing programs for a channel, keyed by internalProviderId (the station slug).
      */
-    private suspend fun queryExistingPrograms(channelId: Long): Map<String, Long> =
+    private suspend fun queryExistingPrograms(channelId: Long): Map<String, ExistingProgram> =
         withContext(Dispatchers.IO) {
-            val result = mutableMapOf<String, Long>()
+            val result = mutableMapOf<String, ExistingProgram>()
             try {
                 val cursor = context.contentResolver.query(
                     TvContractCompat.PreviewPrograms.CONTENT_URI,
                     arrayOf(
                         TvContractCompat.PreviewPrograms._ID,
                         TvContractCompat.PreviewPrograms.COLUMN_INTERNAL_PROVIDER_ID,
-                        TvContractCompat.PreviewPrograms.COLUMN_CHANNEL_ID
+                        TvContractCompat.PreviewPrograms.COLUMN_CHANNEL_ID,
+                        TvContractCompat.PreviewPrograms.COLUMN_TITLE,
+                        TvContractCompat.PreviewPrograms.COLUMN_SHORT_DESCRIPTION,
+                        TvContractCompat.PreviewPrograms.COLUMN_POSTER_ART_URI
                     ),
                     null, null, null
                 )
@@ -193,7 +219,18 @@ class TvChannelManager(private val context: Context) {
                                 it.getColumnIndexOrThrow(TvContractCompat.PreviewPrograms.COLUMN_INTERNAL_PROVIDER_ID)
                             )
                             if (internalId != null) {
-                                result[internalId] = id
+                                result[internalId] = ExistingProgram(
+                                    id = id,
+                                    title = it.getString(
+                                        it.getColumnIndexOrThrow(TvContractCompat.PreviewPrograms.COLUMN_TITLE)
+                                    ),
+                                    description = it.getString(
+                                        it.getColumnIndexOrThrow(TvContractCompat.PreviewPrograms.COLUMN_SHORT_DESCRIPTION)
+                                    ),
+                                    posterArtUri = it.getString(
+                                        it.getColumnIndexOrThrow(TvContractCompat.PreviewPrograms.COLUMN_POSTER_ART_URI)
+                                    )
+                                )
                             }
                         }
                     }
@@ -204,82 +241,43 @@ class TvChannelManager(private val context: Context) {
             result
         }
 
-    private fun buildProgram(channelId: Long, station: StationDto, posterUri: Uri?): PreviewProgram {
+    private fun buildProgram(channelId: Long, station: StationDto): PreviewProgram {
         val intentUri = Uri.parse("radiocrestin://${station.slug}")
+        // The launcher (another app) fetches the poster itself, so it must be
+        // a URL it can load, never a file in this app's private storage.
+        val posterUri = station.thumbnailUrl
+            ?.takeIf { it.startsWith("http") }
+            ?.let { Uri.parse(it) }
 
-        val builder = PreviewProgram.Builder()
+        return PreviewProgram.Builder()
             .setChannelId(channelId)
             .setType(TvContractCompat.PreviewPrograms.TYPE_CLIP)
             .setLive(true)
             .setTitle(station.title)
+            // No song line: syncs follow catalog changes only, so it would go
+            // stale. Explicit null clears the one older versions stored.
+            .setDescription(null)
+            .setPosterArtUri(posterUri)
+            .setPosterArtAspectRatio(TvContractCompat.PreviewPrograms.ASPECT_RATIO_1_1)
             .setInternalProviderId(station.slug)
             .setIntentUri(intentUri)
-
-        if (station.songTitle?.isNotEmpty() == true) {
-            builder.setDescription(station.songTitle)
-        }
-
-        if (posterUri != null) {
-            builder.setPosterArtUri(posterUri)
-                .setPosterArtAspectRatio(TvContractCompat.PreviewPrograms.ASPECT_RATIO_16_9)
-        }
-
-        return builder.build()
+            .build()
     }
 
     /**
-     * Download station thumbnail and create a 16:9 poster with the logo centered on a dark background.
-     * Skips download if the poster is already cached on disk.
+     * Delete the composed 16:9 posters older versions cached; nothing reads
+     * them anymore. The channel logo (PNG) in the same directory is kept.
      */
-    private suspend fun downloadAndCacheImage(url: String?, slug: String): Uri? {
-        if (url.isNullOrEmpty()) return null
-
-        val outFile = File(imageDir, "${slug}.jpg")
-
-        // Skip download if already cached
-        if (outFile.exists() && outFile.length() > 0) {
-            return Uri.fromFile(outFile)
-        }
-
-        return withContext(Dispatchers.IO) {
+    private suspend fun deleteLegacyPosters() {
+        if (legacyPostersDeleted) return
+        legacyPostersDeleted = true
+        withContext(Dispatchers.IO) {
             try {
-                val actualUrl = if (url.startsWith("file://")) {
-                    val localFile = File(url.removePrefix("file://"))
-                    if (localFile.exists()) {
-                        return@withContext Uri.fromFile(localFile)
-                    }
-                    return@withContext null
-                } else {
-                    url
-                }
-
-                val bitmap = BitmapFactory.decodeStream(URL(actualUrl).openStream())
-                    ?: return@withContext null
-
-                // Create 16:9 poster with station logo centered on dark background
-                val poster = Bitmap.createBitmap(POSTER_WIDTH, POSTER_HEIGHT, Bitmap.Config.ARGB_8888)
-                val canvas = Canvas(poster)
-                canvas.drawColor(Color.parseColor("#1E1E1E"))
-
-                // Scale logo to fit, maintaining aspect ratio
-                val logoSize = (POSTER_HEIGHT * 0.7f).toInt()
-                val scaledBitmap = Bitmap.createScaledBitmap(bitmap, logoSize, logoSize, true)
-                val left = (POSTER_WIDTH - logoSize) / 2f
-                val top = (POSTER_HEIGHT - logoSize) / 2f
-                canvas.drawBitmap(scaledBitmap, left, top, null)
-
-                scaledBitmap.recycle()
-                bitmap.recycle()
-
-                FileOutputStream(outFile).use { out ->
-                    poster.compress(Bitmap.CompressFormat.JPEG, 90, out)
-                }
-                poster.recycle()
-
-                Uri.fromFile(outFile)
+                imageDir.listFiles()
+                    ?.filter { it.name.endsWith(".jpg") }
+                    ?.forEach { it.delete() }
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to download image for $slug: $url", e)
-                null
+                Log.w(TAG, "Failed to delete legacy posters", e)
             }
         }
     }

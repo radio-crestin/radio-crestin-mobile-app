@@ -22,6 +22,11 @@ class AnalyticsService {
   String? _sessionId;
   String? _userId;
 
+  // The config handed to setup, kept only when it installed the native
+  // replay integration. The SDK stores this same object, and
+  // `PostHogWidget` reads its `sessionReplay` when it mounts.
+  PostHogConfig? _replayConfig;
+
   // Identity context, attached to every structured log record so a log line in
   // PostHog Logs can be pinned to an app version / platform without a join.
   String? _appVersion;
@@ -167,9 +172,25 @@ class AnalyticsService {
     config.errorTrackingConfig.inAppIncludes.add('package:radio_crestin');
 
     await Posthog().setup(config);
+    // Only after setup, which has already sent the flag to native.
+    _replayConfig = sessionReplayAtSetup ? config : null;
     _initialized = true;
     _sessionId = await Posthog().getSessionId();
     developer.log('PostHog initialized, session: $_sessionId');
+  }
+
+  /// Arms or idles `PostHogWidget`'s snapshot loop before it mounts.
+  ///
+  /// The widget reads `config.sessionReplay` only in `initState`, and the
+  /// SDK leaves it true even after `stopSessionRecording`, so a device that
+  /// is not recording would otherwise walk the whole widget tree every
+  /// 1.5 s for the entire session. Once mounted, the widget follows
+  /// start/stop on its own. Safe after setup: the config was already sent
+  /// to native and nothing else reads the flag.
+  void setReplayCaptureArmed(bool armed) {
+    // Null without the native integration, where recording can never
+    // start: never arm.
+    _replayConfig?.sessionReplay = armed;
   }
 
   /// Manually capture an exception with context.
@@ -396,6 +417,18 @@ class AnalyticsService {
     });
 
     _startHeartbeat();
+  }
+
+  /// Starts or resumes tracking for [slug] unless it is already tracked.
+  ///
+  /// Idempotent, so every play path can call it: resumes the paused session
+  /// of the same station, or starts a new one (ending another station's).
+  void ensureListening(String slug, String name, {int? stationId}) {
+    if (_currentStationSlug == slug) {
+      if (!_isListening) resumeListening();
+      return;
+    }
+    startListening(slug, name, stationId: stationId);
   }
 
   /// Call when playback resumes from pause (same station, continues session).

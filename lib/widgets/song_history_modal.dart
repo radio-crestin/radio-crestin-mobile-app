@@ -60,6 +60,11 @@ class _SongHistoryModalState extends State<SongHistoryModal> {
   bool _hasMore = true;
   int? _oldestTimestamp;
 
+  /// Bumped by every reload so a response from an older request (a filter
+  /// applied mid-load, a page that arrives after a reload) is dropped
+  /// instead of overwriting or mixing into the current results.
+  int _loadGen = 0;
+
   /// Songs after this instant are not shown (not heard yet, or after the
   /// filter's date and time).
   DateTime _cutoff = DateTime.now();
@@ -94,6 +99,9 @@ class _SongHistoryModalState extends State<SongHistoryModal> {
   }
 
   Future<void> _loadInitial({int? targetTimestamp}) async {
+    final gen = ++_loadGen;
+    // A page still in flight belongs to the previous generation.
+    _isLoadingMore = false;
     setState(() {
       _isLoading = true;
       _history = [];
@@ -121,7 +129,7 @@ class _SongHistoryModalState extends State<SongHistoryModal> {
         ),
     ]);
 
-    if (!mounted) return;
+    if (!mounted || gen != _loadGen) return;
     _deduplicateAndSet(
       [for (final page in pages) ...?page?.history],
       first.from - _pageSize * _preloadedPages,
@@ -147,6 +155,7 @@ class _SongHistoryModalState extends State<SongHistoryModal> {
   Future<void> _loadMore() async {
     if (_oldestTimestamp == null || _isLoadingMore || !_hasMore) return;
     _isLoadingMore = true;
+    final gen = _loadGen;
 
     final from = _oldestTimestamp! - _pageSize;
     final data = await SongHistoryService.fetchHistory(
@@ -155,7 +164,8 @@ class _SongHistoryModalState extends State<SongHistoryModal> {
       toTimestamp: _oldestTimestamp,
     );
 
-    if (!mounted) return;
+    // A reload since then reset _isLoadingMore for its own generation.
+    if (!mounted || gen != _loadGen) return;
 
     final items = data?.history ?? [];
     if (items.isEmpty) {
@@ -671,6 +681,10 @@ class _SongThumbnail extends StatelessWidget {
             ? Image.network(
                 url,
                 fit: BoxFit.cover,
+                // Decode at slot size, not the full-size original. Width
+                // only: forcing both would distort non-square art.
+                cacheWidth:
+                    (60 * MediaQuery.devicePixelRatioOf(context)).round(),
                 errorBuilder: (_, __, ___) => _placeholder(),
               )
             : _placeholder(),

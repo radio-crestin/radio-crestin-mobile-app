@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io' show Platform;
 
-import 'package:audio_service/audio_service.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -10,11 +9,9 @@ import 'package:radio_crestin/theme.dart';
 import 'package:radio_crestin/pages/HomePage.dart';
 import 'package:radio_crestin/services/share_service.dart';
 import 'package:radio_crestin/widgets/share_handler.dart';
-import 'package:radio_crestin/services/review_service.dart';
 import 'package:radio_crestin/services/song_like_service.dart';
 import 'package:radio_crestin/widgets/review_modal.dart';
 import 'package:radio_crestin/widgets/song_history_modal.dart';
-import '../globals.dart' as globals;
 import '../services/analytics_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -125,14 +122,6 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   final _likeButtonKey = GlobalKey<LikeButtonState>();
   final StationDataService _stationDataService = GetIt.instance<StationDataService>();
 
-  String _songInfo() {
-    final title = currentStation?.songTitle ?? '';
-    final artist = currentStation?.songArtist ?? '';
-    if (artist.isNotEmpty) return '$title - $artist';
-    if (title.isNotEmpty) return title;
-    return currentStation?.title ?? '';
-  }
-
   /// Primary line under the artwork for radio/TV stations: the song title when
   /// one is playing, a "Transmisiune live" label for an idle TV channel, or the
   /// generic idle placeholder (so a station without metadata never looks blank).
@@ -223,9 +212,12 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     // pure, unit-tested function so the sizing math — including the degenerate
     // Size.zero case that used to throw ArgumentError from num.clamp — stays
     // verifiable. See computePlayerLayout above.
+    // Aspect-specific lookups so keyboard viewInsets changes (e.g. the search
+    // dialog opening above the panel) don't rebuild the player every frame.
+    final screen = MediaQuery.sizeOf(context);
     final layout = computePlayerLayout(
-      screenWidth: MediaQuery.of(context).size.width,
-      screenHeight: MediaQuery.of(context).size.height,
+      screenWidth: screen.width,
+      screenHeight: screen.height,
       textScale: MediaQuery.textScalerOf(context).scale(1.0),
     );
     final thumbSize = layout.thumbSize;
@@ -239,8 +231,8 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     // the split itself adapts to the short height of a phone in landscape (see
     // _buildLandscapeLayout). Any portrait orientation keeps the vertical
     // layout untouched.
-    final mq = MediaQuery.of(context);
-    final isLandscape = mq.orientation == Orientation.landscape;
+    final isLandscape =
+        MediaQuery.orientationOf(context) == Orientation.landscape;
     if (isLandscape) {
       return _buildLandscapeLayout(
         context,
@@ -808,7 +800,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
               const BorderRadius.all(Radius.circular(AppRadius.artwork)),
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.withOpacity(0.35),
+              color: Colors.grey.withValues(alpha: 0.35),
               spreadRadius: 0,
               blurRadius: 4,
               offset: const Offset(2, 3),
@@ -1188,6 +1180,10 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
       isTimerActive = true;
     });
 
+    // The dialog offers new durations while a timer is armed; an orphaned
+    // previous timer would still stop playback and clear the newer reference,
+    // so it could no longer be cancelled.
+    sleepTimer?.cancel();
     sleepTimer = Timer(duration, () {
       widget.audioHandler.stop();
       sleepTimer = null;

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../services/now_playing_sanitizer.dart';
+
 class SelectDialog<T> extends StatefulWidget {
   final List<T> items;
   final Function(T) displayFunction;
@@ -29,15 +31,21 @@ class _SelectDialogState<T> extends State<SelectDialog<T>> {
   void initState() {
     super.initState();
     Future.delayed(const Duration(milliseconds: 100), () {
+      // The dialog can be dismissed during its entrance animation.
+      if (!mounted) return;
       FocusScope.of(context).requestFocus(_focusNode);
     });
     searchResults = widget.items;
   }
 
   void _filterSearchResults(String query) {
+    // Folds Romanian diacritics so 'flacara' finds 'Flacăra' (phone keyboards
+    // often type without them) and cedilla/comma variants match each other.
+    final q = NowPlayingSanitizer.normalize(query);
     setState(() {
       searchResults = widget.items.where((item) {
-        return widget.searchFunction!(item).toLowerCase().contains(query.toLowerCase());
+        final text = widget.searchFunction!(item).toString();
+        return NowPlayingSanitizer.normalize(text).contains(q);
       }).toList();
     });
   }
@@ -62,7 +70,7 @@ class _SelectDialogState<T> extends State<SelectDialog<T>> {
                   Expanded(
                     child: Container(
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.06),
+                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.06),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: TextFormField(
@@ -76,12 +84,12 @@ class _SelectDialogState<T> extends State<SelectDialog<T>> {
                         decoration: InputDecoration(
                           hintText: 'Caută o stație...',
                           hintStyle: TextStyle(
-                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
+                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
                             fontSize: 16,
                           ),
                           prefixIcon: Icon(
                             Icons.search,
-                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
+                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
                             size: 22,
                           ),
                           suffixIcon: _controller.text.isNotEmpty
@@ -92,7 +100,7 @@ class _SelectDialogState<T> extends State<SelectDialog<T>> {
                                   },
                                   child: Icon(
                                     Icons.clear,
-                                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
+                                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
                                     size: 20,
                                   ),
                                 )
@@ -107,7 +115,7 @@ class _SelectDialogState<T> extends State<SelectDialog<T>> {
                     onPressed: () => Navigator.of(context).pop(),
                     icon: Icon(
                       Icons.close,
-                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
                       size: 22,
                     ),
                     splashRadius: 20,
@@ -124,7 +132,7 @@ class _SelectDialogState<T> extends State<SelectDialog<T>> {
                       child: Text(
                         'Nicio stație găsită.',
                         style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
                           fontSize: 15,
                         ),
                       ),

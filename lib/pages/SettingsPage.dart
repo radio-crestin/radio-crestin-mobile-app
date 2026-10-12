@@ -7,7 +7,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_airplay/flutter_airplay.dart' as flutter_airplay;
 import 'package:radio_crestin/services/share_service.dart';
 import 'package:radio_crestin/widgets/share_handler.dart';
-import 'package:radio_crestin/utils/share_utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:device_info_plus/device_info_plus.dart';
@@ -55,7 +54,6 @@ class _SettingsPageState extends State<SettingsPage> {
   final String _deviceId = globals.deviceId;
   ShareLinkData? _shareLinkData;
   int? _visitCount;
-  bool _isLoadingShareData = true;
 
   // Developer mode: unlocked by tapping the version row 7 times.
   static const _devModeTapsNeeded = 7;
@@ -86,7 +84,6 @@ class _SettingsPageState extends State<SettingsPage> {
     if (widget.shareLinkData != null) {
       _shareLinkData = widget.shareLinkData;
       _visitCount = widget.shareLinkData!.visitCount;
-      _isLoadingShareData = false;
     }
     _loadShareData();
 
@@ -127,6 +124,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _getNotificationsEnabled() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     setState(() {
       _notificationsEnabled = prefs.getBool('_notificationsEnabled') ?? true;
     });
@@ -134,6 +132,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _getAutoStartStation() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     setState(() {
       _autoStartStation = prefs.getBool('_autoStartStation') ?? true;
     });
@@ -802,6 +801,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         AnalyticsService.instance.capture('button_clicked', {'button_name': 'auto_start_station', 'enabled': value});
                         final prefs = await SharedPreferences.getInstance();
                         await prefs.setBool('_autoStartStation', value!);
+                        if (!mounted) return;
                         setState(() {
                           _autoStartStation = value;
                         });
@@ -822,9 +822,11 @@ class _SettingsPageState extends State<SettingsPage> {
                         AnalyticsService.instance.capture('button_clicked', {'button_name': 'custom_notifications', 'enabled': value});
                         final prefs = await SharedPreferences.getInstance();
                         await prefs.setBool('_notificationsEnabled', value!);
-                        setState(() {
-                          _notificationsEnabled = value;
-                        });
+                        if (mounted) {
+                          setState(() {
+                            _notificationsEnabled = value;
+                          });
+                        }
                         AnalyticsService.instance.setUserProperty('personalized_n', value ? 'true' : 'false');
                       },
                       value: _notificationsEnabled ?? true,
@@ -1103,6 +1105,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _loadThemeMode() async {
     final themeMode = await ThemeManager.loadThemeMode();
+    if (!mounted) return;
     setState(() {
       _themeMode = themeMode;
     });
@@ -1110,6 +1113,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _loadSeekMode() async {
     final seekMode = await SeekModeManager.loadSeekMode();
+    if (!mounted) return;
     setState(() {
       _seekMode = seekMode;
     });
@@ -1144,13 +1148,11 @@ class _SettingsPageState extends State<SettingsPage> {
         setState(() {
           _shareLinkData = data;
           _visitCount = data.visitCount;
-          _isLoadingShareData = false;
         });
       }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isLoadingShareData = false);
-      }
+    } catch (_) {
+      // Best-effort refresh: keep the HomePage-provided link (or the
+      // fallback share URL) when the request fails.
     }
   }
 
@@ -1165,6 +1167,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _loadUnstableConnection() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     setState(() {
       _unstableConnection = prefs.getBool('unstable_connection') ?? false;
     });

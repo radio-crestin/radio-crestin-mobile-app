@@ -2,16 +2,14 @@ import 'dart:convert';
 import 'dart:developer' as developer;
 import 'dart:io';
 
-import 'package:device_info_plus/device_info_plus.dart';
 import 'package:extended_image/extended_image.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:in_app_review/in_app_review.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:radio_crestin/queries/getStations.graphql.dart';
-import 'package:radio_crestin/services/share_service.dart';
-import 'package:radio_crestin/widgets/share_handler.dart';
-import 'package:radio_crestin/utils/share_utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'constants.dart';
@@ -72,6 +70,20 @@ class Utils {
     return streams.map((e) => {"url": e.stream_url, "type": e.type}).toList();
   }
 
+  /// Returns the station slug a deep link points to, or `''` when it names
+  /// no station.
+  ///
+  /// Web links (share links, NFC tags) carry the slug as the first path
+  /// segment and often a query string (`?s=…`, `?ref=nfc`) that must not
+  /// leak into it. The custom `radiocrestin://<slug>` scheme carries the
+  /// slug as the host.
+  static String stationSlugFromUri(Uri uri) {
+    final firstSegment = uri.pathSegments
+        .firstWhere((s) => s.isNotEmpty, orElse: () => '');
+    if (uri.scheme == 'http' || uri.scheme == 'https') return firstSegment;
+    return uri.host.isNotEmpty ? uri.host : firstSegment;
+  }
+
   /// Branded placeholder shown when a station image is missing or fails to load
   /// (offline / 404 / 403, e.g. Radio SOS). Renders the app logo centered on a
   /// soft neutral background, padded so it sits nicely inside thumbnails of any
@@ -115,6 +127,9 @@ class Utils {
         File(cachedFilePath),
         fit: BoxFit.cover,
         cacheWidth: cacheWidth,
+        // Keep the previous picture on screen until the new one decodes, so
+        // a source change never flashes the grey loading square.
+        gaplessPlayback: true,
         loadStateChanged: (ExtendedImageState state) {
           switch (state.extendedImageLoadState) {
             case LoadState.loading:
@@ -145,6 +160,10 @@ class Utils {
       timeLimit: const Duration(seconds: 3),
       cacheWidth: cacheWidth,
       cacheMaxAge: cacheMaxAge,
+      // The URL changes with every song (current artwork), and the same
+      // element is reused, so without this each song change blanks the
+      // thumbnail to grey until the new artwork downloads.
+      gaplessPlayback: true,
       loadStateChanged: (ExtendedImageState state) {
         switch (state.extendedImageLoadState) {
           case LoadState.loading:
@@ -164,6 +183,86 @@ class Utils {
         }
       },
     );
+  }
+
+  /// URLs under which `Station.displayThumbnail` disk-caches station logos.
+  static Set<String> stationLogoUrls(
+    Iterable<Query$GetStations$stations> stations,
+  ) {
+    final prefix = CONSTANTS.IMAGE_PROXY_PREFIX;
+    final urls = <String>{};
+    for (final station in stations) {
+      final logo =
+          station.thumbnail_url ?? CONSTANTS.DEFAULT_STATION_THUMBNAIL_URL;
+      // Proxied as the primary URL, unproxied as the fallback URL.
+      urls.add(logo);
+      if (prefix.isNotEmpty) urls.add('$prefix$logo');
+    }
+    return urls;
+  }
+
+  /// Deletes images that `ExtendedImage.network(cache: true)` wrote to disk
+  /// more than [maxAge] ago, except those cached for [keepUrls].
+  ///
+  /// extended_image enforces `cacheMaxAge` only when the same URL is asked
+  /// for again. Song-art URLs rarely are, so their files would pile up for
+  /// as long as the app is installed. Station logos must be kept: they have
+  /// no max age, and once decoded they are served from the memory cache, so
+  /// a deleted logo is not written back this session and the next offline
+  /// launch would show the placeholder instead.
+  static Future<void> pruneImageDiskCache({
+    required Iterable<String> keepUrls,
+    Duration maxAge = const Duration(days: 7),
+  }) async {
+    if (kIsWeb) return;
+    try {
+      final tempDir = await getTemporaryDirectory();
+      final dirPath =
+          '${tempDir.path}${Platform.pathSeparator}$cacheImageFolderName';
+      final keepNames = keepUrls.map(keyToMd5).toSet();
+      final cutoff = DateTime.now().subtract(maxAge);
+      // A long-lived install can hold thousands of files: stat and delete
+      // them off the UI isolate so the scan never costs frames.
+      final deleted = await compute(
+        _deleteStaleCacheFilesEntry,
+        (dirPath, cutoff, keepNames),
+      );
+      developer.log('Image disk cache: pruned $deleted file(s)');
+    } catch (e) {
+      developer.log('Image disk cache prune failed: $e');
+    }
+  }
+
+  static int _deleteStaleCacheFilesEntry(
+    (String, DateTime, Set<String>) args,
+  ) =>
+      deleteStaleCacheFiles(args.$1, args.$2, args.$3);
+
+  /// Deletes the files directly inside [dirPath] last written before
+  /// [cutoff], except those named in [keepNames], and returns how many were
+  /// deleted.
+  @visibleForTesting
+  static int deleteStaleCacheFiles(
+    String dirPath,
+    DateTime cutoff,
+    Set<String> keepNames,
+  ) {
+    final dir = Directory(dirPath);
+    if (!dir.existsSync()) return 0;
+    var deleted = 0;
+    for (final entity in dir.listSync(followLinks: false)) {
+      if (entity is! File) continue;
+      if (keepNames.contains(entity.uri.pathSegments.last)) continue;
+      try {
+        if (entity.statSync().modified.isBefore(cutoff)) {
+          entity.deleteSync();
+          deleted++;
+        }
+      } on FileSystemException {
+        // The OS can purge the cache folder mid-scan; skip that file.
+      }
+    }
+    return deleted;
   }
 
   static Future<void> requestReviewAndUpdateStatus(BuildContext dialogContext) async {
@@ -275,7 +374,7 @@ class Utils {
                 ),
                 TextButton(
                   style: TextButton.styleFrom(
-                    backgroundColor: const Color(0xffe91e63).withOpacity(0.1),
+                    backgroundColor: const Color(0xffe91e63).withValues(alpha: 0.1),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -366,71 +465,6 @@ class Utils {
     }
   }
 
-  static Future<void> _showShareDialog(
-    SharedPreferences prefs,
-    GraphQLClient? graphQLClient,
-    String? currentStationName,
-  ) async {
-    try {
-      if (graphQLClient == null) {
-        return;
-      }
-      
-      // Enable share promotion
-      await prefs.setBool('show_share_promotion', true);
-      
-      // Get or create device ID
-      String? deviceId = prefs.getString('device_id');
-      if (deviceId == null) {
-        final DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
-        if (Platform.isAndroid) {
-          final androidInfo = await deviceInfo.androidInfo;
-          deviceId = androidInfo.id;
-        } else if (Platform.isIOS) {
-          final iosInfo = await deviceInfo.iosInfo;
-          deviceId = iosInfo.identifierForVendor;
-        } else {
-          deviceId = DateTime.now().millisecondsSinceEpoch.toString();
-        }
-        
-        if (deviceId != null) {
-          await prefs.setString('device_id', deviceId);
-        }
-      }
-      
-      if (deviceId != null) {
-        final shareService = ShareService(graphQLClient);
-        final shareLinkData = await shareService.getShareLink(deviceId);
-        
-        if (shareLinkData != null) {
-          final shareUrl = shareLinkData.url;
-          final shareMessage = ShareUtils.formatShareMessage(
-            shareLinkData: shareLinkData,
-            stationName: currentStationName,
-            stationSlug: null,
-          );
-          
-          // Show dialog after a small delay
-          Future.delayed(const Duration(milliseconds: 500), () {
-            final context = navigatorKey.currentContext;
-            if (context != null) {
-              ShareHandler.shareApp(
-                context: context,
-                shareUrl: shareUrl,
-                shareMessage: shareMessage,
-                stationName: currentStationName,
-                shareLinkData: shareLinkData,
-                showDialog: true,
-              );
-            }
-          });
-        }
-      }
-    } catch (e) {
-      developer.log('Error showing share dialog: $e');
-    }
-  }
-  
   static Future<void> resetDialogTracking() async {
     try {
       final SharedPreferences prefs = await SharedPreferences.getInstance();

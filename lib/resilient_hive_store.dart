@@ -2,16 +2,18 @@ import 'dart:developer' as developer;
 import 'dart:io';
 
 import 'package:graphql_flutter/graphql_flutter.dart';
-import 'package:hive_ce/hive.dart' as hive;
 import 'package:path_provider/path_provider.dart';
 
 /// A [Store] wrapper that delegates to [HiveStore] but falls back to
 /// [InMemoryStore] when the underlying Hive file is closed at runtime
 /// (e.g. a second FlutterEngine from Android Auto / CarPlay opens the same
 /// .hive file and invalidates the file handle).
+// The delegate is swapped to InMemoryStore once Hive degrades, so this
+// store is mutable by design despite Store's @immutable annotation.
+// ignore: must_be_immutable
 class ResilientHiveStore extends Store {
-  Store _delegate; // ignore: must_be_immutable
-  bool _degraded = false; // ignore: must_be_immutable
+  Store _delegate;
+  bool _degraded = false;
 
   ResilientHiveStore(HiveStore hiveStore) : _delegate = hiveStore;
 

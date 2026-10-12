@@ -142,5 +142,36 @@ void main() {
       expect(liked.length, 1);
     });
   });
+
+  group('SongLikeService.init failure', () {
+    test('falls back to memory-only instead of throwing', () async {
+      // An unset factory makes every sqflite call throw, like a corrupt or
+      // full DB would on a device.
+      databaseFactory = null;
+      addTearDown(() => databaseFactory = databaseFactoryFfi);
+
+      final service = await SongLikeService.init();
+
+      expect(SongLikeService.instance, same(service));
+      expect(SongLikeService.initFailure, isNotNull);
+      await service.setLikeStatus(
+        stationId: 1,
+        songId: 900001,
+        likeStatus: 1,
+      );
+      expect(service.getLikeStatus(900001), 1);
+      expect(await service.getLikedSongs(), isEmpty);
+    });
+
+    test('clears the failure once the DB opens again', () async {
+      databaseFactory = null;
+      await SongLikeService.init();
+      databaseFactory = databaseFactoryFfi;
+
+      await SongLikeService.init();
+
+      expect(SongLikeService.initFailure, isNull);
+    });
+  });
 }
 

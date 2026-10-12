@@ -10,9 +10,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:radio_crestin/appAudioHandler.dart';
 import 'package:radio_crestin/components/FullAudioPlayer.dart';
 import 'package:radio_crestin/widgets/share_promotion_card.dart';
-import 'package:radio_crestin/widgets/share_handler.dart';
 import 'package:radio_crestin/services/share_service.dart';
-import 'package:radio_crestin/utils/share_utils.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -21,7 +19,6 @@ import 'package:sliding_up_panel2/sliding_up_panel2.dart';
 import '../components/MiniAudioPlayer.dart';
 import '../components/SelectDialog.dart';
 import '../components/StationsList.dart';
-import '../globals.dart' as globals;
 import '../main.dart';
 import '../queries/getStations.graphql.dart';
 import '../services/launch_source_service.dart';
@@ -38,6 +35,7 @@ import '../services/promo_notification_service.dart';
 import '../services/analytics_service.dart';
 import '../services/background_polling_policy.dart';
 import '../types/Station.dart';
+import '../utils.dart';
 import '../utils/PositionRetainedScrollPhysics.dart';
 import '../widgets/song_history_modal.dart';
 import 'SettingsPage.dart';
@@ -109,10 +107,29 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   final AppLinks _appLinks = AppLinks();
 
   var autoPlayProcessed = false;
+
+  /// The last deep link handled and when, to drop its duplicate delivery.
+  ///
+  /// app_links hands a cold-start link both to `getInitialLink()` and to the
+  /// first `uriLinkStream` listener. Both sources stay subscribed because an
+  /// engine started before the Activity attached can miss either one.
+  String? _lastLink;
+  DateTime? _lastLinkAt;
+  static const _duplicateLinkWindow = Duration(seconds: 3);
+
+  /// Whether the app went to the background (hidden/paused) since the last
+  /// `resumed`, as opposed to a brief inactive moment (Control Center,
+  /// notification shade, system dialog) where it stayed in the foreground.
+  ///
+  /// Starts true unless already resumed, so the first resume after a cold
+  /// or pre-warmed (Android Auto) start still refreshes as before.
+  bool _wasBackgrounded =
+      WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed;
+
+  Timer? _imageCachePruneTimer;
   bool _showSharePromotion = false;
   final GlobalKey<SharePromotionCardState> _sharePromotionKey = GlobalKey();
   ShareLinkData? _shareLinkData;
-  bool _isLoadingShareData = true;
   bool _isOffline = false;
   bool _showBackOnline = false;
   Timer? _backOnlineTimer;
@@ -254,7 +271,21 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       _checkSharePromotionVisibility();
       _loadShareLinkData();
       _loadPromoNotification();
+      // Well after startup, when station data has loaded and the first
+      // images are on screen.
+      _imageCachePruneTimer =
+          Timer(const Duration(seconds: 30), _pruneImageDiskCache);
     });
+  }
+
+  void _pruneImageDiskCache() {
+    final stations = _stationDataService.stations.value;
+    // Without the station list, logos cannot be told apart from song art;
+    // skip and try again next launch rather than risk deleting them.
+    if (stations.isEmpty) return;
+    Utils.pruneImageDiskCache(
+      keepUrls: Utils.stationLogoUrls(stations.map((s) => s.rawStationData)),
+    );
   }
 
   /// The identity of the currently-playing video content, or null when none.
@@ -384,15 +415,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       if (mounted) {
         setState(() {
           _shareLinkData = data;
-          _isLoadingShareData = false;
         });
       }
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isLoadingShareData = false;
-        });
-      }
+      developer.log('Error loading share link: $e');
     }
   }
 
@@ -428,6 +454,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _videoContentSub?.cancel();
     _customEventSub?.cancel();
     _backOnlineTimer?.cancel();
+    _imageCachePruneTimer?.cancel();
     removeBottomToast(_activeConnectionToast);
     _panelSlide.dispose();
     super.dispose();
@@ -657,20 +684,34 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _audioHandler.recordLifecycleTransition(state.name);
     // Drive the video↔audio handoff and playlist-sync suspend/resume.
     _audioHandler.onAppLifecycleChanged(state);
+    if (state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      _wasBackgrounded = true;
+    }
     if (state == AppLifecycleState.resumed) {
       // App returned to foreground — check if audio stream was lost in background
       _audioHandler.reconnectIfNeeded(trigger: ReconnectTrigger.lifecycleResumed);
-      // Full refresh + resume polling (picks up all changes while backgrounded)
-      _stationDataService.onAppResumed();
       // Check for pending song history action (from notification button tap)
       _checkPendingSongHistory();
-      // iOS-only: warm resume mirrors cold start. The platform exposes no
-      // way to tell "user tapped icon" from "user tapped app-switcher card",
-      // so we treat every foreground as "user wants playback" when the
-      // setting is on. Android does not need this because the launcher-icon
-      // signal is available at process start (FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY).
-      if (Platform.isIOS) {
-        _resumeAutoplayIfNeeded();
+      if (_wasBackgrounded) {
+        _wasBackgrounded = false;
+        // Full refresh + resume polling (picks up all changes while backgrounded)
+        _stationDataService.onAppResumed();
+        // iOS-only: warm resume mirrors cold start. The platform exposes no
+        // way to tell "user tapped icon" from "user tapped app-switcher card",
+        // so we treat every foreground as "user wants playback" when the
+        // setting is on. Android does not need this because the launcher-icon
+        // signal is available at process start (FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY).
+        if (Platform.isIOS) {
+          _resumeAutoplayIfNeeded();
+        }
+      } else {
+        // Only an inactive blip (Control Center, notification shade, system
+        // dialog): the app never left the screen, so no full refresh, and
+        // no autoplay that would undo a pause made from Control Center.
+        // Restart the periodic timer only, in case an idle pause stopped it.
+        _stationDataService.resumePolling();
       }
     } else if (state == AppLifecycleState.paused) {
       // App went to background — keep polling if car or cast is connected
@@ -699,73 +740,43 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-  String _formatVisitCount(int count) {
-    if (count >= 1000000) {
-      return '${(count / 1000000).toStringAsFixed(count % 1000000 == 0 ? 0 : 1)}M';
-    } else if (count >= 1000) {
-      return '${(count / 1000).toStringAsFixed(count % 1000 == 0 ? 0 : 1)}k';
-    }
-    return count.toString();
-  }
-
-  void _shareApp(BuildContext context) {
-    final currentStation = _audioHandler.currentStation.valueOrNull;
-    final slug = currentStation?.slug;
-    final fallbackUrl = slug != null && slug.isNotEmpty
-        ? 'https://www.radiocrestin.ro/$slug'
-        : 'https://www.radiocrestin.ro/descarca-aplicatia-radio-crestin';
-
-    ShareHandler.shareApp(
-      context: context,
-      shareUrl: _shareLinkData?.generateShareUrl(stationSlug: slug, songId: currentStation?.songId) ?? fallbackUrl,
-      shareMessage: 'Instalează și tu aplicația Radio Creștin și ascultă peste 60 de stații de radio creștin:\n$fallbackUrl',
-      stationName: currentStation?.title,
-      songName: currentStation?.songTitle,
-      songArtist: currentStation?.songArtist,
-      songId: currentStation?.songId,
-      shareLinkData: _shareLinkData,
-      showDialog: true,
-      shareLinkLoader: _shareLinkData == null
-          ? () async {
-              final prefs = getIt<SharedPreferences>();
-              final deviceId = prefs.getString('device_id');
-              if (deviceId == null) return null;
-              final shareService = ShareService(_audioHandler.graphqlClient);
-              return shareService.getShareLink(deviceId);
-            }
-          : null,
-    );
-  }
+  /// Created once: a stream built inside `build` would make the
+  /// StreamBuilder cancel and resubscribe all seven sources (and rebuild the
+  /// whole page again on their replay) on every HomePage rebuild.
+  late final Stream<HomePageState> _homeState = Rx.combineLatest7<
+      Station?,
+      List<Station>,
+      List<Station>,
+      List<Query$GetStations$station_groups>,
+      Query$GetStations$station_groups?,
+      bool,
+      List<String>,
+      HomePageState>(
+    _audioHandler.currentStation.stream,
+    _stationDataService.stations.stream,
+    _stationDataService.filteredStations.stream,
+    _stationDataService.stationGroups,
+    _stationDataService.selectedStationGroup.stream,
+    slidingUpPanelController.isDraggableSubject,
+    _stationDataService.favoriteStationSlugs.stream,
+    (currentStation, stations, filteredStations, stationGroups,
+            selectedStationGroup, isDraggable, favoriteSlugs) =>
+        HomePageState(currentStation, stations, filteredStations,
+            stationGroups, selectedStationGroup, isDraggable, favoriteSlugs),
+  );
 
   @override
   Widget build(BuildContext context) {
-    double panelMaxHeight = MediaQuery.of(context).size.height * .9;
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    // Depend on size and padding only: the full MediaQuery would also
+    // rebuild the page on every keyboard-animation frame (viewInsets), e.g.
+    // while the search dialog opens above it.
+    final panelMaxHeight = MediaQuery.sizeOf(context).height * .9;
+    final bottomPadding = MediaQuery.paddingOf(context).bottom;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: StreamBuilder<HomePageState>(
-          stream: Rx.combineLatest7<
-              Station?,
-              List<Station>,
-              List<Station>,
-              List<Query$GetStations$station_groups>,
-              Query$GetStations$station_groups?,
-              bool,
-              List<String>,
-              HomePageState>(
-            _audioHandler.currentStation.stream,
-            _stationDataService.stations.stream,
-            _stationDataService.filteredStations.stream,
-            _stationDataService.stationGroups,
-            _stationDataService.selectedStationGroup.stream,
-            slidingUpPanelController.isDraggableSubject,
-            _stationDataService.favoriteStationSlugs.stream,
-            (currentStation, stations, filteredStations, stationGroups, selectedStationGroup,
-                    isDraggable, favoriteSlugs) =>
-                HomePageState(currentStation, stations, filteredStations, stationGroups,
-                    selectedStationGroup, isDraggable, favoriteSlugs),
-          ),
+          stream: _homeState,
           builder: (context, snapshot) {
             final currentStation = snapshot.data?.currentStation;
             final stations = snapshot.data?.stations ?? [];
@@ -917,7 +928,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                                             ? "${station.songTitle} - ${station.songArtist}"
                                                             : station.songTitle,
                                                         style: TextStyle(
-                                                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                                                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
                                                           fontSize: 13,
                                                         ),
                                                         maxLines: 1,
@@ -1150,7 +1161,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
-  playByStationSlug(String stationSlug) async {
+  Future<void> playByStationSlug(String stationSlug) async {
     developer.log("playByStationSlug:$stationSlug");
     await waitForStationsUpdate();
     // Look up directly from the source-of-truth (StationDataService) to avoid
@@ -1162,9 +1173,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
     if (station != null) {
       developer.log("found station:${station.title}");
+      // The link decided what plays on this launch; a later fallback must
+      // not replace it with the last-played station.
+      autoPlayProcessed = true;
       await _audioHandler.playStation(station);
     } else {
       developer.log("station not found:$stationSlug");
+      // An unknown or stale link should still open the app the way a plain
+      // launch does. No-op if autoplay already ran for this launch.
+      playerAutoplay();
     }
   }
 
@@ -1175,34 +1192,42 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         .timeout(const Duration(seconds: 5), onTimeout: () => <Station>[]);
   }
 
-  String extractSlugWithRegex(String url) {
-    final regex = RegExp(r'https?://[^/]+/([^/]+)');
-    final match = regex.firstMatch(url);
-
-    if (match != null && match.groupCount >= 1) {
-      return match.group(1)!;
-    }
-
-    return '';
-  }
-
-  processIntentUri(Uri? uri) async {
+  Future<void> processIntentUri(Uri? uri) async {
     try {
       developer.log("processIntentUri:$uri");
       if (uri == null) {
         playerAutoplay();
         return;
       }
+      if (_isDuplicateLink(uri)) return;
 
-      var stationSlug = extractSlugWithRegex(uri.toString());
-
-      if (stationSlug == "") {
-        stationSlug = uri.host;
+      final stationSlug = Utils.stationSlugFromUri(uri);
+      if (stationSlug.isEmpty) {
+        // A root link (e.g. sharing the app itself) names no station.
+        playerAutoplay();
+        return;
       }
       playByStationSlug(stationSlug);
     } catch (e) {
       developer.log("processIntentUri error:$e");
     }
+  }
+
+  /// Whether [uri] is the same link handled moments ago (the cold-start
+  /// double delivery). A later re-tap of the same link or NFC tag falls
+  /// outside the window and is handled again.
+  bool _isDuplicateLink(Uri uri) {
+    final link = uri.toString();
+    final now = DateTime.now();
+    final lastAt = _lastLinkAt;
+    if (link == _lastLink &&
+        lastAt != null &&
+        now.difference(lastAt) < _duplicateLinkWindow) {
+      return true;
+    }
+    _lastLink = link;
+    _lastLinkAt = now;
+    return false;
   }
 
   Future<void> playerAutoplay() async {
@@ -1305,7 +1330,6 @@ class _AnimatedRoundedIconButtonState extends State<_AnimatedRoundedIconButton>
 
   void _onTapUp(TapUpDetails _) {
     _controller.reverse();
-    widget.onPressed();
   }
 
   void _onTapCancel() {
@@ -1317,29 +1341,36 @@ class _AnimatedRoundedIconButtonState extends State<_AnimatedRoundedIconButton>
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return ScaleTransition(
       scale: _scaleAnimation,
-      child: Material(
-        color: widget.isActive
-            ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.12)
-            : isDark
-                ? Colors.white.withValues(alpha: 0.07)
-                : Colors.black.withValues(alpha: 0.06),
-        shape: const CircleBorder(),
-        child: InkWell(
-          onTapDown: _onTapDown,
-          onTapUp: _onTapUp,
-          onTapCancel: _onTapCancel,
-          customBorder: const CircleBorder(),
-          child: Tooltip(
-            message: widget.tooltip,
-            child: SizedBox(
-              width: 44,
-              height: 44,
-              child: Icon(
-                widget.icon,
-                size: 22,
-                color: widget.isActive
-                    ? Theme.of(context).colorScheme.primary
-                    : Theme.of(context).colorScheme.onSurface,
+      child: Semantics(
+        button: true,
+        child: Material(
+          color: widget.isActive
+              ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.12)
+              : isDark
+                  ? Colors.white.withValues(alpha: 0.07)
+                  : Colors.black.withValues(alpha: 0.06),
+          shape: const CircleBorder(),
+          child: InkWell(
+            // `onTap` (not `onTapUp`) carries the action: it is what InkWell
+            // exposes to TalkBack/VoiceOver, Switch/Voice Access and the
+            // keyboard. It fires right after `onTapUp` in the same gesture.
+            onTap: widget.onPressed,
+            onTapDown: _onTapDown,
+            onTapUp: _onTapUp,
+            onTapCancel: _onTapCancel,
+            customBorder: const CircleBorder(),
+            child: Tooltip(
+              message: widget.tooltip,
+              child: SizedBox(
+                width: 44,
+                height: 44,
+                child: Icon(
+                  widget.icon,
+                  size: 22,
+                  color: widget.isActive
+                      ? Theme.of(context).colorScheme.primary
+                      : Theme.of(context).colorScheme.onSurface,
+                ),
               ),
             ),
           ),

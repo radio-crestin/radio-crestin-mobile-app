@@ -9,8 +9,22 @@ typedef RestApiTransformer = Map<String, dynamic> Function(dynamic jsonData);
 
 class GraphQLToRestInterceptorLink extends Link {
   final Map<String, RestApiConfig> queryToRestMap;
-  
-  GraphQLToRestInterceptorLink({required this.queryToRestMap});
+
+  /// Shared across requests so the REST calls reuse connections. Built with
+  /// the link (constructed once in main) rather than lazily, so a test's
+  /// `http.runWithClient` zone cannot leak into it.
+  final http.Client _client;
+
+  /// Stops waiting on a stalled request. GraphQL's own request timeout only
+  /// drops the result: this link stays suspended on the download and would
+  /// still decode and transform a late response.
+  static const _requestTimeout = Duration(seconds: 10);
+
+  /// [httpClient] defaults to a real client; tests inject a fake.
+  GraphQLToRestInterceptorLink({
+    required this.queryToRestMap,
+    http.Client? httpClient,
+  }) : _client = httpClient ?? http.Client();
   
   @override
   Stream<Response> request(Request request, [NextLink? forward]) async* {
@@ -55,9 +69,8 @@ class GraphQLToRestInterceptorLink extends Link {
     }
   }
   
-  Future<http.Response> _fetchFromRestApi(String url) async {
-    return await http.get(Uri.parse(url));
-  }
+  Future<http.Response> _fetchFromRestApi(String url) =>
+      _client.get(Uri.parse(url)).timeout(_requestTimeout);
   
   Response _createSuccessResponse(Map<String, dynamic> data, Context context) {
     return Response(

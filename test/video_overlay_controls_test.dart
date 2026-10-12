@@ -302,6 +302,53 @@ void main() {
       expect(seeked, const Duration(seconds: 40));
     });
 
+    testWidgets('visible VOD seek bar follows the position stream',
+        (tester) async {
+      await tester.pumpWidget(build(
+        isLive: false,
+        onSeek: (_) {},
+        initialDuration: const Duration(minutes: 1),
+      ));
+      await tester.pump();
+      expect(find.text('0:00 / 1:00'), findsOneWidget);
+
+      position.add(const Duration(seconds: 20));
+      await tester.pump(); // delivers the event (schedules the rebuild)
+      await tester.pump(); // builds the frame
+      expect(find.text('0:20 / 1:00'), findsOneWidget);
+    });
+
+    testWidgets('hidden controls keep the position fresh for double-tap seek',
+        (tester) async {
+      Duration? seeked;
+      await tester.pumpWidget(build(
+        initialPlaying: true,
+        isLive: false,
+        onSeek: (d) => seeked = d,
+        initialDuration: const Duration(minutes: 1),
+      ));
+      await tester.pump(const Duration(seconds: 4));
+      expect(controlsOpacity(tester), 0.0);
+
+      // Position ticks while hidden don't rebuild, but must still be stored.
+      position.add(const Duration(seconds: 30));
+      await tester.pump();
+
+      final finder = find.byType(VideoOverlayControls);
+      final topLeft = tester.getTopLeft(finder);
+      final size = tester.getSize(finder);
+      final rightHalf =
+          topLeft + Offset(size.width * 0.75, size.height * 0.5);
+      await tester.tapAt(rightHalf);
+      await tester.pump(const Duration(milliseconds: 60));
+      await tester.tapAt(rightHalf);
+      await tester.pump(const Duration(milliseconds: 60));
+
+      expect(seeked, const Duration(seconds: 40));
+      // Let the auto-hide timer re-armed by the seek run out.
+      await tester.pump(const Duration(seconds: 4));
+    });
+
     testWidgets('double-tap does nothing on a live stream', (tester) async {
       Duration? seeked;
       await tester.pumpWidget(build(

@@ -260,7 +260,16 @@ class _VideoOverlayControlsState extends State<VideoOverlayControls>
     _subs.add(widget.playingStream.listen(_onPlaying));
     _subs.add(widget.bufferingStream.listen(_onBuffering));
     _subs.add(widget.positionStream.listen((p) {
-      if (mounted && _dragValue == null) setState(() => _position = p);
+      if (!mounted || _dragValue != null) return;
+      // The stream fires once per decoded frame. Keep the value fresh for
+      // double-tap seek, but rebuild only when the seek bar is on screen,
+      // at most every 250 ms (live streams and hidden controls never show
+      // it; tap, pause and buffering rebuild with the latest value).
+      final repaint = _seekable &&
+          _effectiveVisible &&
+          p.inMilliseconds ~/ 250 != _position.inMilliseconds ~/ 250;
+      _position = p;
+      if (repaint) setState(() {});
     }));
     _subs.add(widget.durationStream.listen((d) {
       if (mounted) setState(() => _duration = d);

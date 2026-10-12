@@ -83,7 +83,7 @@ class ShareHandler {
     await showDialog(
       context: context,
       barrierDismissible: true,
-      barrierColor: Colors.black.withOpacity(0.65),
+      barrierColor: Colors.black.withValues(alpha: 0.65),
       builder: (BuildContext context) {
         return BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
@@ -124,10 +124,10 @@ class ShareHandler {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.12),
+                  color: color.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: color.withOpacity(0.2),
+                    color: color.withValues(alpha: 0.2),
                     width: 1,
                   ),
                 ),
@@ -143,7 +143,7 @@ class ShareHandler {
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w500,
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
+                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -295,7 +295,7 @@ class _ShareDialogContentState extends State<_ShareDialogContent> {
           border: Border.all(
             color: isDark
                 ? const Color(0xFF220D15)
-                : Theme.of(context).primaryColor.withOpacity(0.2),
+                : Theme.of(context).primaryColor.withValues(alpha: 0.2),
             width: 1,
           ),
         ),
@@ -313,8 +313,8 @@ class _ShareDialogContentState extends State<_ShareDialogContent> {
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          Theme.of(context).primaryColor.withOpacity(0.2),
-                          Theme.of(context).primaryColor.withOpacity(0.1),
+                          Theme.of(context).primaryColor.withValues(alpha: 0.2),
+                          Theme.of(context).primaryColor.withValues(alpha: 0.1),
                         ],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
@@ -352,7 +352,7 @@ class _ShareDialogContentState extends State<_ShareDialogContent> {
                           : 'Ajută la răspândirea Evangheliei prin intermediul radioului creștin.',
                       style: TextStyle(
                         fontSize: 15,
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.75),
+                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.75),
                         height: 1.5,
                       ),
                       textAlign: TextAlign.center,
@@ -368,7 +368,7 @@ class _ShareDialogContentState extends State<_ShareDialogContent> {
                             key: const ValueKey('skeleton'),
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                             decoration: BoxDecoration(
-                              color: accentColor.withOpacity(0.08),
+                              color: accentColor.withValues(alpha: 0.08),
                               borderRadius: BorderRadius.circular(24),
                             ),
                             child: Row(
@@ -377,7 +377,7 @@ class _ShareDialogContentState extends State<_ShareDialogContent> {
                                   width: 16,
                                   height: 16,
                                   decoration: BoxDecoration(
-                                    color: accentColor.withOpacity(0.2),
+                                    color: accentColor.withValues(alpha: 0.2),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                 ),
@@ -386,7 +386,7 @@ class _ShareDialogContentState extends State<_ShareDialogContent> {
                                   child: Container(
                                     height: 12,
                                     decoration: BoxDecoration(
-                                      color: accentColor.withOpacity(0.15),
+                                      color: accentColor.withValues(alpha: 0.15),
                                       borderRadius: BorderRadius.circular(6),
                                     ),
                                   ),
@@ -398,10 +398,10 @@ class _ShareDialogContentState extends State<_ShareDialogContent> {
                             key: const ValueKey('data'),
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                             decoration: BoxDecoration(
-                              color: accentColor.withOpacity(0.12),
+                              color: accentColor.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(24),
                               border: Border.all(
-                                color: accentColor.withOpacity(0.3),
+                                color: accentColor.withValues(alpha: 0.3),
                                 width: 1,
                               ),
                             ),
@@ -433,7 +433,7 @@ class _ShareDialogContentState extends State<_ShareDialogContent> {
                       Expanded(
                         child: Container(
                           height: 1,
-                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.1),
+                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.1),
                         ),
                       ),
                       Padding(
@@ -442,7 +442,7 @@ class _ShareDialogContentState extends State<_ShareDialogContent> {
                           'distribuie',
                           style: TextStyle(
                             fontSize: 11,
-                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -450,7 +450,7 @@ class _ShareDialogContentState extends State<_ShareDialogContent> {
                       Expanded(
                         child: Container(
                           height: 1,
-                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.1),
+                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.1),
                         ),
                       ),
                     ],
@@ -490,7 +490,7 @@ class _ShareDialogContentState extends State<_ShareDialogContent> {
                         context: context,
                         icon: Platform.isIOS ? Icons.ios_share : Icons.share,
                         label: 'Share',
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.8),
+                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
                         onTap: () async {
                           AnalyticsService.instance.capture('button_clicked', {'button_name': 'share_generic', 'station_name': widget.stationName, 'song_id': widget.songId});
                           Navigator.pop(context);
@@ -505,10 +505,10 @@ class _ShareDialogContentState extends State<_ShareDialogContent> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.05),
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.05),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.1),
+                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.1),
                         width: 1,
                       ),
                     ),
@@ -519,7 +519,7 @@ class _ShareDialogContentState extends State<_ShareDialogContent> {
                             _shareUrl,
                             style: TextStyle(
                               fontSize: 12,
-                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -565,7 +565,7 @@ class _ShareDialogContentState extends State<_ShareDialogContent> {
                           child: Container(
                             padding: const EdgeInsets.all(6),
                             decoration: BoxDecoration(
-                              color: Theme.of(context).primaryColor.withOpacity(0.1),
+                              color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Icon(
@@ -590,13 +590,13 @@ class _ShareDialogContentState extends State<_ShareDialogContent> {
                 icon: Container(
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.05),
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.05),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
                     Icons.close,
                     size: 20,
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                   ),
                 ),
                 splashRadius: 20,

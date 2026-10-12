@@ -156,6 +156,9 @@ flutter:
     - assets/icons/android_auto_logo.svg
     - assets/fallback-stations.json
     - assets/silence.m4a
+    # Bundled so google_fonts never fetches the app-bar font at runtime
+    # (Nunito-ExtraBold = GoogleFonts.nunito w800; OFL licence alongside).
+    - assets/google_fonts/
 
 flutter_launcher_icons:
   #  image_path: "assets/images/icon-128x128.png"

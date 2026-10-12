@@ -123,13 +123,17 @@ class FakeRow {
 }
 
 class _FakeStation {
-  _FakeStation(this.id, this.slug, this.title, {required this.hls});
+  _FakeStation(this.id, this.slug, this.title,
+      {required this.hls, this.stationType});
   final int id;
   final String slug;
   final String title;
 
   /// Streams: the HLS playlist first, then the MP3 fallback.
   final bool hls;
+
+  /// The wire `station_type` (`tv`, `playlist`); null is a radio station.
+  final String? stationType;
 }
 
 class _EdgeCopy {
@@ -215,8 +219,10 @@ class FakeMetadataBackend {
       requests.where((u) => u.path.endsWith('/private-stations')).toList();
 
   /// [hls]: the station's preferred stream is [hlsUrlOf] (MP3 fallback).
-  void addStation(int id, String slug, String title, {bool hls = false}) =>
-      _stations.add(_FakeStation(id, slug, title, hls: hls));
+  void addStation(int id, String slug, String title,
+          {bool hls = false, String? stationType}) =>
+      _stations.add(
+          _FakeStation(id, slug, title, hls: hls, stationType: stationType));
 
   /// The HLS playlist URL of an [addStation] with `hls: true`.
   static String hlsUrlOf(String slug) =>
@@ -460,6 +466,7 @@ class FakeMetadataBackend {
                 slug: s.slug,
                 title: s.title,
                 thumbnailUrl: null,
+                stationType: s.stationType,
                 stationStreams: [
                   if (s.hls)
                     Query$GetStations$stations$station_streams(

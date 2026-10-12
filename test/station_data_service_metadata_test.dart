@@ -1064,6 +1064,44 @@ void main() {
     });
   });
 
+  group('catalog persistence', () {
+    const cacheKey = 'cached_stations_data';
+
+    test('the station list is not normalized into the GraphQL cache',
+        () async {
+      await start();
+
+      expect(service().stations.value, hasLength(10));
+      expect(backend.graphqlClient.cache.store.toMap(), isEmpty);
+    });
+
+    test('an unchanged catalog is rewritten at most every 30 minutes',
+        () async {
+      await start();
+      expect(prefs.getString(cacheKey), isNotNull,
+          reason: 'the first write of the session always happens');
+      await prefs.remove(cacheKey);
+
+      await clock.advance(const Duration(minutes: 10));
+      await service().enqueueSync(SyncReason.manualRefresh);
+      expect(prefs.getString(cacheKey), isNull);
+
+      await clock.advance(const Duration(minutes: 21));
+      await service().enqueueSync(SyncReason.manualRefresh);
+      expect(prefs.getString(cacheKey), isNotNull);
+    });
+
+    test('a structural change is persisted immediately', () async {
+      await start();
+      await prefs.remove(cacheKey);
+      backend.addStation(11, 's11', 'Station 11');
+
+      await service().enqueueSync(SyncReason.manualRefresh);
+
+      expect(prefs.getString(cacheKey), contains('s11'));
+    });
+  });
+
   group('lifecycle', () {
     test(
         'suspend (task removed, process alive) stops the background work '

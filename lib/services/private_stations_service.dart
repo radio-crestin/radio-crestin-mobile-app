@@ -51,22 +51,33 @@ class PrivateStationsResult {
 /// reuse — this service deliberately does no GraphQL parsing so it stays a
 /// small, easily-testable HTTP + policy unit.
 class PrivateStationsService {
+  /// [clock] defaults to the wall clock; tests inject controlled time.
   PrivateStationsService({
     http.Client? httpClient,
     SharedPreferences? prefs,
     String Function()? deviceIdProvider,
+    DateTime Function()? clock,
   })  : _httpClient = httpClient ?? http.Client(),
         _injectedPrefs = prefs,
-        _deviceIdProvider = deviceIdProvider ?? (() => globals.deviceId);
+        _deviceIdProvider = deviceIdProvider ?? (() => globals.deviceId),
+        _now = clock ?? DateTime.now;
 
   /// SharedPreferences key mirroring the public `cached_stations_data` pattern.
   static const cacheKey = 'cached_private_stations_data';
 
   static const _timeout = Duration(seconds: 8);
 
+  /// Minimum gap between rewrites of an unchanged private station cache.
+  static const _persistMinInterval = Duration(minutes: 30);
+
   final http.Client _httpClient;
   final SharedPreferences? _injectedPrefs;
   final String Function() _deviceIdProvider;
+  final DateTime Function() _now;
+
+  /// Fingerprint and time of the last successful [_persist].
+  String? _lastPersistedKey;
+  DateTime? _lastPersistedAt;
 
   /// Closed after an authoritative-empty or not-deployed response so we stop
   /// hammering a device that has no private stations (or an endpoint that isn't
@@ -163,15 +174,38 @@ class PrivateStationsService {
     }
   }
 
+  /// Persists [raw], at most every [_persistMinInterval] while the stations
+  /// themselves are unchanged. Every 60 s poll returns fresh now_playing, but
+  /// the cache only seeds the next cold start, and each write rewrites the
+  /// whole shared prefs file. The first write of the instance always runs.
   Future<void> _persist(List<Map<String, dynamic>> raw) async {
+    final key = _persistKey(raw);
+    final lastAt = _lastPersistedAt;
+    if (key == _lastPersistedKey &&
+        lastAt != null &&
+        _now().difference(lastAt) < _persistMinInterval) {
+      return;
+    }
     try {
       await _prefs.setString(cacheKey, json.encode({'stations': raw}));
+      _lastPersistedKey = key;
+      _lastPersistedAt = _now();
     } catch (e) {
       _log('cache write failed: $e');
     }
   }
 
+  /// Fingerprint of what a cold start renders: ids, names, logos, streams.
+  static String _persistKey(List<Map<String, dynamic>> raw) => [
+        for (final m in raw)
+          '${m['id']}|${m['slug']}|${m['title']}|${m['thumbnail_url']}|'
+              '${m['station_streams']}',
+      ].join(';');
+
   Future<void> _clearCache() async {
+    // Forget the last write so a later non-empty list persists immediately.
+    _lastPersistedKey = null;
+    _lastPersistedAt = null;
     try {
       await _prefs.remove(cacheKey);
     } catch (e) {

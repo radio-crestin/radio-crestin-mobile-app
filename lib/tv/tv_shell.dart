@@ -8,11 +8,17 @@ import 'package:flutter/services.dart';
 import 'package:get_it/get_it.dart';
 
 import '../appAudioHandler.dart';
+import '../services/analytics_service.dart';
+import '../services/background_polling_policy.dart';
+import '../services/network_service.dart';
+import '../services/playlist_controller.dart';
 import '../services/station_data_service.dart';
 import '../types/Station.dart';
 import 'desktop_shell.dart';
+import 'tv_lifecycle.dart';
 import 'tv_platform.dart';
 import 'tv_theme.dart';
+import 'tv_youtube_auto_advance.dart';
 import 'pages/tv_now_playing.dart';
 import 'pages/tv_home.dart';
 import 'pages/tv_settings.dart';
@@ -35,7 +41,7 @@ class TvShell extends StatefulWidget {
   State<TvShell> createState() => _TvShellState();
 }
 
-class _TvShellState extends State<TvShell> {
+class _TvShellState extends State<TvShell> with WidgetsBindingObserver {
   late bool _browsing;
   bool _showSettings = false;
   bool _autoPlayDone = false;
@@ -47,6 +53,8 @@ class _TvShellState extends State<TvShell> {
   late final AppAudioHandler _audioHandler;
   late final StationDataService _stationDataService;
   final List<StreamSubscription> _subscriptions = [];
+  final TvLifecycleTracker _lifecycle = TvLifecycleTracker();
+  late final TvYoutubeAutoAdvance _youtubeAutoAdvance;
   Station? _currentStation;
 
   /// Song history persisted across page switches.
@@ -67,6 +75,18 @@ class _TvShellState extends State<TvShell> {
     _audioHandler = GetIt.instance<AppAudioHandler>();
     _stationDataService = GetIt.instance<StationDataService>();
     _currentStation = _audioHandler.currentStation.value;
+    WidgetsBinding.instance.addObserver(this);
+
+    // TV and desktop cannot embed YouTube. This shell is always mounted
+    // (unlike Now Playing and its "up next" card), so it owns moving the
+    // playlist past those items.
+    final playlist = GetIt.instance<PlaylistController>();
+    _youtubeAutoAdvance = TvYoutubeAutoAdvance(
+      requests: playlist.youtubeRequest.stream,
+      // Paused by the user (remote, media keys, mini player): wait.
+      shouldPlay: playlist.youtubeShouldPlay.stream,
+      onAdvance: (itemId) => playlist.notifyYoutubeItemEnded(itemId: itemId),
+    );
 
     _browsing = _currentStation == null;
 
@@ -83,7 +103,11 @@ class _TvShellState extends State<TvShell> {
       _audioHandler.currentStation.stream.listen((station) {
         if (mounted) {
           final oldStation = _currentStation;
-          setState(() => _currentStation = station);
+          _currentStation = station;
+          // The pages subscribe themselves; this build only depends on
+          // whether a station exists (TvHome's BACK behaviour), so skip the
+          // whole-tree rebuild on every station-list publish.
+          if ((oldStation == null) != (station == null)) setState(() {});
           // Track song history
           if (station != null &&
               station.songTitle.isNotEmpty &&
@@ -114,10 +138,62 @@ class _TvShellState extends State<TvShell> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _youtubeAutoAdvance.dispose();
     for (final sub in _subscriptions) {
       sub.cancel();
     }
     super.dispose();
+  }
+
+  /// The lifecycle duties `HomePage` performs on mobile, minus the
+  /// video/audio handoff and the stop on detach, which stay product
+  /// decisions on TV and desktop.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _audioHandler.recordLifecycleTransition(state.name);
+    switch (_lifecycle.onTransition(state)) {
+      case TvLifecycleAction.returnedToForeground:
+        _onReturnedToForeground();
+      case TvLifecycleAction.enteredBackground:
+        _pausePollingIfUnwatched();
+      case TvLifecycleAction.detached:
+        _onDetached();
+      case TvLifecycleAction.none:
+        break;
+    }
+  }
+
+  void _onReturnedToForeground() {
+    // Only while the handler reports playing: a reconnect calls play(), and
+    // a video or playlist item the user paused must stay paused.
+    if (_audioHandler.playbackState.value.playing) {
+      _audioHandler.reconnectIfNeeded(
+          trigger: ReconnectTrigger.lifecycleResumed);
+    }
+    // Full refresh + resume polling (picks up changes made while away).
+    _stationDataService.onAppResumed();
+  }
+
+  void _pausePollingIfUnwatched() {
+    final pause = BackgroundPollingPolicy.shouldPause(
+      carConnected: _audioHandler.isCarConnected,
+      casting: _audioHandler.isCasting,
+      onMobileData: GetIt.instance<NetworkService>().isOnMobileData.value,
+      // The broadcast state, so media_kit video mode counts as playing.
+      playing: _audioHandler.playbackState.value.playing,
+    );
+    if (pause) _stationDataService.pausePolling();
+  }
+
+  void _onDetached() {
+    // On Android TV the audio service can outlive the activity and keep
+    // playing, and onTaskRemoved already ends the session when the task is
+    // swiped away. On desktop, detaching means the app is exiting.
+    if (TvPlatform.isDesktop) {
+      AnalyticsService.instance.endListening(reason: 'app_killed');
+    }
+    AnalyticsService.instance.flush();
   }
 
   void _initDeepLinks() {
@@ -191,7 +267,10 @@ class _TvShellState extends State<TvShell> {
   Widget build(BuildContext context) {
     // Desktop gets its own shell (browse + bottom mini player + drawer)
     if (TvPlatform.isDesktop) {
-      return DesktopShell(songHistory: songHistory);
+      return DesktopShell(
+        songHistory: songHistory,
+        youtubeCountdown: _youtubeAutoAdvance.countdown,
+      );
     }
 
     // TV: D-pad navigable two-page layout.
@@ -252,6 +331,7 @@ class _TvShellState extends State<TvShell> {
                 child: TvNowPlaying(
                   onBrowse: _openBrowse,
                   songHistory: songHistory,
+                  youtubeCountdown: _youtubeAutoAdvance.countdown,
                 ),
               ),
       ),

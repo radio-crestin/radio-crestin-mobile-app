@@ -54,9 +54,8 @@ class AnimatedPlayButtonState extends State<AnimatedPlayButton> {
   }
 
   void _onPlaybackState(PlaybackState state) {
-    _streamPlaying = state.playing;
-    _streamLoading =
-        state.processingState == AudioProcessingState.loading ||
+    final playing = state.playing;
+    final loading = state.processingState == AudioProcessingState.loading ||
         state.processingState == AudioProcessingState.buffering;
 
     // When stream reaches a settled state, always sync intent to reality.
@@ -66,13 +65,28 @@ class AnimatedPlayButtonState extends State<AnimatedPlayButton> {
         state.processingState == AudioProcessingState.completed ||
         state.processingState == AudioProcessingState.idle;
 
+    var intent = _intentIsPlaying;
+    var intentAt = _intentSetAt;
     if (settled) {
-      _intentIsPlaying = state.playing;
-      _intentSetAt = null;
+      intent = playing;
+      intentAt = null;
       _graceTimer?.cancel();
     }
 
-    if (mounted) setState(() {});
+    // playbackState is re-broadcast on every player event (e.g. buffered
+    // position ticks ~2x/s on live streams). Rebuild only when an input to
+    // build() changed; grace-period expiry is driven by `_graceTimer`.
+    final changed = playing != _streamPlaying ||
+        loading != _streamLoading ||
+        intent != _intentIsPlaying ||
+        intentAt != _intentSetAt;
+
+    _streamPlaying = playing;
+    _streamLoading = loading;
+    _intentIsPlaying = intent;
+    _intentSetAt = intentAt;
+
+    if (changed && mounted) setState(() {});
   }
 
   /// Call this from skip next/prev buttons to set optimistic "playing" state.

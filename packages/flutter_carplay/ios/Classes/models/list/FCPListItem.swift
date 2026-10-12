@@ -51,9 +51,10 @@ class FCPListItem {
   var get: CPListItem {
     let listItem = CPListItem.init(text: text, detailText: detailText)
     listItem.handler = self.handler
-    if image != nil {
+    // An empty string is "no image", not an asset name to look up.
+    if let image = image, !image.isEmpty {
       listItem.setImage(makeSafeUIPlaceholder())
-      let imageSource = self.image!.toImageSource()
+      let imageSource = image.toImageSource()
       loadUIImageAsync(from: imageSource) { uiImage in
         if let uiImage = uiImage {
           listItem.setImage(uiImage)
@@ -94,7 +95,7 @@ class FCPListItem {
       self.detailText = detailText
     }
 
-    if let image = image, image != self.image {
+    if let image = image, !image.isEmpty, image != self.image {
       self._super?.setImage(makeSafeUIPlaceholder())
       let imageSource = image.toImageSource()
       loadUIImageAsync(from: imageSource) { uiImage in
@@ -103,7 +104,7 @@ class FCPListItem {
         }
       }
       self.image = image
-    } else if image == nil {
+    } else if image == nil || image?.isEmpty == true {
       self.image = nil
       self._super?.setImage(nil)
     }

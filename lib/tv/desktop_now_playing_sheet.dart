@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get_it/get_it.dart';
@@ -13,6 +14,7 @@ import '../types/Station.dart';
 import '../types/playlist_item.dart';
 import 'tv_shell.dart';
 import 'tv_theme.dart';
+import 'tv_youtube_auto_advance.dart';
 import 'widgets/tv_video_surface.dart';
 
 /// Full-screen now-playing panel for desktop.
@@ -24,7 +26,14 @@ import 'widgets/tv_video_surface.dart';
 class DesktopNowPlayingSheet extends StatefulWidget {
   final List<TvSongEntry> songHistory;
 
-  const DesktopNowPlayingSheet({super.key, required this.songHistory});
+  /// The shell's YouTube auto-advance, shown by the "up next" card.
+  final ValueListenable<TvYoutubeCountdown?> youtubeCountdown;
+
+  const DesktopNowPlayingSheet({
+    super.key,
+    required this.songHistory,
+    required this.youtubeCountdown,
+  });
 
   @override
   State<DesktopNowPlayingSheet> createState() => _DesktopNowPlayingSheetState();
@@ -86,7 +95,10 @@ class _DesktopNowPlayingSheetState extends State<DesktopNowPlayingSheet> {
 
     _subscriptions.add(
       _audioHandler.playbackState.stream.listen((s) {
-        if (mounted) setState(() => _isPlaying = s.playing);
+        // playbackState re-emits on every position tick (video mode, and
+        // media_kit audio on Windows/Linux); only the play flag matters here.
+        if (!mounted || s.playing == _isPlaying) return;
+        setState(() => _isPlaying = s.playing);
       }),
     );
 
@@ -181,7 +193,8 @@ class _DesktopNowPlayingSheetState extends State<DesktopNowPlayingSheet> {
     }
 
     // Playlist reached a YouTube item — show the auto-advancing "up next" card.
-    if (_youtubeItem != null) {
+    final youtubeItem = _youtubeItem;
+    if (youtubeItem != null) {
       return Focus(
         focusNode: _keyboardFocus,
         onKeyEvent: _onKey,
@@ -202,8 +215,13 @@ class _DesktopNowPlayingSheetState extends State<DesktopNowPlayingSheet> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(28, 8, 28, 32),
                 child: TvYoutubeUpNextCard(
-                  item: _youtubeItem!,
-                  onAutoAdvance: _playlistController.notifyYoutubeItemEnded,
+                  // A fresh card per item (its own hover and focus state).
+                  key: ValueKey(youtubeItem.id),
+                  item: youtubeItem,
+                  countdown: widget.youtubeCountdown,
+                  // Scoped to this item, so a late click can't skip the next.
+                  onSkip: () => _playlistController
+                      .notifyYoutubeItemEnded(itemId: youtubeItem.id),
                 ),
               ),
             ],

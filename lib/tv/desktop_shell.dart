@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get_it/get_it.dart';
@@ -14,6 +15,7 @@ import '../services/play_count_service.dart';
 import '../types/Station.dart';
 import 'tv_shell.dart';
 import 'tv_theme.dart';
+import 'tv_youtube_auto_advance.dart';
 import 'widgets/tv_station_card.dart';
 import 'desktop_now_playing_sheet.dart';
 
@@ -22,7 +24,14 @@ import 'desktop_now_playing_sheet.dart';
 class DesktopShell extends StatefulWidget {
   final List<TvSongEntry> songHistory;
 
-  const DesktopShell({super.key, required this.songHistory});
+  /// The YouTube auto-advance of the enclosing [TvShell], for the sheet.
+  final ValueListenable<TvYoutubeCountdown?> youtubeCountdown;
+
+  const DesktopShell({
+    super.key,
+    required this.songHistory,
+    required this.youtubeCountdown,
+  });
 
   @override
   State<DesktopShell> createState() => _DesktopShellState();
@@ -80,7 +89,11 @@ class _DesktopShellState extends State<DesktopShell> {
 
     _subscriptions.add(
       _audioHandler.playbackState.stream.listen((state) {
-        if (mounted) setState(() => _isPlaying = state.playing);
+        // playbackState re-emits on every position tick (video mode, and
+        // media_kit audio on Windows/Linux); rebuilding the whole grid for
+        // each one would keep the GPU busy while nothing visible changes.
+        if (!mounted || state.playing == _isPlaying) return;
+        setState(() => _isPlaying = state.playing);
       }),
     );
   }
@@ -155,7 +168,10 @@ class _DesktopShellState extends State<DesktopShell> {
             maxWidth: maxWidth,
             maxHeight: size.height - 48,
           ),
-          child: DesktopNowPlayingSheet(songHistory: widget.songHistory),
+          child: DesktopNowPlayingSheet(
+            songHistory: widget.songHistory,
+            youtubeCountdown: widget.youtubeCountdown,
+          ),
         ),
       ),
     );
@@ -770,6 +786,11 @@ class _DesktopSearchDialog extends StatefulWidget {
 class _DesktopSearchDialogState extends State<_DesktopSearchDialog> {
   final _controller = TextEditingController();
   final _focus = FocusNode();
+  final _listController = ScrollController();
+
+  /// One key per result index so the highlighted row can be scrolled into
+  /// view (rows vary in height, so offsets can't be computed).
+  final Map<int, GlobalKey> _rowKeys = {};
   String _query = '';
   int _highlight = 0;
 
@@ -785,7 +806,55 @@ class _DesktopSearchDialogState extends State<_DesktopSearchDialog> {
   void dispose() {
     _controller.dispose();
     _focus.dispose();
+    _listController.dispose();
     super.dispose();
+  }
+
+  /// Keeps the keyboard highlight on screen after an arrow key moved it.
+  ///
+  /// [down] is the arrow's direction. When the highlight [wrapped] around,
+  /// its row may not be built yet, so the list jumps to that end instead.
+  void _revealHighlight({required bool down, required bool wrapped}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_listController.hasClients) return;
+      if (!wrapped) {
+        _ensureHighlightVisible(atEnd: down);
+        return;
+      }
+      final position = _listController.position;
+      if (down) {
+        _listController.jumpTo(position.minScrollExtent);
+        return;
+      }
+      _listController.jumpTo(position.maxScrollExtent);
+      // Rows vary in height, so that offset is an estimate until the last
+      // rows are built: settle the last row against the bottom edge.
+      WidgetsBinding.instance.addPostFrameCallback(
+          (_) => _ensureHighlightVisible(atEnd: true));
+    });
+  }
+
+  /// Scrolls just enough to show the highlighted row against the bottom
+  /// edge ([atEnd]) or the top edge; a row already visible stays put.
+  void _ensureHighlightVisible({required bool atEnd}) {
+    if (!mounted) return;
+    final rowContext = _rowKeys[_highlight]?.currentContext;
+    if (rowContext == null) return;
+    Scrollable.ensureVisible(
+      rowContext,
+      duration: const Duration(milliseconds: 150),
+      alignmentPolicy: atEnd
+          ? ScrollPositionAlignmentPolicy.keepVisibleAtEnd
+          : ScrollPositionAlignmentPolicy.keepVisibleAtStart,
+    );
+  }
+
+  void _resetListScroll() {
+    if (_listController.hasClients) _listController.jumpTo(0);
+  }
+
+  void _hoverRow(int index) {
+    if (_highlight != index) setState(() => _highlight = index);
   }
 
   List<Station> get _results {
@@ -816,11 +885,14 @@ class _DesktopSearchDialogState extends State<_DesktopSearchDialog> {
     }
     if (k == LogicalKeyboardKey.arrowDown && results.isNotEmpty) {
       setState(() => _highlight = (_highlight + 1) % results.length);
+      _revealHighlight(down: true, wrapped: _highlight == 0);
       return KeyEventResult.handled;
     }
     if (k == LogicalKeyboardKey.arrowUp && results.isNotEmpty) {
       setState(
           () => _highlight = (_highlight - 1 + results.length) % results.length);
+      _revealHighlight(
+          down: false, wrapped: _highlight == results.length - 1);
       return KeyEventResult.handled;
     }
     if (k == LogicalKeyboardKey.enter ||
@@ -885,10 +957,13 @@ class _DesktopSearchDialogState extends State<_DesktopSearchDialog> {
                       controller: _controller,
                       focusNode: _focus,
                       autofocus: true,
-                      onChanged: (v) => setState(() {
-                        _query = v;
-                        _highlight = 0;
-                      }),
+                      onChanged: (v) {
+                        _resetListScroll();
+                        setState(() {
+                          _query = v;
+                          _highlight = 0;
+                        });
+                      },
                       onSubmitted: (_) {
                         if (results.isNotEmpty) {
                           Navigator.of(context).pop(results[_highlight.clamp(0, results.length - 1)]);
@@ -913,6 +988,7 @@ class _DesktopSearchDialogState extends State<_DesktopSearchDialog> {
                                 child: GestureDetector(
                                   onTap: () {
                                     _controller.clear();
+                                    _resetListScroll();
                                     setState(() {
                                       _query = '';
                                       _highlight = 0;
@@ -961,18 +1037,22 @@ class _DesktopSearchDialogState extends State<_DesktopSearchDialog> {
                           ),
                         )
                       : ListView.builder(
+                          controller: _listController,
                           padding: const EdgeInsets.symmetric(vertical: 6),
                           itemCount: results.length,
                           itemBuilder: (_, i) {
                             final s = results[i];
-                            return _SearchResultRow(
-                              station: s,
-                              highlighted: i == _highlight,
-                              isCurrent: s.id == widget.currentStationId,
-                              isFavorite:
-                                  widget.favoriteSlugs.contains(s.slug),
-                              onTap: () => Navigator.of(context).pop(s),
-                              onHover: () => setState(() => _highlight = i),
+                            return KeyedSubtree(
+                              key: _rowKeys.putIfAbsent(i, GlobalKey.new),
+                              child: _SearchResultRow(
+                                station: s,
+                                highlighted: i == _highlight,
+                                isCurrent: s.id == widget.currentStationId,
+                                isFavorite:
+                                    widget.favoriteSlugs.contains(s.slug),
+                                onTap: () => Navigator.of(context).pop(s),
+                                onHover: () => _hoverRow(i),
+                              ),
                             );
                           },
                         ),
@@ -1056,7 +1136,9 @@ class _SearchResultRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return MouseRegion(
       cursor: SystemMouseCursors.click,
-      onEnter: (_) => onHover(),
+      // onHover, not onEnter: onEnter also fires when the list scrolls under
+      // a still pointer, which would steal the keyboard highlight.
+      onHover: (_) => onHover(),
       child: GestureDetector(
         onTap: onTap,
         behavior: HitTestBehavior.opaque,

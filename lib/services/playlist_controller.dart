@@ -156,12 +156,10 @@ class PlaylistController {
     _subs.add(_video.durationStream.listen((d) {
       if (_handler.isVideoModeActive) duration.add(d);
     }));
-    _subs.add(_handler.player.positionStream.listen((p) {
-      if (!_handler.isVideoModeActive && !isYoutubeContent.value) {
-        position.add(p);
-        if (p > _progressThreshold) _markPlaybackProgress();
-      }
-    }));
+    // just_audio position is sampled by [_positionTicker] (playlist session
+    // only) instead of `player.positionStream`: that stream's internal timer
+    // can't be cancelled and would keep waking the isolate (up to ~62 Hz on
+    // live MP3) through all later radio listening.
     _subs.add(_handler.player.durationStream.listen((d) {
       if (!_handler.isVideoModeActive && !isYoutubeContent.value) {
         // just_audio emits null/zero briefly on each new source; keep the
@@ -175,6 +173,29 @@ class PlaylistController {
     _subs.add(_sync.updates.listen(_onSyncUpdate));
   }
 
+  // ── just_audio position sampling (playlist session only) ────────────────
+
+  static const Duration _positionTick = Duration(milliseconds: 250);
+  Timer? _positionTicker;
+
+  void _startPositionTicker() => _positionTicker ??=
+      Timer.periodic(_positionTick, (_) => _samplePosition());
+
+  void _stopPositionTicker() {
+    _positionTicker?.cancel();
+    _positionTicker = null;
+  }
+
+  void _samplePosition() {
+    if (_handler.isVideoModeActive || isYoutubeContent.value) return;
+    final p = _handler.player.position;
+    // Deliberately not gated on `playing`: a seek while paused must still
+    // move the scrubber. An unchanged position (paused) is a cheap no-op.
+    if (p == position.value) return;
+    position.add(p);
+    if (p > _progressThreshold) _markPlaybackProgress();
+  }
+
   // ── Start / stop ─────────────────────────────────────────────────────────
 
   /// Starts playing [station]'s playlist from [startIndex] (or the first
@@ -183,6 +204,7 @@ class PlaylistController {
   Future<void> startPlaylist(Station station, {int startIndex = 0}) async {
     _log('startPlaylist(${station.slug}, startIndex=$startIndex)');
     _ensureWired();
+    _startPositionTicker();
     _activeStation = station;
     _consecutiveFailures = 0;
     failedItemIds.add(const {});
@@ -221,6 +243,7 @@ class PlaylistController {
   /// Stops playlist playback entirely and leaves playlist mode.
   Future<void> stop() async {
     _log('stop');
+    _stopPositionTicker();
     stopLiveSync();
     _activeStation = null;
     _consecutiveFailures = 0;
@@ -524,7 +547,11 @@ class PlaylistController {
   void startLiveSync() {
     final slug = _activeStation?.slug;
     if (slug == null) return;
-    _sync.startSync(slug);
+    _sync.startSync(slug); // one immediate fetch
+    // Started while backgrounded (car / lock-screen skip): suspend the
+    // periodic poll. onAppLifecycleChanged(resumed) -> _sync.resume() restarts
+    // it (with an immediate fetch) once the app is visible again.
+    if (!_handler.isForeground) _sync.pause();
   }
 
   /// Stops the live poll (playlist page hidden).
@@ -537,7 +564,10 @@ class PlaylistController {
       currentIndex: currentIndex.value,
       incoming: incoming,
     );
-    items.add(result.items);
+    // Most polls return an unchanged list. BehaviorSubject doesn't dedupe, and
+    // every emission rebuilds the player and re-scrolls the track list to the
+    // current row (fighting the user's scroll), so emit only real changes.
+    if (!listEquals(result.items, items.value)) items.add(result.items);
 
     if (result.shouldStop) {
       _log('reconcile: current gone, no survivor → stop');
@@ -545,15 +575,34 @@ class PlaylistController {
       return;
     }
     if (result.currentItemRemoved && result.currentIndex >= 0) {
-      _log('reconcile: current removed → advance to ${result.currentIndex}');
-      currentIndex.add(result.currentIndex);
-      unawaited(playItemAt(result.currentIndex));
+      // The survivor itself is the first candidate; apply the same car/cast
+      // skip-youtube rule as a normal advance.
+      final next = PlaylistNavigator.nextPlayableIndex(
+        items: result.items,
+        fromIndex: result.currentIndex - 1,
+        skipYoutube: _skipYoutube,
+        loop: true,
+      );
+      _log('reconcile: current removed → advance to $next');
+      if (next < 0) {
+        // Nothing playable remains. Clear the index so it doesn't point at an
+        // unrelated row of the new list; stay in playlist mode, as
+        // startPlaylist does when nothing is playable.
+        currentIndex.add(-1);
+        currentItem.add(null);
+        unawaited(_stopPlayback());
+        return;
+      }
+      unawaited(playItemAt(next)); // emits currentIndex / currentItem
       return;
     }
     // Current item survived — never restart it; just keep index aligned.
     if (result.currentIndex >= 0) {
-      currentIndex.add(result.currentIndex);
-      currentItem.add(result.items[result.currentIndex]);
+      if (currentIndex.value != result.currentIndex) {
+        currentIndex.add(result.currentIndex);
+      }
+      final current = result.items[result.currentIndex];
+      if (current != currentItem.value) currentItem.add(current);
     }
   }
 
@@ -621,6 +670,7 @@ class PlaylistController {
       _handler.isCarConnected || _handler.isCasting;
 
   void dispose() {
+    _stopPositionTicker();
     for (final s in _subs) {
       s.cancel();
     }

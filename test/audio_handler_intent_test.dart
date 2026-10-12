@@ -1,0 +1,500 @@
+import 'dart:async';
+import 'dart:convert' show utf8;
+import 'dart:io' show HttpDate;
+
+import 'package:audio_service/audio_service.dart';
+import 'package:flutter/widgets.dart' show AppLifecycleState;
+import 'package:flutter_chrome_cast/flutter_chrome_cast.dart'
+    show CastMediaPlayerState;
+import 'package:flutter_test/flutter_test.dart';
+import 'package:get_it/get_it.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:just_audio/just_audio.dart';
+import 'package:radio_crestin/appAudioHandler.dart';
+import 'package:radio_crestin/graphql_rest_mappings.dart';
+import 'package:radio_crestin/seek_mode_manager.dart';
+import 'package:radio_crestin/services/analytics_service.dart';
+import 'package:radio_crestin/services/cast_service.dart';
+import 'package:radio_crestin/services/hls_health_watchdog_flag.dart';
+import 'package:radio_crestin/services/hls_timeline.dart' show SongBoundaryHint;
+import 'package:radio_crestin/services/play_count_service.dart';
+import 'package:radio_crestin/services/private_stations_service.dart';
+import 'package:radio_crestin/services/song_like_service.dart';
+import 'package:radio_crestin/services/station_data_service.dart';
+import 'package:radio_crestin/services/video_playback_service.dart';
+import 'package:radio_crestin/types/Station.dart';
+import 'package:radio_crestin/types/playlist_item.dart';
+import 'package:rxdart/rxdart.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'helpers/fake_just_audio_channels.dart';
+import 'helpers/fake_metadata_backend.dart';
+import 'helpers/hls_fixtures.dart' show playlistText;
+
+/// No song is liked; the handler only reads like states here.
+class _NoLikes extends Fake implements SongLikeService {
+  @override
+  int getLikeStatus(int songId) => 0;
+}
+
+/// A Cast session the tests connect and disconnect by hand.
+class _FakeCast extends Fake implements CastService {
+  @override
+  final BehaviorSubject<bool> isCasting = BehaviorSubject.seeded(false);
+
+  @override
+  final BehaviorSubject<CastMediaPlayerState> castPlayerState =
+      BehaviorSubject.seeded(CastMediaPlayerState.unknown);
+
+  @override
+  Future<void> play() async {}
+
+  @override
+  Future<void> pause() async {}
+
+  @override
+  Future<void> stop() async {}
+}
+
+/// media_kit stand-in: every open autoplays, like the real service, and
+/// renders a first frame at once (no fallback watchdog).
+class _FakeVideo extends VideoPlaybackService {
+  final BehaviorSubject<bool> playing = BehaviorSubject.seeded(false);
+
+  @override
+  bool get isInitialized => true;
+
+  @override
+  bool get isPlaying => playing.value;
+
+  @override
+  Stream<bool> get playingStream => playing.stream;
+
+  @override
+  bool get hasRenderedFrame => true;
+
+  @override
+  Future<void> open(
+    String url, {
+    bool live = false,
+    bool autoPlay = true,
+    Duration? startPosition,
+  }) async =>
+      playing.add(autoPlay);
+
+  @override
+  Future<void> play() async => playing.add(true);
+
+  @override
+  Future<void> pause() async => playing.add(false);
+
+  @override
+  Future<void> stop() async => playing.add(false);
+}
+
+/// Records the hint of every `refreshMetadataNow` call before running it.
+class _HintRecordingService extends StationDataService {
+  _HintRecordingService({
+    required super.graphqlClient,
+    super.privateStationsService,
+    super.httpClient,
+    super.clock,
+    super.wait,
+  });
+
+  final List<SongBoundaryHint?> hints = [];
+
+  @override
+  Future<void> refreshMetadataNow({
+    DateTime? boundary,
+    SongBoundaryHint? hint,
+  }) {
+    hints.add(hint);
+    return super.refreshMetadataNow(boundary: boundary, hint: hint);
+  }
+}
+
+/// The play intent (`_hasBeenPlayed`) and the station-switch supersession
+/// through a real [AppAudioHandler] over the faked just_audio channels: a
+/// pause must stop automatic restarts, a resume must re-enable them, and
+/// a pause during a switch must win over it.
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  final t0 = DateTime.utc(2026, 10, 11, 12);
+  DateTime t(num seconds) =>
+      t0.add(Duration(milliseconds: (seconds * 1000).round()));
+
+  late SharedPreferences prefs;
+  late FakeClock clock;
+  late FakeMetadataBackend backend;
+  late FakeJustAudioChannels channels;
+  late StationDataService service;
+  late AppAudioHandler handler;
+  late http.Client routing;
+
+  /// Extra playlist header lines (song boundary tags).
+  var playlistHeader = <String>[];
+
+  /// A live window of 100 six-second segments ending now.
+  String livePlaylist() {
+    final now = DateTime.now().toUtc();
+    const count = 100;
+    final seq = now.millisecondsSinceEpoch ~/ 6000 - count;
+    return playlistText(
+      mediaSequence: seq,
+      count: count,
+      firstPdt: DateTime.fromMillisecondsSinceEpoch(seq * 6000, isUtc: true),
+      header: playlistHeader,
+    );
+  }
+
+  setUp(() async {
+    SharedPreferences.setMockInitialValues({
+      'station_sort_preference': 'alphabetical',
+    });
+    prefs = await SharedPreferences.getInstance();
+    await HlsHealthWatchdogFlag.instance.loadCache(prefs);
+    await GetIt.instance.reset();
+    GetIt.instance
+      ..registerSingleton<SharedPreferences>(prefs)
+      ..registerSingleton<PlayCountService>(PlayCountService())
+      ..registerSingleton<SongLikeService>(_NoLikes())
+      ..registerSingleton<VideoPlaybackService>(VideoPlaybackService());
+    reviewsStatsCache.clear();
+    clock = FakeClock(t0);
+    backend = FakeMetadataBackend(clock)
+      ..addStation(1, 'rve-suceava', 'RVE Suceava', hls: true)
+      ..addStation(11, 'tv-alfa', 'Alfa TV', stationType: 'tv');
+    // The service only accepts a catalog of at least 10 stations.
+    for (var id = 2; id <= 10; id++) {
+      backend.addStation(id, 's$id', 'Station $id');
+    }
+    backend.songChange(2, t(-200), const FakeSong(21, 'Song P'));
+    channels = FakeJustAudioChannels()..install();
+    playlistHeader = [];
+    // Playlists are served live, as UTF-8 without a charset (like the
+    // origin); everything else goes to the backend.
+    routing = MockClient((request) async {
+      if (request.url.path.endsWith('.m3u8')) {
+        return http.Response.bytes(utf8.encode(livePlaylist()), 200,
+            headers: {
+              'content-type': 'application/vnd.apple.mpegurl',
+              'last-modified': HttpDate.format(DateTime.now()),
+            });
+      }
+      return backend.client.get(request.url, headers: request.headers);
+    });
+  });
+
+  tearDown(() async {
+    if (handler.isPlaylistMode) handler.exitPlaylistMode();
+    await http.runWithClient(() => handler.stop(), () => routing);
+    AnalyticsService.instance.endListening();
+    service.dispose();
+    channels.uninstall();
+    await GetIt.instance.reset();
+  });
+
+  Future<void> startHandler({StationDataService? s}) async {
+    service = s ?? backend.newService(prefs);
+    GetIt.instance.registerSingleton<StationDataService>(service);
+    handler = AppAudioHandler(
+      graphqlClient: backend.graphqlClient,
+      player: AudioPlayer(
+        handleInterruptions: false,
+        androidApplyAudioAttributes: false,
+        handleAudioSessionActivation: false,
+      ),
+    );
+    await service.enqueueSync(SyncReason.startup);
+  }
+
+  Station stationOf(int id) =>
+      service.stations.value.firstWhere((s) => s.id == id);
+
+  Future<void> until(bool Function() condition,
+      {Duration timeout = const Duration(seconds: 5)}) async {
+    final deadline = DateTime.now().add(timeout);
+    while (!condition()) {
+      if (DateTime.now().isAfter(deadline)) {
+        fail('condition not met within $timeout');
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+  }
+
+  Future<void> untilPlaying(String url, {required int loads}) => until(() =>
+      channels.loads.length == loads &&
+      handler.currentStreamInfo.valueOrNull?.url == url &&
+      handler.player.playing);
+
+  final mp3Of2 = FakeMetadataBackend.mp3UrlOf('s2');
+
+  group('play intent', () {
+    test(
+        'a pause stops a network restore from restarting playback; a resume '
+        're-enables the recovery', () async {
+      await http.runWithClient(() async {
+        await startHandler();
+        unawaited(handler.playStation(stationOf(2)));
+        await untilPlaying(mp3Of2, loads: 1);
+
+        await handler.pause();
+        handler.reconnectIfNeeded(trigger: ReconnectTrigger.networkRestored);
+        await pumpEventQueue();
+        expect(channels.loads, hasLength(1));
+        expect(handler.player.playing, isFalse, reason: 'the user paused');
+
+        await handler.play(); // fast resume of the loaded stream
+        expect(handler.player.playing, isTrue);
+        // The player stops by itself (stale source after airplane mode):
+        // the restored intent lets the network restore recover it.
+        await handler.player.pause();
+        handler.reconnectIfNeeded(trigger: ReconnectTrigger.networkRestored);
+        await untilPlaying(mp3Of2, loads: 2);
+      }, () => routing);
+    });
+
+    test(
+        'a pause in playlist mode stops a network restore from resuming '
+        'the item', () async {
+      await http.runWithClient(() async {
+        await startHandler();
+        unawaited(handler.playStation(stationOf(2)));
+        await untilPlaying(mp3Of2, loads: 1);
+        handler.enterPlaylistMode();
+
+        await handler.pause();
+        handler.reconnectIfNeeded(trigger: ReconnectTrigger.networkRestored);
+        await pumpEventQueue();
+
+        expect(handler.player.playing, isFalse);
+      }, () => routing);
+    });
+  });
+
+  group('TV video handoff', () {
+    final tvAudio = FakeMetadataBackend.mp3UrlOf('tv-alfa');
+
+    test(
+        'a channel paused in the background and reopened as video is handed '
+        'back to audio on the next background', () async {
+      final video = _FakeVideo();
+      GetIt.instance
+        ..unregister<VideoPlaybackService>()
+        ..registerSingleton<VideoPlaybackService>(video);
+      await http.runWithClient(() async {
+        await startHandler();
+        unawaited(handler.playStation(stationOf(11)));
+        await until(() => video.playing.value);
+        expect(handler.isVideoMode.value, isTrue);
+
+        // Backgrounded while watching: the channel goes on as audio.
+        handler.onAppLifecycleChanged(AppLifecycleState.paused);
+        await untilPlaying(tvAudio, loads: 1);
+
+        // Paused from the lock screen, then the app is reopened: the
+        // channel comes back as (autoplaying) video.
+        await handler.pause();
+        handler.onAppLifecycleChanged(AppLifecycleState.resumed);
+        // HomePage's reconnect check right after the resume (a network
+        // restore stands in for it, past the 8 s just-loaded debounce)
+        // must not load the audio next to the opening video.
+        handler.reconnectIfNeeded(trigger: ReconnectTrigger.networkRestored);
+        await until(() => video.playing.value && handler.isVideoMode.value);
+        expect(channels.loads, hasLength(1));
+        expect(AnalyticsService.instance.isListening, isTrue,
+            reason: 'the autoplaying video is a listening session');
+
+        // Locked again while the video plays: the handoff keeps it going.
+        handler.onAppLifecycleChanged(AppLifecycleState.paused);
+        await untilPlaying(tvAudio, loads: 2);
+        expect(handler.isVideoMode.value, isFalse);
+      }, () => routing);
+    });
+  });
+
+  group('Cast', () {
+    late _FakeCast cast;
+
+    Future<void> castAfterLocalPlay() async {
+      await startHandler();
+      unawaited(handler.playStation(stationOf(2)));
+      await untilPlaying(mp3Of2, loads: 1);
+      cast = _FakeCast();
+      GetIt.instance.registerSingleton<CastService>(cast);
+      handler.watchCastSessions(cast);
+      // main.dart on connect: the local player stops, the receiver plays.
+      cast.isCasting.add(true);
+      await handler.player.stop();
+      handler.setCastPlaying(true);
+      await pumpEventQueue();
+    }
+
+    Future<void> disconnect() async {
+      // main.dart on disconnect: the local player stays stopped.
+      cast.isCasting.add(false);
+      await handler.player.stop();
+      handler.setCastPlaying(false);
+      await pumpEventQueue();
+    }
+
+    test(
+        'a disconnect leaves the phone silent: a network restore does not '
+        'restart local playback', () async {
+      await http.runWithClient(() async {
+        await castAfterLocalPlay();
+
+        await disconnect();
+        handler.reconnectIfNeeded(trigger: ReconnectTrigger.networkRestored);
+        await pumpEventQueue();
+
+        expect(channels.loads, hasLength(1));
+        expect(handler.player.playing, isFalse);
+      }, () => routing);
+    });
+
+    test('pause and resume on the receiver end and resume the listening '
+        'session', () async {
+      await http.runWithClient(() async {
+        await castAfterLocalPlay();
+        expect(AnalyticsService.instance.isListening, isTrue);
+
+        await handler.pause();
+        expect(AnalyticsService.instance.isListening, isFalse);
+
+        await handler.play();
+        expect(AnalyticsService.instance.isListening, isTrue);
+        expect(handler.playbackState.value.playing, isTrue);
+        await disconnect();
+      }, () => routing);
+    });
+  });
+
+  group('station switch', () {
+    test(
+        'a pause during the switch wins: the new station never starts and '
+        'no loading state lingers', () async {
+      await http.runWithClient(() async {
+        await startHandler();
+        unawaited(handler.playStation(stationOf(2)));
+        await untilPlaying(mp3Of2, loads: 1);
+
+        // The switch suspends on stopping the previous stream.
+        final switching = handler.playStation(stationOf(3));
+        await handler.pause();
+        await switching;
+        await pumpEventQueue();
+
+        expect(channels.loads, hasLength(1),
+            reason: 'station 3 must not load after the pause');
+        expect(handler.player.playing, isFalse);
+        expect(handler.playbackState.value.processingState,
+            isNot(AudioProcessingState.loading));
+      }, () => routing);
+    });
+  });
+
+  group('session queue', () {
+    test('tapping a history row keeps the current station', () async {
+      await http.runWithClient(() async {
+        await startHandler();
+        unawaited(handler.playStation(stationOf(2)));
+        await untilPlaying(mp3Of2, loads: 1);
+
+        await handler.skipToQueueItem(0);
+        await pumpEventQueue();
+
+        expect(channels.loads, hasLength(1));
+        expect(handler.currentStation.value?.id, 2);
+      }, () => routing);
+    });
+  });
+
+  group('seek offset', () {
+    test('reapplySeekOffset reloads only when the offset changed', () async {
+      addTearDown(() => SeekModeManager.changeSeekMode(SeekMode.twoMinutes));
+      SeekModeManager.changeSeekMode(SeekMode.twoMinutes);
+      final hlsUrl = FakeMetadataBackend.hlsUrlOf('rve-suceava');
+      await http.runWithClient(() async {
+        await startHandler();
+        unawaited(handler.playStation(stationOf(1)));
+        await untilPlaying(hlsUrl, loads: 1);
+
+        await handler.reapplySeekOffset();
+        expect(channels.loads, hasLength(1), reason: 'offset unchanged');
+
+        SeekModeManager.changeSeekMode(SeekMode.fiveMinutes);
+        await handler.reapplySeekOffset();
+        await untilPlaying(hlsUrl, loads: 2);
+      }, () => routing);
+    });
+  });
+
+  group('playlist metadata', () {
+    test('refreshCurrentMetadata keeps the playlist item on screen', () async {
+      await http.runWithClient(() async {
+        await startHandler();
+        await handler.selectStation(stationOf(2));
+        handler.enterPlaylistMode();
+        const item = PlaylistItem(
+          id: 7,
+          order: 0,
+          type: PlaylistItemType.audio,
+          url: 'https://cdn.example.com/sermon.mp3',
+          title: 'Predica',
+          durationSeconds: 1800,
+        );
+        handler.updatePlaylistMediaItem(item, index: 0, count: 3);
+
+        handler.refreshCurrentMetadata();
+
+        expect(handler.mediaItem.value?.id, item.url);
+        expect(handler.mediaItem.value?.isLive, isFalse);
+      }, () => routing);
+    });
+  });
+
+  group('playlist decoding', () {
+    test(
+        'a song hint with diacritics survives the playlist fetch (UTF-8 '
+        'without a charset)', () async {
+      await http.runWithClient(() async {
+        final recording = _HintRecordingService(
+          graphqlClient: backend.graphqlClient,
+          privateStationsService: PrivateStationsService(
+            httpClient: backend.client,
+            prefs: prefs,
+            deviceIdProvider: () => 'device-1',
+          ),
+          httpClient: backend.client,
+          clock: clock.call,
+          wait: clock.wait,
+        );
+        await startHandler(s: recording);
+        // Song boundaries every 3 s over the first half minute of the
+        // window, where the fake player's playhead sits: whichever the
+        // anchor lands on, the next one is reached within seconds.
+        final windowStart =
+            DateTime.now().millisecondsSinceEpoch ~/ 6000 * 6 - 100 * 6;
+        playlistHeader = [
+          for (var s = 3; s <= 30; s += 3)
+            '#EXT-X-RC-METADATA-CHANGED:EPOCH=${windowStart + s},'
+                'X-SONG-ID=99,X-TITLE="Cuprins de harul Tău",'
+                'X-ARTIST="Corul Ștefan"',
+        ];
+        unawaited(handler.playStation(stationOf(1)));
+        await untilPlaying(FakeMetadataBackend.hlsUrlOf('rve-suceava'),
+            loads: 1);
+        await until(() => recording.hints.any((h) => h != null),
+            timeout: const Duration(seconds: 10));
+
+        final hint = recording.hints.whereType<SongBoundaryHint>().first;
+        expect(hint.title, 'Cuprins de harul Tău');
+        expect(hint.artist, 'Corul Ștefan');
+      }, () => routing);
+    });
+  });
+}

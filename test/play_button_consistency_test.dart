@@ -1,8 +1,5 @@
-import 'dart:async';
-
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:rxdart/rxdart.dart';
 
 /// Tests that all play buttons (mini player, full player, notification)
 /// behave consistently during skip next transitions.
@@ -58,7 +55,7 @@ void main() {
     }
 
     final inGracePeriod = intentSetAt != null &&
-        DateTime.now().difference(intentSetAt!) < const Duration(seconds: 3);
+        DateTime.now().difference(intentSetAt) < const Duration(seconds: 3);
     final showPlaying = inGracePeriod ? intentIsPlaying : streamPlaying;
 
     return {

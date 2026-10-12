@@ -18,11 +18,17 @@ class ImageCacheService {
   static const int _maxConcurrentDownloads = 5;
   int _activeDownloads = 0;
 
+  /// One client for every download, so the ~64 logos from the same CDN
+  /// reuse connections instead of each paying a TCP + TLS handshake.
+  /// Created with the singleton rather than lazily, so a test's
+  /// `http.runWithClient` zone cannot leak into it later.
+  final http.Client _client;
+
   static void _log(String message) {
     developer.log("ImageCacheService: $message");
   }
 
-  ImageCacheService._();
+  ImageCacheService._() : _client = http.Client();
 
   factory ImageCacheService() {
     _instance ??= ImageCacheService._();
@@ -83,10 +89,12 @@ class ImageCacheService {
       _cache.remove(url);
     }
 
-    // Check disk (file might exist from a previous session)
+    // Check disk (file might exist from a previous session). A 0-byte file
+    // is a write that older builds left behind when killed mid-download:
+    // treat it as a miss so it heals instead of being served forever.
     final filePath = _filePathForUrl(url);
     final file = File(filePath);
-    if (await file.exists()) {
+    if (await file.exists() && await file.length() > 0) {
       _cache[url] = filePath;
       return file;
     }
@@ -108,26 +116,43 @@ class ImageCacheService {
     }
 
     _activeDownloads++;
+    // Written under a temp name and renamed into place, so a process kill
+    // mid-write never leaves a truncated file at the final path.
+    final tmp = File('$filePath.part');
     try {
-      final response = await http.get(Uri.parse(url)).timeout(
-        const Duration(seconds: 10),
-      );
-      if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
-        final file = File(filePath);
-        await file.writeAsBytes(response.bodyBytes);
+      final response = await _client
+          .get(Uri.parse(url))
+          .timeout(const Duration(seconds: 10));
+      if (response.statusCode == 200 &&
+          response.bodyBytes.isNotEmpty &&
+          _isImageResponse(response)) {
+        await tmp.writeAsBytes(response.bodyBytes, flush: true);
+        final file = await tmp.rename(filePath);
         _cache[url] = filePath;
         _log("Downloaded: $url");
         return file;
       }
-      _log("Download failed (${response.statusCode}): $url");
+      _log("Download failed (${response.statusCode}, "
+          "${response.headers['content-type']}): $url");
       return null;
     } catch (e) {
       _log("Download error: $url - $e");
+      try {
+        if (await tmp.exists()) await tmp.delete();
+      } catch (_) {}
       return null;
     } finally {
       _activeDownloads--;
     }
   }
+
+  /// Rejects 200 responses that are not images (a proxy or CDN error page),
+  /// which would otherwise be cached and served forever. A missing header
+  /// is accepted.
+  static bool _isImageResponse(http.Response response) =>
+      (response.headers['content-type'] ?? 'image/')
+          .toLowerCase()
+          .startsWith('image/');
 
   /// Pre-cache a list of URLs in background. Only downloads URLs not already cached.
   Future<void> preCacheUrls(List<String> urls) async {

@@ -2,10 +2,9 @@ import 'dart:async';
 import 'dart:developer' as developer;
 import 'dart:io' show Platform;
 
+import 'package:flutter/widgets.dart' show AppLifecycleListener;
 import 'package:flutter_chrome_cast/flutter_chrome_cast.dart';
 import 'package:rxdart/rxdart.dart';
-
-import 'package:get_it/get_it.dart';
 
 import '../globals.dart' as globals;
 import '../types/Station.dart';
@@ -36,6 +35,9 @@ class CastService {
   StreamSubscription? _devicesSubscription;
   StreamSubscription? _sessionSubscription;
   StreamSubscription? _mediaStatusSubscription;
+
+  /// Android only: drops Cast discovery while the app is not visible.
+  AppLifecycleListener? _lifecycleListener;
 
   bool _discoveryStarted = false;
 
@@ -216,6 +218,23 @@ class CastService {
 
       // Start discovery immediately
       startDiscovery();
+
+      if (Platform.isAndroid) {
+        // An active MediaRouter discovery request keeps mDNS and Wi-Fi
+        // multicast running through hours of screen-off playback; Google
+        // asks apps to remove it in onStop. Only the cast button reads the
+        // device list, which stays cached and is rescanned on tap. iOS
+        // already drops to a passive scan in the background.
+        _lifecycleListener ??= AppLifecycleListener(
+          onHide: () {
+            if (connectionState.value ==
+                GoogleCastConnectState.disconnected) {
+              stopDiscovery();
+            }
+          },
+          onShow: startDiscovery,
+        );
+      }
     } catch (e, st) {
       _log('Initialize failed: $e\n$st');
     }
@@ -498,6 +517,7 @@ class CastService {
   }
 
   void dispose() {
+    _lifecycleListener?.dispose();
     stopDiscovery();
     _devicesSubscription?.cancel();
     _sessionSubscription?.cancel();

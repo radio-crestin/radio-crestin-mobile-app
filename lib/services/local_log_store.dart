@@ -18,8 +18,8 @@ import 'package:path_provider/path_provider.dart';
 /// is dropped on rotation.
 ///
 /// All writes are async and serialized through a single queue so concurrent
-/// appends never interleave, buffered via [IOSink] with a periodic flush (no
-/// fsync per line), and never throw into callers.
+/// appends never interleave, buffered via [IOSink] and flushed within 5 s of
+/// a write (no fsync per line), and never throw into callers.
 class LocalLogStore {
   static final LocalLogStore _instance = LocalLogStore();
 
@@ -60,7 +60,13 @@ class LocalLogStore {
     if (_disabled) return;
     final line = formatLine(DateTime.now(), level, body, attributes);
     _enqueue(() => _write(line));
-    _flushTimer ??= Timer.periodic(_flushEvery, (_) => _enqueue(_flushSink));
+    // One-shot, re-armed by the next append: logs are sparse, so a periodic
+    // timer would wake the isolate every 5 s for nothing, even in the
+    // background.
+    _flushTimer ??= Timer(_flushEvery, () {
+      _flushTimer = null;
+      _enqueue(_flushSink);
+    });
   }
 
   /// Returns the existing log files, newest first, after flushing buffered

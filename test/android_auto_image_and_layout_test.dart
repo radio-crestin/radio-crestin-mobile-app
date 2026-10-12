@@ -5,6 +5,7 @@ import 'package:flutter_carplay/aa_models/list/list_template.dart';
 import 'package:flutter_carplay/aa_models/tab/tab.dart';
 import 'package:flutter_carplay/aa_models/tab/tab_template.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:radio_crestin/services/car_play_service.dart';
 
 import 'helpers/station_factory.dart';
 
@@ -20,12 +21,9 @@ void main() {
   // Image URL handling
   // ---------------------------------------------------------------------------
   group('Android Auto - image URL handling for thumbnails', () {
-    /// Mirrors CarPlayService._cachedOrNetworkUrl
-    String? cachedOrNetworkUrl(String? url, String? cachedPath) {
-      if (url == null || url.isEmpty) return url;
-      if (cachedPath != null) return 'file://$cachedPath';
-      return url;
-    }
+    /// CarPlayService._cachedOrNetworkUrl with a fixed cache lookup.
+    String? cachedOrNetworkUrl(String? url, String? cachedPath) =>
+        CarPlayService.resolveCarImageUrl(url, (_) => cachedPath);
 
     test('cached image returns file:// URI with correct path', () {
       final result = cachedOrNetworkUrl(
@@ -59,9 +57,9 @@ void main() {
       expect(cachedOrNetworkUrl(null, '/some/path'), isNull);
     });
 
-    test('empty URL returns empty', () {
-      expect(cachedOrNetworkUrl('', null), '');
-      expect(cachedOrNetworkUrl('', '/some/path'), '');
+    test('empty URL returns null (no image, never an asset name)', () {
+      expect(cachedOrNetworkUrl('', null), isNull);
+      expect(cachedOrNetworkUrl('', '/some/path'), isNull);
     });
 
     test('file:// path does not double-prefix', () {

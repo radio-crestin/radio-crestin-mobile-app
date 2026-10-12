@@ -180,6 +180,56 @@ void main() {
       expect(find.byType(AnimatedSwitcher), findsOneWidget);
     });
 
+    testWidgets('re-broadcast with no visible change schedules no frame',
+        (tester) async {
+      await tester.pumpWidget(buildWidget());
+      await tester.pump();
+
+      final playing = PlaybackState(
+        playing: true,
+        processingState: AudioProcessingState.ready,
+      );
+      playbackController.add(playing);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.byIcon(Icons.pause_rounded), findsOneWidget);
+      expect(tester.binding.hasScheduledFrame, isFalse);
+
+      // Live streams re-broadcast on every buffered-position tick.
+      playbackController.add(playing.copyWith(
+        bufferedPosition: const Duration(seconds: 5),
+      ));
+      await tester.idle();
+      expect(tester.binding.hasScheduledFrame, isFalse);
+
+      // A real change still rebuilds.
+      playbackController.add(playing.copyWith(
+        processingState: AudioProcessingState.buffering,
+      ));
+      await tester.idle();
+      expect(tester.binding.hasScheduledFrame, isTrue);
+      await tester.pump();
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    });
+
+    testWidgets('settled event clears an active grace period', (tester) async {
+      await tester.pumpWidget(buildWidget());
+      await tester.pump();
+
+      // Optimistic play; stream then reports not-playing + idle, which
+      // matches the stored stream flags but must still drop the intent.
+      await tester.tap(find.byType(InkWell));
+      await tester.pump();
+      expect(find.byIcon(Icons.pause_rounded), findsOneWidget);
+
+      playbackController.add(PlaybackState(
+        playing: false,
+        processingState: AudioProcessingState.idle,
+      ));
+      await tester.pump();
+      expect(find.byIcon(Icons.play_arrow_rounded), findsOneWidget);
+    });
+
     testWidgets('disposes cleanly without errors', (tester) async {
       await tester.pumpWidget(buildWidget());
       await tester.pump();

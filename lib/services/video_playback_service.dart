@@ -25,6 +25,7 @@ class VideoPlaybackService {
 
   Player? _player;
   VideoController? _controller;
+  Future<VideoController>? _initFuture;
   final List<StreamSubscription<dynamic>> _subs = [];
 
   bool _live = false;
@@ -131,10 +132,20 @@ class VideoPlaybackService {
 
   /// Lazily creates the [Player] + [VideoController] and wires its streams.
   /// Idempotent — safe to call before every [open].
-  Future<VideoController> ensureInitialized() async {
-    final existing = _controller;
-    if (existing != null) return existing;
+  ///
+  /// Every caller shares one in-flight [Future]: the video surfaces call this
+  /// from `build()` while [open] may still be awaiting the first init, and a
+  /// second concurrent init would create (and leak) another libmpv player.
+  /// The stable instance also keeps `FutureBuilder` from resubscribing on
+  /// every parent rebuild.
+  Future<VideoController> ensureInitialized() =>
+      _initFuture ??= _createController().onError<Object>((e, st) {
+        // A failed init must not poison later calls: allow a retry.
+        _initFuture = null;
+        Error.throwWithStackTrace(e, st);
+      });
 
+  Future<VideoController> _createController() async {
     // media_kit must be initialized once before any Player is constructed.
     // This is the single init point (main.dart defers to here), so it runs on
     // first video use rather than at startup. Timed so the deferred cost is
@@ -314,6 +325,7 @@ class VideoPlaybackService {
     final player = _player;
     _player = null;
     _controller = null;
+    _initFuture = null;
     if (player != null) {
       await player.dispose();
     }

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert' show utf8;
 import 'dart:developer' as developer;
 import 'dart:io';
 import 'dart:ui';
@@ -568,7 +569,10 @@ Future<AppAudioHandler> initAudioService({required graphqlClient}) async {
       androidNotificationIcon: "drawable/ic_launcher_foreground",
       androidNotificationOngoing: true,
       notificationColor: const Color(0xffe91e63),
-      preloadArtwork: true,
+      // Only the queue reads this flag, and nothing uses the preloaded
+      // files: Android Auto downloads queue art itself, iOS ignores the
+      // queue. Lock-screen art is loaded independently of it.
+      preloadArtwork: false,
       // androidShowNotificationBadge: true,
       androidStopForegroundOnPause: true,
       androidBrowsableRootExtras: const {
@@ -587,12 +591,6 @@ class AppAudioHandler extends BaseAudioHandler {
   final GraphQLClient graphqlClient;
   final StationDataService stationDataService = GetIt.instance<StationDataService>();
 
-  Object? error;
-  int errorRetryCount = 0;
-  final int maxErrorRetryCount = 10;
-  bool started = false;
-  int? playerIndex;
-
   // Track loaded stream to avoid unnecessary reconnection on pause/resume
   String? _loadedStreamUrl;
   String? _loadedStreamType;
@@ -610,6 +608,11 @@ class AppAudioHandler extends BaseAudioHandler {
   /// buffering): its now-playing must follow the audible timeline.
   bool get _isLocalLiveHls =>
       _loadedStreamType == 'HLS' && !_videoMode && !_playlistMode && !isCasting;
+  // The listener's play intent in every local mode (station, video,
+  // playlist): set by playStation(), play() and entering video mode (which
+  // autoplays), cleared by pause(), stop(), an error stop and a Cast
+  // disconnect. Reconnects and the background video handoff only act while
+  // it is set.
   bool _hasBeenPlayed = false;
   Timer? _disconnectTimer;
 
@@ -622,6 +625,11 @@ class AppAudioHandler extends BaseAudioHandler {
   final HlsTimeline _hlsTimeline = HlsTimeline();
   final SongBoundaryQueue _songBoundaries = SongBoundaryQueue();
   final LiveHlsStallRecovery _liveHlsRecovery = LiveHlsStallRecovery();
+  // One client for the 10 s playlist poll, so it reuses the keep-alive
+  // connection (dart:io idles it out after 15 s) instead of paying a TCP +
+  // TLS handshake per request. Created with the handler, so a test zone's
+  // client is captured.
+  final http.Client _hlsHttp = http.Client();
   Timer? _hlsPlaylistPollTimer;
   // One timer for the earliest pending song boundary.
   Timer? _songBoundaryTimer;
@@ -650,12 +658,15 @@ class AppAudioHandler extends BaseAudioHandler {
   // (frozen or failing playlist, window reset). This Darwin-only periodic
   // check evaluates [ReconnectPolicy.liveHlsStall] and reloads.
   Timer? _liveHlsWatchdogTimer;
-  // When the player last stopped playing (pause, interruption); null while
-  // playing. Freezes the approximate audible instant (see _audibleInstant).
+  // When the player last stopped playing (pause, interruption, route
+  // disconnect); null while playing. Freezes the approximate audible
+  // instant (see _audibleInstant), and Fix 2 in play() measures the pause
+  // from it to decide whether a fast resume would land on an evicted DVR
+  // segment.
   DateTime? _stoppedPlayingAt;
-  // Wall-clock when the station stream was last paused — Fix 2 uses it to
-  // decide whether a fast resume would land on an evicted DVR segment.
-  DateTime? _pausedAt;
+  // The seek offset the loaded HLS stream was anchored with, so
+  // reapplySeekOffset() can skip a reload that would not change it.
+  Duration? _anchoredOffset;
 
   // ── Auto slow-connection escalation ───────────────────────────────────
   // Repeated stream trouble (buffering stalls / watchdog reconnects) within a
@@ -716,6 +727,10 @@ class AppAudioHandler extends BaseAudioHandler {
   // Each playStation() increments this; play() checks it after every await
   // to bail out if a newer operation has superseded it.
   int _playOperationId = 0;
+  // Bumped by playStation(), pause() and stop() only (not by play(), so a
+  // lock-screen play during a switch does not cancel it). playStation()
+  // re-checks it after each await: a newer switch, or a pause/stop, wins.
+  int _stationSwitchId = 0;
   // Completer used to immediately break out of a stale setAudioSource() await
   // instead of waiting for the full 3-10s timeout to expire.
   Completer<void>? _sourceLoadCanceller;
@@ -736,6 +751,10 @@ class AppAudioHandler extends BaseAudioHandler {
   Duration _youtubePosition = Duration.zero;
   AppLifecycleState _lifecycleState = AppLifecycleState.resumed;
   final List<StreamSubscription<dynamic>> _videoSubs = [];
+  // True while _handoffTvVideoToAudio() is leaving video mode. iOS
+  // delivers `hidden` and `paused` back-to-back, and both would otherwise
+  // pass the `_videoMode` guard and start two audio loads.
+  bool _tvHandoffInFlight = false;
   StreamSubscription<bool>? _carRouteSub;
   StreamSubscription<bool>? _castRouteSub;
 
@@ -797,7 +816,6 @@ class AppAudioHandler extends BaseAudioHandler {
 
   // Track last emitted mediaItem fields to avoid redundant Android notification updates
   int? _lastEmittedSongId;
-  String? _lastEmittedArtUriString;
 
   final BehaviorSubject<Station?> currentStation = BehaviorSubject.seeded(null);
 
@@ -1028,6 +1046,9 @@ class AppAudioHandler extends BaseAudioHandler {
   /// MediaSession queue. Android Auto shows this as a "Up next"-style
   /// page accessible from the queue button on the Now Playing screen.
   Future<void> _updateSongHistoryQueue() async {
+    // iOS ignores setQueue and nothing reads the queue there, so the
+    // history fetch would be wasted on every station and song change.
+    if (Platform.isIOS) return;
     final station = currentStation.valueOrNull;
     if (station == null) {
       queue.add([]);
@@ -1139,11 +1160,6 @@ class AppAudioHandler extends BaseAudioHandler {
   // Audio Player
   Future<void> _initPlayer() async {
     _log("initPlayer");
-
-    // For Android 11, record the most recent item so it can be resumed.
-    mediaItem.whereType<MediaItem>().listen((item) {
-      _recentSubject.add([item]);
-    });
 
     // Propagate all events from the audio player to AudioService clients.
     // Errors raised on this stream (PlayerException etc.) are surfaced through
@@ -1449,6 +1465,17 @@ class AppAudioHandler extends BaseAudioHandler {
           'position_ms': player.position.inMilliseconds,
           'buffered_ms': player.bufferedPosition.inMilliseconds,
         });
+        // Android permanent focus loss (another app took the audio) maps to
+        // begin + unknown and no end follows. Android only: on iOS every
+        // begin is `unknown`, and just_audio resumes after a call itself.
+        // Not for YouTube items: the WebView's own focus request would
+        // pause the item that just started.
+        if (Platform.isAndroid &&
+            event.begin &&
+            event.type == AudioInterruptionType.unknown &&
+            !_playlistYoutubeActive) {
+          _pauseForSystemEvent('focus_loss');
+        }
       });
       session.becomingNoisyEventStream.listen((_) {
         _recordStreamEvent(
@@ -1456,10 +1483,24 @@ class AppAudioHandler extends BaseAudioHandler {
           'AudioSession becoming noisy (route disconnect)',
         );
         AnalyticsService.instance.capture('audio_session_becoming_noisy', const {});
+        _pauseForSystemEvent('becoming_noisy');
       });
     } catch (e) {
       _log('audio session diagnostics setup failed: $e');
     }
+  }
+
+  /// Mirrors a pause just_audio made by itself (route disconnect, permanent
+  /// focus loss) as a user pause.
+  ///
+  /// No automatic resume follows these, so the play intent must be cleared:
+  /// otherwise the next foreground or network restore reconnects and plays
+  /// through the speaker. pause() also arms the 60 s disconnect (stops the
+  /// playlist poll) and ends the listening session.
+  void _pauseForSystemEvent(String reason) {
+    if (isCasting || !_hasBeenPlayed) return;
+    _log('system pause ($reason)');
+    unawaited(pause());
   }
 
   /// Public hook called by HomePage's didChangeAppLifecycleState. Logs every
@@ -1594,7 +1635,6 @@ class AppAudioHandler extends BaseAudioHandler {
     // Song metadata (title/artist) is still shown from the station data.
     final stationItem = _buildStationMediaItem(station);
     _lastEmittedSongId = station.songId;
-    _lastEmittedArtUriString = stationItem.artUri?.toString();
     mediaItem.add(stationItem.copyWith(rating: Rating.newHeartRating(isFav)));
     _ensureStationArtCached(station);
     currentStation.add(station);
@@ -1699,6 +1739,10 @@ class AppAudioHandler extends BaseAudioHandler {
 
     // Cancel any in-flight play() from a previous playStation() call
     _cancelInFlightPlay();
+    // A newer switch, or a pause/stop, can land during any await below: a
+    // second stop() returns at once, so a later tap could otherwise be
+    // overtaken by this one, and a pause would be ignored.
+    final switchId = ++_stationSwitchId;
 
     // New station selection — forget any prior video→audio fallback so this
     // station gets a fresh video attempt and the chip starts hidden.
@@ -1708,9 +1752,11 @@ class AppAudioHandler extends BaseAudioHandler {
     // video mode so the new station starts from a clean slate.
     if (_playlistMode && !station.isPlaylist) {
       await _playlistController.stop();
+      if (switchId != _stationSwitchId) return;
     }
     if (_videoMode) {
       await _exitVideoMode(stopVideo: true);
+      if (switchId != _stationSwitchId) return;
     }
 
     // Enter "connecting" state BEFORE stopping the player so that
@@ -1730,6 +1776,7 @@ class AppAudioHandler extends BaseAudioHandler {
     _stopHlsPlaylistRefresh(endAlignedPlayback: false);
     if (player.playing || player.processingState != ProcessingState.idle) {
       await player.stop();
+      if (switchId != _stationSwitchId) return;
     }
     _loadedStreamUrl = null;
     _loadedStreamType = null;
@@ -1749,6 +1796,7 @@ class AppAudioHandler extends BaseAudioHandler {
     // The previous station is no longer current, so clearing its overlay
     // only shows its live song in the list.
     stationDataService.onAlignedPlaybackEnded();
+    if (switchId != _stationSwitchId) return;
 
     // Tell the sync engine the user just picked this station — drives a
     // full refresh so the playing-station UI sees the freshest now-playing
@@ -1778,6 +1826,7 @@ class AppAudioHandler extends BaseAudioHandler {
 
     if (Platform.isAndroid) {
       await Future.delayed(const Duration(milliseconds: 100));
+      if (switchId != _stationSwitchId) return;
     }
 
     // TV station: play video via media_kit when eligible (foreground, no
@@ -1864,13 +1913,11 @@ class AppAudioHandler extends BaseAudioHandler {
   }
 
   @override
-  Future<void> skipToQueueItem(int index) {
-    _log("skipToQueueItem: $index");
-    final stations = stationDataService.stations.value;
-    if (index >= 0 && index < stations.length) {
-      playStation(stations[index]);
-    }
-    return super.skipToQueueItem(index);
+  Future<void> skipToQueueItem(int index) async {
+    // The session queue only holds 'Recently played' history rows
+    // (_updateSongHistoryQueue), never stations: like playFromMediaId,
+    // tapping one keeps the current station playing.
+    _log('skipToQueueItem($index): history queue, ignored');
   }
 
   /// Determines the playback source for stream tracking.
@@ -1917,11 +1964,20 @@ class AppAudioHandler extends BaseAudioHandler {
   @override
   Future<void> play() async {
     _log("play (isCasting=$isCasting)");
+    // Every resume path (Cast, video, playlist, fast resume, reload) is a
+    // listening session, as pause() ends one on each; a no-op right after
+    // playStation() started one.
+    final station = currentStation.valueOrNull;
+    if (station != null) {
+      AnalyticsService.instance
+          .ensureListening(station.slug, station.title, stationId: station.id);
+    }
     if (isCasting) {
       // Resume playback on Cast — just send play(), don't reload media.
       // Optimistic UI via setCastPlaying so the notification icon flips
       // to pause immediately; the receiver's PLAYING MediaStatus will
       // re-confirm shortly via the main.dart state sync listener.
+      _hasBeenPlayed = true;
       GetIt.instance<CastService>().play();
       setCastPlaying(true);
       _disconnectTimer?.cancel();
@@ -1930,6 +1986,13 @@ class AppAudioHandler extends BaseAudioHandler {
     }
     // Video mode: media_kit owns playback — resume it, not just_audio.
     if (_videoMode) {
+      _hasBeenPlayed = true;
+      // A play from the lock screen or a headset while backgrounded must
+      // not resume the video decoder there: switch to audio-only, as the
+      // background handoff does.
+      final backgrounded = _lifecycleState == AppLifecycleState.paused ||
+          _lifecycleState == AppLifecycleState.hidden;
+      if (backgrounded && !_playlistMode) return _handoffTvVideoToAudio();
       _log('play: resuming video mode');
       _disconnectTimer?.cancel();
       stationDataService.resumePolling();
@@ -1941,6 +2004,7 @@ class AppAudioHandler extends BaseAudioHandler {
     // audio/video VOD items resume the just_audio player directly (the
     // station-stream retry loop below does not apply to playlist items).
     if (_playlistMode) {
+      _hasBeenPlayed = true;
       _disconnectTimer?.cancel();
       stationDataService.resumePolling();
       if (_playlistYoutubeActive) {
@@ -1954,7 +2018,7 @@ class AppAudioHandler extends BaseAudioHandler {
     }
     _disconnectTimer?.cancel();
     stationDataService.resumePolling();
-
+    _hasBeenPlayed = true;
 
     var item = mediaItem.valueOrNull;
 
@@ -1970,9 +2034,12 @@ class AppAudioHandler extends BaseAudioHandler {
       // never advances). If we've been paused past the safe runway, drop the
       // loaded URL and fall through to a fresh load so _seekBehindLiveEdge()
       // re-anchors. Direct/non-HLS streams have no window — always fast-resume.
-      final pausedFor = _pausedAt == null
+      // Measured from the real stop (any cause, not only a pause() call);
+      // the playing check covers a play() racing the playing listener.
+      final stoppedAt = player.playing ? null : _stoppedPlayingAt;
+      final pausedFor = stoppedAt == null
           ? Duration.zero
-          : DateTime.now().difference(_pausedAt!);
+          : DateTime.now().difference(stoppedAt);
       final reload = _loadedStreamType == 'HLS' &&
           ReconnectPolicy.shouldReloadAfterPause(
             offset: SeekModeManager.currentOffset,
@@ -1981,7 +2048,6 @@ class AppAudioHandler extends BaseAudioHandler {
           );
       if (!reload) {
         _log("play: fast resume (stream already loaded)");
-        AnalyticsService.instance.resumeListening();
         return player.play();
       }
       _log('play: paused ${pausedFor.inSeconds}s exceeds safe DVR runway — '
@@ -2245,6 +2311,7 @@ class AppAudioHandler extends BaseAudioHandler {
     }
 
     if (_loadedStreamType == 'HLS') {
+      _anchoredOffset = SeekModeManager.currentOffset;
       _seekBehindLiveEdge(); // non-blocking: seek starts, play() follows immediately
       // The concurrent fetch issued with the load is already in flight.
       _startHlsPlaylistPoll(skipInitialFetch: true);
@@ -2287,13 +2354,22 @@ class AppAudioHandler extends BaseAudioHandler {
   @override
   Future<void> pause() async {
     _log("pause (isCasting=$isCasting)");
+    // Cancels a station switch in flight (playStation re-checks this after
+    // each await) and the loading state it set, which the cast and
+    // playlist branches would otherwise leave behind.
+    _stationSwitchId++;
+    _isConnecting = false;
     if (isCasting) {
+      _hasBeenPlayed = false;
+      AnalyticsService.instance.endListening(reason: 'pause');
       GetIt.instance<CastService>().pause();
       setCastPlaying(false);
       return;
     }
     // Video mode: pause media_kit (no disconnect timer — the source stays warm).
     if (_videoMode) {
+      _hasBeenPlayed = false;
+      AnalyticsService.instance.endListening(reason: 'pause');
       await videoService.pause();
       _broadcastState(player.playbackEvent);
       return;
@@ -2302,6 +2378,8 @@ class AppAudioHandler extends BaseAudioHandler {
     // audio/video items pause just_audio directly, skipping the 60s
     // station-stream disconnect timer (there is no station stream to drop).
     if (_playlistMode) {
+      _hasBeenPlayed = false;
+      AnalyticsService.instance.endListening(reason: 'pause');
       if (_playlistYoutubeActive) {
         _log('pause: pausing youtube item');
         _playlistController.pauseYoutube();
@@ -2313,10 +2391,16 @@ class AppAudioHandler extends BaseAudioHandler {
     }
     _cancelInFlightPlay();
     _hasBeenPlayed = false;
-    _pausedAt = DateTime.now(); // Fix 2: age the paused playhead on resume
+    // A pause mid-buffering must not leave the stall reattempt armed or
+    // the iOS silence keeper looping until the disconnect.
+    _bufferingStallTimer?.cancel();
+    _stopSilenceKeepAlive();
     _stopLiveHlsWatchdog();
     AnalyticsService.instance.endListening(reason: 'pause');
     await player.pause();
+    // During a station switch the player is already stopped, so pause()
+    // emits nothing and the switch's loading state would linger.
+    _broadcastState(player.playbackEvent);
     // The audible clock is frozen while paused; the timeline listener also
     // cancels on advancing=false, this keeps the intent explicit. The poll
     // keeps running (skew and boundaries stay fresh) until the disconnect.
@@ -2360,6 +2444,13 @@ class AppAudioHandler extends BaseAudioHandler {
   /// the reload's anchored refresh re-resolves the playing station's song.
   Future<void> reapplySeekOffset() async {
     if (_loadedStreamType != 'HLS' || !player.playing) return;
+    // Android Auto calls this on every connection change; when the offset
+    // is already in effect (5-min mode, unstable or auto-slow) a reload
+    // would only cut the audio for nothing.
+    if (SeekModeManager.currentOffset == _anchoredOffset) {
+      _log('reapplySeekOffset: offset unchanged, skipping');
+      return;
+    }
     _log('reapplySeekOffset: restarting HLS stream with new offset');
     _loadedStreamUrl = null;
     _loadedStreamType = null;
@@ -2369,11 +2460,13 @@ class AppAudioHandler extends BaseAudioHandler {
   /// Re-emits the current media item so that thumbnail and metadata reflect
   /// the latest data-saving settings (unstable connection, mobile data, etc.).
   void refreshCurrentMetadata() {
+    // A playlist item's own metadata (title, duration, not live) would be
+    // replaced by the station's live item until the next item starts.
+    if (_playlistMode) return;
     final station = currentStation.valueOrNull;
     if (station == null || mediaItem.valueOrNull == null) return;
     final item = _buildStationMediaItem(station);
     _lastEmittedSongId = -1; // force re-evaluation on next poll
-    _lastEmittedArtUriString = item.artUri?.toString();
     final isFav = stationDataService.favoriteStationSlugs.value.contains(station.slug);
     mediaItem.add(item.copyWith(rating: Rating.newHeartRating(isFav)));
   }
@@ -2785,13 +2878,17 @@ class AppAudioHandler extends BaseAudioHandler {
     HlsPlaylistSnapshot? snapshot;
     var withoutPdt = false;
     try {
-      final r = await http.get(Uri.parse(u)).timeout(_hlsPollTimeout);
+      final r = await _hlsHttp.get(Uri.parse(u)).timeout(_hlsPollTimeout);
       if (r.statusCode == 200) {
-        snapshot = HlsPlaylistSnapshot.parse(r.body,
+        // HLS playlists are UTF-8 (RFC 8216), but the origin sends no
+        // charset, so `r.body` would decode Latin-1 and garble diacritics
+        // in the song titles the playlist announces.
+        final body = utf8.decode(r.bodyBytes, allowMalformed: true);
+        snapshot = HlsPlaylistSnapshot.parse(body,
             fetchedAt: DateTime.now(),
             lastModifiedHeader: r.headers['last-modified']);
         withoutPdt = snapshot == null &&
-            HlsPlaylistSnapshot.isMediaPlaylistWithoutPdt(r.body);
+            HlsPlaylistSnapshot.isMediaPlaylistWithoutPdt(body);
       } else {
         _log('hls poll: HTTP ${r.statusCode}');
       }
@@ -2910,10 +3007,20 @@ class AppAudioHandler extends BaseAudioHandler {
   /// Subscribes to Cast sessions (the service registers after the first
   /// frame). Casting stops the local player, so a rising edge ends the
   /// local time-shifted session. Idempotent.
+  ///
+  /// A falling edge (disconnect) leaves the local player stopped by design
+  /// (main.dart), so it clears the play intent: otherwise the next
+  /// foreground or network restore would start the phone's speaker.
   void watchCastSessions(CastService castService) {
     if (_castSessionSub != null) return;
+    var wasCasting = false;
     _castSessionSub = castService.isCasting.distinct().listen((casting) {
-      if (casting) _stopHlsPlaylistRefresh();
+      if (casting) {
+        _stopHlsPlaylistRefresh();
+      } else if (wasCasting) {
+        _hasBeenPlayed = false;
+      }
+      wasCasting = casting;
     });
   }
 
@@ -2986,8 +3093,9 @@ class AppAudioHandler extends BaseAudioHandler {
       final uri = Uri.parse(url);
       final isHls = first['type'] == 'HLS';
       if (isHls) {
-        // Reuses the lightweight playlist GET — primes DNS/TLS and the CDN edge.
-        await http.get(uri).timeout(const Duration(seconds: 5));
+        // Reuses the lightweight playlist GET — primes DNS/TLS and the CDN
+        // edge, on the client whose pooled connection the first poll uses.
+        await _hlsHttp.get(uri).timeout(const Duration(seconds: 5));
       } else {
         await http.head(uri).timeout(const Duration(seconds: 5));
       }
@@ -3082,6 +3190,17 @@ class AppAudioHandler extends BaseAudioHandler {
     _loadedStreamType = null;
     _videoMode = true;
     isVideoMode.add(true);
+    // media_kit autoplays what it opens, so a playing video always carries
+    // the play intent (the background handoff acts on it) and a listening
+    // session. Set only once video mode owns playback: a reconnect check
+    // that runs during the awaits above would otherwise load just_audio
+    // next to the video instead of resuming it.
+    _hasBeenPlayed = true;
+    final station = currentStation.valueOrNull;
+    if (station != null) {
+      AnalyticsService.instance
+          .ensureListening(station.slug, station.title, stationId: station.id);
+    }
     // Fresh video content — clear any prior fallback state and re-arm the
     // watchdog so this attempt gets a clean chance to render.
     audioOnlyFallback.add(false);
@@ -3222,7 +3341,14 @@ class AppAudioHandler extends BaseAudioHandler {
         vs.playingStream.listen((_) => _broadcastState(player.playbackEvent)));
     _videoSubs.add(
         vs.bufferingStream.listen((_) => _broadcastState(player.playbackEvent)));
-    _videoSubs.add(vs.positionStream.listen((_) {
+    // media_kit reports position about once per frame. Clients extrapolate
+    // from updateTime, so whole seconds are enough, and spare the platform
+    // channels, Android Auto and full-page rebuilds a per-frame broadcast.
+    // seek() broadcasts its discontinuity itself.
+    _videoSubs.add(vs.positionStream
+        .map((p) => p.inSeconds)
+        .distinct()
+        .listen((_) {
       if (_videoMode) _broadcastState(player.playbackEvent);
     }));
   }
@@ -3259,12 +3385,20 @@ class AppAudioHandler extends BaseAudioHandler {
   /// TV station: hand off from media_kit video to just_audio audio-only, using
   /// the standard station play() path (live-edge re-tune + metadata).
   Future<void> _handoffTvVideoToAudio() async {
-    if (!_videoMode) return;
-    _log('handoffTvVideoToAudio');
-    if (Platform.isIOS) {
-      await _startSilenceKeepAlive();
+    if (!_videoMode || _tvHandoffInFlight) return;
+    // Held only until video mode is left: from then on `_videoMode` guards,
+    // and a later handoff (after a foreground round trip) must not be
+    // blocked by this one's audio load.
+    _tvHandoffInFlight = true;
+    try {
+      _log('handoffTvVideoToAudio');
+      if (Platform.isIOS) {
+        await _startSilenceKeepAlive();
+      }
+      await _exitVideoMode(stopVideo: true);
+    } finally {
+      _tvHandoffInFlight = false;
     }
-    await _exitVideoMode(stopVideo: true);
     _loadedStreamUrl = null;
     _loadedStreamType = null;
     await play();
@@ -3473,7 +3607,9 @@ class AppAudioHandler extends BaseAudioHandler {
     final backgrounded = state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden;
     if (backgrounded) {
-      if (_videoMode) unawaited(_handoffTvVideoToAudio());
+      // A paused TV channel stays paused in video mode: the handoff would
+      // start its audio in the background. play() hands off later instead.
+      if (_videoMode && _hasBeenPlayed) unawaited(_handoffTvVideoToAudio());
     } else if (state == AppLifecycleState.resumed) {
       final station = currentStation.valueOrNull;
       if (!_videoMode &&
@@ -3497,6 +3633,8 @@ class AppAudioHandler extends BaseAudioHandler {
     _log("_stopDueToError (keeping command center alive)");
     _cancelInFlightPlay();
     _hasBeenPlayed = false;
+    // Otherwise listening_active heartbeats keep firing after the stop.
+    AnalyticsService.instance.endListening(reason: 'error');
     _disconnectTimer?.cancel();
     _bufferingStallTimer?.cancel();
     _stopLiveHlsWatchdog();
@@ -3517,6 +3655,9 @@ class AppAudioHandler extends BaseAudioHandler {
   @override
   Future<void> stop() async {
     _log("stop (isCasting=$isCasting)");
+    // Cancels a station switch in flight, like pause().
+    _stationSwitchId++;
+    _isConnecting = false;
     if (isCasting) {
       GetIt.instance<CastService>().stop();
       setCastPlaying(false);
@@ -3762,7 +3903,6 @@ class AppAudioHandler extends BaseAudioHandler {
               ? _youtubePosition
               : player.bufferedPosition,
       speed: player.speed,
-      queueIndex: playerIndex,
     ));
   }
 
@@ -3780,7 +3920,7 @@ class AppAudioHandler extends BaseAudioHandler {
     if (query.isEmpty) return stationsMediaItems.value;
     final lowerQuery = query.toLowerCase();
     final results = stationsMediaItems.value.where((item) {
-      final title = (item.title ?? '').toLowerCase();
+      final title = item.title.toLowerCase();
       final artist = (item.artist ?? '').toLowerCase();
       final displayTitle = (item.displayTitle ?? '').toLowerCase();
       final displaySubtitle = (item.displaySubtitle ?? '').toLowerCase();
@@ -3836,6 +3976,7 @@ class AppAudioHandler extends BaseAudioHandler {
     _bufferingStallTimer?.cancel();
     _stopLiveHlsWatchdog();
     _stopHlsPlaylistRefresh();
+    _hlsHttp.close();
     _stopSilenceKeepAlive();
     for (final s in _videoSubs) {
       await s.cancel();
@@ -3987,13 +4128,14 @@ class AppAudioHandler extends BaseAudioHandler {
     // fetching is lightweight. Only difference: skip song thumbnail download.
     NetworkService.instance.isOnMobileData.stream.listen((onMobile) {
       _log("isOnMobileData changed: $onMobile");
+      // Keep the playlist item's own metadata (see refreshCurrentMetadata).
+      if (_playlistMode) return;
       final station = currentStation.valueOrNull;
       if (station == null || mediaItem.valueOrNull == null) return;
 
       // Re-emit with station thumbnail (cached on disk, no download needed)
       final item = _buildStationMediaItem(station);
       _lastEmittedSongId = onMobile ? -1 : station.songId;
-      _lastEmittedArtUriString = item.artUri?.toString();
       final isFav = stationDataService.favoriteStationSlugs.value.contains(station.slug);
       mediaItem.add(item.copyWith(rating: Rating.newHeartRating(isFav)));
       if (!onMobile) {
@@ -4001,23 +4143,9 @@ class AppAudioHandler extends BaseAudioHandler {
       }
     });
 
-    // When car connects/disconnects: re-emit metadata with station thumbnail.
-    // Metadata text is always shown (differential fetching is lightweight).
-    // Car mode only skips song thumbnail downloads — uses cached station thumbnails.
-    if (GetIt.instance.isRegistered<CarPlayService>()) {
-      GetIt.instance<CarPlayService>().isCarConnected.stream.listen((connected) {
-        _log("Car connection changed: $connected");
-        final station = currentStation.valueOrNull;
-        if (station == null || mediaItem.valueOrNull == null) return;
-
-        // Re-emit with station thumbnail and full metadata text
-        final item = _buildStationMediaItem(station);
-        _lastEmittedSongId = connected ? -1 : station.songId;
-        _lastEmittedArtUriString = item.artUri?.toString();
-        final isFav = stationDataService.favoriteStationSlugs.value.contains(station.slug);
-        mediaItem.add(item.copyWith(rating: Rating.newHeartRating(isFav)));
-      });
-    }
+    // Car connect/disconnect re-emits metadata through CarPlayService,
+    // which calls refreshCurrentMetadata() itself (it registers after this
+    // handler, so it cannot be subscribed to from here).
 
     // When connectivity is restored: always attempt reconnect. The earlier
     // foreground-only gate prevented background recovery — but
@@ -4059,7 +4187,11 @@ class AppAudioHandler extends BaseAudioHandler {
       // Auto's built-in media browser matches the custom UI order.
       // Always use HTTPS artUri (not file:// cached paths) because Android
       // Auto's system player runs in a separate process.
-      final sortedStations = stationDataService.getSortedStations();
+      // Unfiltered: the phone's station-group filter cannot be seen or
+      // changed from the car, so browse, search, and playFromMediaId must
+      // cover the whole catalog.
+      final sortedStations =
+          stationDataService.getSortedStations(applyGroupFilter: false);
       final newStationsMediaItems = sortedStations.map((station) {
         final thumbnailUrl = station.rawStationData.thumbnail_url;
         final artUri = (thumbnailUrl != null && thumbnailUrl.isNotEmpty)
@@ -4083,7 +4215,8 @@ class AppAudioHandler extends BaseAudioHandler {
         final newSongId = updatedCurrentStation.songId;
         final songChanged = newSongId != _lastEmittedSongId;
 
-        if (songChanged) {
+        // A playlist item publishes its own metadata.
+        if (songChanged && !_playlistMode) {
           final isFav = stationDataService.favoriteStationSlugs.value.contains(updatedCurrentStation.slug);
 
           // Always show metadata text (song name/artist) — differential fetching is lightweight.
@@ -4091,7 +4224,6 @@ class AppAudioHandler extends BaseAudioHandler {
           // they use the station thumbnail (cached on disk) instead of downloading song thumbnails.
           final newItem = _buildStationMediaItem(updatedCurrentStation);
           _lastEmittedSongId = newSongId;
-          _lastEmittedArtUriString = newItem.artUri?.toString();
           mediaItem.add(newItem.copyWith(rating: Rating.newHeartRating(isFav)));
 
           // Push updated metadata to Cast device in real-time
