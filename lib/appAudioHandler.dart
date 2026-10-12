@@ -1005,6 +1005,13 @@ class AppAudioHandler extends BaseAudioHandler {
     }
   }
 
+  /// Media ID prefix for the items of the Android Auto favorites folder.
+  ///
+  /// Android Auto plays a browsed item by its media ID alone (the item's
+  /// extras are not sent back), so the folder it was picked from has to be
+  /// part of the ID for next/previous to stay within the favorites.
+  static const _favoritesMediaIdPrefix = 'favorites:';
+
   // Android Auto media browsing support.
   // The system's built-in media browser calls this to build the browse tree.
   // No CarAppService needed — works like YouTube Music / Spotify.
@@ -1018,16 +1025,11 @@ class AppAudioHandler extends BaseAudioHandler {
         final favSlugs = stationDataService.favoriteStationSlugs.value;
         return stationsMediaItems.value
             .where((item) => favSlugs.contains(item.extras?["station_slug"]))
-            .map((item) => item.copyWith(
-              extras: {...?item.extras, 'fromFavorites': true},
-            ))
+            .map((item) =>
+                item.copyWith(id: '$_favoritesMediaIdPrefix${item.id}'))
             .toList();
       case "allStationsRootId":
-        return stationsMediaItems.value
-            .map((item) => item.copyWith(
-              extras: {...?item.extras, 'fromFavorites': false},
-            ))
-            .toList();
+        return stationsMediaItems.value;
       default:
         if (parentMediaId == AudioService.browsableRootId) {
           const pkg = 'com.radiocrestin.radio_crestin';
@@ -1729,7 +1731,9 @@ class AppAudioHandler extends BaseAudioHandler {
     _beginFastStartMeasure(station);
     _hasBeenPlayed = true;
 
-    // Track navigation context for next/previous behavior
+    // Navigation context for next/previous: true when picked from a favorites
+    // list, false from any other list, search or link. Null (skip, resume of
+    // the last station) keeps the current context.
     if (fromFavorites != null) {
       stationDataService.startedFromFavorites = fromFavorites;
     }
@@ -1910,10 +1914,14 @@ class AppAudioHandler extends BaseAudioHandler {
     // Playlist active: steering-wheel / lock-screen next skips to the next item.
     if (_playlistMode) return _playlistController.skipToNext();
     if (currentStation.value == null) return super.skipToNext();
-    final next = stationDataService.getNextStation(currentStation.value!.slug);
-    _log('skipToNext: current=${currentStation.value!.slug}, next=${next?.slug}');
+    final current = currentStation.value!.slug;
+    final next = stationDataService.getNextStation(current);
+    _log('skipToNext: current=$current, next=${next?.slug}');
     if (next == null) return super.skipToNext();
-    AnalyticsService.instance.trackStationSkip(currentStation.value!.slug, next.slug, 'next');
+    // A sole favorite is its own next: playStation resumes it if paused.
+    if (next.slug != current) {
+      AnalyticsService.instance.trackStationSkip(current, next.slug, 'next');
+    }
     return playStation(next);
   }
 
@@ -1922,10 +1930,13 @@ class AppAudioHandler extends BaseAudioHandler {
     _log('skipToPrevious() startedFromFavorites=${stationDataService.startedFromFavorites}');
     if (_playlistMode) return _playlistController.skipToPrevious();
     if (currentStation.value == null) return super.skipToPrevious();
-    final prev = stationDataService.getPreviousStation(currentStation.value!.slug);
-    _log('skipToPrevious: current=${currentStation.value!.slug}, prev=${prev?.slug}');
+    final current = currentStation.value!.slug;
+    final prev = stationDataService.getPreviousStation(current);
+    _log('skipToPrevious: current=$current, prev=${prev?.slug}');
     if (prev == null) return super.skipToPrevious();
-    AnalyticsService.instance.trackStationSkip(currentStation.value!.slug, prev.slug, 'previous');
+    if (prev.slug != current) {
+      AnalyticsService.instance.trackStationSkip(current, prev.slug, 'previous');
+    }
     return playStation(prev);
   }
 
@@ -3721,9 +3732,9 @@ class AppAudioHandler extends BaseAudioHandler {
       }
     }
     if (maxR > 0) {
-      return playStation(selectedStation);
+      return playStation(selectedStation, fromFavorites: false);
     } else {
-      return playStation(stations[0]);
+      return playStation(stations[0], fromFavorites: false);
     }
   }
 
@@ -3731,7 +3742,7 @@ class AppAudioHandler extends BaseAudioHandler {
   Future<void> playFromUri(Uri uri, [Map<String, dynamic>? extras]) {
     for (var v in stationDataService.stations.value) {
       if (v.stationStreams.toString().contains(uri.toString())) {
-        return playStation(v);
+        return playStation(v, fromFavorites: false);
       }
     }
     return super.playFromUri(uri);
@@ -4041,8 +4052,14 @@ class AppAudioHandler extends BaseAudioHandler {
     _log('playFromMediaId($mediaId, $extras)');
     // History items: tapping keeps the current station playing
     if (mediaId.startsWith('history_')) return;
+    // Any other browsed item (all stations, search results) is a pick from
+    // the full list.
+    final fromFavorites = mediaId.startsWith(_favoritesMediaIdPrefix);
+    final stationMediaId = fromFavorites
+        ? mediaId.substring(_favoritesMediaIdPrefix.length)
+        : mediaId;
     var selectedMediaItem = stationsMediaItems.value.cast<MediaItem?>()
-        .firstWhere((item) => item!.id == mediaId, orElse: () => null);
+        .firstWhere((item) => item!.id == stationMediaId, orElse: () => null);
 
     // Wait for stations to load if not yet available (release mode race condition)
     if (selectedMediaItem == null && stationsMediaItems.value.isEmpty) {
@@ -4052,21 +4069,18 @@ class AppAudioHandler extends BaseAudioHandler {
             .firstWhere((items) => items.isNotEmpty)
             .timeout(const Duration(seconds: 10));
         selectedMediaItem = stationsMediaItems.value.cast<MediaItem?>()
-            .firstWhere((item) => item!.id == mediaId, orElse: () => null);
+            .firstWhere((item) => item!.id == stationMediaId,
+                orElse: () => null);
       } catch (e) {
         _log('playFromMediaId: timeout waiting for stations: $e');
       }
     }
 
     if (selectedMediaItem != null) {
-      // The system passes extras from getChildren (includes fromFavorites).
-      // Merge them into the media item so playMediaItem can read the flag.
-      if (extras != null && extras.containsKey('fromFavorites')) {
-        selectedMediaItem = selectedMediaItem.copyWith(
-          extras: {...?selectedMediaItem.extras, 'fromFavorites': extras['fromFavorites']},
-        );
-      }
-      return playMediaItem(selectedMediaItem);
+      // playMediaItem reads the navigation context from the extras.
+      return playMediaItem(selectedMediaItem.copyWith(
+        extras: {...?selectedMediaItem.extras, 'fromFavorites': fromFavorites},
+      ));
     }
   }
 

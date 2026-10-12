@@ -162,7 +162,7 @@ class _TvRecentPageState extends State<TvRecentPage> {
                   isFavorite: isFavorite,
                   autofocus: index == 0,
                   onSelect: () {
-                    _audioHandler.playStation(station);
+                    _audioHandler.playStation(station, fromFavorites: false);
                     widget.onOpenNowPlaying?.call();
                   },
                   onFavoriteToggle: () {

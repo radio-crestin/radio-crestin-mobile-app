@@ -189,9 +189,19 @@ class StationDataService {
   final BehaviorSubject<Query$GetStations$station_groups?> selectedStationGroup =
       BehaviorSubject.seeded(null);
 
-  /// When true, next/previous navigation cycles through favorites first,
-  /// then falls through to the full sorted list.
-  bool startedFromFavorites = false;
+  /// Whether the playing station was picked from a favorites list.
+  ///
+  /// While true, next/previous only cycle through the favorites. Persisted so
+  /// the context survives restarts: autoplay and car autoplay resume the last
+  /// station without picking from a list again.
+  bool get startedFromFavorites =>
+      GetIt.instance<SharedPreferences>().getBool(_startedFromFavoritesKey) ??
+      false;
+
+  set startedFromFavorites(bool value) {
+    unawaited(GetIt.instance<SharedPreferences>()
+        .setBool(_startedFromFavoritesKey, value));
+  }
 
   /// Cached sort order (list of slugs) for the user-chosen (non-recommended)
   /// sort options. Keeps the order stable during the session. Only
@@ -221,6 +231,7 @@ class StationDataService {
 
   // Constants
   static const _favoriteStationsKey = 'favoriteStationSlugs';
+  static const _startedFromFavoritesKey = 'started_from_favorites';
   static const _cachedStationsKey = 'cached_stations_data';
   static const _minStationsForCache = 10;
 
@@ -1418,39 +1429,54 @@ class StationDataService {
     sortOrderChanged.add(null);
   }
 
-  /// Builds the navigation playlist: if the user started from favorites,
-  /// favorites come first (in sorted order), then the remaining stations.
-  /// Otherwise, returns the full sorted list.
-  List<Station> _getNavigationPlaylist() {
-    final sorted = getSortedStations();
-    if (!startedFromFavorites) return sorted;
+  /// Returns the station after [currentSlug] in the navigation playlist,
+  /// wrapping around to the first one at the end.
+  Station? getNextStation(String currentSlug) =>
+      _stepStation(currentSlug, forward: true);
 
-    final favSlugs = favoriteStationSlugs.value;
-    if (favSlugs.isEmpty) return sorted;
+  /// Returns the station before [currentSlug] in the navigation playlist,
+  /// wrapping around to the last one at the beginning.
+  Station? getPreviousStation(String currentSlug) =>
+      _stepStation(currentSlug, forward: false);
 
-    final favorites = sorted.where((s) => favSlugs.contains(s.slug)).toList();
-    final others = sorted.where((s) => !favSlugs.contains(s.slug)).toList();
-    return [...favorites, ...others];
+  Station? _stepStation(String currentSlug, {required bool forward}) {
+    final base = _navigationBase(currentSlug);
+    final playlist = _navigationPlaylist(base);
+    if (playlist.isEmpty) return null;
+    final step = forward ? 1 : -1;
+    final idx = playlist.indexWhere((s) => s.slug == currentSlug);
+    if (idx >= 0) return playlist[(idx + step) % playlist.length];
+
+    // The current station left the playlist (e.g. it was just removed from
+    // favorites): continue from its slot in the sorted order.
+    final baseIdx = base.indexWhere((s) => s.slug == currentSlug);
+    if (baseIdx >= 0) {
+      final slugs = playlist.map((s) => s.slug).toSet();
+      for (var i = 1; i < base.length; i++) {
+        final candidate = base[(baseIdx + i * step) % base.length];
+        if (slugs.contains(candidate.slug)) return candidate;
+      }
+    }
+    return forward ? playlist.first : playlist.last;
   }
 
-  /// Returns the next station in the navigation playlist after [currentSlug].
-  /// Wraps around to the first station at the end.
-  Station? getNextStation(String currentSlug) {
-    final playlist = _getNavigationPlaylist();
-    if (playlist.isEmpty) return null;
-    final idx = playlist.indexWhere((s) => s.slug == currentSlug);
-    if (idx < 0) return playlist.first;
-    return playlist[(idx + 1) % playlist.length];
+  /// The sorted list [currentSlug] is navigated within: the group-filtered
+  /// list the phone shows, or the full catalog when the station sits outside
+  /// the selected group (picked from the car, from search or from a link).
+  List<Station> _navigationBase(String currentSlug) {
+    final filtered = getSortedStations();
+    if (filtered.any((s) => s.slug == currentSlug)) return filtered;
+    final all = getSortedStations(applyGroupFilter: false);
+    return all.any((s) => s.slug == currentSlug) ? all : filtered;
   }
 
-  /// Returns the previous station in the navigation playlist before [currentSlug].
-  /// Wraps around to the last station at the beginning.
-  Station? getPreviousStation(String currentSlug) {
-    final playlist = _getNavigationPlaylist();
-    if (playlist.isEmpty) return null;
-    final idx = playlist.indexWhere((s) => s.slug == currentSlug);
-    if (idx <= 0) return playlist.last;
-    return playlist[idx - 1];
+  /// Narrows [base] to the favorites when playback started from a favorites
+  /// list. Falls back to [base] once no favorite is left in it.
+  List<Station> _navigationPlaylist(List<Station> base) {
+    if (!startedFromFavorites) return base;
+    final favSlugs = favoriteStationSlugs.value.toSet();
+    final favorites = base.where((s) => favSlugs.contains(s.slug)).toList();
+    return favorites.isEmpty ? base : favorites;
   }
 
   // ---------------------------------------------------------------------------

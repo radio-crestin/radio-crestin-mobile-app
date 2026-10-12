@@ -413,6 +413,58 @@ void main() {
     });
   });
 
+  group('Android Auto browsing', () {
+    Future<List<MediaItem>> browse(String folder) async {
+      await until(() => handler.stationsMediaItems.value.isNotEmpty);
+      return handler.getChildren(folder);
+    }
+
+    test(
+        'a station picked from the favorites folder keeps next and previous '
+        'within the favorites', () async {
+      await http.runWithClient(() async {
+        await startHandler();
+        await service.setStationIsFavorite(stationOf(3), true);
+        await service.setStationIsFavorite(stationOf(5), true);
+
+        final favorites = await browse('favoriteStationsRootId');
+        expect(favorites.map((i) => i.extras?['station_slug']), ['s3', 's5']);
+
+        unawaited(handler.playFromMediaId(favorites.first.id));
+        await until(() => handler.currentStation.valueOrNull?.id == 3);
+        expect(service.startedFromFavorites, isTrue);
+
+        unawaited(handler.skipToNext());
+        await until(() => handler.currentStation.value?.id == 5);
+        unawaited(handler.skipToNext());
+        await until(() => handler.currentStation.value?.id == 3);
+        unawaited(handler.skipToPrevious());
+        await until(() => handler.currentStation.value?.id == 5);
+      }, () => routing);
+    });
+
+    test('a station picked from all stations navigates the full list',
+        () async {
+      await http.runWithClient(() async {
+        await startHandler();
+        service.startedFromFavorites = true;
+        await service.setStationIsFavorite(stationOf(3), true);
+        await service.setStationIsFavorite(stationOf(5), true);
+
+        final all = await browse('allStationsRootId');
+        final s3 = all.firstWhere((i) => i.extras?['station_slug'] == 's3');
+        unawaited(handler.playFromMediaId(s3.id));
+        await until(() => handler.currentStation.valueOrNull?.id == 3);
+        expect(service.startedFromFavorites, isFalse);
+
+        final expected = service.getNextStation('s3')!;
+        expect(expected.id, isNot(5), reason: 'the full list, not favorites');
+        unawaited(handler.skipToNext());
+        await until(() => handler.currentStation.value?.id == expected.id);
+      }, () => routing);
+    });
+  });
+
   group('seek offset', () {
     test('reapplySeekOffset reloads only when the offset changed', () async {
       addTearDown(() => SeekModeManager.changeSeekMode(SeekMode.twoMinutes));

@@ -161,9 +161,10 @@ class CarPlayService {
         _log("No last played station after waiting, skipping car autoplay");
         return;
       }
-      final fromFavorites = _isFavorite(station.slug);
-      _log("Car connected — autoplaying station: ${station.slug} (fromFavorites=$fromFavorites)");
-      _audioHandler.playStation(station, fromFavorites: fromFavorites);
+      // No list context: next/previous keep the persisted one, so a station
+      // last picked from favorites keeps cycling through the favorites.
+      _log("Car connected — autoplaying station: ${station.slug}");
+      _audioHandler.playStation(station);
     } catch (e) {
       _log("Error during car autoplay: $e");
     }

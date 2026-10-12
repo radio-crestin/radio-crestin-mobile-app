@@ -889,7 +889,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                     searchFunction: (Station station) => station.displayTitle,
                                     onItemSelected: (Station station) {
                                       AnalyticsService.instance.capture('button_clicked', {'button_name': 'search_result_tap', 'station_id': station.id, 'station_slug': station.slug});
-                                      _audioHandler.playStation(station);
+                                      _audioHandler.playStation(station,
+                                          fromFavorites: false);
                                     },
                                     itemBuilder: (context, station) {
                                       return Container(
@@ -1176,7 +1177,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       // The link decided what plays on this launch; a later fallback must
       // not replace it with the last-played station.
       autoPlayProcessed = true;
-      await _audioHandler.playStation(station);
+      await _audioHandler.playStation(station, fromFavorites: false);
     } else {
       developer.log("station not found:$stationSlug");
       // An unknown or stale link should still open the app the way a plain
