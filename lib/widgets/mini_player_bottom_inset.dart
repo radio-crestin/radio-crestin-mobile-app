@@ -19,10 +19,18 @@ const double kMiniPlayerCollapsedHeight = 96.0;
 /// never per-section — so every list (favorites, all stations) is cleared by
 /// the same single inset.
 class MiniPlayerBottomInset extends StatelessWidget {
-  const MiniPlayerBottomInset({super.key, required this.visible});
+  const MiniPlayerBottomInset({
+    super.key,
+    required this.visible,
+    this.bottomInset = 0,
+  });
 
   /// Whether the collapsed mini player is currently on screen.
   final bool visible;
+
+  /// Room the page keeps clear below the mini player (home indicator or
+  /// navigation bar), reserved whether or not the player is shown.
+  final double bottomInset;
 
   @override
   Widget build(BuildContext context) {
@@ -30,7 +38,7 @@ class MiniPlayerBottomInset extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
         curve: Curves.easeInOut,
-        height: visible ? kMiniPlayerCollapsedHeight : 0.0,
+        height: (visible ? kMiniPlayerCollapsedHeight : 0.0) + bottomInset,
       ),
     );
   }

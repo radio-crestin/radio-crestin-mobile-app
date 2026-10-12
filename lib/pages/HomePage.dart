@@ -4,6 +4,7 @@ import 'dart:developer' as developer;
 import 'dart:io' show Platform;
 
 import 'package:app_links/app_links.dart';
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter_sticky_header/flutter_sticky_header.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -772,6 +773,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     // while the search dialog opens above it.
     final panelMaxHeight = MediaQuery.sizeOf(context).height * .9;
     final bottomPadding = MediaQuery.paddingOf(context).bottom;
+    // Room the page keeps clear of the home indicator / navigation bar. The
+    // list and the player sheet still reach the bottom edge behind it.
+    final pageBottomInset = Platform.isIOS ? 12.0 : bottomPadding;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -793,15 +797,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
             return Container(
               color: Theme.of(context).scaffoldBackgroundColor,
-              padding: EdgeInsets.only(bottom: Platform.isIOS ? 12 : bottomPadding),
               child: Stack(
               children: [
               SlidingUpPanel(
-              maxHeight: panelMaxHeight - (Platform.isIOS ? 12 : bottomPadding),
-              minHeight: kMiniPlayerCollapsedHeight,
+              maxHeight: panelMaxHeight,
+              minHeight: kMiniPlayerCollapsedHeight + pageBottomInset,
               backdropEnabled: true,
               backdropTapClosesPanel: true,
               boxShadow: const [],
+              // The full player paints its own sheet; the panel stays clear
+              // so the list shows around the collapsed mini player.
+              color: Colors.transparent,
               controller: slidingUpPanelController,
               onPanelSlide: (position) {
                 _panelSlide.value = position;
@@ -847,7 +853,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       (slidingUpPanelController.isPanelClosed ||
                           slidingUpPanelController.isPanelOpen)) ||
                   isDraggable,
-              body: SafeArea(
+              body: _MiniPlayerScrim(
+                visible: currentStation != null && stations.isNotEmpty,
+                bottomInset: pageBottomInset,
+                child: SafeArea(
                 bottom: false,
                 child: Column(
                   children: [
@@ -1095,12 +1104,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                               ),
                             ),
                           // Bottom inset so the last rows clear the collapsed
-                          // mini player. Once, at the very end of the scroll
-                          // view — not per section. Animates 0 <-> mini player
-                          // height as the player appears/disappears. The safe
-                          // area is already consumed by the outer Container
-                          // padding, so this is exactly the collapsed height.
-                          MiniPlayerBottomInset(visible: currentStation != null),
+                          // mini player and the room below it. Once, at the
+                          // very end of the scroll view — not per section.
+                          // Animates as the player appears/disappears.
+                          MiniPlayerBottomInset(
+                            visible: currentStation != null,
+                            bottomInset: pageBottomInset,
+                          ),
                         ],
                         ),
                         ),
@@ -1109,10 +1119,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   ],
                 ),
               ),
+              ),
+              // No background around the bar: the list shows beside it and
+              // fades out below it (see _MiniPlayerScrim).
               collapsed: currentStation != null && stations.isNotEmpty
-                  ? Container(
-                      padding: const EdgeInsets.only(bottom: 4, left: 8, right: 8),
-                      color: Theme.of(context).scaffoldBackgroundColor,
+                  ? Padding(
+                      padding: EdgeInsets.only(
+                        left: _miniPlayerSideGap,
+                        right: _miniPlayerSideGap,
+                        bottom: _miniPlayerBottomGap + pageBottomInset,
+                      ),
                       child: MiniAudioPlayer(
                         currentStation: currentStation,
                         audioHandler: _audioHandler,
@@ -1120,25 +1136,20 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       ),
                     )
                   : null,
-              panelBuilder: () => Container(
-                decoration: const BoxDecoration(
-                  color: Colors.transparent,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(16.0),
-                    topRight: Radius.circular(16.0),
-                  ),
-                ),
-                child: currentStation != null
-                    ? FullAudioPlayer(
+              panelBuilder: () => currentStation != null
+                  ? _PlayerSheet(
+                      progress: _panelSlide,
+                      bottomInset: pageBottomInset,
+                      child: FullAudioPlayer(
                         audioHandler: _audioHandler,
                         slidingUpPanelController: slidingUpPanelController,
-                      )
-                    : null,
-              ),
+                      ),
+                    )
+                  : const SizedBox.shrink(),
             ),
               if (_isOffline || _showBackOnline)
                 Positioned(
-                  bottom: Platform.isIOS ? 88 : 82,
+                  bottom: pageBottomInset + (Platform.isIOS ? 88 : 82),
                   left: 8,
                   right: 8,
                   child: ValueListenableBuilder<double>(
@@ -1282,6 +1293,127 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (station == null) return;
 
     _audioHandler.playStation(station);
+  }
+}
+
+/// Gap between the collapsed mini player bar and the sides of the screen.
+const double _miniPlayerSideGap = 8;
+
+/// Gap between the collapsed mini player bar and the room kept below it.
+const double _miniPlayerBottomGap = 4;
+
+/// Fades the station list out under the collapsed mini player bar.
+///
+/// The bar floats over the list with no band of its own around it, so rows
+/// show beside it. The fade is opaque from the bar's bottom edge down to the
+/// bottom of the screen, so no row peeks out under it.
+class _MiniPlayerScrim extends StatelessWidget {
+  const _MiniPlayerScrim({
+    required this.visible,
+    required this.bottomInset,
+    required this.child,
+  });
+
+  /// Whether the mini player bar is on screen.
+  final bool visible;
+
+  /// Room kept clear below the bar's slot.
+  final double bottomInset;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final background = Theme.of(context).scaffoldBackgroundColor;
+    final scrimHeight = kMiniPlayerCollapsedHeight + bottomInset;
+    const barBottom = kMiniPlayerCollapsedHeight - _miniPlayerBottomGap;
+    // The Stack stays in place when the scrim toggles, so the list below
+    // keeps its state and scroll position.
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        child,
+        if (visible)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: scrimHeight,
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      background.withValues(alpha: 0),
+                      background.withValues(alpha: 0.9),
+                      background,
+                    ],
+                    stops: [
+                      0,
+                      kMiniPlayerCollapsedHeight / 2 / scrimHeight,
+                      barBottom / scrimHeight,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// The full player inside the sliding panel.
+///
+/// Hidden while the panel is collapsed, so the list shows around the mini
+/// player bar instead of the top of the sheet, and faded in as the panel
+/// starts to open. The panel reaches the bottom edge of the screen: the
+/// sheet's background continues under [bottomInset], its content stays above
+/// it.
+class _PlayerSheet extends StatelessWidget {
+  const _PlayerSheet({
+    required this.progress,
+    required this.bottomInset,
+    required this.child,
+  });
+
+  /// Panel position, from 0 (collapsed) to 1 (open).
+  final ValueListenable<double> progress;
+
+  /// Room kept clear for the home indicator or navigation bar.
+  final double bottomInset;
+  final Widget child;
+
+  /// Share of the panel's travel over which the sheet fades in.
+  static const double _fadeInEnd = 0.15;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<double>(
+      valueListenable: progress,
+      builder: (context, position, sheet) => IgnorePointer(
+        ignoring: position == 0,
+        child: Opacity(
+          opacity: (position / _fadeInEnd).clamp(0.0, 1.0),
+          child: sheet,
+        ),
+      ),
+      child: Column(
+        children: [
+          Expanded(child: child),
+          // The sheet's gradient ends in the page colour; carry it on under
+          // the home indicator / navigation bar.
+          SizedBox(
+            height: bottomInset,
+            width: double.infinity,
+            child: ColoredBox(
+              color: Theme.of(context).scaffoldBackgroundColor,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

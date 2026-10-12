@@ -4,12 +4,21 @@ import 'package:radio_crestin/widgets/mini_player_bottom_inset.dart';
 
 void main() {
   // Pumps the spacer inside a real scroll view so the sliver gets laid out.
-  Future<void> pump(WidgetTester tester, {required bool visible}) {
+  Future<void> pump(
+    WidgetTester tester, {
+    required bool visible,
+    double bottomInset = 0,
+  }) {
     return tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
           body: CustomScrollView(
-            slivers: [MiniPlayerBottomInset(visible: visible)],
+            slivers: [
+              MiniPlayerBottomInset(
+                visible: visible,
+                bottomInset: bottomInset,
+              ),
+            ],
           ),
         ),
       ),
@@ -32,6 +41,16 @@ void main() {
         (tester) async {
       await pump(tester, visible: false);
       expect(spacerSize(tester).height, 0.0);
+    });
+
+    testWidgets('keeps the bottom inset clear with or without the player',
+        (tester) async {
+      await pump(tester, visible: true, bottomInset: 12);
+      expect(spacerSize(tester).height, kMiniPlayerCollapsedHeight + 12);
+
+      await pump(tester, visible: false, bottomInset: 12);
+      await tester.pumpAndSettle();
+      expect(spacerSize(tester).height, 12);
     });
 
     testWidgets('animates between the two heights when visibility toggles',
