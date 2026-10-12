@@ -16,6 +16,7 @@ import 'package:radio_crestin/services/station_data_service.dart';
 import '../appAudioHandler.dart';
 import '../types/Station.dart';
 import '../widgets/animated_play_button.dart';
+import '../widgets/marquee_text.dart';
 import '../widgets/player_video_surface.dart';
 import '../widgets/playlist_player_section.dart';
 import '../widgets/sleep_timer_button.dart';
@@ -468,7 +469,9 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     );
   }
 
-  /// The primary song line (or idle placeholder), crossfading on change.
+  /// The primary song line, crossfading on change. Always one line tall: a
+  /// title too long to fit scrolls instead of wrapping, so the controls below
+  /// never shift when the song changes.
   Widget _buildSongTitle(BuildContext context,
       {TextAlign textAlign = TextAlign.center,
       double horizontalPadding = 16.0}) {
@@ -480,11 +483,11 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
       child: Padding(
         key: ValueKey('song-${currentStation?.songTitle}-${currentStation?.id}'),
         padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-        child: Text(
+        child: MarqueeText(
           _primaryLine(),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
           textAlign: textAlign,
+          // Only scroll while the full player is on screen.
+          animate: _panelExpanded,
           style: const TextStyle(
             fontSize: 22,
             fontWeight: FontWeight.w600,
