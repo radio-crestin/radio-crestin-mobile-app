@@ -5,6 +5,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/widgets.dart' show AppLifecycleListener;
 import 'package:flutter_chrome_cast/flutter_chrome_cast.dart';
 import 'package:rxdart/rxdart.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../globals.dart' as globals;
 import '../types/Station.dart';
@@ -17,6 +18,29 @@ class CastService {
   /// Google Default Media Receiver — native UI with artwork, metadata,
   /// and playback controls on all Cast devices.
   static const String _customReceiverAppId = 'CC1AD845';
+
+  /// Set once the user has tapped the cast button, i.e. has seen the
+  /// Local Network prompt. From then on discovery starts at launch, so
+  /// the device list is ready and the SDK can resume a saved session.
+  static const _discoveryUnlockedKey = 'cast_discovery_unlocked';
+
+  /// [deferDiscoveryUntilFirstTap] defaults to iOS, where the first Cast
+  /// scan shows the Local Network permission prompt. Deferring it to the
+  /// cast button tap gives the prompt context instead of firing it on
+  /// install or update.
+  CastService({
+    required SharedPreferences prefs,
+    bool? deferDiscoveryUntilFirstTap,
+  })  : _prefs = prefs,
+        _deferDiscoveryUntilFirstTap =
+            deferDiscoveryUntilFirstTap ?? Platform.isIOS;
+
+  final SharedPreferences _prefs;
+  final bool _deferDiscoveryUntilFirstTap;
+
+  bool get _discoveryUnlocked =>
+      !_deferDiscoveryUntilFirstTap ||
+      (_prefs.getBool(_discoveryUnlockedKey) ?? false);
 
   final BehaviorSubject<List<GoogleCastDevice>> devices =
       BehaviorSubject.seeded([]);
@@ -154,7 +178,8 @@ class CastService {
               _customReceiverAppId,
             ),
             suspendSessionsWhenBackgrounded: false,
-            disableDiscoveryAutostart: false,
+            // Discovery is started from Dart, see `_discoveryUnlocked`.
+            disableDiscoveryAutostart: true,
             startDiscoveryAfterFirstTapOnCastButton: false,
             stopReceiverApplicationWhenEndingSession: true,
             stopCastingOnAppTerminated: true,
@@ -216,8 +241,11 @@ class CastService {
         _log('Media status stream error: $e');
       });
 
-      // Start discovery immediately
-      startDiscovery();
+      if (_discoveryUnlocked) {
+        startDiscovery();
+      } else {
+        _log('Discovery deferred until the first cast button tap');
+      }
 
       if (Platform.isAndroid) {
         // An active MediaRouter discovery request keeps mDNS and Wi-Fi
@@ -238,6 +266,17 @@ class CastService {
     } catch (e, st) {
       _log('Initialize failed: $e\n$st');
     }
+  }
+
+  /// Called when the user taps the cast button. The first tap starts
+  /// discovery, which shows the iOS Local Network prompt; later taps
+  /// re-issue the Bonjour browse so a user who denied the prompt can
+  /// recover after enabling Settings → Radio Creștin → Local Network.
+  void onCastButtonTapped() {
+    if (!_discoveryUnlocked) {
+      _prefs.setBool(_discoveryUnlockedKey, true);
+    }
+    restartDiscovery();
   }
 
   void startDiscovery() {

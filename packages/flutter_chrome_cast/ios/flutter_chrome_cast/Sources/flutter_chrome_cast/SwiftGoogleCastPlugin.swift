@@ -168,13 +168,18 @@ public class SwiftGoogleCastPlugin: NSObject, GCKLoggerDelegate, FlutterPlugin, 
         discoveryManager.add(FGCDiscoveryManagerMethodChannel.instance)   
         sessionManager.add(FGCSessionManagerMethodChannel.instance )
 
-        // Start discovering Cast devices automatically
         // Return to Flutter immediately before starting potentially expensive operations
         // so the Dart side gets fast feedback.
         result(true)
 
-        shouldResumeDiscoveryOnForeground = true
-        discoveryManager.startDiscovery()
+        // Start discovering Cast devices automatically unless the app opted
+        // out. The first Bonjour browse shows the iOS Local Network
+        // permission prompt, so apps disable autostart to defer it until
+        // the user asks for Cast devices.
+        if !option.disableDiscoveryAutostart {
+            shouldResumeDiscoveryOnForeground = true
+            discoveryManager.startDiscovery()
+        }
 
         if kDebugLoggingEnabled {
             print("Cast context initialized")
