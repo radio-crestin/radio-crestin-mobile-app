@@ -11,9 +11,45 @@ import '../services/analytics_service.dart';
 import '../theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════
+// Device picker entry point
+// ═══════════════════════════════════════════════════════════════════
+
+/// Opens the device sheet: Chromecast, AirPlay and Bluetooth, TV and car.
+///
+/// [source] tags the analytics event with the screen that opened it.
+void showCastDevicePicker(BuildContext context, {required String source}) {
+  final castService = GetIt.instance.isRegistered<CastService>()
+      ? GetIt.instance<CastService>()
+      : null;
+  AnalyticsService.instance.capture('cast_picker_opened', {
+    'source': source,
+    'device_count': castService?.devices.value.length ?? 0,
+  });
+  // On iOS the first open starts discovery and with it the Local Network
+  // permission prompt, which stays off app launch.
+  castService?.onCastButtonTapped();
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFF1E1E1E)
+        : Colors.white,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+    ),
+    isScrollControlled: true,
+    builder: (_) => _DeviceSheet(castService: castService),
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // Cast AppBar button
 // ═══════════════════════════════════════════════════════════════════
 
+/// App bar indicator, shown only while audio plays on another device.
+///
+/// Starting a cast lives in Settings (see [showCastDevicePicker]). The app
+/// bar only surfaces an active Chromecast or AirPlay route, so the user
+/// sees where the audio goes and can stop it in one tap.
 class CastButton extends StatefulWidget {
   const CastButton({super.key});
 
@@ -22,16 +58,13 @@ class CastButton extends StatefulWidget {
 }
 
 class _CastButtonState extends State<CastButton> {
-  CastService? _castService;
   final List<StreamSubscription> _subs = [];
 
-  List<GoogleCastDevice> _devices = [];
   bool _chromecastCasting = false;
   bool _airPlayActive = false;
   bool _ready = false;
 
-  bool get _casting => _chromecastCasting || _airPlayActive;
-  bool get _visible => _devices.isNotEmpty || Platform.isIOS || _chromecastCasting;
+  bool get _visible => _chromecastCasting || _airPlayActive;
 
   @override
   void initState() {
@@ -72,11 +105,7 @@ class _CastButtonState extends State<CastButton> {
   void _tryInit() {
     if (_ready || !GetIt.instance.isRegistered<CastService>()) return;
     _ready = true;
-    _castService = GetIt.instance<CastService>();
-    _subs.add(_castService!.devices.listen((d) {
-      if (mounted) setState(() => _devices = d);
-    }));
-    _subs.add(_castService!.isCasting.listen((v) {
+    _subs.add(GetIt.instance<CastService>().isCasting.listen((v) {
       if (mounted) setState(() => _chromecastCasting = v);
     }));
   }
@@ -85,30 +114,6 @@ class _CastButtonState extends State<CastButton> {
   void dispose() {
     for (final s in _subs) { s.cancel(); }
     super.dispose();
-  }
-
-  void _open() {
-    if (!_visible) return;
-    AnalyticsService.instance.capture('cast_picker_opened', {
-      'device_count': _devices.length,
-    });
-    // The service may have registered after the 2s retry in initState.
-    _tryInit();
-    // On iOS the first tap starts discovery and with it the Local Network
-    // permission prompt, which stays off app launch.
-    _castService?.onCastButtonTapped();
-    showModalBottomSheet(
-      context: context,
-      backgroundColor:
-          Theme.of(context).brightness == Brightness.dark
-              ? const Color(0xFF1E1E1E)
-              : Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      isScrollControlled: true,
-      builder: (_) => _DeviceSheet(castService: _castService),
-    );
   }
 
   @override
@@ -122,38 +127,24 @@ class _CastButtonState extends State<CastButton> {
       ),
       child: !_visible
           ? const SizedBox.shrink(key: ValueKey('no'))
-          : Row(
-              key: const ValueKey('yes'),
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // AirPlay active → button IS the native picker (tap = iOS system sheet)
-                if (_airPlayActive)
-                  _airPlayButton(context)
-                else
-                  _icon(context),
-                const SizedBox(width: 8),
-              ],
-            ),
+          // AirPlay active → button IS the native picker (tap = iOS system sheet)
+          : _airPlayActive
+              ? _airPlayButton(key: const ValueKey('airplay'))
+              : _chromecastButton(key: const ValueKey('chromecast')),
     );
   }
 
   /// When AirPlay is active, the button itself is the native route picker.
-  Widget _airPlayButton(BuildContext context) {
+  Widget _airPlayButton({required Key key}) {
     return SizedBox(
+      key: key,
       width: 44,
       height: 44,
       child: Stack(
         children: [
-          // Visual button
-          Material(
-            color: AppColors.primary.withValues(alpha: 0.15),
-            shape: const CircleBorder(),
-            child: const SizedBox(
-              width: 44,
-              height: 44,
-              child: Icon(Icons.airplay_rounded, size: 22,
-                  color: AppColors.primary),
-            ),
+          const Center(
+            child: Icon(Icons.airplay_rounded,
+                size: 22, color: AppColors.primary),
           ),
           // Native picker overlay — tap opens iOS system route sheet
           Positioned.fill(
@@ -168,32 +159,23 @@ class _CastButtonState extends State<CastButton> {
     );
   }
 
-  Widget _icon(BuildContext context) {
-    final dark = Theme.of(context).brightness == Brightness.dark;
+  /// Opens the device sheet, which shows the connected Chromecast with its
+  /// "Deconectare" action.
+  Widget _chromecastButton({required Key key}) {
     return Material(
-      color: _casting
-          ? AppColors.primary.withValues(alpha: 0.15)
-          : dark
-              ? Colors.white.withValues(alpha: 0.07)
-              : Colors.black.withValues(alpha: 0.06),
+      key: key,
+      type: MaterialType.transparency,
       shape: const CircleBorder(),
       child: InkWell(
-        onTap: _open,
+        onTap: () => showCastDevicePicker(context, source: 'app_bar'),
         customBorder: const CircleBorder(),
-        child: Tooltip(
-          message: _casting ? 'Dispozitiv conectat' : 'Transmite pe dispozitiv',
+        child: const Tooltip(
+          message: 'Dispozitiv conectat',
           child: SizedBox(
             width: 44,
             height: 44,
-            child: Icon(
-              _chromecastCasting
-                  ? Icons.cast_connected_rounded
-                  : Icons.cast_rounded,
-              size: 22,
-              color: _casting
-                  ? AppColors.primary
-                  : dark ? Colors.white70 : Colors.grey.shade700,
-            ),
+            child: Icon(Icons.cast_connected_rounded,
+                size: 22, color: AppColors.primary),
           ),
         ),
       ),
