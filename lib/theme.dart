@@ -30,6 +30,12 @@ class AppColors {
   static const Color darkDivider = Color(0x1fffffff);
   static const Color darkDisabled = Color(0x62ffffff);
 
+  // Sleep timer ("somn") ring and countdown: the brand pink, lightened on
+  // dark surfaces and deepened on light ones so the small label keeps 4.5:1
+  // contrast (plain `primary` falls just short on both).
+  static const Color sleepAccent = Color(0xfff06292);
+  static const Color sleepAccentOnLight = Color(0xffd81b60);
+
   // Common colors
   static const Color error = Color(0xffd32f2f);
   static const Color success = Colors.green;
