@@ -296,9 +296,9 @@ class _SheetContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      // Clears the home indicator / navigation bar, with a floor for devices
-      // that have neither.
-      padding: EdgeInsets.fromLTRB(24, 0, 24, math.max(bottomInset, 24)),
+      // The same 24 as the sides, on top of the home indicator / navigation
+      // bar inset, so the last row never sits right on the indicator.
+      padding: EdgeInsets.fromLTRB(24, 0, 24, bottomInset + 24),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
