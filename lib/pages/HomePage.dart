@@ -854,7 +854,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     // Fixed app bar
                     Container(
                       color: Theme.of(context).scaffoldBackgroundColor,
-                      padding: const EdgeInsets.only(top: 6, left: 16, right: 8, bottom: 4),
+                      // Right inset matches the filter row below, so the
+                      // icon glyphs line up with the 16px content gutter.
+                      padding: const EdgeInsets.only(top: 6, left: 16, right: 4, bottom: 4),
                       child: Row(
                         children: [
                           const Image(
@@ -948,10 +950,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                               );
                             },
                           ),
-                          const SizedBox(width: 8),
                           _buildRoundedIconButton(
                             context: context,
-                            icon: Icons.settings_rounded,
+                            icon: Icons.settings_outlined,
                             tooltip: 'Setări aplicație',
                             onPressed: () {
                               AnalyticsService.instance.capture('button_clicked', {'button_name': 'settings'});
@@ -1339,17 +1340,17 @@ class _AnimatedRoundedIconButtonState extends State<_AnimatedRoundedIconButton>
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colorScheme = Theme.of(context).colorScheme;
     return ScaleTransition(
       scale: _scaleAnimation,
       child: Semantics(
         button: true,
         child: Material(
+          // Idle buttons are bare icons; the circle shows only as the press
+          // ripple, or as a tint while a state is on (e.g. a filter is set).
           color: widget.isActive
-              ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.12)
-              : isDark
-                  ? Colors.white.withValues(alpha: 0.07)
-                  : Colors.black.withValues(alpha: 0.06),
+              ? colorScheme.primary.withValues(alpha: 0.12)
+              : Colors.transparent,
           shape: const CircleBorder(),
           child: InkWell(
             // `onTap` (not `onTapUp`) carries the action: it is what InkWell
@@ -1369,8 +1370,8 @@ class _AnimatedRoundedIconButtonState extends State<_AnimatedRoundedIconButton>
                   widget.icon,
                   size: 22,
                   color: widget.isActive
-                      ? Theme.of(context).colorScheme.primary
-                      : Theme.of(context).colorScheme.onSurface,
+                      ? colorScheme.primary
+                      : colorScheme.onSurface.withValues(alpha: 0.85),
                 ),
               ),
             ),

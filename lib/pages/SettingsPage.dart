@@ -15,13 +15,16 @@ import '../appAudioHandler.dart';
 import '../globals.dart' as globals;
 import '../main.dart' show getIt;
 import '../services/analytics_service.dart';
+import '../services/cast_service.dart';
 import '../services/local_log_store.dart';
 import '../services/log_upload_service.dart';
 import 'LogsViewerPage.dart';
 import '../seek_mode_manager.dart';
 import '../theme.dart';
 import '../theme_manager.dart';
+import '../tv/tv_platform.dart';
 import '../widgets/bottom_toast.dart';
+import '../widgets/cast_button.dart' show showCastDevicePicker;
 
 
 class SettingsPage extends StatefulWidget {
@@ -70,10 +73,18 @@ class _SettingsPageState extends State<SettingsPage> {
   StreamSubscription<List<StreamEvent>>? _streamEventsSub;
   Timer? _diagnosticTicker;
 
+  // Where audio plays right now, for the "Transmite pe alt dispozitiv" row.
+  final List<StreamSubscription> _castRouteSubs = [];
+  bool _chromecastActive = false;
+  String? _chromecastName;
+  bool _airPlayActive = false;
+  String? _airPlayName;
+
 
   @override
   void initState() {
     super.initState();
+    _watchCastRoute();
     _getNotificationsEnabled();
     _getAutoStartStation();
     _loadDeveloperMode();
@@ -111,7 +122,41 @@ class _SettingsPageState extends State<SettingsPage> {
     _streamEventsSub?.cancel();
     _diagnosticTicker?.cancel();
     _versionTapReset?.cancel();
+    for (final sub in _castRouteSubs) {
+      sub.cancel();
+    }
     super.dispose();
+  }
+
+  void _watchCastRoute() {
+    if (TvPlatform.isTV) return;
+    if (getIt.isRegistered<CastService>()) {
+      final cast = getIt<CastService>();
+      _castRouteSubs
+        ..add(cast.isCasting.listen(
+            (v) => _updateCastRoute(() => _chromecastActive = v)))
+        ..add(cast.connectedDeviceName.listen(
+            (v) => _updateCastRoute(() => _chromecastName = v)));
+    }
+    if (!Platform.isIOS) return;
+    // Same guard as `CastButton`: the AirPlay channel can throw on first
+    // access in some release builds. The row then shows no active route.
+    try {
+      final airPlay = flutter_airplay.AirPlayRouteState.instance;
+      _airPlayActive = airPlay.isActive;
+      _airPlayName = airPlay.routeName;
+      _castRouteSubs
+        ..add(airPlay.isActiveStream.listen(
+            (v) => _updateCastRoute(() => _airPlayActive = v)))
+        ..add(airPlay.routeNameStream.listen(
+            (v) => _updateCastRoute(() => _airPlayName = v)));
+    } catch (e) {
+      debugPrint('SettingsPage: AirPlayRouteState init failed: $e');
+    }
+  }
+
+  void _updateCastRoute(VoidCallback update) {
+    if (mounted) setState(update);
   }
 
   void _onCarConnectionChanged() {
@@ -270,6 +315,48 @@ class _SettingsPageState extends State<SettingsPage> {
       subtitle: subtitleContent,
       trailing: trailing ?? Icon(Icons.chevron_right, size: 20, color: isDark ? const Color(0xff5a5a5c) : const Color(0xffc7c7cc)),
       onTap: onTap,
+    );
+  }
+
+  /// Opens the Chromecast / AirPlay / TV / car sheet, which used to sit
+  /// behind a cast button in the home app bar.
+  Widget _buildCastTile() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final routeName = _airPlayActive
+        ? _airPlayName ?? 'AirPlay'
+        : _chromecastActive
+            ? _chromecastName ?? 'Chromecast'
+            : null;
+    return _buildSettingsTile(
+      icon: _airPlayActive
+          ? Icons.airplay_rounded
+          : _chromecastActive
+              ? Icons.cast_connected_rounded
+              : Icons.cast_rounded,
+      title: 'Transmite pe alt dispozitiv',
+      subtitle: Platform.isIOS
+          ? 'AirPlay, Chromecast, TV și mașină'
+          : 'Chromecast, TV și mașină',
+      // The lighter/deeper brand pinks keep 4.5:1 on small text.
+      subtitleWidget: routeName == null
+          ? null
+          : Text(
+              'Conectat · $routeName',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: isDark
+                    ? AppColors.sleepAccent
+                    : AppColors.sleepAccentOnLight,
+              ),
+            ),
+      onTap: () {
+        AnalyticsService.instance
+            .capture('button_clicked', {'button_name': 'cast_settings'});
+        showCastDevicePicker(context, source: 'settings');
+      },
     );
   }
 
@@ -644,6 +731,10 @@ class _SettingsPageState extends State<SettingsPage> {
         visible: _notificationsEnabled != null,
         child: ListView(
           children: [
+                if (!TvPlatform.isTV) ...[
+                  _buildSectionHeader('Dispozitive'),
+                  _buildSettingsCard(children: [_buildCastTile()]),
+                ],
                 // General section
                 _buildSectionHeader('Preferințe'),
                 _buildSettingsCard(children: [
