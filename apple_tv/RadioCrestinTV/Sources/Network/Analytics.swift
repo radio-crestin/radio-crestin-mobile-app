@@ -6,7 +6,7 @@ import PostHog
 /// host, automatic lifecycle events, error tracking on. Events are
 /// fire-and-forget so the UI never waits on the queue.
 enum Analytics {
-    private static let projectKey = "phc_9lTquHDSyoFxkYq4VPd8cFiQ21VZd627Lv8jSV8S7Fi"
+    private static let projectKey = "phc_nYXw3QDHsrAMhEGXnvLcMDgyTG3rgKtEK2HaxV97csvy"
     private static let host = "https://k.radiocrestin.ro"
 
     static func bootstrap() {

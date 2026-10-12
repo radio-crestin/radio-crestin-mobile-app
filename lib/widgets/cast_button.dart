@@ -94,7 +94,7 @@ class _CastButtonState extends State<CastButton> {
         if (mounted) _tryInit();
       });
     }
-    AnalyticsService.instance.capture('cast_button_init', {
+    AnalyticsService.instance.log('cast button init', {
       'platform': Platform.isIOS ? 'ios' : Platform.isAndroid ? 'android' : 'other',
       'visible_initial': _visible,
       'airplay_active': _airPlayActive,

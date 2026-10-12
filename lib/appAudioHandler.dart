@@ -448,8 +448,8 @@ class ConnectionError {
 }
 
 /// Snapshot of the currently loaded stream. Drives the diagnostic UI in
-/// Settings and is included in PostHog `listening_*` heartbeats so sessions
-/// can be correlated with stream switches.
+/// Settings and is included in PostHog `listening_*` events so sessions can
+/// be correlated with stream switches.
 class StreamInfo {
   final String url;
   final String? type;        // 'HLS', 'proxied_stream', etc. — from station_streams.type
@@ -886,7 +886,7 @@ class AppAudioHandler extends BaseAudioHandler {
       StreamEventKind.bufferingDrop,
       'Rebuffer ${duration.inMilliseconds}ms — buf ${bufferedAheadAtStart.inMilliseconds}ms ahead at start, end=${endState.name}',
     );
-    AnalyticsService.instance.capture('stream_buffering_drop', {
+    AnalyticsService.instance.logWarning('stream buffering drop', {
       'station_slug': lastInfo?.stationSlug ?? currentStation.valueOrNull?.slug ?? '',
       'station_id': currentStation.valueOrNull?.id,
       'stream_url': lastInfo?.url,
@@ -938,7 +938,6 @@ class AppAudioHandler extends BaseAudioHandler {
       'error_message': msg,
       'error_runtime_type': error.runtimeType.toString(),
     };
-    AnalyticsService.instance.capture('stream_player_error', playerErrorProps);
     AnalyticsService.instance.logWarning('stream player error', playerErrorProps);
   }
 
@@ -1299,7 +1298,7 @@ class AppAudioHandler extends BaseAudioHandler {
             StreamEventKind.hlsCompleted,
             'HLS completed unexpectedly — reconnecting',
           );
-          AnalyticsService.instance.capture('stream_unexpected_completion', {
+          AnalyticsService.instance.logWarning('stream unexpected completion', {
             'station_slug': lastInfo?.stationSlug ?? currentStation.valueOrNull?.slug ?? '',
             'station_id': currentStation.valueOrNull?.id,
             'stream_url': lastInfo?.url,
@@ -1325,7 +1324,7 @@ class AppAudioHandler extends BaseAudioHandler {
             StreamEventKind.nonHlsCompleted,
             'Non-HLS stream completed — stopping',
           );
-          AnalyticsService.instance.capture('stream_unexpected_completion', {
+          AnalyticsService.instance.logWarning('stream unexpected completion', {
             'station_slug': lastInfo?.stationSlug ?? currentStation.valueOrNull?.slug ?? '',
             'station_id': currentStation.valueOrNull?.id,
             'stream_url': lastInfo?.url,
@@ -1367,7 +1366,7 @@ class AppAudioHandler extends BaseAudioHandler {
           StreamEventKind.lostIdle,
           'Stream lost (idle while playing) — reconnecting',
         );
-        AnalyticsService.instance.capture('stream_lost_idle', {
+        AnalyticsService.instance.logWarning('stream lost idle', {
           'station_slug': lastInfo?.stationSlug ?? currentStation.valueOrNull?.slug ?? '',
           'station_id': currentStation.valueOrNull?.id,
           'stream_url': lastInfo?.url,
@@ -1427,9 +1426,7 @@ class AppAudioHandler extends BaseAudioHandler {
               'action': 'reattempt',
             };
             AnalyticsService.instance
-                .capture('stream_buffering_stall', stallProps);
-            AnalyticsService.instance
-                .logDebug('stream buffering stall', stallProps);
+                .logWarning('stream buffering stall', stallProps);
             _recordStreamTrouble('buffering_stall');
             // A stalled stream counts as a failed one: remember it so the
             // reconnect starts at the next stream if it stalls repeatedly.
@@ -1476,7 +1473,7 @@ class AppAudioHandler extends BaseAudioHandler {
           StreamEventKind.audioInterruption,
           'AudioSession interruption $phase ($type)',
         );
-        AnalyticsService.instance.capture('audio_session_interruption', {
+        AnalyticsService.instance.log('audio session interruption', {
           'phase': phase,
           'type': type,
           'player_processing_state': player.processingState.name,
@@ -1501,7 +1498,7 @@ class AppAudioHandler extends BaseAudioHandler {
           StreamEventKind.audioInterruption,
           'AudioSession becoming noisy (route disconnect)',
         );
-        AnalyticsService.instance.capture('audio_session_becoming_noisy', const {});
+        AnalyticsService.instance.log('audio session becoming noisy');
         _pauseForSystemEvent('becoming_noisy');
       });
     } catch (e) {
@@ -2230,8 +2227,8 @@ class AppAudioHandler extends BaseAudioHandler {
           StreamEventKind.loaded,
           '${streamType ?? '?'} loaded in ${elapsedMs}ms',
         );
-        // Debug-only: paired with stream_attempt; the listening_active
-        // heartbeat already carries the loaded URL/type for production.
+        // Debug-only: paired with stream_attempt; listening_started and
+        // listening_resumed already carry the loaded URL/type in production.
         AnalyticsService.instance.captureDebug('stream_loaded', {
           'station_slug': stationSlug,
           if (stationId != null) 'station_id': stationId,
@@ -2272,8 +2269,7 @@ class AppAudioHandler extends BaseAudioHandler {
             'ms_since_last_load':
                 DateTime.now().difference(previousStreamInfo.loadedAt).inMilliseconds,
           };
-          AnalyticsService.instance.capture('stream_switched', switchedProps);
-          AnalyticsService.instance.logDebug('stream switched', switchedProps);
+          AnalyticsService.instance.log('stream switched', switchedProps);
         }
         break;
       } catch (e) {
@@ -2303,7 +2299,6 @@ class AppAudioHandler extends BaseAudioHandler {
           'elapsed_ms': elapsedMs,
           'error': _shortErr(e),
         };
-        AnalyticsService.instance.capture('stream_failed', failedProps);
         AnalyticsService.instance
             .logWarning('stream attempt failed', failedProps);
         retry++;
@@ -2355,9 +2350,9 @@ class AppAudioHandler extends BaseAudioHandler {
   }
 
   /// Retry-cycle start index for [streams]: the first stream without a
-  /// recent failure (see [StreamFailover.startIndex]). Logs and captures a
-  /// `stream_failover` event when the preferred stream is being skipped so
-  /// failovers are visible in analytics.
+  /// recent failure (see [StreamFailover.startIndex]). Logs a
+  /// `stream failover` record when the preferred stream is being skipped so
+  /// failovers are visible in PostHog Logs.
   int _cycleStartIndex(List<dynamic>? streams, String stationSlug) {
     if (streams == null || streams.isEmpty) return 0;
     final urls = [
@@ -2367,7 +2362,7 @@ class AppAudioHandler extends BaseAudioHandler {
     if (start > 0) {
       _log('play: failover — skipping $start recently-failed stream(s), '
           'starting at index $start (${urls[start]})');
-      AnalyticsService.instance.capture('stream_failover', {
+      AnalyticsService.instance.log('stream failover', {
         'station_slug': stationSlug,
         'skipped_urls': urls.take(start).join(', '),
         'start_index': start,
@@ -2666,8 +2661,8 @@ class AppAudioHandler extends BaseAudioHandler {
   @visibleForTesting
   bool get isLiveHlsWatchdogRunning => _liveHlsWatchdogTimer != null;
 
-  /// Log line, diagnostic ring entry and `stream_hls_stalled` analytics for
-  /// a liveness fire.
+  /// Log line, diagnostic ring entry and a `stream hls stalled` PostHog Logs
+  /// record for a liveness fire.
   void _reportLiveHlsStall(
     LiveHlsStall stall,
     LiveHlsRecoveryAction action,
@@ -2691,7 +2686,7 @@ class AppAudioHandler extends BaseAudioHandler {
       'HLS silent (${stall.name}) — $verb',
     );
     final lastInfo = currentStreamInfo.valueOrNull;
-    AnalyticsService.instance.capture('stream_hls_stalled', {
+    AnalyticsService.instance.logWarning('stream hls stalled', {
       'station_slug':
           lastInfo?.stationSlug ?? currentStation.valueOrNull?.slug ?? '',
       'station_id': currentStation.valueOrNull?.id,
@@ -2725,7 +2720,7 @@ class AppAudioHandler extends BaseAudioHandler {
         'trouble events within ${_slowConnectionWindow.inMinutes}min '
         '($cause) — raising seek offset to 5 minutes for subsequent loads');
     SeekModeManager.changeAutoSlowConnection(true);
-    AnalyticsService.instance.capture('seek_offset_escalated', {
+    AnalyticsService.instance.log('seek offset escalated', {
       'reason': cause,
       'trouble_count': _streamTroubleEvents.length,
       'window_minutes': _slowConnectionWindow.inMinutes,
@@ -3319,7 +3314,7 @@ class AppAudioHandler extends BaseAudioHandler {
     _cancelVideoFallbackWatchdog();
     _log('video→audio fallback ($reason) for $url');
     _fallenBackUrl = url;
-    AnalyticsService.instance.capture('video_fallback_to_audio', {
+    AnalyticsService.instance.logWarning('video fallback to audio', {
       'reason': reason,
       'url': url,
       'live': live,
@@ -3661,7 +3656,7 @@ class AppAudioHandler extends BaseAudioHandler {
     _log("_stopDueToError (keeping command center alive)");
     _cancelInFlightPlay();
     _hasBeenPlayed = false;
-    // Otherwise listening_active heartbeats keep firing after the stop.
+    // Otherwise the session keeps counting toward its duration after the stop.
     AnalyticsService.instance.endListening(reason: 'error');
     _disconnectTimer?.cancel();
     _bufferingStallTimer?.cancel();

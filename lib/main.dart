@@ -329,6 +329,7 @@ void main() async {
       unawaited(HlsHealthWatchdogFlag.instance.onFlagsLoaded());
     },
     appVersion: packageInfo.version,
+    prefs: prefs,
   );
 
   // Start the replay controller: subscribe to connectivity and stop recording
@@ -551,8 +552,8 @@ void main() async {
           castService.lastCastSlug = null;
           await audioHandler.player.stop();
           audioHandler.setCastPlaying(false);
-          // Nothing plays after a disconnect; without this the heartbeat
-          // keeps reporting `listening_active` for a silent session.
+          // Nothing plays after a disconnect; without this the silent
+          // session keeps counting toward its `listening_stopped` duration.
           AnalyticsService.instance.endListening();
         }
       });

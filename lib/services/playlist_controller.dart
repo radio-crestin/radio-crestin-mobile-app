@@ -227,7 +227,7 @@ class PlaylistController {
       // skip loop; the bounded navigator already guarantees termination) and
       // leave a telemetry breadcrumb, mirroring the item-error path.
       _log('startPlaylist: no playable item (skipYoutube=$_skipYoutube)');
-      AnalyticsService.instance.capture('playlist_no_playable_item', {
+      AnalyticsService.instance.logWarning('playlist no playable item', {
         'station_slug': station.slug,
         'item_count': items.value.length,
         'skip_youtube': _skipYoutube,
@@ -403,7 +403,7 @@ class PlaylistController {
   void _onItemError(Object error) {
     final item = currentItem.value;
     _log('item error ($error) on ${item?.id} → advance (fail #${_consecutiveFailures + 1})');
-    AnalyticsService.instance.capture('playlist_item_error', {
+    AnalyticsService.instance.logWarning('playlist item error', {
       'station_slug': _activeStation?.slug,
       'item_id': item?.id,
       'item_type': item?.type.name,

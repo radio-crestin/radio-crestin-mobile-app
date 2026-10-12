@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:developer' as developer;
 import 'dart:io' show PathNotFoundException;
 
 import 'package:flutter/foundation.dart';
 import 'package:posthog_flutter/posthog_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'local_log_store.dart';
 import 'log_flush_guard.dart';
@@ -17,6 +19,9 @@ class AnalyticsService {
   static AnalyticsService get instance => _instance;
 
   AnalyticsService._();
+
+  static const _projectApiKey =
+      'phc_nYXw3QDHsrAMhEGXnvLcMDgyTG3rgKtEK2HaxV97csvy';
 
   bool _initialized = false;
   String? _sessionId;
@@ -64,11 +69,30 @@ class AnalyticsService {
   int? _currentStationId;
   DateTime? _listeningStartTime;
   bool _isListening = false;
-  Timer? _heartbeatTimer;
-  static const _heartbeatInterval = Duration(seconds: 60);
 
-  // Stream-level context, included on listening_started / listening_active so
-  // sessions can be filtered by stream switches without joining tables.
+  // The open session is mirrored to disk every minute — a local write, no
+  // event — so a session the OS kills mid-listen (no `listening_stopped`) is
+  // still reported with its real duration on the next launch. This replaces
+  // a per-minute `listening_active` event that was ~65% of all event volume.
+  SharedPreferences? _prefs;
+  Timer? _sessionSaveTimer;
+  static const _sessionSaveInterval = Duration(seconds: 60);
+
+  /// SharedPreferences key holding the saved open session.
+  @visibleForTesting
+  static const openSessionKey = 'analytics_open_listening_session';
+
+  /// A saved session refreshed more recently than this may still be live in
+  /// another engine (Android Auto runs `main()` in a second, headless
+  /// engine), so it is not reported as interrupted.
+  static const interruptedSessionMinAge = Duration(minutes: 3);
+
+  // Person properties last sent to this project, so a launch only sends a
+  // `$set` when one changed (the SDK dedupes in memory only).
+  static const _kSentPersonPropertiesKey = 'analytics_sent_person_properties';
+
+  // Stream-level context, included on listening_started / listening_resumed
+  // so sessions can be filtered by stream switches without joining tables.
   String? _currentStreamUrl;
   String? _currentStreamType;
   int? _currentStreamIndex;
@@ -105,14 +129,17 @@ class AnalyticsService {
   /// the `mobile-session-replay` feature flag allows it. [onFeatureFlagsLoaded]
   /// is invoked once PostHog has loaded feature flags, which is when the
   /// replay decision can first be read. [appVersion] becomes the OTLP
-  /// `service.version` on every log record.
+  /// `service.version` on every log record. [prefs] persists the open
+  /// listening session and the person properties already sent; without it
+  /// neither survives a restart.
   Future<void> initialize({
     bool sessionReplayAtSetup = false,
     VoidCallback? onFeatureFlagsLoaded,
     String? appVersion,
+    SharedPreferences? prefs,
   }) async {
     _appVersion = appVersion ?? _appVersion;
-    final config = PostHogConfig('phc_9lTquHDSyoFxkYq4VPd8cFiQ21VZd627Lv8jSV8S7Fi');
+    final config = PostHogConfig(_projectApiKey);
     config.host = 'https://k.radiocrestin.ro';
     config.debug = kDebugMode;
 
@@ -175,8 +202,18 @@ class AnalyticsService {
     // Only after setup, which has already sent the flag to native.
     _replayConfig = sessionReplayAtSetup ? config : null;
     _initialized = true;
+    if (prefs != null) _attachStorage(prefs);
     _sessionId = await Posthog().getSessionId();
     developer.log('PostHog initialized, session: $_sessionId');
+  }
+
+  void _attachStorage(SharedPreferences prefs) {
+    _prefs = prefs;
+    // Before anything is saved: the slot still holds the previous run's
+    // session, if that run never closed it.
+    _reportInterruptedSession();
+    // A session that started before storage was attached is saved now.
+    if (_isListening) _saveOpenSession();
   }
 
   /// Arms or idles `PostHogWidget`'s snapshot loop before it mounts.
@@ -255,21 +292,24 @@ class AnalyticsService {
     _userId = userId;
     _appVersion = appVersion ?? _appVersion;
     _platform = platform ?? _platform;
+    final properties = <String, Object>{
+      if (appVersion != null) 'app_version': appVersion,
+      if (buildNumber != null) 'build_number': buildNumber,
+      if (platform != null) 'platform': platform,
+    };
     // Reset first to clear any stale anonymous/misidentified distinct_id
     // from previous sessions. This generates a fresh anonymous ID which
     // identify() then links to the real userId.
     final currentId = await Posthog().getDistinctId();
     if (currentId != userId) {
       await Posthog().reset();
+      await Posthog().identify(userId: userId, userProperties: properties);
+      _rememberSentPersonProperties(properties, replace: true);
+    } else {
+      // Identified on an earlier launch. Identifying again would send a
+      // `$set` on every launch, so only changed properties go out.
+      await _setPersonProperties(properties);
     }
-    await Posthog().identify(
-      userId: userId,
-      userProperties: {
-        if (appVersion != null) 'app_version': appVersion,
-        if (buildNumber != null) 'build_number': buildNumber,
-        if (platform != null) 'platform': platform,
-      },
-    );
     // Register device ID as a super property so it's on every event
     await Posthog().register('device_id', userId);
   }
@@ -295,13 +335,65 @@ class AnalyticsService {
     capture(eventName, properties);
   }
 
-  /// Set a user property without re-identifying.
+  /// Set a user property without re-identifying. No-op when unchanged.
   void setUserProperty(String name, String value) {
     if (_userId == null) return;
-    Posthog().identify(
-      userId: _userId!,
-      userProperties: {name: value},
-    );
+    unawaited(_setPersonProperties({name: value}));
+  }
+
+  // ── Person properties ──
+
+  /// Sends the [properties] that differ from those last sent to this
+  /// project, as one `$set`.
+  Future<void> _setPersonProperties(Map<String, Object> properties) async {
+    final changed =
+        changedPersonProperties(_loadSentPersonProperties(), properties);
+    if (changed.isEmpty) return;
+    await Posthog().setPersonProperties(userPropertiesToSet: changed);
+    _rememberSentPersonProperties(changed);
+  }
+
+  /// The entries of [next] whose value differs from [sent]. Pure — unit
+  /// tested directly.
+  @visibleForTesting
+  static Map<String, Object> changedPersonProperties(
+    Map<String, Object> sent,
+    Map<String, Object> next,
+  ) =>
+      {
+        for (final entry in next.entries)
+          if (sent[entry.key] != entry.value) entry.key: entry.value,
+      };
+
+  Map<String, Object> _loadSentPersonProperties() {
+    final raw = _prefs?.getString(_kSentPersonPropertiesKey);
+    if (raw == null) return const {};
+    try {
+      final decoded = jsonDecode(raw);
+      // Sent to another project (an earlier API key): resend everything.
+      if (decoded is! Map || decoded['project'] != _projectApiKey) {
+        return const {};
+      }
+      return Map<String, Object>.from(decoded['properties'] as Map);
+    } catch (_) {
+      return const {};
+    }
+  }
+
+  void _rememberSentPersonProperties(
+    Map<String, Object> properties, {
+    bool replace = false,
+  }) {
+    final prefs = _prefs;
+    if (prefs == null) return;
+    final sent = {
+      if (!replace) ..._loadSentPersonProperties(),
+      ...properties,
+    };
+    unawaited(prefs.setString(
+      _kSentPersonPropertiesKey,
+      jsonEncode({'project': _projectApiKey, 'properties': sent}),
+    ));
   }
 
   /// Emit an info-level structured log record to PostHog Logs.
@@ -369,26 +461,82 @@ class AnalyticsService {
 
   // ── Listening session tracking ──
 
-  void _startHeartbeat() {
-    _heartbeatTimer?.cancel();
-    _heartbeatTimer = Timer.periodic(_heartbeatInterval, (_) {
-      if (!_isListening) return;
-      final durationSeconds = _listeningStartTime != null
-          ? DateTime.now().difference(_listeningStartTime!).inSeconds
-          : 0;
-      capture('listening_active', {
-        'station_slug': _currentStationSlug ?? '',
-        'station_name': _currentStationName ?? '',
-        if (_currentStationId != null) 'station_id': _currentStationId!,
-        'session_duration_seconds': durationSeconds,
-        ..._streamContext,
-      });
-    });
+  void _startSessionSaving() {
+    _saveOpenSession();
+    _sessionSaveTimer?.cancel();
+    _sessionSaveTimer =
+        Timer.periodic(_sessionSaveInterval, (_) => _saveOpenSession());
   }
 
-  void _stopHeartbeat() {
-    _heartbeatTimer?.cancel();
-    _heartbeatTimer = null;
+  void _stopSessionSaving() {
+    _sessionSaveTimer?.cancel();
+    _sessionSaveTimer = null;
+    unawaited(_prefs?.remove(openSessionKey));
+  }
+
+  void _saveOpenSession() {
+    final prefs = _prefs;
+    final start = _listeningStartTime;
+    final slug = _currentStationSlug;
+    if (prefs == null || !_isListening || start == null || slug == null) {
+      return;
+    }
+    unawaited(prefs.setString(
+      openSessionKey,
+      jsonEncode({
+        'station_slug': slug,
+        'station_name': _currentStationName ?? '',
+        if (_currentStationId != null) 'station_id': _currentStationId,
+        'started_at_ms': start.millisecondsSinceEpoch,
+        'saved_at_ms': DateTime.now().millisecondsSinceEpoch,
+      }),
+    ));
+  }
+
+  /// Reports the session a previous run left open (the OS killed the app
+  /// mid-listen) as `listening_stopped`, timed up to its last save.
+  ///
+  /// A session saved within [interruptedSessionMinAge] is left alone: it may
+  /// belong to a live engine. Relaunching that soon after a kill loses the
+  /// killed session once a new one overwrites the slot.
+  void _reportInterruptedSession() {
+    final raw = _prefs?.getString(openSessionKey);
+    if (raw == null) return;
+    final properties = interruptedSessionProperties(raw, DateTime.now());
+    if (properties == null) return;
+    unawaited(_prefs?.remove(openSessionKey));
+    capture('listening_stopped', properties);
+    _emitLog(PostHogLogSeverity.info, 'listening stopped', properties);
+  }
+
+  /// The `listening_stopped` properties for a saved open session [raw], or
+  /// null when it is malformed or saved less than [interruptedSessionMinAge]
+  /// before [now]. Pure — unit tested directly.
+  @visibleForTesting
+  static Map<String, Object>? interruptedSessionProperties(
+    String raw,
+    DateTime now,
+  ) {
+    try {
+      final session = jsonDecode(raw) as Map<String, dynamic>;
+      final slug = session['station_slug'] as String;
+      final startedAt = session['started_at_ms'] as int;
+      final savedAt = session['saved_at_ms'] as int;
+      final age = now.millisecondsSinceEpoch - savedAt;
+      if (age < interruptedSessionMinAge.inMilliseconds) return null;
+      final stationId = session['station_id'] as int?;
+      final seconds = (savedAt - startedAt) ~/ 1000;
+      return {
+        'station_slug': slug,
+        'station_name': session['station_name'] as String? ?? '',
+        if (stationId != null) 'station_id': stationId,
+        'duration_seconds': seconds < 0 ? 0 : seconds,
+        'reason': 'app_killed',
+        'recovered': true,
+      };
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Call when the user starts playing a station.
@@ -416,7 +564,7 @@ class AnalyticsService {
       ..._streamContext,
     });
 
-    _startHeartbeat();
+    _startSessionSaving();
   }
 
   /// Starts or resumes tracking for [slug] unless it is already tracked.
@@ -450,7 +598,7 @@ class AnalyticsService {
       ..._streamContext,
     });
 
-    _startHeartbeat();
+    _startSessionSaving();
   }
 
   /// Call when the user pauses/stops or the app is killed.
@@ -458,7 +606,7 @@ class AnalyticsService {
   void endListening({String reason = 'stop'}) {
     if (!_isListening || _listeningStartTime == null) return;
 
-    _stopHeartbeat();
+    _stopSessionSaving();
 
     final duration = DateTime.now().difference(_listeningStartTime!);
     final durationSeconds = duration.inSeconds;

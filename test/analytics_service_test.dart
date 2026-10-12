@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -6,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:posthog_flutter/posthog_flutter.dart';
 import 'package:posthog_flutter/src/feature_flag_result.dart';
 import 'package:posthog_flutter/src/posthog_flutter_platform_interface.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:radio_crestin/services/analytics_service.dart';
 
@@ -381,6 +383,167 @@ void main() {
       fake.distinctId = 'same-id';
       await analytics.identify(userId: 'same-id');
       expect(fake.resetCalls, 0);
+    });
+  });
+
+  group('person properties', () {
+    Future<SharedPreferences> attachFreshPrefs() async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      await analytics.initialize(prefs: prefs);
+      return prefs;
+    }
+
+    test('changedPersonProperties keeps only new or changed entries', () {
+      final changed = AnalyticsService.changedPersonProperties(
+        {'app_version': '1.5.0', 'platform': 'ios'},
+        {'app_version': '1.5.1', 'platform': 'ios', 'build_number': '86'},
+      );
+      expect(changed, {'app_version': '1.5.1', 'build_number': '86'});
+    });
+
+    test('an identified device only sends a \$set when a property changes',
+        () async {
+      await attachFreshPrefs();
+      fake.distinctId = 'device-1';
+
+      await analytics.identify(
+          userId: 'device-1', appVersion: '1.5.1', platform: 'ios');
+      expect(fake.identifyCalls, isEmpty);
+      expect(fake.setPersonPropertiesCalls.single['userPropertiesToSet'],
+          {'app_version': '1.5.1', 'platform': 'ios'});
+
+      // Next launch, nothing changed.
+      fake.setPersonPropertiesCalls.clear();
+      await analytics.identify(
+          userId: 'device-1', appVersion: '1.5.1', platform: 'ios');
+      expect(fake.setPersonPropertiesCalls, isEmpty);
+
+      // App update.
+      await analytics.identify(
+          userId: 'device-1', appVersion: '1.5.2', platform: 'ios');
+      expect(fake.setPersonPropertiesCalls.single['userPropertiesToSet'],
+          {'app_version': '1.5.2'});
+    });
+
+    test('properties sent to another project are sent again', () async {
+      SharedPreferences.setMockInitialValues({
+        'analytics_sent_person_properties': jsonEncode({
+          'project': 'phc_old_project',
+          'properties': {'app_version': '1.5.1'},
+        }),
+      });
+      await analytics.initialize(prefs: await SharedPreferences.getInstance());
+      fake.distinctId = 'device-1';
+
+      await analytics.identify(userId: 'device-1', appVersion: '1.5.1');
+
+      expect(fake.setPersonPropertiesCalls.single['userPropertiesToSet'],
+          {'app_version': '1.5.1'});
+    });
+
+    test('setUserProperty skips a value that was already sent', () async {
+      await attachFreshPrefs();
+      fake.distinctId = 'device-1';
+      await analytics.identify(userId: 'device-1');
+      fake.setPersonPropertiesCalls.clear();
+
+      analytics.setUserProperty('personalized_n', 'true');
+      await Future<void>.delayed(Duration.zero);
+      analytics.setUserProperty('personalized_n', 'true');
+      await Future<void>.delayed(Duration.zero);
+
+      expect(fake.setPersonPropertiesCalls.single['userPropertiesToSet'],
+          {'personalized_n': 'true'});
+    });
+  });
+
+  group('interrupted listening session', () {
+    final now = DateTime(2026, 10, 12, 20);
+
+    String savedSession({required Duration age, required Duration length}) {
+      final savedAt = now.subtract(age);
+      return jsonEncode({
+        'station_slug': 'rve',
+        'station_name': 'RVE',
+        'station_id': 7,
+        'started_at_ms': savedAt.subtract(length).millisecondsSinceEpoch,
+        'saved_at_ms': savedAt.millisecondsSinceEpoch,
+      });
+    }
+
+    test('a stale session becomes listening_stopped(app_killed)', () {
+      final props = AnalyticsService.interruptedSessionProperties(
+        savedSession(
+            age: const Duration(hours: 2), length: const Duration(minutes: 50)),
+        now,
+      );
+      expect(props, {
+        'station_slug': 'rve',
+        'station_name': 'RVE',
+        'station_id': 7,
+        'duration_seconds': 3000,
+        'reason': 'app_killed',
+        'recovered': true,
+      });
+    });
+
+    test('a recently saved session may still be live and is ignored', () {
+      final props = AnalyticsService.interruptedSessionProperties(
+        savedSession(
+            age: const Duration(seconds: 30), length: const Duration(hours: 1)),
+        now,
+      );
+      expect(props, isNull);
+    });
+
+    test('a malformed session is ignored', () {
+      expect(
+          AnalyticsService.interruptedSessionProperties('{oops', now), isNull);
+      expect(AnalyticsService.interruptedSessionProperties('{}', now), isNull);
+    });
+
+    test('initialize reports the previous run\'s open session once', () async {
+      final start = DateTime.now().subtract(const Duration(hours: 1));
+      SharedPreferences.setMockInitialValues({
+        AnalyticsService.openSessionKey: jsonEncode({
+          'station_slug': 'rve',
+          'station_name': 'RVE',
+          'started_at_ms': start.millisecondsSinceEpoch,
+          'saved_at_ms': start
+              .add(const Duration(minutes: 20))
+              .millisecondsSinceEpoch,
+        }),
+      });
+      final prefs = await SharedPreferences.getInstance();
+
+      await analytics.initialize(prefs: prefs);
+
+      final stopped =
+          fake.events.singleWhere((e) => e.eventName == 'listening_stopped');
+      expect(stopped.properties?['station_slug'], 'rve');
+      expect(stopped.properties?['duration_seconds'], 1200);
+      expect(stopped.properties?['reason'], 'app_killed');
+      expect(prefs.getString(AnalyticsService.openSessionKey), isNull);
+    });
+
+    test('an open session is saved while listening and cleared on stop',
+        () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      await analytics.initialize(prefs: prefs);
+
+      analytics.startListening('rve', 'RVE', stationId: 7);
+
+      final saved = jsonDecode(prefs.getString(AnalyticsService.openSessionKey)!)
+          as Map<String, dynamic>;
+      expect(saved['station_slug'], 'rve');
+      expect(saved['station_id'], 7);
+      expect(fake.events.any((e) => e.eventName == 'listening_active'), isFalse);
+
+      analytics.endListening(reason: 'pause');
+
+      expect(prefs.getString(AnalyticsService.openSessionKey), isNull);
     });
   });
 
