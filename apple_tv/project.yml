@@ -42,7 +42,7 @@ targets:
       properties:
         CFBundleDisplayName: Radio Crestin
         CFBundleShortVersionString: "1.5.0"
-        CFBundleVersion: "83"
+        CFBundleVersion: "84"
         UILaunchScreen: {}
         NSAppTransportSecurity:
           # iOS app already ships with NSAllowsArbitraryLoads=true; tvOS
