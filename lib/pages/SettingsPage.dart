@@ -25,6 +25,7 @@ import '../theme_manager.dart';
 import '../tv/tv_platform.dart';
 import '../widgets/bottom_toast.dart';
 import '../widgets/cast_button.dart' show showCastDevicePicker;
+import '../widgets/pinned_title_sliver_header.dart';
 
 
 class SettingsPage extends StatefulWidget {
@@ -715,22 +716,14 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        centerTitle: true,
-        title: Text(
-          'Setări',
-          style: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w600,
-            color: isDark ? Colors.white : Colors.black,
-          ),
-        ),
-      ),
-      body: Visibility(
-        visible: _notificationsEnabled != null,
-        child: ListView(
-          children: [
+      body: CustomScrollView(
+        slivers: [
+          const PinnedTitleSliverHeader(title: 'Setări'),
+          if (_notificationsEnabled != null)
+            SliverSafeArea(
+              top: false,
+              sliver: SliverList.list(
+                children: [
                 if (!TvPlatform.isTV) ...[
                   _buildSectionHeader('Dispozitive'),
                   _buildSettingsCard(children: [_buildCastTile()]),
@@ -1188,9 +1181,11 @@ class _SettingsPageState extends State<SettingsPage> {
                   ]),
                 ],
                 const SizedBox(height: 40),
-            ],
-          ),
-        ),
+                ],
+              ),
+            ),
+        ],
+      ),
     );
   }
 
