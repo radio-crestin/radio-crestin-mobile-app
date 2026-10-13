@@ -476,16 +476,20 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     );
   }
 
-  /// Smallest size the song title shrinks to before it ends in an ellipsis.
+  /// Smallest size of a one-line song title, above the 15px artist line so
+  /// the title keeps its hierarchy. Longer titles wrap to two lines.
   ///
-  /// Stays above the 15px artist line so the title keeps its hierarchy. In a
-  /// day of real metadata (all stations), ~93% of titles fit at 22px and
-  /// ~98% fit by 17px on a 402pt-wide iPhone.
+  /// In a day of real metadata (all stations, 402pt-wide iPhone), ~93% of
+  /// titles fit at 22px, ~98% fit on one line by 17px and all but ~0.02% fit
+  /// on two lines by [_songTitleTwoLineMinFontSize].
   static const double _songTitleMinFontSize = 17;
 
-  /// The primary song line, crossfading on change. Always one line tall: a
-  /// title too long for 22px shrinks to fit instead of wrapping, so the
-  /// controls below never shift when the song changes.
+  /// Smallest size of a song title wrapped to two lines.
+  static const double _songTitleTwoLineMinFontSize = 15;
+
+  /// The primary song line, crossfading on change. Its height is fixed: a
+  /// title too long for 22px shrinks to fit, then wraps to two smaller lines,
+  /// so the controls below never shift when the song changes.
   Widget _buildSongTitle(BuildContext context,
       {TextAlign textAlign = TextAlign.center,
       double horizontalPadding = 16.0}) {
@@ -501,6 +505,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
           _primaryLine(),
           textAlign: textAlign,
           minFontSize: _songTitleMinFontSize,
+          twoLineMinFontSize: _songTitleTwoLineMinFontSize,
           style: TextStyle(
             fontSize: 22,
             fontWeight: FontWeight.w600,
