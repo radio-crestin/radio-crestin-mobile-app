@@ -22,7 +22,11 @@ class LogsViewerPage extends StatefulWidget {
   static void show(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute<void>(builder: (_) => const LogsViewerPage()),
+      MaterialPageRoute<void>(
+        // Named so PostHog records a `$screen` for it.
+        settings: const RouteSettings(name: '/logs'),
+        builder: (_) => const LogsViewerPage(),
+      ),
     );
   }
 

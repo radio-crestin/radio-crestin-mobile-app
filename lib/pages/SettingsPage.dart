@@ -35,6 +35,8 @@ class SettingsPage extends StatefulWidget {
 
   static void show(BuildContext context, {ShareLinkData? shareLinkData}) {
     Navigator.push(context, PageRouteBuilder<void>(
+      // Named so PostHog records a `$screen` for it.
+      settings: const RouteSettings(name: '/settings'),
       pageBuilder: (context, animation, secondaryAnimation) =>
           SettingsPage(shareLinkData: shareLinkData),
       transitionDuration: Duration.zero,
@@ -252,12 +254,12 @@ class _SettingsPageState extends State<SettingsPage> {
     }
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Container(
+      // A Material, not a colored Container: ListTile paints its ink on the
+      // nearest Material, so a colored box in between would hide the ripple.
+      child: Material(
+        color: isDark ? const Color(0xff1c1c1e) : const Color(0xfff2f2f7),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(
-          color: isDark ? const Color(0xff1c1c1e) : const Color(0xfff2f2f7),
-          borderRadius: BorderRadius.circular(16),
-        ),
         child: Column(
           children: _insertDividers(positionedChildren),
         ),

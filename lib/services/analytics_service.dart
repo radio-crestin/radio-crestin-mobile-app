@@ -23,6 +23,14 @@ class AnalyticsService {
   static const _projectApiKey =
       'phc_nYXw3QDHsrAMhEGXnvLcMDgyTG3rgKtEK2HaxV97csvy';
 
+  /// The `build_mode` super property on every event: `debug`, `profile` or
+  /// `release`.
+  static const buildMode = kReleaseMode
+      ? 'release'
+      : kProfileMode
+          ? 'profile'
+          : 'debug';
+
   bool _initialized = false;
   String? _sessionId;
   String? _userId;
@@ -196,9 +204,21 @@ class AnalyticsService {
     config.errorTrackingConfig.captureIsolateErrors = true;
     config.errorTrackingConfig.captureSilentFlutterErrors = true;
     config.errorTrackingConfig.captureNativeExceptions = true;
-    config.errorTrackingConfig.inAppIncludes.add('package:radio_crestin');
+    // Only our code counts as in-app, so an issue points at our frame rather
+    // than a plugin's or the Flutter engine's. Dart frames match the bare
+    // package name (not `package:radio_crestin`); native frames match the
+    // iOS module or Android class-name prefix.
+    config.errorTrackingConfig.inAppByDefault = false;
+    config.errorTrackingConfig.inAppIncludes.addAll(const [
+      'radio_crestin',
+      'flutter_carplay',
+      'Runner',
+      'com.radiocrestin',
+    ]);
 
     await Posthog().setup(config);
+    // Lets dashboards and the test-account filter drop debug runs.
+    await Posthog().register('build_mode', buildMode);
     // Only after setup, which has already sent the flag to native.
     _replayConfig = sessionReplayAtSetup ? config : null;
     _initialized = true;
@@ -319,8 +339,10 @@ class AnalyticsService {
       // `$set` on every launch, so only changed properties go out.
       await _setPersonProperties(properties);
     }
-    // Register device ID as a super property so it's on every event
+    // Register device ID as a super property so it's on every event. The
+    // reset above clears super properties, so `build_mode` goes again too.
     await Posthog().register('device_id', userId);
+    await Posthog().register('build_mode', buildMode);
   }
 
   /// Capture a custom event.
