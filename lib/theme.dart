@@ -46,6 +46,21 @@ class AppColors {
   static const Color sleepAccent = Color(0xfff06292);
   static const Color sleepAccentOnLight = Color(0xffd81b60);
 
+  // Sheets that open over the full player (share, sleep timer) in the dark
+  // theme: a warm wine, top to bottom, lighter than the player's near-black
+  // panel so the sheet stands out from what it covers.
+  static const List<Color> darkSheetBackdrop = [
+    Color(0xff4d1c2f),
+    Color(0xff3b1523),
+    Color(0xff2f111c),
+  ];
+
+  // How many friends opened the user's invitation (share sheet, settings):
+  // the brand pink lightened on dark surfaces and deepened on light ones so
+  // the small text stays readable.
+  static const Color inviteAccent = Color(0xfff48fb1);
+  static const Color inviteAccentOnLight = Color(0xffc2185b);
+
   // Common colors
   static const Color error = Color(0xffd32f2f);
   static const Color success = Colors.green;

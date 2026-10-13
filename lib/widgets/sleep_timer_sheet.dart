@@ -27,9 +27,9 @@ enum _CircleState { idle, active, confirming }
 /// One tap on a duration starts the timer and closes the sheet. While a timer
 /// runs, the header shows the countdown and a cancel button appears;
 /// cancelling shows a short confirmation and then closes. It is dressed like
-/// the full player it opens over: the same backdrop gradient, the player's
-/// chip fills for the durations and the play button's color for the chosen
-/// one.
+/// the share sheet that opens from the same player: white in the light
+/// theme and a warm wine in the dark one, chip fills for the durations and
+/// the player bar's crimson for the chosen one.
 class SleepTimerSheet extends StatefulWidget {
   const SleepTimerSheet({
     super.key,
@@ -61,7 +61,7 @@ class SleepTimerSheet extends StatefulWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       elevation: 0,
-      barrierColor: Colors.black.withValues(alpha: isDark ? 0.5 : 0.32),
+      barrierColor: Colors.black.withValues(alpha: isDark ? 0.4 : 0.32),
       builder: (_) => SleepTimerSheet(
         service: service,
         onDurationChosen: onDurationChosen,
@@ -183,13 +183,15 @@ class _SleepTimerSheetState extends State<SleepTimerSheet> {
   }
 }
 
-/// Colors borrowed from the full player, so the sheet reads as part of it.
+/// Colors shared with the share sheet, so the player's sheets match.
 @immutable
 class _SheetPalette {
   const _SheetPalette({
     required this.isDark,
     required this.isApple,
     required this.backdrop,
+    required this.backdropStops,
+    required this.edge,
     required this.text,
     required this.secondaryText,
     required this.grabber,
@@ -206,17 +208,21 @@ class _SheetPalette {
       isDark: isDark,
       isApple: theme.platform == TargetPlatform.iOS ||
           theme.platform == TargetPlatform.macOS,
-      // The player panel's gradient: brand-tinted in the dark theme, white
-      // fading into the background in the light one.
+      // Dark: the warm wine of the share sheet, lighter than the player so
+      // the sheet stands out from it. Light: the player panel's white fading
+      // into the background.
       backdrop: isDark
-          ? [const Color(0xFF2C1018), const Color(0xFF1A0A0F), background]
+          ? AppColors.darkSheetBackdrop
           : [Colors.white, background, background],
+      backdropStops: isDark ? const [0, 0.55, 1] : const [0, 0.45, 1],
+      // A faint rim that lifts the dark sheet off the dark player.
+      edge: isDark ? Colors.white.withValues(alpha: 0.09) : null,
       text: onSurface,
-      secondaryText: onSurface.withValues(alpha: isDark ? 0.7 : 0.6),
+      secondaryText: onSurface.withValues(alpha: isDark ? 0.74 : 0.6),
       grabber: onSurface.withValues(alpha: isDark ? 0.35 : 0.22),
       // A neutral fill that reads on the panel gradient.
       chip: isDark
-          ? Colors.white.withValues(alpha: 0.12)
+          ? Colors.white.withValues(alpha: 0.13)
           : Colors.black.withValues(alpha: 0.08),
       // The brand color of the bottom bar.
       selected: theme.bottomAppBarTheme.color ?? AppColors.primary,
@@ -229,6 +235,8 @@ class _SheetPalette {
   final bool isApple;
 
   final List<Color> backdrop;
+  final List<double> backdropStops;
+  final Color? edge;
   final Color text;
   final Color secondaryText;
   final Color grabber;
@@ -238,7 +246,7 @@ class _SheetPalette {
   Color get selectedGlow => selected.withValues(alpha: isDark ? 0.55 : 0.35);
 }
 
-/// Full-width card with rounded top corners and the player's gradient.
+/// Full-width card with rounded top corners and the palette's backdrop.
 class _SheetFrame extends StatelessWidget {
   const _SheetFrame({required this.palette, required this.child});
 
@@ -247,6 +255,7 @@ class _SheetFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final edge = palette.edge;
     return DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
@@ -254,8 +263,9 @@ class _SheetFrame extends StatelessWidget {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: palette.backdrop,
-          stops: const [0.0, 0.45, 1.0],
+          stops: palette.backdropStops,
         ),
+        border: edge == null ? null : Border.all(color: edge),
         boxShadow: const [
           BoxShadow(
             color: Color(0x40000000),

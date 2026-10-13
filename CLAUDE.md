@@ -181,7 +181,8 @@ lib/
     WriteNfcTag.dart                 # NFC tag writing
   widgets/
     animated_play_button.dart        # Two-layer optimistic play/pause button
-    share_handler.dart               # Share dialog UI
+    share_handler.dart               # Hands links to WhatsApp/Facebook/system share
+    share_sheet.dart                 # Share bottom sheet UI
     share_promotion_card.dart        # Share link promotion card
     share_utils.dart                 # Share message formatting
   utils/
@@ -320,7 +321,7 @@ lib/
 - **Swipe down full player** -> Returns to station list.
 - **Long-press favorite** -> `like_button` animation with haptic feedback.
 - **Pull-to-refresh** -> Refreshes station data from API.
-- **Share** -> Blur backdrop dialog with social channel options.
+- **Share** -> Bottom sheet: WhatsApp, Facebook, copy link, system share; one tap hands the link over.
 
 ### Feedback Principles
 1. **Instant response:** Every tap must produce immediate visual feedback (optimistic UI, ripple, or animation).

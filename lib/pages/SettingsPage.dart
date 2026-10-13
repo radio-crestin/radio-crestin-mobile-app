@@ -6,7 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_airplay/flutter_airplay.dart' as flutter_airplay;
 import 'package:radio_crestin/services/share_service.dart';
-import 'package:radio_crestin/widgets/share_handler.dart';
+import 'package:radio_crestin/utils/share_utils.dart';
+import 'package:radio_crestin/widgets/share_sheet.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:device_info_plus/device_info_plus.dart';
@@ -84,9 +85,12 @@ class _SettingsPageState extends State<SettingsPage> {
     _loadSeekMode();
     _loadUnstableConnection();
     SeekModeManager.carConnected.addListener(_onCarConnectionChanged);
-    if (widget.shareLinkData != null) {
-      _shareLinkData = widget.shareLinkData;
-      _visitCount = widget.shareLinkData!.visitCount;
+    // The last known link shows its count at once; _loadShareData
+    // refreshes it.
+    final shareLinkData = widget.shareLinkData ?? ShareLinkCache.read();
+    if (shareLinkData != null) {
+      _shareLinkData = shareLinkData;
+      _visitCount = shareLinkData.visitCount;
     }
     _loadShareData();
 
@@ -144,13 +148,12 @@ class _SettingsPageState extends State<SettingsPage> {
 
   void _shareApp(BuildContext context) {
     final fallbackUrl = 'https://www.radiocrestin.ro/descarca-aplicatia-radio-crestin';
-    ShareHandler.shareApp(
-      context: context,
+    ShareSheet.show(
+      context,
       shareUrl: _shareLinkData?.generateShareUrl() ?? fallbackUrl,
       shareMessage: 'Instalează și tu aplicația Radio Creștin și ascultă peste 60 de stații de radio creștin:\n$fallbackUrl',
-      shareLinkData: _shareLinkData,
-      showDialog: true,
-      shareLinkLoader: _shareLinkData == null
+      initialData: _shareLinkData,
+      loader: _shareLinkData == null
           ? () async {
               final prefs = await SharedPreferences.getInstance();
               final deviceId = prefs.getString('device_id');
@@ -835,35 +838,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     icon: Icons.share_rounded,
                     title: 'Distribuie aplicația',
                     subtitleWidget: _visitCount != null && _visitCount! > 0
-                        ? Padding(
-                            padding: const EdgeInsets.only(top: 4),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 2),
-                                  child: Icon(
-                                    Icons.people_outline_rounded,
-                                    size: 14,
-                                    color: isDark ? const Color(0xFFffc700) : const Color(0xFFFF6B35),
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                Flexible(
-                                  child: Text(
-                                    '${_formatVisitCount(_visitCount!)} persoane au deschis aplicația prin linkul tău',
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: isDark ? const Color(0xFFffc700) : const Color(0xFFFF6B35),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          )
+                        ? _InviteCountSubtitle(count: _visitCount!)
                         : Text(
                             'Trimite linkul tău prietenilor și familiei',
                             style: TextStyle(fontSize: 12, color: isDark ? const Color(0xff8a8a8a) : const Color(0xff6b6b6b)),
@@ -1153,15 +1128,6 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  String _formatVisitCount(int count) {
-    if (count >= 1000000) {
-      return '${(count / 1000000).toStringAsFixed(count % 1000000 == 0 ? 0 : 1)}M';
-    } else if (count >= 1000) {
-      return '${(count / 1000).toStringAsFixed(count % 1000 == 0 ? 0 : 1)}k';
-    }
-    return count.toString();
-  }
-
   Future<void> _loadUnstableConnection() async {
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
@@ -1171,4 +1137,58 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   OverlayEntry? _activeToast;
+}
+
+/// How many friends opened the user's invitation, with them highlighted in
+/// pink like in the share sheet.
+class _InviteCountSubtitle extends StatelessWidget {
+  const _InviteCountSubtitle({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final accent =
+        isDark ? AppColors.inviteAccent : AppColors.inviteAccentOnLight;
+    final (friends, rest) = ShareUtils.visitCountParts(count) ??
+        ('', ShareUtils.visitCountText(count));
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 1),
+            child: Icon(Icons.people_outline_rounded, size: 14, color: accent),
+          ),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: friends,
+                    style: TextStyle(
+                      color: accent,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  TextSpan(text: rest),
+                ],
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 12,
+                color: isDark
+                    ? const Color(0xff8a8a8a)
+                    : const Color(0xff6b6b6b),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

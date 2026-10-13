@@ -46,6 +46,28 @@ class ShareUtils {
     return 'Te invit să asculți $stationName:\n$url';
   }
 
+  /// How many friends opened the user's invitation link, in Romanian.
+  static String visitCountText(int count) {
+    return switch (visitCountParts(count)) {
+      (final friends, final rest) => '$friends$rest',
+      null => 'Niciun prieten n-a deschis încă invitația ta',
+    };
+  }
+
+  /// [visitCountText] split into who opened it and the rest, so the first
+  /// part can stand out: `('24 de prieteni', ' au deschis invitația ta')`.
+  /// Null when nobody did.
+  ///
+  /// Counts of 20 and up take "de" unless their last two digits are 01–19
+  /// ("24 de prieteni", "101 prieteni", "120 de prieteni").
+  static (String, String)? visitCountParts(int count) {
+    if (count <= 0) return null;
+    if (count == 1) return ('Un prieten', ' a deschis invitația ta');
+    final lastTwo = count % 100;
+    final de = count >= 20 && (lastTwo == 0 || lastTwo >= 20) ? 'de ' : '';
+    return ('$count ${de}prieteni', ' au deschis invitația ta');
+  }
+
   /// Builds "SongName • Artist" with graceful fallbacks, or null if nothing.
   static String? _buildSongInfo(String? songName, String? songArtist) {
     final parts = <String>[

@@ -130,4 +130,74 @@ void main() {
       );
     });
   });
+
+  group('ShareUtils.visitCountText', () {
+    test('nobody yet', () {
+      expect(
+        ShareUtils.visitCountText(0),
+        'Niciun prieten n-a deschis încă invitația ta',
+      );
+    });
+
+    test('one friend', () {
+      expect(
+        ShareUtils.visitCountText(1),
+        'Un prieten a deschis invitația ta',
+      );
+    });
+
+    test('under 20 takes no "de"', () {
+      expect(
+        ShareUtils.visitCountText(19),
+        '19 prieteni au deschis invitația ta',
+      );
+    });
+
+    test('20 and up take "de"', () {
+      expect(
+        ShareUtils.visitCountText(24),
+        '24 de prieteni au deschis invitația ta',
+      );
+      expect(
+        ShareUtils.visitCountText(100),
+        '100 de prieteni au deschis invitația ta',
+      );
+    });
+
+    test('last two digits 01–19 drop "de" again', () {
+      expect(
+        ShareUtils.visitCountText(101),
+        '101 prieteni au deschis invitația ta',
+      );
+      expect(
+        ShareUtils.visitCountText(119),
+        '119 prieteni au deschis invitația ta',
+      );
+      expect(
+        ShareUtils.visitCountText(120),
+        '120 de prieteni au deschis invitația ta',
+      );
+    });
+  });
+
+  group('ShareUtils.visitCountParts', () {
+    test('nobody yet has nothing to highlight', () {
+      expect(ShareUtils.visitCountParts(0), isNull);
+    });
+
+    test('splits who opened it from the rest', () {
+      expect(
+        ShareUtils.visitCountParts(1),
+        ('Un prieten', ' a deschis invitația ta'),
+      );
+      expect(
+        ShareUtils.visitCountParts(7),
+        ('7 prieteni', ' au deschis invitația ta'),
+      );
+      expect(
+        ShareUtils.visitCountParts(24),
+        ('24 de prieteni', ' au deschis invitația ta'),
+      );
+    });
+  });
 }

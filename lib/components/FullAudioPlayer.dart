@@ -5,7 +5,7 @@ import 'package:like_button/like_button.dart';
 import 'package:radio_crestin/theme.dart';
 import 'package:radio_crestin/pages/HomePage.dart';
 import 'package:radio_crestin/services/share_service.dart';
-import 'package:radio_crestin/widgets/share_handler.dart';
+import 'package:radio_crestin/widgets/share_sheet.dart';
 import 'package:radio_crestin/services/song_like_service.dart';
 import 'package:radio_crestin/widgets/review_modal.dart';
 import 'package:radio_crestin/widgets/song_history_modal.dart';
@@ -771,7 +771,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
         label: 'trimite',
         onTap: () {
           AnalyticsService.instance.capture('button_clicked', {'button_name': 'share', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug, 'song_id': currentStation?.songId});
-          _showShareDialog(context);
+          _showShareSheet(context);
         },
       ),
     ];
@@ -1020,7 +1020,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                       'station_id': station.id,
                       'station_slug': station.slug,
                     });
-                    _showShareDialog(context);
+                    _showShareSheet(context);
                   },
                 ),
                 SleepTimerButton(
@@ -1103,22 +1103,23 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     );
   }
 
-  void _showShareDialog(BuildContext context) {
+  /// Opens the sheet that invites a friend to the current station.
+  void _showShareSheet(BuildContext context) {
     final slug = currentStation?.slug;
     final shareUrl = slug != null && slug.isNotEmpty
         ? 'https://www.radiocrestin.ro/$slug'
         : 'https://www.radiocrestin.ro/descarca-aplicatia-radio-crestin';
 
-    ShareHandler.shareApp(
-      context: context,
+    ShareSheet.show(
+      context,
       shareUrl: shareUrl,
       shareMessage: 'Instalează și tu aplicația Radio Creștin și ascultă peste 60 de stații de radio creștin:\n$shareUrl',
       stationName: currentStation?.title,
+      stationThumbnailUrl: currentStation?.thumbnailUrl,
       songName: currentStation?.songTitle,
       songArtist: currentStation?.songArtist,
       songId: currentStation?.songId,
-      showDialog: true,
-      shareLinkLoader: () async {
+      loader: () async {
         final prefs = await SharedPreferences.getInstance();
         final deviceId = prefs.getString('device_id');
         if (deviceId == null) return null;

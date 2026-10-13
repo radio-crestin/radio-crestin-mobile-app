@@ -1,5 +1,9 @@
+import 'dart:convert';
+
+import 'package:get_it/get_it.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:radio_crestin/queries/getShareLink.graphql.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ShareService {
   final GraphQLClient client;
@@ -24,19 +28,12 @@ class ShareService {
         return null;
       }
 
-      final data = result.data?['get_share_link'];
-      if (data != null && data['share_link'] != null) {
-        return ShareLinkData(
-          shareId: data['share_link']['share_id'] ?? '',
-          url: data['share_link']['url'] ?? '',
-          shareMessage: data['share_link']['share_message'] ?? '',
-          shareStationMessage: data['share_link']['share_station_message'] ?? '',
-          visitCount: data['share_link']['visit_count'] ?? 0,
-          createdAt: data['share_link']['created_at'] ?? '',
-          isActive: data['share_link']['is_active'] ?? true,
-          shareSectionMessage: data['share_link']['share_section_message'] ?? '',
-          shareSectionTitle: data['share_link']['share_section_title'] ?? '',
-        );
+      final shareLink = result.data?['get_share_link']?['share_link'];
+      if (shareLink is Map) {
+        final data =
+            ShareLinkData.fromJson(Map<String, dynamic>.from(shareLink));
+        await ShareLinkCache.save(data);
+        return data;
       }
 
       return null;
@@ -70,6 +67,31 @@ class ShareLinkData {
     required this.shareSectionTitle,
   });
 
+  /// Reads the API's `share_link` object, the shape [toJson] writes back.
+  factory ShareLinkData.fromJson(Map<String, dynamic> json) => ShareLinkData(
+        shareId: json['share_id'] as String? ?? '',
+        url: json['url'] as String? ?? '',
+        shareMessage: json['share_message'] as String? ?? '',
+        shareStationMessage: json['share_station_message'] as String? ?? '',
+        visitCount: json['visit_count'] as int? ?? 0,
+        createdAt: json['created_at'] as String? ?? '',
+        isActive: json['is_active'] as bool? ?? true,
+        shareSectionMessage: json['share_section_message'] as String? ?? '',
+        shareSectionTitle: json['share_section_title'] as String? ?? '',
+      );
+
+  Map<String, dynamic> toJson() => {
+        'share_id': shareId,
+        'url': url,
+        'share_message': shareMessage,
+        'share_station_message': shareStationMessage,
+        'visit_count': visitCount,
+        'created_at': createdAt,
+        'is_active': isActive,
+        'share_section_message': shareSectionMessage,
+        'share_section_title': shareSectionTitle,
+      };
+
   String generateShareUrl({String? stationSlug, int? songId}) {
     final baseUrl = url;
     final params = <String>['s=$shareId'];
@@ -83,5 +105,43 @@ class ShareLinkData {
     }
 
     return '$baseUrl$query';
+  }
+}
+
+/// The last share link the API returned, kept on disk.
+///
+/// The share sheet opens with it, so the visit count and the personal link
+/// show at once while a fresh copy loads, instead of a placeholder.
+class ShareLinkCache {
+  ShareLinkCache._();
+
+  static const String _key = 'share_link_cache';
+
+  /// The cached link, or null when none was saved or it can't be read.
+  static ShareLinkData? read() {
+    final raw = _prefs?.getString(_key);
+    if (raw == null) return null;
+    try {
+      return ShareLinkData.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Future<void> save(ShareLinkData data) async {
+    try {
+      await _prefs?.setString(_key, jsonEncode(data.toJson()));
+    } catch (_) {
+      // Best effort: without a cache the sheet just shows a placeholder.
+    }
+  }
+
+  /// The app's preferences; missing in engines and tests that never
+  /// registered them.
+  static SharedPreferences? get _prefs {
+    final getIt = GetIt.instance;
+    return getIt.isRegistered<SharedPreferences>()
+        ? getIt<SharedPreferences>()
+        : null;
   }
 }

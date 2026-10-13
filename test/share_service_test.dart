@@ -1,4 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:get_it/get_it.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:radio_crestin/services/share_service.dart';
 
@@ -52,6 +54,65 @@ void main() {
         final url = shareLinkData.generateShareUrl(stationSlug: null);
         expect(url, 'https://radio-crestin.com/share?s=abc123');
       });
+    });
+  });
+
+  group('ShareLinkData JSON', () {
+    test('round-trips through toJson and fromJson', () {
+      final data = ShareLinkData.fromJson({
+        'share_id': 'abc123',
+        'url': 'https://asculta.radiocrestin.ro',
+        'share_message': 'm',
+        'share_station_message': 'sm',
+        'visit_count': 24,
+        'created_at': '2026-10-13T00:00:00Z',
+        'is_active': false,
+        'share_section_message': 'ssm',
+        'share_section_title': 'sst',
+      });
+      expect(ShareLinkData.fromJson(data.toJson()).toJson(), data.toJson());
+      expect(data.visitCount, 24);
+      expect(data.isActive, isFalse);
+    });
+
+    test('fills missing fields with defaults', () {
+      final data = ShareLinkData.fromJson({'share_id': 'abc'});
+      expect(data.url, '');
+      expect(data.visitCount, 0);
+      expect(data.isActive, isTrue);
+    });
+  });
+
+  group('ShareLinkCache', () {
+    tearDown(() => GetIt.instance.reset());
+
+    Future<void> registerPrefs([Map<String, Object> values = const {}]) async {
+      SharedPreferences.setMockInitialValues(values);
+      GetIt.instance.registerSingleton<SharedPreferences>(
+        await SharedPreferences.getInstance(),
+      );
+    }
+
+    test('reads back what it saved', () async {
+      await registerPrefs();
+      expect(ShareLinkCache.read(), isNull);
+
+      await ShareLinkCache.save(
+        ShareLinkData.fromJson({'share_id': 'abc', 'visit_count': 7}),
+      );
+      final cached = ShareLinkCache.read();
+      expect(cached?.shareId, 'abc');
+      expect(cached?.visitCount, 7);
+    });
+
+    test('ignores an unreadable entry', () async {
+      await registerPrefs({'share_link_cache': 'not json'});
+      expect(ShareLinkCache.read(), isNull);
+    });
+
+    test('is empty without registered preferences', () async {
+      expect(ShareLinkCache.read(), isNull);
+      await ShareLinkCache.save(ShareLinkData.fromJson({'share_id': 'abc'}));
     });
   });
 }
