@@ -11,6 +11,7 @@ import 'package:radio_crestin/appAudioHandler.dart';
 import 'package:radio_crestin/services/image_cache_service.dart';
 import 'package:radio_crestin/seek_mode_manager.dart';
 import 'package:radio_crestin/services/network_service.dart';
+import 'package:radio_crestin/services/offline_alert_gate.dart';
 import 'package:radio_crestin/services/song_history_service.dart';
 import 'package:radio_crestin/services/song_like_service.dart';
 import 'package:radio_crestin/services/station_data_service.dart';
@@ -47,6 +48,7 @@ class CarPlayService {
   StreamSubscription? _favoritesSubscription;
   StreamSubscription? _connectionErrorSubscription;
   StreamSubscription? _networkRecoverySubscription;
+  StreamSubscription? _carConnectedAlertSubscription;
   StreamSubscription? _carPlayPlaybackSubscription;
   StreamSubscription? _carPlayStationsSubscription;
   StreamSubscription? _carPlaySortOrderSubscription;
@@ -58,6 +60,9 @@ class CarPlayService {
 
   // Whether an error alert is currently shown on CarPlay
   bool _isShowingConnectionError = false;
+
+  // When the no-internet alert shows on CarPlay (iOS only).
+  OfflineAlertGate? _offlineAlertGate;
 
   // CarPlay list items by slug - for favorites tab (reused when updating)
   final Map<String, CPListItem> _favoriteListItems = {};
@@ -856,8 +861,12 @@ class CarPlayService {
 
   // iOS CarPlay only: listen for connection errors and network state.
   void _listenForConnectionErrors() {
+    final network = NetworkService.instance;
     _connectionErrorSubscription = _audioHandler.connectionError.listen((error) {
       if (!isConnected) return;
+      // Without internet the network alert covers it, shown or pending;
+      // another alert would only replace it.
+      if (network.isOffline.value) return;
       // Debounce rapid errors (e.g. user taps multiple stations quickly)
       _connectionErrorDebounceTimer?.cancel();
       _connectionErrorDebounceTimer = Timer(const Duration(milliseconds: 300), () {
@@ -867,18 +876,21 @@ class CarPlayService {
       });
     });
 
-    // Show alert immediately when network drops; dismiss when it recovers
-    _networkRecoverySubscription = NetworkService.instance.isOffline.stream.listen((offline) {
-      if (!isConnected) return;
-      if (offline) {
-        _showCarPlayConnectionError(const ConnectionError(
-          stationName: '',
-          reason: ConnectionErrorReason.network,
-        ));
-      } else if (_isShowingConnectionError) {
-        _dismissConnectionErrorAlert();
-      }
-    });
+    // The network alert waits out short drops and goes when the internet
+    // is back (see OfflineAlertGate).
+    final gate = _offlineAlertGate = OfflineAlertGate(
+      show: () => _showCarPlayConnectionError(const ConnectionError(
+        stationName: '',
+        reason: ConnectionErrorReason.network,
+      )),
+      dismiss: () {
+        if (_isShowingConnectionError) _dismissConnectionErrorAlert();
+      },
+    );
+    _networkRecoverySubscription =
+        network.isOffline.stream.listen(gate.onOfflineChanged);
+    _carConnectedAlertSubscription =
+        isCarConnected.stream.listen(gate.onCarConnectedChanged);
   }
 
   Future<void> _dismissConnectionErrorAlert() async {
@@ -1403,6 +1415,8 @@ class CarPlayService {
     _mediaItemSubscription?.cancel();
     _connectionErrorSubscription?.cancel();
     _networkRecoverySubscription?.cancel();
+    _carConnectedAlertSubscription?.cancel();
+    _offlineAlertGate?.dispose();
     _androidAutoStationSubscription?.cancel();
     _androidAutoRebuildTimer?.cancel();
 

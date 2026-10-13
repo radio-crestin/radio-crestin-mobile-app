@@ -4,7 +4,9 @@ import 'dart:developer' as developer;
 import 'dart:io' show Platform;
 
 import 'package:app_links/app_links.dart';
+import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_sticky_header/flutter_sticky_header.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:radio_crestin/appAudioHandler.dart';
@@ -25,9 +27,8 @@ import '../services/launch_source_service.dart';
 import '../services/network_service.dart';
 import '../services/playlist_controller.dart';
 import '../services/station_data_service.dart';
+import '../services/station_retry.dart';
 import '../services/station_sort_service.dart';
-import '../widgets/connectivity_banner.dart';
-import '../widgets/bottom_toast.dart';
 import '../widgets/cast_button.dart';
 import '../widgets/mini_player_bottom_inset.dart';
 import '../widgets/promo_notification_card.dart';
@@ -38,6 +39,8 @@ import '../types/Station.dart';
 import '../utils.dart';
 import '../utils/PositionRetainedScrollPhysics.dart';
 import '../widgets/song_history_modal.dart';
+import '../widgets/status_snackbar.dart';
+import '../widgets/status_snackbar_controller.dart';
 import 'SettingsPage.dart';
 
 class HomePage extends StatefulWidget {
@@ -130,11 +133,19 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   bool _showSharePromotion = false;
   final GlobalKey<SharePromotionCardState> _sharePromotionKey = GlobalKey();
   ShareLinkData? _shareLinkData;
+  /// What the status snackbar says: offline, back online, a station error.
+  final StatusSnackbarController _statusSnackbar = StatusSnackbarController();
+
+  /// Room at the end of the station list for the docked offline snackbar.
+  final ValueNotifier<double> _statusListInset = ValueNotifier(0.0);
+
+  /// `NetworkService.isOffline`: no network, or no internet through it.
   bool _isOffline = false;
-  bool _showBackOnline = false;
-  Timer? _backOnlineTimer;
   StreamSubscription? _offlineSub;
+  StreamSubscription? _networkSub;
   StreamSubscription? _connectionErrorSub;
+  StreamSubscription? _playbackStateSub;
+  StreamSubscription? _stationChangeSub;
   StreamSubscription? _videoModeSub;
   StreamSubscription? _videoContentSub;
 
@@ -144,7 +155,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   /// when a different video starts (a new key no longer matches).
   String? _suppressVideoAutoOpenKey;
   StreamSubscription? _customEventSub;
-  OverlayEntry? _activeConnectionToast;
   final ValueNotifier<double> _panelSlide = ValueNotifier(0.0);
   StationSortOption _sortOption = StationSortOption.recommended;
   PromoNotification? _currentPromoNotification;
@@ -165,66 +175,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       developer.log("initialLink err:" + err.toString());
     });
 
-    _isOffline = _networkService.isOffline.value;
-    _offlineSub = _networkService.isOffline.stream.listen((offline) {
-      if (!mounted) return;
-      if (!offline && _isOffline) {
-        // Was offline, now back online — show "back online" banner
-        _backOnlineTimer?.cancel();
-        setState(() {
-          _isOffline = false;
-          _showBackOnline = true;
-        });
-        _backOnlineTimer = Timer(const Duration(seconds: 3), () {
-          if (mounted) setState(() => _showBackOnline = false);
-        });
-      } else {
-        setState(() => _isOffline = offline);
-      }
-    });
-
-    _connectionErrorSub = _audioHandler.connectionError.listen((error) {
-      if (!mounted) return;
-      // Don't show stale error toasts when app is backgrounded (e.g. using CarPlay)
-      if (WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) return;
-      final stationPart = error.stationName.isNotEmpty
-          ? '"${error.stationName}"'
-          : 'stația radio';
-      final String title;
-      final String message;
-      final IconData icon;
-      switch (error.reason) {
-        case ConnectionErrorReason.timeout:
-          title = 'Eroare conexiune';
-          message = 'Conexiunea la $stationPart a expirat.';
-          icon = Icons.timer_off_rounded;
-          break;
-        case ConnectionErrorReason.network:
-          title = 'Eroare conexiune';
-          message = 'Verifică conexiunea la internet.';
-          icon = Icons.wifi_off_rounded;
-          break;
-        case ConnectionErrorReason.httpError:
-          title = 'Stație indisponibilă';
-          message = 'Serverul $stationPart a returnat eroarea ${error.details ?? "necunoscută"}.';
-          icon = Icons.cloud_off_rounded;
-          break;
-        case ConnectionErrorReason.unknown:
-          title = 'Stație indisponibilă';
-          message = 'Nu s-a putut conecta la $stationPart.';
-          icon = Icons.error_outline_rounded;
-          break;
-      }
-      removeBottomToast(_activeConnectionToast);
-      _activeConnectionToast = showBottomToast(
-        context,
-        title: title,
-        message: message,
-        icon: icon,
-        isError: true,
-        onDismissed: () { _activeConnectionToast = null; },
-      );
-    });
+    _listenToStatusSnackbarSources();
 
     // Listen for custom events from notification/Android Auto actions
     _customEventSub = _audioHandler.customEvent.listen((event) {
@@ -276,6 +227,80 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       _imageCachePruneTimer =
           Timer(const Duration(seconds: 30), _pruneImageDiskCache);
     });
+  }
+
+  /// Feeds the status snackbar: the network, connection errors, playback
+  /// and the current station.
+  void _listenToStatusSnackbarSources() {
+    _isOffline = _networkService.isOffline.value;
+    _offlineSub = _networkService.isOffline.stream
+        .listen((offline) => _isOffline = offline);
+    _statusSnackbar.playIntent = _audioHandler.hasPlayIntent;
+    _updateStatusSnackbarNetwork();
+    // `status` tells no network from a network without internet, and
+    // `isOnMobileData` which network that is: both shape the offline copy.
+    _networkSub = Rx.merge([
+      _networkService.status,
+      _networkService.isOnMobileData,
+    ]).listen((_) {
+      if (!mounted) return;
+      _statusSnackbar.playIntent = _audioHandler.hasPlayIntent;
+      _updateStatusSnackbarNetwork();
+    });
+
+    _connectionErrorSub = _audioHandler.connectionError.listen((error) {
+      if (!mounted) return;
+      // Don't show stale errors when the app is backgrounded (e.g. CarPlay).
+      if (WidgetsBinding.instance.lifecycleState !=
+          AppLifecycleState.resumed) {
+        return;
+      }
+      // The offline snackbar already says why, and playback resumes on its
+      // own once the internet is back: never an error over it.
+      if (_isOffline) return;
+      final station = _audioHandler.currentStation.valueOrNull;
+      final shown = _statusSnackbar.showStationError(
+        stationTitle: station?.displayTitle ?? error.stationName,
+        reason: error.reason,
+        station: station,
+      );
+      if (shown) HapticFeedback.lightImpact();
+    });
+
+    _playbackStateSub = _audioHandler.playbackState.listen((state) {
+      _statusSnackbar.updatePlayback(
+        playIntent: _audioHandler.hasPlayIntent,
+        playingReady: state.playing &&
+            state.processingState == AudioProcessingState.ready,
+      );
+    });
+    _stationChangeSub = _audioHandler.currentStation.stream.listen(
+        (station) => _statusSnackbar.updateCurrentStation(station?.id));
+  }
+
+  void _updateStatusSnackbarNetwork() => _statusSnackbar.updateNetwork(
+        _networkService.status.value,
+        onMobileData: _networkService.isOnMobileData.value,
+      );
+
+  /// Retries the current station now (the station error's "Reîncearcă").
+  Future<void> _retryCurrentStation() async {
+    final station = _audioHandler.currentStation.valueOrNull;
+    if (station == null) return;
+    AnalyticsService.instance.capture('button_clicked', {
+      'button_name': 'connection_error_retry',
+      'station_id': station.id,
+      'station_slug': station.slug,
+    });
+    try {
+      await retryStation(
+        station,
+        handler: _audioHandler,
+        playlist: _playlistController,
+      );
+    } catch (e) {
+      developer.log('Error retrying ${station.slug}: $e');
+    }
   }
 
   void _pruneImageDiskCache() {
@@ -449,13 +474,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _sub.cancel();
     _offlineSub?.cancel();
+    _networkSub?.cancel();
     _connectionErrorSub?.cancel();
+    _playbackStateSub?.cancel();
+    _stationChangeSub?.cancel();
     _videoModeSub?.cancel();
     _videoContentSub?.cancel();
     _customEventSub?.cancel();
-    _backOnlineTimer?.cancel();
     _imageCachePruneTimer?.cancel();
-    removeBottomToast(_activeConnectionToast);
+    _statusSnackbar.dispose();
+    _statusListInset.dispose();
     _panelSlide.dispose();
     super.dispose();
   }
@@ -772,6 +800,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     // while the search dialog opens above it.
     final panelMaxHeight = MediaQuery.sizeOf(context).height * .9;
     final bottomPadding = MediaQuery.paddingOf(context).bottom;
+    // The page's Stack ends this far above the screen bottom (the padding of
+    // the Container around it); the open panel is this tall inside it.
+    final stackBottomInset = Platform.isIOS ? 12.0 : bottomPadding;
+    final panelOpenHeight = panelMaxHeight - stackBottomInset;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -790,14 +822,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
             final favoriteStations = filteredStations.where((station) => favoriteSlugs.contains(station.slug)).toList();
             final nonFavoriteStations = filteredStations.where((station) => !favoriteSlugs.contains(station.slug)).toList();
+            final hasMiniPlayer = currentStation != null && stations.isNotEmpty;
 
             return Container(
               color: Theme.of(context).scaffoldBackgroundColor,
-              padding: EdgeInsets.only(bottom: Platform.isIOS ? 12 : bottomPadding),
+              padding: EdgeInsets.only(bottom: stackBottomInset),
               child: Stack(
               children: [
               SlidingUpPanel(
-              maxHeight: panelMaxHeight - (Platform.isIOS ? 12 : bottomPadding),
+              maxHeight: panelOpenHeight,
               minHeight: kMiniPlayerCollapsedHeight,
               backdropEnabled: true,
               backdropTapClosesPanel: true,
@@ -1108,6 +1141,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           // area is already consumed by the outer Container
                           // padding, so this is exactly the collapsed height.
                           MiniPlayerBottomInset(visible: currentStation != null),
+                          // Plus room for the docked offline snackbar while
+                          // it shows, so the last rows stay reachable.
+                          StatusSnackbarListInset(inset: _statusListInset),
                         ],
                         ),
                         ),
@@ -1143,26 +1179,24 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     : null,
               ),
             ),
-              if (_isOffline || _showBackOnline)
-                Positioned(
-                  bottom: Platform.isIOS ? 88 : 82,
-                  left: 8,
-                  right: 8,
-                  child: ValueListenableBuilder<double>(
-                    valueListenable: _panelSlide,
-                    child: ConnectivityBanner(
-                      isOffline: _isOffline,
-                      showBackOnline: _showBackOnline,
-                    ),
-                    builder: (context, position, child) {
-                      final slideOffset = position * (panelMaxHeight - 100.0);
-                      return Transform.translate(
-                        offset: Offset(0, -slideOffset),
-                        child: child,
-                      );
-                    },
+              // Offline, back online and station errors, one at a time,
+              // above the mini player and rising with the full player.
+              Positioned.fill(
+                child: StatusSnackbarOverlay(
+                  controller: _statusSnackbar,
+                  panelPosition: _panelSlide,
+                  panelTravel: panelOpenHeight - kMiniPlayerCollapsedHeight,
+                  dockedBottom: statusSnackbarDockedBottom(
+                    hasMiniPlayer: hasMiniPlayer,
+                    bottomSafeArea: bottomPadding,
+                    stackBottomInset: stackBottomInset,
                   ),
+                  listInset: _statusListInset,
+                  listReservedInset:
+                      currentStation != null ? kMiniPlayerCollapsedHeight : 0,
+                  onRetry: _retryCurrentStation,
                 ),
+              ),
             ],
             ),
             );

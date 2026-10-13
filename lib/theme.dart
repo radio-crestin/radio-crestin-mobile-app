@@ -10,6 +10,61 @@ extension CustomThemeColors on ThemeData {
   Color get textSecondary => brightness == Brightness.light
       ? AppColors.lightTextSecondary
       : AppColors.darkTextSecondary;
+
+  /// The status snackbar's colors (offline, back online, station error).
+  StatusSnackbarColors get statusSnackbarColors =>
+      brightness == Brightness.light
+          ? StatusSnackbarColors.onLight
+          : StatusSnackbarColors.onDark;
+}
+
+/// Colors of the status snackbar, for one theme brightness.
+///
+/// The snackbar is a Material 3 inverse surface: light in the dark theme and
+/// dark in the light theme, so it stands out from the page it floats over.
+@immutable
+class StatusSnackbarColors {
+  /// Creates a palette; the app uses [onDark] and [onLight].
+  const StatusSnackbarColors({
+    required this.background,
+    required this.text,
+    required this.textSecondary,
+    required this.action,
+    required this.success,
+  });
+
+  /// The dark theme's snackbar (a light surface).
+  static const onDark = StatusSnackbarColors(
+    background: AppColors.statusSnackbar,
+    text: AppColors.statusSnackbarText,
+    textSecondary: AppColors.statusSnackbarTextSecondary,
+    action: AppColors.statusSnackbarAction,
+    success: AppColors.statusSnackbarSuccess,
+  );
+
+  /// The light theme's snackbar (a dark surface).
+  static const onLight = StatusSnackbarColors(
+    background: AppColors.statusSnackbarOnLight,
+    text: AppColors.statusSnackbarTextOnLight,
+    textSecondary: AppColors.statusSnackbarTextSecondaryOnLight,
+    action: AppColors.statusSnackbarActionOnLight,
+    success: AppColors.statusSnackbarSuccessOnLight,
+  );
+
+  /// The surface.
+  final Color background;
+
+  /// Titles.
+  final Color text;
+
+  /// Explanations under a title, and the offline icon.
+  final Color textSecondary;
+
+  /// The text button ("Reîncearcă").
+  final Color action;
+
+  /// The back-online check mark.
+  final Color success;
 }
 
 // App Colors
@@ -60,6 +115,24 @@ class AppColors {
   // the small text stays readable.
   static const Color inviteAccent = Color(0xfff48fb1);
   static const Color inviteAccentOnLight = Color(0xffc2185b);
+
+  // Status snackbar (offline, back online, station error), a Material 3
+  // inverse surface: these are the dark theme's (a light snackbar), the
+  // `...OnLight` ones the light theme's (a dark snackbar). Text keeps 4.5:1
+  // contrast on its background, the success check mark at least 3:1.
+  static const Color statusSnackbar = Color(0xffece6e9);
+  static const Color statusSnackbarText = Color(0xff1c1b1d);
+  static const Color statusSnackbarTextSecondary = Color(0xff4a4549);
+  static const Color statusSnackbarAction = Color(0xffa3134e);
+  static const Color statusSnackbarSuccess = Color(0xff1e7b3a);
+  static const Color statusSnackbarOnLight = Color(0xff2e2a2d);
+  static const Color statusSnackbarTextOnLight = Color(0xfff4eff2);
+  // The title color at 74% opacity.
+  static const Color statusSnackbarTextSecondaryOnLight = Color(0xbdf4eff2);
+  static const Color statusSnackbarActionOnLight = Color(0xffffb0c8);
+  static const Color statusSnackbarSuccessOnLight = Color(0xff6fdc8c);
+  // Its drop shadow, in both themes.
+  static const Color statusSnackbarShadow = Color(0x40000000);
 
   // Common colors
   static const Color error = Color(0xffd32f2f);

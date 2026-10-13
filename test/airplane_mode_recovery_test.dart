@@ -4,6 +4,8 @@ import 'package:just_audio/just_audio.dart' show ProcessingState;
 import 'package:radio_crestin/appAudioHandler.dart';
 import 'package:radio_crestin/services/hls_health_watchdog_flag.dart';
 import 'package:radio_crestin/services/hls_timeline.dart';
+import 'package:radio_crestin/services/network_service.dart';
+import 'package:radio_crestin/stream_failover.dart';
 
 /// Reproduction + regression suite for the "audio doesn't come back after
 /// airplane mode" bug.
@@ -44,6 +46,101 @@ void main() {
     test('bufferingStallTimeout is 3 seconds (was 15s — too long)', () {
       expect(ReconnectPolicy.bufferingStallTimeout,
           equals(const Duration(seconds: 3)));
+    });
+  });
+
+  group('ReconnectPolicy.retryBackoff', () {
+    const fiveSeconds = Duration(seconds: 5);
+
+    test('online keeps the failover backoff', () {
+      expect(ReconnectPolicy.retryBackoff(fiveSeconds, offline: false),
+          fiveSeconds);
+    });
+
+    test('offline waits for the network instead of churning the player', () {
+      expect(ReconnectPolicy.retryBackoff(fiveSeconds, offline: true),
+          ReconnectPolicy.offlineRetryDelay);
+      expect(ReconnectPolicy.offlineRetryDelay,
+          greaterThan(StreamFailover.maxCycleBackoff));
+    });
+
+    test('the first pass over the streams always runs, even offline', () {
+      // A wrong offline signal must never block a tap.
+      expect(ReconnectPolicy.retryBackoff(Duration.zero, offline: true),
+          Duration.zero);
+    });
+  });
+
+  group('ReconnectPolicy.waitsForNetwork', () {
+    final now = DateTime(2026, 10, 13, 12);
+
+    bool waits(ConnectionStatus status, [Duration? withoutInternetFor]) =>
+        ReconnectPolicy.waitsForNetwork(
+          status: status,
+          noInternetSince: withoutInternetFor == null
+              ? null
+              : now.subtract(withoutInternetFor),
+          now: now,
+        );
+
+    test('without any network: waits', () {
+      expect(waits(ConnectionStatus.offline), isTrue);
+    });
+
+    test('online: never waits', () {
+      expect(waits(ConnectionStatus.online), isFalse);
+    });
+
+    test('a young outage on a live network keeps the usual pace', () {
+      // Its attempts are the best check there is.
+      expect(waits(ConnectionStatus.noInternet, const Duration(minutes: 1)),
+          isFalse);
+    });
+
+    test('an outage past the patience waits like without a network', () {
+      expect(
+          waits(ConnectionStatus.noInternet,
+              ReconnectPolicy.noInternetPatience),
+          isTrue);
+    });
+  });
+
+  group('ReconnectPolicy.failedPassBlamesStation', () {
+    final start = DateTime(2026, 10, 13, 12);
+
+    bool blames({
+      bool startedOffline = false,
+      bool offlineNow = false,
+      DateTime? lastOfflineAt,
+    }) =>
+        ReconnectPolicy.failedPassBlamesStation(
+          startedAt: start,
+          startedOffline: startedOffline,
+          offlineNow: offlineNow,
+          lastOfflineAt: lastOfflineAt,
+        );
+
+    test('a pass online throughout blames the station', () {
+      expect(blames(), isTrue);
+      expect(
+          blames(lastOfflineAt: start.subtract(const Duration(minutes: 1))),
+          isTrue,
+          reason: 'an outage before the pass is over');
+    });
+
+    test('a pass that started offline does not', () {
+      // E.g. a tap while offline, the network back mid-pass: the error
+      // would show just before the audio starts.
+      expect(blames(startedOffline: true), isFalse);
+    });
+
+    test('a pass that ends offline does not', () {
+      expect(blames(offlineNow: true), isFalse);
+    });
+
+    test('a pass during which the internet was lost and back does not', () {
+      expect(blames(lastOfflineAt: start.add(const Duration(seconds: 2))),
+          isFalse);
     });
   });
 

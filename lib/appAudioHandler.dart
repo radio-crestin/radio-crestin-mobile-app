@@ -206,13 +206,65 @@ class ReconnectPolicy {
   /// the toggle happened within 8s of a successful load.
   static const Duration justLoadedDebounce = Duration(seconds: 8);
 
-  /// Delay between `connectivity_plus` reporting "online" and our
-  /// reconnect attempt. Was 2000ms; dropped to 500ms because: (a) the
-  /// previous value was the dominant contributor to "stream restart is
-  /// delayed" UX, and (b) play() retries failed loads anyway, so an
-  /// optimistic-and-wrong attempt costs only one extra HTTP round-trip.
+  /// Delay between the internet answering again and the reconnect check.
+  ///
+  /// `NetworkService.isOffline` turns false only once a probe or a request
+  /// got through, so there is no DNS to wait for: the delay lets a network
+  /// that drops again at once settle first (the check is skipped if it
+  /// did). Was 2000ms, the dominant contributor to "stream restart is
+  /// delayed" UX.
   static const Duration networkRestoreReconnectDelay =
       Duration(milliseconds: 500);
+
+  /// Backoff between failed retry cycles while there is no network at all.
+  ///
+  /// Every attempt fails at once then, so the play loop waits for a network
+  /// to come back (which wakes the wait early) instead of building a new
+  /// player every 10s; a network that does come back without answering
+  /// keeps the usual backoff, its attempts being the best check there is.
+  /// The wait is a safety net, should the no-network signal be wrong.
+  static const Duration offlineRetryDelay = Duration(seconds: 30);
+
+  /// The wait before a retry cycle: [base] (see `StreamFailover.retryDelay`),
+  /// stretched to [offlineRetryDelay] while [offline] (no network at all).
+  /// The first pass over the streams ([base] zero) always runs, so a wrong
+  /// offline signal never blocks a tap.
+  static Duration retryBackoff(Duration base, {required bool offline}) =>
+      base > Duration.zero && offline ? offlineRetryDelay : base;
+
+  /// How long a network without internet keeps the usual retry pace: while
+  /// an outage is young, the attempts are the best check there is; past
+  /// that, a new player every 10s only costs (CPU, analytics, battery).
+  static const Duration noInternetPatience = Duration(minutes: 2);
+
+  /// Whether the retry loop waits [offlineRetryDelay] between passes: with
+  /// no network at all, or no internet for over [noInternetPatience] (since
+  /// [noInternetSince]). The internet coming back wakes the wait either way.
+  static bool waitsForNetwork({
+    required ConnectionStatus status,
+    required DateTime? noInternetSince,
+    required DateTime now,
+  }) =>
+      status == ConnectionStatus.offline ||
+      (status == ConnectionStatus.noInternet &&
+          noInternetSince != null &&
+          now.difference(noInternetSince) >= noInternetPatience);
+
+  /// Whether a pass over the streams that failed blames the station, and
+  /// so deserves an error: only if the internet was up for all of it.
+  ///
+  /// Started offline ([startedOffline]), offline now ([offlineNow]), or
+  /// lost in between ([lastOfflineAt] after [startedAt]): the loads failed
+  /// for want of internet, which the offline banner already says.
+  static bool failedPassBlamesStation({
+    required DateTime startedAt,
+    required bool startedOffline,
+    required bool offlineNow,
+    required DateTime? lastOfflineAt,
+  }) =>
+      !startedOffline &&
+      !offlineNow &&
+      (lastOfflineAt == null || !lastOfflineAt.isAfter(startedAt));
 
   /// Reattempt play() after this much continuous buffering. Was 15s;
   /// dropped to 3s to match Spotify-tier perceived recovery. play() has
@@ -612,6 +664,11 @@ class AppAudioHandler extends BaseAudioHandler {
   // disconnect. Reconnects and the background video handoff only act while
   // it is set.
   bool _hasBeenPlayed = false;
+
+  /// Whether the listener wants audio playing: set by a play, cleared by a
+  /// pause, a stop or an error stop (see the field above).
+  bool get hasPlayIntent => _hasBeenPlayed;
+
   // Set when an interruption paused playback so that its end resumes it;
   // cleared by any later play, pause or stop.
   bool _resumeAfterInterruption = false;
@@ -738,6 +795,20 @@ class AppAudioHandler extends BaseAudioHandler {
   // Completer used to immediately break out of a stale setAudioSource() await
   // instead of waiting for the full 3-10s timeout to expire.
   Completer<void>? _sourceLoadCanceller;
+  // Completed when the network returns, waking the play() loop's backoff
+  // between failed retry cycles. Null while no backoff is pending.
+  Completer<void>? _retryBackoffWake;
+  // Last buffered position seen, to tell buffer growth (data arriving).
+  Duration _lastBufferedPosition = Duration.zero;
+  // When the internet was last lost, so a failed pass that overlapped it
+  // does not blame the station.
+  DateTime? _lastOfflineAt;
+  // Since when a network has been up without internet; null otherwise.
+  DateTime? _noInternetSince;
+  // The play() call (op id) whose connection error was shown, and the one
+  // still deciding whether to show it: one error per play() call.
+  int _errorShownForOp = -1;
+  int _errorPendingForOp = -1;
   static const _disconnectDelay = Duration(seconds: 60);
 
   // ── Video mode & playlist state ───────────────────────────────────────
@@ -1007,6 +1078,78 @@ class AppAudioHandler extends BaseAudioHandler {
     }
   }
 
+  /// Tells the user (toast, CarPlay alert) and analytics that every stream
+  /// of the station failed the pass that started at [passStartedAt].
+  ///
+  /// Only when the internet was up for the whole pass, confirmed first: a
+  /// load on a network without internet only times out, and a pass that
+  /// ran even partly offline says nothing about the station. The offline
+  /// banner explains those, and the next pass decides. Dropped too when a
+  /// newer play() call ([opId]) took over, or a retry connected, meanwhile.
+  /// At most one error per play() call.
+  Future<void> _surfaceConnectionError(
+    Object? lastError, {
+    required int opId,
+    required DateTime passStartedAt,
+    required bool passStartedOffline,
+    required Map<String, Object?> properties,
+  }) async {
+    final network = NetworkService.instance;
+    // Known to be offline: no check needed to stay quiet.
+    if (passStartedOffline || network.isOffline.value) return;
+    _errorPendingForOp = opId;
+    try {
+      await network.checkInternet();
+    } finally {
+      if (_errorPendingForOp == opId) _errorPendingForOp = -1;
+    }
+    if (opId != _playOperationId || !_isConnecting) return;
+    final blamesStation = ReconnectPolicy.failedPassBlamesStation(
+      startedAt: passStartedAt,
+      startedOffline: passStartedOffline,
+      offlineNow: network.isOffline.value,
+      lastOfflineAt: _lastOfflineAt,
+    );
+    if (!blamesStation) return;
+    _errorShownForOp = opId;
+    final stationName = currentStation.valueOrNull?.title ?? '';
+    final classified = _classifyError(stationName, lastError);
+    connectionError.add(classified);
+    PlaybackFailure.report(
+      PlaybackFailureKind.allStreamsFailed,
+      reason: classified.reason.name,
+      properties: {...properties, 'details': classified.details},
+    );
+  }
+
+  /// Whether a failed load got an HTTP error status (404, 503…), which is
+  /// an answer from the station's server, not a network failure.
+  static bool _isHttpStatusError(Object error) {
+    if (error is! PlayerException) return false;
+    final code = error.code;
+    // -1100: NSURLErrorFileDoesNotExist, AVPlayer's HTTP 404.
+    return code == -1100 || (code >= 400 && code < 600);
+  }
+
+  /// A growing buffer means audio data is arriving: proof the internet
+  /// works, even when the reachability probes time out on a weak signal.
+  void _reportAudioArriving(Duration bufferedPosition) {
+    if (bufferedPosition > _lastBufferedPosition) {
+      NetworkService.instance.reportRequestSuccess();
+    }
+    // A new source starts again from zero.
+    _lastBufferedPosition = bufferedPosition;
+  }
+
+  /// Ends the play() loop's backoff between failed retry cycles now, so
+  /// its next attempt runs as soon as the network is back.
+  void _wakeRetryBackoff() {
+    final wake = _retryBackoffWake;
+    if (wake == null || wake.isCompleted) return;
+    _log('play: network back — retrying now instead of after the backoff');
+    wake.complete();
+  }
+
   /// Media ID prefix for the items of the Android Auto favorites folder.
   ///
   /// Android Auto plays a browsed item by its media ID alone (the item's
@@ -1193,6 +1336,7 @@ class AppAudioHandler extends BaseAudioHandler {
       (event) {
         _broadcastState(event);
         _onPlayerEventForTimeline(event);
+        _reportAudioArriving(event.bufferedPosition);
       },
       onError: _onPlayerStreamError,
     );
@@ -2151,10 +2295,13 @@ class AppAudioHandler extends BaseAudioHandler {
     // stream instead of re-looping on the dead one (the old `retry % total`
     // always restarted at index 0).
     int? cycleStart;
-    // The connection-error toast fires once per play() call, after the first
-    // full failed cycle. The loop itself never gives up (live radio): it
-    // keeps cycling with capped backoff until cancelled or superseded.
-    var surfacedError = false;
+    // The connection-error toast fires once per play() call, after the
+    // first full failed pass the internet was up for (see
+    // _surfaceConnectionError). The loop itself never gives up (live
+    // radio): it keeps cycling with capped backoff until cancelled or
+    // superseded.
+    var passStartedAt = DateTime.now();
+    var passStartedOffline = false;
     final canceller = Completer<void>();
     _sourceLoadCanceller = canceller;
     final previousStreamInfo = currentStreamInfo.valueOrNull;
@@ -2190,21 +2337,42 @@ class AppAudioHandler extends BaseAudioHandler {
 
       // Cycle backoff: streams fail over to each other instantly; a delay
       // applies only once every stream has failed a full pass (1s, 2s, 5s,
-      // then 10s cap — see StreamFailover.retryDelay).
-      final delay = StreamFailover.retryDelay(
-        retry: retry,
-        totalStreams: totalStreams,
+      // then 10s cap — see StreamFailover.retryDelay; 30s while waiting for
+      // the network, see ReconnectPolicy.waitsForNetwork).
+      final network = NetworkService.instance;
+      final delay = ReconnectPolicy.retryBackoff(
+        StreamFailover.retryDelay(retry: retry, totalStreams: totalStreams),
+        offline: ReconnectPolicy.waitsForNetwork(
+          status: network.status.value,
+          noInternetSince: _noInternetSince,
+          now: DateTime.now(),
+        ),
       );
       if (delay > Duration.zero) {
         _log('play: all streams failed a full cycle — backing off '
             '${delay.inMilliseconds}ms before attempt $retry');
+        // The network returning cuts the wait short: reconnectIfNeeded()
+        // skips while this loop runs, so without it the audio would come
+        // back only when the backoff ran out.
+        final networkBack = _retryBackoffWake = Completer<void>();
         try {
-          await Future.any([Future<void>.delayed(delay), canceller.future]);
+          await Future.any([
+            Future<void>.delayed(delay),
+            canceller.future,
+            networkBack.future,
+          ]);
         } catch (_) {
           // canceller completes with an error on cancel; the opId check
           // below exits the loop.
         }
+        if (identical(_retryBackoffWake, networkBack)) {
+          _retryBackoffWake = null;
+        }
         if (myOpId != _playOperationId) break;
+      }
+      if (retry % (totalStreams == 0 ? 1 : totalStreams) == 0) {
+        passStartedAt = DateTime.now();
+        passStartedOffline = network.isOffline.value;
       }
 
       _log("play: attempt $retry - $streamUrl (type: $streamType)");
@@ -2276,6 +2444,7 @@ class AppAudioHandler extends BaseAudioHandler {
           index: attemptIndex,
           total: totalStreams,
         );
+        NetworkService.instance.reportRequestSuccess();
 
         _recordStreamEvent(
           StreamEventKind.loaded,
@@ -2337,6 +2506,13 @@ class AppAudioHandler extends BaseAudioHandler {
           break;
         }
         _failover.recordFailure(streamUrl, DateTime.now());
+        // An HTTP error status is still an answer: the internet works, the
+        // station's server is the problem.
+        if (_isHttpStatusError(e)) {
+          network.reportRequestSuccess();
+        } else {
+          network.reportRequestFailure();
+        }
         _log("play: attempt $retry failed - $e");
         _recordStreamEvent(
           StreamEventKind.failed,
@@ -2361,35 +2537,40 @@ class AppAudioHandler extends BaseAudioHandler {
         // here (the old maxRetries=4 behavior) left the player fully
         // stuck until a manual tap, even after the network recovered.
         final cycleSize = totalStreams == 0 ? 1 : totalStreams;
-        if (!surfacedError && retry >= cycleSize) {
-          surfacedError = true;
-          final stationName = currentStation.valueOrNull?.title ?? '';
-          final classified = _classifyError(stationName, lastError);
-          connectionError.add(classified);
-          PlaybackFailure.report(
-            PlaybackFailureKind.allStreamsFailed,
-            reason: classified.reason.name,
+        if (retry % cycleSize == 0 &&
+            _errorShownForOp != myOpId &&
+            _errorPendingForOp != myOpId) {
+          unawaited(_surfaceConnectionError(
+            lastError,
+            opId: myOpId,
+            passStartedAt: passStartedAt,
+            passStartedOffline: passStartedOffline,
             properties: {
               'station_slug': stationSlug,
               'station_id': stationId,
               'total_streams': totalStreams,
               'retries': retry,
-              'details': classified.details,
             },
-          );
+          ));
         }
       }
+    }
+
+    // Bail out if a newer play() call has superseded this one — before
+    // touching the shared connection state, which is the newer call's now:
+    // clearing it cut the newer loop's spinner, its reconnect guard and its
+    // error toast (a play from the lock screen, a headset or the car while
+    // a retry loop was waiting).
+    if (myOpId != _playOperationId) {
+      _log("play: superseded (op $myOpId < $_playOperationId), aborting");
+      // Its own measurement: the monitor pairs starts and ends in order.
+      PerformanceMonitor.endOperation('audio_play');
+      return;
     }
 
     _sourceLoadCanceller = null;
     PerformanceMonitor.endOperation('audio_play');
     _isConnecting = false;
-
-    // Bail out if a newer playStation() call has superseded this one
-    if (myOpId != _playOperationId) {
-      _log("play: superseded (op $myOpId < $_playOperationId), aborting");
-      return;
-    }
 
     if (_loadedStreamType == 'HLS') {
       _anchoredOffset = SeekModeManager.currentOffset;
@@ -4243,25 +4424,64 @@ class AppAudioHandler extends BaseAudioHandler {
     // connecting, casting, or not stalled, so the gate was redundant and
     // actively harmful for the "audio that never stops" goal.
     //
-    // Delay before reconnect: connectivity_plus fires when the interface
-    // comes up, but DNS/routing may need a beat to settle. 500ms is the
-    // empirical floor that survives flaky LTE handoffs while still
-    // feeling instant. Pre-fix this was 2s and was the dominant
-    // contributor to "stream is delayed when network returns".
+    // Delay before reconnect: see networkRestoreReconnectDelay. Pre-fix
+    // this was 2s and was the dominant contributor to "stream is delayed
+    // when network returns".
     //
     // Trigger: networkRestored explicitly bypasses the just-loaded
     // debounce in reconnectIfNeeded. Pre-fix the debounce silently
     // suppressed recovery when airplane-mode toggled within 8s of a
     // successful load — the user-perceived "audio never came back" bug.
-    NetworkService.instance.isOffline.stream.listen((offline) {
-      if (offline) return;
+    //
+    // A play() loop still retrying (it outlived the outage) is woken from
+    // its backoff instead: reconnectIfNeeded() skips while it connects.
+    final network = NetworkService.instance;
+    network.isOffline.stream.listen((offline) {
+      if (offline) {
+        _lastOfflineAt = DateTime.now();
+        return;
+      }
       _log("isOffline -> false: will reconnect in "
           "${ReconnectPolicy.networkRestoreReconnectDelay.inMilliseconds}ms");
       Future.delayed(ReconnectPolicy.networkRestoreReconnectDelay, () {
+        if (network.isOffline.value) return; // dropped again meanwhile
         _log("isOffline -> false: checking if player needs reconnect");
+        _wakeRetryBackoff();
         reconnectIfNeeded(trigger: ReconnectTrigger.networkRestored);
       });
     });
+
+    // A network back whose internet does not answer yet (a weak signal
+    // whose probes time out, a blocked probe host) ends the no-network
+    // backoff too: the loop's own attempts are the best check there is.
+    var lastStatus = network.status.value;
+    network.status.stream.listen((status) {
+      final wasWithoutNetwork = lastStatus == ConnectionStatus.offline;
+      if (status != ConnectionStatus.noInternet) {
+        _noInternetSince = null;
+      } else if (lastStatus != ConnectionStatus.noInternet) {
+        _noInternetSince = DateTime.now();
+      }
+      lastStatus = status;
+      if (wasWithoutNetwork && status == ConnectionStatus.noInternet) {
+        _wakeRetryBackoff();
+      }
+    });
+
+    // Rechecks of a lost internet only matter while someone would see or
+    // hear the answer: the app on screen, or audio playing or connecting
+    // (also on a car screen or a cast device).
+    network.isInternetWanted = () {
+      final lifecycle = WidgetsBinding.instance.lifecycleState;
+      final onScreen = lifecycle == null ||
+          lifecycle == AppLifecycleState.resumed ||
+          lifecycle == AppLifecycleState.inactive;
+      return onScreen ||
+          player.playing ||
+          _isConnecting ||
+          isCasting ||
+          isCarConnected;
+    };
 
     // Station data poll: update metadata when stations change.
     stationDataService.stations.stream.listen((stations) {

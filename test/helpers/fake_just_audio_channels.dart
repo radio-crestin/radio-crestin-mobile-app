@@ -22,8 +22,18 @@ class FakeJustAudioChannels {
   /// Every seek target, in order (null: seek to the item's start).
   final List<Duration?> seeks = [];
 
-  /// A load whose URL contains one of these fails (HTTP 404).
+  /// A load whose URL contains one of these fails, with [failureCode].
   final Set<String> failingUrlParts = {};
+
+  /// The error code of a failing load: an HTTP status like the default
+  /// 404, or e.g. `0`, how ExoPlayer reports a network failure.
+  String failureCode = '404';
+
+  /// How long each load takes before it succeeds or fails.
+  Duration loadDelay = Duration.zero;
+
+  /// Every URL whose load ended (succeeded or failed), in order.
+  final List<String> finishedLoads = [];
 
   final Map<String, _FakeNativePlayer> _players = {};
 
@@ -107,7 +117,13 @@ class _FakeNativePlayer {
   Future<Object?> _onCall(MethodCall call) async {
     switch (call.method) {
       case 'load':
-        return _load(call.arguments as Map);
+        final request = call.arguments as Map;
+        if (owner.loadDelay > Duration.zero) {
+          owner.loads.add(_firstUri(request['audioSource']) ?? '');
+          await Future<void>.delayed(owner.loadDelay);
+          return _load(request, counted: true);
+        }
+        return _load(request);
       case 'seek':
         final micros = (call.arguments as Map)['position'] as int?;
         owner.seeks.add(micros == null ? null : Duration(microseconds: micros));
@@ -122,11 +138,13 @@ class _FakeNativePlayer {
     }
   }
 
-  Map<String, Object?> _load(Map request) {
+  Map<String, Object?> _load(Map request, {bool counted = false}) {
     final url = _firstUri(request['audioSource']) ?? '';
-    owner.loads.add(url);
+    if (!counted) owner.loads.add(url);
+    owner.finishedLoads.add(url);
     if (owner.failingUrlParts.any(url.contains)) {
-      throw PlatformException(code: '404', message: 'Not found: $url');
+      throw PlatformException(
+          code: owner.failureCode, message: 'Failed to load: $url');
     }
     _duration = url.contains('.m3u8') ? FakeJustAudioChannels.liveWindow : null;
     _state = 3; // ProcessingStateMessage.ready

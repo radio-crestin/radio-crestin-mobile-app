@@ -47,6 +47,12 @@ enum SyncReason {
   /// Pull-to-refresh, back to the TV browse list, CarPlay connect.
   manualRefresh,
 
+  /// The network came back after an outage: catch the list up now rather
+  /// than at the next tick. A live diff, as failed fetches left the cursor
+  /// behind — or a full refresh when the catalog never arrived (a first
+  /// launch offline shows the bundled list) or is over 10 minutes old.
+  networkRestored,
+
   /// A live stream announced a new song (ICY tag, Android TV playlist
   /// METADATA-CHANGED): fetch the live list now.
   liveMetadataChanged,
@@ -97,6 +103,9 @@ class StationDataService {
 
   Timer? _periodicTimer;
 
+  /// Network restore and mobile-data/WiFi switches (see [_watchNetwork]).
+  final List<StreamSubscription<bool>> _networkSubscriptions = [];
+
   /// Mutex over the sync pipeline. All paths funnel through `enqueueSync`,
   /// so a single in-flight call is enough — overlapping triggers coalesce
   /// into [_pendingReasons].
@@ -116,6 +125,10 @@ class StationDataService {
 
   /// When the last full refresh (GraphQL + REST) was performed.
   DateTime? _lastFullRefreshTime;
+
+  /// When the GraphQL catalog last arrived. Unlike [_lastFullRefreshTime],
+  /// a full refresh that failed (offline) does not count.
+  DateTime? _lastCatalogAt;
 
   // ---------------------------------------------------------------------------
   // Audible (time-shifted) now-playing of the playing station
@@ -347,7 +360,28 @@ class StationDataService {
   Future<void> initialize() async {
     _initFilteredStationsStream();
     await _initFavoriteStationSlugs();
+    _watchNetwork();
     await _bootstrap();
+  }
+
+  /// Reacts to connectivity changes. Each stream replays its current value
+  /// on listen, which is skipped: only real changes matter here.
+  void _watchNetwork() {
+    final network = NetworkService.instance;
+    _networkSubscriptions
+      // Only while syncing is on: with polling paused in the background,
+      // the resume refresh catches the list up instead.
+      ..add(network.isOffline.stream
+          .skip(1)
+          .where((offline) => !offline && _periodicTimer != null)
+          .listen((_) => unawaited(enqueueSync(SyncReason.networkRestored))))
+      // The list picks song art or station logos by the network type when
+      // it builds (data saving on mobile data). Rebuild it on a switch, or
+      // a WiFi network that came up after mobile data keeps the logos
+      // until the next change in the data.
+      ..add(network.isOnMobileData.stream.skip(1).listen((_) {
+        if (stations.value.isNotEmpty) _publishMerged(force: true);
+      }));
   }
 
   /// Single entry point for every live refresh. Overlapping triggers coalesce
@@ -517,6 +551,10 @@ class StationDataService {
   void dispose() {
     _periodicTimer?.cancel();
     _periodicTimer = null;
+    for (final subscription in _networkSubscriptions) {
+      subscription.cancel();
+    }
+    _networkSubscriptions.clear();
     _resolver.cancelAll();
     _audibleRequest++;
     _audibleRecheck++;
@@ -554,12 +592,17 @@ class StationDataService {
 
     final fullDue = _lastFullRefreshTime == null ||
         _now().difference(_lastFullRefreshTime!) >= _fullRefreshInterval;
+    final lastCatalogAt = _lastCatalogAt;
+    final catalogDue = reasons.contains(SyncReason.networkRestored) &&
+        (lastCatalogAt == null ||
+            _now().difference(lastCatalogAt) >= _fullRefreshInterval);
     final isFullReason = lead.index <= SyncReason.manualRefresh.index;
+    final full = isFullReason || fullDue || catalogDue;
     final listeningFuture = reasons.any(_shouldSyncListening)
-        ? _syncListeningTimeline(full: isFullReason || fullDue)
+        ? _syncListeningTimeline(full: full)
         : null;
 
-    if (isFullReason || fullDue) {
+    if (full) {
       await _doFullRefresh(lead, becausePromoted: !isFullReason);
     } else {
       await _doLiveDiff();
@@ -592,7 +635,9 @@ class StationDataService {
   /// Full refresh: GraphQL stations + live metadata, merged in one shot. The
   /// live cursor moves only when the metadata fetch succeeded.
   Future<void> _doFullRefresh(SyncReason reason, {required bool becausePromoted}) async {
-    _log("full refresh: $reason${becausePromoted ? ' (promoted: 10-min window)' : ''}");
+    final promoted =
+        becausePromoted ? ' (promoted: 10-min window or catalog due)' : '';
+    _log("full refresh: $reason$promoted");
     // NOTE: deliberately does NOT invalidate the sort cache. The recommended
     // order is frozen per-session (see [_frozenRecommendedOrder]); the other
     // sort options stay stable within a session too. Only an explicit
@@ -1151,6 +1196,7 @@ class StationDataService {
     final liveMetadata = results[1] as Map<int, Map<String, dynamic>>?;
 
     if (parsedData != null && parsedData.stations.length >= _minStationsForCache) {
+      _lastCatalogAt = _now();
       _publicStations = [
         for (final raw in parsedData.stations)
           _withLiveMetadata(_createStation(raw), liveMetadata),
@@ -1295,9 +1341,14 @@ class StationDataService {
     final stopwatch = Stopwatch()..start();
     _log("→ metadata fetch [$mode] ts=$timestamp"
         "${isDiff ? ' from=$changesFromTimestamp' : ''}");
+    // Any answer, even an error status, proves the internet works; no
+    // answer makes NetworkService check it.
+    var answered = false;
     try {
       final response =
           await _http.get(Uri.parse(url)).timeout(const Duration(seconds: 8));
+      answered = true;
+      NetworkService.instance.reportRequestSuccess();
       stopwatch.stop();
       if (response.statusCode == 200) {
         final jsonData = json.decode(response.body) as Map<String, dynamic>;
@@ -1318,6 +1369,7 @@ class StationDataService {
       }
     } catch (e) {
       stopwatch.stop();
+      if (!answered) NetworkService.instance.reportRequestFailure();
       _log("✗ metadata fetch [$mode] ts=$timestamp "
           "→ error in ${stopwatch.elapsedMilliseconds}ms: $e");
       return null;
