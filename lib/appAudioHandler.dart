@@ -615,6 +615,9 @@ class AppAudioHandler extends BaseAudioHandler {
   // Set when an interruption paused playback so that its end resumes it;
   // cleared by any later play, pause or stop.
   bool _resumeAfterInterruption = false;
+  // Set for the play() an interruption's end issues, so that resume is not
+  // counted as a user action toward the review dialog.
+  bool _isInterruptionResume = false;
   Timer? _disconnectTimer;
 
   // ── Live HLS timeline ────────────────────────────────────────────────
@@ -1512,6 +1515,7 @@ class AppAudioHandler extends BaseAudioHandler {
       _resumeAfterInterruption = false;
       if (resume) {
         _log('interruption ended, resuming');
+        _isInterruptionResume = true;
         unawaited(play());
       }
       return;
@@ -1605,6 +1609,7 @@ class AppAudioHandler extends BaseAudioHandler {
         );
         _broadcastState(player.playbackEvent);
         if (newStatus == 1) {
+          _countReviewAction();
           final info = _buildSongInfo(likeStation);
           ReviewService.submitReview(
             stationId: likeStation.id,
@@ -1794,6 +1799,9 @@ class AppAudioHandler extends BaseAudioHandler {
       _log('playStation: already playing/loading station ${station.slug}, skipping');
       return;
     }
+
+    // A tap, next/previous, autoplay or car pick: one review action each.
+    _countReviewAction();
 
     // Cancel any in-flight play() from a previous playStation() call
     _cancelInFlightPlay();
@@ -2030,6 +2038,10 @@ class AppAudioHandler extends BaseAudioHandler {
   Future<void> play() async {
     _log("play (isCasting=$isCasting)");
     _resumeAfterInterruption = false;
+    // A play after a pause or stop is the user's resume. Reconnects run
+    // while playback is still wanted, and playStation() counted its own.
+    final isUserResume = !_hasBeenPlayed && !_isInterruptionResume;
+    _isInterruptionResume = false;
     // Every resume path (Cast, video, playlist, fast resume, reload) is a
     // listening session, as pause() ends one on each; a no-op right after
     // playStation() started one.
@@ -2037,6 +2049,7 @@ class AppAudioHandler extends BaseAudioHandler {
     if (station != null) {
       AnalyticsService.instance
           .ensureListening(station.slug, station.title, stationId: station.id);
+      if (isUserResume) _countReviewAction();
     }
     if (isCasting) {
       // Resume playback on Cast — just send play(), don't reload media.
@@ -4193,11 +4206,11 @@ class AppAudioHandler extends BaseAudioHandler {
       // Update notification/Android Auto favorite icon
       _broadcastState(player.playbackEvent);
     }
-    Utils.incrementActionsMade(
-      graphQLClient: graphqlClient,
-      currentStationName: currentStation.valueOrNull?.title,
-    );
+    if (isFavorite) _countReviewAction();
   }
+
+  /// Counts a user action toward the review dialog thresholds.
+  void _countReviewAction() => unawaited(Utils.incrementActionsMade());
 
   void _initUpdateCurrentStationMetadata() {
     // When mobile data toggles: re-emit metadata with station thumbnail.

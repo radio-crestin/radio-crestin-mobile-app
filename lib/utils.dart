@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as developer;
 import 'dart:io';
@@ -16,6 +17,7 @@ import 'constants.dart';
 import 'globals.dart';
 import 'seek_mode_manager.dart';
 import 'services/network_service.dart';
+import 'tv/tv_platform.dart';
 
 class Utils {
 
@@ -455,7 +457,36 @@ class Utils {
     }
   }
 
+  /// Action counts at which the 5-star review dialog is shown, once each.
+  ///
+  /// Past the last one the dialog never shows again.
+  static const List<int> reviewDialogThresholds = [20, 80, 200, 400, 700, 1000];
+
+  static const Duration _reviewDialogDelay = Duration(seconds: 3);
+
+  // Set while a review dialog waits out [_reviewDialogDelay], so two actions
+  // in a row cannot stack two dialogs.
+  static bool _reviewDialogScheduled = false;
+
+  static String _reviewDialogShownKey(int threshold) =>
+      'rating_dialog_shown_at_$threshold';
+
+  /// Thresholds [actionsMade] has reached whose dialog was not shown yet.
+  static List<int> _pendingReviewThresholds(
+    SharedPreferences prefs,
+    int actionsMade,
+  ) =>
+      reviewDialogThresholds
+          .where((threshold) =>
+              actionsMade >= threshold &&
+              !(prefs.getBool(_reviewDialogShownKey(threshold)) ?? false))
+          .toList();
+
+  /// Counts one user action toward [reviewDialogThresholds] and schedules
+  /// the review dialog when the count reaches one not shown yet.
   static Future<void> incrementActionsMade({GraphQLClient? graphQLClient, String? currentStationName}) async {
+    // TV and desktop have no store review flow for the dialog to open.
+    if (TvPlatform.isTV) return;
     try {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
       String? reviewStatusJson = prefs.getString('_reviewStatus');
@@ -469,49 +500,12 @@ class Utils {
 
         // Save the updated preferences
         await prefs.setString('_reviewStatus', json.encode(reviewStatus));
-        
-        // Check if user has already completed 5-star review
-        bool reviewCompleted = reviewStatus['review_completed'] == true;
-        
-        // Rating dialog intervals: 20, 100, 200, 400
-        List<int> ratingIntervals = [20, 100, 200, 400];
-        
-        // Check rating dialog display conditions
-        if (!reviewCompleted) {
-          for (int interval in ratingIntervals) {
-            if (actionsMade >= interval) {
-              String prefKey = 'rating_dialog_shown_at_$interval';
-              bool hasShownAtInterval = prefs.getBool(prefKey) ?? false;
-              
-              if (!hasShownAtInterval) {
-                // Check if user canceled previous rating dialogs
-                bool shouldShow = true;
-                for (int prevInterval in ratingIntervals) {
-                  if (prevInterval >= interval) break;
-                  String prevPrefKey = 'rating_dialog_shown_at_$prevInterval';
-                  bool prevShown = prefs.getBool(prevPrefKey) ?? false;
-                  if (prevShown) {
-                    // Dialog was shown at a previous interval, only show again if user didn't complete review
-                    shouldShow = !reviewCompleted;
-                    break;
-                  }
-                }
-                
-                if (shouldShow) {
-                  await prefs.setBool(prefKey, true);
-                  final navigator = navigatorKey.currentState;
-                  if (navigator != null && navigator.mounted) {
-                    Future.delayed(const Duration(seconds: 3), () {
-                      Utils.show5StarReviewDialog();
-                    });
-                  }
-                  break; // Only show one dialog at a time
-                }
-              }
-            }
-          }
+
+        if (reviewStatus['review_completed'] != true &&
+            _pendingReviewThresholds(prefs, actionsMade).isNotEmpty) {
+          _scheduleReviewDialog(prefs);
         }
-        
+
         // Share dialog disabled
       }
     } catch (e) {
@@ -519,14 +513,45 @@ class Utils {
     }
   }
 
+  /// Shows the review dialog after [_reviewDialogDelay] when the app's
+  /// home screen is free to show it.
+  ///
+  /// Without a screen (Android Auto's headless engine) or with a route on
+  /// top (a sheet, a dialog, a pushed page) the threshold stays pending,
+  /// so the next action shows the dialog instead of losing it.
+  static void _scheduleReviewDialog(SharedPreferences prefs) {
+    if (_reviewDialogScheduled) return;
+    _reviewDialogScheduled = true;
+    Future.delayed(_reviewDialogDelay, () async {
+      _reviewDialogScheduled = false;
+      final navigator = navigatorKey.currentState;
+      if (navigator == null || !navigator.mounted || navigator.canPop()) {
+        return;
+      }
+      try {
+        final reviewStatus =
+            json.decode(prefs.getString('_reviewStatus') ?? '{}');
+        final int actionsMade = reviewStatus['actions_made'] ?? 0;
+        final pending = _pendingReviewThresholds(prefs, actionsMade);
+        if (pending.isEmpty) return;
+        // Marks every reached threshold: a user updating with a high count
+        // sees one dialog, not one per action until they catch up.
+        for (final threshold in pending) {
+          await prefs.setBool(_reviewDialogShownKey(threshold), true);
+        }
+        unawaited(Utils.show5StarReviewDialog());
+      } catch (e) {
+        developer.log('Error showing the review dialog: $e');
+      }
+    });
+  }
+
   static Future<void> resetDialogTracking() async {
     try {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
-      
-      // Rating dialog intervals: 20, 100, 200, 400
-      List<int> ratingIntervals = [20, 100, 200, 400];
-      for (int interval in ratingIntervals) {
-        await prefs.remove('rating_dialog_shown_at_$interval');
+
+      for (final threshold in reviewDialogThresholds) {
+        await prefs.remove(_reviewDialogShownKey(threshold));
       }
       
       // Share dialog intervals: 40, 150, 250, 600, 800, 1000
@@ -564,11 +589,10 @@ class Utils {
       }
       
       // Check which rating dialogs have been shown
-      List<int> ratingIntervals = [20, 100, 200, 400];
-      Map<int, bool> ratingDialogsShown = {};
-      for (int interval in ratingIntervals) {
-        ratingDialogsShown[interval] = prefs.getBool('rating_dialog_shown_at_$interval') ?? false;
-      }
+      Map<int, bool> ratingDialogsShown = {
+        for (final threshold in reviewDialogThresholds)
+          threshold: prefs.getBool(_reviewDialogShownKey(threshold)) ?? false,
+      };
       status['rating_dialogs_shown'] = ratingDialogsShown;
       
       // Check which share dialogs have been shown

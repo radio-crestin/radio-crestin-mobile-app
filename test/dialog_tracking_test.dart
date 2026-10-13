@@ -1,8 +1,10 @@
 import 'dart:convert';
 
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:radio_crestin/globals.dart';
 import 'package:radio_crestin/utils.dart';
 
 void main() {
@@ -61,37 +63,134 @@ void main() {
         expect(prefs.getBool('rating_dialog_shown_at_20'), isNull);
       });
 
-      test('marks rating dialog as shown at interval 20', () async {
+    });
+
+    group('review dialog thresholds', () {
+      const dialogTitle = 'Lasă-ne un review de 5 stele';
+
+      Future<void> pumpHome(WidgetTester tester) => tester.pumpWidget(
+            MaterialApp(navigatorKey: navigatorKey, home: const Scaffold()),
+          );
+
+      void seedActions(int actionsMade, {Map<String, Object> extra = const {}}) {
         SharedPreferences.setMockInitialValues({
           '_reviewStatus': json.encode({
-            'actions_made': 19,
+            'actions_made': actionsMade,
             'review_completed': false,
           }),
+          ...extra,
         });
+      }
+
+      test('are 20, 80, 200, 400, 700 and 1000', () {
+        expect(Utils.reviewDialogThresholds, [20, 80, 200, 400, 700, 1000]);
+      });
+
+      testWidgets('shows the dialog when the count reaches 20',
+          (tester) async {
+        seedActions(19);
+        await pumpHome(tester);
 
         await Utils.incrementActionsMade();
+        await tester.pump(const Duration(seconds: 3));
+        await tester.pumpAndSettle();
 
         final prefs = await SharedPreferences.getInstance();
         expect(prefs.getBool('rating_dialog_shown_at_20'), true);
+        expect(find.text(dialogTitle), findsOneWidget);
+      });
+
+      testWidgets('shows nothing between thresholds', (tester) async {
+        seedActions(20, extra: {'rating_dialog_shown_at_20': true});
+        await pumpHome(tester);
+
+        await Utils.incrementActionsMade();
+        await tester.pump(const Duration(seconds: 3));
+
+        expect(find.text(dialogTitle), findsNothing);
+      });
+
+      testWidgets('keeps the threshold pending without a screen',
+          (tester) async {
+        // Android Auto's headless engine has no navigator.
+        seedActions(19);
+
+        await Utils.incrementActionsMade();
+        await tester.pump(const Duration(seconds: 3));
+
+        final prefs = await SharedPreferences.getInstance();
+        expect(prefs.getBool('rating_dialog_shown_at_20'), isNull);
+
+        await pumpHome(tester);
+        await Utils.incrementActionsMade();
+        await tester.pump(const Duration(seconds: 3));
+        await tester.pumpAndSettle();
+
+        expect(prefs.getBool('rating_dialog_shown_at_20'), true);
+        expect(find.text(dialogTitle), findsOneWidget);
+      });
+
+      testWidgets('waits while another route is on top', (tester) async {
+        seedActions(19);
+        await pumpHome(tester);
+        navigatorKey.currentState!.push(
+          MaterialPageRoute<void>(builder: (_) => const Scaffold()),
+        );
+        await tester.pumpAndSettle();
+
+        await Utils.incrementActionsMade();
+        await tester.pump(const Duration(seconds: 3));
+
+        final prefs = await SharedPreferences.getInstance();
+        expect(prefs.getBool('rating_dialog_shown_at_20'), isNull);
+        expect(find.text(dialogTitle), findsNothing);
+      });
+
+      testWidgets('marks every reached threshold but shows one dialog',
+          (tester) async {
+        // A user updating with a count from the old thresholds.
+        seedActions(999, extra: {'rating_dialog_shown_at_20': true});
+        await pumpHome(tester);
+
+        await Utils.incrementActionsMade();
+        await Utils.incrementActionsMade();
+        await tester.pump(const Duration(seconds: 3));
+        await tester.pumpAndSettle();
+
+        final prefs = await SharedPreferences.getInstance();
+        for (final threshold in Utils.reviewDialogThresholds) {
+          expect(prefs.getBool('rating_dialog_shown_at_$threshold'), true);
+        }
+        expect(find.byType(AlertDialog), findsOneWidget);
+      });
+
+      testWidgets('never shows past 1000', (tester) async {
+        seedActions(1500, extra: {
+          for (final threshold in Utils.reviewDialogThresholds)
+            'rating_dialog_shown_at_$threshold': true,
+        });
+        await pumpHome(tester);
+
+        await Utils.incrementActionsMade();
+        await tester.pump(const Duration(seconds: 3));
+
+        expect(find.text(dialogTitle), findsNothing);
       });
     });
 
     group('resetDialogTracking', () {
       test('removes rating dialog flags', () async {
         SharedPreferences.setMockInitialValues({
-          'rating_dialog_shown_at_20': true,
-          'rating_dialog_shown_at_100': true,
-          'rating_dialog_shown_at_200': true,
-          'rating_dialog_shown_at_400': true,
+          for (final threshold in Utils.reviewDialogThresholds)
+            'rating_dialog_shown_at_$threshold': true,
         });
 
         await Utils.resetDialogTracking();
 
         final prefs = await SharedPreferences.getInstance();
-        expect(prefs.getBool('rating_dialog_shown_at_20'), isNull);
-        expect(prefs.getBool('rating_dialog_shown_at_100'), isNull);
-        expect(prefs.getBool('rating_dialog_shown_at_200'), isNull);
-        expect(prefs.getBool('rating_dialog_shown_at_400'), isNull);
+        for (final threshold in Utils.reviewDialogThresholds) {
+          expect(prefs.getBool('rating_dialog_shown_at_$threshold'), isNull);
+        }
       });
 
       test('removes share dialog flags', () async {
@@ -152,15 +251,15 @@ void main() {
       test('returns which rating dialogs have been shown', () async {
         SharedPreferences.setMockInitialValues({
           'rating_dialog_shown_at_20': true,
-          'rating_dialog_shown_at_100': false,
+          'rating_dialog_shown_at_80': false,
         });
 
         final status = await Utils.getDialogTrackingStatus();
         final ratingDialogs = status['rating_dialogs_shown'] as Map<int, bool>;
+        expect(ratingDialogs.keys, Utils.reviewDialogThresholds);
         expect(ratingDialogs[20], true);
-        expect(ratingDialogs[100], false);
-        expect(ratingDialogs[200], false);
-        expect(ratingDialogs[400], false);
+        expect(ratingDialogs[80], false);
+        expect(ratingDialogs[1000], false);
       });
 
       test('returns which share dialogs have been shown', () async {

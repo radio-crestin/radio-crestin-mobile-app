@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:convert' show utf8;
+import 'dart:convert' show json, utf8;
 import 'dart:io' show HttpDate;
 
 import 'package:audio_service/audio_service.dart';
@@ -38,6 +38,25 @@ import 'helpers/hls_fixtures.dart' show playlistText;
 class _NoLikes extends Fake implements SongLikeService {
   @override
   int getLikeStatus(int songId) => 0;
+}
+
+/// Keeps like states in memory, for the like and dislike actions.
+class _InMemoryLikes extends Fake implements SongLikeService {
+  final Map<int, int> _statuses = {};
+
+  @override
+  int getLikeStatus(int songId) => _statuses[songId] ?? 0;
+
+  @override
+  Future<void> setLikeStatus({
+    required int stationId,
+    required int songId,
+    required int likeStatus,
+    String? thumbnailUrl,
+    String? songTitle,
+    String? songArtist,
+  }) async =>
+      _statuses[songId] = likeStatus;
 }
 
 /// A Cast session the tests connect and disconnect by hand.
@@ -474,6 +493,96 @@ void main() {
         expect(handler.player.playing, isFalse);
         expect(handler.playbackState.value.processingState,
             isNot(AudioProcessingState.loading));
+      }, () => routing);
+    });
+  });
+
+  // Each user action counts once toward the review dialog thresholds; the
+  // handler's own restarts do not.
+  group('review actions', () {
+    Future<int> actionsMade() async {
+      // The handler counts without awaiting.
+      await pumpEventQueue();
+      final status = json.decode(prefs.getString('_reviewStatus')!);
+      return status['actions_made'] as int;
+    }
+
+    Future<void> playStation2() async {
+      await prefs.setString('_reviewStatus', '{"actions_made":0}');
+      await startHandler();
+      unawaited(handler.playStation(stationOf(2)));
+      await untilPlaying(mp3Of2, loads: 1);
+    }
+
+    test('a station start counts once and a reconnect does not', () async {
+      await http.runWithClient(() async {
+        await playStation2();
+        expect(await actionsMade(), 1);
+
+        // The player stops by itself; the network restore reloads it.
+        await handler.player.pause();
+        handler.reconnectIfNeeded(trigger: ReconnectTrigger.networkRestored);
+        await untilPlaying(mp3Of2, loads: 2);
+
+        expect(await actionsMade(), 1);
+      }, () => routing);
+    });
+
+    test('a resume after a pause counts, the pause does not', () async {
+      await http.runWithClient(() async {
+        await playStation2();
+
+        await handler.pause();
+        expect(await actionsMade(), 1);
+
+        await handler.play();
+        expect(await actionsMade(), 2);
+      }, () => routing);
+    });
+
+    test('the resume after an interruption does not count', () async {
+      await http.runWithClient(() async {
+        await playStation2();
+
+        handler.debugOnAudioInterruption(
+            AudioInterruptionEvent(true, AudioInterruptionType.unknown));
+        await until(() => !handler.playbackState.value.playing);
+        handler.debugOnAudioInterruption(
+            AudioInterruptionEvent(false, AudioInterruptionType.pause));
+        await until(() => handler.playbackState.value.playing);
+
+        expect(await actionsMade(), 1);
+      }, () => routing);
+    });
+
+    test('adding a favorite counts, removing it does not', () async {
+      await http.runWithClient(() async {
+        await prefs.setString('_reviewStatus', '{"actions_made":0}');
+        await startHandler();
+
+        await handler.setStationIsFavorite(stationOf(3), true);
+        expect(await actionsMade(), 1);
+
+        await handler.setStationIsFavorite(stationOf(3), false);
+        expect(await actionsMade(), 1);
+      }, () => routing);
+    });
+
+    test('liking a song counts, unliking or disliking it does not', () async {
+      GetIt.instance
+        ..unregister<SongLikeService>()
+        ..registerSingleton<SongLikeService>(_InMemoryLikes());
+      await http.runWithClient(() async {
+        await playStation2();
+
+        await handler.customAction('likeSong');
+        expect(await actionsMade(), 2);
+
+        await handler.customAction('likeSong');
+        expect(await actionsMade(), 2, reason: 'the second tap unlikes');
+
+        await handler.customAction('dislikeSong');
+        expect(await actionsMade(), 2);
       }, () => routing);
     });
   });
