@@ -50,21 +50,30 @@ void main() {
       expect(m.thumbSize, 140.0);
     });
 
-    test('typical phone produces an in-range square thumbnail', () {
-      // iPhone-ish: 390 x 844. Height drives the size (326px of width is ample).
+    test('typical phone keeps a compact artwork with full-size controls', () {
+      // iPhone-ish: 390 x 844. The height leaves room for 300, but the artwork
+      // is capped at 54% of the width; the controls still use that room.
       final m = computePlayerLayout(
           screenWidth: 390, screenHeight: 844, textScale: 1.0);
-      expect(m.thumbSize, inInclusiveRange(140.0, 300.0));
+      expect(m.thumbSize, closeTo(390 * 0.54, 0.001));
+      expect(m.playIconSize, 62.0);
+      expect(m.skipIconSize, 46.0);
+      expect(m.skipSpacing, 32.0);
+    });
+
+    test('tablet still reaches the 300 artwork cap', () {
+      final m = computePlayerLayout(
+          screenWidth: 820, screenHeight: 1180, textScale: 1.0);
       expect(m.thumbSize, 300.0);
-      expect(m.playIconSize, greaterThan(48.0));
     });
 
     test('thumb never exceeds usable width (width-bound case)', () {
-      // 220px wide → maxThumbWidth = 156, so a tall panel is capped by width.
+      // 220px wide → maxThumbWidth = 156 and the compact cap 118.8 is floored
+      // at 140, so a tall panel is capped by width.
       final m = computePlayerLayout(
           screenWidth: 220, screenHeight: 900, textScale: 1.0);
       expect(m.thumbSize, lessThanOrEqualTo(220 - 64));
-      expect(m.thumbSize, 156.0);
+      expect(m.thumbSize, 140.0);
     });
 
     test('extreme text scale is clamped and never yields a negative thumb', () {
@@ -75,7 +84,7 @@ void main() {
       expect(m.thumbSize, 140.0);
     });
 
-    test('icon sizes interpolate monotonically with thumb size', () {
+    test('icon sizes interpolate monotonically with available space', () {
       final small = computePlayerLayout(
           screenWidth: 220, screenHeight: 900, textScale: 1.0);
       final big = computePlayerLayout(

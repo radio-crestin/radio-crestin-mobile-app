@@ -16,6 +16,7 @@ import 'package:radio_crestin/services/station_data_service.dart';
 import '../appAudioHandler.dart';
 import '../types/Station.dart';
 import '../widgets/animated_play_button.dart';
+import '../widgets/cast_button.dart';
 import '../widgets/player_video_surface.dart';
 import '../widgets/playlist_player_section.dart';
 import '../widgets/shrink_to_fit_text.dart';
@@ -46,11 +47,18 @@ class PlayerLayoutMetrics {
   });
 }
 
+/// Largest share of the screen width the artwork may take: ~210pt on a
+/// 390pt-wide phone, which leaves the player room to breathe.
+const double _maxArtworkWidthFraction = 0.54;
+
 /// Computes the responsive player layout from the current screen size.
 ///
 /// Pure and side-effect free so the sizing math can be unit tested. The
-/// artwork grows with the available panel height but is bounded both by a
-/// fixed `[140, 300]` range and by the usable width.
+/// available artwork space grows with the panel height, bounded by a fixed
+/// `[140, 300]` range and by the usable width; it drives the transport
+/// controls. The artwork itself is further capped at
+/// [_maxArtworkWidthFraction] of the screen width, so phones show a compact
+/// artwork while tablets still reach 300.
 ///
 /// Guards the degenerate case where the panel is laid out before the window
 /// has real dimensions (`MediaQuery.size == Size.zero`, common on iOS during
@@ -73,17 +81,20 @@ PlayerLayoutMetrics computePlayerLayout({
   final fixedBudget = 420.0 * scale;
 
   // The artwork must also fit horizontally with 32px padding on each side.
-  // The upper bound is floored at 140 so it can never drop below the lower
+  // Every upper bound is floored at 140 so it can never drop below the lower
   // bound and make num.clamp throw.
   final maxThumbWidth = (screenWidth - 64.0).clamp(140.0, double.infinity);
-  final thumbSize = (panelHeight - fixedBudget)
+  final availableSize = (panelHeight - fixedBudget)
       .clamp(140.0, 300.0)
       .clamp(140.0, maxThumbWidth)
       .toDouble();
+  final maxCompactWidth = (screenWidth * _maxArtworkWidthFraction)
+      .clamp(140.0, double.infinity);
+  final thumbSize = availableSize.clamp(140.0, maxCompactWidth).toDouble();
 
-  // Smoothly interpolate transport controls based on available thumb space.
-  // t=0 at thumbSize 140, t=1 at thumbSize 240+.
-  final t = ((thumbSize - 140.0) / 100.0).clamp(0.0, 1.0).toDouble();
+  // Smoothly interpolate transport controls based on the available space, so
+  // the compact artwork doesn't shrink them. t=0 at 140, t=1 at 240+.
+  final t = ((availableSize - 140.0) / 100.0).clamp(0.0, 1.0).toDouble();
 
   return PlayerLayoutMetrics(
     thumbSize: thumbSize,
@@ -263,7 +274,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
           children: [
             _buildDragHandle(context),
             const SizedBox(height: 10.0),
-            _buildStationTitle(context),
+            _buildHeader(context),
             // Video mode pulls the media high on the screen ("video dominates
             // the top"); the audio layout keeps the artwork vertically centered.
             _isVideoMode ? const SizedBox(height: 12) : const Spacer(flex: 1),
@@ -363,8 +374,15 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  _buildStationTitle(context,
-                                      textAlign: TextAlign.start),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: _buildStationTitle(context,
+                                            textAlign: TextAlign.start),
+                                      ),
+                                      _buildCastButton(context),
+                                    ],
+                                  ),
                                   SizedBox(height: compact ? 6.0 : 10.0),
                                   _buildSongTitle(context,
                                       textAlign: TextAlign.start,
@@ -452,7 +470,39 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     );
   }
 
-  /// The station name, crossfading between stations.
+  /// The station name with the cast button on its right. A matching spacer on
+  /// the left keeps the name centered over the artwork.
+  Widget _buildHeader(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+      child: Row(
+        children: [
+          const SizedBox(width: PlayerCastButton.size),
+          Expanded(child: _buildStationTitle(context)),
+          _buildCastButton(context),
+        ],
+      ),
+    );
+  }
+
+  /// Opens the device sheet: Chromecast, AirPlay, TV and car.
+  Widget _buildCastButton(BuildContext context) {
+    return PlayerCastButton(
+      onPressed: () {
+        AnalyticsService.instance.capture('button_clicked', {'button_name': 'cast', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug});
+        showCastDevicePicker(context, source: 'full_player');
+      },
+    );
+  }
+
+  /// Smallest size of the station name, which never wraps. The longest names
+  /// (~28 characters) fit on one line by 16px on a 360pt-wide phone; past
+  /// that the name ends in an ellipsis.
+  static const double _stationTitleMinFontSize = 16;
+
+  /// The station name, crossfading between stations. A name too long for
+  /// 20px shrinks to fit one line, so the header keeps its height and the
+  /// artwork below never moves between stations.
   Widget _buildStationTitle(BuildContext context,
       {TextAlign textAlign = TextAlign.center}) {
     return AnimatedSwitcher(
@@ -460,13 +510,14 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
       transitionBuilder: (Widget child, Animation<double> animation) {
         return FadeTransition(opacity: animation, child: child);
       },
-      child: Text(
+      child: ShrinkToFitText(
         currentStation?.displayTitle ?? "",
         key: ValueKey('title-${currentStation?.id}'),
         style: const TextStyle(
           fontWeight: FontWeight.bold,
           fontSize: 20,
         ),
+        minFontSize: _stationTitleMinFontSize,
         textAlign: textAlign,
       ),
     );
@@ -803,6 +854,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
       );
     }
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 300),
       transitionBuilder: (Widget child, Animation<double> animation) {
@@ -816,12 +868,12 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
           color: Theme.of(context).colorScheme.surface,
           borderRadius:
               const BorderRadius.all(Radius.circular(AppRadius.artwork)),
+          // Soft brand-pink glow that lifts the artwork off the panel.
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.withValues(alpha: 0.35),
-              spreadRadius: 0,
-              blurRadius: 4,
-              offset: const Offset(2, 3),
+              color: AppColors.primary.withValues(alpha: isDark ? 0.28 : 0.22),
+              blurRadius: 40,
+              offset: const Offset(0, 16),
             ),
           ],
         ),

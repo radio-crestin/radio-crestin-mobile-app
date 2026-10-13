@@ -42,29 +42,16 @@ void showCastDevicePicker(BuildContext context, {required String source}) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// Cast AppBar button
+// Active route tracking
 // ═══════════════════════════════════════════════════════════════════
 
-/// App bar indicator, shown only while audio plays on another device.
-///
-/// Starting a cast lives in Settings (see [showCastDevicePicker]). The app
-/// bar only surfaces an active Chromecast or AirPlay route, so the user
-/// sees where the audio goes and can stop it in one tap.
-class CastButton extends StatefulWidget {
-  const CastButton({super.key});
-
-  @override
-  State<CastButton> createState() => _CastButtonState();
-}
-
-class _CastButtonState extends State<CastButton> {
-  final List<StreamSubscription> _subs = [];
+/// Tracks whether audio plays on a Chromecast or an AirPlay device.
+mixin _CastRouteTracker<T extends StatefulWidget> on State<T> {
+  final List<StreamSubscription> _routeSubs = [];
 
   bool _chromecastCasting = false;
   bool _airPlayActive = false;
-  bool _ready = false;
-
-  bool get _visible => _chromecastCasting || _airPlayActive;
+  bool _castServiceReady = false;
 
   @override
   void initState() {
@@ -81,39 +68,120 @@ class _CastButtonState extends State<CastButton> {
       try {
         final ap = AirPlayRouteState.instance;
         _airPlayActive = ap.isActive;
-        _subs.add(ap.isActiveStream.listen((v) {
+        _routeSubs.add(ap.isActiveStream.listen((v) {
           if (mounted) setState(() => _airPlayActive = v);
         }));
       } catch (e, st) {
-        debugPrint('CastButton: AirPlayRouteState init failed: $e\n$st');
+        debugPrint('$runtimeType: AirPlayRouteState init failed: $e\n$st');
       }
     }
-    _tryInit();
-    if (!_ready) {
+    _watchCastService();
+    // CastService registers after the first frame.
+    if (!_castServiceReady) {
       Future.delayed(const Duration(seconds: 2), () {
-        if (mounted) _tryInit();
+        if (mounted) _watchCastService();
       });
     }
-    AnalyticsService.instance.log('cast button init', {
-      'platform': Platform.isIOS ? 'ios' : Platform.isAndroid ? 'android' : 'other',
-      'visible_initial': _visible,
-      'airplay_active': _airPlayActive,
-      'cast_service_ready': _ready,
-    });
   }
 
-  void _tryInit() {
-    if (_ready || !GetIt.instance.isRegistered<CastService>()) return;
-    _ready = true;
-    _subs.add(GetIt.instance<CastService>().isCasting.listen((v) {
+  void _watchCastService() {
+    if (_castServiceReady || !GetIt.instance.isRegistered<CastService>()) {
+      return;
+    }
+    _castServiceReady = true;
+    _routeSubs.add(GetIt.instance<CastService>().isCasting.listen((v) {
       if (mounted) setState(() => _chromecastCasting = v);
     }));
   }
 
   @override
   void dispose() {
-    for (final s in _subs) { s.cancel(); }
+    for (final s in _routeSubs) { s.cancel(); }
     super.dispose();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Full player cast button
+// ═══════════════════════════════════════════════════════════════════
+
+/// Cast button in the full player header, always visible.
+///
+/// The icon and its color follow the active route (Chromecast, AirPlay or
+/// this phone), so the user sees where the audio plays before tapping.
+class PlayerCastButton extends StatefulWidget {
+  /// Side length of the square tap target.
+  static const double size = 48;
+
+  final VoidCallback onPressed;
+
+  const PlayerCastButton({super.key, required this.onPressed});
+
+  @override
+  State<PlayerCastButton> createState() => _PlayerCastButtonState();
+}
+
+class _PlayerCastButtonState extends State<PlayerCastButton>
+    with _CastRouteTracker<PlayerCastButton> {
+  @override
+  Widget build(BuildContext context) {
+    final connected = _chromecastCasting || _airPlayActive;
+    final icon = _airPlayActive
+        ? Icons.airplay_rounded
+        : _chromecastCasting
+            ? Icons.cast_connected_rounded
+            : Icons.cast_rounded;
+    // The lighter/deeper brand pinks keep a clear contrast on the panel.
+    final color = !connected
+        ? Theme.of(context).colorScheme.onSurface
+        : Theme.of(context).brightness == Brightness.dark
+            ? AppColors.sleepAccent
+            : AppColors.sleepAccentOnLight;
+    return SizedBox.square(
+      dimension: PlayerCastButton.size,
+      child: IconButton(
+        onPressed: widget.onPressed,
+        tooltip: connected
+            ? 'Dispozitiv conectat'
+            : 'Transmite pe alt dispozitiv',
+        icon: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 150),
+          child: Icon(icon, key: ValueKey(icon), size: 22, color: color),
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Cast AppBar button
+// ═══════════════════════════════════════════════════════════════════
+
+/// App bar indicator, shown only while audio plays on another device.
+///
+/// Starting a cast lives in the full player (see [PlayerCastButton]). The
+/// app bar only surfaces an active Chromecast or AirPlay route, so the user
+/// sees where the audio goes and can stop it in one tap.
+class CastButton extends StatefulWidget {
+  const CastButton({super.key});
+
+  @override
+  State<CastButton> createState() => _CastButtonState();
+}
+
+class _CastButtonState extends State<CastButton>
+    with _CastRouteTracker<CastButton> {
+  bool get _visible => _chromecastCasting || _airPlayActive;
+
+  @override
+  void initState() {
+    super.initState();
+    AnalyticsService.instance.log('cast button init', {
+      'platform': Platform.isIOS ? 'ios' : Platform.isAndroid ? 'android' : 'other',
+      'visible_initial': _visible,
+      'airplay_active': _airPlayActive,
+      'cast_service_ready': _castServiceReady,
+    });
   }
 
   @override

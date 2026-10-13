@@ -106,6 +106,20 @@ void main() {
     });
 
     testWidgets(
+        'keeps the same height without wrapping '
+        '(regression: a long station name pushed the player artwork down)',
+        (tester) async {
+      final heights = <double>[];
+      for (final text in ['', _short, _longer, _twoLines, _veryLong]) {
+        await tester.pumpWidget(_host(_title(text, wrap: false)));
+        heights.add(tester.getSize(find.byType(ShrinkToFitText)).height);
+      }
+
+      expect(heights.toSet(), hasLength(1));
+      expect(heights.first, greaterThan(0));
+    });
+
+    testWidgets(
         'keeps the line below in place whatever the title '
         '(regression: a two-line title pushed the player controls down)',
         (tester) async {
