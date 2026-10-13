@@ -122,6 +122,7 @@ release-help:
 	@echo "  make upload-testflight     send app-store IPA to App Store Connect/TestFlight"
 	@echo "  make upload-play-internal  send AAB to Play Store internal testing track"
 	@echo "  make upload-stores         both of the above (TestFlight + Play internal)"
+	@echo "  make release-stores        bump build + commit (no push) + app-store IPA + AAB + upload both"
 	@echo "  make upload-dsyms-ios      iOS dSYMs -> PostHog (auto after release-ios*)"
 	@echo
 	@echo "  make latest-links          print /releases/latest/download/* URLs"
@@ -328,6 +329,29 @@ commit-version:
 	  git commit -m "chore: release v$${cur%+*} ($$cur)" && \
 	  git push origin HEAD; \
 	fi
+
+# ----- One-shot store release (TestFlight + Play internal) -------------------
+# Every store upload needs a higher build number than the last one, so this
+# bumps it once for both stores (iOS and Android ship the same +N), commits
+# the bump (not pushed — push when you choose), then builds and uploads.
+# Steps re-run make so the builds see the bumped pubspec. If an upload fails
+# after the bump, retry with `make upload-stores` (no second bump). The Apple
+# TV app keeps its own build number in apple_tv/RadioCrestinTV/Info.plist.
+.PHONY: release-stores commit-build-number
+release-stores:
+	@git diff --quiet -- pubspec.yaml || { \
+	  echo "ERROR: pubspec.yaml has uncommitted changes — commit or stash them first"; \
+	  exit 1; }
+	$(MAKE) bump-build
+	$(MAKE) commit-build-number
+	$(MAKE) release-ios-appstore release-android
+	$(MAKE) upload-stores
+	@echo "Store release done: $$(grep '^version:' pubspec.yaml)"
+
+commit-build-number:
+	@cur="$(PUBSPEC_VERSION)"; branch="$$(git rev-parse --abbrev-ref HEAD)"; \
+	  git add pubspec.yaml && \
+	  git commit -m "[$$branch] - bumped build number to $$cur"
 
 # ----- Store uploads (App Store TestFlight + Play Store internal) ----------
 # Credentials are pulled from 1Password at upload time, written to /tmp,

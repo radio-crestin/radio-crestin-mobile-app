@@ -102,11 +102,18 @@ Play Store's internal testing track via fastlane. Credentials stay in
 through `op`, never from disk.
 
 ```bash
+make release-stores         # all of the below in one go: bumps the build number (+1),
+                            # commits it (no push), builds the app-store IPA + AAB, uploads both
+
 make release-ios-appstore   # builds an app-store IPA (TestFlight requires this, not ad-hoc)
 make upload-testflight      # uploads dist/radio-crestin-ios-appstore.ipa to TestFlight
 make upload-play-internal   # uploads dist/radio-crestin-android.aab to Play internal track
 make upload-stores          # both at once
 ```
+
+Each store upload needs a higher build number than the previous one, so the
+individual targets above need a `make bump-build` first; `release-stores` does
+it for you. If an upload fails after its bump, retry with `make upload-stores`.
 
 **1Password items needed** (all in vault `radio-crestin-app`, secure note with
 the value pasted into the `notesPlain` field):
