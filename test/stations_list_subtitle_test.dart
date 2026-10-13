@@ -47,7 +47,7 @@ Color _textColor(WidgetTester tester, String text) =>
 void main() {
   group('station row subtitle', () {
     testWidgets(
-        'a radio station without a song shows a placeholder, dimmer than '
+        'a radio station without a song shows "Live" in the same color as '
         'a song line', (tester) async {
       await _pumpList(
         tester,
@@ -58,15 +58,12 @@ void main() {
           ),
         ),
       );
-      final songAlpha = _textColor(tester, 'Durch die Bibel - RVE').a;
+      final songColor = _textColor(tester, 'Durch die Bibel - RVE');
 
       await _pumpList(tester, _radio());
 
       expect(find.text('Live'), findsOneWidget);
-      expect(
-        _textColor(tester, 'Live').a,
-        lessThan(songAlpha),
-      );
+      expect(_textColor(tester, 'Live'), songColor);
     });
 
     testWidgets('a radio station with a song shows "title - artist"',
