@@ -8,9 +8,6 @@ class AnimatedPlayButton extends StatefulWidget {
   final double iconSize;
   final Color iconColor;
   final Color? backgroundColor;
-
-  /// Diameter of the button; [iconSize] plus 16 when null.
-  final double? size;
   final VoidCallback onPlay;
   final VoidCallback onPause;
   final VoidCallback onStop;
@@ -24,7 +21,6 @@ class AnimatedPlayButton extends StatefulWidget {
     required this.onPause,
     required this.onStop,
     this.backgroundColor,
-    this.size,
   });
 
   @override
@@ -161,7 +157,7 @@ class AnimatedPlayButtonState extends State<AnimatedPlayButton> {
       ),
     );
 
-    final diameter = widget.size ?? widget.iconSize + 16;
+    final diameter = widget.iconSize + 16;
 
     final VoidCallback onTap;
     if (showSpinner) {

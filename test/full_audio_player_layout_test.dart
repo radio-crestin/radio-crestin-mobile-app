@@ -34,8 +34,7 @@ void main() {
           computePlayerLayout(screenWidth: 0, screenHeight: 0, textScale: 1.0);
       expect(m.thumbSize, 140.0);
       expect(m.infoWidth, 140.0);
-      expect(m.playButtonSize, 60.0);
-      expect(m.playIconSize, 30.0);
+      expect(m.playIconSize, 48.0);
       expect(m.skipIconSize, 34.0);
       expect(m.skipSpacing, 24.0);
     });
@@ -60,8 +59,7 @@ void main() {
           screenWidth: 390, screenHeight: 844, textScale: 1.0);
       expect(m.thumbSize, closeTo(390 * 0.7, 0.001));
       expect(m.infoWidth, 390 - 48);
-      expect(m.playButtonSize, 72.0);
-      expect(m.playIconSize, 36.0);
+      expect(m.playIconSize, 62.0);
       expect(m.skipIconSize, 40.0);
       expect(m.skipSpacing, 36.0);
     });
@@ -78,7 +76,7 @@ void main() {
       final m = computePlayerLayout(
           screenWidth: 375, screenHeight: 667, textScale: 1.0);
       expect(m.thumbSize, closeTo(667 * 0.9 - 390, 0.001));
-      expect(m.playButtonSize, 60.0);
+      expect(m.playIconSize, 48.0);
       expect(m.skipIconSize, 34.0);
     });
 
@@ -128,14 +126,12 @@ void main() {
           screenWidth: 390, screenHeight: 800, textScale: 1.0);
 
       expect(big.thumbSize, greaterThan(small.thumbSize));
-      expect(big.playButtonSize, greaterThan(small.playButtonSize));
       expect(big.playIconSize, greaterThan(small.playIconSize));
       expect(big.skipIconSize, greaterThan(small.skipIconSize));
       expect(big.skipSpacing, greaterThan(small.skipSpacing));
 
       // Bounds of the interpolation.
-      expect(small.playButtonSize, inInclusiveRange(60.0, 72.0));
-      expect(small.playIconSize, inInclusiveRange(30.0, 36.0));
+      expect(small.playIconSize, inInclusiveRange(48.0, 62.0));
       expect(small.skipIconSize, inInclusiveRange(34.0, 40.0));
       expect(small.skipSpacing, inInclusiveRange(24.0, 36.0));
     });

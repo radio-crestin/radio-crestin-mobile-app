@@ -35,10 +35,7 @@ class PlayerLayoutMetrics {
   /// Width of the song info row under the artwork.
   final double infoWidth;
 
-  /// Diameter of the central play/pause control.
-  final double playButtonSize;
-
-  /// Size of the play/pause glyph inside it.
+  /// Size of the play/pause glyph; the disc around it is 16 wider.
   final double playIconSize;
 
   /// Size of the skip-forward / skip-back glyphs.
@@ -50,7 +47,6 @@ class PlayerLayoutMetrics {
   const PlayerLayoutMetrics({
     required this.thumbSize,
     required this.infoWidth,
-    required this.playButtonSize,
     required this.playIconSize,
     required this.skipIconSize,
     required this.skipSpacing,
@@ -135,8 +131,7 @@ PlayerLayoutMetrics computePlayerLayout({
   return PlayerLayoutMetrics(
     thumbSize: thumbSize,
     infoWidth: math.max(thumbSize, maxByWidth),
-    playButtonSize: 60.0 + 12.0 * t, // 60..72
-    playIconSize: 30.0 + 6.0 * t, // 30..36
+    playIconSize: 48.0 + 14.0 * t, // 48..62
     skipIconSize: 34.0 + 6.0 * t, // 34..40
     skipSpacing: 24.0 + 12.0 * t, // 24..36
   );
@@ -309,7 +304,6 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
           const Spacer(flex: 4),
           _buildTransportControls(
             context,
-            playButtonSize: layout.playButtonSize,
             playIconSize: layout.playIconSize,
             skipIconSize: layout.skipIconSize,
             skipSpacing: layout.skipSpacing,
@@ -383,7 +377,6 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                               children: [
                                 Row(
                                   children: [
-                                    _buildCollapseButton(context),
                                     Expanded(
                                       child: _buildStationTitle(context,
                                           textAlign: TextAlign.start),
@@ -400,10 +393,8 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                                 // metrics.
                                 _buildTransportControls(
                                   context,
-                                  playButtonSize:
-                                      compact ? 64.0 : layout.playButtonSize,
                                   playIconSize:
-                                      compact ? 32.0 : layout.playIconSize,
+                                      compact ? 60.0 : layout.playIconSize,
                                   skipIconSize:
                                       compact ? 32.0 : layout.skipIconSize,
                                   skipSpacing:
@@ -483,43 +474,22 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     );
   }
 
-  /// The station name between the collapse and cast buttons, which keep it
-  /// centered over the artwork. Without [showCast] an empty slot of the same
-  /// size takes the cast button's place.
+  /// The station name with the cast button on its right. An empty slot of
+  /// the button's size on the left keeps the name centered over the
+  /// artwork; without [showCast] a second one takes the button's place.
   ///
-  /// The buttons' 56pt targets reach to 4pt from the screen edges, so the
-  /// icons sit where they did in 48pt targets.
+  /// The button's 56pt target reaches to 4pt from the screen edge, so the
+  /// icon sits where it did in a 48pt target.
   Widget _buildHeader(BuildContext context, {bool showCast = true}) {
+    const slot = SizedBox.square(dimension: PlayerCastButton.size);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4.0),
       child: Row(
         children: [
-          _buildCollapseButton(context),
+          slot,
           Expanded(child: _buildStationTitle(context)),
-          showCast
-              ? _buildCastButton(context)
-              : const SizedBox.square(dimension: PlayerCastButton.size),
+          showCast ? _buildCastButton(context) : slot,
         ],
-      ),
-    );
-  }
-
-  /// Slides the panel back down to the mini player.
-  Widget _buildCollapseButton(BuildContext context) {
-    return SizedBox.square(
-      dimension: PlayerCastButton.size,
-      child: IconButton(
-        tooltip: 'Închide playerul',
-        onPressed: () {
-          AnalyticsService.instance.capture('button_clicked', {'button_name': 'collapse_player', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug});
-          final panel = widget.slidingUpPanelController;
-          if (panel.isAttached) panel.close();
-        },
-        icon: Icon(
-          Icons.keyboard_arrow_down_rounded,
-          size: 30,
-          color: Theme.of(context).colorScheme.onSurface,
-        ),
       ),
     );
   }
@@ -655,7 +625,6 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   /// cluster for the landscape right-hand column.
   Widget _buildTransportControls(
     BuildContext context, {
-    required double playButtonSize,
     required double playIconSize,
     required double skipIconSize,
     required double skipSpacing,
@@ -678,30 +647,17 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
           icon: const Icon(Icons.skip_previous_rounded),
         ),
         SizedBox(width: skipSpacing),
-        // The brand pink disc, lifted by a soft glow of the same pink.
-        DecoratedBox(
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color:
-                    AppColors.primary.withValues(alpha: isDark ? 0.45 : 0.35),
-                blurRadius: 24,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: AnimatedPlayButton(
-            key: _playButtonKey,
-            playbackStateStream: widget.audioHandler.playbackState,
-            size: playButtonSize,
-            iconSize: playIconSize,
-            iconColor: Colors.white,
-            backgroundColor: AppColors.primary,
-            onPlay: widget.audioHandler.play,
-            onPause: widget.audioHandler.pause,
-            onStop: widget.audioHandler.stop,
-          ),
+        // A flat disc: the deep crimson in the dark theme, the brand pink in
+        // the light one.
+        AnimatedPlayButton(
+          key: _playButtonKey,
+          playbackStateStream: widget.audioHandler.playbackState,
+          iconSize: playIconSize,
+          iconColor: Theme.of(context).colorScheme.onPrimary,
+          backgroundColor: isDark ? AppColors.playerBar : AppColors.primary,
+          onPlay: widget.audioHandler.play,
+          onPause: widget.audioHandler.pause,
+          onStop: widget.audioHandler.stop,
         ),
         SizedBox(width: skipSpacing),
         IconButton(
@@ -879,11 +835,10 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
       );
     }
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     // Decoded, and fetched from the image CDN, at the size it is drawn, so
     // the artwork stays sharp on 3x screens.
     final pixels = (thumbSize * MediaQuery.devicePixelRatioOf(context)).ceil();
-    final artwork = AnimatedSwitcher(
+    return AnimatedSwitcher(
       duration: const Duration(milliseconds: 300),
       transitionBuilder: (Widget child, Animation<double> animation) {
         return FadeTransition(opacity: animation, child: child);
@@ -896,28 +851,13 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
           color: Theme.of(context).colorScheme.surface,
           borderRadius:
               const BorderRadius.all(Radius.circular(AppRadius.artwork)),
-          boxShadow: isDark
-              // Soft brand-pink glow that lifts the artwork off the panel.
-              ? [
-                  BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.28),
-                    blurRadius: 40,
-                    offset: const Offset(0, 16),
-                  ),
-                ]
-              // The pink comes from the backlight; a hairline and a soft
-              // shadow keep white logos from melting into it.
-              : [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.04),
-                    spreadRadius: 1,
-                  ),
-                  BoxShadow(
-                    color: AppColors.primaryDark.withValues(alpha: 0.16),
-                    blurRadius: 28,
-                    offset: const Offset(0, 14),
-                  ),
-                ],
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withValues(alpha: 0.35),
+              blurRadius: 4,
+              offset: const Offset(2, 3),
+            ),
+          ],
         ),
         child: ClipRRect(
           borderRadius:
@@ -942,16 +882,6 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
           ),
         ),
       ),
-    );
-    if (isDark) return artwork;
-    // Outside the switcher, so the light holds steady while the artwork
-    // crossfades over it.
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        const Positioned.fill(child: _ArtworkBacklight()),
-        artwork,
-      ],
     );
   }
 
@@ -1149,44 +1079,8 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   }
 }
 
-/// A soft brand-pink light behind the artwork in the light theme, where a
-/// pink shadow would fade into the pale panel.
-///
-/// Fills the artwork's box and is stretched past it into an ellipse: wide
-/// enough in portrait to reach the screen edges, rounder in landscape so it
-/// stays out from under the info column.
-class _ArtworkBacklight extends StatelessWidget {
-  const _ArtworkBacklight();
-
-  @override
-  Widget build(BuildContext context) {
-    final isLandscape =
-        MediaQuery.orientationOf(context) == Orientation.landscape;
-    return IgnorePointer(
-      child: Transform.scale(
-        scaleX: isLandscape ? 1.6 : 2.2,
-        scaleY: 1.36,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: RadialGradient(
-              colors: [
-                AppColors.primary.withValues(alpha: 0.36),
-                AppColors.primary.withValues(alpha: 0.18),
-                AppColors.primaryLight.withValues(alpha: 0.07),
-                AppColors.primaryLight.withValues(alpha: 0),
-              ],
-              stops: const [0.0, 0.45, 0.75, 1.0],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 /// The sliding panel's background: rounded top corners over the brand
-/// gradient in the dark theme, and over white fading into the page in the
-/// light theme, where the pink comes from the [_ArtworkBacklight] instead.
+/// gradient.
 ///
 /// A transparent [Material] sits above the gradient so the buttons' ripples
 /// show: an [InkWell] paints on its nearest Material, which would otherwise
@@ -1216,8 +1110,12 @@ class _PlayerPanel extends StatelessWidget {
                   const Color(0xFF1A0A0F),
                   bgColor,
                 ]
-              : [Colors.white, bgColor],
-          stops: isDark ? const [0.0, 0.35, 0.7] : const [0.0, 0.6],
+              : [
+                  const Color(0xFFFCE4EC),
+                  const Color(0xFFF8BBD0).withValues(alpha: 0.3),
+                  bgColor,
+                ],
+          stops: const [0.0, 0.35, 0.7],
         ),
       ),
       child: Material(

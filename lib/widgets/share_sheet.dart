@@ -295,8 +295,8 @@ class _SharePalette {
       isDark: isDark,
       isApple: theme.platform == TargetPlatform.iOS ||
           theme.platform == TargetPlatform.macOS,
-      // Light: white fading into the background, like the player panel and
-      // the sleep timer sheet.
+      // Light: white fading into the background, like the sleep timer
+      // sheet.
       backdrop: isDark
           ? AppColors.darkSheetBackdrop
           : [Colors.white, background, background],

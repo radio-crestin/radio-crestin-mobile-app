@@ -209,8 +209,8 @@ class _SheetPalette {
       isApple: theme.platform == TargetPlatform.iOS ||
           theme.platform == TargetPlatform.macOS,
       // Dark: the warm wine of the share sheet, lighter than the player so
-      // the sheet stands out from it. Light: the player panel's white fading
-      // into the background.
+      // the sheet stands out from it. Light: white fading into the
+      // background, like the share sheet.
       backdrop: isDark
           ? AppColors.darkSheetBackdrop
           : [Colors.white, background, background],
