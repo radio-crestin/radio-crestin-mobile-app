@@ -121,15 +121,22 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   var _likeButtonKey = GlobalKey<LikeButtonState>();
   final StationDataService _stationDataService = GetIt.instance<StationDataService>();
 
+  /// Shown under the artwork when a radio station has no song metadata.
+  static const _noMetadataLabel = "Metadate indisponibile";
+
+  /// Whether the song line shows [_noMetadataLabel] instead of a title.
+  bool get _showsNoMetadata {
+    final s = currentStation;
+    return s == null || (s.songTitle.isEmpty && !s.isTv);
+  }
+
   /// Primary line under the artwork for radio/TV stations: the song title when
-  /// one is playing, a "Transmisiune live" label for an idle TV channel, and
-  /// empty for a radio station without metadata. The empty line keeps its
-  /// height, so nothing moves when a title arrives.
+  /// one is playing, a "Transmisiune live" label for an idle TV channel, or the
+  /// muted no-metadata placeholder (so a station never looks blank).
   String _primaryLine() {
     final s = currentStation;
-    if (s == null) return "";
-    if (s.songTitle.isNotEmpty) return s.songTitle;
-    return s.isTv ? "Transmisiune live" : "";
+    if (_showsNoMetadata || s == null) return _noMetadataLabel;
+    return s.songTitle.isNotEmpty ? s.songTitle : "Transmisiune live";
   }
 
   @override
@@ -494,9 +501,18 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
           _primaryLine(),
           textAlign: textAlign,
           minFontSize: _songTitleMinFontSize,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 22,
             fontWeight: FontWeight.w600,
+            // The placeholder is a status, not a song: muted so it doesn't
+            // read like a title. 45% still clears 3:1 for this large text on
+            // both the light and dark panel.
+            color: _showsNoMetadata
+                ? Theme.of(context)
+                    .colorScheme
+                    .onSurfaceVariant
+                    .withValues(alpha: 0.45)
+                : null,
           ),
         ),
       ),

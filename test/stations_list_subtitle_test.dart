@@ -41,21 +41,32 @@ Future<void> _pumpList(WidgetTester tester, Station station) =>
       ),
     ));
 
+Color _textColor(WidgetTester tester, String text) =>
+    tester.widget<Text>(find.text(text)).style!.color!;
+
 void main() {
   group('station row subtitle', () {
     testWidgets(
-        'a radio station without a song shows no placeholder line, just '
-        'its title and listeners', (tester) async {
+        'a radio station without a song shows a placeholder, dimmer than '
+        'a song line', (tester) async {
+      await _pumpList(
+        tester,
+        _radio(
+          nowPlaying: StationFactory.createNowPlaying(
+            songName: 'Durch die Bibel',
+            artistName: 'RVE',
+          ),
+        ),
+      );
+      final songAlpha = _textColor(tester, 'Durch die Bibel - RVE').a;
+
       await _pumpList(tester, _radio());
 
-      expect(find.text('Metadate indisponibile'), findsNothing);
-      expect(find.text('RVE Sibiu'), findsOneWidget);
-      expect(find.text('26 ascultatori'), findsOneWidget);
-      // Title and listeners sit right on top of each other, with no empty
-      // line between them.
-      final titleBottom = tester.getBottomLeft(find.text('RVE Sibiu')).dy;
-      final listenersTop = tester.getTopLeft(find.text('26 ascultatori')).dy;
-      expect(listenersTop - titleBottom, lessThan(8));
+      expect(find.text('Metadate indisponibile'), findsOneWidget);
+      expect(
+        _textColor(tester, 'Metadate indisponibile').a,
+        lessThan(songAlpha),
+      );
     });
 
     testWidgets('a radio station with a song shows "title - artist"',
@@ -71,6 +82,7 @@ void main() {
       );
 
       expect(find.text('Durch die Bibel - RVE'), findsOneWidget);
+      expect(find.text('Metadate indisponibile'), findsNothing);
     });
 
     testWidgets('a station that is down still warns on the second line',

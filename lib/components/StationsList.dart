@@ -136,36 +136,32 @@ class StationsList extends StatelessWidget {
                                   ],
                                 ],
                               ),
-                              // A radio station without a song has no second
-                              // line; the row shows title + listeners only.
-                              if (station.isDown ||
-                                  _StationSubtitle.hasContent(station))
-                                SizedBox(
-                                  height: 22,
-                                  child: AnimatedSwitcher(
-                                    duration: const Duration(milliseconds: 250),
-                                    layoutBuilder: (currentChild, previousChildren) => Stack(
-                                      alignment: Alignment.centerLeft,
-                                      children: [...previousChildren, if (currentChild != null) currentChild],
-                                    ),
-                                    child: Container(
-                                      key: ValueKey('meta-${station.id}-${station.songTitle}-${station.songArtist}'),
-                                      alignment: Alignment.centerLeft,
-                                      // Only an explicit is_up==false warns; a
-                                      // missing/unknown uptime is treated as
-                                      // available (see Station.isDown).
-                                      child: station.isDown
-                                        ? const Text(
-                                            "Stație posibil indisponibilă",
-                                            style: TextStyle(color: Color(0xFFF87171)),
-                                          )
-                                        : _StationSubtitle(
-                                            station: station,
-                                            isCurrent: isSelected,
-                                          ),
-                                    ),
+                              SizedBox(
+                                height: 22,
+                                child: AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 250),
+                                  layoutBuilder: (currentChild, previousChildren) => Stack(
+                                    alignment: Alignment.centerLeft,
+                                    children: [...previousChildren, if (currentChild != null) currentChild],
+                                  ),
+                                  child: Container(
+                                    key: ValueKey('meta-${station.id}-${station.songTitle}-${station.songArtist}'),
+                                    alignment: Alignment.centerLeft,
+                                    // Only an explicit is_up==false warns; a
+                                    // missing/unknown uptime is treated as
+                                    // available (see Station.isDown).
+                                    child: station.isDown
+                                      ? const Text(
+                                          "Stație posibil indisponibilă",
+                                          style: TextStyle(color: Color(0xFFF87171)),
+                                        )
+                                      : _StationSubtitle(
+                                          station: station,
+                                          isCurrent: isSelected,
+                                        ),
                                   ),
                                 ),
+                              ),
                               SizedBox(
                                 height: 18,
                                 child: AnimatedSwitcher(
@@ -254,8 +250,8 @@ class StationsList extends StatelessWidget {
 /// Second line of a station row. Typed so stations without a now-playing song
 /// never look broken: playlist stations show the current item title when this
 /// is the playing station (else a "Listă de redare" label), TV stations show a
-/// "Transmisiune live" label, and radio shows its song. A radio station
-/// without a song has no second line (see [hasContent]).
+/// "Transmisiune live" label, and radio keeps its song-or-"Metadate
+/// indisponibile" behavior.
 class _StationSubtitle extends StatelessWidget {
   const _StationSubtitle({required this.station, required this.isCurrent});
 
@@ -264,26 +260,20 @@ class _StationSubtitle extends StatelessWidget {
 
   static const double _fontSize = 13;
 
-  /// Whether [station] has a second line. Only a radio station without a
-  /// now-playing song has none.
-  static bool hasContent(Station station) =>
-      station.stationType != StationMediaType.radio ||
-      station.songTitle.isNotEmpty;
-
-  TextStyle _style(BuildContext context) => TextStyle(
+  TextStyle _style(BuildContext context, {required bool dim}) => TextStyle(
         color: Theme.of(context)
             .colorScheme
             .onSurfaceVariant
-            .withValues(alpha: 0.7),
+            .withValues(alpha: dim ? 0.4 : 0.7),
         fontSize: _fontSize,
       );
 
-  Widget _line(BuildContext context, String value) => Text(
+  Widget _line(BuildContext context, String value, {bool dim = false}) => Text(
         value,
         textAlign: TextAlign.left,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: _style(context),
+        style: _style(context, dim: dim),
       );
 
   @override
@@ -327,6 +317,6 @@ class _StationSubtitle extends StatelessWidget {
     if (subtitle != null && subtitle.isNotEmpty) {
       return _line(context, subtitle);
     }
-    return const SizedBox.shrink();
+    return _line(context, "Metadate indisponibile", dim: true);
   }
 }
