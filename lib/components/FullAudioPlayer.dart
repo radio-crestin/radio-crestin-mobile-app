@@ -125,19 +125,14 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   /// the station is on air, only the song title is unknown.
   static const _noMetadataLabel = "Live";
 
-  /// Whether the song line shows [_noMetadataLabel] instead of a title.
-  bool get _showsNoMetadata {
-    final s = currentStation;
-    return s == null || (s.songTitle.isEmpty && !s.isTv);
-  }
-
   /// Primary line under the artwork for radio/TV stations: the song title when
-  /// one is playing, a "Transmisiune live" label for an idle TV channel, or the
-  /// muted no-metadata placeholder (so a station never looks blank).
+  /// one is playing, a "Transmisiune live" label for an idle TV channel, or
+  /// [_noMetadataLabel] (so a station never looks blank).
   String _primaryLine() {
     final s = currentStation;
-    if (_showsNoMetadata || s == null) return _noMetadataLabel;
-    return s.songTitle.isNotEmpty ? s.songTitle : "Transmisiune live";
+    if (s == null) return _noMetadataLabel;
+    if (s.songTitle.isNotEmpty) return s.songTitle;
+    return s.isTv ? "Transmisiune live" : _noMetadataLabel;
   }
 
   @override
@@ -507,18 +502,9 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
           textAlign: textAlign,
           minFontSize: _songTitleMinFontSize,
           twoLineMinFontSize: _songTitleTwoLineMinFontSize,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 22,
             fontWeight: FontWeight.w600,
-            // The placeholder is a status, not a song: muted so it doesn't
-            // read like a title. 45% still clears 3:1 for this large text on
-            // both the light and dark panel.
-            color: _showsNoMetadata
-                ? Theme.of(context)
-                    .colorScheme
-                    .onSurfaceVariant
-                    .withValues(alpha: 0.45)
-                : null,
           ),
         ),
       ),
