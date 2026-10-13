@@ -206,12 +206,11 @@ class _SheetPalette {
       isDark: isDark,
       isApple: theme.platform == TargetPlatform.iOS ||
           theme.platform == TargetPlatform.macOS,
-      // The player panel's gradient; its light middle stop is the panel's
-      // translucent pink already blended over the background, since the
-      // sheet has nothing behind it to blend with.
+      // The player panel's gradient: brand-tinted in the dark theme, white
+      // fading into the background in the light one.
       backdrop: isDark
           ? [const Color(0xFF2C1018), const Color(0xFF1A0A0F), background]
-          : [const Color(0xFFFCE4EC), const Color(0xFFF9E7ED), background],
+          : [Colors.white, background, background],
       text: onSurface,
       secondaryText: onSurface.withValues(alpha: isDark ? 0.7 : 0.6),
       grabber: onSurface.withValues(alpha: isDark ? 0.35 : 0.22),

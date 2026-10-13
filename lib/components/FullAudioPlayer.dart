@@ -883,7 +883,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     // Decoded, and fetched from the image CDN, at the size it is drawn, so
     // the artwork stays sharp on 3x screens.
     final pixels = (thumbSize * MediaQuery.devicePixelRatioOf(context)).ceil();
-    return AnimatedSwitcher(
+    final artwork = AnimatedSwitcher(
       duration: const Duration(milliseconds: 300),
       transitionBuilder: (Widget child, Animation<double> animation) {
         return FadeTransition(opacity: animation, child: child);
@@ -896,14 +896,28 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
           color: Theme.of(context).colorScheme.surface,
           borderRadius:
               const BorderRadius.all(Radius.circular(AppRadius.artwork)),
-          // Soft brand-pink glow that lifts the artwork off the panel.
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.primary.withValues(alpha: isDark ? 0.28 : 0.22),
-              blurRadius: 40,
-              offset: const Offset(0, 16),
-            ),
-          ],
+          boxShadow: isDark
+              // Soft brand-pink glow that lifts the artwork off the panel.
+              ? [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.28),
+                    blurRadius: 40,
+                    offset: const Offset(0, 16),
+                  ),
+                ]
+              // The pink comes from the backlight; a hairline and a soft
+              // shadow keep white logos from melting into it.
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    spreadRadius: 1,
+                  ),
+                  BoxShadow(
+                    color: AppColors.primaryDark.withValues(alpha: 0.16),
+                    blurRadius: 28,
+                    offset: const Offset(0, 14),
+                  ),
+                ],
         ),
         child: ClipRRect(
           borderRadius:
@@ -928,6 +942,16 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
           ),
         ),
       ),
+    );
+    if (isDark) return artwork;
+    // Outside the switcher, so the light holds steady while the artwork
+    // crossfades over it.
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        const Positioned.fill(child: _ArtworkBacklight()),
+        artwork,
+      ],
     );
   }
 
@@ -1124,8 +1148,44 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   }
 }
 
+/// A soft brand-pink light behind the artwork in the light theme, where a
+/// pink shadow would fade into the pale panel.
+///
+/// Fills the artwork's box and is stretched past it into an ellipse: wide
+/// enough in portrait to reach the screen edges, rounder in landscape so it
+/// stays out from under the info column.
+class _ArtworkBacklight extends StatelessWidget {
+  const _ArtworkBacklight();
+
+  @override
+  Widget build(BuildContext context) {
+    final isLandscape =
+        MediaQuery.orientationOf(context) == Orientation.landscape;
+    return IgnorePointer(
+      child: Transform.scale(
+        scaleX: isLandscape ? 1.6 : 2.2,
+        scaleY: 1.36,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: RadialGradient(
+              colors: [
+                AppColors.primary.withValues(alpha: 0.36),
+                AppColors.primary.withValues(alpha: 0.18),
+                AppColors.primaryLight.withValues(alpha: 0.07),
+                AppColors.primaryLight.withValues(alpha: 0),
+              ],
+              stops: const [0.0, 0.45, 0.75, 1.0],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// The sliding panel's background: rounded top corners over the brand
-/// gradient.
+/// gradient in the dark theme, and over white fading into the page in the
+/// light theme, where the pink comes from the [_ArtworkBacklight] instead.
 ///
 /// A transparent [Material] sits above the gradient so the buttons' ripples
 /// show: an [InkWell] paints on its nearest Material, which would otherwise
@@ -1155,12 +1215,8 @@ class _PlayerPanel extends StatelessWidget {
                   const Color(0xFF1A0A0F),
                   bgColor,
                 ]
-              : [
-                  const Color(0xFFFCE4EC),
-                  const Color(0xFFF8BBD0).withValues(alpha: 0.3),
-                  bgColor,
-                ],
-          stops: const [0.0, 0.35, 0.7],
+              : [Colors.white, bgColor],
+          stops: isDark ? const [0.0, 0.35, 0.7] : const [0.0, 0.6],
         ),
       ),
       child: Material(
