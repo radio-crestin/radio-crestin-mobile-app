@@ -819,6 +819,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     false) {
                   _playlistController.startLiveSync();
                 }
+                // The mirror of the rebuild in onPanelClosed: the collapsed
+                // mini player, faded out but still the top 96px of the panel,
+                // keeps taking touches until a rebuild turns its IgnorePointer
+                // on. Without this, taps on the full player's header (collapse,
+                // cast) hit the invisible mini player until something else
+                // rebuilds the page.
+                if (mounted) setState(() {});
               },
               onPanelClosed: () {
                 slidingUpPanelController.isExpandedSubject.add(false);

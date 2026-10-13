@@ -215,11 +215,11 @@ class _SheetPalette {
       text: onSurface,
       secondaryText: onSurface.withValues(alpha: isDark ? 0.7 : 0.6),
       grabber: onSurface.withValues(alpha: isDark ? 0.35 : 0.22),
-      // Same fills as the player's "Îmi place" / "Trimite" chips.
+      // A neutral fill that reads on the panel gradient.
       chip: isDark
           ? Colors.white.withValues(alpha: 0.12)
           : Colors.black.withValues(alpha: 0.08),
-      // The play / pause button's color.
+      // The brand color of the bottom bar.
       selected: theme.bottomAppBarTheme.color ?? AppColors.primary,
     );
   }

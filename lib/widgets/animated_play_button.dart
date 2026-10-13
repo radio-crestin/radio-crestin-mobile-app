@@ -8,6 +8,9 @@ class AnimatedPlayButton extends StatefulWidget {
   final double iconSize;
   final Color iconColor;
   final Color? backgroundColor;
+
+  /// Diameter of the button; [iconSize] plus 16 when null.
+  final double? size;
   final VoidCallback onPlay;
   final VoidCallback onPause;
   final VoidCallback onStop;
@@ -21,6 +24,7 @@ class AnimatedPlayButton extends StatefulWidget {
     required this.onPause,
     required this.onStop,
     this.backgroundColor,
+    this.size,
   });
 
   @override
@@ -157,6 +161,8 @@ class AnimatedPlayButtonState extends State<AnimatedPlayButton> {
       ),
     );
 
+    final diameter = widget.size ?? widget.iconSize + 16;
+
     final VoidCallback onTap;
     if (showSpinner) {
       // During loading/buffering, tapping pauses (cancels in-flight play).
@@ -176,9 +182,8 @@ class AnimatedPlayButtonState extends State<AnimatedPlayButton> {
           child: InkWell(
             onTap: onTap,
             customBorder: const CircleBorder(),
-            child: SizedBox(
-              width: widget.iconSize + 16,
-              height: widget.iconSize + 16,
+            child: SizedBox.square(
+              dimension: diameter,
               child: Center(child: switcher),
             ),
           ),
@@ -191,9 +196,8 @@ class AnimatedPlayButtonState extends State<AnimatedPlayButton> {
       child: InkWell(
         onTap: onTap,
         customBorder: const CircleBorder(),
-        child: SizedBox(
-          width: widget.iconSize + 16,
-          height: widget.iconSize + 16,
+        child: SizedBox.square(
+          dimension: diameter,
           child: Center(child: switcher),
         ),
       ),

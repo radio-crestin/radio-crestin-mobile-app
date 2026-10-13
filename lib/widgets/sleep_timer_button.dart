@@ -107,7 +107,7 @@ class _SleepTimerButtonState extends State<SleepTimerButton> {
                     duration: const Duration(milliseconds: 150),
                     child: armed == null
                         ? Icon(
-                            Icons.nights_stay_sharp,
+                            Icons.bedtime_rounded,
                             key: const ValueKey('idle'),
                             size: 24,
                             color: theme.colorScheme.onSurface,
@@ -130,10 +130,10 @@ class _SleepTimerButtonState extends State<SleepTimerButton> {
                       key: ValueKey(countdown == null),
                       style: TextStyle(
                         fontSize: 12,
-                        fontWeight: countdown == null ? null : FontWeight.w600,
-                        color: countdown == null
-                            ? theme.colorScheme.onSurfaceVariant
-                            : accent,
+                        fontWeight: countdown == null
+                            ? FontWeight.w500
+                            : FontWeight.w600,
+                        color: countdown == null ? theme.textSecondary : accent,
                         fontFeatures: const [FontFeature.tabularFigures()],
                       ),
                     ),

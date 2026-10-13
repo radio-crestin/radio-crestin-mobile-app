@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:like_button/like_button.dart';
 import 'package:radio_crestin/theme.dart';
@@ -30,10 +32,16 @@ class PlayerLayoutMetrics {
   /// Side length of the square station artwork.
   final double thumbSize;
 
+  /// Width of the song info row under the artwork.
+  final double infoWidth;
+
   /// Diameter of the central play/pause control.
+  final double playButtonSize;
+
+  /// Size of the play/pause glyph inside it.
   final double playIconSize;
 
-  /// Diameter of the skip-forward / skip-back controls.
+  /// Size of the skip-forward / skip-back glyphs.
   final double skipIconSize;
 
   /// Horizontal gap between the play control and the skip controls.
@@ -41,66 +49,96 @@ class PlayerLayoutMetrics {
 
   const PlayerLayoutMetrics({
     required this.thumbSize,
+    required this.infoWidth,
+    required this.playButtonSize,
     required this.playIconSize,
     required this.skipIconSize,
     required this.skipSpacing,
   });
 }
 
-/// Largest share of the screen width the artwork may take: ~210pt on a
-/// 390pt-wide phone, which leaves the player room to breathe.
-const double _maxArtworkWidthFraction = 0.54;
+/// Gap between the screen edges and the song info below the artwork, and
+/// the least gap around the artwork itself.
+const double _artworkSideMargin = 24.0;
+
+/// Largest share of the screen width the artwork takes: ~280pt on a
+/// 402pt-wide phone, so it doesn't crowd the song and the controls.
+const double _maxArtworkWidthFraction = 0.7;
+
+/// Smallest artwork, and the floor of every upper `clamp` bound in
+/// [computePlayerLayout], which keeps those bounds well-formed.
+const double _minArtworkSize = 140.0;
+
+/// Largest artwork, reached on tablets in portrait.
+const double _maxArtworkSize = 480.0;
+
+/// Height of the portrait player besides the artwork and the text: drag
+/// handle, header, transport, action icons, bottom inset and the gaps
+/// between them.
+const double _fixedChromeHeight = 300.0;
+
+/// Height of the portrait player text, which grows with the system text
+/// size: the song title slot, the artist line and the action labels.
+const double _scalableTextHeight = 90.0;
+
+/// Largest text scale the full player follows, about iOS's second
+/// accessibility size. The player is one screen that never scrolls, so past
+/// this its text stops growing; [computePlayerLayout] budgets up to it.
+const double _maxTextScale = 2.0;
+
+/// Largest text scale of the action labels: iOS's largest standard size.
+/// Like a tab bar's labels they stay short, so all five keep one size and
+/// fit the row on the narrowest phones.
+const double _maxActionLabelTextScale = 1.35;
 
 /// Computes the responsive player layout from the current screen size.
 ///
 /// Pure and side-effect free so the sizing math can be unit tested. The
-/// available artwork space grows with the panel height, bounded by a fixed
-/// `[140, 300]` range and by the usable width; it drives the transport
-/// controls. The artwork itself is further capped at
-/// [_maxArtworkWidthFraction] of the screen width, so phones show a compact
-/// artwork while tablets still reach 300.
+/// artwork takes [_maxArtworkWidthFraction] of the width when the panel is
+/// tall enough, otherwise the height the rest of the player leaves, within
+/// `[_minArtworkSize, _maxArtworkSize]`. The height left also sizes the
+/// transport controls, so short phones get smaller ones. On phones the song
+/// info spans the width between the [_artworkSideMargin]s, wider than the
+/// artwork, so the title isn't squeezed; on tablets it lines up with the
+/// capped artwork.
 ///
 /// Guards the degenerate case where the panel is laid out before the window
 /// has real dimensions (`MediaQuery.size == Size.zero`, common on iOS during
-/// launch / return-from-background). There `maxThumbWidth` becomes negative;
-/// previously `(...).clamp(140.0, maxThumbWidth)` threw
-/// `ArgumentError: Invalid argument(s): 140.0` whenever the upper limit fell
-/// below the 140 lower limit — the single highest-volume crash in production
-/// (PostHog issue 019d8f95…, 1100+ occurrences). Clamping the upper bound to a
-/// 140 floor keeps `clamp` well-formed.
+/// launch / return-from-background). A width-derived upper bound goes
+/// negative there; when it fell below the lower bound, `num.clamp` threw
+/// `ArgumentError: Invalid argument(s): 140.0` — the single highest-volume
+/// crash in production (PostHog issue 019d8f95…, 1100+ occurrences). Every
+/// upper bound is floored at [_minArtworkSize] so `clamp` stays well-formed.
 PlayerLayoutMetrics computePlayerLayout({
   required double screenWidth,
   required double screenHeight,
   required double textScale,
 }) {
-  final scale = textScale.clamp(1.0, 1.5);
+  final scale = textScale.clamp(1.0, _maxTextScale);
   final panelHeight = screenHeight * 0.9;
+  final heightForArtwork =
+      panelHeight - _fixedChromeHeight - _scalableTextHeight * scale;
 
-  // Fixed elements budget: drag handle(7) + title(~30) + song+artist(~50)
-  //   + chips(~50) + transport(~90) + bottom row(~75) + spacers(~110) + bottom(~24)
-  final fixedBudget = 420.0 * scale;
-
-  // The artwork must also fit horizontally with 32px padding on each side.
-  // Every upper bound is floored at 140 so it can never drop below the lower
-  // bound and make num.clamp throw.
-  final maxThumbWidth = (screenWidth - 64.0).clamp(140.0, double.infinity);
-  final availableSize = (panelHeight - fixedBudget)
-      .clamp(140.0, 300.0)
-      .clamp(140.0, maxThumbWidth)
+  final maxByWidth = (screenWidth - 2 * _artworkSideMargin)
+      .clamp(_minArtworkSize, _maxArtworkSize)
       .toDouble();
-  final maxCompactWidth = (screenWidth * _maxArtworkWidthFraction)
-      .clamp(140.0, double.infinity);
-  final thumbSize = availableSize.clamp(140.0, maxCompactWidth).toDouble();
+  final maxByShare = (screenWidth * _maxArtworkWidthFraction)
+      .clamp(_minArtworkSize, maxByWidth)
+      .toDouble();
+  final thumbSize =
+      heightForArtwork.clamp(_minArtworkSize, maxByShare).toDouble();
 
-  // Smoothly interpolate transport controls based on the available space, so
-  // the compact artwork doesn't shrink them. t=0 at 140, t=1 at 240+.
-  final t = ((availableSize - 140.0) / 100.0).clamp(0.0, 1.0).toDouble();
+  // Controls shrink with the height left on short screens: t=0 at 230 or
+  // less (iPhone SE), t=1 at 350 or more (most phones).
+  final t = ((heightForArtwork - 230.0) / 120.0).clamp(0.0, 1.0).toDouble();
 
   return PlayerLayoutMetrics(
     thumbSize: thumbSize,
-    playIconSize: 48.0 + 14.0 * t, // 48..62
-    skipIconSize: 36.0 + 10.0 * t, // 36..46
-    skipSpacing: 20.0 + 12.0 * t, // 20..32
+    infoWidth: math.max(thumbSize, maxByWidth),
+    playButtonSize: 60.0 + 12.0 * t, // 60..72
+    playIconSize: 30.0 + 6.0 * t, // 30..36
+    skipIconSize: 34.0 + 6.0 * t, // 34..40
+    skipSpacing: 24.0 + 12.0 * t, // 24..36
   );
 }
 
@@ -218,13 +256,10 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     final hasYoutubeLink = (currentStation != null &&
         (currentStation!.songArtist.isNotEmpty || currentStation!.songTitle.isNotEmpty));
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = Theme.of(context).scaffoldBackgroundColor;
-
     // Playlist stations get a dedicated layout (per-item transport + track
     // list) instead of the single-artwork radio layout.
     if (currentStation?.isPlaylist ?? false) {
-      return _buildPlaylistPlayer(context, isDark, bgColor);
+      return _buildPlaylistPlayer(context);
     }
 
     // Responsive layout derived from the available screen size. Extracted to a
@@ -239,10 +274,6 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
       screenHeight: screen.height,
       textScale: MediaQuery.textScalerOf(context).scale(1.0),
     );
-    final thumbSize = layout.thumbSize;
-    final playIconSize = layout.playIconSize;
-    final skipIconSize = layout.skipIconSize;
-    final skipSpacing = layout.skipSpacing;
 
     // In landscape the tall portrait column wastes the wide canvas, so we
     // switch to a TV-style split: artwork on the left, all metadata + controls
@@ -253,48 +284,40 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     final isLandscape =
         MediaQuery.orientationOf(context) == Orientation.landscape;
     if (isLandscape) {
-      return _buildLandscapeLayout(
-        context,
-        isDark,
-        bgColor,
-        hasYoutubeLink,
-        playIconSize,
-        skipIconSize,
-        skipSpacing,
-      );
+      return _buildLandscapeLayout(context, hasYoutubeLink, layout);
     }
 
-    return Container(
-      decoration: _panelDecoration(isDark, bgColor),
-      child: MediaQuery.removePadding(
-        context: context,
-        removeTop: true,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            _buildDragHandle(context),
-            const SizedBox(height: 10.0),
-            _buildHeader(context),
-            // Video mode pulls the media high on the screen ("video dominates
-            // the top"); the audio layout keeps the artwork vertically centered.
-            _isVideoMode ? const SizedBox(height: 12) : const Spacer(flex: 1),
-            // Artwork — crossfades between the station thumbnail and the live
-            // video surface (TV stations) when video mode engages.
-            _buildArtwork(context, thumbSize),
-            const SizedBox(height: 16),
-            _buildSongTitle(context),
-            const SizedBox(height: 4),
-            _buildArtist(context),
-            const Spacer(flex: 2),
-            _buildChipRow(context, isDark),
-            const Spacer(flex: 2),
-            _buildTransportControls(
-                context, playIconSize, skipIconSize, skipSpacing),
-            const Spacer(flex: 2),
-            _buildBottomActionRow(context, hasYoutubeLink),
-            const SizedBox(height: 24.0),
-          ],
-        ),
+    // Under the wider video, the song info spans the side margins instead.
+    final infoWidth = _isVideoMode
+        ? math.max(screen.width - 2 * _artworkSideMargin, 0.0)
+        : layout.infoWidth;
+
+    return _PlayerPanel(
+      child: Column(
+        children: [
+          _buildDragHandle(context),
+          const SizedBox(height: 6.0),
+          _buildHeader(context),
+          // Video mode pulls the media high on the screen ("video dominates
+          // the top"); the audio layout lets the artwork breathe.
+          _isVideoMode ? const SizedBox(height: 12) : const Spacer(flex: 2),
+          // Artwork — crossfades between the station thumbnail and the live
+          // video surface (TV stations) when video mode engages.
+          _buildArtwork(context, layout.thumbSize),
+          const Spacer(flex: 3),
+          SizedBox(width: infoWidth, child: _buildSongInfo(context)),
+          const Spacer(flex: 4),
+          _buildTransportControls(
+            context,
+            playButtonSize: layout.playButtonSize,
+            playIconSize: layout.playIconSize,
+            skipIconSize: layout.skipIconSize,
+            skipSpacing: layout.skipSpacing,
+          ),
+          const Spacer(flex: 4),
+          _buildBottomActionRow(context, hasYoutubeLink),
+          const SizedBox(height: 24.0),
+        ],
       ),
     );
   }
@@ -311,108 +334,96 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   /// [SingleChildScrollView] remains as an overflow safety net.
   Widget _buildLandscapeLayout(
     BuildContext context,
-    bool isDark,
-    Color bgColor,
     bool hasYoutubeLink,
-    double playIconSize,
-    double skipIconSize,
-    double skipSpacing,
+    PlayerLayoutMetrics layout,
   ) {
-    return Container(
-      decoration: _panelDecoration(isDark, bgColor),
-      child: MediaQuery.removePadding(
-        context: context,
-        removeTop: true,
-        child: SafeArea(
-          top: false,
-          child: Column(
-            children: [
-              _buildDragHandle(context),
-              const SizedBox(height: 8.0),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16.0, 4.0, 16.0, 8.0),
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      // Short heights (phone landscape) get the compact
-                      // treatment. Tablets in landscape have >=~520px of
-                      // content height, so the 380 threshold cleanly separates
-                      // the two form factors.
-                      final compact = constraints.maxHeight < 380.0;
+    return _PlayerPanel(
+      child: SafeArea(
+        top: false,
+        child: Column(
+          children: [
+            _buildDragHandle(context),
+            const SizedBox(height: 8.0),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16.0, 4.0, 16.0, 8.0),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    // Short heights (phone landscape) get the compact
+                    // treatment. Tablets in landscape have >=~520px of
+                    // content height, so the 380 threshold cleanly separates
+                    // the two form factors.
+                    final compact = constraints.maxHeight < 380.0;
 
-                      // Left slot dimensions. In video mode the media is 16:9
-                      // and must keep the info column at least ~45% of the
-                      // width; the audio artwork stays square.
-                      final (double slotW, double slotH) = _landscapeMediaSize(
-                        maxWidth: constraints.maxWidth,
-                        maxHeight: constraints.maxHeight,
-                        isVideo: _isVideoMode,
-                      );
+                    // Left slot dimensions. In video mode the media is 16:9
+                    // and must keep the info column at least ~45% of the
+                    // width; the audio artwork stays square.
+                    final (double slotW, double slotH) = _landscapeMediaSize(
+                      maxWidth: constraints.maxWidth,
+                      maxHeight: constraints.maxHeight,
+                      isVideo: _isVideoMode,
+                    );
 
-                      // Landscape control sizes. Compact phones emphasise the
-                      // play button (TV spirit) while keeping the skips modest
-                      // so the cluster fits a short height; tablets keep the
-                      // shared portrait metrics.
-                      final lsPlayIconSize = compact ? 60.0 : playIconSize;
-                      final lsSkipIconSize = compact ? 32.0 : skipIconSize;
-                      final lsSkipSpacing = compact ? 24.0 : skipSpacing;
+                    final artGap = compact ? 20.0 : 24.0;
 
-                      final artGap = compact ? 20.0 : 24.0;
-
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          SizedBox(
-                            width: slotW,
-                            height: slotH,
-                            child: Center(child: _buildArtwork(context, slotW)),
-                          ),
-                          SizedBox(width: artGap),
-                          Expanded(
-                            child: SingleChildScrollView(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: _buildStationTitle(context,
-                                            textAlign: TextAlign.start),
-                                      ),
-                                      _buildCastButton(context),
-                                    ],
-                                  ),
-                                  SizedBox(height: compact ? 6.0 : 10.0),
-                                  _buildSongTitle(context,
-                                      textAlign: TextAlign.start,
-                                      horizontalPadding: 0.0),
-                                  SizedBox(height: compact ? 2.0 : 4.0),
-                                  _buildArtist(context,
-                                      textAlign: TextAlign.start),
-                                  SizedBox(height: compact ? 10.0 : 16.0),
-                                  _buildChipRow(context, isDark,
-                                      alignStart: true),
-                                  SizedBox(height: compact ? 12.0 : 20.0),
-                                  _buildTransportControls(context,
-                                      lsPlayIconSize, lsSkipIconSize,
-                                      lsSkipSpacing,
-                                      alignStart: true),
-                                  SizedBox(height: compact ? 8.0 : 12.0),
-                                  _buildBottomActionRow(context, hasYoutubeLink,
-                                      alignStart: true),
-                                ],
-                              ),
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        SizedBox(
+                          width: slotW,
+                          height: slotH,
+                          child: Center(child: _buildArtwork(context, slotW)),
+                        ),
+                        SizedBox(width: artGap),
+                        Expanded(
+                          child: SingleChildScrollView(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Row(
+                                  children: [
+                                    _buildCollapseButton(context),
+                                    Expanded(
+                                      child: _buildStationTitle(context,
+                                          textAlign: TextAlign.start),
+                                    ),
+                                    _buildCastButton(context),
+                                  ],
+                                ),
+                                SizedBox(height: compact ? 6.0 : 12.0),
+                                _buildSongInfo(context),
+                                SizedBox(height: compact ? 12.0 : 24.0),
+                                // Compact phones keep a prominent play button
+                                // with modest skips so the cluster fits the
+                                // short height; tablets keep the portrait
+                                // metrics.
+                                _buildTransportControls(
+                                  context,
+                                  playButtonSize:
+                                      compact ? 64.0 : layout.playButtonSize,
+                                  playIconSize:
+                                      compact ? 32.0 : layout.playIconSize,
+                                  skipIconSize:
+                                      compact ? 32.0 : layout.skipIconSize,
+                                  skipSpacing:
+                                      compact ? 24.0 : layout.skipSpacing,
+                                  alignStart: true,
+                                ),
+                                SizedBox(height: compact ? 8.0 : 16.0),
+                                _buildBottomActionRow(context, hasYoutubeLink,
+                                    alignStart: true),
+                              ],
                             ),
                           ),
-                        ],
-                      );
-                    },
-                  ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -455,32 +466,60 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     return (artSize, artSize);
   }
 
-  /// The rounded drag handle at the top of the sliding panel.
+  /// The rounded drag handle at the top of the sliding panel, as muted as
+  /// the sleep sheet's grabber.
   Widget _buildDragHandle(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     return Container(
       margin: const EdgeInsets.only(top: 3.0),
-      child: Container(
-        width: 32,
-        height: 4,
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
-          borderRadius: const BorderRadius.all(Radius.circular(12.0)),
-        ),
+      width: 36,
+      height: 4,
+      decoration: BoxDecoration(
+        color: theme.colorScheme.onSurface
+            .withValues(alpha: isDark ? 0.35 : 0.22),
+        borderRadius: const BorderRadius.all(Radius.circular(12.0)),
       ),
     );
   }
 
-  /// The station name with the cast button on its right. A matching spacer on
-  /// the left keeps the name centered over the artwork.
-  Widget _buildHeader(BuildContext context) {
+  /// The station name between the collapse and cast buttons, which keep it
+  /// centered over the artwork. Without [showCast] an empty slot of the same
+  /// size takes the cast button's place.
+  ///
+  /// The buttons' 56pt targets reach to 4pt from the screen edges, so the
+  /// icons sit where they did in 48pt targets.
+  Widget _buildHeader(BuildContext context, {bool showCast = true}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+      padding: const EdgeInsets.symmetric(horizontal: 4.0),
       child: Row(
         children: [
-          const SizedBox(width: PlayerCastButton.size),
+          _buildCollapseButton(context),
           Expanded(child: _buildStationTitle(context)),
-          _buildCastButton(context),
+          showCast
+              ? _buildCastButton(context)
+              : const SizedBox.square(dimension: PlayerCastButton.size),
         ],
+      ),
+    );
+  }
+
+  /// Slides the panel back down to the mini player.
+  Widget _buildCollapseButton(BuildContext context) {
+    return SizedBox.square(
+      dimension: PlayerCastButton.size,
+      child: IconButton(
+        tooltip: 'Închide playerul',
+        onPressed: () {
+          AnalyticsService.instance.capture('button_clicked', {'button_name': 'collapse_player', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug});
+          final panel = widget.slidingUpPanelController;
+          if (panel.isAttached) panel.close();
+        },
+        icon: Icon(
+          Icons.keyboard_arrow_down_rounded,
+          size: 30,
+          color: Theme.of(context).colorScheme.onSurface,
+        ),
       ),
     );
   }
@@ -501,7 +540,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   static const double _stationTitleMinFontSize = 16;
 
   /// The station name, crossfading between stations. A name too long for
-  /// 20px shrinks to fit one line, so the header keeps its height and the
+  /// 18px shrinks to fit one line, so the header keeps its height and the
   /// artwork below never moves between stations.
   Widget _buildStationTitle(BuildContext context,
       {TextAlign textAlign = TextAlign.center}) {
@@ -515,7 +554,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
         key: ValueKey('title-${currentStation?.id}'),
         style: const TextStyle(
           fontWeight: FontWeight.bold,
-          fontSize: 20,
+          fontSize: 18,
         ),
         minFontSize: _stationTitleMinFontSize,
         textAlign: textAlign,
@@ -523,302 +562,288 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     );
   }
 
-  /// Smallest size of a one-line song title, above the 15px artist line so
-  /// the title keeps its hierarchy. Longer titles wrap to two lines.
-  ///
-  /// In a day of real metadata (all stations, 402pt-wide iPhone), ~93% of
-  /// titles fit at 22px, ~98% fit on one line by 17px and all but ~0.02% fit
-  /// on two lines by [_songTitleTwoLineMinFontSize].
-  static const double _songTitleMinFontSize = 17;
+  /// Smallest size of a one-line song title. The title shares its row with
+  /// the like / dislike buttons, so one too long for this wraps to two lines
+  /// rather than shrinking to a small single line.
+  static const double _songTitleMinFontSize = 20;
 
   /// Smallest size of a song title wrapped to two lines.
   static const double _songTitleTwoLineMinFontSize = 15;
 
   /// The primary song line, crossfading on change. Its height is fixed: a
-  /// title too long for 22px shrinks to fit, then wraps to two smaller lines,
-  /// so the controls below never shift when the song changes.
-  Widget _buildSongTitle(BuildContext context,
-      {TextAlign textAlign = TextAlign.center,
-      double horizontalPadding = 16.0}) {
+  /// title too long for 22px shrinks a little, then wraps to two lines, so
+  /// the controls below never shift when the song changes.
+  Widget _buildSongTitle(BuildContext context) {
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 250),
       transitionBuilder: (Widget child, Animation<double> animation) {
         return FadeTransition(opacity: animation, child: child);
       },
-      child: Padding(
+      child: ShrinkToFitText(
+        _primaryLine(),
         key: ValueKey('song-${currentStation?.songTitle}-${currentStation?.id}'),
-        padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-        child: ShrinkToFitText(
-          _primaryLine(),
-          textAlign: textAlign,
-          minFontSize: _songTitleMinFontSize,
-          twoLineMinFontSize: _songTitleTwoLineMinFontSize,
-          style: const TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.w600,
-          ),
+        textAlign: TextAlign.start,
+        minFontSize: _songTitleMinFontSize,
+        twoLineMinFontSize: _songTitleTwoLineMinFontSize,
+        style: const TextStyle(
+          fontSize: 22,
+          fontWeight: FontWeight.bold,
         ),
       ),
     );
   }
 
   /// The song artist line, crossfading on change.
-  Widget _buildArtist(BuildContext context,
-      {TextAlign textAlign = TextAlign.center}) {
+  Widget _buildArtist(BuildContext context) {
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 250),
       transitionBuilder: (Widget child, Animation<double> animation) {
         return FadeTransition(opacity: animation, child: child);
       },
-      child: Text(
-        currentStation?.songArtist ?? "",
+      // Full width, so the outgoing and incoming names share a start edge
+      // while they crossfade.
+      child: Align(
         key: ValueKey('artist-${currentStation?.songArtist}-${currentStation?.id}'),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        textAlign: textAlign,
-        style: TextStyle(
-          fontSize: 15,
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        alignment: AlignmentDirectional.centerStart,
+        child: Text(
+          currentStation?.songArtist ?? "",
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 15,
+            color: Theme.of(context).textSecondary,
+          ),
         ),
       ),
     );
   }
 
-  /// Chip row: like | dislike | share. [alignStart] left-aligns the cluster for
-  /// the landscape right-hand column; the default centers it (portrait).
-  Widget _buildChipRow(BuildContext context, bool isDark,
-      {bool alignStart = false}) {
+  /// The song title and artist, with the like / dislike buttons on their
+  /// right.
+  Widget _buildSongInfo(BuildContext context) {
     final songId = currentStation?.songId ?? -1;
-    final likeStatus = GetIt.instance<SongLikeService>().getLikeStatus(songId);
-    final chipBg = isDark
-        ? Colors.white.withValues(alpha: 0.12)
-        : Colors.black.withValues(alpha: 0.08);
-    final chipRadius = BorderRadius.circular(24);
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        alignment: alignStart ? Alignment.centerLeft : Alignment.center,
-        child: Row(
-          mainAxisAlignment:
-              alignStart ? MainAxisAlignment.start : MainAxisAlignment.center,
-          children: [
-            _buildChip(
-              context,
-              icon: likeStatus == 1 ? Icons.thumb_up : Icons.thumb_up_outlined,
-              label: 'Îmi place',
-              isActive: likeStatus == 1,
-              chipBg: chipBg,
-              chipRadius: chipRadius,
-              onTap: () {
-                AnalyticsService.instance.capture('button_clicked', {'button_name': 'like_song', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug, 'song_id': currentStation?.songId});
-                _showReviewModal(context, initialStars: 5);
-              },
-            ),
-            const SizedBox(width: 8),
-            _buildChip(
-              context,
-              icon: likeStatus == -1 ? Icons.thumb_down : Icons.thumb_down_outlined,
-              label: 'Nu-mi place',
-              isActive: likeStatus == -1,
-              chipBg: chipBg,
-              chipRadius: chipRadius,
-              onTap: () {
-                AnalyticsService.instance.capture('button_clicked', {'button_name': 'dislike_song', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug, 'song_id': currentStation?.songId});
-                _showReviewModal(context, initialStars: 1);
-              },
-            ),
-            const SizedBox(width: 8),
-            _buildChip(
-              context,
-              icon: Icons.share_outlined,
-              label: 'Trimite',
-              chipBg: chipBg,
-              chipRadius: chipRadius,
-              onTap: () {
-                AnalyticsService.instance.capture('button_clicked', {'button_name': 'share', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug, 'song_id': currentStation?.songId});
-                _showShareDialog(context);
-              },
-            ),
-          ],
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildSongTitle(context),
+              const SizedBox(height: 4),
+              _buildArtist(context),
+            ],
+          ),
         ),
-      ),
+        const SizedBox(width: 16),
+        _RatingButtons(
+          likeStatus: GetIt.instance<SongLikeService>().getLikeStatus(songId),
+          onLike: () {
+            AnalyticsService.instance.capture('button_clicked', {'button_name': 'like_song', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug, 'song_id': currentStation?.songId});
+            _showReviewModal(context, initialStars: 5);
+          },
+          onDislike: () {
+            AnalyticsService.instance.capture('button_clicked', {'button_name': 'dislike_song', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug, 'song_id': currentStation?.songId});
+            _showReviewModal(context, initialStars: 1);
+          },
+        ),
+      ],
     );
   }
 
   /// Transport controls: prev | play/pause | next. [alignStart] left-aligns the
   /// cluster for the landscape right-hand column.
-  Widget _buildTransportControls(BuildContext context, double playIconSize,
-      double skipIconSize, double skipSpacing,
-      {bool alignStart = false}) {
+  Widget _buildTransportControls(
+    BuildContext context, {
+    required double playButtonSize,
+    required double playIconSize,
+    required double skipIconSize,
+    required double skipSpacing,
+    bool alignStart = false,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final skipColor = Theme.of(context).colorScheme.onSurface;
     return Row(
       mainAxisAlignment:
           alignStart ? MainAxisAlignment.start : MainAxisAlignment.center,
       children: <Widget>[
-        InkWell(
-          onTap: () {
+        IconButton(
+          tooltip: 'Stația anterioară',
+          iconSize: skipIconSize,
+          color: skipColor,
+          onPressed: () {
             _playButtonKey.currentState?.notifyWillPlay();
             widget.audioHandler.skipToPrevious();
           },
-          child: Padding(
-            padding: const EdgeInsets.all(10.0),
-            child: Icon(
-              Icons.skip_previous,
-              size: skipIconSize,
-              color: Theme.of(context).colorScheme.onSurface,
-            ),
+          icon: const Icon(Icons.skip_previous_rounded),
+        ),
+        SizedBox(width: skipSpacing),
+        // The brand pink disc, lifted by a soft glow of the same pink.
+        DecoratedBox(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color:
+                    AppColors.primary.withValues(alpha: isDark ? 0.45 : 0.35),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: AnimatedPlayButton(
+            key: _playButtonKey,
+            playbackStateStream: widget.audioHandler.playbackState,
+            size: playButtonSize,
+            iconSize: playIconSize,
+            iconColor: Colors.white,
+            backgroundColor: AppColors.primary,
+            onPlay: widget.audioHandler.play,
+            onPause: widget.audioHandler.pause,
+            onStop: widget.audioHandler.stop,
           ),
         ),
         SizedBox(width: skipSpacing),
-        AnimatedPlayButton(
-          key: _playButtonKey,
-          playbackStateStream: widget.audioHandler.playbackState,
-          iconSize: playIconSize,
-          iconColor: Theme.of(context).colorScheme.onPrimary,
-          backgroundColor: Theme.of(context).bottomAppBarTheme.color,
-          onPlay: widget.audioHandler.play,
-          onPause: widget.audioHandler.pause,
-          onStop: widget.audioHandler.stop,
-        ),
-        SizedBox(width: skipSpacing),
-        InkWell(
-          onTap: () {
+        IconButton(
+          tooltip: 'Stația următoare',
+          iconSize: skipIconSize,
+          color: skipColor,
+          onPressed: () {
             _playButtonKey.currentState?.notifyWillPlay();
             widget.audioHandler.skipToNext();
           },
-          child: Padding(
-            padding: const EdgeInsets.all(10.0),
-            child: Icon(
-              Icons.skip_next_rounded,
-              size: skipIconSize,
-              color: Theme.of(context).colorScheme.onSurface,
-            ),
-          ),
+          icon: const Icon(Icons.skip_next_rounded),
         ),
       ],
     );
   }
 
-  /// Bottom action row: favorit | somn | istoric | youtube. [alignStart]
-  /// left-aligns the cluster as a single block for the landscape right-hand
-  /// column; the default spreads it evenly (portrait).
+  /// Bottom action row: favorit | somn | istoric | youtube | trimite.
+  /// Portrait gives each action an equal share of the width; [alignStart]
+  /// packs them at the start of the landscape right-hand column instead.
   Widget _buildBottomActionRow(BuildContext context, bool hasYoutubeLink,
       {bool alignStart = false}) {
-    return Row(
-      mainAxisAlignment:
-          alignStart ? MainAxisAlignment.start : MainAxisAlignment.spaceEvenly,
-      children: <Widget>[
-        InkWell(
-          customBorder: const CircleBorder(),
-          onTap: () {
-            AnalyticsService.instance.capture('button_clicked', {'button_name': 'favorite', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug});
-            _likeButtonKey.currentState?.onTap();
-          },
-          child: Container(
-            padding: const EdgeInsets.all(10.0),
-            child: Column(
-              children: [
-                IgnorePointer(
-                  child: LikeButton(
-                    key: _likeButtonKey,
-                    size: 30,
-                    bubblesSize: 30,
-                    isLiked: currentStation != null && _favoriteSlugs.contains(currentStation!.slug),
-                    likeBuilder: (bool isLiked) {
-                      return Icon(
-                        isLiked ? Icons.favorite_sharp : Icons.favorite_border_sharp,
-                        color: isLiked
-                            ? Theme.of(context).primaryColor
-                            : Theme.of(context).colorScheme.onSurface,
-                        size: 23,
-                      );
-                    },
-                    onTap: (bool isLiked) async {
-                      if (currentStation != null) {
-                        widget.audioHandler.setStationIsFavorite(currentStation!, !isLiked);
-                      }
-                      return !isLiked;
-                    },
-                  ),
+    final actions = <Widget>[
+      _buildFavoriteButton(context),
+      SleepTimerButton(
+        service: widget.audioHandler.sleepTimer,
+        onTap: () {
+          AnalyticsService.instance.capture('button_clicked', {'button_name': 'sleep_timer', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug});
+          _showSleepTimerSheet(context);
+        },
+      ),
+      _buildActionButton(
+        context,
+        icon: Icons.history,
+        label: 'istoric',
+        onTap: () {
+          AnalyticsService.instance.capture('button_clicked', {'button_name': 'song_history', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug});
+          final station = currentStation;
+          if (station != null) {
+            SongHistoryModal.show(
+              context,
+              stationSlug: station.slug,
+              stationTitle: station.title,
+              stationThumbnailUrl: station.thumbnailUrl,
+              playedCutoff: () =>
+                  _stationDataService.playedCutoffFor(station.id),
+            );
+          }
+        },
+      ),
+      _buildActionButton(
+        context,
+        icon: Icons.video_collection,
+        label: 'youtube',
+        isEnabled: hasYoutubeLink,
+        onTap: () async {
+          if (!hasYoutubeLink || currentStation == null) return;
+          AnalyticsService.instance.capture('button_clicked', {'button_name': 'youtube_search', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug, 'song_id': currentStation?.songId, 'song_title': currentStation?.songTitle});
+          final query = "${currentStation?.songArtist} - ${currentStation?.songTitle}";
+          final encodedQuery = Uri.encodeQueryComponent(query);
+          final searchUrl = 'https://www.youtube.com/results?q=$encodedQuery';
+          await launchUrl(Uri.parse(searchUrl), mode: LaunchMode.externalApplication);
+        },
+      ),
+      _buildActionButton(
+        context,
+        icon: Icons.share_outlined,
+        label: 'trimite',
+        onTap: () {
+          AnalyticsService.instance.capture('button_clicked', {'button_name': 'share', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug, 'song_id': currentStation?.songId});
+          _showShareDialog(context);
+        },
+      ),
+    ];
+
+    return MediaQuery.withClampedTextScaling(
+      maxScaleFactor: _maxActionLabelTextScale,
+      child: alignStart
+          // Scales down rather than overflowing a narrow column.
+          ? FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: AlignmentDirectional.centerStart,
+              child: Row(mainAxisSize: MainAxisSize.min, children: actions),
+            )
+          // On tablets the row spans no wider than the largest artwork and
+          // its margins, so the actions stay close together.
+          : ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: _maxArtworkSize + 2 * _artworkSideMargin,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                child: Row(
+                  children: [
+                    for (final action in actions) Expanded(child: action),
+                  ],
                 ),
-                Padding(
-                  padding: const EdgeInsets.only(top: 8.0),
-                  child: Text('favorit', style: TextStyle(
-                    fontSize: 12,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  )),
-                ),
-              ],
+              ),
             ),
-          ),
-        ),
-        SleepTimerButton(
-          service: widget.audioHandler.sleepTimer,
-          onTap: () {
-            AnalyticsService.instance.capture('button_clicked', {'button_name': 'sleep_timer', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug});
-            _showSleepTimerSheet(context);
-          },
-        ),
-        _buildActionButton(
-          context,
-          icon: Icons.history,
-          label: 'istoric',
-          onTap: () {
-            AnalyticsService.instance.capture('button_clicked', {'button_name': 'song_history', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug});
-            final station = currentStation;
-            if (station != null) {
-              SongHistoryModal.show(
-                context,
-                stationSlug: station.slug,
-                stationTitle: station.title,
-                stationThumbnailUrl: station.thumbnailUrl,
-                playedCutoff: () =>
-                    _stationDataService.playedCutoffFor(station.id),
-              );
-            }
-          },
-        ),
-        _buildActionButton(
-          context,
-          icon: Icons.video_collection,
-          label: 'youtube',
-          isEnabled: hasYoutubeLink,
-          onTap: () async {
-            if (!hasYoutubeLink || currentStation == null) return;
-            AnalyticsService.instance.capture('button_clicked', {'button_name': 'youtube_search', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug, 'song_id': currentStation?.songId, 'song_title': currentStation?.songTitle});
-            final query = "${currentStation?.songArtist} - ${currentStation?.songTitle}";
-            final encodedQuery = Uri.encodeQueryComponent(query);
-            final searchUrl = 'https://www.youtube.com/results?q=$encodedQuery';
-            await launchUrl(Uri.parse(searchUrl), mode: LaunchMode.externalApplication);
-          },
-        ),
-      ],
     );
   }
 
-  /// The shared sliding-panel background (rounded top + brand gradient).
-  BoxDecoration _panelDecoration(bool isDark, Color bgColor) {
-    return BoxDecoration(
-      borderRadius: const BorderRadius.only(
-        topLeft: Radius.circular(16.0),
-        topRight: Radius.circular(16.0),
-      ),
-      gradient: LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: isDark
-            ? [
-                const Color(0xFF2C1018),
-                const Color(0xFF1A0A0F),
-                bgColor,
-              ]
-            : [
-                const Color(0xFFFCE4EC),
-                const Color(0xFFF8BBD0).withValues(alpha: 0.3),
-                bgColor,
-              ],
-        stops: const [0.0, 0.35, 0.7],
+  /// The favorite toggle, which bursts into bubbles when favoriting.
+  Widget _buildFavoriteButton(BuildContext context) {
+    return InkWell(
+      customBorder: const CircleBorder(),
+      onTap: () {
+        AnalyticsService.instance.capture('button_clicked', {'button_name': 'favorite', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug});
+        _likeButtonKey.currentState?.onTap();
+      },
+      child: Padding(
+        padding: const EdgeInsets.all(10.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IgnorePointer(
+              // Sized like the other actions' icons so the labels line up;
+              // the bubbles overflow it.
+              child: LikeButton(
+                key: _likeButtonKey,
+                size: 24,
+                bubblesSize: 30,
+                isLiked: currentStation != null && _favoriteSlugs.contains(currentStation!.slug),
+                likeBuilder: (bool isLiked) {
+                  return Icon(
+                    isLiked ? Icons.favorite_sharp : Icons.favorite_border_sharp,
+                    color: isLiked
+                        ? Theme.of(context).primaryColor
+                        : Theme.of(context).colorScheme.onSurface,
+                    size: 23,
+                  );
+                },
+                onTap: (bool isLiked) async {
+                  if (currentStation != null) {
+                    widget.audioHandler.setStationIsFavorite(currentStation!, !isLiked);
+                  }
+                  return !isLiked;
+                },
+              ),
+            ),
+            const _ActionLabel('favorit'),
+          ],
+        ),
       ),
     );
   }
@@ -855,6 +880,9 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     }
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    // Decoded, and fetched from the image CDN, at the size it is drawn, so
+    // the artwork stays sharp on 3x screens.
+    final pixels = (thumbSize * MediaQuery.devicePixelRatioOf(context)).ceil();
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 300),
       transitionBuilder: (Widget child, Animation<double> animation) {
@@ -885,9 +913,8 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
             children: [
               if (currentStation != null)
                 currentStation!.displayThumbnail(
-                  cacheWidth:
-                      (thumbSize * MediaQuery.devicePixelRatioOf(context))
-                          .ceil(),
+                  cacheWidth: pixels,
+                  sourceWidth: pixels,
                 ),
               // "Doar audio" chip when a TV channel's video couldn't render and
               // playback fell back to audio-only.
@@ -906,53 +933,28 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
 
   /// Full player layout for playlist stations: header + [PlaylistPlayerSection]
   /// (media surface, scrubber, transport, track list) + a slim action row.
-  Widget _buildPlaylistPlayer(
-      BuildContext context, bool isDark, Color bgColor) {
+  Widget _buildPlaylistPlayer(BuildContext context) {
     final station = currentStation!;
     final isFavorite = _favoriteSlugs.contains(station.slug);
-    return Container(
-      decoration: _panelDecoration(isDark, bgColor),
-      child: MediaQuery.removePadding(
-        context: context,
-        removeTop: true,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Container(
-              margin: const EdgeInsets.only(top: 3.0),
-              child: Container(
-                width: 32,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  borderRadius: const BorderRadius.all(Radius.circular(12.0)),
-                ),
-              ),
+    return _PlayerPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          _buildDragHandle(context),
+          const SizedBox(height: 6.0),
+          _buildHeader(context, showCast: false),
+          const SizedBox(height: 4),
+          Expanded(
+            child: PlaylistPlayerSection(
+              audioHandler: widget.audioHandler,
+              station: station,
+              panelExpanded: _panelExpanded,
             ),
-            const SizedBox(height: 10.0),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0),
-              child: Text(
-                station.displayTitle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 20,
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Expanded(
-              child: PlaylistPlayerSection(
-                audioHandler: widget.audioHandler,
-                station: station,
-                panelExpanded: _panelExpanded,
-              ),
-            ),
-            // Slim action row: favorite | share | sleep.
-            Row(
+          ),
+          // Slim action row: favorite | share | sleep.
+          MediaQuery.withClampedTextScaling(
+            maxScaleFactor: _maxActionLabelTextScale,
+            child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 InkWell(
@@ -979,16 +981,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                               ? Theme.of(context).primaryColor
                               : Theme.of(context).colorScheme.onSurface,
                         ),
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8.0),
-                          child: Text('favorit',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurfaceVariant,
-                              )),
-                        ),
+                        const _ActionLabel('favorit'),
                       ],
                     ),
                   ),
@@ -1019,84 +1012,38 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                 ),
               ],
             ),
-            const SizedBox(height: 24.0),
-          ],
-        ),
+          ),
+          const SizedBox(height: 24.0),
+        ],
       ),
     );
   }
 
+  /// An icon over its label, for the action rows at the bottom.
   Widget _buildActionButton(
     BuildContext context, {
     required IconData icon,
     required String label,
     required VoidCallback onTap,
-    bool isActive = false,
     bool isEnabled = true,
   }) {
-    final color = !isEnabled
-        ? Theme.of(context).disabledColor
-        : isActive
-            ? Theme.of(context).primaryColor
-            : Theme.of(context).colorScheme.onSurface;
-    final labelColor = !isEnabled
-        ? Theme.of(context).disabledColor
-        : isActive
-            ? Theme.of(context).primaryColor
-            : Theme.of(context).colorScheme.onSurfaceVariant;
-
+    final theme = Theme.of(context);
     return InkWell(
       customBorder: const CircleBorder(),
       onTap: isEnabled ? onTap : null,
-      child: Container(
+      child: Padding(
         padding: const EdgeInsets.all(10.0),
         child: Column(
-          children: [
-            Icon(icon, color: color, size: 24),
-            Padding(
-              padding: const EdgeInsets.only(top: 8.0),
-              child: Text(label, style: TextStyle(fontSize: 12, color: labelColor)),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildChip(
-    BuildContext context, {
-    required IconData icon,
-    required String label,
-    required Color chipBg,
-    required BorderRadius chipRadius,
-    required VoidCallback onTap,
-    bool isActive = false,
-  }) {
-    final color = isActive
-        ? Theme.of(context).primaryColor
-        : Theme.of(context).colorScheme.onSurface;
-    return InkWell(
-      borderRadius: chipRadius,
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: chipBg,
-          borderRadius: chipRadius,
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 9.0),
-        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 20, color: color),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: color,
-              ),
+            Icon(
+              icon,
+              size: 24,
+              color: isEnabled
+                  ? theme.colorScheme.onSurface
+                  : theme.disabledColor,
             ),
+            _ActionLabel(label, color: isEnabled ? null : theme.disabledColor),
           ],
         ),
       ),
@@ -1172,6 +1119,203 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
       onCancelled: () => AnalyticsService.instance.capture(
         'button_clicked',
         {'button_name': 'sleep_timer_cancel'},
+      ),
+    );
+  }
+}
+
+/// The sliding panel's background: rounded top corners over the brand
+/// gradient.
+///
+/// A transparent [Material] sits above the gradient so the buttons' ripples
+/// show: an [InkWell] paints on its nearest Material, which would otherwise
+/// be the page under the panel, covered by the gradient.
+class _PlayerPanel extends StatelessWidget {
+  const _PlayerPanel({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final bgColor = theme.scaffoldBackgroundColor;
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(16.0),
+          topRight: Radius.circular(16.0),
+        ),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: isDark
+              ? [
+                  const Color(0xFF2C1018),
+                  const Color(0xFF1A0A0F),
+                  bgColor,
+                ]
+              : [
+                  const Color(0xFFFCE4EC),
+                  const Color(0xFFF8BBD0).withValues(alpha: 0.3),
+                  bgColor,
+                ],
+          stops: const [0.0, 0.35, 0.7],
+        ),
+      ),
+      child: Material(
+        type: MaterialType.transparency,
+        child: MediaQuery.removePadding(
+          context: context,
+          removeTop: true,
+          child: MediaQuery.withClampedTextScaling(
+            maxScaleFactor: _maxTextScale,
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The like / dislike buttons for the playing song, joined into one pill.
+class _RatingButtons extends StatelessWidget {
+  const _RatingButtons({
+    required this.likeStatus,
+    required this.onLike,
+    required this.onDislike,
+  });
+
+  /// 1 liked, -1 disliked, 0 neither (see [SongLikeService.getLikeStatus]).
+  final int likeStatus;
+  final VoidCallback onLike;
+  final VoidCallback onDislike;
+
+  static const _outerRadius = Radius.circular(24);
+  static const _innerRadius = Radius.circular(6);
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _RatingButton(
+          icon: Icons.thumb_up_outlined,
+          activeIcon: Icons.thumb_up,
+          label: 'Îmi place',
+          isActive: likeStatus == 1,
+          borderRadius: const BorderRadius.horizontal(
+            left: _outerRadius,
+            right: _innerRadius,
+          ),
+          onTap: onLike,
+        ),
+        const SizedBox(width: 2),
+        _RatingButton(
+          icon: Icons.thumb_down_outlined,
+          activeIcon: Icons.thumb_down,
+          label: 'Nu-mi place',
+          isActive: likeStatus == -1,
+          borderRadius: const BorderRadius.horizontal(
+            left: _innerRadius,
+            right: _outerRadius,
+          ),
+          onTap: onDislike,
+        ),
+      ],
+    );
+  }
+}
+
+/// One half of [_RatingButtons]. A quiet tint of the text color at rest; the
+/// chosen half brightens a step and fills its icon.
+class _RatingButton extends StatelessWidget {
+  const _RatingButton({
+    required this.icon,
+    required this.activeIcon,
+    required this.label,
+    required this.isActive,
+    required this.borderRadius,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final IconData activeIcon;
+  final String label;
+  final bool isActive;
+  final BorderRadius borderRadius;
+  final VoidCallback onTap;
+
+  /// Side length of the square tap target.
+  static const double _size = 48;
+
+  @override
+  Widget build(BuildContext context) {
+    // White on the dark panel, black on the light one; the resting icon
+    // keeps over 5:1 against the panel either way.
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    final fill = onSurface.withValues(alpha: isActive ? 0.2 : 0.08);
+    final iconColor = isActive ? onSurface : onSurface.withValues(alpha: 0.6);
+
+    return Semantics(
+      button: true,
+      toggled: isActive,
+      label: label,
+      onTap: onTap,
+      excludeSemantics: true,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeInOut,
+        width: _size,
+        height: _size,
+        decoration: BoxDecoration(color: fill, borderRadius: borderRadius),
+        // The ripple paints on this Material, above the fill.
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            borderRadius: borderRadius,
+            onTap: onTap,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 150),
+              child: Icon(
+                isActive ? activeIcon : icon,
+                key: ValueKey(isActive),
+                size: 22,
+                color: iconColor,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The small label under a player action's icon. Scales down rather than
+/// wrapping when its share of the action row is too narrow.
+class _ActionLabel extends StatelessWidget {
+  const _ActionLabel(this.text, {this.color});
+
+  final String text;
+
+  /// The theme's secondary text color when null.
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8.0),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(
+          text,
+          maxLines: 1,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: color ?? Theme.of(context).textSecondary,
+          ),
+        ),
       ),
     );
   }

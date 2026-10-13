@@ -59,8 +59,8 @@ void main() {
       expect(lightTheme.scaffoldBackgroundColor, AppColors.lightBackground);
     });
 
-    test('bottom app bar uses primary color', () {
-      expect(lightTheme.bottomAppBarTheme.color, const Color(0xffe91e63));
+    test('bottom app bar uses the crimson player bar, as in dark', () {
+      expect(lightTheme.bottomAppBarTheme.color, const Color(0xff75002c));
     });
 
     test('icon theme defaults to 24px white', () {

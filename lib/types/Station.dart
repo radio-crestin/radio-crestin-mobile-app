@@ -153,11 +153,18 @@ class Station {
 
   Widget get thumbnail => displayThumbnail();
 
-  Widget displayThumbnail({int? cacheWidth}) {
+  /// The current artwork: the song's when it has one, else the station logo.
+  ///
+  /// [sourceWidth] asks the image CDN for that many pixels instead of the
+  /// API's 250, for artwork shown large; the 250px copy, usually already
+  /// cached by the station list, shows until the sharper one arrives.
+  Widget displayThumbnail({int? cacheWidth, int? sourceWidth}) {
     final hasSongThumbnail = rawStationData.now_playing?.song?.thumbnail_url != null;
+    final url = Utils.getStationThumbnailUrl(rawStationData);
     return Utils.displayImage(
-      Utils.getStationThumbnailUrl(rawStationData),
+      sourceWidth == null ? url : Utils.withCdnWidth(url, sourceWidth),
       fallbackImageUrl: rawStationData.thumbnail_url,
+      loadingImageUrl: sourceWidth == null ? null : url,
       cache: true,
       cachedFilePath: cachedArtPath,
       cacheWidth: cacheWidth,

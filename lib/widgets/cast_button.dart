@@ -110,8 +110,9 @@ mixin _CastRouteTracker<T extends StatefulWidget> on State<T> {
 /// The icon and its color follow the active route (Chromecast, AirPlay or
 /// this phone), so the user sees where the audio plays before tapping.
 class PlayerCastButton extends StatefulWidget {
-  /// Side length of the square tap target.
-  static const double size = 48;
+  /// Side length of the square tap target, roomier than the 48 minimum
+  /// since the header's buttons sit close to the screen edge.
+  static const double size = 56;
 
   final VoidCallback onPressed;
 

@@ -135,6 +135,41 @@ void main() {
     });
   });
 
+  group('Utils.withCdnWidth', () {
+    const cdn = 'https://cdn.radiocrestin.ro/?url=https%3A%2F%2Fexample.com'
+        '%2Fw%3D1.png&sig=abc&w=250&f=webp&max_age=2592000';
+
+    test('asks the CDN for the next 250px step, keeping the rest', () {
+      expect(
+        Utils.withCdnWidth(cdn, 867),
+        cdn.replaceFirst('&w=250&', '&w=1000&'),
+      );
+      expect(
+        Utils.withCdnWidth(cdn, 420),
+        cdn.replaceFirst('&w=250&', '&w=500&'),
+      );
+    });
+
+    test('caps the width at 1000', () {
+      expect(
+        Utils.withCdnWidth(cdn, 2400),
+        cdn.replaceFirst('&w=250&', '&w=1000&'),
+      );
+    });
+
+    test('never asks for less than the URL already has', () {
+      expect(Utils.withCdnWidth(cdn, 200), cdn);
+      final wide = cdn.replaceFirst('&w=250&', '&w=1000&');
+      expect(Utils.withCdnWidth(wide, 500), wide);
+    });
+
+    test('leaves URLs outside the CDN unchanged', () {
+      const other = 'https://example.com/thumb.png?w=250';
+      expect(Utils.withCdnWidth(other, 1000), other);
+      expect(Utils.withCdnWidth('', 1000), '');
+    });
+  });
+
   group('Utils.getStationStreamUrls', () {
     test('returns empty list for null station', () {
       expect(Utils.getStationStreamUrls(null), isEmpty);

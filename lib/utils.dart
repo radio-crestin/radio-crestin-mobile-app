@@ -54,6 +54,38 @@ class Utils {
     return stationThumbnailUrl;
   }
 
+  /// Host of the image CDN that resizes the API's thumbnails.
+  static const String _imageCdnHost = 'cdn.radiocrestin.ro';
+
+  /// Widths asked of the image CDN are multiples of this, so artwork shown
+  /// at close sizes shares one downloaded file.
+  static const int _cdnWidthStep = 250;
+
+  /// Largest width asked of the image CDN, enough for the full player's
+  /// artwork on a 3x phone or a 2x tablet.
+  static const int _cdnMaxWidth = 1000;
+
+  /// [url] with the image CDN asked for at least [width] pixels, for artwork
+  /// shown larger than the width the API put in the URL (`w=250`).
+  ///
+  /// The CDN signs only the source image, so the width can change without
+  /// a new signature. Other URLs, and URLs already wide enough, come back
+  /// unchanged.
+  static String withCdnWidth(String url, int width) {
+    final uri = Uri.tryParse(url);
+    final current = int.tryParse(uri?.queryParameters['w'] ?? '');
+    if (uri == null || uri.host != _imageCdnHost || current == null) {
+      return url;
+    }
+    final stepped = ((width / _cdnWidthStep).ceil() * _cdnWidthStep)
+        .clamp(_cdnWidthStep, _cdnMaxWidth);
+    if (stepped <= current) return url;
+    return url.replaceFirstMapped(
+      RegExp(r'([?&])w=\d+'),
+      (match) => '${match[1]}w=$stepped',
+    );
+  }
+
   static List<String> getStationStreamUrls(Query$GetStations$stations? station) {
     if (station == null) {
       return [];
@@ -108,7 +140,11 @@ class Utils {
     );
   }
 
-  static Widget displayImage(String url, {String? fallbackImageUrl, bool cache = false, String? cachedFilePath, int? cacheWidth, Duration? cacheMaxAge}) {
+  /// The image at [url], or a placeholder.
+  ///
+  /// [loadingImageUrl] is a smaller copy of the same image, usually already
+  /// cached: it shows while [url] loads, and in its place if [url] fails.
+  static Widget displayImage(String url, {String? fallbackImageUrl, String? loadingImageUrl, bool cache = false, String? cachedFilePath, int? cacheWidth, Duration? cacheMaxAge}) {
     cacheWidth ??= 210;
     if (url.isEmpty && cachedFilePath == null) {
       return _logoPlaceholder();
@@ -118,7 +154,7 @@ class Utils {
     // widget-type switches (network → file) that cause grey flash flicker.
     // ExtendedImage.network with cache:true uses its own memory + disk cache.
     if (url.isNotEmpty) {
-      return _networkImage(url, fallbackImageUrl: fallbackImageUrl, cache: cache, cacheWidth: cacheWidth, cacheMaxAge: cacheMaxAge);
+      return _networkImage(url, fallbackImageUrl: fallbackImageUrl, loadingImageUrl: loadingImageUrl, cache: cache, cacheWidth: cacheWidth, cacheMaxAge: cacheMaxAge);
     }
 
     // Fallback to local cached file only when URL is unavailable (offline)
@@ -146,11 +182,27 @@ class Utils {
     return _logoPlaceholder();
   }
 
-  static Widget _networkImage(String url, {String? fallbackImageUrl, bool cache = false, int? cacheWidth, Duration? cacheMaxAge}) {
+  static Widget _networkImage(String url, {String? fallbackImageUrl, String? loadingImageUrl, bool cache = false, int? cacheWidth, Duration? cacheMaxAge}) {
     cacheWidth ??= 210;
     if (url.isEmpty) {
       return _logoPlaceholder();
     }
+
+    // The smaller copy keeps the picture on screen instead of a grey square
+    // while the sharper one downloads, or if it can't, falling back in turn
+    // to [fallbackImageUrl].
+    final lowRes = loadingImageUrl != null &&
+            loadingImageUrl.isNotEmpty &&
+            loadingImageUrl != url
+        ? loadingImageUrl
+        : null;
+    Widget lowResImage() => _networkImage(
+          lowRes!,
+          fallbackImageUrl: fallbackImageUrl,
+          cache: cache,
+          cacheWidth: cacheWidth,
+          cacheMaxAge: cacheMaxAge,
+        );
 
     return ExtendedImage.network(
       url,
@@ -167,10 +219,12 @@ class Utils {
       loadStateChanged: (ExtendedImageState state) {
         switch (state.extendedImageLoadState) {
           case LoadState.loading:
+            if (lowRes != null) return lowResImage();
             return Container(color: Colors.grey[300]);
           case LoadState.completed:
             return null;
           case LoadState.failed:
+            if (lowRes != null) return lowResImage();
             if (fallbackImageUrl?.isNotEmpty == true && fallbackImageUrl != url) {
               return ExtendedImage.network(
                 fallbackImageUrl!,
