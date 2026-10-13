@@ -121,8 +121,9 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   var _likeButtonKey = GlobalKey<LikeButtonState>();
   final StationDataService _stationDataService = GetIt.instance<StationDataService>();
 
-  /// Shown under the artwork when a radio station has no song metadata.
-  static const _noMetadataLabel = "Metadate indisponibile";
+  /// Shown under the artwork when a radio station has no song metadata:
+  /// the station is on air, only the song title is unknown.
+  static const _noMetadataLabel = "Live";
 
   /// Whether the song line shows [_noMetadataLabel] instead of a title.
   bool get _showsNoMetadata {

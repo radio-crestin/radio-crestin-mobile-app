@@ -62,9 +62,9 @@ void main() {
 
       await _pumpList(tester, _radio());
 
-      expect(find.text('Metadate indisponibile'), findsOneWidget);
+      expect(find.text('Live'), findsOneWidget);
       expect(
-        _textColor(tester, 'Metadate indisponibile').a,
+        _textColor(tester, 'Live').a,
         lessThan(songAlpha),
       );
     });
@@ -82,7 +82,7 @@ void main() {
       );
 
       expect(find.text('Durch die Bibel - RVE'), findsOneWidget);
-      expect(find.text('Metadate indisponibile'), findsNothing);
+      expect(find.text('Live'), findsNothing);
     });
 
     testWidgets('a station that is down still warns on the second line',
@@ -90,7 +90,7 @@ void main() {
       await _pumpList(tester, _radio(isUp: false));
 
       expect(find.text('Stație posibil indisponibilă'), findsOneWidget);
-      expect(find.text('Metadate indisponibile'), findsNothing);
+      expect(find.text('Live'), findsNothing);
     });
   });
 }

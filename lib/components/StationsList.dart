@@ -250,8 +250,8 @@ class StationsList extends StatelessWidget {
 /// Second line of a station row. Typed so stations without a now-playing song
 /// never look broken: playlist stations show the current item title when this
 /// is the playing station (else a "Listă de redare" label), TV stations show a
-/// "Transmisiune live" label, and radio keeps its song-or-"Metadate
-/// indisponibile" behavior.
+/// "Transmisiune live" label, and radio shows its song or, without one, a
+/// dimmed "Live".
 class _StationSubtitle extends StatelessWidget {
   const _StationSubtitle({required this.station, required this.isCurrent});
 
@@ -317,6 +317,6 @@ class _StationSubtitle extends StatelessWidget {
     if (subtitle != null && subtitle.isNotEmpty) {
       return _line(context, subtitle);
     }
-    return _line(context, "Metadate indisponibile", dim: true);
+    return _line(context, "Live", dim: true);
   }
 }
