@@ -16,9 +16,9 @@ import 'package:radio_crestin/services/station_data_service.dart';
 import '../appAudioHandler.dart';
 import '../types/Station.dart';
 import '../widgets/animated_play_button.dart';
-import '../widgets/marquee_text.dart';
 import '../widgets/player_video_surface.dart';
 import '../widgets/playlist_player_section.dart';
+import '../widgets/shrink_to_fit_text.dart';
 import '../widgets/sleep_timer_button.dart';
 import '../widgets/sleep_timer_sheet.dart';
 import '../widgets/video_overlay_controls.dart';
@@ -469,9 +469,16 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     );
   }
 
+  /// Smallest size the song title shrinks to before it ends in an ellipsis.
+  ///
+  /// Stays above the 15px artist line so the title keeps its hierarchy. In a
+  /// day of real metadata (all stations), ~93% of titles fit at 22px and
+  /// ~98% fit by 17px on a 402pt-wide iPhone.
+  static const double _songTitleMinFontSize = 17;
+
   /// The primary song line, crossfading on change. Always one line tall: a
-  /// title too long to fit scrolls instead of wrapping, so the controls below
-  /// never shift when the song changes.
+  /// title too long for 22px shrinks to fit instead of wrapping, so the
+  /// controls below never shift when the song changes.
   Widget _buildSongTitle(BuildContext context,
       {TextAlign textAlign = TextAlign.center,
       double horizontalPadding = 16.0}) {
@@ -483,11 +490,10 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
       child: Padding(
         key: ValueKey('song-${currentStation?.songTitle}-${currentStation?.id}'),
         padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-        child: MarqueeText(
+        child: ShrinkToFitText(
           _primaryLine(),
           textAlign: textAlign,
-          // Only scroll while the full player is on screen.
-          animate: _panelExpanded,
+          minFontSize: _songTitleMinFontSize,
           style: const TextStyle(
             fontSize: 22,
             fontWeight: FontWeight.w600,
