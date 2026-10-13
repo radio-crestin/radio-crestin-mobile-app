@@ -29,10 +29,13 @@ void main() {
     });
   });
 
-  group('FastStartConfig.darwinAutomaticallyWaits', () {
-    test('live begins ASAP (does not wait), VOD keeps the safe default', () {
-      expect(FastStartConfig.darwinAutomaticallyWaits(isLive: true), isFalse);
-      expect(FastStartConfig.darwinAutomaticallyWaits(isLive: false), isTrue);
+  group('FastStartConfig.liveDarwinAutomaticallyWaits', () {
+    test('live waits to minimize stalling, like VOD', () {
+      expect(
+        FastStartConfig.liveDarwinAutomaticallyWaits,
+        isTrue,
+        reason: 'false left resumed live streams silent while shown playing',
+      );
     });
   });
 }

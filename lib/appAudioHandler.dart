@@ -179,16 +179,14 @@ class FastStartConfig {
   static Duration androidBufferForPlayback({required bool isLive}) =>
       isLive ? liveAndroidBufferForPlayback : vodAndroidBufferForPlayback;
 
-  /// iOS/macOS `automaticallyWaitsToMinimizeStalling` for live sources: false so
-  /// AVPlayer begins as soon as it can instead of pre-filling a conservative
-  /// buffer. A compile-time const so it can feed the const player config.
-  static const bool liveDarwinAutomaticallyWaits = false;
-
-  /// iOS/macOS `automaticallyWaitsToMinimizeStalling`. For live sources, false
-  /// lets AVPlayer begin as soon as it can instead of pre-filling a
-  /// conservative buffer; VOD keeps the default (true).
-  static bool darwinAutomaticallyWaits({required bool isLive}) =>
-      isLive ? liveDarwinAutomaticallyWaits : true;
+  /// iOS/macOS `automaticallyWaitsToMinimizeStalling` for live sources. Must
+  /// stay true, like VOD. With false, a resumed live stream (after a pause or
+  /// an interruption) can go silent while AVPlayer stays `ready`, so the app
+  /// shows it playing until the user pauses and plays again. 45d02e0 reverted
+  /// false for that; 474dec6 brought it back for ~20 ms of faster start. The
+  /// silence keep-alive does not cover it: it starts on buffering, which this
+  /// state never reports. A compile-time const for the const player config.
+  static const bool liveDarwinAutomaticallyWaits = true;
 }
 
 /// Pure decision policy for whether to issue a reconnect attempt now.
@@ -515,6 +513,9 @@ Future<AppAudioHandler> initAudioService({required graphqlClient}) async {
     // Currently it's disabled because it creates an insecure proxy on localhost to add this header
     // and it's needs more configuration
     // userAgent: 'radiocrestinapp/1.0 (Linux;Android 11) https://www.radio-crestin.com',
+    // The handler pauses and resumes for interruptions and route
+    // disconnects itself (see AppAudioHandler._onAudioInterruption).
+    handleInterruptions: false,
     audioLoadConfiguration: const AudioLoadConfiguration(
       androidLoadControl: AndroidLoadControl(
         minBufferDuration: Duration(seconds: 50),
@@ -538,13 +539,8 @@ Future<AppAudioHandler> initAudioService({required graphqlClient}) async {
       ),
       darwinLoadControl: DarwinLoadControl(
         canUseNetworkResourcesForLiveStreamingWhilePaused: true,
-        // Fast-start: false lets AVPlayer begin as soon as it has data instead
-        // of pre-filling a conservative buffer. c52d785 tried this and reverted
-        // it because playback could stop permanently in background; that
-        // regression predates the silence keep-alive (assets/silence.m4a) which
-        // now keeps the iOS engine alive across stalls, so the pre-emptive-pause
-        // failure mode is covered. ~all playback is live, so this global value
-        // follows FastStartConfig's live setting.
+        // See FastStartConfig.liveDarwinAutomaticallyWaits for why this must
+        // not be false.
         automaticallyWaitsToMinimizeStalling:
             FastStartConfig.liveDarwinAutomaticallyWaits,
         preferredForwardBufferDuration: Duration(seconds: 60),
@@ -616,6 +612,9 @@ class AppAudioHandler extends BaseAudioHandler {
   // disconnect. Reconnects and the background video handoff only act while
   // it is set.
   bool _hasBeenPlayed = false;
+  // Set when an interruption paused playback so that its end resumes it;
+  // cleared by any later play, pause or stop.
+  bool _resumeAfterInterruption = false;
   Timer? _disconnectTimer;
 
   // ── Live HLS timeline ────────────────────────────────────────────────
@@ -1458,21 +1457,12 @@ class AppAudioHandler extends BaseAudioHandler {
     });
 
     await player.setLoopMode(LoopMode.off);
-    // Note: just_audio handles audio session interruptions automatically via
-    // handleInterruptions: true (default). It pauses on interruption begin and
-    // resumes on interruption end when shouldResume=true.
-    //
-    // We additionally subscribe to AudioSession events for diagnostic purposes:
-    // when the user reports a "hiccup on screen lock", knowing whether iOS
-    // emitted an interruption (and its type) tells us whether the stall was
-    // a route change, a system interruption (call/timer/Siri), or neither.
-    _attachAudioSessionDiagnostics();
+    _attachAudioSessionHandlers();
   }
 
-  /// Subscribe to AudioSession interruption + becomingNoisy events and write
-  /// them to the diagnostic ring buffer. Cheap (event-driven, no polling)
-  /// and gives us ground truth on what iOS is signalling during transitions.
-  Future<void> _attachAudioSessionDiagnostics() async {
+  /// Subscribes to AudioSession interruption + becomingNoisy events: pauses
+  /// and resumes for them, and writes them to the diagnostic ring buffer.
+  Future<void> _attachAudioSessionHandlers() async {
     try {
       final session = await AudioSession.instance;
       session.interruptionEventStream.listen((event) {
@@ -1490,17 +1480,7 @@ class AppAudioHandler extends BaseAudioHandler {
           'position_ms': player.position.inMilliseconds,
           'buffered_ms': player.bufferedPosition.inMilliseconds,
         });
-        // Android permanent focus loss (another app took the audio) maps to
-        // begin + unknown and no end follows. Android only: on iOS every
-        // begin is `unknown`, and just_audio resumes after a call itself.
-        // Not for YouTube items: the WebView's own focus request would
-        // pause the item that just started.
-        if (Platform.isAndroid &&
-            event.begin &&
-            event.type == AudioInterruptionType.unknown &&
-            !_playlistYoutubeActive) {
-          _pauseForSystemEvent('focus_loss');
-        }
+        _onAudioInterruption(event);
       });
       session.becomingNoisyEventStream.listen((_) {
         _recordStreamEvent(
@@ -1511,22 +1491,72 @@ class AppAudioHandler extends BaseAudioHandler {
         _pauseForSystemEvent('becoming_noisy');
       });
     } catch (e) {
-      _log('audio session diagnostics setup failed: $e');
+      _log('audio session handlers setup failed: $e');
     }
   }
 
-  /// Mirrors a pause just_audio made by itself (route disconnect, permanent
-  /// focus loss) as a user pause.
+  /// Pauses for an interruption (a call, Siri, another app's audio) and
+  /// resumes when it ends, if the system allows it.
   ///
-  /// No automatic resume follows these, so the play intent must be cleared:
-  /// otherwise the next foreground or network restore reconnects and plays
-  /// through the speaker. pause() also arms the 60 s disconnect (stops the
+  /// The same rules as just_audio's own handling, which the player has
+  /// turned off, but through [pause] and [play]: just_audio paused and
+  /// resumed the player behind the handler, so the handler still counted
+  /// the stream as playing, and the resume reused a paused live stream
+  /// that may have gone stale instead of reloading it.
+  void _onAudioInterruption(AudioInterruptionEvent event) {
+    if (!event.begin) {
+      // `pause` ends an interruption that allows a resume (iOS
+      // shouldResume, Android transient focus loss).
+      final resume = _resumeAfterInterruption &&
+          event.type == AudioInterruptionType.pause;
+      _resumeAfterInterruption = false;
+      if (resume) {
+        _log('interruption ended, resuming');
+        unawaited(play());
+      }
+      return;
+    }
+    switch (event.type) {
+      case AudioInterruptionType.duck:
+        // Android ducks media playback by itself.
+        return;
+      case AudioInterruptionType.unknown when Platform.isAndroid:
+        // Permanent focus loss (another app took the audio): no end
+        // follows. Not for YouTube items: the WebView's own focus request
+        // would pause the item that just started.
+        if (!_playlistYoutubeActive) _pauseForSystemEvent('focus_loss');
+      case AudioInterruptionType.pause:
+      case AudioInterruptionType.unknown:
+        // Every iOS begin is `unknown`; its end says whether to resume.
+        // Only the just_audio player, as before: video, YouTube items and
+        // Cast are left to their own handling.
+        if (!player.playing) return;
+        // Set after pause(), which clears it.
+        if (_pauseForSystemEvent('interruption')) {
+          _resumeAfterInterruption = true;
+        }
+    }
+  }
+
+  /// Pauses for a system event (route disconnect, focus loss, interruption)
+  /// as a user pause would. Returns whether it paused.
+  ///
+  /// The play intent must be cleared: otherwise the next foreground or
+  /// network restore reconnects and plays through the speaker, even when
+  /// no resume follows. pause() also arms the 60 s disconnect (stops the
   /// playlist poll) and ends the listening session.
-  void _pauseForSystemEvent(String reason) {
-    if (isCasting || !_hasBeenPlayed) return;
+  bool _pauseForSystemEvent(String reason) {
+    if (isCasting || !(_hasBeenPlayed || player.playing)) return false;
     _log('system pause ($reason)');
     unawaited(pause());
+    return true;
   }
+
+  /// Test seam: handles [event] as if the audio session had emitted it
+  /// (the faked platform channels have no audio session).
+  @visibleForTesting
+  void debugOnAudioInterruption(AudioInterruptionEvent event) =>
+      _onAudioInterruption(event);
 
   /// Public hook called by HomePage's didChangeAppLifecycleState. Logs every
   /// transition to the ring buffer so a screen-lock-triggered hiccup is
@@ -1736,6 +1766,7 @@ class AppAudioHandler extends BaseAudioHandler {
     });
     _beginFastStartMeasure(station);
     _hasBeenPlayed = true;
+    _resumeAfterInterruption = false;
 
     // Navigation context for next/previous: true when picked from a favorites
     // list, false from any other list, search or link. Null (skip, resume of
@@ -1998,6 +2029,7 @@ class AppAudioHandler extends BaseAudioHandler {
   @override
   Future<void> play() async {
     _log("play (isCasting=$isCasting)");
+    _resumeAfterInterruption = false;
     // Every resume path (Cast, video, playlist, fast resume, reload) is a
     // listening session, as pause() ends one on each; a no-op right after
     // playStation() started one.
@@ -2395,6 +2427,7 @@ class AppAudioHandler extends BaseAudioHandler {
     // playlist branches would otherwise leave behind.
     _stationSwitchId++;
     _isConnecting = false;
+    _resumeAfterInterruption = false;
     if (isCasting) {
       _hasBeenPlayed = false;
       AnalyticsService.instance.endListening(reason: 'pause');
@@ -3672,6 +3705,7 @@ class AppAudioHandler extends BaseAudioHandler {
     _log("_stopDueToError (keeping command center alive)");
     _cancelInFlightPlay();
     _hasBeenPlayed = false;
+    _resumeAfterInterruption = false;
     // Otherwise the session keeps counting toward its duration after the stop.
     AnalyticsService.instance.endListening(reason: 'error');
     _disconnectTimer?.cancel();
@@ -3697,6 +3731,7 @@ class AppAudioHandler extends BaseAudioHandler {
     // Cancels a station switch in flight, like pause().
     _stationSwitchId++;
     _isConnecting = false;
+    _resumeAfterInterruption = false;
     if (isCasting) {
       GetIt.instance<CastService>().stop();
       setCastPlaying(false);

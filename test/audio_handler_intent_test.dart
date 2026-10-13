@@ -3,6 +3,8 @@ import 'dart:convert' show utf8;
 import 'dart:io' show HttpDate;
 
 import 'package:audio_service/audio_service.dart';
+import 'package:audio_session/audio_session.dart'
+    show AudioInterruptionEvent, AudioInterruptionType;
 import 'package:flutter/widgets.dart' show AppLifecycleState;
 import 'package:flutter_chrome_cast/flutter_chrome_cast.dart'
     show CastMediaPlayerState;
@@ -268,6 +270,85 @@ void main() {
 
         await handler.pause();
         handler.reconnectIfNeeded(trigger: ReconnectTrigger.networkRestored);
+        await pumpEventQueue();
+
+        expect(handler.player.playing, isFalse);
+      }, () => routing);
+    });
+  });
+
+  // The host is not Android, so these follow the iOS rules: every begin is
+  // `unknown`, and only an end of type `pause` (shouldResume) resumes.
+  group('audio interruption', () {
+    final begin = AudioInterruptionEvent(true, AudioInterruptionType.unknown);
+    final resumableEnd =
+        AudioInterruptionEvent(false, AudioInterruptionType.pause);
+    final finalEnd =
+        AudioInterruptionEvent(false, AudioInterruptionType.unknown);
+
+    Future<void> playStation2() async {
+      await startHandler();
+      unawaited(handler.playStation(stationOf(2)));
+      await untilPlaying(mp3Of2, loads: 1);
+    }
+
+    test(
+        'pauses through the handler and resumes through it when the end '
+        'allows', () async {
+      await http.runWithClient(() async {
+        await playStation2();
+
+        handler.debugOnAudioInterruption(begin);
+        await until(() => !handler.playbackState.value.playing);
+        expect(handler.player.playing, isFalse);
+        expect(AnalyticsService.instance.isListening, isFalse,
+            reason: 'an interruption ends the listening session');
+
+        handler.debugOnAudioInterruption(resumableEnd);
+        await until(() => handler.playbackState.value.playing);
+        expect(AnalyticsService.instance.isListening, isTrue);
+        expect(channels.loads, hasLength(1),
+            reason: 'a short interruption resumes the loaded stream');
+      }, () => routing);
+    });
+
+    test(
+        'an end without a resume leaves playback paused, and a reconnect '
+        'does not restart it', () async {
+      await http.runWithClient(() async {
+        await playStation2();
+
+        handler.debugOnAudioInterruption(begin);
+        handler.debugOnAudioInterruption(finalEnd);
+        handler.reconnectIfNeeded(trigger: ReconnectTrigger.networkRestored);
+        await pumpEventQueue();
+
+        expect(handler.player.playing, isFalse);
+        expect(handler.playbackState.value.playing, isFalse);
+        expect(channels.loads, hasLength(1));
+      }, () => routing);
+    });
+
+    test('a pause during the interruption cancels the resume', () async {
+      await http.runWithClient(() async {
+        await playStation2();
+
+        handler.debugOnAudioInterruption(begin);
+        await handler.pause();
+        handler.debugOnAudioInterruption(resumableEnd);
+        await pumpEventQueue();
+
+        expect(handler.player.playing, isFalse);
+      }, () => routing);
+    });
+
+    test('an interruption while paused does not start playback', () async {
+      await http.runWithClient(() async {
+        await playStation2();
+
+        await handler.pause();
+        handler.debugOnAudioInterruption(begin);
+        handler.debugOnAudioInterruption(resumableEnd);
         await pumpEventQueue();
 
         expect(handler.player.playing, isFalse);
