@@ -259,7 +259,7 @@ class SharePromotionCardState extends State<SharePromotionCard> {
             children: [
               _buildShareButton(
                 context: context,
-                icon: FontAwesomeIcons.whatsapp,
+                icon: FontAwesomeIcons.whatsapp.data,
                 color: _whatsappColor,
                 onTap: () {
                   AnalyticsService.instance.capture('button_clicked', {'button_name': 'promo_share_whatsapp'});
@@ -269,7 +269,7 @@ class SharePromotionCardState extends State<SharePromotionCard> {
               const SizedBox(width: 6),
               _buildShareButton(
                 context: context,
-                icon: FontAwesomeIcons.facebook,
+                icon: FontAwesomeIcons.facebook.data,
                 color: _facebookColor,
                 onTap: () {
                   AnalyticsService.instance.capture('button_clicked', {'button_name': 'promo_share_facebook'});

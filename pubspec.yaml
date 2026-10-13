@@ -57,7 +57,7 @@ dependencies:
   shared_preferences: ^2.1.1
   share_plus: ^12.0.1
   device_info_plus: ^12.3.0
-  font_awesome_flutter: ^10.7.0
+  font_awesome_flutter: ^11.0.0
   firebase_core: ^4.4.0
   posthog_flutter: ^5.30.0
   flutter_launcher_icons: ^0.14.0
@@ -132,6 +132,12 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
+
+  # Keep iOS on CocoaPods: the SwiftPM manifest of the local
+  # flutter_chrome_cast plugin targets iOS 15, but the GoogleCast
+  # Swift package requires iOS 16.
+  config:
+    enable-swift-package-manager: false
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in

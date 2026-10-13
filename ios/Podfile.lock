@@ -295,7 +295,7 @@ SPEC CHECKSUMS:
   FirebaseCoreInternal: fe5fa466aeb314787093a7dce9f0beeaad5a2a21
   FirebaseInstallations: 6a14ab3d694ebd9f839c48d330da5547e9ca9dc0
   FirebaseMessaging: 7f42cfd10ec64181db4e01b305a613791c8e782c
-  Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
+  Flutter: 71a624a5bc0c04062bf19101d501e466baf2fb47
   flutter_airplay: 86c674475f46cab2d76a2cdf3e317e8ee4afdd06
   flutter_carplay: 7326e72d693f7540711bf2d80be7e5aee4fe22b5
   flutter_chrome_cast: 6c587fcbed3ad19ab8aba50c01af195be2290c7e
