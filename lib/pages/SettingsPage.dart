@@ -47,11 +47,11 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  bool? _notificationsEnabled;
-  bool? _autoStartStation;
-  ThemeMode _themeMode = ThemeMode.system;
-  SeekMode _seekMode = SeekMode.twoMinutes;
-  bool _unstableConnection = false;
+  bool _notificationsEnabled = true;
+  bool _autoStartStation = true;
+  ThemeMode _themeMode = ThemeManager.themeMode.value;
+  SeekMode _seekMode = SeekModeManager.seekMode.value;
+  bool _unstableConnection = SeekModeManager.isUnstableConnection;
   bool _carConnected = SeekModeManager.isCarConnected;
   final String _version = globals.appVersion;
   final String _buildNumber = globals.buildNumber;
@@ -78,12 +78,7 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   void initState() {
     super.initState();
-    _getNotificationsEnabled();
-    _getAutoStartStation();
-    _loadDeveloperMode();
-    _loadThemeMode();
-    _loadSeekMode();
-    _loadUnstableConnection();
+    _readStoredPreferences();
     SeekModeManager.carConnected.addListener(_onCarConnectionChanged);
     // The last known link shows its count at once; _loadShareData
     // refreshes it.
@@ -129,20 +124,16 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  Future<void> _getNotificationsEnabled() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (!mounted) return;
-    setState(() {
-      _notificationsEnabled = prefs.getBool('_notificationsEnabled') ?? true;
-    });
-  }
-
-  Future<void> _getAutoStartStation() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (!mounted) return;
-    setState(() {
-      _autoStartStation = prefs.getBool('_autoStartStation') ?? true;
-    });
+  /// Reads the saved toggles from the instance loaded at startup.
+  ///
+  /// Synchronous on purpose: the route opens without a transition, so an
+  /// async read showed a blank page until the frame after the result came
+  /// back.
+  void _readStoredPreferences() {
+    final prefs = getIt<SharedPreferences>();
+    _notificationsEnabled = prefs.getBool('_notificationsEnabled') ?? true;
+    _autoStartStation = prefs.getBool('_autoStartStation') ?? true;
+    _developerMode = prefs.getBool('developer_mode_enabled') ?? false;
   }
 
 
@@ -536,14 +527,6 @@ class _SettingsPageState extends State<SettingsPage> {
 
   // ── Developer mode ──
 
-  Future<void> _loadDeveloperMode() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (!mounted) return;
-    setState(() {
-      _developerMode = prefs.getBool('developer_mode_enabled') ?? false;
-    });
-  }
-
   /// Hidden gesture on the version row: 7 taps within a 2s-per-tap window
   /// enable developer mode. Casual taps keep the copy-version behavior; from
   /// tap 4 a countdown snackbar appears instead.
@@ -637,458 +620,436 @@ class _SettingsPageState extends State<SettingsPage> {
       body: CustomScrollView(
         slivers: [
           const PinnedTitleSliverHeader(title: 'Setări'),
-          if (_notificationsEnabled != null)
-            SliverSafeArea(
-              top: false,
-              sliver: SliverList.list(
-                children: [
-                // General section
-                _buildSectionHeader('Preferințe'),
-                _buildSettingsCard(children: [
-                  _buildSettingsTile(
-                    icon: Icons.brightness_6,
-                    title: 'Interfața temei',
-                    trailing: DropdownButton<ThemeMode>(
-                      value: _themeMode,
-                      underline: const SizedBox(),
-                      borderRadius: BorderRadius.circular(12),
-                      onChanged: (ThemeMode? newValue) async {
-                        if (newValue != null) {
-                          AnalyticsService.instance.capture('button_clicked', {'button_name': 'theme_mode', 'theme_mode': newValue.name});
+          SliverSafeArea(
+            top: false,
+            sliver: SliverList.list(
+              children: [
+              // General section
+              _buildSectionHeader('Preferințe'),
+              _buildSettingsCard(children: [
+                _buildSettingsTile(
+                  icon: Icons.brightness_6,
+                  title: 'Interfața temei',
+                  trailing: DropdownButton<ThemeMode>(
+                    value: _themeMode,
+                    underline: const SizedBox(),
+                    borderRadius: BorderRadius.circular(12),
+                    onChanged: (ThemeMode? newValue) async {
+                      if (newValue != null) {
+                        AnalyticsService.instance.capture('button_clicked', {'button_name': 'theme_mode', 'theme_mode': newValue.name});
+                        setState(() {
+                          _themeMode = newValue;
+                        });
+                        await ThemeManager.saveThemeMode(newValue);
+                        ThemeManager.changeThemeMode(newValue);
+                      }
+                    },
+                    items: const [
+                      DropdownMenuItem(
+                        value: ThemeMode.system,
+                        child: Text('Sistem', style: TextStyle(fontSize: 14)),
+                      ),
+                      DropdownMenuItem(
+                        value: ThemeMode.light,
+                        child: Text('Luminos', style: TextStyle(fontSize: 14)),
+                      ),
+                      DropdownMenuItem(
+                        value: ThemeMode.dark,
+                        child: Text('Întunecat', style: TextStyle(fontSize: 14)),
+                      ),
+                    ],
+                  ),
+                ),
+                _buildSettingsTile(
+                  icon: _carConnected
+                      ? Icons.directions_car
+                      : Icons.signal_wifi_statusbar_connected_no_internet_4,
+                  title: 'Conexiune instabilă',
+                  subtitle: _carConnected
+                      ? 'În timpul condusului, economisirea de date este activă.'
+                      : 'Activează dacă viteza internetului este slabă și instabilă.',
+                  trailing: IgnorePointer(
+                    ignoring: _carConnected,
+                    child: Opacity(
+                      opacity: _carConnected ? 0.4 : 1.0,
+                      child: Switch.adaptive(
+                        activeColor: Colors.white,
+                        activeTrackColor: isDark ? const Color(0xff48a868) : const Color(0xff34c759),
+                        inactiveThumbColor: Colors.white,
+                        inactiveTrackColor: isDark ? const Color(0xff39393d) : const Color(0xffe9e9ea),
+                        onChanged: (bool value) async {
+                          AnalyticsService.instance.capture('button_clicked', {'button_name': 'unstable_connection', 'enabled': value});
                           setState(() {
-                            _themeMode = newValue;
+                            _unstableConnection = value;
+                            _seekMode = value ? SeekMode.fiveMinutes : SeekMode.twoMinutes;
                           });
-                          await ThemeManager.saveThemeMode(newValue);
-                          ThemeManager.changeThemeMode(newValue);
-                        }
-                      },
-                      items: const [
-                        DropdownMenuItem(
-                          value: ThemeMode.system,
-                          child: Text('Sistem', style: TextStyle(fontSize: 14)),
-                        ),
-                        DropdownMenuItem(
-                          value: ThemeMode.light,
-                          child: Text('Luminos', style: TextStyle(fontSize: 14)),
-                        ),
-                        DropdownMenuItem(
-                          value: ThemeMode.dark,
-                          child: Text('Întunecat', style: TextStyle(fontSize: 14)),
-                        ),
-                      ],
+                          await SeekModeManager.saveUnstableConnection(value);
+                          SeekModeManager.changeUnstableConnection(value);
+                          // Always sync the saved seek mode with the toggle: ON forces 5,
+                          // OFF resets to 2 (the default). Without the OFF branch the
+                          // saved 5 sticks forever, so users see "5 minute" as default.
+                          final newMode = value ? SeekMode.fiveMinutes : SeekMode.twoMinutes;
+                          await SeekModeManager.saveSeekMode(newMode);
+                          SeekModeManager.changeSeekMode(newMode);
+                          getIt<AppAudioHandler>().reapplySeekOffset();
+                          getIt<AppAudioHandler>().refreshCurrentMetadata();
+                          if (context.mounted) {
+                            removeBottomToast(_activeToast);
+                            _activeToast = showBottomToast(
+                              context,
+                              title: value ? 'Mod conexiune instabilă activat' : 'Mod conexiune instabilă dezactivat',
+                              message: value
+                                  ? 'Încărcare în avans setată la 5 minute. Doar miniaturile melodiilor vor fi afișate.'
+                                  : 'Poți alege manual timpul de încărcare în avans.',
+                              onDismissed: () { _activeToast = null; },
+                            );
+                          }
+                        },
+                        value: _carConnected || _unstableConnection,
+                      ),
                     ),
                   ),
-                  _buildSettingsTile(
-                    icon: _carConnected
-                        ? Icons.directions_car
-                        : Icons.signal_wifi_statusbar_connected_no_internet_4,
-                    title: 'Conexiune instabilă',
-                    subtitle: _carConnected
-                        ? 'În timpul condusului, economisirea de date este activă.'
-                        : 'Activează dacă viteza internetului este slabă și instabilă.',
-                    trailing: IgnorePointer(
-                      ignoring: _carConnected,
-                      child: Opacity(
-                        opacity: _carConnected ? 0.4 : 1.0,
-                        child: Switch.adaptive(
-                          activeColor: Colors.white,
-                          activeTrackColor: isDark ? const Color(0xff48a868) : const Color(0xff34c759),
-                          inactiveThumbColor: Colors.white,
-                          inactiveTrackColor: isDark ? const Color(0xff39393d) : const Color(0xffe9e9ea),
-                          onChanged: (bool value) async {
-                            AnalyticsService.instance.capture('button_clicked', {'button_name': 'unstable_connection', 'enabled': value});
+                ),
+                _buildSettingsTile(
+                  icon: Icons.network_check,
+                  title: 'Încărcare în avans',
+                  subtitle: _carConnected
+                      ? 'În timpul condusului stațiile radio sunt preîncărcate 5 minute.'
+                      : _unstableConnection
+                          ? 'Blocat la 5 minute de modul conexiune instabilă.'
+                          : null,
+                  trailing: IgnorePointer(
+                    ignoring: _carConnected || _unstableConnection,
+                    child: Opacity(
+                      opacity: (_carConnected || _unstableConnection) ? 0.4 : 1.0,
+                      child: DropdownButton<SeekMode>(
+                        value: (_carConnected || _unstableConnection) ? SeekMode.fiveMinutes : _seekMode,
+                        underline: const SizedBox(),
+                        borderRadius: BorderRadius.circular(12),
+                        onChanged: (SeekMode? newValue) async {
+                          if (newValue != null) {
+                            AnalyticsService.instance.capture('button_clicked', {'button_name': 'buffer_size', 'seek_mode': newValue.name});
                             setState(() {
-                              _unstableConnection = value;
-                              _seekMode = value ? SeekMode.fiveMinutes : SeekMode.twoMinutes;
+                              _seekMode = newValue;
                             });
-                            await SeekModeManager.saveUnstableConnection(value);
-                            SeekModeManager.changeUnstableConnection(value);
-                            // Always sync the saved seek mode with the toggle: ON forces 5,
-                            // OFF resets to 2 (the default). Without the OFF branch the
-                            // saved 5 sticks forever, so users see "5 minute" as default.
-                            final newMode = value ? SeekMode.fiveMinutes : SeekMode.twoMinutes;
-                            await SeekModeManager.saveSeekMode(newMode);
-                            SeekModeManager.changeSeekMode(newMode);
+                            await SeekModeManager.saveSeekMode(newValue);
+                            SeekModeManager.changeSeekMode(newValue);
                             getIt<AppAudioHandler>().reapplySeekOffset();
                             getIt<AppAudioHandler>().refreshCurrentMetadata();
                             if (context.mounted) {
+                              final message = newValue == SeekMode.instant
+                                  ? 'Acum asculți live cu un mic decalaj de câteva secunde.'
+                                  : 'Radioul va avea un decalaj de ${newValue == SeekMode.twoMinutes ? '2' : '5'} minute față de live.';
                               removeBottomToast(_activeToast);
                               _activeToast = showBottomToast(
                                 context,
-                                title: value ? 'Mod conexiune instabilă activat' : 'Mod conexiune instabilă dezactivat',
-                                message: value
-                                    ? 'Încărcare în avans setată la 5 minute. Doar miniaturile melodiilor vor fi afișate.'
-                                    : 'Poți alege manual timpul de încărcare în avans.',
+                                title: 'Gata!',
+                                message: message,
                                 onDismissed: () { _activeToast = null; },
                               );
                             }
-                          },
-                          value: _carConnected || _unstableConnection,
-                        ),
+                          }
+                        },
+                        items: const [
+                          DropdownMenuItem(
+                            value: SeekMode.instant,
+                            child: Text('Live', style: TextStyle(fontSize: 14)),
+                          ),
+                          DropdownMenuItem(
+                            value: SeekMode.twoMinutes,
+                            child: Text('2 minute', style: TextStyle(fontSize: 14)),
+                          ),
+                          DropdownMenuItem(
+                            value: SeekMode.fiveMinutes,
+                            child: Text('5 minute', style: TextStyle(fontSize: 14)),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                  _buildSettingsTile(
-                    icon: Icons.network_check,
-                    title: 'Încărcare în avans',
-                    subtitle: _carConnected
-                        ? 'În timpul condusului stațiile radio sunt preîncărcate 5 minute.'
-                        : _unstableConnection
-                            ? 'Blocat la 5 minute de modul conexiune instabilă.'
-                            : null,
-                    trailing: IgnorePointer(
-                      ignoring: _carConnected || _unstableConnection,
-                      child: Opacity(
-                        opacity: (_carConnected || _unstableConnection) ? 0.4 : 1.0,
-                        child: DropdownButton<SeekMode>(
-                          value: (_carConnected || _unstableConnection) ? SeekMode.fiveMinutes : _seekMode,
-                          underline: const SizedBox(),
-                          borderRadius: BorderRadius.circular(12),
-                          onChanged: (SeekMode? newValue) async {
-                            if (newValue != null) {
-                              AnalyticsService.instance.capture('button_clicked', {'button_name': 'buffer_size', 'seek_mode': newValue.name});
-                              setState(() {
-                                _seekMode = newValue;
-                              });
-                              await SeekModeManager.saveSeekMode(newValue);
-                              SeekModeManager.changeSeekMode(newValue);
-                              getIt<AppAudioHandler>().reapplySeekOffset();
-                              getIt<AppAudioHandler>().refreshCurrentMetadata();
-                              if (context.mounted) {
-                                final message = newValue == SeekMode.instant
-                                    ? 'Acum asculți live cu un mic decalaj de câteva secunde.'
-                                    : 'Radioul va avea un decalaj de ${newValue == SeekMode.twoMinutes ? '2' : '5'} minute față de live.';
-                                removeBottomToast(_activeToast);
-                                _activeToast = showBottomToast(
-                                  context,
-                                  title: 'Gata!',
-                                  message: message,
-                                  onDismissed: () { _activeToast = null; },
-                                );
-                              }
-                            }
-                          },
-                          items: const [
-                            DropdownMenuItem(
-                              value: SeekMode.instant,
-                              child: Text('Live', style: TextStyle(fontSize: 14)),
-                            ),
-                            DropdownMenuItem(
-                              value: SeekMode.twoMinutes,
-                              child: Text('2 minute', style: TextStyle(fontSize: 14)),
-                            ),
-                            DropdownMenuItem(
-                              value: SeekMode.fiveMinutes,
-                              child: Text('5 minute', style: TextStyle(fontSize: 14)),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+                ),
+                _buildSettingsTile(
+                  icon: Icons.radio,
+                  title: 'Pornește automat ultima stație',
+                  subtitle: 'La deschiderea aplicației',
+                  trailing: Switch.adaptive(
+                    activeColor: Colors.white,
+                    activeTrackColor: isDark ? const Color(0xff48a868) : const Color(0xff34c759),
+                    inactiveThumbColor: Colors.white,
+                    inactiveTrackColor: isDark ? const Color(0xff39393d) : const Color(0xffe9e9ea),
+                    onChanged: (bool value) async {
+                      AnalyticsService.instance.capture('button_clicked', {'button_name': 'auto_start_station', 'enabled': value});
+                      final prefs = await SharedPreferences.getInstance();
+                      await prefs.setBool('_autoStartStation', value);
+                      if (!mounted) return;
+                      setState(() {
+                        _autoStartStation = value;
+                      });
+                    },
+                    value: _autoStartStation,
                   ),
-                  _buildSettingsTile(
-                    icon: Icons.radio,
-                    title: 'Pornește automat ultima stație',
-                    subtitle: 'La deschiderea aplicației',
-                    trailing: Switch.adaptive(
-                      activeColor: Colors.white,
-                      activeTrackColor: isDark ? const Color(0xff48a868) : const Color(0xff34c759),
-                      inactiveThumbColor: Colors.white,
-                      inactiveTrackColor: isDark ? const Color(0xff39393d) : const Color(0xffe9e9ea),
-                      onChanged: (bool? value) async {
-                        AnalyticsService.instance.capture('button_clicked', {'button_name': 'auto_start_station', 'enabled': value});
-                        final prefs = await SharedPreferences.getInstance();
-                        await prefs.setBool('_autoStartStation', value!);
-                        if (!mounted) return;
+                ),
+                _buildSettingsTile(
+                  icon: Icons.notification_important_rounded,
+                  title: 'Notificări personalizate',
+                  subtitle: 'Primiți notificări când începe o melodie/emisiune preferată.',
+                  trailing: Switch.adaptive(
+                    activeColor: Colors.white,
+                    activeTrackColor: isDark ? const Color(0xff48a868) : const Color(0xff34c759),
+                    inactiveThumbColor: Colors.white,
+                    inactiveTrackColor: isDark ? const Color(0xff39393d) : const Color(0xffe9e9ea),
+                    onChanged: (bool value) async {
+                      AnalyticsService.instance.capture('button_clicked', {'button_name': 'custom_notifications', 'enabled': value});
+                      final prefs = await SharedPreferences.getInstance();
+                      await prefs.setBool('_notificationsEnabled', value);
+                      if (mounted) {
                         setState(() {
-                          _autoStartStation = value;
+                          _notificationsEnabled = value;
                         });
-                      },
-                      value: _autoStartStation ?? true,
-                    ),
+                      }
+                      AnalyticsService.instance.setUserProperty('personalized_n', value ? 'true' : 'false');
+                    },
+                    value: _notificationsEnabled,
                   ),
-                  _buildSettingsTile(
-                    icon: Icons.notification_important_rounded,
-                    title: 'Notificări personalizate',
-                    subtitle: 'Primiți notificări când începe o melodie/emisiune preferată.',
-                    trailing: Switch.adaptive(
-                      activeColor: Colors.white,
-                      activeTrackColor: isDark ? const Color(0xff48a868) : const Color(0xff34c759),
-                      inactiveThumbColor: Colors.white,
-                      inactiveTrackColor: isDark ? const Color(0xff39393d) : const Color(0xffe9e9ea),
-                      onChanged: (bool? value) async {
-                        AnalyticsService.instance.capture('button_clicked', {'button_name': 'custom_notifications', 'enabled': value});
-                        final prefs = await SharedPreferences.getInstance();
-                        await prefs.setBool('_notificationsEnabled', value!);
-                        if (mounted) {
-                          setState(() {
-                            _notificationsEnabled = value;
-                          });
-                        }
-                        AnalyticsService.instance.setUserProperty('personalized_n', value ? 'true' : 'false');
-                      },
-                      value: _notificationsEnabled ?? true,
-                    ),
-                  ),
-                ]),
+                ),
+              ]),
 
-                _buildSectionHeader('General'),
+              _buildSectionHeader('General'),
+              _buildSettingsCard(children: [
+                _buildSettingsTile(
+                  icon: Icons.share_rounded,
+                  title: 'Distribuie aplicația',
+                  subtitleWidget: _visitCount != null && _visitCount! > 0
+                      ? _InviteCountSubtitle(count: _visitCount!)
+                      : Text(
+                          'Trimite linkul tău prietenilor și familiei',
+                          style: TextStyle(fontSize: 12, color: isDark ? const Color(0xff8a8a8a) : const Color(0xff6b6b6b)),
+                        ),
+                  onTap: () {
+                    AnalyticsService.instance.capture('button_clicked', {'button_name': 'share_app'});
+                    _shareApp(context);
+                  },
+                ),
+                _buildSettingsTile(
+                  icon: Icons.star_rounded,
+                  title: 'Lasă-ne o recenzie',
+                  onTap: () async {
+                    AnalyticsService.instance.capture('button_clicked', {'button_name': 'leave_review'});
+                    final url = Platform.isIOS
+                        ? 'https://apps.apple.com/app/6451270471?action=write-review'
+                        : 'https://play.google.com/store/apps/details?id=com.radiocrestin.radio_crestin';
+                    launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+                  },
+                ),
+                _buildSettingsTile(
+                  icon: Icons.chat,
+                  title: 'Contactează-ne pe WhatsApp',
+                  onTap: () async {
+                    AnalyticsService.instance.capture('whatsapp_contact');
+
+                    final platform = Platform.isAndroid ? "Android" : Platform.isIOS ? "iOS" : "";
+                    final message = "[RadioCrestin/$platform/v${globals.appVersion}/${globals.deviceId}]\n\nBuna ziua,\n";
+                    launchUrl(
+                        Uri.parse(
+                            "https://wa.me/40766338046?text=${Uri.encodeFull(message)}"
+                        ),
+                        mode: LaunchMode.externalApplication);
+                  },
+                ),
+              ]),
+
+              if (!kReleaseMode) ...[
+                _buildSectionHeader('Diagnostic redare'),
+                _buildDiagnosticCard(),
+              ],
+
+              if (kDebugMode) ...[
+                _buildSectionHeader('Debug'),
                 _buildSettingsCard(children: [
                   _buildSettingsTile(
-                    icon: Icons.share_rounded,
-                    title: 'Distribuie aplicația',
-                    subtitleWidget: _visitCount != null && _visitCount! > 0
-                        ? _InviteCountSubtitle(count: _visitCount!)
-                        : Text(
-                            'Trimite linkul tău prietenilor și familiei',
-                            style: TextStyle(fontSize: 12, color: isDark ? const Color(0xff8a8a8a) : const Color(0xff6b6b6b)),
-                          ),
+                    icon: Icons.directions_car,
+                    title: 'CarPlay / Android Auto',
+                    subtitle: _carConnected ? 'Conectat' : 'Deconectat',
+                    trailing: Icon(
+                      _carConnected ? Icons.check_circle : Icons.cancel,
+                      size: 20,
+                      color: _carConnected ? Colors.green : Colors.grey,
+                    ),
+                  ),
+                  _buildSettingsTile(
+                    icon: Icons.bug_report,
+                    title: 'Test crash (PostHog)',
+                    subtitle: 'Aruncă o excepție pentru a testa capturarea erorilor',
+                    trailing: const Icon(Icons.warning_amber_rounded, size: 20, color: Colors.orange),
                     onTap: () {
-                      AnalyticsService.instance.capture('button_clicked', {'button_name': 'share_app'});
-                      _shareApp(context);
+                      throw Exception('Test crash from Settings — verifying PostHog error tracking');
                     },
                   ),
                   _buildSettingsTile(
-                    icon: Icons.star_rounded,
-                    title: 'Lasă-ne o recenzie',
+                    icon: Icons.delete_sweep,
+                    title: 'Șterge datele aplicației',
+                    subtitle: 'Șterge preferințele și cache-ul',
+                    trailing: const Icon(Icons.chevron_right, size: 20, color: Colors.redAccent),
                     onTap: () async {
-                      AnalyticsService.instance.capture('button_clicked', {'button_name': 'leave_review'});
-                      final url = Platform.isIOS
-                          ? 'https://apps.apple.com/app/6451270471?action=write-review'
-                          : 'https://play.google.com/store/apps/details?id=com.radiocrestin.radio_crestin';
-                      launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-                    },
-                  ),
-                  _buildSettingsTile(
-                    icon: Icons.chat,
-                    title: 'Contactează-ne pe WhatsApp',
-                    onTap: () async {
-                      AnalyticsService.instance.capture('whatsapp_contact');
+                      showDialog(
+                        context: context,
+                        builder: (BuildContext context) {
+                          return AlertDialog(
+                            title: const Text('Confirmare ștergere'),
+                            content: const Text('Ești sigur că vrei să ștergi toate datele salvate și cache-ul aplicației?'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text('Anulează'),
+                              ),
+                              TextButton(
+                                onPressed: () async {
+                                  Navigator.pop(context);
+                                  final prefs = await SharedPreferences.getInstance();
+                                  await prefs.clear();
 
-                      final platform = Platform.isAndroid ? "Android" : Platform.isIOS ? "iOS" : "";
-                      final message = "[RadioCrestin/$platform/v${globals.appVersion}/${globals.deviceId}]\n\nBuna ziua,\n";
-                      launchUrl(
-                          Uri.parse(
-                              "https://wa.me/40766338046?text=${Uri.encodeFull(message)}"
-                          ),
-                          mode: LaunchMode.externalApplication);
+                                  final audioHandler = getIt<AppAudioHandler>();
+                                  audioHandler.graphqlClient.cache.store.reset();
+
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: const Text(
+                                        'Datele aplicației au fost șterse!',
+                                        style: TextStyle(color: Colors.white),
+                                      ),
+                                      backgroundColor: AppColors.primaryDark,
+                                      behavior: SnackBarBehavior.floating,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      duration: const Duration(seconds: 2),
+                                    ),
+                                  );
+
+                                  setState(_readStoredPreferences);
+                                },
+                                style: TextButton.styleFrom(
+                                  foregroundColor: Colors.red,
+                                ),
+                                child: const Text('Șterge'),
+                              ),
+                            ],
+                          );
+                        },
+                      );
                     },
                   ),
                 ]),
-
-                if (!kReleaseMode) ...[
-                  _buildSectionHeader('Diagnostic redare'),
-                  _buildDiagnosticCard(),
-                ],
-
-                if (kDebugMode) ...[
-                  _buildSectionHeader('Debug'),
-                  _buildSettingsCard(children: [
-                    _buildSettingsTile(
-                      icon: Icons.directions_car,
-                      title: 'CarPlay / Android Auto',
-                      subtitle: _carConnected ? 'Conectat' : 'Deconectat',
-                      trailing: Icon(
-                        _carConnected ? Icons.check_circle : Icons.cancel,
-                        size: 20,
-                        color: _carConnected ? Colors.green : Colors.grey,
+              ],
+              _buildSectionHeader('Despre aplicație'),
+              _buildSettingsCard(children: [
+                _buildSettingsTile(
+                  icon: Icons.info_outline_rounded,
+                  title: 'Versiune',
+                  subtitle: '$_version ($_buildNumber)',
+                  trailing: _buildCopyIcon(isDark),
+                  // Also the hidden developer-mode gesture (7 taps).
+                  onTap: _onVersionTap,
+                ),
+                _buildSettingsTile(
+                  icon: Icons.fingerprint,
+                  title: 'ID dispozitiv',
+                  subtitleWidget: Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      _deviceId,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontFamily: 'monospace',
+                        color: isDark
+                            ? const Color(0xff8a8a8a)
+                            : const Color(0xff6b6b6b),
                       ),
                     ),
-                    _buildSettingsTile(
-                      icon: Icons.bug_report,
-                      title: 'Test crash (PostHog)',
-                      subtitle: 'Aruncă o excepție pentru a testa capturarea erorilor',
-                      trailing: const Icon(Icons.warning_amber_rounded, size: 20, color: Colors.orange),
-                      onTap: () {
-                        throw Exception('Test crash from Settings — verifying PostHog error tracking');
-                      },
-                    ),
-                    _buildSettingsTile(
-                      icon: Icons.delete_sweep,
-                      title: 'Șterge datele aplicației',
-                      subtitle: 'Șterge preferințele și cache-ul',
-                      trailing: const Icon(Icons.chevron_right, size: 20, color: Colors.redAccent),
-                      onTap: () async {
-                        showDialog(
-                          context: context,
-                          builder: (BuildContext context) {
-                            return AlertDialog(
-                              title: const Text('Confirmare ștergere'),
-                              content: const Text('Ești sigur că vrei să ștergi toate datele salvate și cache-ul aplicației?'),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context),
-                                  child: const Text('Anulează'),
-                                ),
-                                TextButton(
-                                  onPressed: () async {
-                                    Navigator.pop(context);
-                                    final prefs = await SharedPreferences.getInstance();
-                                    await prefs.clear();
-
-                                    final audioHandler = getIt<AppAudioHandler>();
-                                    audioHandler.graphqlClient.cache.store.reset();
-
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: const Text(
-                                          'Datele aplicației au fost șterse!',
-                                          style: TextStyle(color: Colors.white),
-                                        ),
-                                        backgroundColor: AppColors.primaryDark,
-                                        behavior: SnackBarBehavior.floating,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(12),
-                                        ),
-                                        duration: const Duration(seconds: 2),
-                                      ),
-                                    );
-
-                                    setState(() {
-                                      _notificationsEnabled = null;
-                                      _autoStartStation = null;
-                                    });
-                                    _getNotificationsEnabled();
-                                    _getAutoStartStation();
-                                  },
-                                  style: TextButton.styleFrom(
-                                    foregroundColor: Colors.red,
-                                  ),
-                                  child: const Text('Șterge'),
-                                ),
-                              ],
-                            );
-                          },
-                        );
-                      },
-                    ),
-                  ]),
-                ],
-                _buildSectionHeader('Despre aplicație'),
-                _buildSettingsCard(children: [
-                  _buildSettingsTile(
-                    icon: Icons.info_outline_rounded,
-                    title: 'Versiune',
-                    subtitle: '$_version ($_buildNumber)',
-                    trailing: _buildCopyIcon(isDark),
-                    // Also the hidden developer-mode gesture (7 taps).
-                    onTap: _onVersionTap,
                   ),
+                  trailing: _buildCopyIcon(isDark),
+                  onTap: () => _copyAppInfoValue(
+                    buttonName: 'copy_device_id',
+                    value: _deviceId,
+                    confirmation: 'ID dispozitiv copiat',
+                  ),
+                ),
+              ]),
+
+              if (_developerMode) ...[
+                _buildSectionHeader('Developer'),
+                _buildSettingsCard(children: [
                   _buildSettingsTile(
                     icon: Icons.fingerprint,
                     title: 'ID dispozitiv',
-                    subtitleWidget: Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: Text(
-                        _deviceId,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontFamily: 'monospace',
-                          color: isDark
-                              ? const Color(0xff8a8a8a)
-                              : const Color(0xff6b6b6b),
-                        ),
-                      ),
-                    ),
+                    subtitle: _deviceId,
                     trailing: _buildCopyIcon(isDark),
                     onTap: () => _copyAppInfoValue(
-                      buttonName: 'copy_device_id',
+                      buttonName: 'copy_device_id_dev',
                       value: _deviceId,
                       confirmation: 'ID dispozitiv copiat',
                     ),
                   ),
+                  _buildSettingsTile(
+                    icon: Icons.article_outlined,
+                    title: 'Vezi logurile',
+                    subtitle: 'Logurile locale ale aplicației',
+                    onTap: () {
+                      AnalyticsService.instance.capture('button_clicked',
+                          {'button_name': 'view_logs'});
+                      LogsViewerPage.show(context);
+                    },
+                  ),
+                  _buildSettingsTile(
+                    icon: Icons.copy_all_outlined,
+                    title: 'Copiază logurile',
+                    subtitle: 'Cele mai recente (max. 200KB)',
+                    onTap: _copyLogs,
+                  ),
+                  _buildSettingsTile(
+                    icon: Icons.cloud_upload_outlined,
+                    title: 'Trimite logurile către noi',
+                    subtitle: 'Încarcă logurile pentru diagnosticare',
+                    trailing: _uploadingLogs
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.5,
+                              color: AppColors.primary,
+                            ),
+                          )
+                        : null,
+                    onTap: _uploadingLogs ? null : _sendLogs,
+                  ),
+                  _buildSettingsTile(
+                    icon: Icons.developer_mode,
+                    title: 'Mod dezvoltator',
+                    subtitle: 'Loguri detaliate activate',
+                    trailing: Switch.adaptive(
+                      activeThumbColor: Colors.white,
+                      activeTrackColor: isDark
+                          ? const Color(0xff48a868)
+                          : const Color(0xff34c759),
+                      inactiveThumbColor: Colors.white,
+                      inactiveTrackColor: isDark
+                          ? const Color(0xff39393d)
+                          : const Color(0xffe9e9ea),
+                      value: _developerMode,
+                      onChanged: (value) => _setDeveloperMode(value),
+                    ),
+                  ),
                 ]),
-
-                if (_developerMode) ...[
-                  _buildSectionHeader('Developer'),
-                  _buildSettingsCard(children: [
-                    _buildSettingsTile(
-                      icon: Icons.fingerprint,
-                      title: 'ID dispozitiv',
-                      subtitle: _deviceId,
-                      trailing: _buildCopyIcon(isDark),
-                      onTap: () => _copyAppInfoValue(
-                        buttonName: 'copy_device_id_dev',
-                        value: _deviceId,
-                        confirmation: 'ID dispozitiv copiat',
-                      ),
-                    ),
-                    _buildSettingsTile(
-                      icon: Icons.article_outlined,
-                      title: 'Vezi logurile',
-                      subtitle: 'Logurile locale ale aplicației',
-                      onTap: () {
-                        AnalyticsService.instance.capture('button_clicked',
-                            {'button_name': 'view_logs'});
-                        LogsViewerPage.show(context);
-                      },
-                    ),
-                    _buildSettingsTile(
-                      icon: Icons.copy_all_outlined,
-                      title: 'Copiază logurile',
-                      subtitle: 'Cele mai recente (max. 200KB)',
-                      onTap: _copyLogs,
-                    ),
-                    _buildSettingsTile(
-                      icon: Icons.cloud_upload_outlined,
-                      title: 'Trimite logurile către noi',
-                      subtitle: 'Încarcă logurile pentru diagnosticare',
-                      trailing: _uploadingLogs
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.5,
-                                color: AppColors.primary,
-                              ),
-                            )
-                          : null,
-                      onTap: _uploadingLogs ? null : _sendLogs,
-                    ),
-                    _buildSettingsTile(
-                      icon: Icons.developer_mode,
-                      title: 'Mod dezvoltator',
-                      subtitle: 'Loguri detaliate activate',
-                      trailing: Switch.adaptive(
-                        activeThumbColor: Colors.white,
-                        activeTrackColor: isDark
-                            ? const Color(0xff48a868)
-                            : const Color(0xff34c759),
-                        inactiveThumbColor: Colors.white,
-                        inactiveTrackColor: isDark
-                            ? const Color(0xff39393d)
-                            : const Color(0xffe9e9ea),
-                        value: _developerMode,
-                        onChanged: (value) => _setDeveloperMode(value),
-                      ),
-                    ),
-                  ]),
-                ],
-                const SizedBox(height: 40),
-                ],
-              ),
+              ],
+              const SizedBox(height: 40),
+              ],
             ),
+          ),
         ],
       ),
     );
-  }
-
-  Future<void> _loadThemeMode() async {
-    final themeMode = await ThemeManager.loadThemeMode();
-    if (!mounted) return;
-    setState(() {
-      _themeMode = themeMode;
-    });
-  }
-
-  Future<void> _loadSeekMode() async {
-    final seekMode = await SeekModeManager.loadSeekMode();
-    if (!mounted) return;
-    setState(() {
-      _seekMode = seekMode;
-    });
   }
 
   Future<void> _loadShareData() async {
@@ -1126,14 +1087,6 @@ class _SettingsPageState extends State<SettingsPage> {
       // Best-effort refresh: keep the HomePage-provided link (or the
       // fallback share URL) when the request fails.
     }
-  }
-
-  Future<void> _loadUnstableConnection() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (!mounted) return;
-    setState(() {
-      _unstableConnection = prefs.getBool('unstable_connection') ?? false;
-    });
   }
 
   OverlayEntry? _activeToast;
