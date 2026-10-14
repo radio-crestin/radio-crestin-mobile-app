@@ -173,7 +173,9 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   // Replaced for every station: LikeButton plays its "liked" burst whenever
   // `isLiked` turns true on a live button, so reusing one would celebrate
   // each favorite that next/previous lands on instead of just showing it.
-  var _likeButtonKey = GlobalKey<LikeButtonState>();
+  // Also replaced when the station leaves the favorites, so a burst still
+  // playing stops instead of going on around the empty heart.
+  Key _likeButtonKey = UniqueKey();
   final StationDataService _stationDataService = GetIt.instance<StationDataService>();
 
   /// Shown under the artwork when a radio station has no song metadata:
@@ -200,6 +202,12 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     _subscriptions.add(_stationDataService.favoriteStationSlugs.stream.listen((slugs) {
       if (mounted) {
         setState(() {
+          final slug = currentStation?.slug;
+          if (slug != null &&
+              _favoriteSlugs.contains(slug) &&
+              !slugs.contains(slug)) {
+            _likeButtonKey = UniqueKey();
+          }
           _favoriteSlugs = slugs;
         });
       }
@@ -210,7 +218,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
       if (mounted) {
         setState(() {
           if (value?.slug != currentStation?.slug) {
-            _likeButtonKey = GlobalKey<LikeButtonState>();
+            _likeButtonKey = UniqueKey();
           }
           currentStation = value;
         });
@@ -743,12 +751,18 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   }
 
   /// The favorite toggle, which bursts into bubbles when favoriting.
+  ///
+  /// The tap goes to the handler, not to `LikeButton`, which ignores taps
+  /// while it animates (up to a second): every tap flips the favorite, so
+  /// a second one undoes the first at once. `LikeButton` only draws it.
   Widget _buildFavoriteButton(BuildContext context) {
     return InkWell(
       customBorder: const CircleBorder(),
       onTap: () {
-        AnalyticsService.instance.capture('button_clicked', {'button_name': 'favorite', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug});
-        _likeButtonKey.currentState?.onTap();
+        final station = currentStation;
+        if (station == null) return;
+        AnalyticsService.instance.capture('button_clicked', {'button_name': 'favorite', 'station_id': station.id, 'station_slug': station.slug});
+        widget.audioHandler.toggleStationFavorite(station);
       },
       child: Padding(
         padding: const EdgeInsets.all(10.0),
@@ -771,12 +785,6 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                         : Theme.of(context).colorScheme.onSurface,
                     size: 23,
                   );
-                },
-                onTap: (bool isLiked) async {
-                  if (currentStation != null) {
-                    widget.audioHandler.setStationIsFavorite(currentStation!, !isLiked);
-                  }
-                  return !isLiked;
                 },
               ),
             ),
@@ -903,8 +911,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                       'station_id': station.id,
                       'station_slug': station.slug,
                     });
-                    widget.audioHandler
-                        .setStationIsFavorite(station, !isFavorite);
+                    widget.audioHandler.toggleStationFavorite(station);
                   },
                   child: Padding(
                     padding: const EdgeInsets.all(10.0),

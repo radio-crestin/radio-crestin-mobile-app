@@ -625,6 +625,31 @@ void main() {
     });
   });
 
+  // A heart flips the favorite as it is at the tap, not as a widget last
+  // drew it.
+  group('favorite toggle', () {
+    test('taps in quick succession each undo the one before', () async {
+      await http.runWithClient(() async {
+        await startHandler();
+        final station = stationOf(3);
+        bool isFavorite() =>
+            service.favoriteStationSlugs.value.contains(station.slug);
+
+        // No frame between the taps, so no widget could redraw in between.
+        expect(handler.toggleStationFavorite(station), isTrue);
+        expect(isFavorite(), isTrue);
+        expect(handler.toggleStationFavorite(station), isFalse);
+        expect(isFavorite(), isFalse);
+        expect(handler.toggleStationFavorite(station), isTrue);
+        expect(isFavorite(), isTrue);
+
+        await pumpEventQueue();
+        expect(json.decode(prefs.getString('favoriteStationSlugs')!),
+            [station.slug]);
+      }, () => routing);
+    });
+  });
+
   // What brings the car's no-internet alert back (OfflineAlertGate).
   group('play requests', () {
     late List<void> requests;

@@ -204,25 +204,17 @@ class FCPListTemplate {
     return copy;
   }
 
+  // Shows `sections`. Rows already on this list keep their native row,
+  // whichever section held them: Dart wraps the same rows in new sections
+  // on each update.
   public func updateSections(sections: [FCPListSection]) {
-    let fcpSectionsMap: [String: FCPListSection] = Dictionary(uniqueKeysWithValues: self.objcSections.map { ($0.elementId, $0) })
-    let cpSectionsMap = Dictionary(uniqueKeysWithValues: zip(self.objcSections.map { $0.elementId }, self.sections))
-
-    /// Keep Flutter CarPlay object if necessary, use new instance.
-    self.objcSections = sections.map { section in
-      if let existing = fcpSectionsMap[section.elementId] {
-        return existing.merge(with: section) // Merge old instance with newest to keep some data (eg: completeHandler)
-      } else {
-        return section // Use new instance
-      }
-    }
-    self.sections = sections.map { section in
-      if let existing = cpSectionsMap[section.elementId] {
-        return existing // Reuse existing CP template
-      } else {
-        return section.get // New CP template
-      }
-    }
+    var shownItems = Dictionary(
+      objcSections.flatMap { $0.getItems() }.map { ($0.elementId, $0) },
+      uniquingKeysWith: { first, _ in first }
+    )
+    sections.forEach { $0.adoptItems(from: &shownItems) }
+    self.objcSections = sections
+    self.sections = sections.map { $0.get }
 
     _super?.updateSections(allSections)
   }

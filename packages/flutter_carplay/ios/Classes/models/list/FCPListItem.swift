@@ -48,7 +48,12 @@ class FCPListItem {
     }
   }
 
+  // The native row, built on first use. A row taken over from the list
+  // shown before (`adopt`) comes back as it is, with its picture.
   var get: CPListItem {
+    if let listItem = _super {
+      return listItem
+    }
     let listItem = CPListItem.init(text: text, detailText: detailText)
     listItem.handler = self.handler
     // An empty string is "no image", not an asset name to look up.
@@ -177,9 +182,41 @@ class FCPListItem {
     }
   }
 
-  public func merge(with: FCPListItem) -> FCPListItem {
-    with._super = self._super
-    with._super?.handler = with.handler
-    return with;
+  // Takes over the native row of `shown`, the same row on the list shown
+  // before, and brings it up to date. A list sent again around the same
+  // rows then keeps each row and its loaded picture: a row built again
+  // loads its picture again, and CarPlay decodes and scales every picture
+  // on the main thread (~2 ms a row, ~140 ms for the Home list).
+  func adopt(_ shown: FCPListItem) {
+    guard let listItem = shown._super else { return }
+    _super = listItem
+    completeHandler = shown.completeHandler
+    listItem.handler = self.handler
+    if listItem.text != text {
+      listItem.setText(text)
+    }
+    if listItem.detailText != detailText {
+      listItem.setDetailText(detailText)
+    }
+    if image != shown.image {
+      if let image = image, !image.isEmpty {
+        FCPListItem.loadImage(image, into: listItem)
+      } else {
+        listItem.userInfo = nil
+        listItem.setImage(nil)
+      }
+    }
+    if let playbackProgress = playbackProgress {
+      listItem.playbackProgress = playbackProgress
+    }
+    if let isPlaying = isPlaying {
+      listItem.isPlaying = isPlaying
+    }
+    if let playingIndicatorLocation = playingIndicatorLocation {
+      listItem.playingIndicatorLocation = playingIndicatorLocation
+    }
+    if let accessoryType = accessoryType {
+      listItem.accessoryType = accessoryType
+    }
   }
 }

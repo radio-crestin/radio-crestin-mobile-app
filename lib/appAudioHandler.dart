@@ -4767,6 +4767,17 @@ class AppAudioHandler extends BaseAudioHandler {
     if (isFavorite) _countReviewAction();
   }
 
+  /// Adds [station] to the favorites or removes it, going by the favorites
+  /// as they are now rather than as a widget last drew them, so taps in
+  /// quick succession each undo the one before. Returns whether [station]
+  /// is a favorite afterwards.
+  bool toggleStationFavorite(Station station) {
+    final isFavorite = !stationDataService.favoriteStationSlugs.value
+        .contains(station.slug);
+    unawaited(setStationIsFavorite(station, isFavorite));
+    return isFavorite;
+  }
+
   /// Counts a user action toward the review dialog thresholds.
   void _countReviewAction() => unawaited(Utils.incrementActionsMade());
 

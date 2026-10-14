@@ -721,10 +721,13 @@ class CarPlayService {
 
   /// Brings the CarPlay lists in line with the favorites and the sort
   /// order: Home (pinned row and sections), stars, and pushed lists.
+  ///
+  /// Skipped while no car is connected: the lists are built at launch but
+  /// nobody sees them, and connecting refreshes them.
   void _refreshCarPlayLists() {
     final home = _homeTemplate;
     final carplay = _flutterCarplay;
-    if (home == null || carplay == null) return;
+    if (home == null || carplay == null || !isCarConnected.value) return;
 
     final sorted = _carSortedStations();
     final bySlug = {for (final s in sorted) s.slug as String: s};

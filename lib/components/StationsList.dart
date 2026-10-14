@@ -230,10 +230,10 @@ class StationsList extends StatelessWidget {
                       child: GestureDetector(
                         behavior: HitTestBehavior.opaque,
                         onTap: () {
-                          final isLiked = favoriteSlugs.contains(station.slug);
-                          AnalyticsService.instance.capture('button_clicked', {'button_name': 'favorite_toggle', 'station_slug': station.slug, 'station_id': station.id, 'is_favorite': !isLiked});
                           HapticFeedback.lightImpact();
-                          audioHandler.setStationIsFavorite(station, !isLiked);
+                          final isFavorite =
+                              audioHandler.toggleStationFavorite(station);
+                          AnalyticsService.instance.capture('button_clicked', {'button_name': 'favorite_toggle', 'station_slug': station.slug, 'station_id': station.id, 'is_favorite': isFavorite});
                         },
                         child: Padding(
                           padding: const EdgeInsets.all(8),
