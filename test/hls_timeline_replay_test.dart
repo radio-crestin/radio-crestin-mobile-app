@@ -194,6 +194,29 @@ void main() {
     });
   });
 
+  group('network outage (tunnel) while the buffer plays', () {
+    // h1 (AVPlayer, 2-min offset) with the network cut: the player loads
+    // nothing and the app's polls fail, then the player resumes loading
+    // 1 s (requests that hung, then went through) or 5 s (AVPlayer's own
+    // retry backoff) after the network is back. Measured: AVPlayer plays
+    // its buffer through and never stalls. A fire would reload that
+    // healthy stream right as the network returns: an audible gap.
+    for (final resumeLag in [1.0, 5.0]) {
+      test('20-90 s outages never fire (player resumes ${resumeLag}s after)',
+          () {
+        for (final secs in [20.0, 30.0, 40.0, 45.0, 50.0, 60.0, 90.0]) {
+          // Every 10 s poll phase.
+          for (var from = 60.0; from < 70.0; from += 1) {
+            final trace = _Trace.load('h1_popular_120')
+                .withOutage(from: from, secs: secs, resumeLag: resumeLag);
+            final r = _Replay(trace).run();
+            expect(r.fires, isEmpty, reason: '${secs}s outage at +${from}s');
+          }
+        }
+      });
+    }
+  });
+
   group('lost polls never fire (reviewer R1)', () {
     test('h2 instant mode with any single poll removed: no fire', () {
       final trace = _Trace.load('h2_emanuel_0');
@@ -390,6 +413,34 @@ class _Trace {
   /// Whether the player plays again after [death] (it resumed by itself).
   bool playsAgainAfter(double death) =>
       records.any((r) => r.kind == 'gt' && r.w > death && r.data['play'] == 1);
+
+  /// This run with the network cut for [secs] from [from] s after the
+  /// load: the player's buffered position stops growing until [resumeLag]
+  /// after the network is back, and the app's polls in between fail. The
+  /// player keeps playing (its buffer outlasts the outage).
+  _Trace withOutage({
+    required double from,
+    required double secs,
+    required double resumeLag,
+  }) {
+    final start = loaded + from;
+    final back = start + secs;
+    Object? frozen;
+    final out = <_Rec>[];
+    for (final r in records) {
+      if (r.kind == 'ev' && r.w < start) {
+        frozen = r.data['b'];
+        out.add(r);
+      } else if (r.kind == 'ev' && r.w < back + resumeLag) {
+        out.add(_Rec('ev', r.w, {...r.data, 'b': frozen}));
+      } else if (r.kind == 'snap' && r.w >= start && r.w < back) {
+        out.add(_Rec('fail', r.w, r.data));
+      } else {
+        out.add(r);
+      }
+    }
+    return _Trace(label, isDarwin, loaded, end, start, out);
+  }
 }
 
 class _Fire {

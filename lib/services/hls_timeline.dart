@@ -46,6 +46,11 @@ class LiveHlsHealthSample {
   /// When the native buffered position last changed.
   final DateTime? bufferedChangedAt;
 
+  /// When the app's own playlist poll last failed. A player that loads
+  /// nothing while our polls fail too is cut off from the network, not
+  /// starved by the origin.
+  final DateTime? pollFailedAt;
+
   /// Start of the current playing && ready run (grace baseline).
   final DateTime? advancingSince;
 
@@ -62,6 +67,7 @@ class LiveHlsHealthSample {
     this.originUnreachableFor,
     this.edgeLagAtStall,
     this.bufferedChangedAt,
+    this.pollFailedAt,
     this.advancingSince,
     this.targetDuration = HlsTimeline.defaultTargetDuration,
   });
@@ -106,6 +112,7 @@ class HlsTimeline {
   String? _edgeUri;
   DateTime? _originAdvancedAt;
   DateTime? _lastPollOkAt;
+  DateTime? _lastPollFailedAt;
   int _unchangedPolls = 0;
   int _failedPolls = 0;
   double? _edgeLagAtStall;
@@ -151,6 +158,7 @@ class HlsTimeline {
     _edgeUri = null;
     _originAdvancedAt = null;
     _lastPollOkAt = null;
+    _lastPollFailedAt = null;
     _unchangedPolls = 0;
     _failedPolls = 0;
     _edgeLagAtStall = null;
@@ -192,7 +200,10 @@ class HlsTimeline {
 
   /// A failed or timed-out poll. Never ages the origin: one lost poll must
   /// not look like a frozen playlist.
-  void onPollFailed(DateTime now) => _failedPolls++;
+  void onPollFailed(DateTime now) {
+    _failedPolls++;
+    _lastPollFailedAt = now;
+  }
 
   /// A successful poll of a playlist without PROGRAM-DATE-TIME.
   void onPlaylistWithoutPdt(DateTime now) {
@@ -285,6 +296,7 @@ class HlsTimeline {
           (_failedPolls >= 2 && lastOk != null) ? now.difference(lastOk) : null,
       edgeLagAtStall: _edgeLagAtStall,
       bufferedChangedAt: _bufferedChangedAt,
+      pollFailedAt: _lastPollFailedAt,
       advancingSince: _clock.advancingSince,
       targetDuration: _targetDuration,
     );

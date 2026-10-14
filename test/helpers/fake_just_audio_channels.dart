@@ -61,6 +61,17 @@ class FakeJustAudioChannels {
     }
   }
 
+  /// Puts every native player in the `ProcessingStateMessage` [state]
+  /// (0 idle, 1 loading, 2 buffering, 3 ready, 4 completed), as a stream
+  /// whose buffer ran dry (buffering) or that died (idle) reports it.
+  void emitProcessingState(int state) {
+    for (final player in _players.values) {
+      player
+        .._state = state
+        ..emit();
+    }
+  }
+
   Future<Object?> _onMainCall(MethodCall call) async {
     switch (call.method) {
       case 'init':

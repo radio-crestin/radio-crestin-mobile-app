@@ -27,9 +27,12 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import androidx.car.app.connection.CarConnection
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.Observer
 
 
 class FlutterAndroidAutoPlugin : FlutterPlugin, EventChannel.StreamHandler {
@@ -40,6 +43,22 @@ class FlutterAndroidAutoPlugin : FlutterPlugin, EventChannel.StreamHandler {
 
     // Per-instance sink so onCancel can remove the correct one
     private var instanceSink: EventChannel.EventSink? = null
+
+    // The car UI is the system media browser (MediaBrowserService), so no
+    // CarAppService runs and Session never reports a connection. The car
+    // app library's CarConnection tells any app when the phone projects
+    // to a car. Android Automotive OS (native) is not a projection and
+    // keeps the phone behavior.
+    private var carConnectionType: LiveData<Int>? = null
+    private val carConnectionObserver = Observer<Int> { type ->
+        Log.d(TAG, "CarConnection type: $type")
+        when (type) {
+            CarConnection.CONNECTION_TYPE_PROJECTION ->
+                onAndroidAutoConnectionChange(FAAConnectionTypes.connected)
+            CarConnection.CONNECTION_TYPE_NOT_CONNECTED ->
+                onAndroidAutoConnectionChange(FAAConnectionTypes.disconnected)
+        }
+    }
 
     companion object {
         private const val TAG = "FlutterAndroidAuto"
@@ -89,6 +108,12 @@ class FlutterAndroidAutoPlugin : FlutterPlugin, EventChannel.StreamHandler {
             FAAHelpers.makeFCPChannelId("/event")
         )
         setUpHandlers()
+        // Attached on the main thread, as observeForever requires. Every
+        // engine's instance observes; onAndroidAutoConnectionChange drops
+        // the repeats.
+        carConnectionType = CarConnection(flutterPluginBinding.applicationContext)
+            .type
+            .also { it.observeForever(carConnectionObserver) }
     }
 
     private fun setUpHandlers() {
@@ -879,6 +904,8 @@ class FlutterAndroidAutoPlugin : FlutterPlugin, EventChannel.StreamHandler {
     }
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
+        carConnectionType?.removeObserver(carConnectionObserver)
+        carConnectionType = null
         channel.setMethodCallHandler(null)
         eventChannel.setStreamHandler(null)
         instanceSink?.let { eventSinks.remove(it) }

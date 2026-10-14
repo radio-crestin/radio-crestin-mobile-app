@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:audio_service/audio_service.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
@@ -333,6 +334,53 @@ void main() {
 
       expect(loadsAtError.single, greaterThanOrEqualTo(3),
           reason: 'shown after a full pass the internet was up for');
+    }, () => routing);
+  });
+
+  test('an outage longer than the buffer resumes on HLS, not the fallback',
+      () async {
+    final connectivity = await monitoredNetwork(wifi);
+    await http.runWithClient(() async {
+      await startHandler();
+      unawaited(handler.playStation(stationOf(11)));
+      await until(() => handler.player.playing && loadsOf('hls.example') == 1);
+
+      // A tunnel: no network, and the buffer runs dry while it lasts.
+      connectivity.emit(none);
+      await until(() => monitored!.isOffline.value);
+      channels
+        ..failingUrlParts.add('/s11/')
+        ..failureCode = '0';
+      channels.emitProcessingState(2);
+      // The stall reattempts after 3 s; both streams fail offline.
+      await until(() => loadsOf('stream.example') >= 1,
+          timeout: const Duration(seconds: 8));
+      expect(handler.player.playing, isFalse,
+          reason: 'the loop stops the player between attempts');
+      expect(handler.playbackState.value.playing, isTrue,
+          reason: 'the session must not say paused while it reconnects: '
+              'audio_service would leave the foreground, which Android 12+ '
+              'does not let a backgrounded app re-enter');
+      expect(handler.playbackState.value.processingState,
+          AudioProcessingState.loading);
+
+      channels.failingUrlParts.clear();
+      final loadsBefore = channels.loads.length;
+      final sessionPlaying = <bool>[];
+      final sessionSub = handler.playbackState
+          .listen((state) => sessionPlaying.add(state.playing));
+      addTearDown(sessionSub.cancel);
+      connectivity.emit(wifi);
+      await until(() => channels.finishedLoads.length > loadsBefore &&
+          handler.player.processingState == ProcessingState.ready);
+      await until(() => handler.player.playing);
+
+      expect(channels.loads.last, contains('hls.example'),
+          reason: 'the outage is no fault of the HLS stream: the audio comes '
+              'back with its forward buffer, not on the direct stream');
+      expect(sessionPlaying, isNot(contains(false)),
+          reason: 'not even between the load and play(): a session that '
+              'says paused takes the backgrounded app out of the foreground');
     }, () => routing);
   });
 

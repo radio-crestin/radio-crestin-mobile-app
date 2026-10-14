@@ -314,7 +314,8 @@ class ReconnectPolicy {
 
   /// Native buffered position unchanged for this long while the origin
   /// keeps publishing means new segments do not load. Healthy Darwin gaps
-  /// are <= 6.2 s (x7 margin); fires before the ~60 s forward buffer drains.
+  /// are <= 6.2 s (x7 margin); fires long before the 120 s forward buffer
+  /// drains.
   static const Duration starvingAfter = Duration(seconds: 45);
 
   /// `starving` only when the origin published within this window.
@@ -405,11 +406,19 @@ class ReconnectPolicy {
   }
 
   /// The origin keeps publishing but the player loads nothing.
+  ///
+  /// The wait counts from the later of the last buffer growth and our last
+  /// failed poll: while our polls fail too, the device is cut off (a tunnel),
+  /// and once the network is back the player needs a few seconds to resume
+  /// loading. Counting the outage would reload a healthy stream right then.
   static bool _isStarving(LiveHlsHealthSample s, DateTime now) {
     final bufferedAt = s.bufferedChangedAt;
     final advancedAt = s.originAdvancedAt;
     if (bufferedAt == null || advancedAt == null) return false;
-    return now.difference(bufferedAt) >= starvingAfter &&
+    final failedAt = s.pollFailedAt;
+    final stagnantSince =
+        failedAt != null && failedAt.isAfter(bufferedAt) ? failedAt : bufferedAt;
+    return now.difference(stagnantSince) >= starvingAfter &&
         now.difference(advancedAt) <= originFreshWithin;
   }
 
@@ -595,7 +604,14 @@ Future<AppAudioHandler> initAudioService({required graphqlClient}) async {
         // not be false.
         automaticallyWaitsToMinimizeStalling:
             FastStartConfig.liveDarwinAutomaticallyWaits,
-        preferredForwardBufferDuration: Duration(seconds: 60),
+        // How much AVPlayer loads ahead: what plays through a network
+        // drop. 120 s, measured on the live streams with the 2- and 5-min
+        // offsets (60 s cut the audio in drops over a minute): AVPlayer
+        // tops a 120 s buffer up every segment. A larger cap does not
+        // raise the floor, as AVPlayer resumes loading only once less
+        // than ~120 s is left; it only adds long load pauses, which
+        // ReconnectPolicy.starvingAfter would take for a stuck stream.
+        preferredForwardBufferDuration: Duration(seconds: 120),
       ),
     ),
   );
@@ -649,6 +665,12 @@ class AppAudioHandler extends BaseAudioHandler {
   // to prevent spinner flash between setAudioSource() and player.play().
   bool _isConnecting = false;
   bool get isPlayingOrConnecting => player.playing || _isConnecting;
+
+  /// Whether the local player is putting out audio: playing, with data to
+  /// play (not buffering, loading or idle). Emits on change only.
+  Stream<bool> get audioPlayingStream => player.playerStateStream
+      .map((s) => s.playing && s.processingState == ProcessingState.ready)
+      .distinct();
   bool get isCarConnected => GetIt.instance.isRegistered<CarPlayService>() &&
       GetIt.instance<CarPlayService>().isConnected;
   bool get isCasting => GetIt.instance.isRegistered<CastService>() &&
@@ -668,6 +690,16 @@ class AppAudioHandler extends BaseAudioHandler {
   /// Whether the listener wants audio playing: set by a play, cleared by a
   /// pause, a stop or an error stop (see the field above).
   bool get hasPlayIntent => _hasBeenPlayed;
+
+  /// play() is (re)connecting because the listener wants audio. The media
+  /// session keeps reporting playing (and loading) meanwhile: the retry
+  /// loop stops the player between attempts, and a session that says
+  /// paused takes audio_service out of the foreground, which Android 12+
+  /// does not let a backgrounded app re-enter
+  /// (ForegroundServiceStartNotAllowedException). The app then loses the
+  /// network and gets frozen, and the audio never comes back after a long
+  /// drop with the phone in a pocket or on Android Auto.
+  bool get _isReconnectingOnIntent => _isConnecting && _hasBeenPlayed;
 
   // Set when an interruption paused playback so that its end resumes it;
   // cleared by any later play, pause or stop.
@@ -763,7 +795,9 @@ class AppAudioHandler extends BaseAudioHandler {
   // every reconnect/retry path stops working — the user hears silence
   // until they bring the app back to the foreground. To prevent that,
   // we spin up a secondary player looping `assets/silence.m4a` whenever
-  // the main player is buffering for more than _silenceKeepAliveDelay.
+  // the main player is buffering for more than _silenceKeepAliveDelay, and
+  // keep it on while play() reconnects for the listener (a failed attempt
+  // starts it too), until audio comes out again or the listener pauses.
   // iOS sees continuous audio output and never suspends the engine, so
   // the recovery code (idle-while-playing, isOffline-restored, the
   // stall-timer reattempt) keeps running.
@@ -798,6 +832,9 @@ class AppAudioHandler extends BaseAudioHandler {
   // Completed when the network returns, waking the play() loop's backoff
   // between failed retry cycles. Null while no backoff is pending.
   Completer<void>? _retryBackoffWake;
+  // Set when the network returns during the play() loop: its next attempt
+  // starts a fresh pass at the preferred stream (see _wakeRetryBackoff).
+  bool _restartPassAtPreferred = false;
   // Last buffered position seen, to tell buffer growth (data arriving).
   Duration _lastBufferedPosition = Duration.zero;
   // When the internet was last lost, so a failed pass that overlapped it
@@ -1144,6 +1181,10 @@ class AppAudioHandler extends BaseAudioHandler {
   /// Ends the play() loop's backoff between failed retry cycles now, so
   /// its next attempt runs as soon as the network is back.
   void _wakeRetryBackoff() {
+    // The outage left the loop's next attempt on whichever stream was next
+    // in line, often the fallback (no forward buffer). Start over at the
+    // preferred one instead.
+    if (_isConnecting) _restartPassAtPreferred = true;
     final wake = _retryBackoffWake;
     if (wake == null || wake.isCompleted) return;
     _log('play: network back — retrying now instead of after the backoff');
@@ -1461,7 +1502,7 @@ class AppAudioHandler extends BaseAudioHandler {
           // The completed URL is suspect — remember it so the reconnect
           // starts at the next stream instead of re-looping on it.
           if (_loadedStreamUrl != null) {
-            _failover.recordFailure(_loadedStreamUrl!, DateTime.now());
+            _recordStreamFailure(_loadedStreamUrl!, DateTime.now());
           }
           _loadedStreamUrl = null;
           _loadedStreamType = null;
@@ -1534,7 +1575,7 @@ class AppAudioHandler extends BaseAudioHandler {
         });
         // The lost URL is suspect — start the reconnect at the next stream.
         if (_loadedStreamUrl != null) {
-          _failover.recordFailure(_loadedStreamUrl!, DateTime.now());
+          _recordStreamFailure(_loadedStreamUrl!, DateTime.now());
         }
         _loadedStreamUrl = null;
         _loadedStreamType = null;
@@ -1586,7 +1627,7 @@ class AppAudioHandler extends BaseAudioHandler {
             // A stalled stream counts as a failed one: remember it so the
             // reconnect starts at the next stream if it stalls repeatedly.
             if (_loadedStreamUrl != null) {
-              _failover.recordFailure(_loadedStreamUrl!, DateTime.now());
+              _recordStreamFailure(_loadedStreamUrl!, DateTime.now());
             }
             // Force play() to re-issue setAudioSource (rather than skip
             // because the URL is "already loaded").
@@ -1598,7 +1639,9 @@ class AppAudioHandler extends BaseAudioHandler {
       } else if (state == ProcessingState.ready) {
         _bufferingStallTimer?.cancel();
         _stopSilenceKeepAlive();
-      } else {
+      } else if (!_isReconnectingOnIntent) {
+        // Loading and idle while play() reconnects keep the keeper on: it
+        // is what keeps the app running until the network is back.
         _stopSilenceKeepAlive();
       }
     });
@@ -2307,6 +2350,11 @@ class AppAudioHandler extends BaseAudioHandler {
     final previousStreamInfo = currentStreamInfo.valueOrNull;
 
     while (item != null && myOpId == _playOperationId) {
+      if (_restartPassAtPreferred) {
+        _restartPassAtPreferred = false;
+        retry = 0;
+        cycleStart = null;
+      }
       var streams = item.extras?["station_streams"] as List<dynamic>?;
       // Desktop (Linux/Windows) uses just_audio_media_kit (libmpv ~2023-09) which
       // has flaky support for HLS v9 with query params. Prefer direct streams there.
@@ -2369,6 +2417,8 @@ class AppAudioHandler extends BaseAudioHandler {
           _retryBackoffWake = null;
         }
         if (myOpId != _playOperationId) break;
+        // Woken by the network: pick the stream again, from the top.
+        if (_restartPassAtPreferred) continue;
       }
       if (retry % (totalStreams == 0 ? 1 : totalStreams) == 0) {
         passStartedAt = DateTime.now();
@@ -2505,7 +2555,7 @@ class AppAudioHandler extends BaseAudioHandler {
           _log("play: cancelled (op $myOpId < $_playOperationId)");
           break;
         }
-        _failover.recordFailure(streamUrl, DateTime.now());
+        _recordStreamFailure(streamUrl, DateTime.now());
         // An HTTP error status is still an answer: the internet works, the
         // station's server is the problem.
         if (_isHttpStatusError(e)) {
@@ -2514,6 +2564,12 @@ class AppAudioHandler extends BaseAudioHandler {
           network.reportRequestFailure();
         }
         _log("play: attempt $retry failed - $e");
+        // No audio comes out until an attempt succeeds, and iOS suspends a
+        // silent app in the background (the loop, its timers and the
+        // network-restored reconnect with it) until it is opened again.
+        if (Platform.isIOS && _hasBeenPlayed) {
+          unawaited(_startSilenceKeepAlive());
+        }
         _recordStreamEvent(
           StreamEventKind.failed,
           'Attempt ${attemptIndex + 1}/$totalStreams failed (${elapsedMs}ms): ${_shortErr(e)}',
@@ -2570,7 +2626,6 @@ class AppAudioHandler extends BaseAudioHandler {
 
     _sourceLoadCanceller = null;
     PerformanceMonitor.endOperation('audio_play');
-    _isConnecting = false;
 
     if (_loadedStreamType == 'HLS') {
       _anchoredOffset = SeekModeManager.currentOffset;
@@ -2585,7 +2640,14 @@ class AppAudioHandler extends BaseAudioHandler {
     // never flips `playing`, so the playing listener would not re-sync it.
     _syncLiveHlsWatchdog();
 
-    return player.play();
+    // play() reports playing at once. Connecting ends only after it: in
+    // between, a reconnect that stopped the player (see
+    // _isReconnectingOnIntent) would tell the session it paused, and
+    // audio_service would leave the foreground for good in the background.
+    final playback = player.play();
+    _isConnecting = false;
+    _broadcastState(player.playbackEvent);
+    return playback;
   }
 
   /// Retry-cycle start index for [streams]: the first stream without a
@@ -2611,6 +2673,21 @@ class AppAudioHandler extends BaseAudioHandler {
       });
     }
     return start;
+  }
+
+  /// Remembers [url] as failed, so the next retry cycle starts at another
+  /// stream (see [StreamFailover]).
+  ///
+  /// Not while the internet is out: every stream fails then, and blaming
+  /// the preferred HLS stream would bring the audio back on the fallback
+  /// once the network returns, without the forward buffer that rides out
+  /// the next drop.
+  void _recordStreamFailure(String url, DateTime now) {
+    if (NetworkService.instance.isOffline.value) {
+      _log('failover: $url failed without internet, not blamed');
+      return;
+    }
+    _failover.recordFailure(url, now);
   }
 
   @override
@@ -2707,9 +2784,8 @@ class AppAudioHandler extends BaseAudioHandler {
   /// the reload's anchored refresh re-resolves the playing station's song.
   Future<void> reapplySeekOffset() async {
     if (_loadedStreamType != 'HLS' || !player.playing) return;
-    // Android Auto calls this on every connection change; when the offset
-    // is already in effect (5-min mode, unstable or auto-slow) a reload
-    // would only cut the audio for nothing.
+    // When the offset is already in effect (5-min mode, unstable or
+    // auto-slow) a reload would only cut the audio for nothing.
     if (SeekModeManager.currentOffset == _anchoredOffset) {
       _log('reapplySeekOffset: offset unchanged, skipping');
       return;
@@ -2836,6 +2912,10 @@ class AppAudioHandler extends BaseAudioHandler {
       _stopLiveHlsWatchdog();
       return;
     }
+    // Without internet a reload cannot load anything, and it would throw
+    // away the audio still buffered (up to 2 minutes). The player plays
+    // on and the network-restored path takes over.
+    if (NetworkService.instance.isOffline.value) return;
     final now = DateTime.now();
     final url = _loadedStreamUrl;
     final sample = _hlsTimeline.healthSample(now);
@@ -2877,7 +2957,7 @@ class AppAudioHandler extends BaseAudioHandler {
     _reportLiveHlsStall(stall, action, sample, now);
     if (stall == LiveHlsStall.starving) _recordStreamTrouble('hls_starving');
     if (action == LiveHlsRecoveryAction.failOverAndReload) {
-      _failover.recordFailure(url, now);
+      _recordStreamFailure(url, now);
     }
     // Clear the loaded URL so play() takes the fresh-load path (which
     // re-seeks behind the live edge and re-anchors the timeline).
@@ -3140,8 +3220,10 @@ class AppAudioHandler extends BaseAudioHandler {
     if (u == null) return;
     HlsPlaylistSnapshot? snapshot;
     var withoutPdt = false;
+    var answered = false;
     try {
       final r = await _hlsHttp.get(Uri.parse(u)).timeout(_hlsPollTimeout);
+      answered = true;
       if (r.statusCode == 200) {
         // HLS playlists are UTF-8 (RFC 8216), but the origin sends no
         // charset, so `r.body` would decode Latin-1 and garble diacritics
@@ -3158,6 +3240,11 @@ class AppAudioHandler extends BaseAudioHandler {
     } catch (e) {
       _log('hls poll: $e');
     }
+    // Any answer, even an error status, proves the internet works; none
+    // makes NetworkService check it. A tunnel changes no network, so this
+    // poll is what notices it while the buffer keeps the audio going.
+    final network = NetworkService.instance;
+    answered ? network.reportRequestSuccess() : network.reportRequestFailure();
     if (!_isCurrentHlsPoll(u, gen)) return;
     final now = DateTime.now();
     if (snapshot != null) {
@@ -4077,12 +4164,15 @@ class AppAudioHandler extends BaseAudioHandler {
   void _broadcastState(PlaybackEvent event) {
     // Source of truth for `playing`: media_kit in video mode, the inline
     // YouTube iframe for a UI-owned youtube playlist item, the cast-side flag
-    // while casting, else the just_audio player.
+    // while casting, else the just_audio player, or the listener's play
+    // intent while play() (re)connects.
     final playing = _videoMode
         ? videoService.isPlaying
         : _playlistYoutubeActive
             ? _youtubePlaying
-            : isCasting ? (playbackState.value.playing) : player.playing;
+            : isCasting
+                ? (playbackState.value.playing)
+                : player.playing || _isReconnectingOnIntent;
     final station = currentStation.valueOrNull;
     final isFav = station != null &&
         stationDataService.favoriteStationSlugs.value.contains(station.slug);
@@ -4440,6 +4530,13 @@ class AppAudioHandler extends BaseAudioHandler {
       if (offline) {
         _lastOfflineAt = DateTime.now();
         return;
+      }
+      _failover.forgetFailures();
+      // Refresh the live-HLS origin state now rather than at the next 10 s
+      // poll, so the liveness rules judge the stream by what the origin
+      // says after the outage.
+      if (_isLocalLiveHls && _loadedStreamUrl != null) {
+        unawaited(_pollHlsPlaylist());
       }
       _log("isOffline -> false: will reconnect in "
           "${ReconnectPolicy.networkRestoreReconnectDelay.inMilliseconds}ms");

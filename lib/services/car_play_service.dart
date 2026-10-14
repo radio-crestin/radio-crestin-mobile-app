@@ -49,6 +49,7 @@ class CarPlayService {
   StreamSubscription? _connectionErrorSubscription;
   StreamSubscription? _networkRecoverySubscription;
   StreamSubscription? _carConnectedAlertSubscription;
+  StreamSubscription? _audioPlayingAlertSubscription;
   StreamSubscription? _carPlayPlaybackSubscription;
   StreamSubscription? _carPlayStationsSubscription;
   StreamSubscription? _carPlaySortOrderSubscription;
@@ -876,8 +877,8 @@ class CarPlayService {
       });
     });
 
-    // The network alert waits out short drops and goes when the internet
-    // is back (see OfflineAlertGate).
+    // The network alert waits while the buffer keeps the audio going and
+    // goes when the internet is back (see OfflineAlertGate).
     final gate = _offlineAlertGate = OfflineAlertGate(
       show: () => _showCarPlayConnectionError(const ConnectionError(
         stationName: '',
@@ -891,6 +892,8 @@ class CarPlayService {
         network.isOffline.stream.listen(gate.onOfflineChanged);
     _carConnectedAlertSubscription =
         isCarConnected.stream.listen(gate.onCarConnectedChanged);
+    _audioPlayingAlertSubscription =
+        _audioHandler.audioPlayingStream.listen(gate.onAudioPlayingChanged);
   }
 
   Future<void> _dismissConnectionErrorAlert() async {
@@ -965,13 +968,13 @@ class CarPlayService {
       isCarConnected.add(connected);
       SeekModeManager.changeCarConnected(connected);
       if (!connected && _audioHandler.playbackState.value.playing) {
-        // Pause before reapplying the offset: pause() stops the player
-        // synchronously, so reapply skips a stream reload that the pause
-        // would cancel anyway (while the new source kept loading).
         _log("Android Auto disconnected while playing, pausing");
         _audioHandler.pause();
       }
-      _audioHandler.reapplySeekOffset();
+      // The car's 5-minute offset applies from the next load, as on
+      // CarPlay: reloading a stream that already plays would cut the audio
+      // and replay the minutes between the two offsets. ExoPlayer already
+      // buffers everything up to the live edge, the offset it plays at.
       _audioHandler.refreshCurrentMetadata();
       if (connected) {
         // Android Auto just connected — rebuild the template now that
@@ -1416,6 +1419,7 @@ class CarPlayService {
     _connectionErrorSubscription?.cancel();
     _networkRecoverySubscription?.cancel();
     _carConnectedAlertSubscription?.cancel();
+    _audioPlayingAlertSubscription?.cancel();
     _offlineAlertGate?.dispose();
     _androidAutoStationSubscription?.cancel();
     _androidAutoRebuildTimer?.cancel();

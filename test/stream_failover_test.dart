@@ -144,6 +144,15 @@ void main() {
       expect(failover.startIndex([hls, direct], t0), 0);
     });
 
+    test('the internet coming back forgets every failure (back to HLS)', () {
+      failover.recordFailure(hls, t0);
+      failover.recordFailure(direct, t0);
+      failover.forgetFailures();
+      expect(failover.isRecentlyFailed(hls, t0), isFalse);
+      expect(failover.isRecentlyFailed(direct, t0), isFalse);
+      expect(failover.startIndex([hls, direct], t0), 0);
+    });
+
     test('memory window outlives one watchdog detection cycle', () {
       // Worst-case silent-stall detection: frozen-grace (12s) + frozen
       // timeout (10s) + one watchdog poll (5s) ≈ 27s. The memory must

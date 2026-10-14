@@ -101,6 +101,55 @@ void main() {
     });
   });
 
+  test('an outage the buffer plays through shows nothing', () {
+    withGate((async, gate, shown, _) {
+      gate.onAudioPlayingChanged(true);
+      gate.onOfflineChanged(true);
+      async.elapse(const Duration(minutes: 2));
+      gate.onOfflineChanged(false);
+
+      expect(shown(), 0);
+    });
+  });
+
+  test('the alert follows once the buffer runs out', () {
+    withGate((async, gate, shown, _) {
+      gate.onAudioPlayingChanged(true);
+      gate.onOfflineChanged(true);
+      async.elapse(const Duration(minutes: 1));
+      gate.onAudioPlayingChanged(false);
+      async.elapse(delay - moment);
+      expect(shown(), 0, reason: 'a rebuffer may end on its own');
+
+      async.elapse(moment);
+      expect(shown(), 1);
+    });
+  });
+
+  test('a short rebuffer while offline shows nothing', () {
+    withGate((async, gate, shown, _) {
+      gate.onAudioPlayingChanged(true);
+      gate.onOfflineChanged(true);
+      gate.onAudioPlayingChanged(false);
+      async.elapse(delay - moment);
+      gate.onAudioPlayingChanged(true);
+      async.elapse(delay * 2);
+
+      expect(shown(), 0);
+    });
+  });
+
+  test('audio coming back takes the alert down', () {
+    withGate((async, gate, shown, dismissed) {
+      gate.onOfflineChanged(true);
+      async.elapse(delay);
+      expect(shown(), 1, reason: 'nothing playing: the alert explains why');
+
+      gate.onAudioPlayingChanged(true);
+      expect(dismissed(), 1);
+    });
+  });
+
   test('the online value replayed at start dismisses nothing', () {
     withGate((async, gate, _, dismissed) {
       gate.onOfflineChanged(false);

@@ -79,6 +79,13 @@ class StreamFailover {
     _lastFailureAt.remove(url);
   }
 
+  /// Forgets every failure — called when the internet comes back. Loads
+  /// that failed around an outage say nothing about the streams, and
+  /// remembering them would resume on a fallback (a direct stream has no
+  /// forward buffer). A stream that really is down fails again within one
+  /// [loadTimeout].
+  void forgetFailures() => _lastFailureAt.clear();
+
   /// Whether [url] failed within [failureMemoryWindow] before [now].
   /// Expired entries are pruned as a side effect to keep the map bounded.
   bool isRecentlyFailed(String url, DateTime now) {
