@@ -4823,8 +4823,14 @@ class AppAudioHandler extends BaseAudioHandler {
     //
     // A play() loop still retrying (it outlived the outage) is woken from
     // its backoff instead: reconnectIfNeeded() skips while it connects.
+    //
+    // skip(1): the current value comes first, at startup, and is no
+    // restore. Taken for one, its check restarted the station autoplay had
+    // just started (AVPlayer buffering right after play() reads as
+    // stalled): the button showed pause, then the spinner again, before
+    // any audio came out.
     final network = NetworkService.instance;
-    network.isOffline.stream.listen((offline) {
+    network.isOffline.stream.skip(1).listen((offline) {
       if (offline) {
         _lastOfflineAt = DateTime.now();
         return;

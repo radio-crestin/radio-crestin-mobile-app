@@ -20,6 +20,7 @@ import 'package:radio_crestin/services/analytics_service.dart';
 import 'package:radio_crestin/services/cast_service.dart';
 import 'package:radio_crestin/services/hls_health_watchdog_flag.dart';
 import 'package:radio_crestin/services/hls_timeline.dart' show SongBoundaryHint;
+import 'package:radio_crestin/services/network_service.dart';
 import 'package:radio_crestin/services/play_count_service.dart';
 import 'package:radio_crestin/services/private_stations_service.dart';
 import 'package:radio_crestin/services/song_like_service.dart';
@@ -807,6 +808,46 @@ void main() {
         await playStation2();
 
         expect(reported(), AudioProcessingState.ready);
+      }, () => routing);
+    });
+  });
+
+  // A station starting while AVPlayer buffers after play(), which a
+  // network restore takes for a stall.
+  group('network restore', () {
+    final waitsAfterPlay = AppAudioHandler.playerWaitsAfterPlay;
+    setUp(() {
+      AppAudioHandler.playerWaitsAfterPlay = true;
+      channels.waitsAfterPlay = true;
+    });
+    tearDown(() => AppAudioHandler.playerWaitsAfterPlay = waitsAfterPlay);
+
+    test('the network found at startup restarts no station', () async {
+      await http.runWithClient(() async {
+        await startHandler();
+        unawaited(handler.playStation(stationOf(2)));
+        await untilPlaying(mp3Of2, loads: 1);
+
+        await Future<void>.delayed(ReconnectPolicy
+                .networkRestoreReconnectDelay +
+            const Duration(milliseconds: 200));
+
+        expect(channels.loads, hasLength(1),
+            reason: 'autoplay at startup must not load twice');
+      }, () => routing);
+    });
+
+    test('a network back restarts a station still buffering', () async {
+      await http.runWithClient(() async {
+        await startHandler();
+        unawaited(handler.playStation(stationOf(2)));
+        await untilPlaying(mp3Of2, loads: 1);
+
+        NetworkService.instance.isOffline
+          ..add(true)
+          ..add(false);
+
+        await untilPlaying(mp3Of2, loads: 2);
       }, () => routing);
     });
   });
