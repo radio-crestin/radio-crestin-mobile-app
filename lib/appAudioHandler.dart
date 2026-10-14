@@ -692,6 +692,28 @@ class AppAudioHandler extends BaseAudioHandler {
   /// pause, a stop or an error stop (see the field above).
   bool get hasPlayIntent => _hasBeenPlayed;
 
+  /// Tells the media session that playback waits for the internet
+  /// ([shown]), or no longer does.
+  ///
+  /// Android Auto shows a session in the error state as its message in
+  /// place of the player: what Google asks of a media app that cannot play
+  /// without internet. Only while the listener wants audio: a pause still
+  /// shows as a pause. When to call it is up to [OfflineAlertGate].
+  void setOfflineError(bool shown) {
+    if (shown == _offlineErrorShown) return;
+    _offlineErrorShown = shown;
+    _broadcastState(player.playbackEvent);
+  }
+
+  /// The listener asked for audio (see [playRequested]).
+  void _onPlayRequested() {
+    // A new attempt shows as loading; the error comes back only if this
+    // attempt cannot play either. Cleared here, not by a listener of
+    // [playRequested], which would hear of it after the next state.
+    setOfflineError(false);
+    playRequested.add(null);
+  }
+
   /// play() is (re)connecting because the listener wants audio. The media
   /// session keeps reporting playing (and loading) meanwhile: the retry
   /// loop stops the player between attempts, and a session that says
@@ -701,6 +723,10 @@ class AppAudioHandler extends BaseAudioHandler {
   /// network and gets frozen, and the audio never comes back after a long
   /// drop with the phone in a pocket or on Android Auto.
   bool get _isReconnectingOnIntent => _isConnecting && _hasBeenPlayed;
+
+  // Set while the car says that playback waits for the internet (see
+  // setOfflineError); cleared by the next request for audio.
+  bool _offlineErrorShown = false;
 
   // Set when an interruption paused playback so that its end resumes it;
   // cleared by any later play, pause or stop.
@@ -1320,6 +1346,14 @@ class AppAudioHandler extends BaseAudioHandler {
     final locale = PlatformDispatcher.instance.locale;
     return locale.languageCode == 'ro';
   }
+
+  // PlaybackStateCompat.ERROR_CODE_UNKNOWN_ERROR: none of the media
+  // session's error codes is about the internet.
+  static const _errorCodeUnknown = 0;
+
+  static String get _offlineErrorMessage => _isRomanian
+      ? 'Verifică conexiunea la internet.'
+      : 'Check your internet connection.';
 
   @override
   ValueStream<Map<String, dynamic>> subscribeToChildren(String parentMediaId) {
@@ -1964,7 +1998,7 @@ class AppAudioHandler extends BaseAudioHandler {
     _beginFastStartMeasure(station);
     // Before the early returns: picking the station already loading is
     // still a request the listener waits on.
-    playRequested.add(null);
+    _onPlayRequested();
     _hasBeenPlayed = true;
     _resumeAfterInterruption = false;
 
@@ -2237,7 +2271,7 @@ class AppAudioHandler extends BaseAudioHandler {
     // while playback is still wanted, and playStation() counted its own.
     final isUserResume = !_hasBeenPlayed && !_isInterruptionResume;
     _isInterruptionResume = false;
-    if (isUserResume) playRequested.add(null);
+    if (isUserResume) _onPlayRequested();
     // Every resume path (Cast, video, playlist, fast resume, reload) is a
     // listening session, as pause() ends one on each; a no-op right after
     // playStation() started one.
@@ -4157,6 +4191,13 @@ class AppAudioHandler extends BaseAudioHandler {
             : isCasting
                 ? (playbackState.value.playing)
                 : player.playing || _isReconnectingOnIntent;
+    // Playback waits for the internet (see setOfflineError): only the
+    // local player, and only while the listener wants it on.
+    final offlineError = _offlineErrorShown &&
+        _hasBeenPlayed &&
+        !_videoMode &&
+        !_playlistYoutubeActive &&
+        !isCasting;
     final station = currentStation.valueOrNull;
     final isFav = station != null &&
         stationDataService.favoriteStationSlugs.value.contains(station.slug);
@@ -4215,7 +4256,9 @@ class AppAudioHandler extends BaseAudioHandler {
         MediaAction.skipToQueueItem,
       },
       androidCompactActionIndices: const [3, 4, 5],
-      processingState: _isConnecting
+      processingState: offlineError
+        ? AudioProcessingState.error
+        : _isConnecting
         ? AudioProcessingState.loading
         : _videoMode
           ? (videoService.isBuffering
@@ -4245,6 +4288,8 @@ class AppAudioHandler extends BaseAudioHandler {
               ? _youtubePosition
               : player.bufferedPosition,
       speed: player.speed,
+      errorCode: offlineError ? _errorCodeUnknown : null,
+      errorMessage: offlineError ? _offlineErrorMessage : null,
     ));
   }
 

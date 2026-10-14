@@ -135,6 +135,22 @@ void main() {
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
     });
 
+    testWidgets('keeps the spinner while the car waits for the internet',
+        (tester) async {
+      await tester.pumpWidget(buildWidget());
+      await tester.pump();
+
+      // AppAudioHandler.setOfflineError: still trying to play.
+      playbackController.add(PlaybackState(
+        playing: true,
+        processingState: AudioProcessingState.error,
+      ));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    });
+
     testWidgets('tapping spinner cancels in-flight play via onPause', (tester) async {
       // The widget intentionally routes spinner taps to onPause (not onStop)
       // so a stuck buffering state doesn't kill the player and leave the

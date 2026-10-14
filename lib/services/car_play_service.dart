@@ -66,7 +66,8 @@ class CarPlayService {
   ConnectionErrorReason? _shownErrorReason;
   bool get _isShowingConnectionError => _shownErrorReason != null;
 
-  // When the no-internet alert shows on CarPlay (iOS only).
+  // When the car shows that the internet is out: CarPlay's alert,
+  // Android Auto's error state.
   OfflineAlertGate? _offlineAlertGate;
 
   // CarPlay list items by slug - for favorites tab (reused when updating)
@@ -982,9 +983,29 @@ class CarPlayService {
     }
   }
 
+  // Android Auto only: while the internet is out and nothing plays, the
+  // player says why, on the rules of the CarPlay alert (OfflineAlertGate).
+  // Android Auto draws its own player from the media session, so the
+  // message goes through the session's error state.
+  void _showOfflineErrorOnAndroidAuto() {
+    final gate = _offlineAlertGate = OfflineAlertGate(
+      show: () => _audioHandler.setOfflineError(true),
+      dismiss: () => _audioHandler.setOfflineError(false),
+    );
+    _networkRecoverySubscription = NetworkService.instance.isOffline.stream
+        .listen(gate.onOfflineChanged);
+    _carConnectedAlertSubscription =
+        isCarConnected.stream.listen(gate.onCarConnectedChanged);
+    _audioPlayingAlertSubscription =
+        _audioHandler.audioPlayingStream.listen(gate.onAudioPlayingChanged);
+    _playRequestAlertSubscription =
+        _audioHandler.playRequested.listen((_) => gate.onPlayRequested());
+  }
+
   void _initializeAndroidAuto() {
     _log("Initializing Android Auto");
     _flutterAndroidAuto = FlutterAndroidAuto();
+    _showOfflineErrorOnAndroidAuto();
 
     _flutterAndroidAuto!.addListenerOnConnectionChange((status) {
       _log("Android Auto connection status changed: $status");

@@ -647,6 +647,63 @@ void main() {
     });
   });
 
+  // What Android Auto shows while playback waits for the internet.
+  group('offline error', () {
+    bool showsError() =>
+        handler.playbackState.value.processingState ==
+        AudioProcessingState.error;
+
+    Future<void> playStation2() async {
+      await startHandler();
+      unawaited(handler.playStation(stationOf(2)));
+      await untilPlaying(mp3Of2, loads: 1);
+    }
+
+    test('shows as the error state with a message, and goes', () async {
+      await http.runWithClient(() async {
+        await playStation2();
+
+        handler.setOfflineError(true);
+        final state = handler.playbackState.value;
+        expect(state.processingState, AudioProcessingState.error);
+        expect(state.errorMessage, isNotEmpty);
+        expect(state.playing, isTrue,
+            reason: 'audio_service stays in the foreground');
+
+        handler.setOfflineError(false);
+        expect(showsError(), isFalse);
+        expect(handler.playbackState.value.errorMessage, isNull);
+      }, () => routing);
+    });
+
+    test('a pause shows as a pause', () async {
+      await http.runWithClient(() async {
+        await playStation2();
+        handler.setOfflineError(true);
+
+        await handler.pause();
+
+        expect(showsError(), isFalse);
+        expect(handler.playbackState.value.errorMessage, isNull);
+      }, () => routing);
+    });
+
+    test('a station pick or a resume clears it at once', () async {
+      await http.runWithClient(() async {
+        await playStation2();
+        handler.setOfflineError(true);
+
+        unawaited(handler.playStation(stationOf(3)));
+        expect(showsError(), isFalse, reason: 'the new station loads');
+
+        handler.setOfflineError(true);
+        await handler.pause();
+        unawaited(handler.play());
+        expect(showsError(), isFalse);
+      }, () => routing);
+    });
+  });
+
   group('session queue', () {
     test('tapping a history row keeps the current station', () async {
       await http.runWithClient(() async {

@@ -101,6 +101,22 @@ void main() {
     });
   });
 
+  test('disconnecting the car takes the alert down with it', () {
+    withGate((async, gate, shown, dismissed) {
+      gate.onOfflineChanged(true);
+      async.elapse(delay);
+      expect(shown(), 1);
+
+      gate.onCarConnectedChanged(false);
+      expect(dismissed(), 1);
+
+      // The next drive, still offline: the alert comes again.
+      gate.onCarConnectedChanged(true);
+      async.elapse(delay);
+      expect(shown(), 2);
+    });
+  });
+
   test('an outage the buffer plays through shows nothing', () {
     withGate((async, gate, shown, _) {
       gate.onAudioPlayingChanged(true);

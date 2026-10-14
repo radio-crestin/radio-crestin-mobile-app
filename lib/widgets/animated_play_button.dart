@@ -55,8 +55,11 @@ class AnimatedPlayButtonState extends State<AnimatedPlayButton> {
 
   void _onPlaybackState(PlaybackState state) {
     final playing = state.playing;
+    // The error state is the player waiting for the internet in the car
+    // (AppAudioHandler.setOfflineError): still trying, as when loading.
     final loading = state.processingState == AudioProcessingState.loading ||
-        state.processingState == AudioProcessingState.buffering;
+        state.processingState == AudioProcessingState.buffering ||
+        state.processingState == AudioProcessingState.error;
 
     // When stream reaches a settled state, always sync intent to reality.
     // This prevents desync from programmatic play/pause (autoplay, reconnect,

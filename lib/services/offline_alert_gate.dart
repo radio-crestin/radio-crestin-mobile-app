@@ -1,6 +1,7 @@
 import 'dart:async';
 
-/// Decides when the car screen shows its no-internet alert.
+/// Decides when the car screen shows its no-internet alert: CarPlay's
+/// modal alert, Android Auto's error in place of the player.
 ///
 /// On the road the internet drops often and briefly: tunnels, cell
 /// handoffs, leaving the home WiFi. The forward buffer (up to 2 minutes)
@@ -43,7 +44,8 @@ class OfflineAlertGate {
 
   /// The car connected or disconnected. Connecting while already offline
   /// waits the full [delay] too: leaving home, the phone often switches
-  /// from WiFi to mobile data right as the car connects.
+  /// from WiFi to mobile data right as the car connects. The alert belongs
+  /// to the car screen and goes with it.
   void onCarConnectedChanged(bool connected) {
     if (connected == _carConnected) return;
     _carConnected = connected;
@@ -51,6 +53,7 @@ class OfflineAlertGate {
       if (_offline) _arm();
     } else {
       _timer?.cancel();
+      dismiss();
     }
   }
 
