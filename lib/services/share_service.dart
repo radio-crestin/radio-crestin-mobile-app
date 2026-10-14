@@ -110,8 +110,9 @@ class ShareLinkData {
 
 /// The last share link the API returned, kept on disk.
 ///
-/// The share sheet opens with it, so the visit count and the personal link
-/// show at once while a fresh copy loads, instead of a placeholder.
+/// The share sheet and the home share card open with it, so the visit count
+/// and the personal link show at once while a fresh copy loads, instead of
+/// a placeholder, and the card keeps its size when that copy arrives.
 class ShareLinkCache {
   ShareLinkCache._();
 
@@ -122,11 +123,26 @@ class ShareLinkCache {
     final raw = _prefs?.getString(_key);
     if (raw == null) return null;
     try {
-      return ShareLinkData.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+      final json = jsonDecode(raw) as Map<String, dynamic>;
+      return ShareLinkData.fromJson(
+        json.containsKey('shareId') ? _snakeCaseKeys(json) : json,
+      );
     } catch (_) {
       return null;
     }
   }
+
+  /// Renames `shareId`-style keys to the API's `share_id` style.
+  ///
+  /// The home share card used to save its own camelCase copy under this
+  /// key, so one can still be on disk after an update.
+  static Map<String, dynamic> _snakeCaseKeys(Map<String, dynamic> json) => {
+        for (final MapEntry(:key, :value) in json.entries)
+          key.replaceAllMapped(
+            RegExp('[A-Z]'),
+            (m) => '_${m[0]!.toLowerCase()}',
+          ): value,
+      };
 
   static Future<void> save(ShareLinkData data) async {
     try {

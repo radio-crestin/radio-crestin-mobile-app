@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -41,52 +40,24 @@ class SharePromotionCardState extends State<SharePromotionCard> {
   static const Color _facebookColor = Color(0xFF1877F2);
   
   ShareLinkData? _shareLinkData;
-  bool _isLoading = true;
   String? _anonymousId;
 
   @override
   void initState() {
     super.initState();
+    // The last link fetched draws the card on its first frame, so the card
+    // keeps its size when the fresh one arrives instead of moving the
+    // stations below it.
+    _shareLinkData = ShareLinkCache.read();
     _loadShareLink();
   }
 
-  Future<void> refreshShareLink() async {
-    setState(() {
-      _isLoading = true;
-    });
-    await _loadShareLink();
-  }
-
-  static const String _cacheKey = 'share_link_cache';
+  /// Fetches a fresh link; the card keeps showing the current one meanwhile.
+  Future<void> refreshShareLink() => _loadShareLink();
 
   Future<void> _loadShareLink() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-
-      // Load cached data first to avoid layout shift
-      final cachedJson = prefs.getString(_cacheKey);
-      if (cachedJson != null) {
-        try {
-          final cached = json.decode(cachedJson) as Map<String, dynamic>;
-          _shareLinkData = ShareLinkData(
-            shareId: cached['shareId'] ?? '',
-            url: cached['url'] ?? '',
-            shareMessage: cached['shareMessage'] ?? '',
-            shareStationMessage: cached['shareStationMessage'] ?? '',
-            visitCount: cached['visitCount'] ?? 0,
-            createdAt: cached['createdAt'] ?? '',
-            isActive: cached['isActive'] ?? true,
-            shareSectionMessage: cached['shareSectionMessage'] ?? '',
-            shareSectionTitle: cached['shareSectionTitle'] ?? '',
-          );
-          if (mounted) {
-            setState(() {
-              _isLoading = false;
-            });
-          }
-        } catch (_) {}
-      }
-
       _anonymousId = prefs.getString('device_id');
 
       if (_anonymousId == null) {
@@ -109,47 +80,23 @@ class SharePromotionCardState extends State<SharePromotionCard> {
         }
       }
 
+      // getShareLink also saves the link to ShareLinkCache.
       final shareService = ShareService(widget.client);
       final data = await shareService.getShareLink(_anonymousId!);
 
-      if (data != null) {
-        // Cache the fresh data
-        await prefs.setString(_cacheKey, json.encode({
-          'shareId': data.shareId,
-          'url': data.url,
-          'shareMessage': data.shareMessage,
-          'shareStationMessage': data.shareStationMessage,
-          'visitCount': data.visitCount,
-          'createdAt': data.createdAt,
-          'isActive': data.isActive,
-          'shareSectionMessage': data.shareSectionMessage,
-          'shareSectionTitle': data.shareSectionTitle,
-        }));
-      }
-
-      if (mounted) {
+      if (mounted && data != null) {
         setState(() {
-          _shareLinkData = data ?? _shareLinkData;
-          _isLoading = false;
+          _shareLinkData = data;
         });
       }
     } catch (e) {
       print('Error loading share link: $e');
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
     }
   }
 
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const SizedBox.shrink();
-    }
-
     if (_shareLinkData == null) {
       return const SizedBox.shrink();
     }
@@ -195,7 +142,9 @@ class SharePromotionCardState extends State<SharePromotionCard> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        _shareLinkData?.shareSectionTitle ?? 'Distribuie aplicația',
+                        _shareLinkData!.shareSectionTitle.isNotEmpty
+                          ? _shareLinkData!.shareSectionTitle
+                          : 'Distribuie aplicația',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,

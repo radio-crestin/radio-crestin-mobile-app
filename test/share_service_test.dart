@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -103,6 +105,26 @@ void main() {
       final cached = ShareLinkCache.read();
       expect(cached?.shareId, 'abc');
       expect(cached?.visitCount, 7);
+    });
+
+    test('reads the camelCase copy the share card used to save', () async {
+      await registerPrefs({
+        'share_link_cache': jsonEncode({
+          'shareId': 'abc',
+          'url': 'https://asculta.radiocrestin.ro',
+          'visitCount': 5,
+          'isActive': false,
+          'shareSectionMessage': 'ssm',
+          'shareSectionTitle': 'sst',
+        }),
+      });
+      final cached = ShareLinkCache.read();
+      expect(cached?.shareId, 'abc');
+      expect(cached?.url, 'https://asculta.radiocrestin.ro');
+      expect(cached?.visitCount, 5);
+      expect(cached?.isActive, isFalse);
+      expect(cached?.shareSectionMessage, 'ssm');
+      expect(cached?.shareSectionTitle, 'sst');
     });
 
     test('ignores an unreadable entry', () async {
