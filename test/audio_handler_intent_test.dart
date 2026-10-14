@@ -747,11 +747,20 @@ void main() {
         await startHandler();
         await playStation2();
 
-        // AVPlayer's answer to the play, stamped after it.
-        await Future<void>.delayed(const Duration(milliseconds: 2));
-        channels.emitProcessingState(3);
+        // The fake answers the play at once, stamped in whole milliseconds
+        // like AVPlayer, usually in the millisecond of the request.
         await until(() => reported() == AudioProcessingState.ready);
       }, () => routing);
+    });
+
+    test('an answer from the millisecond of the request answers it', () {
+      final requestedAt = DateTime.fromMicrosecondsSinceEpoch(1000700);
+      DateTime stamped(int ms) => DateTime.fromMillisecondsSinceEpoch(ms);
+
+      expect(AppAudioHandler.mayAnswerPlay(stamped(1000), requestedAt), isTrue);
+      expect(AppAudioHandler.mayAnswerPlay(stamped(1001), requestedAt), isTrue);
+      expect(AppAudioHandler.mayAnswerPlay(stamped(999), requestedAt), isFalse,
+          reason: 'on its way before the play');
     });
 
     test('a pause before AVPlayer answers shows as a pause', () async {

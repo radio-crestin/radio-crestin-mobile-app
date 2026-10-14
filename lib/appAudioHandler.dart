@@ -2843,18 +2843,29 @@ class AppAudioHandler extends BaseAudioHandler {
   ///
   /// AVPlayer answers a play at once, with its wait for data (buffering)
   /// or, should it have enough, its start (ready), and stamps the event
-  /// with the time it handled the play. Events stamped earlier were on
-  /// their way before it.
+  /// with the time it handled the play (see [mayAnswerPlay]).
   void _endAwaitingAudioStart(PlaybackEvent event) {
     final requestedAt = _audioStartRequestedAt;
     if (!_awaitingAudioStart ||
         requestedAt == null ||
-        event.updateTime.isBefore(requestedAt)) {
+        !mayAnswerPlay(event.updateTime, requestedAt)) {
       return;
     }
     _awaitingAudioStart = false;
     _audioStartRequestedAt = null;
   }
+
+  /// Whether a player event stamped [eventTime] can answer a play asked
+  /// at [requestedAt]: one stamped earlier was on its way before it.
+  ///
+  /// AVPlayer stamps its events in whole milliseconds, so its answer in
+  /// the millisecond of the request reads as earlier than the request.
+  /// Compared to the microsecond, that answer would be missed, and as
+  /// nothing stamps again during steady playback, playing would show as
+  /// buffering until the next pause or stall.
+  @visibleForTesting
+  static bool mayAnswerPlay(DateTime eventTime, DateTime requestedAt) =>
+      eventTime.millisecondsSinceEpoch >= requestedAt.millisecondsSinceEpoch;
 
   /// Loads [streamUrl] into the player with the tracking parameters,
   /// racing [canceller] under the stream's load timeout, for play()'s
