@@ -31,6 +31,7 @@ import 'package:radio_crestin/services/silence_keeper.dart';
 import 'package:radio_crestin/services/sleep_timer_service.dart';
 import 'package:radio_crestin/services/song_history_service.dart';
 import 'package:radio_crestin/services/hls_health_watchdog_flag.dart';
+import 'package:radio_crestin/services/hls_start_variant.dart';
 import 'package:radio_crestin/services/hls_timeline.dart';
 import 'package:radio_crestin/services/song_like_service.dart';
 import 'package:radio_crestin/services/station_data_service.dart';
@@ -787,6 +788,10 @@ class AppAudioHandler extends BaseAudioHandler {
   // The seek offset the loaded HLS stream was anchored with, so
   // reapplySeekOffset() can skip a reload that would not change it.
   Duration? _anchoredOffset;
+  // Streams whose start variant (see HlsStartVariant) failed to load this
+  // session while their index.m3u8 loaded, the origin not publishing the
+  // variant yet: they load index.m3u8 and seek behind live, as before.
+  final Set<String> _streamsWithoutStartVariant = {};
 
   // ── Auto slow-connection escalation ───────────────────────────────────
   // Repeated stream trouble (buffering stalls / watchdog reconnects) within a
@@ -803,6 +808,8 @@ class AppAudioHandler extends BaseAudioHandler {
   // land within seconds of the edge, where the segment is evicted almost
   // immediately. 75s comfortably exceeds the liveness watchdog's grace, so a
   // genuine stall is still caught rather than masked by a doomed anchor.
+  // The origin clamps its start variants (HlsStartVariant) with the same
+  // margin, so loading one lands where this seek would.
   static const _dvrTrailingSafetyMargin = Duration(seconds: 75);
 
   // ── Fast-start instrumentation (debug-mode only) ──────────────────────
@@ -2391,6 +2398,9 @@ class AppAudioHandler extends BaseAudioHandler {
     final canceller = Completer<void>();
     _sourceLoadCanceller = canceller;
     final previousStreamInfo = currentStreamInfo.valueOrNull;
+    // Where the loaded start variant begins behind live; null when the
+    // stream's own URL loaded.
+    Duration? startVariantOffset;
 
     while (item != null && myOpId == _playOperationId) {
       if (_restartPassAtPreferred) {
@@ -2491,8 +2501,6 @@ class AppAudioHandler extends BaseAudioHandler {
         if (retry > 0) {
           await player.stop();
         }
-        final trackedUrl = addTrackingParametersToUrl(streamUrl);
-        final loadUrl = trackedUrl;
         // New load: forget the previous stream's timeline. For HLS, fetch
         // the playlist concurrently with the player's own fetch, so the
         // anchoring snapshot shows (nearly) the window the player sees.
@@ -2501,25 +2509,19 @@ class AppAudioHandler extends BaseAudioHandler {
           unawaited(
               _pollHlsPlaylist(url: streamUrl, generation: hlsGeneration));
         }
-        // Hard load timeout — a hanging playlist/stream request counts as
-        // a failure and advances to the next stream (StreamFailover owns
-        // the values so they are asserted in tests).
-        final timeout = StreamFailover.loadTimeout(isHls: isHls);
-        // Race setAudioSource against the canceller so playStation() can
-        // break this await immediately instead of waiting for the timeout.
-        final loadFuture = player.setAudioSource(
-          AudioSource.uri(Uri.parse(loadUrl)),
-          preload: true,
+        final loaded = await _loadStreamSource(
+          streamUrl,
+          isHls: isHls,
+          canceller: canceller.future,
+          opId: myOpId,
         );
-        // Prevent unhandled error if abandoned by Future.any
-        loadFuture.ignore();
-        await Future.any([loadFuture, canceller.future]).timeout(timeout);
+        startVariantOffset = loaded.startVariantOffset;
         _loadedStreamUrl = streamUrl;
         _loadedStreamType = streamType;
         _lastSuccessfulLoadAt = DateTime.now();
         _failover.recordSuccess(streamUrl);
         final elapsedMs = DateTime.now().difference(attemptStart).inMilliseconds;
-        _log("play: source loaded successfully ($trackedUrl)");
+        _log("play: source loaded successfully (${loaded.url})");
 
         final newInfo = StreamInfo(
           url: streamUrl,
@@ -2670,9 +2672,30 @@ class AppAudioHandler extends BaseAudioHandler {
     _sourceLoadCanceller = null;
     PerformanceMonitor.endOperation('audio_play');
 
+    var reloadAtLivePoint = false;
     if (_loadedStreamType == 'HLS') {
-      _anchoredOffset = SeekModeManager.currentOffset;
-      _seekBehindLiveEdge(); // non-blocking: seek starts, play() follows immediately
+      final offset = SeekModeManager.currentOffset;
+      _anchoredOffset = offset;
+      switch (HlsStartVariant.followUp(
+        variantOffset: startVariantOffset,
+        currentOffset: offset,
+        seekRestartsPlayback: _reloadNeedsSeekToPlay,
+      )) {
+        case HlsStartFollowUp.none:
+          _log('play: the start variant already begins ${offset.inSeconds}s '
+              'behind live, no seek');
+        case HlsStartFollowUp.seek:
+          _seekBehindLiveEdge(); // non-blocking: seek starts, play() follows immediately
+        case HlsStartFollowUp.reload:
+          // Instant mode came on while the variant loaded, and the reload
+          // the setting asked for (reapplySeekOffset) skipped the load in
+          // flight. It runs once this plays, from the offset the stream
+          // really starts at.
+          _log('play: instant mode came on while the start variant loaded, '
+              'reloading at the live point');
+          _anchoredOffset = startVariantOffset;
+          reloadAtLivePoint = true;
+      }
       // The concurrent fetch issued with the load is already in flight.
       _startHlsPlaylistPoll(skipInitialFetch: true);
     } else {
@@ -2690,7 +2713,86 @@ class AppAudioHandler extends BaseAudioHandler {
     final playback = player.play();
     _isConnecting = false;
     _broadcastState(player.playbackEvent);
+    if (reloadAtLivePoint) unawaited(reapplySeekOffset());
     return playback;
+  }
+
+  /// Loads [streamUrl] into the player with the tracking parameters,
+  /// racing [canceller] under the stream's load timeout, for play()'s
+  /// attempt [opId]. Returns the URL loaded and, for a start variant (see
+  /// [HlsStartVariant]), the offset behind live it begins at.
+  ///
+  /// A live HLS stream at the 2- or 5-minute offset loads its variant.
+  /// When that load fails as a variant the origin does not publish does
+  /// ([HlsStartVariant.mayBeMissing]), the stream loads again at once from
+  /// its own URL, in the same attempt. That is no stream failure (no
+  /// failover, toast or network report): the stream itself may well be
+  /// fine. Once that load succeeds, the stream is remembered for the
+  /// session. Any other error, the fallback's included, is the caller's,
+  /// as before.
+  Future<({String url, Duration? startVariantOffset})> _loadStreamSource(
+    String streamUrl, {
+    required bool isHls,
+    required Future<void> canceller,
+    required int opId,
+  }) async {
+    // Hard load timeout — a hanging playlist/stream request counts as
+    // a failure and advances to the next stream (StreamFailover owns
+    // the values so they are asserted in tests).
+    final timeout = StreamFailover.loadTimeout(isHls: isHls);
+    // Listeners are counted from the tracking parameters, so the variant
+    // carries them too.
+    Future<String> load(String url) async {
+      final trackedUrl = addTrackingParametersToUrl(url);
+      // Race setAudioSource against the canceller so playStation() can
+      // break this await immediately instead of waiting for the timeout.
+      final loadFuture = player.setAudioSource(
+        AudioSource.uri(Uri.parse(trackedUrl)),
+        preload: true,
+      );
+      // Prevent unhandled error if abandoned by Future.any
+      loadFuture.ignore();
+      await Future.any([loadFuture, canceller]).timeout(timeout);
+      return trackedUrl;
+    }
+
+    final offset = SeekModeManager.currentOffset;
+    final variantUrl = isHls &&
+            HlsStartVariant.isSupportedPlatform &&
+            !_streamsWithoutStartVariant.contains(streamUrl)
+        ? HlsStartVariant.urlFor(streamUrl, offset)
+        : null;
+    if (variantUrl == null) {
+      return (url: await load(streamUrl), startVariantOffset: null);
+    }
+    try {
+      return (url: await load(variantUrl), startVariantOffset: offset);
+    } catch (e) {
+      final missing = HlsStartVariant.mayBeMissing(
+        e,
+        httpStatus: _isHttpStatusError(e),
+        android: Platform.isAndroid,
+        offline: NetworkService.instance.isOffline.value,
+      );
+      if (opId != _playOperationId || !missing) rethrow;
+      _log('play: start variant $variantUrl failed (${_shortErr(e)}), '
+          'loading $streamUrl with the seek behind live instead');
+      // A fresh native player, as for every retry in play().
+      await player.stop();
+      if (opId != _playOperationId) rethrow;
+      final loadedUrl = await load(streamUrl);
+      // Only now is the variant what is missing: the origin answers for
+      // the stream itself. Had that load failed too, the network or the
+      // stream would explain both (a pod restarting, a dropped signal),
+      // and the stream's next load tries the variant again.
+      _streamsWithoutStartVariant.add(streamUrl);
+      AnalyticsService.instance.logDebug('hls start variant unavailable', {
+        'stream_url': streamUrl,
+        'variant_url': variantUrl,
+        'error': _shortErr(e),
+      });
+      return (url: loadedUrl, startVariantOffset: null);
+    }
   }
 
   /// Retry-cycle start index for [streams]: the first stream without a
@@ -2862,6 +2964,9 @@ class AppAudioHandler extends BaseAudioHandler {
   /// Non-blocking: fires the seek without awaiting so player.play() can
   /// start immediately. Both AVFoundation and ExoPlayer correctly play
   /// from the seek target when play() overlaps an in-progress seek.
+  ///
+  /// Skipped after loading a start variant, which already begins there
+  /// (see [HlsStartVariant.followUp]).
   void _seekBehindLiveEdge() {
     final offset = SeekModeManager.currentOffset;
     if (offset == Duration.zero) {
@@ -2903,9 +3008,7 @@ class AppAudioHandler extends BaseAudioHandler {
   /// live point there instead of skipping.
   void _stayAtLiveEdge(String reason) {
     final duration = player.duration;
-    if (!ReconnectPolicy.silentStallPossible ||
-        !player.playing ||
-        duration == null) {
+    if (!_reloadNeedsSeekToPlay || duration == null) {
       _log('_seekBehindLiveEdge: $reason, skipping');
       return;
     }
@@ -2915,6 +3018,11 @@ class AppAudioHandler extends BaseAudioHandler {
       _log('_seekBehindLiveEdge: live-point seek failed ($e)');
     });
   }
+
+  /// Whether the source just loaded plays only once a seek completes: a
+  /// Darwin reload while already playing (see [_stayAtLiveEdge]).
+  bool get _reloadNeedsSeekToPlay =>
+      ReconnectPolicy.silentStallPossible && player.playing;
 
   /// Starts or stops the live-HLS liveness watchdog. It runs only while a
   /// local live HLS stream plays on a player that can go silent while still

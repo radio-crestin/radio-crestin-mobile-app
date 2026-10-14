@@ -124,13 +124,16 @@ class FakeRow {
 
 class _FakeStation {
   _FakeStation(this.id, this.slug, this.title,
-      {required this.hls, this.stationType});
+      {required this.hls, required this.hlsUrl, this.stationType});
   final int id;
   final String slug;
   final String title;
 
   /// Streams: the HLS playlist first, then the MP3 fallback.
   final bool hls;
+
+  /// The HLS playlist's URL.
+  final String hlsUrl;
 
   /// The wire `station_type` (`tv`, `playlist`); null is a radio station.
   final String? stationType;
@@ -218,13 +221,16 @@ class FakeMetadataBackend {
   List<Uri> get privateRequests =>
       requests.where((u) => u.path.endsWith('/private-stations')).toList();
 
-  /// [hls]: the station's preferred stream is [hlsUrlOf] (MP3 fallback).
+  /// [hls]: the station's preferred stream is [hlsUrl], by default
+  /// [hlsUrlOf] (MP3 fallback).
   void addStation(int id, String slug, String title,
-          {bool hls = false, String? stationType}) =>
-      _stations.add(
-          _FakeStation(id, slug, title, hls: hls, stationType: stationType));
+          {bool hls = false, String? hlsUrl, String? stationType}) =>
+      _stations.add(_FakeStation(id, slug, title,
+          hls: hls,
+          hlsUrl: hlsUrl ?? hlsUrlOf(slug),
+          stationType: stationType));
 
-  /// The HLS playlist URL of an [addStation] with `hls: true`.
+  /// The default HLS playlist URL of an [addStation] with `hls: true`.
   static String hlsUrlOf(String slug) =>
       'https://hls.example.com/hls/$slug/index.m3u8';
 
@@ -470,7 +476,7 @@ class FakeMetadataBackend {
                 stationStreams: [
                   if (s.hls)
                     Query$GetStations$stations$station_streams(
-                        order: 0, type: 'HLS', stream_url: hlsUrlOf(s.slug)),
+                        order: 0, type: 'HLS', stream_url: s.hlsUrl),
                   Query$GetStations$stations$station_streams(
                       order: 1, type: 'mp3', stream_url: mp3UrlOf(s.slug)),
                 ],
