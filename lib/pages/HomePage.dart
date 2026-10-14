@@ -800,10 +800,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     // while the search dialog opens above it.
     final panelMaxHeight = MediaQuery.sizeOf(context).height * .9;
     final bottomPadding = MediaQuery.paddingOf(context).bottom;
-    // The page's Stack ends this far above the screen bottom (the strip under
-    // it); the open panel is this tall inside it.
-    final stackBottomInset = Platform.isIOS ? 12.0 : bottomPadding;
-    final panelOpenHeight = panelMaxHeight - stackBottomInset;
+    // The panel reaches the screen's bottom edge, so the player's backdrop
+    // slides up from it unbroken; the mini player and the full player's
+    // content keep this far above it.
+    final panelBottomInset = Platform.isIOS ? 12.0 : bottomPadding;
+    final panelMinHeight = kMiniPlayerCollapsedHeight + panelBottomInset;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -824,19 +825,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             final nonFavoriteStations = filteredStations.where((station) => !favoriteSlugs.contains(station.slug)).toList();
             final hasMiniPlayer = currentStation != null && stations.isNotEmpty;
 
-            final pageColor = Theme.of(context).scaffoldBackgroundColor;
-
-            return ColoredBox(
-              color: pageColor,
-              child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-              Expanded(
-              child: Stack(
+            return Stack(
               children: [
               SlidingUpPanel(
-              maxHeight: panelOpenHeight,
-              minHeight: kMiniPlayerCollapsedHeight,
+              maxHeight: panelMaxHeight,
+              minHeight: panelMinHeight,
               backdropEnabled: true,
               backdropTapClosesPanel: true,
               boxShadow: const [],
@@ -1141,11 +1134,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             ),
                           // Bottom inset so the last rows clear the collapsed
                           // mini player. Once, at the very end of the scroll
-                          // view — not per section. Animates 0 <-> mini player
-                          // height as the player appears/disappears. The safe
-                          // area is already consumed by the outer Container
-                          // padding, so this is exactly the collapsed height.
-                          MiniPlayerBottomInset(visible: currentStation != null),
+                          // view — not per section. Animates 0 <-> the
+                          // collapsed panel's height as the player appears /
+                          // disappears: the list, like the panel, runs to the
+                          // screen's bottom edge.
+                          MiniPlayerBottomInset(
+                            visible: currentStation != null,
+                            bottomInset: panelBottomInset,
+                          ),
                           // Plus room for the docked offline snackbar while
                           // it shows, so the last rows stay reachable.
                           StatusSnackbarListInset(inset: _statusListInset),
@@ -1159,7 +1155,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               ),
               collapsed: currentStation != null && stations.isNotEmpty
                   ? Container(
-                      padding: const EdgeInsets.only(bottom: 4, left: 8, right: 8),
+                      padding: EdgeInsets.only(
+                          bottom: 4 + panelBottomInset, left: 8, right: 8),
                       color: Theme.of(context).scaffoldBackgroundColor,
                       child: MiniAudioPlayer(
                         currentStation: currentStation,
@@ -1180,6 +1177,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     ? FullAudioPlayer(
                         audioHandler: _audioHandler,
                         slidingUpPanelController: slidingUpPanelController,
+                        bottomInset: panelBottomInset,
                       )
                     : null,
               ),
@@ -1190,40 +1188,19 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 child: StatusSnackbarOverlay(
                   controller: _statusSnackbar,
                   panelPosition: _panelSlide,
-                  panelTravel: panelOpenHeight - kMiniPlayerCollapsedHeight,
+                  panelTravel: panelMaxHeight - panelMinHeight,
                   dockedBottom: statusSnackbarDockedBottom(
                     hasMiniPlayer: hasMiniPlayer,
                     bottomSafeArea: bottomPadding,
-                    stackBottomInset: stackBottomInset,
+                    panelBottomInset: panelBottomInset,
                   ),
                   listInset: _statusListInset,
                   listReservedInset:
-                      currentStation != null ? kMiniPlayerCollapsedHeight : 0,
+                      currentStation != null ? panelMinHeight : 0,
                   onRetry: _retryCurrentStation,
                 ),
               ),
             ],
-            ),
-            ),
-              // The strip under the Stack, above the home indicator. It takes
-              // the color of the full player's bottom edge as the panel
-              // rises, so the open player reaches the screen's edge instead
-              // of stopping on a band of the page.
-              ValueListenableBuilder<double>(
-                valueListenable: _panelSlide,
-                builder: (context, slide, _) => SizedBox(
-                  height: stackBottomInset,
-                  child: ColoredBox(
-                    color: Color.lerp(
-                      pageColor,
-                      playerBackdropEdgeColor(Theme.of(context).brightness),
-                      slide,
-                    )!,
-                  ),
-                ),
-              ),
-            ],
-            ),
             );
           }),
     );

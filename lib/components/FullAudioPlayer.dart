@@ -146,10 +146,16 @@ class FullAudioPlayer extends StatefulWidget {
   final AppAudioHandler audioHandler;
   final CustomPanelController slidingUpPanelController;
 
+  /// Room the content keeps clear of at the panel's bottom, which the
+  /// backdrop still fills: the panel runs to the screen's edge, behind the
+  /// home indicator or the navigation bar.
+  final double bottomInset;
+
   const FullAudioPlayer({
     super.key,
     required this.audioHandler,
     required this.slidingUpPanelController,
+    this.bottomInset = 0.0,
   });
 
   @override
@@ -293,6 +299,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
         : layout.infoWidth;
 
     return _PlayerPanel(
+      bottomInset: widget.bottomInset,
       child: Column(
         children: [
           _buildDragHandle(context),
@@ -337,6 +344,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     PlayerLayoutMetrics layout,
   ) {
     return _PlayerPanel(
+      bottomInset: widget.bottomInset,
       child: SafeArea(
         top: false,
         child: Column(
@@ -866,6 +874,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     final station = currentStation!;
     final isFavorite = _favoriteSlugs.contains(station.slug);
     return _PlayerPanel(
+      bottomInset: widget.bottomInset,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -1089,14 +1098,15 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
 
 /// The sliding panel's background: rounded top corners over the brand
 /// backdrop, which glows behind the artwork and keeps its tint all the way
-/// to the bottom edge.
+/// to the bottom edge, [bottomInset] under the content.
 ///
 /// A transparent [Material] sits above the gradient so the buttons' ripples
 /// show: an [InkWell] paints on its nearest Material, which would otherwise
 /// be the page under the panel, covered by the gradient.
 class _PlayerPanel extends StatelessWidget {
-  const _PlayerPanel({required this.child});
+  const _PlayerPanel({required this.bottomInset, required this.child});
 
+  final double bottomInset;
   final Widget child;
 
   @override
@@ -1128,12 +1138,15 @@ class _PlayerPanel extends StatelessWidget {
       ),
       child: Material(
         type: MaterialType.transparency,
-        child: MediaQuery.removePadding(
-          context: context,
-          removeTop: true,
-          child: MediaQuery.withClampedTextScaling(
-            maxScaleFactor: _maxTextScale,
-            child: child,
+        child: Padding(
+          padding: EdgeInsets.only(bottom: bottomInset),
+          child: MediaQuery.removePadding(
+            context: context,
+            removeTop: true,
+            child: MediaQuery.withClampedTextScaling(
+              maxScaleFactor: _maxTextScale,
+              child: child,
+            ),
           ),
         ),
       ),
@@ -1143,16 +1156,6 @@ class _PlayerPanel extends StatelessWidget {
 
 /// Where the player backdrop's glow is brightest: centred, 18% down.
 const Alignment _backdropCenter = Alignment(0.0, -0.64);
-
-/// The color along the full player's bottom edge, for the page to carry the
-/// player down to the screen's edge.
-///
-/// The backdrop's ellipse ends at 93% of the panel's height (18% + 75%), so
-/// its last color fills the whole bottom edge whatever the panel's size.
-Color playerBackdropEdgeColor(Brightness brightness) =>
-    brightness == Brightness.dark
-        ? AppColors.darkPlayerBackdrop.last
-        : AppColors.lightPlayerBackdrop.last;
 
 /// Stretches a [RadialGradient] of radius 1 into an ellipse whose radii are
 /// fractions of the painted box's width and height, as CSS's

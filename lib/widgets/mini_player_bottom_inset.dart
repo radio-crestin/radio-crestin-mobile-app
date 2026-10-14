@@ -12,17 +12,25 @@ const double kMiniPlayerCollapsedHeight = 96.0;
 ///
 /// The mini player only appears while a station is selected, so the spacer
 /// animates its height between `0` (no mini player) and
-/// [kMiniPlayerCollapsedHeight] (mini player visible). The list smoothly
-/// reveals the extra room as playback starts and reclaims it when it stops.
+/// [kMiniPlayerCollapsedHeight] plus [bottomInset] (mini player visible). The
+/// list smoothly reveals the extra room as playback starts and reclaims it
+/// when it stops.
 ///
 /// Belongs exactly once, at the very end of the `CustomScrollView` slivers —
 /// never per-section — so every list (favorites, all stations) is cleared by
 /// the same single inset.
 class MiniPlayerBottomInset extends StatelessWidget {
-  const MiniPlayerBottomInset({super.key, required this.visible});
+  const MiniPlayerBottomInset({
+    super.key,
+    required this.visible,
+    this.bottomInset = 0.0,
+  });
 
   /// Whether the collapsed mini player is currently on screen.
   final bool visible;
+
+  /// How far the mini player sits above the list's bottom edge.
+  final double bottomInset;
 
   @override
   Widget build(BuildContext context) {
@@ -30,7 +38,7 @@ class MiniPlayerBottomInset extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
         curve: Curves.easeInOut,
-        height: visible ? kMiniPlayerCollapsedHeight : 0.0,
+        height: visible ? kMiniPlayerCollapsedHeight + bottomInset : 0.0,
       ),
     );
   }

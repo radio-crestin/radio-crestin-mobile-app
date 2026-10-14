@@ -34,23 +34,25 @@ const _enterDuration = Duration(milliseconds: 250);
 const _exitDuration = Duration(milliseconds: 200);
 const _radius = BorderRadius.all(Radius.circular(14));
 
-/// The snackbar's distance from the bottom of the home page's Stack with the
-/// player panel collapsed.
+/// The snackbar's distance from the screen's bottom with the player panel
+/// collapsed.
 ///
-/// [kStatusSnackbarPlayerGap] above the collapsed mini player. With no mini
-/// player (no station selected yet), [kStatusSnackbarEdgeGap] above the
-/// bottom safe area, [bottomSafeArea] tall, of which [stackBottomInset]
-/// already lies below the Stack.
+/// [kStatusSnackbarPlayerGap] above the collapsed mini player, which sits
+/// [panelBottomInset] above the bottom. With no mini player (no station
+/// selected yet), [kStatusSnackbarEdgeGap] above the bottom safe area,
+/// [bottomSafeArea] tall, or above [panelBottomInset] when that is taller
+/// (an iPhone with a home button).
 double statusSnackbarDockedBottom({
   required bool hasMiniPlayer,
   required double bottomSafeArea,
-  required double stackBottomInset,
+  required double panelBottomInset,
 }) {
   if (hasMiniPlayer) {
-    return kMiniPlayerCollapsedHeight + kStatusSnackbarPlayerGap;
+    return panelBottomInset +
+        kMiniPlayerCollapsedHeight +
+        kStatusSnackbarPlayerGap;
   }
-  return math.max(0.0, bottomSafeArea - stackBottomInset) +
-      kStatusSnackbarEdgeGap;
+  return math.max(bottomSafeArea, panelBottomInset) + kStatusSnackbarEdgeGap;
 }
 
 /// The top of a snackbar [height] tall in an area [areaHeight] tall: its

@@ -18,8 +18,8 @@ const _screen = Size(390, 844);
 const _topSafeArea = 47.0;
 const _bottomSafeArea = 34.0;
 
-/// How far the home page's Stack ends above the screen bottom on iOS.
-const _iosStackBottomInset = 12.0;
+/// How far the mini player sits above the screen bottom on iOS.
+const _iosPanelBottomInset = 12.0;
 
 const _offline = StatusMessage.offline(
   status: ConnectionStatus.offline,
@@ -638,31 +638,43 @@ void main() {
         statusSnackbarDockedBottom(
           hasMiniPlayer: true,
           bottomSafeArea: _bottomSafeArea,
-          stackBottomInset: _iosStackBottomInset,
+          panelBottomInset: _iosPanelBottomInset,
         ),
-        kMiniPlayerCollapsedHeight + 8,
+        _iosPanelBottomInset + kMiniPlayerCollapsedHeight + 8,
       );
       expect(kMiniPlayerCollapsedHeight + 8, 104);
     });
 
     test('without a mini player, 12pt above the bottom safe area', () {
-      // iOS: the Stack ends 12pt above the screen bottom, inside the 34pt
-      // home indicator area.
-      final ios = statusSnackbarDockedBottom(
-        hasMiniPlayer: false,
-        bottomSafeArea: _bottomSafeArea,
-        stackBottomInset: _iosStackBottomInset,
+      // iOS: the panel's 12pt inset lies inside the 34pt home indicator
+      // area.
+      expect(
+        statusSnackbarDockedBottom(
+          hasMiniPlayer: false,
+          bottomSafeArea: _bottomSafeArea,
+          panelBottomInset: _iosPanelBottomInset,
+        ),
+        _bottomSafeArea + 12,
       );
-      expect(ios + _iosStackBottomInset, _bottomSafeArea + 12);
 
-      // Android: the Stack ends at the safe area.
+      // An iPhone with a home button has no safe area under the inset.
+      expect(
+        statusSnackbarDockedBottom(
+          hasMiniPlayer: false,
+          bottomSafeArea: 0,
+          panelBottomInset: _iosPanelBottomInset,
+        ),
+        _iosPanelBottomInset + 12,
+      );
+
+      // Android: the inset is the safe area.
       expect(
         statusSnackbarDockedBottom(
           hasMiniPlayer: false,
           bottomSafeArea: 24,
-          stackBottomInset: 24,
+          panelBottomInset: 24,
         ),
-        12,
+        24 + 12,
       );
     });
   });
@@ -699,17 +711,18 @@ void main() {
     final withMiniPlayer = statusSnackbarDockedBottom(
       hasMiniPlayer: true,
       bottomSafeArea: _bottomSafeArea,
-      stackBottomInset: _iosStackBottomInset,
+      panelBottomInset: _iosPanelBottomInset,
     );
     final withoutMiniPlayer = statusSnackbarDockedBottom(
       hasMiniPlayer: false,
       bottomSafeArea: _bottomSafeArea,
-      stackBottomInset: _iosStackBottomInset,
+      panelBottomInset: _iosPanelBottomInset,
     );
-    // As on the home page: the open panel is 90% of the screen, less the
-    // Stack's bottom inset; collapsed, it is the mini player.
-    final travel =
-        _screen.height * .9 - _iosStackBottomInset - kMiniPlayerCollapsedHeight;
+    // As on the home page: the open panel is 90% of the screen; collapsed,
+    // it is the mini player over the panel's bottom inset.
+    final travel = _screen.height * .9 -
+        _iosPanelBottomInset -
+        kMiniPlayerCollapsedHeight;
     const minTop = _topSafeArea + kStatusSnackbarTopGap;
 
     late StatusSnackbarController controller;
@@ -732,7 +745,10 @@ void main() {
       dockedBottom.dispose();
     });
 
-    Widget overlay({double listReservedInset = kMiniPlayerCollapsedHeight}) =>
+    // As on the home page: the list keeps the collapsed panel's room.
+    const panelMinHeight = _iosPanelBottomInset + kMiniPlayerCollapsedHeight;
+
+    Widget overlay({double listReservedInset = panelMinHeight}) =>
         ValueListenableBuilder<double>(
           valueListenable: dockedBottom,
           builder: (context, bottom, _) => StatusSnackbarOverlay(
@@ -749,7 +765,7 @@ void main() {
     Future<void> pumpOverlay(
       WidgetTester tester, {
       bool accessibleNavigation = false,
-      double listReservedInset = kMiniPlayerCollapsedHeight,
+      double listReservedInset = panelMinHeight,
     }) async {
       useScreen(tester);
       await tester.pumpWidget(page(
@@ -776,7 +792,10 @@ void main() {
 
     /// The top edge of the panel, in screen coordinates.
     double panelTop(double position) =>
-        _screen.height - kMiniPlayerCollapsedHeight - position * travel;
+        _screen.height -
+        _iosPanelBottomInset -
+        kMiniPlayerCollapsedHeight -
+        position * travel;
 
     testWidgets('docks 8pt above the mini player, inset from the edges',
         (tester) async {
@@ -799,10 +818,9 @@ void main() {
       goOffline();
       await tester.pumpAndSettle();
 
-      // Here the Stack reaches the screen bottom. On iOS it ends 12pt above
-      // it, which puts the snackbar 12pt above the home indicator area.
+      // 12pt above the home indicator area.
       expect(tester.getRect(card()).bottom, _screen.height - withoutMiniPlayer);
-      expect(withoutMiniPlayer + _iosStackBottomInset, _bottomSafeArea + 12);
+      expect(withoutMiniPlayer, _bottomSafeArea + 12);
     });
 
     testWidgets('glides to its new dock when the mini player appears',
@@ -859,8 +877,8 @@ void main() {
     });
 
     testWidgets(
-        "over the open full player it fits the gap above the panel's top, "
-        'under the status bar', (tester) async {
+        'over the open full player it turns into one line under the '
+        'status bar', (tester) async {
       await pumpOverlay(tester);
       // Two lines docked: the explanation that playback resumes by itself.
       controller.playIntent = true;
@@ -878,8 +896,12 @@ void main() {
       await tester.pumpAndSettle();
       final rect = tester.getRect(card());
       expect(find.text(_offline.body!), findsNothing);
-      expect(rect.top, greaterThanOrEqualTo(minTop));
-      expect(rect.bottom, lessThanOrEqualTo(panelTop(1)));
+      expect(rect.top, minTop);
+      // The open panel's top is 10% down the screen, closer to the status
+      // bar than even the one-line form is tall on this phone, so it still
+      // reaches onto the panel's top edge, by less than the docked form.
+      expect(rect.height, lessThan(docked));
+      expect(rect.bottom, greaterThan(panelTop(1)));
 
       // Closing the panel brings the docked form back.
       panel.value = 0;
