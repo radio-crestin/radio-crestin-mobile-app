@@ -821,8 +821,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             // Apply sorting to filtered stations (cached — stable during session)
             final filteredStations = _stationDataService.getSortedStations();
 
+            // Favorites are also kept in the full list below, so liking a
+            // station doesn't make it vanish from where the user found it,
+            // and the list matches the next/previous order.
             final favoriteStations = filteredStations.where((station) => favoriteSlugs.contains(station.slug)).toList();
-            final nonFavoriteStations = filteredStations.where((station) => !favoriteSlugs.contains(station.slug)).toList();
             final hasMiniPlayer = currentStation != null && stations.isNotEmpty;
 
             return Stack(
@@ -1061,7 +1063,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                     isFavoritesList: true,
                                   )),
                             ),
-                          if (nonFavoriteStations.isNotEmpty)
+                          if (filteredStations.isNotEmpty)
                             SliverStickyHeader(
                               header: Container(
                                 height: 60.0,
@@ -1125,7 +1127,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                 ),
                               ),
                               sliver: StationsList(
-                                stations: nonFavoriteStations,
+                                stations: filteredStations,
                                 currentStation: currentStation,
                                 audioHandler: _audioHandler,
                                 panelController: slidingUpPanelController,
