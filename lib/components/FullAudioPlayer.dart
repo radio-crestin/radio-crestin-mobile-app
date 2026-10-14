@@ -21,11 +21,11 @@ import '../types/Station.dart';
 import '../widgets/animated_play_button.dart';
 import '../widgets/cast_button.dart';
 import '../widgets/player_video_surface.dart';
-import '../widgets/player_more_button.dart';
 import '../widgets/playlist_player_section.dart';
 import '../widgets/shrink_to_fit_text.dart';
 import '../widgets/sleep_timer_button.dart';
 import '../widgets/sleep_timer_sheet.dart';
+import '../widgets/song_search_tip.dart';
 import '../widgets/video_overlay_controls.dart';
 
 /// Responsive sizing for the full-screen player, derived from the screen size.
@@ -178,6 +178,11 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   Key _likeButtonKey = UniqueKey();
   final StationDataService _stationDataService = GetIt.instance<StationDataService>();
 
+  /// Whether the tip that a tap on the song searches YouTube is due (see
+  /// [SongSearchTipMemory.isDue]). False until the preferences are read, so
+  /// the tip never flashes for someone who already dismissed it.
+  bool _songSearchTipDue = false;
+
   /// Shown under the artwork when a radio station has no song metadata:
   /// the station is on air, only the song title is unknown.
   static const _noMetadataLabel = "Live";
@@ -192,9 +197,37 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     return s.isTv ? "Transmisiune live" : _noMetadataLabel;
   }
 
+  /// Whether the station named its song, so a YouTube search can find it.
+  bool get _hasSong {
+    final s = currentStation;
+    return s != null && (s.songTitle.isNotEmpty || s.songArtist.isNotEmpty);
+  }
+
+  /// The song search tip shows over the open player, while a song is named
+  /// (a tap on "Live" does nothing) and the artwork, not a video, is above.
+  bool get _showSongSearchTip =>
+      _songSearchTipDue && _panelExpanded && _hasSong && !_isVideoMode;
+
+  /// Reads whether the song search tip is due.
+  Future<void> _checkSongSearchTip() async {
+    final due = await SongSearchTipMemory.isDue();
+    if (mounted && due != _songSearchTipDue) {
+      setState(() => _songSearchTipDue = due);
+    }
+  }
+
+  /// Hides the song search tip for good. Also called for a search made
+  /// before the tip ever showed: whoever found the search needs no tip.
+  void _dismissSongSearchTip() {
+    if (_songSearchTipDue) setState(() => _songSearchTipDue = false);
+    SongSearchTipMemory.markSeen();
+  }
+
   @override
   void initState() {
     super.initState();
+
+    _checkSongSearchTip();
 
     // Seeded synchronously so the first frame already shows the right heart,
     // rather than one that fills in (and animates) a frame later.
@@ -216,12 +249,16 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     currentStation = widget.audioHandler.currentStation.value;
     _subscriptions.add(widget.audioHandler.currentStation.stream.listen((Station? value) {
       if (mounted) {
+        final stationChanged = value?.slug != currentStation?.slug;
         setState(() {
-          if (value?.slug != currentStation?.slug) {
+          if (stationChanged) {
             _likeButtonKey = UniqueKey();
           }
           currentStation = value;
         });
+        // Starting a station is one of the actions that make the tip due,
+        // so it can come due as the player shows the new station.
+        if (stationChanged && !_songSearchTipDue) _checkSongSearchTip();
       }
     }));
 
@@ -253,6 +290,9 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
         setState(() {
           _panelExpanded = value;
         });
+        // The actions made since the last check, such as starting the
+        // station now playing, can have made the tip due.
+        if (value && !_songSearchTipDue) _checkSongSearchTip();
       }
     }));
   }
@@ -267,9 +307,6 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
 
   @override
   Widget build(BuildContext context) {
-    final hasYoutubeLink = (currentStation != null &&
-        (currentStation!.songArtist.isNotEmpty || currentStation!.songTitle.isNotEmpty));
-
     // Playlist stations get a dedicated layout (per-item transport + track
     // list) instead of the single-artwork radio layout.
     if (currentStation?.isPlaylist ?? false) {
@@ -298,7 +335,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     final isLandscape =
         MediaQuery.orientationOf(context) == Orientation.landscape;
     if (isLandscape) {
-      return _buildLandscapeLayout(context, hasYoutubeLink, layout);
+      return _buildLandscapeLayout(context, layout);
     }
 
     // Under the wider video, the song info spans the side margins instead.
@@ -329,7 +366,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
             skipSpacing: layout.skipSpacing,
           ),
           const Spacer(flex: 4),
-          _buildBottomActionRow(context, hasYoutubeLink),
+          _buildBottomActionRow(context),
           const SizedBox(height: 24.0),
         ],
       ),
@@ -348,7 +385,6 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   /// [SingleChildScrollView] remains as an overflow safety net.
   Widget _buildLandscapeLayout(
     BuildContext context,
-    bool hasYoutubeLink,
     PlayerLayoutMetrics layout,
   ) {
     return _PlayerPanel(
@@ -423,7 +459,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                                   alignStart: true,
                                 ),
                                 SizedBox(height: compact ? 8.0 : 16.0),
-                                _buildBottomActionRow(context, hasYoutubeLink,
+                                _buildBottomActionRow(context,
                                     alignStart: true),
                               ],
                             ),
@@ -610,20 +646,28 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   }
 
   /// The song title and artist, with the like / dislike buttons on their
-  /// right.
+  /// right. A tap on the song searches YouTube for it; with no song named
+  /// ("Live") the text is not a button.
   Widget _buildSongInfo(BuildContext context) {
     final songId = currentStation?.songId ?? -1;
     return Row(
       children: [
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildSongTitle(context),
-              const SizedBox(height: 4),
-              _buildArtist(context),
-            ],
+          child: SongSearchTip(
+            visible: _showSongSearchTip,
+            onDismiss: _dismissSongSearchTip,
+            child: _SongSearchButton(
+              onTap: _hasSong ? _searchSongOnYoutube : null,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildSongTitle(context),
+                  const SizedBox(height: 4),
+                  _buildArtist(context),
+                ],
+              ),
+            ),
           ),
         ),
         const SizedBox(width: 16),
@@ -692,11 +736,10 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     );
   }
 
-  /// Bottom action row: favorit | somn | trimite | mai mult, the last one a
-  /// menu with the song history and the YouTube search.
+  /// Bottom action row: favorit | somn | trimite | istoric.
   /// Portrait gives each action an equal share of the width; [alignStart]
   /// packs them at the start of the landscape right-hand column instead.
-  Widget _buildBottomActionRow(BuildContext context, bool hasYoutubeLink,
+  Widget _buildBottomActionRow(BuildContext context,
       {bool alignStart = false}) {
     final actions = <Widget>[
       _buildFavoriteButton(context),
@@ -716,10 +759,11 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
           _showShareSheet(context);
         },
       ),
-      PlayerMoreButton(
-        onOpened: () => AnalyticsService.instance.capture('button_clicked', {'button_name': 'more_menu', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug}),
-        onHistory: () => _showSongHistory(context),
-        onYoutubeSearch: hasYoutubeLink ? _searchSongOnYoutube : null,
+      _buildActionButton(
+        context,
+        icon: Icons.history,
+        label: 'istoric',
+        onTap: () => _showSongHistory(context),
       ),
     ];
 
@@ -1069,9 +1113,16 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   Future<void> _searchSongOnYoutube() async {
     final station = currentStation;
     if (station == null) return;
+    // Using the search is the lesson the tip teaches.
+    _dismissSongSearchTip();
     AnalyticsService.instance.capture('button_clicked', {'button_name': 'youtube_search', 'station_id': station.id, 'station_slug': station.slug, 'song_id': station.songId, 'song_title': station.songTitle});
+    // Joined only from the parts the station named, so a song without an
+    // artist isn't searched as " - title".
     final query = Uri.encodeQueryComponent(
-        '${station.songArtist} - ${station.songTitle}');
+      [station.songArtist, station.songTitle]
+          .where((part) => part.isNotEmpty)
+          .join(' - '),
+    );
     try {
       await launchUrl(
         Uri.parse('https://www.youtube.com/results?q=$query'),
@@ -1197,6 +1248,64 @@ class _EllipticalGradientTransform extends GradientTransform {
 /// The like / dislike buttons for the playing song: two outlined circles. A
 /// like floods its circle with the brand pink, a dislike with a quiet tint of
 /// the text color.
+/// The song title and artist as one button, which searches YouTube for the
+/// song. While pressed the text dims, the way iOS shows a pressed text
+/// button, rather than a highlight drawn around it.
+///
+/// A null [onTap] (no song named) leaves the text inert; the widgets stay
+/// the same either way, so the text still crossfades into the first song.
+class _SongSearchButton extends StatefulWidget {
+  const _SongSearchButton({required this.onTap, required this.child});
+
+  final VoidCallback? onTap;
+  final Widget child;
+
+  @override
+  State<_SongSearchButton> createState() => _SongSearchButtonState();
+}
+
+class _SongSearchButtonState extends State<_SongSearchButton> {
+  /// The text's opacity while a finger is on it.
+  static const double _pressedOpacity = 0.5;
+
+  bool _pressed = false;
+
+  void _setPressed(bool pressed) {
+    if (pressed != _pressed) setState(() => _pressed = pressed);
+  }
+
+  @override
+  void didUpdateWidget(_SongSearchButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // The song can go away mid-press, and with it the tap's end.
+    if (widget.onTap == null) _pressed = false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = widget.onTap != null;
+    return MergeSemantics(
+      child: Semantics(
+        button: enabled,
+        hint: enabled ? 'Caută pe YouTube' : null,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTapDown: enabled ? (_) => _setPressed(true) : null,
+          onTapUp: enabled ? (_) => _setPressed(false) : null,
+          onTapCancel: enabled ? () => _setPressed(false) : null,
+          onTap: widget.onTap,
+          child: AnimatedOpacity(
+            opacity: _pressed ? _pressedOpacity : 1,
+            duration: const Duration(milliseconds: 150),
+            curve: Curves.easeInOut,
+            child: widget.child,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _RatingButtons extends StatelessWidget {
   const _RatingButtons({
     required this.likeStatus,

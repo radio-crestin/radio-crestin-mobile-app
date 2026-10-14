@@ -110,10 +110,6 @@ class AppColors {
     Color(0xfffaf1f4),
   ];
 
-  // Menus over the full player in the dark theme (Android's "mai mult"): the
-  // middle of the sheets' wine, lighter than the panel under it.
-  static const Color darkPlayerMenu = Color(0xff3b1523);
-
   // Sleep timer ("somn") ring and countdown: the brand pink, lightened on
   // dark surfaces and deepened on light ones so the small label keeps 4.5:1
   // contrast (plain `primary` falls just short on both).

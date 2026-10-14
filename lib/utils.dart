@@ -476,6 +476,14 @@ class Utils {
               !(prefs.getBool(_reviewDialogShownKey(threshold)) ?? false))
           .toList();
 
+  /// The user actions [incrementActionsMade] has counted: stations started
+  /// or resumed, songs liked, stations added to the favorites.
+  static int actionsMade(SharedPreferences prefs) {
+    final reviewStatus = prefs.getString('_reviewStatus');
+    if (reviewStatus == null) return 0;
+    return json.decode(reviewStatus)['actions_made'] as int? ?? 0;
+  }
+
   /// Counts one user action toward [reviewDialogThresholds] and schedules
   /// the review dialog when the count reaches one not shown yet.
   static Future<void> incrementActionsMade({GraphQLClient? graphQLClient, String? currentStationName}) async {
