@@ -161,6 +161,7 @@ class FakeMetadataBackend {
 
   final FakeClock clock;
   final List<_FakeStation> _stations = [];
+  final List<Query$GetStations$station_groups> _groups = [];
   final List<FakeRow> _rows = [];
   final Map<String, _EdgeCopy> _edge = {};
   final Map<String, List<int>> _failures = {};
@@ -229,6 +230,18 @@ class FakeMetadataBackend {
           hls: hls,
           hlsUrl: hlsUrl ?? hlsUrlOf(slug),
           stationType: stationType));
+
+  /// A station group (a car category) holding [stationIds].
+  void addGroup(int id, String slug, String name, List<int> stationIds) =>
+      _groups.add(StationFactory.createStationGroup(
+        id: id,
+        name: name,
+        slug: slug,
+        stationToStationGroups: [
+          for (final stationId in stationIds)
+            StationFactory.createStationToStationGroup(stationId: stationId),
+        ],
+      ));
 
   /// The default HLS playlist URL of an [addStation] with `hls: true`.
   static String hlsUrlOf(String slug) =>
@@ -482,7 +495,7 @@ class FakeMetadataBackend {
                 ],
               ),
           ],
-          station_groups: const [],
+          station_groups: _groups,
         ).toJson(),
       };
 

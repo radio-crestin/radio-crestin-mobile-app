@@ -8,8 +8,8 @@ import 'package:radio_crestin/types/Station.dart';
 
 import 'helpers/station_factory.dart';
 
-/// Tests that next/previous navigation stays within the favorites when the
-/// user started playing from a favorites list.
+/// Tests that next/previous navigation stays within the favorites or the car
+/// category the user started playing from.
 void main() {
   late StationDataService service;
 
@@ -95,7 +95,8 @@ void main() {
           reason: 'Should go to previous favorite');
     });
 
-    test('with a single favorite, next and previous stay on it', () {
+    test('with a single favorite, next and previous go through every '
+        'station', () {
       final stations = [
         StationFactory.createStation(id: 1, slug: 'alpha', title: 'Alpha'),
         StationFactory.createStation(id: 2, slug: 'beta', title: 'Beta'),
@@ -104,8 +105,22 @@ void main() {
       seedStations(stations, ['beta']); // 1 favorite
       service.startedFromFavorites = true;
 
-      expect(service.getNextStation('beta')!.slug, 'beta');
-      expect(service.getPreviousStation('beta')!.slug, 'beta');
+      expect(service.getNextStation('beta')!.slug, 'gamma');
+      expect(service.getPreviousStation('beta')!.slug, 'alpha');
+      // Off the favorite, the cycle keeps going instead of jumping back.
+      expect(service.getNextStation('gamma')!.slug, 'alpha');
+      expect(service.getNextStation('alpha')!.slug, 'beta');
+    });
+
+    test('a second favorite brings back the favorites cycle', () {
+      // Alphabetical: Alpha, Beta, Delta, Gamma.
+      seedStations(fourStations(), ['beta']);
+      service.startedFromFavorites = true;
+      expect(service.getNextStation('beta')!.slug, 'delta');
+
+      service.favoriteStationSlugs.add(['beta', 'gamma']);
+
+      expect(service.getNextStation('beta')!.slug, 'gamma');
     });
 
     test('with all stations as favorites, just cycles through favorites', () {
@@ -184,13 +199,13 @@ void main() {
     });
 
     test('wraps around the sorted order to find a favorite', () {
-      seedStations(fourStations(), ['beta']);
+      seedStations(fourStations(), ['beta', 'delta']);
       service.startedFromFavorites = true;
 
       // Gamma is last: the next favorite wraps around to Beta.
       expect(service.getNextStation('gamma')!.slug, 'beta');
-      // Alpha is first: the previous favorite wraps around to Beta.
-      expect(service.getPreviousStation('alpha')!.slug, 'beta');
+      // Alpha is first: the previous favorite wraps around to Delta.
+      expect(service.getPreviousStation('alpha')!.slug, 'delta');
     });
   });
 
@@ -274,6 +289,161 @@ void main() {
       expect(service.getNextStation('beta')!.slug, 'delta');
       expect(service.getNextStation('delta')!.slug, 'beta');
     });
+
+    test('with a car connected, a station inside the group navigates the '
+        'full catalog the car lists', () {
+      final all = fourStations();
+      service.stations.add(all);
+      // The phone shows Alpha, Delta and Gamma; the car shows all four.
+      seedStations([all[0], all[2], all[3]], []);
+
+      expect(service.getNextStation('alpha', wholeCatalog: true)!.slug, 'beta');
+      expect(
+        service.getPreviousStation('beta', wholeCatalog: true)!.slug,
+        'alpha',
+      );
+    });
+
+    test('with a car connected, favorites cycle every favorite, not only '
+        'those in the group', () {
+      final all = fourStations();
+      service.stations.add(all);
+      // The phone shows Alpha and Beta; Delta is a favorite outside it.
+      seedStations([all[0], all[1]], ['alpha', 'delta']);
+      service.startedFromFavorites = true;
+
+      expect(service.getNextStation('alpha')!.slug, 'beta',
+          reason: 'the phone group holds only one favorite, so its stations '
+              'are navigated');
+      expect(
+        service.getNextStation('alpha', wholeCatalog: true)!.slug,
+        'delta',
+      );
+    });
+  });
+
+  group('Car category navigation', () {
+    /// Seeds the catalog with [fourStations] and a "Copii" group of
+    /// [stationIds], as the car's Categories tab lists it.
+    void seedCategory(List<int> stationIds) {
+      final all = fourStations();
+      service.stations.add(all);
+      seedStations(all, []);
+      service.stationGroups.add([
+        StationFactory.createStationGroup(
+          id: 1,
+          name: 'Copii',
+          slug: 'copii',
+          stationToStationGroups: [
+            for (final id in stationIds)
+              StationFactory.createStationToStationGroup(stationId: id),
+          ],
+        ),
+      ]);
+    }
+
+    test('defaults to no category', () {
+      expect(service.startedFromGroup, isNull);
+    });
+
+    test('next and previous cycle through the category in the car order',
+        () {
+      // Alphabetical: Alpha, Beta, Delta, Gamma. Copii: Alpha, Gamma, Delta.
+      seedCategory([1, 3, 4]);
+      service.startedFromGroup = 'copii';
+
+      final visited = <String>['alpha'];
+      for (var i = 0; i < 3; i++) {
+        visited.add(
+          service.getNextStation(visited.last, wholeCatalog: true)!.slug,
+        );
+      }
+
+      expect(visited, ['alpha', 'delta', 'gamma', 'alpha']);
+      expect(
+        service.getPreviousStation('alpha', wholeCatalog: true)!.slug,
+        'gamma',
+      );
+    });
+
+    test('the category wins over the group the phone shows', () {
+      final all = fourStations();
+      seedCategory([1, 3]);
+      // The phone shows Alpha, Beta and Delta.
+      seedStations([all[0], all[1], all[3]], []);
+      service.startedFromGroup = 'copii';
+
+      expect(service.getNextStation('alpha')!.slug, 'gamma');
+      expect(service.getNextStation('gamma')!.slug, 'alpha');
+    });
+
+    test('without a category, next goes through the whole catalog', () {
+      seedCategory([1, 3]);
+      service.startedFromGroup = 'copii';
+      service.startedFromGroup = null;
+
+      expect(service.getNextStation('alpha', wholeCatalog: true)!.slug,
+          'beta');
+    });
+
+    test('the category wins over the favorites', () {
+      seedCategory([1, 3]);
+      service.favoriteStationSlugs.add(['alpha', 'beta']);
+      service.startedFromFavorites = true;
+      service.startedFromGroup = 'copii';
+
+      expect(service.getNextStation('alpha', wholeCatalog: true)!.slug,
+          'gamma');
+    });
+
+    test('a station that left the category continues from its slot', () {
+      // Copii: Alpha, Delta. Beta was playing when it left the group.
+      seedCategory([1, 4]);
+      service.startedFromGroup = 'copii';
+
+      expect(service.getNextStation('beta', wholeCatalog: true)!.slug,
+          'delta');
+      expect(service.getPreviousStation('beta', wholeCatalog: true)!.slug,
+          'alpha');
+    });
+
+    test('a category the API no longer lists falls back to the catalog', () {
+      seedCategory([1, 3]);
+      service.startedFromGroup = 'colinde';
+
+      expect(service.getNextStation('alpha', wholeCatalog: true)!.slug,
+          'beta');
+    });
+
+    test('a one-station category navigates the whole catalog', () {
+      // Alphabetical: Alpha, Beta, Delta, Gamma. Copii: Gamma.
+      seedCategory([3]);
+      service.startedFromGroup = 'copii';
+
+      expect(service.getNextStation('gamma', wholeCatalog: true)!.slug,
+          'alpha');
+      expect(service.getPreviousStation('gamma', wholeCatalog: true)!.slug,
+          'delta');
+    });
+
+    test('an empty category falls back to the catalog', () {
+      seedCategory([]);
+      service.startedFromGroup = 'copii';
+
+      expect(service.getNextStation('alpha', wholeCatalog: true)!.slug,
+          'beta');
+    });
+
+    test('the category survives an app restart', () {
+      service.startedFromGroup = 'copii';
+
+      expect(newService().startedFromGroup, 'copii');
+      final prefs = GetIt.instance<SharedPreferences>();
+      expect(prefs.getString('started_from_group'), 'copii');
+
+      service.startedFromGroup = null;
+      expect(prefs.containsKey('started_from_group'), isFalse);
+    });
   });
 
   group('Favorite navigation - edge cases', () {
@@ -285,16 +455,18 @@ void main() {
       expect(service.getPreviousStation('alpha'), isNull);
     });
 
-    test('current station not in any list returns the first favorite', () {
+    test('current station not in any list returns the first or the last '
+        'favorite', () {
       final stations = [
         StationFactory.createStation(id: 1, slug: 'alpha', title: 'Alpha'),
         StationFactory.createStation(id: 2, slug: 'beta', title: 'Beta'),
+        StationFactory.createStation(id: 3, slug: 'gamma', title: 'Gamma'),
       ];
-      seedStations(stations, ['beta']);
+      seedStations(stations, ['beta', 'gamma']);
       service.startedFromFavorites = true;
 
       expect(service.getNextStation('nonexistent')!.slug, 'beta');
-      expect(service.getPreviousStation('nonexistent')!.slug, 'beta');
+      expect(service.getPreviousStation('nonexistent')!.slug, 'gamma');
     });
 
     test('favorite slug not matching any station is ignored', () {

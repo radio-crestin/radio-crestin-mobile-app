@@ -239,9 +239,10 @@ class StationDataService {
 
   /// Whether the playing station was picked from a favorites list.
   ///
-  /// While true, next/previous only cycle through the favorites. Persisted so
-  /// the context survives restarts: autoplay and car autoplay resume the last
-  /// station without picking from a list again.
+  /// While true, next/previous only cycle through the favorites, once there
+  /// are at least two of them; a sole favorite steps through the list it
+  /// sits in. Persisted so the context survives restarts: autoplay and car
+  /// autoplay resume the last station without picking from a list again.
   bool get startedFromFavorites =>
       GetIt.instance<SharedPreferences>().getBool(_startedFromFavoritesKey) ??
       false;
@@ -249,6 +250,22 @@ class StationDataService {
   set startedFromFavorites(bool value) {
     unawaited(GetIt.instance<SharedPreferences>()
         .setBool(_startedFromFavoritesKey, value));
+  }
+
+  /// Slug of the car category (station group) the playing station was
+  /// picked from; null when it came from any other list.
+  ///
+  /// While set, next/previous only cycle through that group's stations, in
+  /// the order the car lists them; a one-station group steps through the
+  /// whole catalog. Persisted like [startedFromFavorites].
+  String? get startedFromGroup =>
+      GetIt.instance<SharedPreferences>().getString(_startedFromGroupKey);
+
+  set startedFromGroup(String? slug) {
+    final prefs = GetIt.instance<SharedPreferences>();
+    unawaited(slug == null
+        ? prefs.remove(_startedFromGroupKey)
+        : prefs.setString(_startedFromGroupKey, slug));
   }
 
   /// Cached sort order (list of slugs) for the user-chosen (non-recommended)
@@ -280,6 +297,7 @@ class StationDataService {
   // Constants
   static const _favoriteStationsKey = 'favoriteStationSlugs';
   static const _startedFromFavoritesKey = 'started_from_favorites';
+  static const _startedFromGroupKey = 'started_from_group';
   static const _cachedStationsKey = 'cached_stations_data';
   static const _minStationsForCache = 10;
 
@@ -1634,16 +1652,27 @@ class StationDataService {
 
   /// Returns the station after [currentSlug] in the navigation playlist,
   /// wrapping around to the first one at the end.
-  Station? getNextStation(String currentSlug) =>
-      _stepStation(currentSlug, forward: true);
+  ///
+  /// [wholeCatalog] ignores the group the phone shows, for a connected car:
+  /// its lists always show every station.
+  Station? getNextStation(String currentSlug, {bool wholeCatalog = false}) =>
+      _stepStation(currentSlug, forward: true, wholeCatalog: wholeCatalog);
 
   /// Returns the station before [currentSlug] in the navigation playlist,
-  /// wrapping around to the last one at the beginning.
-  Station? getPreviousStation(String currentSlug) =>
-      _stepStation(currentSlug, forward: false);
+  /// wrapping around to the last one at the beginning. See
+  /// [getNextStation] for [wholeCatalog].
+  Station? getPreviousStation(
+    String currentSlug, {
+    bool wholeCatalog = false,
+  }) =>
+      _stepStation(currentSlug, forward: false, wholeCatalog: wholeCatalog);
 
-  Station? _stepStation(String currentSlug, {required bool forward}) {
-    final base = _navigationBase(currentSlug);
+  Station? _stepStation(
+    String currentSlug, {
+    required bool forward,
+    required bool wholeCatalog,
+  }) {
+    final base = _navigationBase(currentSlug, wholeCatalog: wholeCatalog);
     final playlist = _navigationPlaylist(base);
     if (playlist.isEmpty) return null;
     final step = forward ? 1 : -1;
@@ -1664,22 +1693,50 @@ class StationDataService {
   }
 
   /// The sorted list [currentSlug] is navigated within: the group-filtered
-  /// list the phone shows, or the full catalog when the station sits outside
-  /// the selected group (picked from the car, from search or from a link).
-  List<Station> _navigationBase(String currentSlug) {
+  /// list the phone shows, or the full catalog with [wholeCatalog], after a
+  /// pick from a car category (listed in the full catalog's order) or when
+  /// the station sits outside the selected group (picked from search or
+  /// from a link).
+  List<Station> _navigationBase(
+    String currentSlug, {
+    required bool wholeCatalog,
+  }) {
     final filtered = getSortedStations();
-    if (filtered.any((s) => s.slug == currentSlug)) return filtered;
+    if (!wholeCatalog &&
+        startedFromGroup == null &&
+        filtered.any((s) => s.slug == currentSlug)) {
+      return filtered;
+    }
     final all = getSortedStations(applyGroupFilter: false);
     return all.any((s) => s.slug == currentSlug) ? all : filtered;
   }
 
-  /// Narrows [base] to the favorites when playback started from a favorites
-  /// list. Falls back to [base] once no favorite is left in it.
+  /// Narrows [base] to the car category or the favorites playback started
+  /// from. Falls back to [base] while fewer than two of their stations are
+  /// in it: a lone station would be its own next, so the skip buttons would
+  /// do nothing.
   List<Station> _navigationPlaylist(List<Station> base) {
-    if (!startedFromFavorites) return base;
-    final favSlugs = favoriteStationSlugs.value.toSet();
-    final favorites = base.where((s) => favSlugs.contains(s.slug)).toList();
-    return favorites.isEmpty ? base : favorites;
+    final bool Function(Station) keep;
+    if (_groupStationIds(startedFromGroup) case final ids?) {
+      keep = (s) => ids.contains(s.id);
+    } else if (startedFromFavorites) {
+      final favSlugs = favoriteStationSlugs.value.toSet();
+      keep = (s) => favSlugs.contains(s.slug);
+    } else {
+      return base;
+    }
+    final narrowed = base.where(keep).toList();
+    return narrowed.length < 2 ? base : narrowed;
+  }
+
+  /// The station ids of the group with [slug]; null without a slug or when
+  /// the API no longer lists that group.
+  Set<int>? _groupStationIds(String? slug) {
+    if (slug == null) return null;
+    final group =
+        stationGroups.value.where((g) => g.slug == slug).firstOrNull;
+    if (group == null) return null;
+    return {for (final e in group.station_to_station_groups) e.station_id};
   }
 
   // ---------------------------------------------------------------------------

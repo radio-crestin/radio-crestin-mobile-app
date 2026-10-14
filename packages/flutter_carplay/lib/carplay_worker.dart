@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_carplay/constants/private_constants.dart';
 import 'package:flutter_carplay/controllers/carplay_controller.dart';
 import 'package:flutter_carplay/flutter_carplay.dart';
@@ -77,6 +78,16 @@ class FlutterCarplay {
           break;
         case FCPChannelTypes.onGridButtonPressed:
           _carPlayController.processFCPGridButtonPressed(
+            event['data']['elementId'],
+          );
+          break;
+        case FCPChannelTypes.onImageRowElementPressed:
+          _carPlayController.processFCPImageRowElementPressed(
+            event['data']['elementId'],
+          );
+          break;
+        case FCPChannelTypes.onImageRowTitlePressed:
+          _carPlayController.processFCPImageRowTitlePressed(
             event['data']['elementId'],
           );
           break;
@@ -204,6 +215,66 @@ class FlutterCarplay {
       template?.updateSections(sections);
     }
     return;
+  }
+
+  /// Replaces the buttons pinned at the top of the [CPListTemplate] which
+  /// has the given [elementId]. Does nothing before iOS 26.
+  Future<void> updateListTemplateHeaderGridButtons({
+    required String elementId,
+    required List<CPGridButton> buttons,
+  }) async {
+    final bool? isCompleted = await _carPlayController.methodChannel
+        .invokeMethod('updateListTemplateHeaderGridButtons', <String, dynamic>{
+      'elementId': elementId,
+      'buttons': buttons.map((CPGridButton button) => button.toJson()).toList(),
+    });
+
+    if (isCompleted == true) {
+      FlutterCarPlayController.getTemplateFromHistory<CPListTemplate>(
+              elementId)
+          ?.updateHeaderGridButtons(buttons);
+    }
+  }
+
+  /// Replaces the titled row of pictures above the sections of the
+  /// [CPListTemplate] which has the given [elementId]; null removes it.
+  /// Does nothing before iOS 26.
+  Future<void> updateListTemplateHeaderImageRow({
+    required String elementId,
+    required CPImageRow? row,
+  }) async {
+    final bool? isCompleted = await _carPlayController.methodChannel
+        .invokeMethod('updateListTemplateHeaderImageRow', <String, dynamic>{
+      'elementId': elementId,
+      'row': row?.toJson(),
+    });
+
+    if (isCompleted == true) {
+      FlutterCarPlayController.getTemplateFromHistory<CPListTemplate>(
+              elementId)
+          ?.headerImageRow = row;
+    }
+  }
+
+  /// What the CarPlay templates support on the running iOS version, such as
+  /// buttons pinned above a list (iOS 26+).
+  ///
+  /// Returns [CPCapabilities.fallback] off iOS or when iOS can't be asked.
+  static Future<CPCapabilities> getCapabilities() async {
+    if (defaultTargetPlatform != TargetPlatform.iOS) {
+      return CPCapabilities.fallback;
+    }
+    try {
+      final result = await _carPlayController.methodChannel
+          .invokeMapMethod<String, dynamic>('getCapabilities');
+      return result == null
+          ? CPCapabilities.fallback
+          : CPCapabilities.fromJson(result);
+    } on PlatformException {
+      return CPCapabilities.fallback;
+    } on MissingPluginException {
+      return CPCapabilities.fallback;
+    }
   }
 
   /// It will update the templates of the [CPTabBarTemplate] which has the given [elementId].

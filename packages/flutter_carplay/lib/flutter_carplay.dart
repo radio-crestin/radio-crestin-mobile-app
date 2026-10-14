@@ -31,6 +31,8 @@ export 'package:flutter_carplay/models/button/alert_constants.dart'
 export 'package:flutter_carplay/models/button/bar_button.dart' show CPBarButton;
 export 'package:flutter_carplay/models/button/text_button.dart'
     show CPTextButton;
+export 'package:flutter_carplay/models/capabilities/capabilities.dart'
+    show CPCapabilities;
 export 'package:flutter_carplay/models/grid/grid_button.dart' show CPGridButton;
 export 'package:flutter_carplay/models/grid/grid_template.dart'
     show CPGridTemplate;
@@ -42,6 +44,8 @@ export 'package:flutter_carplay/models/information/information_template.dart'
     show CPInformationTemplate;
 export 'package:flutter_carplay/models/list/list_constants.dart'
     show CPListItemAccessoryTypes, CPListItemPlayingIndicatorLocations;
+export 'package:flutter_carplay/models/list/image_row.dart'
+    show CPImageRow, CPImageRowElement;
 export 'package:flutter_carplay/models/list/list_item.dart' show CPListItem;
 export 'package:flutter_carplay/models/list/list_section.dart'
     show CPListSection;

@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -118,6 +119,94 @@ void main() {
       final service = PlayCountService();
       expect(service.getPlayCount('rve'), 3);
       expect(service.getPlayCount('x'), 7);
+    });
+  });
+
+  group('PlayCountTracker', () {
+    late List<String> counted;
+    late PlayCountTracker tracker;
+
+    setUp(() {
+      counted = [];
+      tracker = PlayCountTracker(onCounted: counted.add);
+    });
+
+    tearDown(() => tracker.dispose());
+
+    test('counts a station once it has played for 30 seconds', () {
+      fakeAsync((async) {
+        tracker.stationPicked('rve');
+        tracker.playingChanged(true);
+
+        async.elapse(const Duration(seconds: 29));
+        expect(counted, isEmpty);
+
+        async.elapse(const Duration(seconds: 1));
+        expect(counted, ['rve']);
+      });
+    });
+
+    test('a station skipped before 30 seconds is not counted', () {
+      fakeAsync((async) {
+        tracker.stationPicked('a');
+        tracker.playingChanged(true);
+        async.elapse(const Duration(seconds: 5));
+        tracker.stationPicked('b');
+        async.elapse(const Duration(seconds: 40));
+
+        expect(counted, isEmpty);
+      });
+    });
+
+    test('the picked station counts once its own audio starts', () {
+      fakeAsync((async) {
+        tracker.stationPicked('a');
+        tracker.playingChanged(true);
+        tracker.stationPicked('b');
+        // Switching stations stops the audio, then the new one starts.
+        tracker.playingChanged(false);
+        tracker.playingChanged(true);
+        async.elapse(const Duration(seconds: 30));
+
+        expect(counted, ['b']);
+      });
+    });
+
+    test('a pause restarts the 30 seconds', () {
+      fakeAsync((async) {
+        tracker.stationPicked('rve');
+        tracker.playingChanged(true);
+        async.elapse(const Duration(seconds: 20));
+        tracker.playingChanged(false);
+        async.elapse(const Duration(minutes: 5));
+        expect(counted, isEmpty);
+
+        tracker.playingChanged(true);
+        async.elapse(const Duration(seconds: 30));
+        expect(counted, ['rve']);
+      });
+    });
+
+    test('one pick counts once, however long it plays', () {
+      fakeAsync((async) {
+        tracker.stationPicked('rve');
+        tracker.playingChanged(true);
+        async.elapse(const Duration(minutes: 10));
+        tracker.playingChanged(false);
+        tracker.playingChanged(true);
+        async.elapse(const Duration(minutes: 10));
+
+        expect(counted, ['rve']);
+      });
+    });
+
+    test('audio without a picked station counts nothing', () {
+      fakeAsync((async) {
+        tracker.playingChanged(true);
+        async.elapse(const Duration(minutes: 1));
+
+        expect(counted, isEmpty);
+      });
     });
   });
 }

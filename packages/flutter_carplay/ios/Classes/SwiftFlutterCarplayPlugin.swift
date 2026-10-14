@@ -106,6 +106,45 @@ public class SwiftFlutterCarplayPlugin: NSObject, FlutterPlugin {
       FlutterCarPlaySceneDelegate.updateListTemplateSections(elementId: elementId, sections: sections)
       result(true)
       break
+    case FCPChannelTypes.updateListTemplateHeaderGridButtons:
+      guard let args = call.arguments as? [String : Any],
+            let elementId = args["elementId"] as? String,
+            let buttonsData = args["buttons"] as? Array<[String : Any]> else {
+        result(false)
+        return
+      }
+      let buttons = buttonsData.map { FCPGridButton(obj: $0) }
+      FlutterCarPlaySceneDelegate.updateListTemplateHeaderGridButtons(elementId: elementId, buttons: buttons)
+      result(true)
+      break
+    case FCPChannelTypes.updateListTemplateHeaderImageRow:
+      guard let args = call.arguments as? [String : Any],
+            let elementId = args["elementId"] as? String else {
+        result(false)
+        return
+      }
+      let row = (args["row"] as? [String : Any]).map { FCPImageRow(obj: $0) }
+      FlutterCarPlaySceneDelegate.updateListTemplateHeaderImageRow(elementId: elementId, row: row)
+      result(true)
+      break
+    case FCPChannelTypes.getCapabilities:
+      var supportsHeaderGridButtons = false
+      var maximumHeaderGridButtonCount = 0
+      var supportsHeaderImageRow = false
+      var maximumHeaderImageRowCount = 0
+      if #available(iOS 26.0, *) {
+        supportsHeaderGridButtons = true
+        maximumHeaderGridButtonCount = Int(CPListTemplate.maximumHeaderGridButtonCount)
+        supportsHeaderImageRow = true
+        maximumHeaderImageRowCount = Int(CPMaximumNumberOfGridImages)
+      }
+      result([
+        "supportsHeaderGridButtons": supportsHeaderGridButtons,
+        "maximumHeaderGridButtonCount": maximumHeaderGridButtonCount,
+        "supportsHeaderImageRow": supportsHeaderImageRow,
+        "maximumHeaderImageRowCount": maximumHeaderImageRowCount,
+      ])
+      break
     case FCPChannelTypes.updateTabBarTemplates:
       guard let args = call.arguments as? [String : Any] else {
         result(false)

@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:radio_crestin/appAudioHandler.dart';
 import 'package:radio_crestin/queries/getStations.graphql.dart';
 import 'package:radio_crestin/stream_failover.dart';
+import 'package:radio_crestin/types/Station.dart';
 import 'helpers/station_factory.dart';
 
 void main() {
@@ -249,6 +250,59 @@ void main() {
       final item = station.mediaItem;
       expect(item.extras?['song_title'], 'Amazing Grace');
       expect(item.extras?['song_artist'], 'John Newton');
+    });
+  });
+
+  group('Now Playing lines', () {
+    Station station({String? song, String? artist}) =>
+        StationFactory.createStation(
+          id: 1,
+          slug: 'rve-bucuresti',
+          title: 'RVE Bucuresti',
+          nowPlaying: song == null
+              ? null
+              : StationFactory.createNowPlaying(
+                  songName: song,
+                  artistName: artist,
+                ),
+        );
+
+    test('CarPlay shows the song, then its artist', () {
+      final lines = AppAudioHandler.nowPlayingLines(
+        station(song: 'Sa-L slavim pe Dumnezeu', artist: 'Speranta'),
+        onCarPlay: true,
+      );
+
+      expect(lines.artist, 'Sa-L slavim pe Dumnezeu');
+      expect(lines.album, 'Speranta');
+    });
+
+    test('CarPlay leaves out a missing artist instead of the station', () {
+      final lines = AppAudioHandler.nowPlayingLines(
+        station(song: 'Sa-L slavim pe Dumnezeu'),
+        onCarPlay: true,
+      );
+
+      expect(lines.artist, 'Sa-L slavim pe Dumnezeu');
+      expect(lines.album, isNull);
+    });
+
+    test('CarPlay shows only the station name without a song', () {
+      final lines =
+          AppAudioHandler.nowPlayingLines(station(), onCarPlay: true);
+
+      expect(lines.artist, isNull);
+      expect(lines.album, isNull);
+    });
+
+    test('off CarPlay the song and its artist share one line', () {
+      final lines = AppAudioHandler.nowPlayingLines(
+        station(song: 'Sa-L slavim pe Dumnezeu', artist: 'Speranta'),
+        onCarPlay: false,
+      );
+
+      expect(lines.artist, 'Sa-L slavim pe Dumnezeu • Speranta');
+      expect(lines.album, 'RVE Bucuresti');
     });
   });
 

@@ -25,6 +25,16 @@ extension CPTemplate {
 class FlutterCarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelegate, CPInterfaceControllerDelegate {
   static private var interfaceController: CPInterfaceController?
 
+  /// The tab each pushed template went onto, by element id. A tab bar keeps
+  /// one navigation stack per tab: switching tabs hides the lists pushed on
+  /// the tab left behind without popping them, and they are back when the
+  /// driver returns, so they must stay known (their rows stay tappable).
+  static private var pushedTemplateTabs: [String: ObjectIdentifier] = [:]
+
+  static private var selectedTab: CPTemplate? {
+    (interfaceController?.rootTemplate as? CPTabBarTemplate)?.selectedTemplate
+  }
+
   /// Tracks whether the initial `sceneDidBecomeActive` after `didConnect` has
   /// been consumed. iOS fires `sceneDidBecomeActive` immediately after
   /// `didConnect`, producing a duplicate CONNECTED event. We suppress that
@@ -49,6 +59,25 @@ class FlutterCarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelega
     templateFromHistory.updateSections(sections: sections)
   }
 
+  // https://developer.apple.com/documentation/carplay/cplisttemplate/headergridbuttons
+  static public func updateListTemplateHeaderGridButtons(elementId: String, buttons: [FCPGridButton]) {
+    guard let templateFromHistory = SwiftFlutterCarplayPlugin.getTemplateFromHistory(elementId: elementId) as? FCPListTemplate else {
+      NSLog("FlutterCarPlaySceneDelegate - updateListTemplateHeaderGridButtons: Template from history with elementId \(elementId) not found.")
+      return
+    }
+
+    templateFromHistory.updateHeaderGridButtons(buttons: buttons)
+  }
+
+  static public func updateListTemplateHeaderImageRow(elementId: String, row: FCPImageRow?) {
+    guard let templateFromHistory = SwiftFlutterCarplayPlugin.getTemplateFromHistory(elementId: elementId) as? FCPListTemplate else {
+      NSLog("FlutterCarPlaySceneDelegate - updateListTemplateHeaderImageRow: Template from history with elementId \(elementId) not found.")
+      return
+    }
+
+    templateFromHistory.updateHeaderImageRow(row: row)
+  }
+
   // https://developer.apple.com/documentation/carplay/cptabbartemplate/updatetemplates(_:)
   static public func updateTabBarTemplates(elementId: String, templates: Array<[String: Any]>) {
     guard let templateFromHistory = SwiftFlutterCarplayPlugin.getTemplateFromHistory(elementId: elementId) as? FCPTabBarTemplate  else {
@@ -57,6 +86,22 @@ class FlutterCarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelega
     }
 
     templateFromHistory.updateTemplates(newTemplatesData: templates)
+
+    // A replaced tab takes the lists pushed on it along.
+    let liveTabs = Set(templateFromHistory.tabTemplates.map { ObjectIdentifier($0) })
+    forgetPushedTemplates { owner in !liveTabs.contains(owner) }
+  }
+
+  /// Drops the pushed templates whose tab matches `isGone`, telling Dart.
+  static private func forgetPushedTemplates(where isGone: (ObjectIdentifier) -> Bool) {
+    SwiftFlutterCarplayPlugin.templateStack.removeAll { stackTemplate in
+      guard let owner = pushedTemplateTabs[stackTemplate.elementId], isGone(owner) else {
+        return false
+      }
+      pushedTemplateTabs[stackTemplate.elementId] = nil
+      SwiftFlutterCarplayPlugin.sendOnScreenBackButtonPressed(elementId: stackTemplate.elementId)
+      return true
+    }
   }
 
   // Fired when just before the carplay become active.
@@ -88,6 +133,9 @@ class FlutterCarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelega
     guard let interfaceController = self.interfaceController else { return false }
     guard interfaceController.rootTemplate != nil else { return false }
 
+    if let elementId = template.elementId, let tab = selectedTab {
+      pushedTemplateTabs[elementId] = ObjectIdentifier(tab)
+    }
     interfaceController.pushTemplate(template, animated: animated)
     return true
   }
@@ -110,13 +158,21 @@ class FlutterCarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelega
       guard let interfaceController = FlutterCarPlaySceneDelegate.interfaceController else { return }
 
       let currentTemplates = interfaceController.templates
+      let selectedTab = FlutterCarPlaySceneDelegate.selectedTab
 
       SwiftFlutterCarplayPlugin.templateStack.removeAll { stackTemplate in
-          if !currentTemplates.contains(where: { $0.elementId == stackTemplate.elementId }) {
-              SwiftFlutterCarplayPlugin.sendOnScreenBackButtonPressed(elementId: stackTemplate.elementId)
-              return true
+          if currentTemplates.contains(where: { $0.elementId == stackTemplate.elementId }) {
+              return false
           }
-          return false
+          // Pushed on another tab: hidden by a tab switch, not popped.
+          if let owner = FlutterCarPlaySceneDelegate.pushedTemplateTabs[stackTemplate.elementId],
+             let selectedTab = selectedTab,
+             owner != ObjectIdentifier(selectedTab) {
+              return false
+          }
+          FlutterCarPlaySceneDelegate.pushedTemplateTabs[stackTemplate.elementId] = nil
+          SwiftFlutterCarplayPlugin.sendOnScreenBackButtonPressed(elementId: stackTemplate.elementId)
+          return true
       }
   }
 
@@ -152,6 +208,8 @@ class FlutterCarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelega
                                 didDisconnect interfaceController: CPInterfaceController, from window: CPWindow) {
     _initialActivationConsumed = false
     SwiftFlutterCarplayPlugin.onCarplayConnectionChange(status: FCPConnectionTypes.disconnected)
+    // The car drops every pushed list; the next connection starts at the tabs.
+    FlutterCarPlaySceneDelegate.forgetPushedTemplates { _ in true }
 
     interfaceController.delegate = nil
     FlutterCarPlaySceneDelegate.interfaceController = nil
@@ -161,6 +219,7 @@ class FlutterCarPlaySceneDelegate: UIResponder, CPTemplateApplicationSceneDelega
                                 didDisconnectInterfaceController interfaceController: CPInterfaceController) {
     _initialActivationConsumed = false
     SwiftFlutterCarplayPlugin.onCarplayConnectionChange(status: FCPConnectionTypes.disconnected)
+    FlutterCarPlaySceneDelegate.forgetPushedTemplates { _ in true }
 
     interfaceController.delegate = nil
     FlutterCarPlaySceneDelegate.interfaceController = nil

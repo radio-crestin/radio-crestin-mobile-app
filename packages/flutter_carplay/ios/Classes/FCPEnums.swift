@@ -34,6 +34,11 @@ enum FCPChannelTypes {
   static let popToRootTemplate = "popToRootTemplate"
   static let onScreenBackButtonPressed = "onScreenBackButtonPressed"
   static let retryFailedImages = "retryFailedImages"
+  static let updateListTemplateHeaderGridButtons = "updateListTemplateHeaderGridButtons"
+  static let updateListTemplateHeaderImageRow = "updateListTemplateHeaderImageRow"
+  static let onImageRowElementPressed = "onImageRowElementPressed"
+  static let onImageRowTitlePressed = "onImageRowTitlePressed"
+  static let getCapabilities = "getCapabilities"
 }
 
 enum FCPAlertActionTypes {

@@ -53,7 +53,11 @@ class _RecordingHandler extends Fake implements AppAudioHandler {
   }
 
   @override
-  Future<void> playStation(Station station, {bool? fromFavorites}) async =>
+  Future<void> playStation(
+    Station station, {
+    bool? fromFavorites,
+    String? fromGroup,
+  }) async =>
       calls.add('playStation ${station.slug}');
 }
 

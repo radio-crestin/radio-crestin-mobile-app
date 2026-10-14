@@ -109,6 +109,11 @@ class FCPTabBarTemplate {
     return objcTemplates
   }
 
+  /// The CarPlay templates shown as tabs.
+  public var tabTemplates: [CPTemplate] {
+    return templates
+  }
+
   public func updateTemplates(newTemplatesData: Array<[String: Any]>) {
     let existingTemplatesById: [String: FCPTabBarChildTemplate] = Dictionary(uniqueKeysWithValues: self.objcTemplates.map { ($0.elementId, $0) })
     let existingCPTemplatesById = Dictionary(uniqueKeysWithValues: zip(self.objcTemplates.map { $0.elementId }, self.templates))

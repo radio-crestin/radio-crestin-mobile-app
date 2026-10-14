@@ -497,6 +497,44 @@ void main() {
     });
   });
 
+  // A play command (a car's or a headset's play button) while the station
+  // is still loading. A play while the loop waits out its backoff starts a
+  // new loop: see play_loop_network_test.dart.
+  group('play during a load', () {
+    test('keeps the load in flight instead of starting it again', () async {
+      await http.runWithClient(() async {
+        await startHandler();
+        final gate = channels.loadGate = Completer<void>();
+        unawaited(handler.playStation(stationOf(2)));
+        await until(() => channels.loads.length == 1);
+
+        unawaited(handler.play());
+        gate.complete();
+
+        // A second load would wait for the stream all over again.
+        await untilPlaying(mp3Of2, loads: 1);
+        await pumpEventQueue();
+        expect(channels.loads, hasLength(1));
+      }, () => routing);
+    });
+
+    test('after a pause, loads the station again', () async {
+      await http.runWithClient(() async {
+        await startHandler();
+        final gate = channels.loadGate = Completer<void>();
+        unawaited(handler.playStation(stationOf(2)));
+        await until(() => channels.loads.length == 1);
+
+        // The pause ends that load: the play starts another.
+        await handler.pause();
+        unawaited(handler.play());
+        gate.complete();
+
+        await untilPlaying(mp3Of2, loads: 2);
+      }, () => routing);
+    });
+  });
+
   // Each user action counts once toward the review dialog thresholds; the
   // handler's own restarts do not.
   group('review actions', () {
@@ -768,6 +806,38 @@ void main() {
         expect(expected.id, isNot(5), reason: 'the full list, not favorites');
         unawaited(handler.skipToNext());
         await until(() => handler.currentStation.value?.id == expected.id);
+      }, () => routing);
+    });
+  });
+
+  group('car category', () {
+    test(
+        'a station picked from a car category keeps next and previous '
+        'within it; a pick from another list leaves it', () async {
+      backend.addGroup(1, 'copii', 'Copii', [3, 5, 7]);
+      await http.runWithClient(() async {
+        await startHandler();
+
+        unawaited(handler.playStation(
+          stationOf(5),
+          fromFavorites: false,
+          fromGroup: 'copii',
+        ));
+        await until(() => handler.currentStation.valueOrNull?.id == 5);
+        expect(service.startedFromGroup, 'copii');
+
+        unawaited(handler.skipToNext());
+        await until(() => handler.currentStation.value?.id == 7);
+        unawaited(handler.skipToNext());
+        await until(() => handler.currentStation.value?.id == 3);
+        unawaited(handler.skipToPrevious());
+        await until(() => handler.currentStation.value?.id == 7);
+        expect(service.startedFromGroup, 'copii',
+            reason: 'next and previous keep the category');
+
+        unawaited(handler.playStation(stationOf(2), fromFavorites: false));
+        await until(() => handler.currentStation.value?.id == 2);
+        expect(service.startedFromGroup, isNull);
       }, () => routing);
     });
   });

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as developer;
 
@@ -51,5 +52,52 @@ class PlayCountService {
     } catch (e) {
       developer.log("PlayCountService: error saving: $e");
     }
+  }
+}
+
+/// Counts a picked station as played once its audio has run for
+/// [threshold] without stopping.
+///
+/// Passing through stations (steering-wheel next/previous, an autoplay that
+/// is paused right away) is not listening: counting it would fill "Most
+/// played" with stations the listener only skipped over.
+class PlayCountTracker {
+  PlayCountTracker({
+    required this.onCounted,
+    this.threshold = const Duration(seconds: 30),
+  });
+
+  final void Function(String slug) onCounted;
+  final Duration threshold;
+
+  String? _pendingSlug;
+  Timer? _timer;
+
+  /// [slug] was picked; it counts once it has played for [threshold].
+  void stationPicked(String slug) {
+    _cancelTimer();
+    _pendingSlug = slug;
+  }
+
+  /// The picked station's audio started or stopped playing.
+  void playingChanged(bool playing) {
+    if (!playing) {
+      _cancelTimer();
+      return;
+    }
+    final slug = _pendingSlug;
+    if (slug == null || _timer != null) return;
+    _timer = Timer(threshold, () {
+      _timer = null;
+      _pendingSlug = null;
+      onCounted(slug);
+    });
+  }
+
+  void dispose() => _cancelTimer();
+
+  void _cancelTimer() {
+    _timer?.cancel();
+    _timer = null;
   }
 }

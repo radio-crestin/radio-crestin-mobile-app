@@ -1,4 +1,6 @@
 import 'package:flutter_carplay/models/button/bar_button.dart';
+import 'package:flutter_carplay/models/grid/grid_button.dart';
+import 'package:flutter_carplay/models/list/image_row.dart';
 import 'package:flutter_carplay/models/list/list_section.dart';
 import 'package:uuid/uuid.dart';
 
@@ -66,6 +68,17 @@ class CPListTemplate implements CPTemplate {
   /// Defaults to true.
   final bool sectionIndexEnabled;
 
+  /// Buttons pinned at the top of the list, above the sections (iOS 26+).
+  ///
+  /// CarPlay shows only the first `maximumHeaderGridButtonCount` of them
+  /// (see [FlutterCarplay.getCapabilities]) and never scrolls the row.
+  /// Ignored before iOS 26.
+  final List<CPGridButton> headerGridButtons;
+
+  /// A titled row of pictures shown above the sections (iOS 26+).
+  /// Ignored before iOS 26.
+  CPImageRow? headerImageRow;
+
   /// Creates [CPListTemplate] to display a list of items, grouped into one or more sections.
   /// Each section contains an array of list items — objects that is [CPListItem]
   ///
@@ -79,7 +92,9 @@ class CPListTemplate implements CPTemplate {
     required this.systemIcon,
     this.backButton,
     this.sectionIndexEnabled = true,
-  });
+    List<CPGridButton> headerGridButtons = const [],
+    this.headerImageRow,
+  }) : headerGridButtons = List<CPGridButton>.from(headerGridButtons);
 
   @override
   Map<String, dynamic> toJson() => {
@@ -92,6 +107,8 @@ class CPListTemplate implements CPTemplate {
         'systemIcon': systemIcon,
         'backButton': backButton?.toJson(),
         'sectionIndexEnabled': sectionIndexEnabled,
+        'headerGridButtons': headerGridButtons.map((e) => e.toJson()).toList(),
+        'headerImageRow': headerImageRow?.toJson(),
       };
 
   @override
@@ -102,6 +119,13 @@ class CPListTemplate implements CPTemplate {
   void updateSections(List<CPListSection> newSections) {
     final copy = List<CPListSection>.from(newSections);
     sections
+      ..clear()
+      ..addAll(copy);
+  }
+
+  void updateHeaderGridButtons(List<CPGridButton> newButtons) {
+    final copy = List<CPGridButton>.from(newButtons);
+    headerGridButtons
       ..clear()
       ..addAll(copy);
   }

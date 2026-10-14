@@ -131,19 +131,22 @@ class FlutterCarPlayController {
   }
 
   void processFCPGridButtonPressed(String elementId) {
-    CPGridButton? gridButton;
-    l1:
-    for (var t in templateHistory) {
-      if (t is CPGridTemplate) {
-        for (var b in t.buttons) {
-          if (b.uniqueId == elementId) {
-            gridButton = b;
-            break l1;
-          }
-        }
-      }
-    }
-    if (gridButton != null) gridButton.onPress();
+    _carplayHelper
+        .findCPGridButton(templates: templateHistory, elementId: elementId)
+        ?.onPress();
+  }
+
+  void processFCPImageRowElementPressed(String elementId) {
+    _carplayHelper
+        .findCPImageRowElement(templates: templateHistory, elementId: elementId)
+        ?.onPress();
+  }
+
+  void processFCPImageRowTitlePressed(String elementId) {
+    _carplayHelper
+        .findCPImageRow(templates: templateHistory, elementId: elementId)
+        ?.onTitlePress
+        ?.call();
   }
 
   void processFCPBarButtonPressed(String elementId) {

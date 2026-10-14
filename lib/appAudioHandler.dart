@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert' show utf8;
 import 'dart:developer' as developer;
 import 'dart:io';
-import 'dart:ui';
 
 import 'package:audio_service/audio_service.dart';
 import 'package:audio_session/audio_session.dart';
@@ -864,6 +863,8 @@ class AppAudioHandler extends BaseAudioHandler {
   // Completed when the network returns, waking the play() loop's backoff
   // between failed retry cycles. Null while no backoff is pending.
   Completer<void>? _retryBackoffWake;
+  // The station the running play() loop loads (see _isLoadingStation).
+  Object? _loadingStationId;
   // Set when the network returns during the play() loop: its next attempt
   // starts a fresh pass at the preferred stream (see _wakeRetryBackoff).
   bool _restartPassAtPreferred = false;
@@ -1153,6 +1154,14 @@ class AppAudioHandler extends BaseAudioHandler {
     }
   }
 
+  /// Whether play()'s loop is trying one of [station]'s streams right now:
+  /// not done, not cancelled and not waiting out a backoff.
+  bool _isLoadingStation(Station? station) =>
+      station != null &&
+      _loadingStationId == station.id &&
+      _retryBackoffWake == null &&
+      _sourceLoadCanceller?.isCompleted == false;
+
   /// Tells the user (toast, CarPlay alert) and analytics that every stream
   /// of the station failed the pass that started at [passStartedAt].
   ///
@@ -1260,7 +1269,7 @@ class AppAudioHandler extends BaseAudioHandler {
           return [
             MediaItem(
               id: "favoriteStationsRootId",
-              title: _isRomanian ? "Stații Favorite" : "Favorite Stations",
+              title: "Stații Favorite",
               artUri: Uri.parse('android.resource://$pkg/drawable/ic_favorite'),
               playable: false,
               extras: const {
@@ -1269,7 +1278,7 @@ class AppAudioHandler extends BaseAudioHandler {
             ),
             MediaItem(
               id: "allStationsRootId",
-              title: _isRomanian ? "Toate Stațiile" : "All Stations",
+              title: "Toate Stațiile",
               artUri: Uri.parse('android.resource://$pkg/drawable/ic_radio'),
               playable: false,
               extras: const {
@@ -1299,7 +1308,7 @@ class AppAudioHandler extends BaseAudioHandler {
     }
     // Set localized queue title FIRST (cached in native queueTitleOverride,
     // then re-applied each time setQueue is called).
-    final title = _isRomanian ? 'Redate recent' : 'Recently played';
+    const title = 'Redate recent';
     queueTitle.add(title);
     // Fire-and-forget: cache the title on the native side before queue is set
     _audioServiceChannel.invokeMethod('setQueueTitle', {'title': title}).catchError((e) {
@@ -1334,7 +1343,7 @@ class AppAudioHandler extends BaseAudioHandler {
             final thumbUrl = item.songThumbnailUrl ?? stationThumbUrl;
             return MediaItem(
               id: 'history_${station.slug}_${item.timestamp}',
-              title: item.songName ?? (_isRomanian ? 'Necunoscut' : 'Unknown'),
+              title: item.songName ?? 'Necunoscut',
               artist: item.artistName != null
                   ? '$timeStr - ${item.artistName}'
                   : timeStr,
@@ -1349,18 +1358,11 @@ class AppAudioHandler extends BaseAudioHandler {
     }
   }
 
-  static bool get _isRomanian {
-    final locale = PlatformDispatcher.instance.locale;
-    return locale.languageCode == 'ro';
-  }
-
   // PlaybackStateCompat.ERROR_CODE_UNKNOWN_ERROR: none of the media
   // session's error codes is about the internet.
   static const _errorCodeUnknown = 0;
 
-  static String get _offlineErrorMessage => _isRomanian
-      ? 'Verifică conexiunea la internet.'
-      : 'Check your internet connection.';
+  static const _offlineErrorMessage = 'Verifică conexiunea la internet.';
 
   @override
   ValueStream<Map<String, dynamic>> subscribeToChildren(String parentMediaId) {
@@ -1396,6 +1398,12 @@ class AppAudioHandler extends BaseAudioHandler {
   // every reconnect trigger. See [StreamFailover] for the policy.
   final StreamFailover _failover = StreamFailover();
 
+  final PlayCountTracker _playCountTracker = PlayCountTracker(
+    onCounted: (slug) =>
+        GetIt.instance<PlayCountService>().incrementPlayCount(slug),
+  );
+  StreamSubscription<bool>? _playCountSub;
+
   AppAudioHandler({required this.graphqlClient, required this.player}) {
     stationDataService.getPlayingStationId =
         () => currentStation.valueOrNull?.id;
@@ -1408,6 +1416,17 @@ class AppAudioHandler extends BaseAudioHandler {
     stationDataService.preferLiveMetadata = TvPlatform.isAndroidTV;
     _initPlayer();
     _initUpdateCurrentStationMetadata();
+    _initPlayCounting();
+  }
+
+  /// Feeds the play counter whether audio is going (locally, cast or
+  /// video), so a station counts only once it has really been heard.
+  void _initPlayCounting() {
+    _playCountSub = playbackState
+        .map((s) =>
+            s.playing && s.processingState == AudioProcessingState.ready)
+        .distinct()
+        .listen(_playCountTracker.playingChanged);
   }
 
   // Audio Player
@@ -1684,7 +1703,9 @@ class AppAudioHandler extends BaseAudioHandler {
         });
       } else if (state == ProcessingState.ready) {
         _bufferingStallTimer?.cancel();
-        _stopSilenceKeepAlive();
+        // A loaded stream is ready before play() starts it: the keeper
+        // stays on until then (see the end of play()).
+        if (!_isConnecting) _stopSilenceKeepAlive();
       } else if (!_isReconnectingOnIntent) {
         // Loading and idle while play() reconnects keep the keeper on: it
         // is what keeps the app running until the network is back.
@@ -1938,6 +1959,26 @@ class AppAudioHandler extends BaseAudioHandler {
     _updateSongHistoryQueue();
   }
 
+  /// The `artist` and `album` lines under the station name on the system
+  /// Now Playing screens.
+  ///
+  /// CarPlay shows both, one under the other, so while it is connected the
+  /// song and its artist get a line each instead of the station name
+  /// repeating under the song. Elsewhere `artist` keeps the song and its
+  /// artist together, for screens that show a single line under the title.
+  static ({String? artist, String? album}) nowPlayingLines(
+    Station station, {
+    required bool onCarPlay,
+  }) {
+    if (!onCarPlay) {
+      return (artist: station.artist, album: station.rawStationData.title);
+    }
+    return (
+      artist: station.songTitle.isEmpty ? null : station.songTitle,
+      album: station.songArtist.isEmpty ? null : station.songArtist,
+    );
+  }
+
   /// Builds a MediaItem with the station thumbnail URL and song metadata.
   /// Always uses HTTPS URLs for artUri (not file:// cached paths) because
   /// Android Auto's system player runs in a separate process and can't
@@ -1948,13 +1989,17 @@ class AppAudioHandler extends BaseAudioHandler {
         ? Uri.parse(thumbnailUrl)
         : Uri.parse(CONSTANTS.DEFAULT_STATION_THUMBNAIL_URL);
     final isFav = stationDataService.favoriteStationSlugs.value.contains(station.slug);
+    final lines = nowPlayingLines(
+      station,
+      onCarPlay: Platform.isIOS && isCarConnected,
+    );
     return MediaItem(
       id: Utils.getStationStreamUrls(station.rawStationData).firstOrNull ?? "",
       title: station.rawStationData.title,
-      album: station.rawStationData.title,
+      album: lines.album,
       displayTitle: station.displayTitle,
       displaySubtitle: station.displaySubtitle,
-      artist: station.artist,
+      artist: lines.artist,
       duration: null,
       artUri: stationArtUri,
       isLive: true,
@@ -1994,13 +2039,19 @@ class AppAudioHandler extends BaseAudioHandler {
     ImageCacheService.instance.getOrDownload(songThumbnailUrl);
   }
 
-  Future<void> playStation(Station station, {bool? fromFavorites}) async {
-    _log('playStation(${station.slug}, fromFavorites=$fromFavorites)');
+  Future<void> playStation(
+    Station station, {
+    bool? fromFavorites,
+    String? fromGroup,
+  }) async {
+    _log('playStation(${station.slug}, fromFavorites=$fromFavorites, '
+        'fromGroup=$fromGroup)');
     AnalyticsService.instance.logDebug('station switch', {
       'to_station_slug': station.slug,
       'from_station_slug': currentStation.valueOrNull?.slug,
       'station_type': station.stationType.name,
       'from_favorites': fromFavorites,
+      'from_group': fromGroup,
     });
     _beginFastStartMeasure(station);
     // Before the early returns: picking the station already loading is
@@ -2010,14 +2061,17 @@ class AppAudioHandler extends BaseAudioHandler {
     _resumeAfterInterruption = false;
 
     // Navigation context for next/previous: true when picked from a favorites
-    // list, false from any other list, search or link. Null (skip, resume of
+    // list, false from any other list, search or link, with [fromGroup] the
+    // slug of the car category it was picked from. Null (skip, resume of
     // the last station) keeps the current context.
+    assert(fromGroup == null || fromFavorites == false);
     if (fromFavorites != null) {
       stationDataService.startedFromFavorites = fromFavorites;
+      stationDataService.startedFromGroup = fromGroup;
     }
 
-    // Track play count for recommendation algorithm
-    GetIt.instance<PlayCountService>().incrementPlayCount(station.slug);
+    // Counted for "Most played" and the recommendations only once heard.
+    _playCountTracker.stationPicked(station.slug);
 
     // Avoid stop-restart if already playing this exact playlist station.
     if (station.isPlaylist &&
@@ -2068,6 +2122,10 @@ class AppAudioHandler extends BaseAudioHandler {
     // causing the pause button to stop working during the transition.
     _isConnecting = true;
     _broadcastState(player.playbackEvent);
+    // The silence play() keeps until the new station plays (see there)
+    // starts before the previous station stops: in the gap without audio,
+    // iOS would flash the play button.
+    if (Platform.isIOS) unawaited(_startSilenceKeepAlive());
 
     // Stop and clean up the previous station before starting the new one.
     // Aligned playback ends only after the new station is selected: ending
@@ -2109,6 +2167,8 @@ class AppAudioHandler extends BaseAudioHandler {
     if (isCasting) {
       _log('playStation: casting active, sending to Cast');
       _isConnecting = false;
+      // Nothing plays here while casting: no silence to keep either.
+      _stopSilenceKeepAlive();
       // Cast immediately — don't wait for the reactive listener chain
       final castService = GetIt.instance<CastService>();
       castService.lastCastSlug = station.slug;
@@ -2123,6 +2183,8 @@ class AppAudioHandler extends BaseAudioHandler {
     // Playlist station: hand off per-item sequencing to the controller.
     if (station.isPlaylist) {
       _isConnecting = false;
+      // The playlist's items play on their own: no silence to keep.
+      _stopSilenceKeepAlive();
       return _playlistController.startPlaylist(station);
     }
 
@@ -2191,15 +2253,21 @@ class AppAudioHandler extends BaseAudioHandler {
 
   @override
   Future<void> skipToNext() {
-    _log('skipToNext() startedFromFavorites=${stationDataService.startedFromFavorites}');
+    _log('skipToNext() startedFromFavorites='
+        '${stationDataService.startedFromFavorites} '
+        'startedFromGroup=${stationDataService.startedFromGroup}');
     // Playlist active: steering-wheel / lock-screen next skips to the next item.
     if (_playlistMode) return _playlistController.skipToNext();
     if (currentStation.value == null) return super.skipToNext();
     final current = currentStation.value!.slug;
-    final next = stationDataService.getNextStation(current);
+    final next = stationDataService.getNextStation(
+      current,
+      wholeCatalog: isCarConnected,
+    );
     _log('skipToNext: current=$current, next=${next?.slug}');
     if (next == null) return super.skipToNext();
-    // A sole favorite is its own next: playStation resumes it if paused.
+    // A one-station catalog is its own next: playStation resumes it if
+    // paused.
     if (next.slug != current) {
       AnalyticsService.instance.trackStationSkip(current, next.slug, 'next');
     }
@@ -2208,11 +2276,16 @@ class AppAudioHandler extends BaseAudioHandler {
 
   @override
   Future<void> skipToPrevious() {
-    _log('skipToPrevious() startedFromFavorites=${stationDataService.startedFromFavorites}');
+    _log('skipToPrevious() startedFromFavorites='
+        '${stationDataService.startedFromFavorites} '
+        'startedFromGroup=${stationDataService.startedFromGroup}');
     if (_playlistMode) return _playlistController.skipToPrevious();
     if (currentStation.value == null) return super.skipToPrevious();
     final current = currentStation.value!.slug;
-    final prev = stationDataService.getPreviousStation(current);
+    final prev = stationDataService.getPreviousStation(
+      current,
+      wholeCatalog: isCarConnected,
+    );
     _log('skipToPrevious: current=$current, prev=${prev?.slug}');
     if (prev == null) return super.skipToPrevious();
     if (prev.slug != current) {
@@ -2372,15 +2445,32 @@ class AppAudioHandler extends BaseAudioHandler {
       _loadedStreamType = null;
     }
 
+    // A play while this station's stream is loading (a tap on a car's or a
+    // headset's play button, a duplicate tap) keeps that load: restarting
+    // would try the same stream again from the start, adding up to its
+    // whole load timeout. A loop waiting out its backoff is restarted
+    // below, to try again now.
+    if (_isLoadingStation(currentStation.valueOrNull)) {
+      _log('play: already loading this station, keeping that load');
+      return;
+    }
+
     // Need to load a new stream source. Claim the operation first: cancel
-    // any older retry loop still cycling (duplicate play() tap, zombie
-    // reconnect) so exactly one loop drives the player — the loops never
-    // give up on their own anymore, so a stale one must be cancelled here.
+    // any older retry loop still cycling (one waiting out its backoff, a
+    // zombie reconnect) so exactly one loop drives the player — the loops
+    // never give up on their own anymore, so a stale one must be cancelled
+    // here.
     _cancelInFlightPlay();
     final myOpId = _playOperationId;
     PerformanceMonitor.startOperation('audio_play');
     _isConnecting = true;
     _broadcastState(player.playbackEvent);
+    // No audio comes out until a stream plays. iOS takes the playing state
+    // that CarPlay and the lock screen show from the audio coming out, and
+    // suspends a silent app in the background (the loop, its timers and
+    // the network-restored reconnect with it): the silence keeps the pause
+    // button there, and the app running, until the stream plays.
+    if (Platform.isIOS) unawaited(_startSilenceKeepAlive());
     var retry = 0;
     Object? lastError;
     // Retry-cycle start index — computed once from the failure memory so a
@@ -2397,6 +2487,7 @@ class AppAudioHandler extends BaseAudioHandler {
     var passStartedOffline = false;
     final canceller = Completer<void>();
     _sourceLoadCanceller = canceller;
+    _loadingStationId = item?.extras?['station_id'];
     final previousStreamInfo = currentStreamInfo.valueOrNull;
     // Where the loaded start variant begins behind live; null when the
     // stream's own URL loaded.
@@ -2609,12 +2700,6 @@ class AppAudioHandler extends BaseAudioHandler {
           network.reportRequestFailure();
         }
         _log("play: attempt $retry failed - $e");
-        // No audio comes out until an attempt succeeds, and iOS suspends a
-        // silent app in the background (the loop, its timers and the
-        // network-restored reconnect with it) until it is opened again.
-        if (Platform.isIOS && _hasBeenPlayed) {
-          unawaited(_startSilenceKeepAlive());
-        }
         _recordStreamEvent(
           StreamEventKind.failed,
           'Attempt ${attemptIndex + 1}/$totalStreams failed (${elapsedMs}ms): ${_shortErr(e)}',
@@ -2712,6 +2797,8 @@ class AppAudioHandler extends BaseAudioHandler {
     // audio_service would leave the foreground for good in the background.
     final playback = player.play();
     _isConnecting = false;
+    // The stream's audio takes over from the silence started with the load.
+    _stopSilenceKeepAlive();
     _broadcastState(player.playbackEvent);
     if (reloadAtLivePoint) unawaited(reapplySeekOffset());
     return playback;
@@ -4320,22 +4407,22 @@ class AppAudioHandler extends BaseAudioHandler {
         MediaControl.custom(
           androidIcon: isFav ? 'drawable/ic_favorite' : 'drawable/ic_favorite_border',
           label: isFav
-              ? (_isRomanian ? 'Elimină din favorite' : 'Remove from favorites')
-              : (_isRomanian ? 'Adaugă la favorite' : 'Add to favorites'),
+              ? 'Elimină din favorite'
+              : 'Adaugă la favorite',
           name: 'toggleFavorite',
         ),
         // [1] Recent songs
         MediaControl.custom(
           androidIcon: 'drawable/ic_history',
-          label: _isRomanian ? 'Melodii recente' : 'Recent songs',
+          label: 'Melodii recente',
           name: 'showSongHistory',
         ),
         // [2] Like song (outline when not liked, filled when liked)
         MediaControl.custom(
           androidIcon: isLiked ? 'drawable/ic_thumb_up' : 'drawable/ic_thumb_up_outline',
           label: isLiked
-              ? (_isRomanian ? 'Retrage like' : 'Remove like')
-              : (_isRomanian ? 'Îmi place' : 'Like'),
+              ? 'Retrage like'
+              : 'Îmi place',
           name: 'likeSong',
         ),
         // [3] Previous
@@ -4348,8 +4435,8 @@ class AppAudioHandler extends BaseAudioHandler {
         MediaControl.custom(
           androidIcon: isDisliked ? 'drawable/ic_thumb_down' : 'drawable/ic_thumb_down_outline',
           label: isDisliked
-              ? (_isRomanian ? 'Retrage dislike' : 'Remove dislike')
-              : (_isRomanian ? 'Nu îmi place' : 'Dislike'),
+              ? 'Retrage dislike'
+              : 'Nu îmi place',
           name: 'dislikeSong',
         ),
       ],
@@ -4482,6 +4569,8 @@ class AppAudioHandler extends BaseAudioHandler {
     await _carRouteSub?.cancel();
     await _castRouteSub?.cancel();
     await _castSessionSub?.cancel();
+    await _playCountSub?.cancel();
+    _playCountTracker.dispose();
     await _exitVideoMode(stopVideo: true);
     _loadedStreamUrl = null;
     _loadedStreamType = null;

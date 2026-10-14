@@ -31,7 +31,11 @@ class _FakeAudioHandler extends BaseAudioHandler implements AppAudioHandler {
   void setCurrent(Station? s) => currentStation.add(s);
 
   @override
-  Future<void> playStation(Station station, {bool? fromFavorites}) async {
+  Future<void> playStation(
+    Station station, {
+    bool? fromFavorites,
+    String? fromGroup,
+  }) async {
     lastPlayed = station;
   }
 
