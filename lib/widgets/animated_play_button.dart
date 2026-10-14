@@ -35,17 +35,27 @@ class AnimatedPlayButton extends StatefulWidget {
 /// 2. **Stream truth** — the actual playback state from audio_service.
 ///    After a grace period (3s), if the stream disagrees with the intent,
 ///    the stream wins (e.g. playback failed → show play icon, still loading → show spinner).
+///
+/// The spinner shows at once for a load and goes at once. Buffering while
+/// playing shows it only once it lasted [_bufferingSpinnerDelay]: on iOS
+/// every play(), a resume too, buffers ~15–130 ms before AVPlayer starts,
+/// which would flash the spinner between the play and pause icons.
 class AnimatedPlayButtonState extends State<AnimatedPlayButton> {
   bool _intentIsPlaying = false;
   DateTime? _intentSetAt;
 
   bool _streamPlaying = false;
   bool _streamLoading = false;
+  // What build() shows: `_streamLoading`, delayed for buffering while
+  // playing (see the class doc).
+  bool _showSpinner = false;
 
   Timer? _graceTimer;
+  Timer? _spinnerTimer;
   StreamSubscription<PlaybackState>? _subscription;
 
   static const _gracePeriod = Duration(seconds: 3);
+  static const _bufferingSpinnerDelay = Duration(milliseconds: 200);
 
   @override
   void initState() {
@@ -57,9 +67,10 @@ class AnimatedPlayButtonState extends State<AnimatedPlayButton> {
     final playing = state.playing;
     // The error state is the player waiting for the internet in the car
     // (AppAudioHandler.setOfflineError): still trying, as when loading.
-    final loading = state.processingState == AudioProcessingState.loading ||
-        state.processingState == AudioProcessingState.buffering ||
+    final connecting = state.processingState == AudioProcessingState.loading ||
         state.processingState == AudioProcessingState.error;
+    final loading =
+        connecting || state.processingState == AudioProcessingState.buffering;
 
     // When stream reaches a settled state, always sync intent to reality.
     // This prevents desync from programmatic play/pause (autoplay, reconnect,
@@ -76,20 +87,39 @@ class AnimatedPlayButtonState extends State<AnimatedPlayButton> {
       _graceTimer?.cancel();
     }
 
+    _streamLoading = loading;
+    final spinner =
+        _delayedSpinner(immediate: !loading || connecting || !playing);
+
     // playbackState is re-broadcast on every player event (e.g. buffered
     // position ticks ~2x/s on live streams). Rebuild only when an input to
     // build() changed; grace-period expiry is driven by `_graceTimer`.
     final changed = playing != _streamPlaying ||
-        loading != _streamLoading ||
+        spinner != _showSpinner ||
         intent != _intentIsPlaying ||
         intentAt != _intentSetAt;
 
     _streamPlaying = playing;
-    _streamLoading = loading;
+    _showSpinner = spinner;
     _intentIsPlaying = intent;
     _intentSetAt = intentAt;
 
     if (changed && mounted) setState(() {});
+  }
+
+  /// Whether to show the spinner now for `_streamLoading`: at once when
+  /// [immediate], else once the stream held it for [_bufferingSpinnerDelay].
+  bool _delayedSpinner({required bool immediate}) {
+    if (immediate || _streamLoading == _showSpinner) {
+      _spinnerTimer?.cancel();
+      _spinnerTimer = null;
+      return _streamLoading;
+    }
+    _spinnerTimer ??= Timer(_bufferingSpinnerDelay, () {
+      _spinnerTimer = null;
+      if (mounted) setState(() => _showSpinner = _streamLoading);
+    });
+    return _showSpinner;
   }
 
   /// Call this from skip next/prev buttons to set optimistic "playing" state.
@@ -115,26 +145,18 @@ class AnimatedPlayButtonState extends State<AnimatedPlayButton> {
   void dispose() {
     _subscription?.cancel();
     _graceTimer?.cancel();
+    _spinnerTimer?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    bool showPlaying;
-    bool showSpinner;
-
-    if (_inGracePeriod) {
-      showPlaying = _intentIsPlaying;
-      showSpinner = _streamLoading;
-    } else {
-      showPlaying = _streamPlaying;
-      showSpinner = _streamLoading;
-    }
+    final showPlaying = _inGracePeriod ? _intentIsPlaying : _streamPlaying;
+    final showSpinner = _showSpinner;
 
     Widget content;
     if (showSpinner) {
       content = SizedBox(
-        key: const ValueKey('loading'),
         width: widget.iconSize * 0.65,
         height: widget.iconSize * 0.65,
         child: CircularProgressIndicator(
@@ -145,19 +167,16 @@ class AnimatedPlayButtonState extends State<AnimatedPlayButton> {
     } else {
       content = Icon(
         showPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-        key: ValueKey(showPlaying),
         size: widget.iconSize,
         color: widget.iconColor,
       );
     }
 
-    final switcher = SizedBox(
+    // Swaps at once, without a fade, by design.
+    final glyph = SizedBox(
       width: widget.iconSize,
       height: widget.iconSize,
-      child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 150),
-        child: Center(child: content),
-      ),
+      child: Center(child: content),
     );
 
     final diameter = widget.iconSize + 16;
@@ -183,7 +202,7 @@ class AnimatedPlayButtonState extends State<AnimatedPlayButton> {
             customBorder: const CircleBorder(),
             child: SizedBox.square(
               dimension: diameter,
-              child: Center(child: switcher),
+              child: Center(child: glyph),
             ),
           ),
         ),
@@ -197,7 +216,7 @@ class AnimatedPlayButtonState extends State<AnimatedPlayButton> {
         customBorder: const CircleBorder(),
         child: SizedBox.square(
           dimension: diameter,
-          child: Center(child: switcher),
+          child: Center(child: glyph),
         ),
       ),
     );

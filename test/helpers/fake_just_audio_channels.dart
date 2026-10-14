@@ -50,6 +50,11 @@ class FakeJustAudioChannels {
   /// play() and the tests await it.
   bool holdPlayUntilStopped = false;
 
+  /// Whether a `play` call on a ready player answers with buffering, as
+  /// AVPlayer does while it waits for data; [emitProcessingState] then
+  /// says it plays. Off by default: ready players play at once.
+  bool waitsAfterPlay = false;
+
   /// Whether a native player plays: told to play, and not paused or
   /// disposed since. just_audio's stop() disposes the native player.
   bool get isAnyPlayerPlaying => _players.values.any((p) => p._playing);
@@ -168,6 +173,7 @@ class _FakeNativePlayer {
         return <String, Object?>{};
       case 'play':
         final hold = owner.holdPlayUntilStopped && !_playing;
+        if (owner.waitsAfterPlay && !_playing && _state == 3) _state = 2;
         _playing = true;
         emit();
         if (!hold) return <String, Object?>{};

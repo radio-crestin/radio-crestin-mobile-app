@@ -667,6 +667,23 @@ class AppAudioHandler extends BaseAudioHandler {
   bool _isConnecting = false;
   bool get isPlayingOrConnecting => player.playing || _isConnecting;
 
+  /// Whether the player's `ready` right after a play() predates it.
+  ///
+  /// AVPlayer first waits for data, then plays: just_audio reports that
+  /// wait as buffering (15–130 ms on an iPhone), but only 10–25 ms after
+  /// play(), keeping the pre-play `ready` until then. ExoPlayer is ready
+  /// only with data to play, and plays at once.
+  @visibleForTesting
+  static bool playerWaitsAfterPlay = Platform.isIOS || Platform.isMacOS;
+
+  // Set by _playPlayer() while the player's `ready` predates the play (see
+  // playerWaitsAfterPlay): _broadcastState reports buffering for it, so
+  // the play button keeps its spinner until audio comes out. Ends with the
+  // player's first event since the play (see _endAwaitingAudioStart).
+  bool _awaitingAudioStart = false;
+  // When the player was asked to play; null while play() runs.
+  DateTime? _audioStartRequestedAt;
+
   /// Whether the local player is putting out audio: playing, with data to
   /// play (not buffering, loading or idle). Emits on change only.
   Stream<bool> get audioPlayingStream => player.playerStateStream
@@ -1440,6 +1457,7 @@ class AppAudioHandler extends BaseAudioHandler {
     // a brief glitch leaves no trace in the diagnostic log.
     player.playbackEventStream.listen(
       (event) {
+        _endAwaitingAudioStart(event);
         _broadcastState(event);
         _onPlayerEventForTimeline(event);
         _reportAudioArriving(event.bufferedPosition);
@@ -2402,7 +2420,7 @@ class AppAudioHandler extends BaseAudioHandler {
         return;
       }
       _log('play: resuming playlist audio item');
-      await player.play();
+      await _playPlayer();
       return;
     }
     _disconnectTimer?.cancel();
@@ -2437,7 +2455,7 @@ class AppAudioHandler extends BaseAudioHandler {
           );
       if (!reload) {
         _log("play: fast resume (stream already loaded)");
-        return player.play();
+        return _playPlayer();
       }
       _log('play: paused ${pausedFor.inSeconds}s exceeds safe DVR runway — '
           'reloading to re-anchor behind live edge');
@@ -2795,13 +2813,47 @@ class AppAudioHandler extends BaseAudioHandler {
     // between, a reconnect that stopped the player (see
     // _isReconnectingOnIntent) would tell the session it paused, and
     // audio_service would leave the foreground for good in the background.
-    final playback = player.play();
+    final playback = _playPlayer();
     _isConnecting = false;
     // The stream's audio takes over from the silence started with the load.
     _stopSilenceKeepAlive();
     _broadcastState(player.playbackEvent);
     if (reloadAtLivePoint) unawaited(reapplySeekOffset());
     return playback;
+  }
+
+  /// Plays the loaded source on the local player, reporting buffering
+  /// until its state shows the play (see [playerWaitsAfterPlay]).
+  Future<void> _playPlayer() {
+    final awaitsStart = playerWaitsAfterPlay &&
+        !player.playing &&
+        player.processingState == ProcessingState.ready;
+    if (awaitsStart) {
+      _awaitingAudioStart = true;
+      _audioStartRequestedAt = null;
+    }
+    final playback = player.play();
+    // Taken after play(): the event it emits itself predates the play.
+    if (awaitsStart) _audioStartRequestedAt = DateTime.now();
+    return playback;
+  }
+
+  /// Ends the wait of [_playPlayer] at the player's first [event] since
+  /// the play.
+  ///
+  /// AVPlayer answers a play at once, with its wait for data (buffering)
+  /// or, should it have enough, its start (ready), and stamps the event
+  /// with the time it handled the play. Events stamped earlier were on
+  /// their way before it.
+  void _endAwaitingAudioStart(PlaybackEvent event) {
+    final requestedAt = _audioStartRequestedAt;
+    if (!_awaitingAudioStart ||
+        requestedAt == null ||
+        event.updateTime.isBefore(requestedAt)) {
+      return;
+    }
+    _awaitingAudioStart = false;
+    _audioStartRequestedAt = null;
   }
 
   /// Loads [streamUrl] into the player with the tracking parameters,
@@ -4067,7 +4119,7 @@ class AppAudioHandler extends BaseAudioHandler {
       }
       _isConnecting = false;
       _broadcastState(player.playbackEvent);
-      await player.play();
+      await _playPlayer();
     } catch (e) {
       _isConnecting = false;
       _log('playPlaylistAudioItem failed: $e');
@@ -4463,6 +4515,8 @@ class AppAudioHandler extends BaseAudioHandler {
             ? AudioProcessingState.ready
             : isCasting
             ? _castProcessingState()
+            : _awaitingAudioStart && player.playing
+            ? AudioProcessingState.buffering
             : const {
                 // We're using ready here to not interupt Android Auto playback when going to next/previous station
                 ProcessingState.idle: AudioProcessingState.ready,

@@ -685,6 +685,98 @@ void main() {
     });
   });
 
+  // AVPlayer buffers after every play() before audio comes out, while
+  // just_audio keeps reporting the pre-play ready until then.
+  group('audio start', () {
+    final waitsAfterPlay = AppAudioHandler.playerWaitsAfterPlay;
+    setUp(() => AppAudioHandler.playerWaitsAfterPlay = true);
+    tearDown(() => AppAudioHandler.playerWaitsAfterPlay = waitsAfterPlay);
+
+    AudioProcessingState reported() =>
+        handler.playbackState.value.processingState;
+
+    // Every processing state reported while playing, in order.
+    List<AudioProcessingState> recordWhilePlaying() {
+      final states = <AudioProcessingState>[];
+      handler.playbackState
+          .where((s) => s.playing)
+          .listen((s) => states.add(s.processingState));
+      return states;
+    }
+
+    Future<void> playStation2() async {
+      unawaited(handler.playStation(stationOf(2)));
+      await untilPlaying(mp3Of2, loads: 1);
+    }
+
+    test('reports no ready until AVPlayer plays', () async {
+      await http.runWithClient(() async {
+        channels.waitsAfterPlay = true;
+        await startHandler();
+        final states = recordWhilePlaying();
+        await playStation2();
+        await until(() => states.contains(AudioProcessingState.buffering));
+        expect(states, isNot(contains(AudioProcessingState.ready)),
+            reason: 'the ready before the play is no start');
+
+        channels.emitProcessingState(3); // AVPlayer plays
+        await until(() => reported() == AudioProcessingState.ready);
+        expect(handler.playbackState.value.playing, isTrue);
+      }, () => routing);
+    });
+
+    test('a resume waits for AVPlayer too', () async {
+      await http.runWithClient(() async {
+        channels.waitsAfterPlay = true;
+        await startHandler();
+        await playStation2();
+        channels.emitProcessingState(3);
+        await until(() => reported() == AudioProcessingState.ready);
+        await handler.pause();
+        final states = recordWhilePlaying();
+
+        await handler.play();
+        await until(() => states.contains(AudioProcessingState.buffering));
+        expect(states, isNot(contains(AudioProcessingState.ready)));
+      }, () => routing);
+    });
+
+    test('reports ready at once should AVPlayer play without waiting',
+        () async {
+      await http.runWithClient(() async {
+        await startHandler();
+        await playStation2();
+
+        // AVPlayer's answer to the play, stamped after it.
+        await Future<void>.delayed(const Duration(milliseconds: 2));
+        channels.emitProcessingState(3);
+        await until(() => reported() == AudioProcessingState.ready);
+      }, () => routing);
+    });
+
+    test('a pause before AVPlayer answers shows as a pause', () async {
+      await http.runWithClient(() async {
+        await startHandler();
+        await playStation2();
+
+        await handler.pause();
+
+        expect(handler.playbackState.value.playing, isFalse);
+        expect(reported(), AudioProcessingState.ready);
+      }, () => routing);
+    });
+
+    test('ExoPlayer is ready at once', () async {
+      AppAudioHandler.playerWaitsAfterPlay = false;
+      await http.runWithClient(() async {
+        await startHandler();
+        await playStation2();
+
+        expect(reported(), AudioProcessingState.ready);
+      }, () => routing);
+    });
+  });
+
   // What Android Auto shows while playback waits for the internet.
   group('offline error', () {
     bool showsError() =>

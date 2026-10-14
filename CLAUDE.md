@@ -121,13 +121,14 @@ AnimatedSwitcher(
 ```
 - Duration: **250ms** for content, **150ms** for icons/small elements.
 - Always provide a unique `ValueKey` on the child.
-- Used in: station thumbnails, song metadata, play button icons.
+- Used in: station thumbnails, song metadata.
 
 **2. Optimistic Intent Pattern (AnimatedPlayButton)**
 The `AnimatedPlayButton` (`lib/widgets/animated_play_button.dart`) uses a two-layer approach:
 - **Layer 1 - User Intent:** Instant visual feedback on tap (optimistic).
 - **Layer 2 - Stream Truth:** Actual audio_service state. Wins after 3s grace period.
-- Shows `CircularProgressIndicator` during buffering.
+- Shows `CircularProgressIndicator` while loading, and for buffering while playing only once it lasts 200ms.
+- Swaps the spinner and the play/pause icons at once, without a fade (by design).
 - Skip buttons call `notifyWillPlay()` to set optimistic state.
 
 **3. SlidingUpPanel**
