@@ -35,8 +35,8 @@ void main() {
       expect(m.thumbSize, 140.0);
       expect(m.infoWidth, 140.0);
       expect(m.playIconSize, 48.0);
-      expect(m.skipIconSize, 34.0);
-      expect(m.skipSpacing, 24.0);
+      expect(m.skipIconSize, 40.0);
+      expect(m.skipSpacing, 28.0);
     });
 
     test('very narrow width clamps thumb to the 140 floor without throwing',
@@ -60,8 +60,8 @@ void main() {
       expect(m.thumbSize, closeTo(390 * 0.7, 0.001));
       expect(m.infoWidth, 390 - 48);
       expect(m.playIconSize, 62.0);
-      expect(m.skipIconSize, 40.0);
-      expect(m.skipSpacing, 36.0);
+      expect(m.skipIconSize, 48.0);
+      expect(m.skipSpacing, 44.0);
     });
 
     test('large phone keeps the same 70% share', () {
@@ -77,7 +77,7 @@ void main() {
           screenWidth: 375, screenHeight: 667, textScale: 1.0);
       expect(m.thumbSize, closeTo(667 * 0.9 - 390, 0.001));
       expect(m.playIconSize, 48.0);
-      expect(m.skipIconSize, 34.0);
+      expect(m.skipIconSize, 40.0);
     });
 
     test('short phone keeps the song info as wide as the side margins', () {
@@ -132,8 +132,8 @@ void main() {
 
       // Bounds of the interpolation.
       expect(small.playIconSize, inInclusiveRange(48.0, 62.0));
-      expect(small.skipIconSize, inInclusiveRange(34.0, 40.0));
-      expect(small.skipSpacing, inInclusiveRange(24.0, 36.0));
+      expect(small.skipIconSize, inInclusiveRange(40.0, 48.0));
+      expect(small.skipSpacing, inInclusiveRange(28.0, 44.0));
     });
   });
 }

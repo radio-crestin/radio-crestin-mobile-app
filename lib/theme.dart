@@ -95,6 +95,25 @@ class AppColors {
   static const Color darkDivider = Color(0x1fffffff);
   static const Color darkDisabled = Color(0x62ffffff);
 
+  // The full player's panel, from the glow behind the artwork to the bottom
+  // edge: a wine that deepens downward in the dark theme, a soft pink that
+  // pales downward in the light one. Opaque, so the station list never shows
+  // through.
+  static const List<Color> darkPlayerBackdrop = [
+    Color(0xff4a1a2c),
+    Color(0xff2b1019),
+    Color(0xff170b10),
+  ];
+  static const List<Color> lightPlayerBackdrop = [
+    Color(0xfffce4ec),
+    Color(0xfff9e7ed),
+    Color(0xfffaf1f4),
+  ];
+
+  // Menus over the full player in the dark theme (Android's "mai mult"): the
+  // middle of the sheets' wine, lighter than the panel under it.
+  static const Color darkPlayerMenu = Color(0xff3b1523);
+
   // Sleep timer ("somn") ring and countdown: the brand pink, lightened on
   // dark surfaces and deepened on light ones so the small label keeps 4.5:1
   // contrast (plain `primary` falls just short on both).

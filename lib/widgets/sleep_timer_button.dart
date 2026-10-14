@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../services/sleep_timer_service.dart';
@@ -7,9 +8,9 @@ import '../theme.dart';
 
 /// The player's "somn" action.
 ///
-/// Idle it is the moon icon with the "somn" label. While a sleep timer runs,
-/// a draining ring circles a smaller moon and the label becomes the time
-/// left, refreshed every second.
+/// Idle it is the moon with "Zzz" (Apple Podcasts' sleep timer icon) over
+/// the "somn" label. While a sleep timer runs, a draining ring circles a
+/// smaller moon and the label becomes the time left, refreshed every second.
 class SleepTimerButton extends StatefulWidget {
   const SleepTimerButton({
     super.key,
@@ -107,7 +108,7 @@ class _SleepTimerButtonState extends State<SleepTimerButton> {
                     duration: const Duration(milliseconds: 150),
                     child: armed == null
                         ? Icon(
-                            Icons.bedtime_rounded,
+                            CupertinoIcons.moon_zzz_fill,
                             key: const ValueKey('idle'),
                             size: 24,
                             color: theme.colorScheme.onSurface,

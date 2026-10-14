@@ -800,8 +800,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     // while the search dialog opens above it.
     final panelMaxHeight = MediaQuery.sizeOf(context).height * .9;
     final bottomPadding = MediaQuery.paddingOf(context).bottom;
-    // The page's Stack ends this far above the screen bottom (the padding of
-    // the Container around it); the open panel is this tall inside it.
+    // The page's Stack ends this far above the screen bottom (the strip under
+    // it); the open panel is this tall inside it.
     final stackBottomInset = Platform.isIOS ? 12.0 : bottomPadding;
     final panelOpenHeight = panelMaxHeight - stackBottomInset;
 
@@ -824,9 +824,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             final nonFavoriteStations = filteredStations.where((station) => !favoriteSlugs.contains(station.slug)).toList();
             final hasMiniPlayer = currentStation != null && stations.isNotEmpty;
 
-            return Container(
-              color: Theme.of(context).scaffoldBackgroundColor,
-              padding: EdgeInsets.only(bottom: stackBottomInset),
+            final pageColor = Theme.of(context).scaffoldBackgroundColor;
+
+            return ColoredBox(
+              color: pageColor,
+              child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+              Expanded(
               child: Stack(
               children: [
               SlidingUpPanel(
@@ -1195,6 +1200,26 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   listReservedInset:
                       currentStation != null ? kMiniPlayerCollapsedHeight : 0,
                   onRetry: _retryCurrentStation,
+                ),
+              ),
+            ],
+            ),
+            ),
+              // The strip under the Stack, above the home indicator. It takes
+              // the color of the full player's bottom edge as the panel
+              // rises, so the open player reaches the screen's edge instead
+              // of stopping on a band of the page.
+              ValueListenableBuilder<double>(
+                valueListenable: _panelSlide,
+                builder: (context, slide, _) => SizedBox(
+                  height: stackBottomInset,
+                  child: ColoredBox(
+                    color: Color.lerp(
+                      pageColor,
+                      playerBackdropEdgeColor(Theme.of(context).brightness),
+                      slide,
+                    )!,
+                  ),
                 ),
               ),
             ],

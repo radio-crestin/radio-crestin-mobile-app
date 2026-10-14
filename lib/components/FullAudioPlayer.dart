@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:like_button/like_button.dart';
 import 'package:radio_crestin/theme.dart';
@@ -20,6 +21,7 @@ import '../types/Station.dart';
 import '../widgets/animated_play_button.dart';
 import '../widgets/cast_button.dart';
 import '../widgets/player_video_surface.dart';
+import '../widgets/player_more_button.dart';
 import '../widgets/playlist_player_section.dart';
 import '../widgets/shrink_to_fit_text.dart';
 import '../widgets/sleep_timer_button.dart';
@@ -35,7 +37,7 @@ class PlayerLayoutMetrics {
   /// Width of the song info row under the artwork.
   final double infoWidth;
 
-  /// Size of the play/pause glyph; the disc around it is 16 wider.
+  /// Size of the play/pause glyph; its round tap target is 16 wider.
   final double playIconSize;
 
   /// Size of the skip-forward / skip-back glyphs.
@@ -83,7 +85,7 @@ const double _scalableTextHeight = 90.0;
 const double _maxTextScale = 2.0;
 
 /// Largest text scale of the action labels: iOS's largest standard size.
-/// Like a tab bar's labels they stay short, so all five keep one size and
+/// Like a tab bar's labels they stay short, so all four keep one size and
 /// fit the row on the narrowest phones.
 const double _maxActionLabelTextScale = 1.35;
 
@@ -132,8 +134,11 @@ PlayerLayoutMetrics computePlayerLayout({
     thumbSize: thumbSize,
     infoWidth: math.max(thumbSize, maxByWidth),
     playIconSize: 48.0 + 14.0 * t, // 48..62
-    skipIconSize: 34.0 + 6.0 * t, // 34..40
-    skipSpacing: 24.0 + 12.0 * t, // 24..36
+    // The rewind / fast-forward glyphs fill less of their box than play's,
+    // so they take a larger size to look as bold.
+    skipIconSize: 40.0 + 8.0 * t, // 40..48
+    // Without a disc behind play, the glyphs need the extra air.
+    skipSpacing: 28.0 + 16.0 * t, // 28..44
   );
 }
 
@@ -621,7 +626,8 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     );
   }
 
-  /// Transport controls: prev | play/pause | next. [alignStart] left-aligns the
+  /// Transport controls: prev | play/pause | next, as bare glyphs in the
+  /// text color, the way Apple Music shows them. [alignStart] left-aligns the
   /// cluster for the landscape right-hand column.
   Widget _buildTransportControls(
     BuildContext context, {
@@ -630,8 +636,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     required double skipSpacing,
     bool alignStart = false,
   }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final skipColor = Theme.of(context).colorScheme.onSurface;
+    final glyphColor = Theme.of(context).colorScheme.onSurface;
     return Row(
       mainAxisAlignment:
           alignStart ? MainAxisAlignment.start : MainAxisAlignment.center,
@@ -639,22 +644,19 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
         IconButton(
           tooltip: 'Stația anterioară',
           iconSize: skipIconSize,
-          color: skipColor,
+          color: glyphColor,
           onPressed: () {
             _playButtonKey.currentState?.notifyWillPlay();
             widget.audioHandler.skipToPrevious();
           },
-          icon: const Icon(Icons.skip_previous_rounded),
+          icon: const Icon(Icons.fast_rewind_rounded),
         ),
         SizedBox(width: skipSpacing),
-        // A flat disc: the deep crimson in the dark theme, the brand pink in
-        // the light one.
         AnimatedPlayButton(
           key: _playButtonKey,
           playbackStateStream: widget.audioHandler.playbackState,
           iconSize: playIconSize,
-          iconColor: Theme.of(context).colorScheme.onPrimary,
-          backgroundColor: isDark ? AppColors.playerBar : AppColors.primary,
+          iconColor: glyphColor,
           onPlay: widget.audioHandler.play,
           onPause: widget.audioHandler.pause,
           onStop: widget.audioHandler.stop,
@@ -663,18 +665,19 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
         IconButton(
           tooltip: 'Stația următoare',
           iconSize: skipIconSize,
-          color: skipColor,
+          color: glyphColor,
           onPressed: () {
             _playButtonKey.currentState?.notifyWillPlay();
             widget.audioHandler.skipToNext();
           },
-          icon: const Icon(Icons.skip_next_rounded),
+          icon: const Icon(Icons.fast_forward_rounded),
         ),
       ],
     );
   }
 
-  /// Bottom action row: favorit | somn | istoric | youtube | trimite.
+  /// Bottom action row: favorit | somn | trimite | mai mult, the last one a
+  /// menu with the song history and the YouTube search.
   /// Portrait gives each action an equal share of the width; [alignStart]
   /// packs them at the start of the landscape right-hand column instead.
   Widget _buildBottomActionRow(BuildContext context, bool hasYoutubeLink,
@@ -690,45 +693,17 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
       ),
       _buildActionButton(
         context,
-        icon: Icons.history,
-        label: 'istoric',
-        onTap: () {
-          AnalyticsService.instance.capture('button_clicked', {'button_name': 'song_history', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug});
-          final station = currentStation;
-          if (station != null) {
-            SongHistoryModal.show(
-              context,
-              stationSlug: station.slug,
-              stationTitle: station.title,
-              stationThumbnailUrl: station.thumbnailUrl,
-              playedCutoff: () =>
-                  _stationDataService.playedCutoffFor(station.id),
-            );
-          }
-        },
-      ),
-      _buildActionButton(
-        context,
-        icon: Icons.video_collection,
-        label: 'youtube',
-        isEnabled: hasYoutubeLink,
-        onTap: () async {
-          if (!hasYoutubeLink || currentStation == null) return;
-          AnalyticsService.instance.capture('button_clicked', {'button_name': 'youtube_search', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug, 'song_id': currentStation?.songId, 'song_title': currentStation?.songTitle});
-          final query = "${currentStation?.songArtist} - ${currentStation?.songTitle}";
-          final encodedQuery = Uri.encodeQueryComponent(query);
-          final searchUrl = 'https://www.youtube.com/results?q=$encodedQuery';
-          await launchUrl(Uri.parse(searchUrl), mode: LaunchMode.externalApplication);
-        },
-      ),
-      _buildActionButton(
-        context,
-        icon: Icons.share_outlined,
+        icon: _shareIcon(context),
         label: 'trimite',
         onTap: () {
           AnalyticsService.instance.capture('button_clicked', {'button_name': 'share', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug, 'song_id': currentStation?.songId});
           _showShareSheet(context);
         },
+      ),
+      PlayerMoreButton(
+        onOpened: () => AnalyticsService.instance.capture('button_clicked', {'button_name': 'more_menu', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug}),
+        onHistory: () => _showSongHistory(context),
+        onYoutubeSearch: hasYoutubeLink ? _searchSongOnYoutube : null,
       ),
     ];
 
@@ -942,7 +917,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                 ),
                 _buildActionButton(
                   context,
-                  icon: Icons.share_outlined,
+                  icon: _shareIcon(context),
                   label: 'trimite',
                   onTap: () {
                     AnalyticsService.instance.capture('button_clicked', {
@@ -973,31 +948,31 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     );
   }
 
+  /// The platform's own share icon: the square with an arrow on iOS, the
+  /// three linked dots on Android.
+  IconData _shareIcon(BuildContext context) =>
+      switch (Theme.of(context).platform) {
+        TargetPlatform.iOS || TargetPlatform.macOS => CupertinoIcons.share,
+        _ => Icons.share_outlined,
+      };
+
   /// An icon over its label, for the action rows at the bottom.
   Widget _buildActionButton(
     BuildContext context, {
     required IconData icon,
     required String label,
     required VoidCallback onTap,
-    bool isEnabled = true,
   }) {
-    final theme = Theme.of(context);
     return InkWell(
       customBorder: const CircleBorder(),
-      onTap: isEnabled ? onTap : null,
+      onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.all(10.0),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon,
-              size: 24,
-              color: isEnabled
-                  ? theme.colorScheme.onSurface
-                  : theme.disabledColor,
-            ),
-            _ActionLabel(label, color: isEnabled ? null : theme.disabledColor),
+            Icon(icon, size: 24, color: Theme.of(context).colorScheme.onSurface),
+            _ActionLabel(label),
           ],
         ),
       ),
@@ -1059,6 +1034,39 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     );
   }
 
+  /// Opens the songs the current station played lately.
+  void _showSongHistory(BuildContext context) {
+    final station = currentStation;
+    if (station == null) return;
+    AnalyticsService.instance.capture('button_clicked', {'button_name': 'song_history', 'station_id': station.id, 'station_slug': station.slug});
+    SongHistoryModal.show(
+      context,
+      stationSlug: station.slug,
+      stationTitle: station.title,
+      stationThumbnailUrl: station.thumbnailUrl,
+      playedCutoff: () => _stationDataService.playedCutoffFor(station.id),
+    );
+  }
+
+  /// Searches YouTube for the playing song, in the YouTube app when it is
+  /// installed.
+  Future<void> _searchSongOnYoutube() async {
+    final station = currentStation;
+    if (station == null) return;
+    AnalyticsService.instance.capture('button_clicked', {'button_name': 'youtube_search', 'station_id': station.id, 'station_slug': station.slug, 'song_id': station.songId, 'song_title': station.songTitle});
+    final query = Uri.encodeQueryComponent(
+        '${station.songArtist} - ${station.songTitle}');
+    try {
+      await launchUrl(
+        Uri.parse('https://www.youtube.com/results?q=$query'),
+        mode: LaunchMode.externalApplication,
+      );
+    } catch (_) {
+      // Neither the YouTube app nor a browser could take the link; nothing
+      // else to offer from here.
+    }
+  }
+
   /// Opens the sleep timer sheet.
   void _showSleepTimerSheet(BuildContext context) {
     SleepTimerSheet.show(
@@ -1080,7 +1088,8 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
 }
 
 /// The sliding panel's background: rounded top corners over the brand
-/// gradient.
+/// backdrop, which glows behind the artwork and keeps its tint all the way
+/// to the bottom edge.
 ///
 /// A transparent [Material] sits above the gradient so the buttons' ripples
 /// show: an [InkWell] paints on its nearest Material, which would otherwise
@@ -1092,30 +1101,29 @@ class _PlayerPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final bgColor = theme.scaffoldBackgroundColor;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       decoration: BoxDecoration(
         borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(16.0),
           topRight: Radius.circular(16.0),
         ),
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
+        // An ellipse wider than the panel, centred 18% down, so the glow
+        // spreads across the top and reaches the bottom edge only at its
+        // darkest.
+        gradient: RadialGradient(
+          center: _backdropCenter,
+          // The transform's radii are fractions of a radius-1 circle, the
+          // shortest side; the default radius is half of that.
+          radius: 1.0,
           colors: isDark
-              ? [
-                  const Color(0xFF2C1018),
-                  const Color(0xFF1A0A0F),
-                  bgColor,
-                ]
-              : [
-                  const Color(0xFFFCE4EC),
-                  const Color(0xFFF8BBD0).withValues(alpha: 0.3),
-                  bgColor,
-                ],
-          stops: const [0.0, 0.35, 0.7],
+              ? AppColors.darkPlayerBackdrop
+              : AppColors.lightPlayerBackdrop,
+          stops: const [0.0, 0.55, 1.0],
+          transform: const _EllipticalGradientTransform(
+            center: _backdropCenter,
+            radii: Size(1.3, 0.75),
+          ),
         ),
       ),
       child: Material(
@@ -1133,7 +1141,52 @@ class _PlayerPanel extends StatelessWidget {
   }
 }
 
-/// The like / dislike buttons for the playing song, joined into one pill.
+/// Where the player backdrop's glow is brightest: centred, 18% down.
+const Alignment _backdropCenter = Alignment(0.0, -0.64);
+
+/// The color along the full player's bottom edge, for the page to carry the
+/// player down to the screen's edge.
+///
+/// The backdrop's ellipse ends at 93% of the panel's height (18% + 75%), so
+/// its last color fills the whole bottom edge whatever the panel's size.
+Color playerBackdropEdgeColor(Brightness brightness) =>
+    brightness == Brightness.dark
+        ? AppColors.darkPlayerBackdrop.last
+        : AppColors.lightPlayerBackdrop.last;
+
+/// Stretches a [RadialGradient] of radius 1 into an ellipse whose radii are
+/// fractions of the painted box's width and height, as CSS's
+/// `radial-gradient(130% 75% at 50% 18%)` does. A plain [RadialGradient] is a
+/// circle sized by the box's shortest side.
+class _EllipticalGradientTransform extends GradientTransform {
+  const _EllipticalGradientTransform({
+    required this.center,
+    required this.radii,
+  });
+
+  /// The gradient's centre, which the stretch keeps in place.
+  final Alignment center;
+
+  /// The ellipse's horizontal and vertical radii, as fractions of the box's
+  /// width and height.
+  final Size radii;
+
+  @override
+  Matrix4 transform(Rect bounds, {TextDirection? textDirection}) {
+    final side = bounds.shortestSide;
+    if (side <= 0) return Matrix4.identity();
+    final origin = center.withinRect(bounds);
+    return Matrix4.identity()
+      ..translateByDouble(origin.dx, origin.dy, 0, 1)
+      ..scaleByDouble(radii.width * bounds.width / side,
+          radii.height * bounds.height / side, 1, 1)
+      ..translateByDouble(-origin.dx, -origin.dy, 0, 1);
+  }
+}
+
+/// The like / dislike buttons for the playing song: two outlined circles. A
+/// like floods its circle with the brand pink, a dislike with a quiet tint of
+/// the text color.
 class _RatingButtons extends StatelessWidget {
   const _RatingButtons({
     required this.likeStatus,
@@ -1146,11 +1199,9 @@ class _RatingButtons extends StatelessWidget {
   final VoidCallback onLike;
   final VoidCallback onDislike;
 
-  static const _outerRadius = Radius.circular(24);
-  static const _innerRadius = Radius.circular(6);
-
   @override
   Widget build(BuildContext context) {
+    final onSurface = Theme.of(context).colorScheme.onSurface;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -1159,22 +1210,20 @@ class _RatingButtons extends StatelessWidget {
           activeIcon: Icons.thumb_up,
           label: 'Îmi place',
           isActive: likeStatus == 1,
-          borderRadius: const BorderRadius.horizontal(
-            left: _outerRadius,
-            right: _innerRadius,
-          ),
+          activeFill: AppColors.primary,
+          activeForeground: Colors.white,
           onTap: onLike,
         ),
-        const SizedBox(width: 2),
+        // Each 48pt tap target pads its circle by 2, so the circles sit 10
+        // apart.
+        const SizedBox(width: 6),
         _RatingButton(
           icon: Icons.thumb_down_outlined,
           activeIcon: Icons.thumb_down,
           label: 'Nu-mi place',
           isActive: likeStatus == -1,
-          borderRadius: const BorderRadius.horizontal(
-            left: _innerRadius,
-            right: _outerRadius,
-          ),
+          activeFill: onSurface.withValues(alpha: 0.2),
+          activeForeground: onSurface,
           onTap: onDislike,
         ),
       ],
@@ -1182,15 +1231,17 @@ class _RatingButtons extends StatelessWidget {
   }
 }
 
-/// One half of [_RatingButtons]. A quiet tint of the text color at rest; the
-/// chosen half brightens a step and fills its icon.
+/// One circle of [_RatingButtons]: a thin outline around a muted icon at
+/// rest. Once chosen, [activeFill] floods the circle and the icon fills in
+/// with a small pop.
 class _RatingButton extends StatelessWidget {
   const _RatingButton({
     required this.icon,
     required this.activeIcon,
     required this.label,
     required this.isActive,
-    required this.borderRadius,
+    required this.activeFill,
+    required this.activeForeground,
     required this.onTap,
   });
 
@@ -1198,19 +1249,23 @@ class _RatingButton extends StatelessWidget {
   final IconData activeIcon;
   final String label;
   final bool isActive;
-  final BorderRadius borderRadius;
+
+  /// The circle's color once chosen; at rest it is see-through. The outline
+  /// fades into it.
+  final Color activeFill;
+
+  /// The icon's color once chosen.
+  final Color activeForeground;
   final VoidCallback onTap;
 
-  /// Side length of the square tap target.
-  static const double _size = 48;
+  /// Diameter of the visible circle; the padded tap target around it is 48.
+  static const double _diameter = 44;
 
   @override
   Widget build(BuildContext context) {
-    // White on the dark panel, black on the light one; the resting icon
-    // keeps over 5:1 against the panel either way.
     final onSurface = Theme.of(context).colorScheme.onSurface;
-    final fill = onSurface.withValues(alpha: isActive ? 0.2 : 0.08);
-    final iconColor = isActive ? onSurface : onSurface.withValues(alpha: 0.6);
+    final idleBorder = onSurface.withValues(alpha: 0.24);
+    final idleForeground = onSurface.withValues(alpha: 0.8);
 
     return Semantics(
       button: true,
@@ -1218,27 +1273,47 @@ class _RatingButton extends StatelessWidget {
       label: label,
       onTap: onTap,
       excludeSemantics: true,
-      child: AnimatedContainer(
+      // IconButton snaps between colors, so they are tweened here instead.
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(end: isActive ? 1.0 : 0.0),
         duration: const Duration(milliseconds: 150),
         curve: Curves.easeInOut,
-        width: _size,
-        height: _size,
-        decoration: BoxDecoration(color: fill, borderRadius: borderRadius),
-        // The ripple paints on this Material, above the fill.
-        child: Material(
-          type: MaterialType.transparency,
-          child: InkWell(
-            borderRadius: borderRadius,
-            onTap: onTap,
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 150),
-              child: Icon(
-                isActive ? activeIcon : icon,
-                key: ValueKey(isActive),
-                size: 22,
-                color: iconColor,
-              ),
+        builder: (context, t, child) => IconButton(
+          onPressed: onTap,
+          style: IconButton.styleFrom(
+            fixedSize: const Size.square(_diameter),
+            minimumSize: const Size.square(_diameter),
+            padding: EdgeInsets.zero,
+            iconSize: 20,
+            visualDensity: VisualDensity.standard,
+            tapTargetSize: MaterialTapTargetSize.padded,
+            animationDuration: Duration.zero,
+            shape: const CircleBorder(),
+            backgroundColor: activeFill.withValues(alpha: activeFill.a * t),
+            foregroundColor: Color.lerp(idleForeground, activeForeground, t),
+            side: BorderSide(
+              color: Color.lerp(idleBorder, activeFill, t)!,
+              width: 1.5,
             ),
+          ),
+          icon: child!,
+        ),
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 250),
+          // The filled icon pops in with a slight overshoot; the outline
+          // just fades back.
+          transitionBuilder: (child, animation) =>
+              child.key == const ValueKey(true)
+                  ? ScaleTransition(
+                      scale: animation.drive(
+                        CurveTween(curve: Curves.easeOutBack),
+                      ),
+                      child: child,
+                    )
+                  : FadeTransition(opacity: animation, child: child),
+          child: Icon(
+            isActive ? activeIcon : icon,
+            key: ValueKey(isActive),
           ),
         ),
       ),
@@ -1249,12 +1324,9 @@ class _RatingButton extends StatelessWidget {
 /// The small label under a player action's icon. Scales down rather than
 /// wrapping when its share of the action row is too narrow.
 class _ActionLabel extends StatelessWidget {
-  const _ActionLabel(this.text, {this.color});
+  const _ActionLabel(this.text);
 
   final String text;
-
-  /// The theme's secondary text color when null.
-  final Color? color;
 
   @override
   Widget build(BuildContext context) {
@@ -1268,7 +1340,7 @@ class _ActionLabel extends StatelessWidget {
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w500,
-            color: color ?? Theme.of(context).textSecondary,
+            color: Theme.of(context).textSecondary,
           ),
         ),
       ),

@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:radio_crestin/services/sleep_timer_service.dart';
@@ -152,6 +153,18 @@ void main() {
       });
     });
   }
+
+  testWidgets('the idle somn button shows the moon with Zzz', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SleepTimerButton(service: service, onTap: () {}),
+        ),
+      ),
+    );
+
+    expect(find.byIcon(CupertinoIcons.moon_zzz_fill), findsOneWidget);
+  });
 
   testWidgets('the somn button shows a live countdown while armed',
       (tester) async {
