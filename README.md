@@ -102,18 +102,37 @@ Play Store's internal testing track via fastlane. Credentials stay in
 through `op`, never from disk.
 
 ```bash
+make deploy-ios             # build number +1, fresh app-store IPA, upload to TestFlight
+                            # as the Apple ID signed in to Xcode (no 1Password/fastlane)
+make deploy-android         # build number +1, fresh AAB, upload to Play internal (draft)
+make deploy                 # build number +1 once, then both (same +N on both stores)
+
 make release-stores         # all of the below in one go: bumps the build number (+1),
                             # commits it (no push), builds the app-store IPA + AAB, uploads both
 
 make release-ios-appstore   # builds an app-store IPA (TestFlight requires this, not ad-hoc)
 make upload-testflight      # uploads dist/radio-crestin-ios-appstore.ipa to TestFlight
+                            # with the App Store Connect API key (1Password + fastlane)
+make upload-testflight-xcode # uploads the iOS archive as the Xcode account instead
 make upload-play-internal   # uploads dist/radio-crestin-android.aab to Play internal track
-make upload-stores          # both at once
+make upload-stores          # upload-testflight + upload-play-internal
 ```
 
 Each store upload needs a higher build number than the previous one, so the
 individual targets above need a `make bump-build` first; `release-stores` does
 it for you. If an upload fails after its bump, retry with `make upload-stores`.
+
+The `deploy-*` targets bump the build number by one and always rebuild before
+uploading, so a stale artifact in `dist/` is never sent. `NO_BUMP=1` keeps the
+build number: use it to retry an upload that failed after its bump, or to ship
+the other platform with the same +N. They don't commit (commit the version in
+`pubspec.yaml` after the upload), and they refuse other uncommitted changes so
+every upload matches a commit; `ALLOW_DIRTY=1` skips that check. `deploy-ios`
+uploads through the Apple ID signed in to Xcode (Xcode → Settings →
+Accounts), with `ios/ExportOptionsUpload.plist`, so it needs no API key; only
+Android needs the 1Password + fastlane setup below. An upload is
+not a release: submit the TestFlight build for review in App Store Connect, and
+roll out the Play draft, then promote it to Production, in Play Console.
 
 **1Password items needed** (all in vault `radio-crestin-app`, secure note with
 the value pasted into the `notesPlain` field):

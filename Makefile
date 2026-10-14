@@ -79,6 +79,7 @@ ANDROID_APK         := $(DIST)/radio-crestin-android.apk
 ANDROID_AAB         := $(DIST)/radio-crestin-android.aab
 IOS_IPA             := $(DIST)/radio-crestin-ios.ipa
 IOS_APPSTORE_IPA    := $(DIST)/radio-crestin-ios-appstore.ipa
+IOS_ARCHIVE         := build/ios/archive/Runner.xcarchive
 MACOS_DMG           := $(DIST)/radio-crestin-macos.dmg
 WINDOWS_ZIP         := $(DIST)/radio-crestin-windows.zip
 APPLE_TV_IPA        := $(DIST)/radio-crestin-tvos.ipa
@@ -119,11 +120,18 @@ release-help:
 	@echo "  make promote               flip $(TAG) from prerelease -> latest (public)"
 	@echo "  make release               bump + commit + build + tag + publish (prerelease)"
 	@echo
-	@echo "  make upload-testflight     send app-store IPA to App Store Connect/TestFlight"
+	@echo "  make upload-testflight     send app-store IPA to TestFlight (API key: 1Password + fastlane)"
+	@echo "  make upload-testflight-xcode  send the iOS archive to TestFlight as the Xcode account"
 	@echo "  make upload-play-internal  send AAB to Play Store internal testing track"
-	@echo "  make upload-stores         both of the above (TestFlight + Play internal)"
+	@echo "  make upload-stores         upload-testflight + upload-play-internal"
 	@echo "  make release-stores        bump build + commit (no push) + app-store IPA + AAB + upload both"
 	@echo "  make upload-dsyms-ios      iOS dSYMs -> PostHog (auto after release-ios*)"
+	@echo
+	@echo "  make deploy-ios            build +1, fresh app-store IPA -> TestFlight via Xcode account"
+	@echo "  make deploy-android        build +1, fresh AAB -> Play internal testing, as a draft"
+	@echo "  make deploy                build +1 once, then both (same +N on both stores)"
+	@echo "                             NO_BUMP=1 keeps the build number (retry, other platform)"
+	@echo "                             (refuse uncommitted changes; ALLOW_DIRTY=1 skips)"
 	@echo
 	@echo "  make latest-links          print /releases/latest/download/* URLs"
 	@echo "  make clean-release         remove $(DIST)/ + flutter clean"
@@ -397,6 +405,97 @@ upload-play-internal: $(ANDROID_AAB)
 
 upload-stores: upload-testflight upload-play-internal
 	@echo "Both store uploads complete."
+
+# Uploads the archive that `flutter build ipa` made (release-ios-appstore)
+# to App Store Connect/TestFlight as the Apple ID signed in to Xcode, the
+# way Xcode's Organizer does: no API key, 1Password or fastlane needed.
+# Xcode signs it for the App Store on the way. It refuses an archive whose
+# build number is not the one in pubspec.yaml, so a stale one never goes.
+.PHONY: upload-testflight-xcode
+upload-testflight-xcode:
+	@[ -d "$(IOS_ARCHIVE)" ] || { \
+	  echo "ERROR: no $(IOS_ARCHIVE) — run make release-ios-appstore first"; \
+	  exit 1; }
+	@want="$$(awk '/^version:/ {print $$2}' pubspec.yaml)"; \
+	  props=":ApplicationProperties"; \
+	  ver="$$(/usr/libexec/PlistBuddy -c "Print $$props:CFBundleShortVersionString" \
+	    "$(IOS_ARCHIVE)/Info.plist")"; \
+	  build="$$(/usr/libexec/PlistBuddy -c "Print $$props:CFBundleVersion" \
+	    "$(IOS_ARCHIVE)/Info.plist")"; \
+	  [ "$$ver+$$build" = "$$want" ] || { \
+	    echo "ERROR: the archive is $$ver+$$build, pubspec.yaml says $$want"; \
+	    echo "Rebuild it: make release-ios-appstore"; exit 1; }; \
+	  echo "Uploading iOS $$want to App Store Connect as the Xcode account..."
+	rm -rf build/ios/upload
+	xcodebuild -exportArchive \
+	  -archivePath "$(IOS_ARCHIVE)" \
+	  -exportPath build/ios/upload \
+	  -exportOptionsPlist ios/ExportOptionsUpload.plist \
+	  -allowProvisioningUpdates
+
+# ----- Store deploys (bump + build + upload, one command per platform) ------
+# Each deploy bumps the build number (+1: every store upload needs a higher
+# one), builds a fresh store artifact and uploads it, so an older one left
+# in $(DIST)/ is never sent by mistake. `make deploy` bumps once, so both
+# stores ship the same +N. NO_BUMP=1 skips the bump: to retry an upload
+# that failed after its bump, or to ship the other platform with the +N
+# the first one got. Nothing is committed: commit pubspec.yaml after the
+# upload. Deploys refuse uncommitted changes, so what ships matches a
+# commit; the version line in pubspec.yaml (an earlier bump) is the one
+# change allowed. ALLOW_DIRTY=1 skips that check.
+.PHONY: deploy-ios deploy-android deploy check-clean-tree deploy-bump
+
+deploy-ios: check-clean-tree
+	$(MAKE) deploy-bump
+	$(MAKE) release-ios-appstore
+	$(MAKE) upload-testflight-xcode
+	@echo
+	@echo "iOS $$(awk '/^version:/ {print $$2}' pubspec.yaml) is uploaded to App Store Connect."
+	@echo "It shows up in TestFlight once Apple processes it (usually 5-15 min)."
+	@echo "To ship it: App Store Connect -> the new App Store version ->"
+	@echo "pick this build -> Submit for Review."
+	@echo "Commit the version in pubspec.yaml when you're ready."
+
+deploy-android: check-clean-tree
+	$(MAKE) deploy-bump
+	$(MAKE) release-android
+	$(MAKE) upload-play-internal
+	@echo
+	@echo "Android $$(awk '/^version:/ {print $$2}' pubspec.yaml) is a draft on Play internal testing."
+	@echo "To ship it: Play Console -> Testing -> Internal testing -> roll out"
+	@echo "the draft, then Promote release -> Production."
+	@echo "Commit the version in pubspec.yaml when you're ready."
+
+# Checked and bumped once, up front: both stores ship the same +N, and the
+# iOS build may rewrite tracked files (e.g. Podfile.lock), which must not
+# stop the Android half.
+deploy: check-clean-tree
+	$(MAKE) deploy-bump
+	$(MAKE) deploy-ios DEPLOY_PREPARED=1
+	$(MAKE) deploy-android DEPLOY_PREPARED=1
+
+deploy-bump:
+	@if [ "$(DEPLOY_PREPARED)" = 1 ]; then exit 0; fi; \
+	if [ "$(NO_BUMP)" = 1 ]; then \
+	  echo "NO_BUMP=1: shipping $$(awk '/^version:/ {print $$2}' pubspec.yaml) as is"; \
+	else \
+	  $(MAKE) --no-print-directory bump-build; \
+	fi
+
+check-clean-tree:
+	@if [ "$(DEPLOY_PREPARED)" = 1 ]; then exit 0; fi; \
+	if [ "$(ALLOW_DIRTY)" = 1 ]; then \
+	  echo "WARNING: ALLOW_DIRTY=1, uncommitted changes will ship"; exit 0; fi; \
+	dirty="$$(git status --porcelain | grep -v ' pubspec.yaml$$')"; \
+	pubspec="$$(git diff -U0 HEAD -- pubspec.yaml | sed -n '/^@@/,$$p' \
+	  | grep '^[-+]' | grep -v '^[-+]version:')"; \
+	if [ -n "$$dirty" ] || [ -n "$$pubspec" ]; then \
+	  echo "ERROR: uncommitted changes would ship in this build:"; \
+	  [ -z "$$dirty" ] || echo "$$dirty"; \
+	  [ -z "$$pubspec" ] || echo " M pubspec.yaml (beyond the version line)"; \
+	  echo "Commit or stash them first, or rerun with ALLOW_DIRTY=1."; \
+	  exit 1; \
+	fi
 
 # ----- Cleanup ---------------------------------------------------------------
 .PHONY: clean-dist clean-release
