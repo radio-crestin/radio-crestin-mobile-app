@@ -51,6 +51,7 @@ class CarPlayService {
   StreamSubscription? _networkRecoverySubscription;
   StreamSubscription? _carConnectedAlertSubscription;
   StreamSubscription? _audioPlayingAlertSubscription;
+  StreamSubscription? _playRequestAlertSubscription;
   StreamSubscription? _carPlayPlaybackSubscription;
   StreamSubscription? _carPlayStationsSubscription;
   StreamSubscription? _carPlaySortOrderSubscription;
@@ -61,8 +62,9 @@ class CarPlayService {
   Timer? _carPlayWaitTimer;
   Timer? _connectionErrorDebounceTimer;
 
-  // Whether an error alert is currently shown on CarPlay
-  bool _isShowingConnectionError = false;
+  // Why the error alert shown on CarPlay is up; null while none is.
+  ConnectionErrorReason? _shownErrorReason;
+  bool get _isShowingConnectionError => _shownErrorReason != null;
 
   // When the no-internet alert shows on CarPlay (iOS only).
   OfflineAlertGate? _offlineAlertGate;
@@ -883,10 +885,15 @@ class CarPlayService {
     // The network alert waits while the buffer keeps the audio going and
     // goes when the internet is back (see OfflineAlertGate).
     final gate = _offlineAlertGate = OfflineAlertGate(
-      show: () => _showCarPlayConnectionError(const ConnectionError(
-        stationName: '',
-        reason: ConnectionErrorReason.network,
-      )),
+      show: () {
+        // Already up (a steering-wheel skip while it shows): presenting it
+        // again would only flash it.
+        if (_shownErrorReason == ConnectionErrorReason.network) return;
+        _showCarPlayConnectionError(const ConnectionError(
+          stationName: '',
+          reason: ConnectionErrorReason.network,
+        ));
+      },
       dismiss: () {
         if (_isShowingConnectionError) _dismissConnectionErrorAlert();
       },
@@ -897,6 +904,8 @@ class CarPlayService {
         isCarConnected.stream.listen(gate.onCarConnectedChanged);
     _audioPlayingAlertSubscription =
         _audioHandler.audioPlayingStream.listen(gate.onAudioPlayingChanged);
+    _playRequestAlertSubscription =
+        _audioHandler.playRequested.listen((_) => gate.onPlayRequested());
   }
 
   // iOS CarPlay only: a row whose image failed to download (no internet
@@ -914,7 +923,7 @@ class CarPlayService {
 
   Future<void> _dismissConnectionErrorAlert() async {
     if (!_isShowingConnectionError) return;
-    _isShowingConnectionError = false;
+    _shownErrorReason = null;
     _connectionErrorDebounceTimer?.cancel();
     try {
       await FlutterCarplay.popModal(animated: true);
@@ -926,6 +935,7 @@ class CarPlayService {
   Future<void> _showCarPlayConnectionError(ConnectionError error) async {
     // Dismiss any existing modal before showing a new one
     if (_isShowingConnectionError || FlutterCarPlayController.currentPresentTemplate != null) {
+      _shownErrorReason = null;
       try {
         await FlutterCarplay.popModal(animated: false);
       } catch (e) {
@@ -958,7 +968,7 @@ class CarPlayService {
         CPAlertAction(
           title: 'OK',
           onPress: () {
-            _isShowingConnectionError = false;
+            _shownErrorReason = null;
           },
         ),
       ],
@@ -966,7 +976,7 @@ class CarPlayService {
 
     try {
       await FlutterCarplay.showAlert(template: alertTemplate);
-      _isShowingConnectionError = true;
+      _shownErrorReason = error.reason;
     } catch (e) {
       _log("Failed to show CarPlay connection error alert: $e");
     }
@@ -1437,6 +1447,7 @@ class CarPlayService {
     _networkRecoverySubscription?.cancel();
     _carConnectedAlertSubscription?.cancel();
     _audioPlayingAlertSubscription?.cancel();
+    _playRequestAlertSubscription?.cancel();
     _offlineAlertGate?.dispose();
     _androidAutoStationSubscription?.cancel();
     _androidAutoRebuildTimer?.cancel();

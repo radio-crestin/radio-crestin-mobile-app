@@ -150,6 +150,85 @@ void main() {
     });
   });
 
+  group('a play request (play, next, previous, station pick)', () {
+    /// Offline with nothing playing, the alert shown and tapped away.
+    void afterAlertTappedAway(FakeAsync async, OfflineAlertGate gate,
+        int Function() shown) {
+      gate.onOfflineChanged(true);
+      async.elapse(delay);
+      expect(shown(), 1);
+    }
+
+    test('brings the alert back after the driver tapped it away', () {
+      withGate((async, gate, shown, _) {
+        afterAlertTappedAway(async, gate, shown);
+
+        gate.onPlayRequested();
+        async.elapse(delay - moment);
+        expect(shown(), 1, reason: 'the station may still answer');
+
+        async.elapse(moment);
+        expect(shown(), 2);
+      });
+    });
+
+    test('starts the delay over, so skipping is not interrupted', () {
+      withGate((async, gate, shown, _) {
+        afterAlertTappedAway(async, gate, shown);
+
+        gate.onPlayRequested();
+        async.elapse(delay - moment);
+        gate.onPlayRequested();
+        async.elapse(delay - moment);
+        expect(shown(), 1);
+
+        async.elapse(moment);
+        expect(shown(), 2);
+      });
+    });
+
+    test('shows nothing once the audio plays (a resume from the buffer)', () {
+      withGate((async, gate, shown, _) {
+        afterAlertTappedAway(async, gate, shown);
+
+        gate.onPlayRequested();
+        gate.onAudioPlayingChanged(true);
+        async.elapse(delay * 2);
+
+        expect(shown(), 1);
+      });
+    });
+
+    test('shows nothing while the buffer plays, then the outage rule', () {
+      withGate((async, gate, shown, _) {
+        gate.onAudioPlayingChanged(true);
+        gate.onOfflineChanged(true);
+        gate.onPlayRequested();
+        async.elapse(delay * 2);
+        expect(shown(), 0, reason: 'audio still comes out');
+
+        // The switch stops the buffered audio of the last station.
+        gate.onAudioPlayingChanged(false);
+        async.elapse(delay);
+        expect(shown(), 1);
+      });
+    });
+
+    test('shows nothing with internet or without the car', () {
+      withGate((async, gate, shown, _) {
+        gate.onPlayRequested();
+        async.elapse(delay * 2);
+        expect(shown(), 0, reason: 'online');
+
+        gate.onCarConnectedChanged(false);
+        gate.onOfflineChanged(true);
+        gate.onPlayRequested();
+        async.elapse(delay * 2);
+        expect(shown(), 0, reason: 'no car');
+      });
+    });
+  });
+
   test('the online value replayed at start dismisses nothing', () {
     withGate((async, gate, _, dismissed) {
       gate.onOfflineChanged(false);

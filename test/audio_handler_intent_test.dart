@@ -587,6 +587,66 @@ void main() {
     });
   });
 
+  // What brings the car's no-internet alert back (OfflineAlertGate).
+  group('play requests', () {
+    late List<void> requests;
+    late StreamSubscription<void> subscription;
+
+    Future<void> playStation2() async {
+      await startHandler();
+      requests = [];
+      subscription = handler.playRequested.listen(requests.add);
+      unawaited(handler.playStation(stationOf(2)));
+      await untilPlaying(mp3Of2, loads: 1);
+    }
+
+    tearDown(() => subscription.cancel());
+
+    test('a station pick requests, even of the station already playing',
+        () async {
+      await http.runWithClient(() async {
+        await playStation2();
+        expect(requests, hasLength(1));
+
+        await handler.playStation(stationOf(2));
+        await pumpEventQueue();
+        expect(requests, hasLength(2));
+      }, () => routing);
+    });
+
+    test('a resume after a pause requests, a reconnect does not', () async {
+      await http.runWithClient(() async {
+        await playStation2();
+
+        await handler.pause();
+        await handler.play();
+        await pumpEventQueue();
+        expect(requests, hasLength(2));
+
+        // The player stops by itself; the network restore reloads it.
+        await handler.player.pause();
+        handler.reconnectIfNeeded(trigger: ReconnectTrigger.networkRestored);
+        await untilPlaying(mp3Of2, loads: 2);
+        expect(requests, hasLength(2));
+      }, () => routing);
+    });
+
+    test('the resume after an interruption requests nothing', () async {
+      await http.runWithClient(() async {
+        await playStation2();
+
+        handler.debugOnAudioInterruption(
+            AudioInterruptionEvent(true, AudioInterruptionType.unknown));
+        await until(() => !handler.playbackState.value.playing);
+        handler.debugOnAudioInterruption(
+            AudioInterruptionEvent(false, AudioInterruptionType.pause));
+        await until(() => handler.playbackState.value.playing);
+
+        expect(requests, hasLength(1));
+      }, () => routing);
+    });
+  });
+
   group('session queue', () {
     test('tapping a history row keeps the current station', () async {
       await http.runWithClient(() async {

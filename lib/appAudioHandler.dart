@@ -948,6 +948,12 @@ class AppAudioHandler extends BaseAudioHandler {
 
   /// Emits details when play() exhausts all retries and cannot connect.
   final PublishSubject<ConnectionError> connectionError = PublishSubject<ConnectionError>();
+
+  /// Emits when the listener asks for audio: a station pick (list, search,
+  /// link, next or previous, the car's autoplay) or a play after a pause
+  /// or stop. Reconnects and interruption resumes act on a request already
+  /// made and emit nothing.
+  final PublishSubject<void> playRequested = PublishSubject<void>();
   final BehaviorSubject<List<MediaItem>> stationsMediaItems = BehaviorSubject.seeded(<MediaItem>[]);
 
   /// Currently loaded stream (null when stopped, paused-and-disconnected, or casting).
@@ -1956,6 +1962,9 @@ class AppAudioHandler extends BaseAudioHandler {
       'from_favorites': fromFavorites,
     });
     _beginFastStartMeasure(station);
+    // Before the early returns: picking the station already loading is
+    // still a request the listener waits on.
+    playRequested.add(null);
     _hasBeenPlayed = true;
     _resumeAfterInterruption = false;
 
@@ -2228,6 +2237,7 @@ class AppAudioHandler extends BaseAudioHandler {
     // while playback is still wanted, and playStation() counted its own.
     final isUserResume = !_hasBeenPlayed && !_isInterruptionResume;
     _isInterruptionResume = false;
+    if (isUserResume) playRequested.add(null);
     // Every resume path (Cast, video, playlist, fast resume, reload) is a
     // listening session, as pause() ends one on each; a no-op right after
     // playStation() started one.

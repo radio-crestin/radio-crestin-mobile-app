@@ -7,7 +7,8 @@ import 'dart:async';
 /// plays most drops through and playback reconnects on its own, so a modal
 /// alert the driver has to tap away would only distract. It shows once the
 /// internet has been out for [delay] with the car connected and no audio
-/// coming out, and goes as soon as the internet or the audio is back.
+/// coming out, and goes as soon as the internet or the audio is back. Once
+/// tapped away it stays away, unless the driver asks for audio again.
 class OfflineAlertGate {
   OfflineAlertGate({
     required this.show,
@@ -65,6 +66,16 @@ class OfflineAlertGate {
     } else if (_offline) {
       _arm();
     }
+  }
+
+  /// The driver asked for audio: play, next, previous or a station pick.
+  /// Without internet nothing changes for the gate (the audio was already
+  /// stopped), yet the driver waits for an answer: the alert comes again
+  /// after [delay], even if they had tapped it away. Each request starts
+  /// the delay over, so skipping through stations is not interrupted.
+  void onPlayRequested() {
+    _timer?.cancel();
+    if (_offline) _arm();
   }
 
   void _arm() {
