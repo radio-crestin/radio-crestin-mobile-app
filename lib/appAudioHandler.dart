@@ -27,6 +27,7 @@ import 'package:radio_crestin/services/play_count_service.dart';
 import 'package:radio_crestin/services/playback_failure.dart';
 import 'package:radio_crestin/services/network_service.dart';
 import 'package:radio_crestin/services/review_service.dart';
+import 'package:radio_crestin/services/silence_keeper.dart';
 import 'package:radio_crestin/services/sleep_timer_service.dart';
 import 'package:radio_crestin/services/song_history_service.dart';
 import 'package:radio_crestin/services/hls_health_watchdog_flag.dart';
@@ -794,18 +795,16 @@ class AppAudioHandler extends BaseAudioHandler {
   // background mode). Suspension freezes the entire Dart isolate, so
   // every reconnect/retry path stops working — the user hears silence
   // until they bring the app back to the foreground. To prevent that,
-  // we spin up a secondary player looping `assets/silence.m4a` whenever
+  // the SilenceKeeper loops inaudible audio on a second player whenever
   // the main player is buffering for more than _silenceKeepAliveDelay, and
-  // keep it on while play() reconnects for the listener (a failed attempt
+  // keeps it on while play() reconnects for the listener (a failed attempt
   // starts it too), until audio comes out again or the listener pauses.
   // iOS sees continuous audio output and never suspends the engine, so
   // the recovery code (idle-while-playing, isOffline-restored, the
   // stall-timer reattempt) keeps running.
-  AudioPlayer? _silenceKeeper;
+  late final SilenceKeeper _silenceKeeper = SilenceKeeper(log: _log);
   Timer? _silenceKeepAliveStartTimer;
-  bool _silenceKeeperPlaying = false;
   static const _silenceKeepAliveDelay = Duration(seconds: 3);
-  static const _silenceKeepAliveAsset = 'assets/silence.m4a';
   // Track every buffering enter/exit so short rebuffers (the audible-glitch
   // case) get logged. _bufferingStallTimer above is the long-stall escalation.
   // 250ms threshold: tried 100ms during the screen-lock investigation but
@@ -3482,39 +3481,14 @@ class AppAudioHandler extends BaseAudioHandler {
     });
   }
 
-  Future<void> _startSilenceKeepAlive() async {
-    if (_silenceKeeperPlaying) return;
-    try {
-      _silenceKeeper ??= AudioPlayer(handleInterruptions: false);
-      // Lazily load the asset on first use. setAsset() is idempotent if the
-      // source is already loaded, but cheaper to skip on subsequent calls.
-      if (_silenceKeeper!.audioSource == null) {
-        await _silenceKeeper!.setAsset(_silenceKeepAliveAsset);
-        await _silenceKeeper!.setLoopMode(LoopMode.all);
-        // Volume just above zero so AVPlayer continues pushing samples to
-        // AVAudioSession (zero-amplitude or muted may be optimized out and
-        // defeat the purpose). 0.001 is below audible threshold.
-        await _silenceKeeper!.setVolume(0.001);
-      }
-      await _silenceKeeper!.play();
-      _silenceKeeperPlaying = true;
-      _log('silence keeper started — preventing iOS background suspension');
-    } catch (e) {
-      _log('silence keeper start failed: $e');
-    }
-  }
+  /// Completes once the keeper's audio is loaded and asked to play, never
+  /// when the silence ends, so the video handoffs can await it.
+  Future<void> _startSilenceKeepAlive() => _silenceKeeper.start();
 
   void _stopSilenceKeepAlive() {
     _silenceKeepAliveStartTimer?.cancel();
     _silenceKeepAliveStartTimer = null;
-    if (!_silenceKeeperPlaying) return;
-    _silenceKeeperPlaying = false;
-    final keeper = _silenceKeeper;
-    if (keeper == null) return;
-    keeper.stop().catchError((e) {
-      _log('silence keeper stop failed: $e');
-    });
-    _log('silence keeper stopped');
+    _silenceKeeper.stop();
   }
 
   // ── Video mode (media_kit) ────────────────────────────────────────────
@@ -4350,11 +4324,7 @@ class AppAudioHandler extends BaseAudioHandler {
     _loadedStreamType = null;
     await player.stop();
     await player.dispose();
-    final keeper = _silenceKeeper;
-    _silenceKeeper = null;
-    if (keeper != null) {
-      await keeper.dispose().catchError((e) => _log('silence keeper dispose failed: $e'));
-    }
+    await _silenceKeeper.dispose();
     stationDataService.dispose();
     await super.stop();
   }

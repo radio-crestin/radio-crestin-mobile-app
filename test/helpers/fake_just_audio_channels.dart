@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -9,6 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 /// Every load succeeds and reports `ready` at once, unless its URL contains
 /// one of [failingUrlParts]. Like the native players, nothing here flips
 /// `playing` on a reload while playing: just_audio tracks `playing` itself.
+/// A `play` call answers at once, unless [holdPlayUntilStopped] is on.
 class FakeJustAudioChannels {
   static const _mainChannel = MethodChannel('com.ryanheise.just_audio.methods');
   static const _posthogChannel = MethodChannel('posthog_flutter');
@@ -32,8 +35,24 @@ class FakeJustAudioChannels {
   /// How long each load takes before it succeeds or fails.
   Duration loadDelay = Duration.zero;
 
+  /// When set, each load also waits for this to complete before it
+  /// succeeds or fails, so a test holds a load in flight for exactly as
+  /// long as it needs, however slowly the test runs.
+  Completer<void>? loadGate;
+
   /// Every URL whose load ended (succeeded or failed), in order.
   final List<String> finishedLoads = [];
+
+  /// Whether a `play` call answers only once its player pauses or is
+  /// disposed (and at once if it already plays), as the native plugins
+  /// do: `AudioPlayer.play()` then completes only when playback stops.
+  /// Off by default, since the handler's play() returns the main player's
+  /// play() and the tests await it.
+  bool holdPlayUntilStopped = false;
+
+  /// Whether a native player plays: told to play, and not paused or
+  /// disposed since. just_audio's stop() disposes the native player.
+  bool get isAnyPlayerPlaying => _players.values.any((p) => p._playing);
 
   final Map<String, _FakeNativePlayer> _players = {};
 
@@ -80,6 +99,7 @@ class FakeJustAudioChannels {
         return null;
       case 'disposePlayer':
         final id = (call.arguments as Map)['id'] as String;
+        // Like the native dispose, this answers a pending play call.
         _players.remove(id)?.unregister(_messenger);
         return <String, Object?>{};
       default:
@@ -98,6 +118,9 @@ class _FakeNativePlayer {
   int _state = 0; // ProcessingStateMessage.idle
   Duration? _duration;
   String? _icyTitle;
+  bool _playing = false;
+  // The held answer to a play call (see holdPlayUntilStopped).
+  Completer<Object?>? _playResult;
 
   MethodChannel get _methods =>
       MethodChannel('com.ryanheise.just_audio.methods.$id');
@@ -120,6 +143,7 @@ class _FakeNativePlayer {
   }
 
   void unregister(TestDefaultBinaryMessenger messenger) {
+    _stopPlaying();
     messenger.setMockMethodCallHandler(_methods, null);
     messenger.setMockStreamHandler(_eventChannel, null);
     messenger.setMockStreamHandler(_dataChannel, null);
@@ -129,9 +153,11 @@ class _FakeNativePlayer {
     switch (call.method) {
       case 'load':
         final request = call.arguments as Map;
-        if (owner.loadDelay > Duration.zero) {
+        final gate = owner.loadGate;
+        if (owner.loadDelay > Duration.zero || gate != null) {
           owner.loads.add(_firstUri(request['audioSource']) ?? '');
           await Future<void>.delayed(owner.loadDelay);
+          await gate?.future;
           return _load(request, counted: true);
         }
         return _load(request);
@@ -141,12 +167,29 @@ class _FakeNativePlayer {
         emit();
         return <String, Object?>{};
       case 'play':
+        final hold = owner.holdPlayUntilStopped && !_playing;
+        _playing = true;
+        emit();
+        if (!hold) return <String, Object?>{};
+        _answerPlay();
+        return (_playResult = Completer<Object?>()).future;
       case 'pause':
+        _stopPlaying();
         emit();
         return <String, Object?>{};
       default:
         return <String, Object?>{};
     }
+  }
+
+  void _stopPlaying() {
+    _playing = false;
+    _answerPlay();
+  }
+
+  void _answerPlay() {
+    _playResult?.complete(<String, Object?>{});
+    _playResult = null;
   }
 
   Map<String, Object?> _load(Map request, {bool counted = false}) {
