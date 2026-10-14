@@ -130,6 +130,7 @@ release-help:
 	@echo "  make deploy-ios            build +1, fresh app-store IPA -> TestFlight via Xcode account"
 	@echo "  make deploy-android        build +1, fresh AAB -> Play internal testing, as a draft"
 	@echo "  make deploy                build +1 once, then both (same +N on both stores)"
+	@echo "                             after the upload, commit the new version (no push)"
 	@echo "                             NO_BUMP=1 keeps the build number (retry, other platform)"
 	@echo "                             (refuse uncommitted changes; ALLOW_DIRTY=1 skips)"
 	@echo
@@ -439,11 +440,13 @@ upload-testflight-xcode:
 # in $(DIST)/ is never sent by mistake. `make deploy` bumps once, so both
 # stores ship the same +N. NO_BUMP=1 skips the bump: to retry an upload
 # that failed after its bump, or to ship the other platform with the +N
-# the first one got. Nothing is committed: commit pubspec.yaml after the
-# upload. Deploys refuse uncommitted changes, so what ships matches a
-# commit; the version line in pubspec.yaml (an earlier bump) is the one
-# change allowed. ALLOW_DIRTY=1 skips that check.
-.PHONY: deploy-ios deploy-android deploy check-clean-tree deploy-bump
+# the first one got. Once the upload went through, the new version in
+# pubspec.yaml is committed (not pushed); a failed upload leaves it
+# uncommitted for the NO_BUMP=1 retry. Deploys refuse uncommitted changes,
+# so what ships matches a commit; the version line in pubspec.yaml (an
+# earlier bump) is the one change allowed. ALLOW_DIRTY=1 skips that check.
+.PHONY: deploy-ios deploy-android deploy check-clean-tree deploy-bump \
+  deploy-commit
 
 deploy-ios: check-clean-tree
 	$(MAKE) deploy-bump
@@ -454,7 +457,7 @@ deploy-ios: check-clean-tree
 	@echo "It shows up in TestFlight once Apple processes it (usually 5-15 min)."
 	@echo "To ship it: App Store Connect -> the new App Store version ->"
 	@echo "pick this build -> Submit for Review."
-	@echo "Commit the version in pubspec.yaml when you're ready."
+	@$(MAKE) --no-print-directory deploy-commit
 
 deploy-android: check-clean-tree
 	$(MAKE) deploy-bump
@@ -464,15 +467,16 @@ deploy-android: check-clean-tree
 	@echo "Android $$(awk '/^version:/ {print $$2}' pubspec.yaml) is a draft on Play internal testing."
 	@echo "To ship it: Play Console -> Testing -> Internal testing -> roll out"
 	@echo "the draft, then Promote release -> Production."
-	@echo "Commit the version in pubspec.yaml when you're ready."
+	@$(MAKE) --no-print-directory deploy-commit
 
 # Checked and bumped once, up front: both stores ship the same +N, and the
 # iOS build may rewrite tracked files (e.g. Podfile.lock), which must not
-# stop the Android half.
+# stop the Android half. Committed once, after both uploads.
 deploy: check-clean-tree
 	$(MAKE) deploy-bump
 	$(MAKE) deploy-ios DEPLOY_PREPARED=1
 	$(MAKE) deploy-android DEPLOY_PREPARED=1
+	@$(MAKE) --no-print-directory deploy-commit
 
 deploy-bump:
 	@if [ "$(DEPLOY_PREPARED)" = 1 ]; then exit 0; fi; \
@@ -481,6 +485,20 @@ deploy-bump:
 	else \
 	  $(MAKE) --no-print-directory bump-build; \
 	fi
+
+# Commits only pubspec.yaml, and only a version change: a NO_BUMP=1 run of
+# a committed version has nothing to commit, and other edits in the file
+# (possible with ALLOW_DIRTY=1) must not go in under this message.
+deploy-commit:
+	@if [ "$(DEPLOY_PREPARED)" = 1 ]; then exit 0; fi; \
+	if git diff --quiet HEAD -- pubspec.yaml; then \
+	  echo "The version in pubspec.yaml is already committed."; exit 0; fi; \
+	if git diff -U0 HEAD -- pubspec.yaml | sed -n '/^@@/,$$p' \
+	  | grep '^[-+]' | grep -qv '^[-+]version:'; then \
+	  echo "pubspec.yaml has more than the version change: commit it yourself."; \
+	  exit 0; fi; \
+	msg="[$$(git rev-parse --abbrev-ref HEAD)] - bumped build number to $$(awk '/^version:/ {print $$2}' pubspec.yaml)"; \
+	git commit -q -m "$$msg" -- pubspec.yaml && echo "Committed (not pushed): $$msg"
 
 check-clean-tree:
 	@if [ "$(DEPLOY_PREPARED)" = 1 ]; then exit 0; fi; \

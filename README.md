@@ -125,9 +125,11 @@ it for you. If an upload fails after its bump, retry with `make upload-stores`.
 The `deploy-*` targets bump the build number by one and always rebuild before
 uploading, so a stale artifact in `dist/` is never sent. `NO_BUMP=1` keeps the
 build number: use it to retry an upload that failed after its bump, or to ship
-the other platform with the same +N. They don't commit (commit the version in
-`pubspec.yaml` after the upload), and they refuse other uncommitted changes so
-every upload matches a commit; `ALLOW_DIRTY=1` skips that check. `deploy-ios`
+the other platform with the same +N. Once the upload went through they commit
+the new version in `pubspec.yaml` (`[<branch>] - bumped build number to X`, not
+pushed; `make deploy` commits once, after both uploads), and a failed upload
+leaves it uncommitted for the `NO_BUMP=1` retry. They refuse other uncommitted
+changes so every upload matches a commit; `ALLOW_DIRTY=1` skips that check. `deploy-ios`
 uploads through the Apple ID signed in to Xcode (Xcode → Settings →
 Accounts), with `ios/ExportOptionsUpload.plist`, so it needs no API key; only
 Android needs the 1Password + fastlane setup below. An upload is
