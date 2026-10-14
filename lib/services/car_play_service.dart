@@ -9,6 +9,7 @@ import 'package:flutter_carplay/flutter_carplay.dart';
 import 'package:get_it/get_it.dart';
 import 'package:radio_crestin/appAudioHandler.dart';
 import 'package:radio_crestin/services/image_cache_service.dart';
+import 'package:radio_crestin/services/image_retry_signal.dart';
 import 'package:radio_crestin/seek_mode_manager.dart';
 import 'package:radio_crestin/services/network_service.dart';
 import 'package:radio_crestin/services/offline_alert_gate.dart';
@@ -54,6 +55,7 @@ class CarPlayService {
   StreamSubscription? _carPlayStationsSubscription;
   StreamSubscription? _carPlaySortOrderSubscription;
   StreamSubscription? _mediaItemSubscription;
+  StreamSubscription? _imageRetrySubscription;
 
   // Timers
   Timer? _carPlayWaitTimer;
@@ -318,6 +320,7 @@ class CarPlayService {
       _initializeCarPlay();
       _setupNowPlayingButtonsHandler();
       _listenForConnectionErrors();
+      _retryFailedCarPlayImages();
     } else if (Platform.isAndroid) {
       _initializeAndroidAuto();
     }
@@ -896,6 +899,19 @@ class CarPlayService {
         _audioHandler.audioPlayingStream.listen(gate.onAudioPlayingChanged);
   }
 
+  // iOS CarPlay only: a row whose image failed to download (no internet
+  // when the lists were built) shows a question mark until asked to try
+  // again.
+  void _retryFailedCarPlayImages() {
+    _imageRetrySubscription = ImageRetrySignal.stream.listen((_) async {
+      try {
+        await FlutterCarplay.retryFailedImages();
+      } catch (e) {
+        _log("Error retrying CarPlay images: $e");
+      }
+    });
+  }
+
   Future<void> _dismissConnectionErrorAlert() async {
     if (!_isShowingConnectionError) return;
     _isShowingConnectionError = false;
@@ -1416,6 +1432,7 @@ class CarPlayService {
     _carPlayStationsSubscription?.cancel();
     _carPlaySortOrderSubscription?.cancel();
     _mediaItemSubscription?.cancel();
+    _imageRetrySubscription?.cancel();
     _connectionErrorSubscription?.cancel();
     _networkRecoverySubscription?.cancel();
     _carConnectedAlertSubscription?.cancel();

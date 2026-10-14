@@ -161,15 +161,21 @@ class Station {
   Widget displayThumbnail({int? cacheWidth, int? sourceWidth}) {
     final hasSongThumbnail = rawStationData.now_playing?.song?.thumbnail_url != null;
     final url = Utils.getStationThumbnailUrl(rawStationData);
-    return Utils.displayImage(
-      sourceWidth == null ? url : Utils.withCdnWidth(url, sourceWidth),
-      fallbackImageUrl: rawStationData.thumbnail_url,
-      loadingImageUrl: sourceWidth == null ? null : url,
-      cache: true,
-      cachedFilePath: cachedArtPath,
-      cacheWidth: cacheWidth,
-      // Song thumbnails expire after 10 minutes; station logos cached permanently
-      cacheMaxAge: hasSongThumbnail ? const Duration(minutes: 10) : null,
+    // Keyed by station: a new song keeps the artwork on screen until the
+    // next one arrives, but another station (next, previous) starts afresh
+    // instead of showing the previous station's artwork while its own loads.
+    return KeyedSubtree(
+      key: ValueKey(rawStationData.id),
+      child: Utils.displayImage(
+        sourceWidth == null ? url : Utils.withCdnWidth(url, sourceWidth),
+        fallbackImageUrl: rawStationData.thumbnail_url,
+        loadingImageUrl: sourceWidth == null ? null : url,
+        cache: true,
+        cachedFilePath: cachedArtPath,
+        cacheWidth: cacheWidth,
+        // Song thumbnails expire after 10 minutes; station logos cached permanently
+        cacheMaxAge: hasSongThumbnail ? const Duration(minutes: 10) : null,
+      ),
     );
   }
 

@@ -369,6 +369,18 @@ class FlutterCarplay {
     return isCompleted ?? false;
   }
 
+  /// Downloads again the list item images that failed to download.
+  ///
+  /// A failed image shows a question mark until then. Call it when the
+  /// internet comes back.
+  static Future<bool> retryFailedImages() async {
+    final bool? isCompleted = await _carPlayController.flutterToNativeModule(
+      FCPChannelTypes.retryFailedImages,
+      null,
+    );
+    return isCompleted ?? false;
+  }
+
   /// Returns the runtime type string for native communication.
   /// Uses explicit type checks to ensure compatibility with Dart obfuscation.
   static String _getCPRuntimeTypeString(CPTemplate template) {

@@ -18,6 +18,7 @@ enum FCPChannelTypes {
   onTextButtonPressed,
   popToRootTemplate,
   onScreenBackButtonPressed,
+  retryFailedImages,
 }
 
 enum FAAChannelTypes {

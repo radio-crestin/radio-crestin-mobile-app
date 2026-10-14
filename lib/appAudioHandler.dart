@@ -4502,6 +4502,11 @@ class AppAudioHandler extends BaseAudioHandler {
         return;
       }
       _failover.forgetFailures();
+      // audio_service downloads the artwork of the lock screen and of
+      // CarPlay's Now Playing each time the media item is sent, and never
+      // again after a failure: sent again, an artwork that failed offline
+      // shows now instead of at the next song.
+      refreshCurrentMetadata();
       // Refresh the live-HLS origin state now rather than at the next 10 s
       // poll, so the liveness rules judge the stream by what the origin
       // says after the outage.

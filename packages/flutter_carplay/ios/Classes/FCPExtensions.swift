@@ -76,23 +76,40 @@ func makeUIImage(from source: ImageSource) -> UIImage {
     }
 }
 
+// Downloads the image at `url`: nil when the request fails or the answer
+// is not an image. Always calls completion on main thread.
+func downloadUIImage(from url: URL, completion: @escaping (UIImage?) -> Void) {
+    let task = URLSession.shared.dataTask(with: url) { data, _, _ in
+        let image = data.flatMap { UIImage(data: $0) }
+        DispatchQueue.main.async { completion(image) }
+    }
+    task.resume()
+}
+
+// Image downloads that failed, run again when the app reports the internet
+// is back (`retryFailedImages`). Main thread only.
+enum FCPImageRetry {
+    private static var pending: [() -> Void] = []
+
+    static func add(_ retry: @escaping () -> Void) {
+        pending.append(retry)
+    }
+
+    static func runAll() {
+        let retries = pending
+        pending.removeAll()
+        retries.forEach { $0() }
+    }
+}
+
 // Asynchronous image loader. Always calls completion on main thread.
 @available(iOS 14.0, *)
 func loadUIImageAsync(from source: ImageSource, completion: @escaping (UIImage?) -> Void) {
     switch source {
     case .url(let url):
-        let task = URLSession.shared.dataTask(with: url) { data, response, error in
-            var image: UIImage? = nil
-            if let data = data {
-                image = UIImage(data: data)
-            }
-            if let image = image {
-                DispatchQueue.main.async { completion(image) }
-            } else {
-                DispatchQueue.main.async { completion(UIImage(systemName: "questionmark")) }
-            }
+        downloadUIImage(from: url) { image in
+            completion(image ?? UIImage(systemName: "questionmark"))
         }
-        task.resume()
 
     case .file(let path):
         DispatchQueue.global(qos: .userInitiated).async {

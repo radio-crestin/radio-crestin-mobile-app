@@ -258,6 +258,10 @@ public class SwiftFlutterCarplayPlugin: NSObject, FlutterPlugin {
         result(false)
       }
       break
+    case FCPChannelTypes.retryFailedImages:
+      FCPImageRetry.runAll()
+      result(true)
+      break
     case FCPChannelTypes.popToRootTemplate:
       guard let animated = call.arguments as? Bool,
         SwiftFlutterCarplayPlugin.templateStack.count >= 2 else {

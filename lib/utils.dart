@@ -18,6 +18,7 @@ import 'globals.dart';
 import 'seek_mode_manager.dart';
 import 'services/network_service.dart';
 import 'tv/tv_platform.dart';
+import 'widgets/retrying_network_image.dart';
 
 class Utils {
 
@@ -206,37 +207,30 @@ class Utils {
           cacheMaxAge: cacheMaxAge,
         );
 
-    return ExtendedImage.network(
-      url,
-      fit: BoxFit.cover,
+    // Usually the station logo standing in for the song artwork; it retries
+    // on its own too.
+    final fallback = fallbackImageUrl != null &&
+            fallbackImageUrl.isNotEmpty &&
+            fallbackImageUrl != url
+        ? fallbackImageUrl
+        : null;
+    Widget fallbackImage() =>
+        _networkImage(fallback!, cache: true, cacheWidth: cacheWidth);
+
+    return RetryingNetworkImage(
+      url: url,
       cache: cache,
-      retries: 3,
-      timeLimit: const Duration(seconds: 3),
       cacheWidth: cacheWidth,
       cacheMaxAge: cacheMaxAge,
-      // The URL changes with every song (current artwork), and the same
-      // element is reused, so without this each song change blanks the
-      // thumbnail to grey until the new artwork downloads.
-      gaplessPlayback: true,
-      loadStateChanged: (ExtendedImageState state) {
-        switch (state.extendedImageLoadState) {
-          case LoadState.loading:
-            if (lowRes != null) return lowResImage();
-            return Container(color: Colors.grey[300]);
-          case LoadState.completed:
-            return null;
-          case LoadState.failed:
-            if (lowRes != null) return lowResImage();
-            if (fallbackImageUrl?.isNotEmpty == true && fallbackImageUrl != url) {
-              return ExtendedImage.network(
-                fallbackImageUrl!,
-                fit: BoxFit.cover,
-                cache: true,
-                cacheWidth: cacheWidth,
-              );
-            }
-            return _logoPlaceholder();
-        }
+      loading: (_) {
+        if (lowRes != null) return lowResImage();
+        if (fallback != null) return fallbackImage();
+        return Container(color: Colors.grey[300]);
+      },
+      failed: (_) {
+        if (lowRes != null) return lowResImage();
+        if (fallback != null) return fallbackImage();
+        return _logoPlaceholder();
       },
     );
   }

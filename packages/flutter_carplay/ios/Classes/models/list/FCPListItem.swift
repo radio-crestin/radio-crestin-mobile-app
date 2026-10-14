@@ -53,13 +53,7 @@ class FCPListItem {
     listItem.handler = self.handler
     // An empty string is "no image", not an asset name to look up.
     if let image = image, !image.isEmpty {
-      listItem.setImage(makeSafeUIPlaceholder())
-      let imageSource = image.toImageSource()
-      loadUIImageAsync(from: imageSource) { uiImage in
-        if let uiImage = uiImage {
-          listItem.setImage(uiImage)
-        }
-      }
+      FCPListItem.loadImage(image, into: listItem)
     }
     if playbackProgress != nil {
       listItem.playbackProgress = playbackProgress!
@@ -77,6 +71,43 @@ class FCPListItem {
     return listItem
   }
   
+  // Shows `image` on `listItem`: the placeholder at once, the picture once
+  // it loads. A download that fails shows a question mark and runs again on
+  // `retryFailedImages`. The request is kept on the row (`userInfo`), not
+  // on this object, which section updates swap for a fresh one while the
+  // row stays: a load the row no longer asks for is dropped.
+  private static func loadImage(_ image: String, into listItem: CPListItem) {
+    listItem.userInfo = image
+    listItem.setImage(makeSafeUIPlaceholder())
+    fetchImage(image, into: listItem)
+  }
+
+  private static func fetchImage(_ image: String, into listItem: CPListItem) {
+    let source = image.toImageSource()
+    guard case .url(let url) = source else {
+      loadUIImageAsync(from: source) { [weak listItem] uiImage in
+        guard let listItem = listItem, let uiImage = uiImage,
+              listItem.userInfo as? String == image else { return }
+        listItem.setImage(uiImage)
+      }
+      return
+    }
+    downloadUIImage(from: url) { [weak listItem] uiImage in
+      guard let listItem = listItem,
+            listItem.userInfo as? String == image else { return }
+      if let uiImage = uiImage {
+        listItem.setImage(uiImage)
+        return
+      }
+      listItem.setImage(UIImage(systemName: "questionmark"))
+      FCPImageRetry.add { [weak listItem] in
+        guard let listItem = listItem,
+              listItem.userInfo as? String == image else { return }
+        fetchImage(image, into: listItem)
+      }
+    }
+  }
+
   public func stopHandler() {
     guard self.completeHandler != nil else {
       return
@@ -96,16 +127,13 @@ class FCPListItem {
     }
 
     if let image = image, !image.isEmpty, image != self.image {
-      self._super?.setImage(makeSafeUIPlaceholder())
-      let imageSource = image.toImageSource()
-      loadUIImageAsync(from: imageSource) { uiImage in
-        if let uiImage = uiImage {
-          self._super?.setImage(uiImage)
-        }
+      if let listItem = self._super {
+        FCPListItem.loadImage(image, into: listItem)
       }
       self.image = image
     } else if image == nil || image?.isEmpty == true {
       self.image = nil
+      self._super?.userInfo = nil
       self._super?.setImage(nil)
     }
 
