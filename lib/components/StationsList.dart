@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get_it/get_it.dart';
@@ -30,12 +32,19 @@ class StationsList extends StatelessWidget {
   final List<String> favoriteSlugs;
   final bool isFavoritesList;
 
+  static const double _cardMargin = 4;
+  static const double _cardBorder = 1.5;
+  static const double _thumbnailSize = 70;
+  static const double _titleFontSize = 16;
+  static const double _listenersFontSize = 12;
+
   @override
   Widget build(BuildContext context) {
+    final metrics = _RowMetrics.of(context);
     return SliverGrid(
-      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+      gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
         maxCrossAxisExtent: 700,
-        mainAxisExtent: 105,
+        mainAxisExtent: metrics.extent,
       ),
       delegate: SliverChildBuilderDelegate(
         (context, itemIdx) {
@@ -60,7 +69,10 @@ class StationsList extends StatelessWidget {
                 }
               },
               child: Container(
-                margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
+                margin: const EdgeInsets.symmetric(
+                  vertical: _cardMargin,
+                  horizontal: 6,
+                ),
                 padding: const EdgeInsets.symmetric(vertical: 0, horizontal: 10),
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
@@ -72,7 +84,7 @@ class StationsList extends StatelessWidget {
                     color: isSelected
                       ? const Color(0xFF555555).withValues(alpha: 0.35)
                       : Colors.transparent,
-                    width: 1.5,
+                    width: _cardBorder,
                   ),
                 ),
                 child: Stack(
@@ -81,8 +93,8 @@ class StationsList extends StatelessWidget {
                       children: [
                         Container(
                           margin: const EdgeInsets.only(right: 14),
-                          width: 70.0,
-                          height: 70.0,
+                          width: _thumbnailSize,
+                          height: _thumbnailSize,
                           child: ClipRRect(
                             borderRadius:
                                 BorderRadius.circular(AppRadius.thumbnail),
@@ -111,7 +123,7 @@ class StationsList extends StatelessWidget {
                                       style: TextStyle(
                                         color: Theme.of(context).colorScheme.onSurface,
                                         fontWeight: FontWeight.normal,
-                                        fontSize: 16,
+                                        fontSize: _titleFontSize,
                                       ),
                                       overflow: TextOverflow.ellipsis,
                                       maxLines: 1,
@@ -137,7 +149,7 @@ class StationsList extends StatelessWidget {
                                 ],
                               ),
                               SizedBox(
-                                height: 22,
+                                height: metrics.subtitleSlot,
                                 child: AnimatedSwitcher(
                                   duration: const Duration(milliseconds: 250),
                                   layoutBuilder: (currentChild, previousChildren) => Stack(
@@ -153,7 +165,13 @@ class StationsList extends StatelessWidget {
                                     child: station.isDown
                                       ? const Text(
                                           "Stație posibil indisponibilă",
-                                          style: TextStyle(color: Color(0xFFF87171)),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            color: Color(0xFFF87171),
+                                            fontSize:
+                                                _StationSubtitle._fontSize,
+                                          ),
                                         )
                                       : _StationSubtitle(
                                           station: station,
@@ -163,7 +181,7 @@ class StationsList extends StatelessWidget {
                                 ),
                               ),
                               SizedBox(
-                                height: 18,
+                                height: metrics.listenersSlot,
                                 child: AnimatedSwitcher(
                                   duration: const Duration(milliseconds: 250),
                                   layoutBuilder: (currentChild, previousChildren) => Stack(
@@ -185,11 +203,15 @@ class StationsList extends StatelessWidget {
                                                   : AppColors.offline,
                                             ),
                                           ),
-                                          Text(
-                                            '${station.totalListeners} ascultator${station.totalListeners == 1 ? "" : "i"}',
-                                            style: TextStyle(
-                                              color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
-                                              fontSize: 12,
+                                          Flexible(
+                                            child: Text(
+                                              '${station.totalListeners} ascultator${station.totalListeners == 1 ? "" : "i"}',
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                                                fontSize: _listenersFontSize,
+                                              ),
                                             ),
                                           ),
                                         ],
@@ -245,6 +267,70 @@ class StationsList extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Heights in a station row that follow the user's text size.
+///
+/// The song and listener lines sit in fixed-height slots so a new song or
+/// listener count never moves the lines around them. At the default text size
+/// the slots are [_subtitleSlot] and [_listenersSlot] tall and the row is as
+/// tall as the thumbnail needs. A larger system text size grows each slot to
+/// its line and the row to the text, so the text never spills out of the
+/// card.
+class _RowMetrics {
+  const _RowMetrics._({
+    required this.extent,
+    required this.subtitleSlot,
+    required this.listenersSlot,
+  });
+
+  factory _RowMetrics.of(BuildContext context) {
+    final style = DefaultTextStyle.of(context).style;
+    final direction = Directionality.of(context);
+    final scaler = MediaQuery.textScalerOf(context);
+
+    double lineHeight(double fontSize) {
+      final painter = TextPainter(
+        text: TextSpan(text: ' ', style: style.copyWith(fontSize: fontSize)),
+        textDirection: direction,
+        textScaler: scaler,
+        maxLines: 1,
+      )..layout();
+      final height = painter.height;
+      painter.dispose();
+      return height;
+    }
+
+    final subtitleSlot =
+        math.max(_subtitleSlot, lineHeight(_StationSubtitle._fontSize));
+    final listenersSlot = math.max(
+      _listenersSlot,
+      lineHeight(StationsList._listenersFontSize),
+    );
+    final text = lineHeight(StationsList._titleFontSize) +
+        subtitleSlot +
+        listenersSlot;
+    final content = math.max(StationsList._thumbnailSize, text);
+    final edge =
+        _contentInset + StationsList._cardBorder + StationsList._cardMargin;
+    return _RowMetrics._(
+      extent: content + 2 * edge,
+      subtitleSlot: subtitleSlot,
+      listenersSlot: listenersSlot,
+    );
+  }
+
+  static const double _subtitleSlot = 22;
+  static const double _listenersSlot = 18;
+
+  /// Room above and below the content, as around the thumbnail at the
+  /// default text size.
+  static const double _contentInset = 12;
+
+  /// Height of a row, margins included.
+  final double extent;
+  final double subtitleSlot;
+  final double listenersSlot;
 }
 
 /// Second line of a station row. Typed so stations without a now-playing song
