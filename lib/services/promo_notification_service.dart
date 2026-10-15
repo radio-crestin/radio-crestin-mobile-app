@@ -40,7 +40,7 @@ class PromoNotificationService {
   /// action threshold has been reached, or null.
   PromoNotification? getNextNotification() {
     final dismissed = _getDismissedIds();
-    final actions = _getActionCount();
+    final actions = actionsMade;
     for (final notification in _notifications) {
       if (dismissed.contains(notification.id)) continue;
       if (actions < notification.minActions) continue;
@@ -61,7 +61,8 @@ class PromoNotificationService {
     return list.toSet();
   }
 
-  int _getActionCount() {
+  /// The user actions counted so far; 0 when they cannot be read.
+  int get actionsMade {
     final reviewStatusJson = _prefs.getString('_reviewStatus');
     if (reviewStatusJson == null) return 0;
     try {

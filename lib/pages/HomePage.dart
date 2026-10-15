@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:developer' as developer;
 import 'dart:io' show Platform;
 
@@ -32,7 +31,7 @@ import '../services/station_sort_service.dart';
 import '../widgets/cast_button.dart';
 import '../widgets/mini_player_bottom_inset.dart';
 import '../widgets/promo_notification_card.dart';
-import '../services/promo_notification_service.dart';
+import '../services/home_promo_slot.dart';
 import '../services/analytics_service.dart';
 import '../services/background_polling_policy.dart';
 import '../types/Station.dart';
@@ -130,7 +129,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed;
 
   Timer? _imageCachePruneTimer;
-  bool _showSharePromotion = false;
   final GlobalKey<SharePromotionCardState> _sharePromotionKey = GlobalKey();
   ShareLinkData? _shareLinkData;
   /// What the status snackbar says: offline, back online, a station error.
@@ -157,7 +155,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   StreamSubscription? _customEventSub;
   final ValueNotifier<double> _panelSlide = ValueNotifier(0.0);
   StationSortOption _sortOption = StationSortOption.recommended;
-  PromoNotification? _currentPromoNotification;
+
+  /// The promo card above the station list: one at a time.
+  HomePromo? _homePromo;
 
   @override
   void initState() {
@@ -219,9 +219,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     // Defer non-critical work to after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkSharePromotionVisibility();
+      _loadHomePromo();
       _loadShareLinkData();
-      _loadPromoNotification();
       // Well after startup, when station data has loaded and the first
       // images are on screen.
       _imageCachePruneTimer =
@@ -345,71 +344,29 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     try {
       await Future.wait([
         _stationDataService.refreshStations(),
-        _checkSharePromotionVisibility(),
+        _loadHomePromo(),
         _loadShareLinkData(),
       ]).timeout(const Duration(seconds: 3));
 
       // Refresh share promotion card if it's visible
-      if (_showSharePromotion && _sharePromotionKey.currentState != null) {
-        _sharePromotionKey.currentState!.refreshShareLink();
+      if (_homePromo is SharePromo) {
+        _sharePromotionKey.currentState?.refreshShareLink();
       }
     } catch (e) {
       developer.log('Error refreshing: $e');
     }
   }
 
-  Future<void> _checkSharePromotionVisibility() async {
-    final prefs = getIt<SharedPreferences>();
-    bool shouldShow = prefs.getBool('show_share_promotion') ?? false;
-
-    // Check if we've already auto-enabled before (to not override user's choice)
-    bool hasAutoEnabled = prefs.getBool('share_promotion_auto_enabled') ?? false;
-
-    // Auto-enable after 40 actions (2X the review threshold) - but only once
-    if (!shouldShow && !hasAutoEnabled) {
-      String? reviewStatusJson = prefs.getString('_reviewStatus');
-      if (reviewStatusJson != null) {
-        Map<String, dynamic> reviewStatus = json.decode(reviewStatusJson);
-        int actionsMade = reviewStatus['actions_made'] ?? 0;
-
-        // Auto-enable at 40 actions (2X the first review threshold of 20)
-        if (actionsMade >= 40) {
-          await prefs.setBool('show_share_promotion', true);
-          await prefs.setBool('share_promotion_auto_enabled', true);
-          shouldShow = true;
-        }
-      }
-    }
-
-    if (mounted && shouldShow != _showSharePromotion) {
-      setState(() {
-        _showSharePromotion = shouldShow;
-      });
-    }
+  Future<void> _loadHomePromo() async {
+    final promo = await HomePromoSlot(getIt<SharedPreferences>()).current();
+    if (mounted) setState(() => _homePromo = promo);
   }
 
-  void _loadPromoNotification() {
-    final prefs = getIt<SharedPreferences>();
-    final service = PromoNotificationService(prefs);
-    final next = service.getNextNotification();
-    if (mounted && next != _currentPromoNotification) {
-      setState(() {
-        _currentPromoNotification = next;
-      });
-    }
-  }
-
-  Future<void> _dismissPromoNotification() async {
-    final notification = _currentPromoNotification;
-    if (notification == null) return;
-    final prefs = getIt<SharedPreferences>();
-    final service = PromoNotificationService(prefs);
-    await service.dismiss(notification.id);
-    if (mounted) {
-      setState(() {
-        _currentPromoNotification = null;
-      });
-    }
+  Future<void> _closeHomePromo() async {
+    final promo = _homePromo;
+    if (promo == null) return;
+    setState(() => _homePromo = null);
+    await HomePromoSlot(getIt<SharedPreferences>()).close(promo);
   }
 
   Future<void> _loadShareLinkData() async {
@@ -1016,27 +973,22 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           physics: const PositionRetainedScrollPhysics().applyTo(const AlwaysScrollableScrollPhysics()),
                           cacheExtent: 300.0,
                           slivers: <Widget>[
-                          if (_currentPromoNotification != null)
+                          if (_homePromo
+                              case NotificationPromo(:final notification))
                             SliverToBoxAdapter(
                               child: PromoNotificationCard(
-                                notification: _currentPromoNotification!,
-                                onDismiss: _dismissPromoNotification,
+                                notification: notification,
+                                onDismiss: _closeHomePromo,
                               ),
                             ),
-                          if (_showSharePromotion)
+                          if (_homePromo is SharePromo)
                             SliverToBoxAdapter(
                               child: SharePromotionCard(
                                 key: _sharePromotionKey,
                                 client: _audioHandler.graphqlClient,
                                 currentStationSlug: currentStation?.slug,
                                 currentStationName: currentStation?.title,
-                                onClose: () async {
-                                  setState(() {
-                                    _showSharePromotion = false;
-                                  });
-                                  final prefs = getIt<SharedPreferences>();
-                                  await prefs.setBool('show_share_promotion', false);
-                                },
+                                onClose: _closeHomePromo,
                               ),
                             ),
                           if (favoriteStations.isNotEmpty)
