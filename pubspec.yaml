@@ -65,7 +65,11 @@ dependencies:
   rxdart: ^0.28.0
   fuzzywuzzy: ^1.1.6
   flutter_nfc_kit: ^3.6.2
-  sliding_up_panel2: ^3.3.0+1
+  # Vendored fork of sliding_up_panel2 3.3.0+1 — patched to settle the
+  # player panel when iOS cancels a drag (home gesture from the mini player),
+  # which left it stuck half open. See packages/sliding_up_panel2/PATCH.md.
+  sliding_up_panel2:
+    path: packages/sliding_up_panel2
   upgrader: ^12.5.0
   fluttertoast: ^9.0.0
   easy_search_bar: ^2.5.0
