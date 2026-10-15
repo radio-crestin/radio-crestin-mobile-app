@@ -48,6 +48,8 @@ void main() {
     TargetPlatform platform = TargetPlatform.android,
     Brightness brightness = Brightness.light,
     String? stationName = 'Aripi Spre Cer',
+    String? songName,
+    String? songArtist,
     ShareLinkData? initialData,
     Future<ShareLinkData?> Function()? loader,
   }) async {
@@ -63,6 +65,8 @@ void main() {
                   shareUrl: _stationUrl,
                   shareMessage: 'Instalează aplicația:\n$_stationUrl',
                   stationName: stationName,
+                  songName: songName,
+                  songArtist: songArtist,
                   songId: 5,
                   initialData: initialData,
                   loader: loader,
@@ -113,9 +117,11 @@ void main() {
         await pumpHost(tester, platform: platform);
         await openSheet(tester);
 
-        await tester.tap(action('Copiază linkul'));
+        await tester.tap(action('Copiază invitația'));
         await tester.pump(const Duration(milliseconds: 300));
-        expect(clipboard, [_stationUrl]);
+        expect(clipboard, [
+          'Te invit să asculți Aripi Spre Cer:\n$_stationUrl',
+        ]);
         expect(find.text('Copiat'), findsOneWidget);
         expect(find.text('Invită un prieten să asculte'), findsOneWidget);
 
@@ -140,11 +146,35 @@ void main() {
     await pumpHost(tester, initialData: _linkData());
     await openSheet(tester);
 
-    await tester.tap(action('Copiază linkul'));
+    await tester.tap(action('Copiază invitația'));
     await tester.pump();
     expect(clipboard, [
-      'https://asculta.radiocrestin.ro/aripi-spre-cer?s=abc&song=5',
+      'Te invit să asculți Aripi Spre Cer:\n'
+          'https://asculta.radiocrestin.ro/aripi-spre-cer?s=abc&song=5',
     ]);
+    await tester.pumpAndSettle(const Duration(seconds: 2));
+  });
+
+  testWidgets('copies the song playing now with the link', (tester) async {
+    await pumpHost(tester, songName: 'Har', songArtist: 'Grupul Eben');
+    await openSheet(tester);
+
+    await tester.tap(action('Copiază invitația'));
+    await tester.pump();
+    expect(clipboard, [
+      'Te invit să asculți Aripi Spre Cer (Har • Grupul Eben):\n$_stationUrl',
+    ]);
+    await tester.pumpAndSettle(const Duration(seconds: 2));
+  });
+
+  testWidgets('copies the app invitation when there is no station',
+      (tester) async {
+    await pumpHost(tester, stationName: null);
+    await openSheet(tester);
+
+    await tester.tap(action('Copiază invitația'));
+    await tester.pump();
+    expect(clipboard, ['Instalează aplicația:\n$_stationUrl']);
     await tester.pumpAndSettle(const Duration(seconds: 2));
   });
 

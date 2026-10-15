@@ -24,10 +24,10 @@ const Color _facebookBlue = Color(0xFF1877F2);
 /// Bottom sheet that invites a friend to listen to a station, or to the app.
 ///
 /// One tap on WhatsApp, Facebook or "Mai multe" closes the sheet and hands
-/// the link over, like YouTube's share panel; "Copiază" copies it and
-/// confirms in place. The footer shows how many friends opened the user's
-/// personal link: the last known count at once, refreshed by [loader] while
-/// the sheet is already up.
+/// the link over, like YouTube's share panel; "Copiază" copies the same
+/// invitation WhatsApp gets and confirms in place. The footer shows how
+/// many friends opened the user's personal link: the last known count at
+/// once, refreshed by [loader] while the sheet is already up.
 class ShareSheet extends StatefulWidget {
   const ShareSheet({
     super.key,
@@ -164,6 +164,16 @@ class _ShareSheetState extends State<ShareSheet> {
     );
   }
 
+  /// The invitation WhatsApp, the system share sheet and the clipboard get:
+  /// the message, the song playing now and the link.
+  String get _invitation => ShareUtils.formatMessageWithStation(
+        _shareMessage,
+        _shareUrl,
+        widget.stationName,
+        songName: widget.songName,
+        songArtist: widget.songArtist,
+      );
+
   void _track(String buttonName) {
     AnalyticsService.instance.capture('button_clicked', {
       'button_name': buttonName,
@@ -210,9 +220,9 @@ class _ShareSheetState extends State<ShareSheet> {
     );
   }
 
-  void _copyLink() {
+  void _copyInvitation() {
     _track('copy_share_link');
-    Clipboard.setData(ClipboardData(text: _shareUrl));
+    Clipboard.setData(ClipboardData(text: _invitation));
     HapticFeedback.lightImpact();
     setState(() => _copied = true);
     _copiedTimer?.cancel();
@@ -252,7 +262,7 @@ class _ShareSheetState extends State<ShareSheet> {
               copied: _copied,
               onWhatsApp: _shareToWhatsApp,
               onFacebook: _shareToFacebook,
-              onCopy: _copyLink,
+              onCopy: _copyInvitation,
               onMore: _shareViaSystem,
             ),
             _VisitFooter(
@@ -454,7 +464,8 @@ class _SheetHeader extends StatelessWidget {
   }
 }
 
-/// WhatsApp, Facebook, copy link and the system share sheet, side by side.
+/// WhatsApp, Facebook, copy invitation and the system share sheet, side by
+/// side.
 class _ShareActions extends StatelessWidget {
   const _ShareActions({
     required this.palette,
@@ -467,7 +478,7 @@ class _ShareActions extends StatelessWidget {
 
   final _SharePalette palette;
 
-  /// Whether the link was just copied; the copy action confirms it.
+  /// Whether the invitation was just copied; the copy action confirms it.
   final bool copied;
 
   final VoidCallback onWhatsApp;
@@ -506,7 +517,8 @@ class _ShareActions extends StatelessWidget {
             child: _ShareAction(
               palette: palette,
               label: copied ? 'Copiat' : 'Copiază',
-              semanticLabel: copied ? 'Link copiat' : 'Copiază linkul',
+              semanticLabel:
+                  copied ? 'Invitație copiată' : 'Copiază invitația',
               labelColor: copied ? palette.success : null,
               fill: copied ? palette.successFill : palette.chip,
               ink: copied ? palette.success : palette.text,
