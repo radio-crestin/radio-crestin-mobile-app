@@ -13,6 +13,7 @@ import '../theme.dart';
 import '../types/Station.dart';
 import '../utils/romanian_count.dart';
 import '../widgets/pinned_title_sliver_header.dart';
+import '../widgets/re_add_station_button.dart';
 
 /// The stations the listener hid, last hidden first, each with a button
 /// that adds it back to the lists. Without any, it tells how to hide one.
@@ -169,15 +170,6 @@ class _Grouped {
       dark ? AppColors.groupedDividerDark : AppColors.groupedDivider;
   Color get action =>
       dark ? AppColors.groupedAction : AppColors.groupedActionOnLight;
-
-  /// The "Readaugă" pill. Dark: the neutral capsule of the player's sheets
-  /// (sleep timer, share), white on white at 13%, so the logos stay the
-  /// colorful part of the row. Light: [action] on a tint of it, faint
-  /// enough for the text to keep 4.5:1 contrast.
-  Color get buttonFill => dark
-      ? AppColors.darkText.withValues(alpha: 0.13)
-      : action.withValues(alpha: 0.08);
-  Color get buttonText => dark ? AppColors.darkText : action;
 }
 
 /// Where a hidden station no longer shows, for the page's explanation.
@@ -412,7 +404,7 @@ class _HiddenStationRowState extends State<_HiddenStationRow>
                     ),
                   ),
                   const SizedBox(width: 8),
-                  _ReAddButton(onPressed: _show),
+                  ReAddStationButton(onPressed: _show),
                 ],
               ),
             ),
@@ -427,34 +419,6 @@ class _HiddenStationRowState extends State<_HiddenStationRow>
               ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-/// "+ Readaugă", a pill that says the station goes back to the lists: the
-/// plus for adding, as "Afișează" alone said nothing of where to.
-class _ReAddButton extends StatelessWidget {
-  const _ReAddButton({required this.onPressed});
-
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = _Grouped.of(context);
-    return TextButton.icon(
-      onPressed: onPressed,
-      icon: const Icon(Icons.add_rounded, size: 18),
-      label: const Text('Readaugă'),
-      style: TextButton.styleFrom(
-        foregroundColor: colors.buttonText,
-        backgroundColor: colors.buttonFill,
-        shape: const StadiumBorder(),
-        minimumSize: const Size(0, 34),
-        padding: const EdgeInsetsDirectional.fromSTEB(10, 0, 14, 0),
-        // The pill is 34 high, its touch area the full 48.
-        tapTargetSize: MaterialTapTargetSize.padded,
-        textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
       ),
     );
   }

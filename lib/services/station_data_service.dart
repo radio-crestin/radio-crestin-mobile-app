@@ -1729,6 +1729,16 @@ class StationDataService {
       _sortStations(
           applyGroupFilter ? filteredStations.value : visibleStations);
 
+  /// The chosen group's stations in the order of [getSortedStations], the
+  /// hidden ones too, each in the place it would have on show; empty
+  /// without a chosen group. The home page lists them this way once all of
+  /// a group's stations are hidden.
+  List<Station> getSortedGroupStationsWithHidden() {
+    final group = selectedStationGroup.value;
+    if (group == null) return const [];
+    return _sortStations(filterByGroup(group, stations.value));
+  }
+
   /// [allStations] in the order [getSortedStations] describes. A hidden
   /// station keeps its place in the cached orders, so showing it again puts
   /// it back where it was.

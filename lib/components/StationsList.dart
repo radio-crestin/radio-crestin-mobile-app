@@ -15,6 +15,7 @@ import '../types/Station.dart';
 import '../types/playlist_item.dart';
 import '../utils/station_ui.dart';
 import '../widgets/hide_station_dialog.dart';
+import '../widgets/re_add_station_button.dart';
 import '../widgets/share_sheet.dart';
 import '../widgets/station_actions_menu.dart';
 import '../widgets/station_reorder.dart';
@@ -32,6 +33,9 @@ class StationsList extends StatelessWidget {
     this.onStationHidden,
     this.rowTransitions,
     this.reorder,
+    this.shownHidden,
+    this.hidesInPlace = false,
+    this.onShowHidden,
   });
 
   final Station? currentStation;
@@ -53,6 +57,19 @@ class StationsList extends StatelessWidget {
   /// Lets the listener arrange the rows: held, a row follows the finger to
   /// another place in the list. Null where rows keep the list's order.
   final StationReorder? reorder;
+
+  /// The hidden stations among [stations], each listed in its place,
+  /// dimmed, with a button that adds it back ([onShowHidden]). A row fades
+  /// from one look to the other as its station is hidden or added back.
+  /// Null where the list never shows hidden stations.
+  final Set<String>? shownHidden;
+
+  /// Whether a station hidden here dims in its place rather than playing
+  /// its row out: [shownHidden] will list it.
+  final bool hidesInPlace;
+
+  /// Adds back a hidden station listed in its place.
+  final ValueChanged<Station>? onShowHidden;
 
   /// Rows are at most this wide: wider lists show a grid.
   static const double _maxRowWidth = 700;
@@ -118,7 +135,7 @@ class StationsList extends StatelessWidget {
     }
 
     final transitions = rowTransitions;
-    if (transitions == null) {
+    if (transitions == null || hidesInPlace) {
       hide();
     } else {
       transitions.leave(station.slug, hide);
@@ -431,7 +448,7 @@ class StationsList extends StatelessWidget {
 
     // Only a list of one column moves a row by hand: a grid can't slide
     // its tiles out of the way.
-    final Widget row = reorder == null || order == null || !collapses
+    Widget row = reorder == null || order == null || !collapses
         ? rowWith(null)
         : StationReorderSlot(
             reorder: reorder,
@@ -440,6 +457,30 @@ class StationsList extends StatelessWidget {
             lifted: (context, lift) => _LiftedCard(card: card, lift: lift),
             builder: (context, drag) => rowWith(drag),
           );
+    final shownHidden = this.shownHidden;
+    if (shownHidden != null) {
+      final hidden = shownHidden.contains(slug);
+      row = AnimatedSwitcher(
+        duration: const Duration(milliseconds: 250),
+        switchInCurve: Curves.easeInOut,
+        switchOutCurve: Curves.easeInOut,
+        child: KeyedSubtree(
+          key: ValueKey(hidden),
+          child: hidden
+              ? SizedBox(
+                  height: metrics.extent,
+                  child: Padding(
+                    padding: _cardInset,
+                    child: _HiddenStationCard(
+                      station: station,
+                      onShow: () => onShowHidden?.call(station),
+                    ),
+                  ),
+                )
+              : row,
+        ),
+      );
+    }
 
     final transitions = rowTransitions;
     return KeyedSubtree(
@@ -453,6 +494,114 @@ class StationsList extends StatelessWidget {
                 collapses: collapses,
                 child: row,
               ),
+      ),
+    );
+  }
+}
+
+/// A hidden station listed in its place: its row dimmed and marked hidden,
+/// with a button that adds it back. It plays nothing and has no menu.
+class _HiddenStationCard extends StatelessWidget {
+  const _HiddenStationCard({required this.station, required this.onShow});
+
+  final Station station;
+  final VoidCallback onShow;
+
+  static const String hiddenLabel = 'Ascunsă';
+
+  /// How much of the logo shows through.
+  static const double _logoOpacity = 0.35;
+  static const double _badgeSize = 26;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final dark = theme.brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: theme.cardColor,
+        borderRadius: const BorderRadius.all(Radius.circular(16)),
+        border: Border.all(
+          color: Colors.transparent,
+          width: StationsList._cardBorder,
+        ),
+      ),
+      child: Row(
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(right: 14),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Opacity(
+                  opacity: _logoOpacity,
+                  child: SizedBox.square(
+                    dimension: StationsList._thumbnailSize,
+                    child: ClipRRect(
+                      borderRadius:
+                          BorderRadius.circular(AppRadius.thumbnail),
+                      child: station.thumbnail,
+                    ),
+                  ),
+                ),
+                Positioned(
+                  right: -4,
+                  bottom: -4,
+                  child: Container(
+                    width: _badgeSize,
+                    height: _badgeSize,
+                    decoration: BoxDecoration(
+                      color: scheme.surface,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.visibility_off_outlined,
+                      size: 15,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Semantics(
+              label: '${station.displayTitle}, ${hiddenLabel.toLowerCase()}',
+              excludeSemantics: true,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    station.displayTitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: scheme.onSurface.withValues(alpha: 0.6),
+                      fontSize: StationsList._titleFontSize,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    hiddenLabel,
+                    style: TextStyle(
+                      color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
+                      fontSize: _StationSubtitle._fontSize,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // On the grey card, a white pill reads as the one thing to tap.
+          ReAddStationButton(
+            onPressed: onShow,
+            fill: dark ? null : scheme.surface,
+          ),
+        ],
       ),
     );
   }

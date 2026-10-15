@@ -37,6 +37,7 @@ import '../services/background_polling_policy.dart';
 import '../types/Station.dart';
 import '../utils.dart';
 import '../utils/PositionRetainedScrollPhysics.dart';
+import '../utils/romanian_count.dart';
 import '../widgets/song_history_modal.dart';
 import '../widgets/station_group_chip.dart';
 import '../widgets/station_group_filter_sheet.dart';
@@ -142,6 +143,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   /// The station last hidden from a list, for the snackbar's "Anulează";
   /// [wasFavorite]: hiding took it out of the favorites.
   ({Station station, bool wasFavorite})? _lastHidden;
+
+  /// The category whose hidden stations the list shows in their places,
+  /// dimmed: one chosen with all its stations hidden. They stay while it
+  /// stays chosen, so adding one back leaves the others there to add.
+  int? _hiddenShownInGroup;
 
   /// Plays a hidden station's rows out of both lists, and an undone one's
   /// back in.
@@ -337,6 +343,46 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   void _onStationHidden(Station station, bool wasFavorite) {
     _lastHidden = (station: station, wasFavorite: wasFavorite);
     _statusSnackbar.showStationHidden(station);
+    _growInHiddenAround(station);
+  }
+
+  /// Hiding the last station on show in the chosen category lists its
+  /// hidden stations in their places: [station] dims where it is, and the
+  /// others grow in around it.
+  void _growInHiddenAround(Station station) {
+    final group = _stationDataService.selectedStationGroup.value;
+    if (group == null || group.id == _hiddenShownInGroup) return;
+    final hidden = _stationDataService.hiddenStationSlugs.value.toSet();
+    final inGroup = _stationDataService.getSortedGroupStationsWithHidden();
+    if (inGroup.any((s) => !hidden.contains(s.slug))) return;
+    for (final other in inGroup) {
+      if (other.slug != station.slug) _rowTransitions.enter(other.slug);
+    }
+  }
+
+  /// Whether [station] is hidden in the category whose hidden stations the
+  /// list shows in their places.
+  bool _isShownHidden(Station station) =>
+      _hiddenShownInGroup != null &&
+      _stationDataService.selectedStationGroup.value?.station_to_station_groups
+              .any((link) => link.station_id == station.id) ==
+          true;
+
+  /// Adds back a hidden station listed in its place: its row lights up
+  /// there. An undo still on show for it has nothing left to undo.
+  void _showHiddenInPlace(Station station) {
+    HapticFeedback.lightImpact();
+    AnalyticsService.instance.capture('button_clicked', {
+      'button_name': 'station_unhide',
+      'source': 'category',
+      'station_id': station.id,
+      'station_slug': station.slug,
+    });
+    if (_lastHidden?.station.slug == station.slug) {
+      _lastHidden = null;
+      _statusSnackbar.clearStationHidden();
+    }
+    unawaited(_audioHandler.unhideStation(station));
   }
 
   /// Shows the station last hidden again, back among the favorites if it
@@ -351,8 +397,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       'station_id': hidden.station.id,
       'station_slug': hidden.station.slug,
     });
-    // Before the lists get it back, so its rows grow in.
-    _rowTransitions.enter(hidden.station.slug);
+    // Before the lists get it back, so its rows grow in; one listed in its
+    // place lights up there instead.
+    if (!_isShownHidden(hidden.station)) {
+      _rowTransitions.enter(hidden.station.slug);
+    }
     unawaited(_audioHandler.unhideStation(
       hidden.station,
       favorite: hidden.wasFavorite,
@@ -730,6 +779,25 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             // Apply sorting to filtered stations (cached — stable during session)
             final filteredStations = _stationDataService.getSortedStations();
 
+            // A category with all its stations hidden lists them in their
+            // places, dimmed, rather than nothing; see _hiddenShownInGroup.
+            final groupWithHidden = selectedStationGroup == null
+                ? const <Station>[]
+                : _stationDataService.getSortedGroupStationsWithHidden();
+            if (selectedStationGroup?.id != _hiddenShownInGroup) {
+              _hiddenShownInGroup = null;
+            }
+            if (selectedStationGroup != null &&
+                filteredStations.isEmpty &&
+                groupWithHidden.isNotEmpty) {
+              _hiddenShownInGroup = selectedStationGroup.id;
+            }
+            final showsHidden = _hiddenShownInGroup != null;
+            final hiddenSlugs =
+                _stationDataService.hiddenStationSlugs.value.toSet();
+            final listedStations =
+                showsHidden ? groupWithHidden : filteredStations;
+
             // Favorites are also kept in the full list below, so liking a
             // station doesn't make it vanish from where the user found it,
             // and the list matches the next/previous order. While a category
@@ -1073,14 +1141,46 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                   ],
                                 ),
                               ),
-                              sliver: StationsList(
-                                stations: filteredStations,
-                                currentStation: currentStation,
-                                audioHandler: _audioHandler,
-                                panelController: slidingUpPanelController,
-                                favoriteSlugs: favoriteSlugs,
-                                onStationHidden: _onStationHidden,
-                                rowTransitions: _rowTransitions,
+                              sliver: SliverMainAxisGroup(
+                                slivers: [
+                                  if (selectedStationGroup != null)
+                                    SliverToBoxAdapter(
+                                      child: _HiddenInCategoryNote(
+                                        text: showsHidden
+                                            ? hiddenInCategoryText(
+                                                selectedStationGroup.name,
+                                                hidden: groupWithHidden
+                                                    .where((s) => hiddenSlugs
+                                                        .contains(s.slug))
+                                                    .length,
+                                                total: groupWithHidden.length,
+                                              )
+                                            : null,
+                                      ),
+                                    ),
+                                  StationsList(
+                                    stations: listedStations,
+                                    currentStation: currentStation,
+                                    audioHandler: _audioHandler,
+                                    panelController: slidingUpPanelController,
+                                    favoriteSlugs: favoriteSlugs,
+                                    onStationHidden: _onStationHidden,
+                                    rowTransitions: _rowTransitions,
+                                    // Within a category, so a row keeps its
+                                    // look-switching layer as it changes.
+                                    shownHidden: selectedStationGroup == null
+                                        ? null
+                                        : showsHidden
+                                            ? hiddenSlugs
+                                            : const <String>{},
+                                    // Hidden, the last on show leaves the
+                                    // category empty, so it is listed too.
+                                    hidesInPlace: selectedStationGroup != null &&
+                                        (showsHidden ||
+                                            filteredStations.length == 1),
+                                    onShowHidden: _showHiddenInPlace,
+                                  ),
+                                ],
                               ),
                             ),
                           // Bottom inset so the last rows clear the collapsed
@@ -1280,6 +1380,80 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (station == null) return;
 
     _audioHandler.playStation(station);
+  }
+}
+
+/// What the list says above a category's hidden stations shown in their
+/// places: "Toate cele 4 stații din Worship sunt ascunse.", or how many
+/// still are once some were added back. Null when none is.
+@visibleForTesting
+String? hiddenInCategoryText(
+  String category, {
+  required int hidden,
+  required int total,
+}) {
+  String stations(int count) =>
+      romanianCount(count, one: 'stație', many: 'stații');
+  if (hidden == 0) return null;
+  if (hidden == total) {
+    return total == 1
+        ? 'Singura stație din $category e ascunsă.'
+        : 'Toate cele ${stations(total)} din $category sunt ascunse.';
+  }
+  return hidden == 1
+      ? 'O stație din $category e ascunsă.'
+      : '${stations(hidden)} din $category sunt ascunse.';
+}
+
+/// The line above a category's hidden stations shown in their places,
+/// with a crossed eye; it opens and closes as it comes and goes, and its
+/// text fades as the count changes.
+class _HiddenInCategoryNote extends StatelessWidget {
+  const _HiddenInCategoryNote({required this.text});
+
+  final String? text;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context)
+        .colorScheme
+        .onSurfaceVariant
+        .withValues(alpha: 0.8);
+    final text = this.text;
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeInOut,
+      alignment: Alignment.topCenter,
+      child: text == null
+          ? const SizedBox(width: double.infinity)
+          : Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Row(
+                children: [
+                  Icon(Icons.visibility_off_outlined, size: 16, color: color),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 250),
+                      layoutBuilder: (current, previous) => Stack(
+                        alignment: Alignment.centerLeft,
+                        children: [...previous, if (current != null) current],
+                      ),
+                      child: Text(
+                        text,
+                        key: ValueKey(text),
+                        style: TextStyle(
+                          fontSize: 14,
+                          height: 1.4,
+                          color: color,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+    );
   }
 }
 

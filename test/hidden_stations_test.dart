@@ -118,6 +118,28 @@ void main() {
     expect(service.hiddenStations, isEmpty);
   });
 
+  test("a group's stations with the hidden ones, each in its place",
+      () async {
+    final group = StationFactory.createStationGroup(
+      id: 7,
+      name: 'Worship',
+      slug: 'worship',
+      stationToStationGroups: [
+        for (final s in [alpha, gamma, delta])
+          StationFactory.createStationToStationGroup(stationId: s.id),
+      ],
+    );
+    expect(service.getSortedGroupStationsWithHidden(), isEmpty,
+        reason: 'no group chosen');
+
+    service.selectedStationGroup.add(group);
+    await service.setStationIsHidden(gamma, true);
+    await service.setStationIsHidden(alpha, true);
+
+    expect(slugsOf(service.getSortedGroupStationsWithHidden()),
+        ['alpha', 'delta', 'gamma']);
+  });
+
   test('the home list combiner leaves hidden stations out',
       () {
     expect(
