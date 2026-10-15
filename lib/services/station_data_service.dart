@@ -319,6 +319,7 @@ class StationDataService {
 
   // Constants
   static const _favoriteStationsKey = 'favoriteStationSlugs';
+  static const _favoriteOrderKeptKey = 'favorite_order_kept';
   static const _hiddenStationsKey = 'hiddenStationSlugs';
   static const _startedFromFavoritesKey = 'started_from_favorites';
   static const _startedFromGroupKey = 'started_from_group';
@@ -404,6 +405,12 @@ class StationDataService {
     _initHiddenStationSlugs();
     _initFilteredStationsStream();
     await _initFavoriteStationSlugs();
+    // Once the catalog is known: from the cache, or only from the network.
+    stations.stream.firstWhere((all) => all.isNotEmpty).then(
+          (_) => _keepShownFavoriteOrder(),
+          // Disposed before any station was listed.
+          onError: (Object _) {},
+        );
     _watchNetwork();
     await _bootstrap();
   }
@@ -1193,6 +1200,52 @@ class StationDataService {
     }
   }
 
+  /// The favorites among [source], in the listener's order: the order of
+  /// [favoriteStationSlugs], which they can rearrange on the home page.
+  List<Station> favoritesIn(Iterable<Station> source) {
+    final bySlug = {for (final station in source) station.slug: station};
+    return [
+      for (final slug in favoriteStationSlugs.value)
+        if (bySlug[slug] case final station?) station,
+    ];
+  }
+
+  /// Puts the favorites in the order of [shown]: the favorites as the
+  /// listener sees them, after moving one. Favorites that [shown] leaves
+  /// out, e.g. a station the catalog no longer lists, keep their places.
+  Future<void> setFavoriteOrder(List<String> shown) async {
+    final current = favoriteStationSlugs.value;
+    final moving = shown.where(current.contains).toList();
+    final movingSet = moving.toSet();
+    var next = 0;
+    final reordered = [
+      for (final slug in current)
+        movingSet.contains(slug) ? moving[next++] : slug,
+    ];
+    if (listEquals(reordered, current)) return;
+    _log("setFavoriteOrder: $reordered");
+    favoriteStationSlugs.add(reordered);
+    final prefs = GetIt.instance<SharedPreferences>();
+    await prefs.setString(_favoriteStationsKey, json.encode(reordered));
+  }
+
+  /// Saves the order the favorites were shown in before the listener could
+  /// arrange them, the first time the catalog is known: the station list's
+  /// sort, which the stored list (oldest favorite first) didn't follow.
+  /// Without it their favorites would come back in a new order.
+  Future<void> _keepShownFavoriteOrder() async {
+    final prefs = GetIt.instance<SharedPreferences>();
+    if (prefs.getBool(_favoriteOrderKeptKey) ?? false) return;
+    final shown = [
+      for (final station in getSortedStations(applyGroupFilter: false))
+        station.slug as String,
+    ];
+    if (shown.isEmpty) return;
+    await setFavoriteOrder(
+        shown.where(favoriteStationSlugs.value.contains).toList());
+    await prefs.setBool(_favoriteOrderKeptKey, true);
+  }
+
   // ---------------------------------------------------------------------------
   // Hidden stations
   // ---------------------------------------------------------------------------
@@ -1511,6 +1564,10 @@ class StationDataService {
     _publicStations = List<Station>.of(publicStations);
     _publishMerged(force: true);
   }
+
+  /// Test seam: what [initialize] does once the catalog is first known.
+  @visibleForTesting
+  Future<void> keepShownFavoriteOrderForTest() => _keepShownFavoriteOrder();
 
   // ---------------------------------------------------------------------------
   // REST metadata fetch
@@ -1901,16 +1958,15 @@ class StationDataService {
   /// in it: a lone station would be its own next, so the skip buttons would
   /// do nothing.
   List<Station> _navigationPlaylist(List<Station> base) {
-    final bool Function(Station) keep;
+    final List<Station> narrowed;
     if (_groupStationIds(startedFromGroup) case final ids?) {
-      keep = (s) => ids.contains(s.id);
+      narrowed = base.where((s) => ids.contains(s.id)).toList();
     } else if (startedFromFavorites) {
-      final favSlugs = favoriteStationSlugs.value.toSet();
-      keep = (s) => favSlugs.contains(s.slug);
+      // In the listener's order, as the Favorite section shows them.
+      narrowed = favoritesIn(base);
     } else {
       return base;
     }
-    final narrowed = base.where(keep).toList();
     return narrowed.length < 2 ? base : narrowed;
   }
 

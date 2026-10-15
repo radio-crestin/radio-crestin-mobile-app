@@ -148,7 +148,8 @@ void main() {
       expect(service.getNextStation('alpha')!.slug, 'beta');
     });
 
-    test('full cycle visits every favorite in sorted order, then wraps', () {
+    test('full cycle visits every favorite in the listener\'s order, then '
+        'wraps', () {
       final stations = [
         StationFactory.createStation(id: 1, slug: 'alpha', title: 'Alpha'),
         StationFactory.createStation(id: 2, slug: 'beta', title: 'Beta'),
@@ -156,28 +157,29 @@ void main() {
         StationFactory.createStation(id: 4, slug: 'delta', title: 'Delta'),
         StationFactory.createStation(id: 5, slug: 'epsilon', title: 'Epsilon'),
       ];
-      // Favorites saved out of order: navigation follows the sort order.
+      // Arranged by the listener: navigation follows their order, as the
+      // Favorite section shows it, not the list's alphabetical sort.
       seedStations(stations, ['gamma', 'epsilon', 'alpha']);
       service.startedFromFavorites = true;
 
-      // Alphabetical: Alpha, Beta, Delta, Epsilon, Gamma
-      // Navigation: [Alpha, Epsilon, Gamma]
       final visited = <String>['alpha'];
       for (var i = 0; i < 3; i++) {
         visited.add(service.getNextStation(visited.last)!.slug);
       }
 
-      expect(visited, ['alpha', 'epsilon', 'gamma', 'alpha']);
+      expect(visited, ['alpha', 'gamma', 'epsilon', 'alpha']);
+      expect(service.getPreviousStation('gamma')!.slug, 'alpha');
     });
 
-    test('a favorite added mid-session joins the cycle', () {
+    test('a favorite added mid-session joins the cycle, last', () {
       seedStations(fourStations(), ['alpha', 'gamma']);
       service.startedFromFavorites = true;
       expect(service.getNextStation('alpha')!.slug, 'gamma');
 
       service.favoriteStationSlugs.add(['alpha', 'gamma', 'beta']);
 
-      expect(service.getNextStation('alpha')!.slug, 'beta');
+      expect(service.getNextStation('gamma')!.slug, 'beta');
+      expect(service.getNextStation('beta')!.slug, 'alpha');
     });
   });
 

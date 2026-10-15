@@ -15,14 +15,15 @@ class CarHomeLayout {
   static const maxPinnedRow = 8;
 
   /// Favorites in the pinned row at the top of the list (iOS 26+), most
-  /// played first.
+  /// played first, then in the listener's order.
   final List<String> pinned;
 
   /// Favorites that did not fit in [pinned]. When above zero, the row ends
   /// with a picture that opens every favorite.
   final int hiddenFavoriteCount;
 
-  /// The "Favorites" section, used only where there is no pinned row.
+  /// The "Favorites" section, in the listener's order, used only where
+  /// there is no pinned row.
   final List<String> favorites;
 
   /// The "All stations" section.
@@ -34,20 +35,22 @@ class CarHomeLayout {
 
   /// Lays out the Home list.
   ///
-  /// [sortedSlugs] is the app's station order and breaks every tie.
+  /// [sortedSlugs] is the app's station order. [favoriteSlugs] are the
+  /// favorites in the listener's order, which breaks ties in the pinned row.
   /// [maxPinned] is how many stations CarPlay shows in the pinned row; the
   /// row holds at most [maxPinnedRow] of them. It is used only when
   /// [usePinnedRow] is true and at least two fit, since an overflowing row
   /// needs one slot for "all favorites".
   factory CarHomeLayout.compute({
     required List<String> sortedSlugs,
-    required Set<String> favoriteSlugs,
+    required List<String> favoriteSlugs,
     required Map<String, int> playCounts,
     required bool usePinnedRow,
     required int maxPinned,
   }) {
+    final listed = sortedSlugs.toSet();
     final favorites =
-        sortedSlugs.where(favoriteSlugs.contains).toList(growable: false);
+        favoriteSlugs.where(listed.contains).toList(growable: false);
     final rowSize = maxPinned < maxPinnedRow ? maxPinned : maxPinnedRow;
     final withPinnedRow = usePinnedRow && rowSize >= 2;
 

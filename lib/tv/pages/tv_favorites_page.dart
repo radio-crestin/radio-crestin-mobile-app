@@ -62,8 +62,14 @@ class _TvFavoritesPageState extends State<TvFavoritesPage> {
     super.dispose();
   }
 
-  List<Station> get _favorites =>
-      _allStations.where((s) => _favoriteSlugs.contains(s.slug)).toList();
+  /// In the listener's order, as the phone's Favorite section.
+  List<Station> get _favorites {
+    final bySlug = {for (final s in _allStations) s.slug: s};
+    return [
+      for (final slug in _favoriteSlugs)
+        if (bySlug[slug] case final station?) station,
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {

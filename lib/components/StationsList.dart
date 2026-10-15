@@ -17,6 +17,7 @@ import '../utils/station_ui.dart';
 import '../widgets/hide_station_dialog.dart';
 import '../widgets/share_sheet.dart';
 import '../widgets/station_actions_menu.dart';
+import '../widgets/station_reorder.dart';
 import '../widgets/station_row_transition.dart';
 
 class StationsList extends StatelessWidget {
@@ -30,6 +31,7 @@ class StationsList extends StatelessWidget {
     this.isFavoritesList = false,
     this.onStationHidden,
     this.rowTransitions,
+    this.reorder,
   });
 
   final Station? currentStation;
@@ -48,10 +50,19 @@ class StationsList extends StatelessWidget {
   /// rows of a station move together. Without it rows leave at once.
   final StationRowTransitions? rowTransitions;
 
+  /// Lets the listener arrange the rows: held, a row follows the finger to
+  /// another place in the list. Null where rows keep the list's order.
+  final StationReorder? reorder;
+
   /// Rows are at most this wide: wider lists show a grid.
   static const double _maxRowWidth = 700;
 
   static const double _cardMargin = 4;
+
+  /// Around a row's card, within its slot.
+  static const EdgeInsets _cardInset =
+      EdgeInsets.symmetric(vertical: _cardMargin, horizontal: 6);
+
   static const double _cardBorder = 1.5;
   static const double _thumbnailSize = 70;
   static const double _titleFontSize = 16;
@@ -116,6 +127,29 @@ class StationsList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final reorder = this.reorder;
+    if (reorder == null) return _buildList(context, stations, order: null);
+    // A row just moved shows in its new place at once, as it lands, though
+    // [stations] take that order only once it is saved.
+    return ListenableBuilder(
+      listenable: reorder,
+      builder: (context, _) {
+        final shown = reorder.ordered(stations, _slugOf);
+        return _buildList(context, shown,
+            order: [for (final station in shown) _slugOf(station)]);
+      },
+    );
+  }
+
+  static String _slugOf(Station station) => station.slug;
+
+  /// The rows of [stations]; [order] is their slugs where the listener can
+  /// arrange them.
+  Widget _buildList(
+    BuildContext context,
+    List<Station> stations, {
+    required List<String>? order,
+  }) {
     final metrics = _RowMetrics.of(context);
     final indexByKey = {
       for (final (index, station) in stations.indexed)
@@ -132,6 +166,7 @@ class StationsList extends StatelessWidget {
             stations[index],
             metrics,
             collapses: oneColumn,
+            order: order,
           ),
           childCount: stations.length,
           // A row keeps its state when the rows around it change, so one
@@ -157,37 +192,28 @@ class StationsList extends StatelessWidget {
     Station station,
     _RowMetrics metrics, {
     required bool collapses,
+    required List<String>? order,
   }) {
           final isSelected = station.slug == currentStation?.slug;
+          final reorder = this.reorder;
+          final String slug = station.slug;
+          final index = order?.indexOf(slug) ?? -1;
 
-          final row = SizedBox(
-            height: metrics.extent,
-            child: StationActionsMenu(
-            isFavorite: favoriteSlugs.contains(station.slug),
-            onToggleFavorite: () =>
-                _toggleFavorite(station, source: 'station_menu'),
-            onShare: () => _share(context, station),
-            confirmHide: () => _confirmHide(context, station),
-            onHide: () => _hide(station),
-            child: GestureDetector(
-              onTap: () async {
-                AnalyticsService.instance.capture('button_clicked', {'button_name': 'station_tap', 'station_id': station.id, 'station_slug': station.slug, 'from_favorites': isFavoritesList});
-                await audioHandler.playStation(station, fromFavorites: isFavoritesList);
-                // TV channels and video-first playlists open the full player
-                // straight away so the video is immediately visible; audio/radio
-                // stations keep the mini-player-only behavior.
-                final panel = panelController;
-                if (panel != null &&
-                    panel.isAttached &&
-                    stationOpensFullPlayerOnTap(station)) {
-                  panel.open();
-                }
-              },
-              child: Container(
-                margin: const EdgeInsets.symmetric(
-                  vertical: _cardMargin,
-                  horizontal: 6,
-                ),
+          // Moves the row [by] places, for screen readers; null where it
+          // can't go.
+          VoidCallback? moveBy(int by) {
+            final to = index + by;
+            if (reorder == null ||
+                order == null ||
+                index < 0 ||
+                to < 0 ||
+                to >= order.length) {
+              return null;
+            }
+            return () => reorder.move(order, slug, by);
+          }
+
+          final card = Container(
                 padding: const EdgeInsets.symmetric(vertical: 0, horizontal: 10),
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
@@ -372,7 +398,48 @@ class StationsList extends StatelessWidget {
                     )
                   ],
                 ),
-              ))));
+              );
+
+          Widget rowWith(StationRowDrag? drag) => SizedBox(
+            height: metrics.extent,
+            child: StationActionsMenu(
+            isFavorite: favoriteSlugs.contains(station.slug),
+            onToggleFavorite: () =>
+                _toggleFavorite(station, source: 'station_menu'),
+            onShare: () => _share(context, station),
+            confirmHide: () => _confirmHide(context, station),
+            onHide: () => _hide(station),
+            drag: drag,
+            onMoveUp: moveBy(-1),
+            onMoveDown: moveBy(1),
+            child: GestureDetector(
+              onTap: () async {
+                AnalyticsService.instance.capture('button_clicked', {'button_name': 'station_tap', 'station_id': station.id, 'station_slug': station.slug, 'from_favorites': isFavoritesList});
+                await audioHandler.playStation(station, fromFavorites: isFavoritesList);
+                // TV channels and video-first playlists open the full player
+                // straight away so the video is immediately visible; audio/radio
+                // stations keep the mini-player-only behavior.
+                final panel = panelController;
+                if (panel != null &&
+                    panel.isAttached &&
+                    stationOpensFullPlayerOnTap(station)) {
+                  panel.open();
+                }
+              },
+              child: Padding(padding: _cardInset, child: card),
+            )));
+
+    // Only a list of one column moves a row by hand: a grid can't slide
+    // its tiles out of the way.
+    final Widget row = reorder == null || order == null || !collapses
+        ? rowWith(null)
+        : StationReorderSlot(
+            reorder: reorder,
+            slug: slug,
+            order: order,
+            lifted: (context, lift) => _LiftedCard(card: card, lift: lift),
+            builder: (context, drag) => rowWith(drag),
+          );
 
     final transitions = rowTransitions;
     return KeyedSubtree(
@@ -386,6 +453,42 @@ class StationsList extends StatelessWidget {
                 collapses: collapses,
                 child: row,
               ),
+      ),
+    );
+  }
+}
+
+/// A row's card as it follows the finger that moves it: lifted, it casts a
+/// shadow, and it is opaque, as the rows it passes show through a card.
+class _LiftedCard extends StatelessWidget {
+  const _LiftedCard({required this.card, required this.lift});
+
+  final Widget card;
+
+  /// From 0, in the list, to 1, lifted.
+  final double lift;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final shadow = theme.brightness == Brightness.dark
+        ? AppColors.liftedRowShadowDark
+        : AppColors.liftedRowShadow;
+    return Padding(
+      padding: StationsList._cardInset,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: theme.scaffoldBackgroundColor,
+          borderRadius: const BorderRadius.all(Radius.circular(16)),
+          boxShadow: [
+            BoxShadow(
+              color: shadow.withValues(alpha: shadow.a * lift),
+              blurRadius: 18 * lift,
+              offset: Offset(0, 6 * lift),
+            ),
+          ],
+        ),
+        child: card,
       ),
     );
   }

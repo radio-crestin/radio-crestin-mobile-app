@@ -42,6 +42,7 @@ import '../widgets/station_group_chip.dart';
 import '../widgets/station_group_filter_sheet.dart';
 import '../widgets/status_snackbar.dart';
 import '../widgets/status_snackbar_controller.dart';
+import '../widgets/station_reorder.dart';
 import '../widgets/station_row_transition.dart';
 import 'SettingsPage.dart';
 
@@ -144,7 +145,21 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   /// Plays a hidden station's rows out of both lists, and an undone one's
   /// back in.
+  /// The section headers ("Favorite", the sort row), pinned at the top of
+  /// the list while their section scrolls under them.
+  static const double _sectionHeaderHeight = 60;
+
   final StationRowTransitions _rowTransitions = StationRowTransitions();
+
+  /// The listener's order of the favorites, which they arrange by holding
+  /// a row of the Favorite section and moving it.
+  late final StationReorder _favoriteReorder = StationReorder(
+    onReorder: (order) {
+      AnalyticsService.instance
+          .capture('button_clicked', {'button_name': 'favorite_reorder'});
+      unawaited(_stationDataService.setFavoriteOrder(order));
+    },
+  );
 
   /// Room at the end of the station list for the docked offline snackbar.
   final ValueNotifier<double> _statusListInset = ValueNotifier(0.0);
@@ -484,6 +499,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _statusSnackbar.dispose();
     _statusListInset.dispose();
     _rowTransitions.dispose();
+    _favoriteReorder.dispose();
     _panelSlide.dispose();
     super.dispose();
   }
@@ -719,12 +735,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             // and the list matches the next/previous order. While a category
             // is chosen the Favorite section hides: its favorites are in the
             // category's list already, and the rest would only push it down.
+            // They come in the listener's order, which they can rearrange.
             final favoriteStations = selectedStationGroup != null
                 ? const <Station>[]
-                : filteredStations
-                    .where((station) => favoriteSlugs.contains(station.slug))
-                    .toList();
+                : _stationDataService.favoritesIn(filteredStations);
             final hasMiniPlayer = currentStation != null && stations.isNotEmpty;
+            // A favorite moved by hand stays clear of the pinned "Favorite"
+            // header and of the mini player.
+            _favoriteReorder.coveredEdges = EdgeInsets.only(
+              top: _sectionHeaderHeight,
+              bottom: hasMiniPlayer ? panelMinHeight : 0,
+            );
 
             return Stack(
               children: [
@@ -938,7 +959,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           if (favoriteStations.isNotEmpty)
                             SliverStickyHeader(
                               header: Container(
-                                height: 60.0,
+                                height: _sectionHeaderHeight,
                                 color: Theme.of(context).scaffoldBackgroundColor,
                                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
                                 alignment: Alignment.centerLeft,
@@ -959,6 +980,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                     isFavoritesList: true,
                                     onStationHidden: _onStationHidden,
                                     rowTransitions: _rowTransitions,
+                                    reorder: _favoriteReorder,
                                   )),
                             ),
                           // Also with a chosen category whose stations are
@@ -968,7 +990,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             SliverStickyHeader(
                               key: _sortRowAnchor.key,
                               header: Container(
-                                height: 60.0,
+                                height: _sectionHeaderHeight,
                                 color: Theme.of(context).scaffoldBackgroundColor,
                                 padding: const EdgeInsets.only(left: 16.0, right: 4.0),
                                 alignment: Alignment.centerLeft,

@@ -599,7 +599,7 @@ class CarPlayService {
   CarHomeLayout _computeHomeLayout(List<Station> sorted) =>
       CarHomeLayout.compute(
         sortedSlugs: [for (final s in sorted) s.slug as String],
-        favoriteSlugs: _stationDataService.favoriteStationSlugs.value.toSet(),
+        favoriteSlugs: _stationDataService.favoriteStationSlugs.value,
         playCounts: _carPlayCountsSnapshot,
         usePinnedRow: _carPlayCapabilities.supportsHeaderImageRow,
         maxPinned: _carPlayCapabilities.maximumHeaderImageRowCount,
@@ -835,12 +835,10 @@ class CarPlayService {
     }
   }
 
-  /// Every favorite, in the app's order (the pinned row has no room).
+  /// Every favorite, in the listener's order (the pinned row has no room).
   Future<void> _showAllFavorites() => _pushStationList(
         title: _favoritesHeader,
-        stations: () => _carSortedStations()
-            .where((s) => _isFavorite(s.slug))
-            .toList(),
+        stations: () => _stationDataService.favoritesIn(_carSortedStations()),
         fromFavorites: true,
         starFavorites: false,
       );

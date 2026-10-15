@@ -8,7 +8,7 @@ void main() {
 
     CarHomeLayout layout({
       List<String> slugs = sorted,
-      Set<String> favorites = const {},
+      List<String> favorites = const [],
       Map<String, int> plays = const {},
       int maxPinned = 24,
     }) =>
@@ -20,13 +20,14 @@ void main() {
           maxPinned: maxPinned,
         );
 
-    test('pins favorites, most played first, ties in app order', () {
+    test('pins favorites, most played first, ties in the listener\'s order',
+        () {
       final result = layout(
-        favorites: {'b', 'd', 'f'},
+        favorites: ['d', 'b', 'f'],
         plays: {'f': 4, 'b': 1, 'd': 1},
       );
 
-      expect(result.pinned, ['f', 'b', 'd']);
+      expect(result.pinned, ['f', 'd', 'b']);
       expect(result.hiddenFavoriteCount, 0);
       expect(result.favorites, isEmpty);
       expect(result.hasFavorites, isTrue);
@@ -36,7 +37,7 @@ void main() {
       final many = [for (var i = 0; i < 10; i++) 's$i'];
       final result = layout(
         slugs: many,
-        favorites: many.toSet(),
+        favorites: many,
         plays: {'s9': 9, 's8': 5},
       );
 
@@ -47,21 +48,21 @@ void main() {
     test('pins eight favorites, about two lines, though CarPlay takes 24',
         () {
       final eight = [for (var i = 0; i < 8; i++) 's$i'];
-      final result = layout(slugs: eight, favorites: eight.toSet());
+      final result = layout(slugs: eight, favorites: eight);
 
       expect(result.pinned, eight);
       expect(result.hiddenFavoriteCount, 0);
     });
 
     test('a smaller CarPlay limit wins over the row size', () {
-      final result = layout(favorites: {'a', 'b', 'c'}, maxPinned: 2);
+      final result = layout(favorites: ['a', 'b', 'c'], maxPinned: 2);
 
       expect(result.pinned, ['a']);
       expect(result.hiddenFavoriteCount, 2);
     });
 
     test('fills the row exactly when favorites match the limit', () {
-      final result = layout(favorites: {'a', 'b', 'c'}, maxPinned: 3);
+      final result = layout(favorites: ['a', 'b', 'c'], maxPinned: 3);
 
       expect(result.pinned, ['a', 'b', 'c']);
       expect(result.hiddenFavoriteCount, 0);
@@ -81,7 +82,7 @@ void main() {
     });
 
     test('falls back to sections when fewer than two buttons fit', () {
-      final result = layout(favorites: {'a', 'b'}, maxPinned: 1);
+      final result = layout(favorites: ['a', 'b'], maxPinned: 1);
 
       expect(result.pinned, isEmpty);
       expect(result.favorites, ['a', 'b']);
@@ -91,7 +92,7 @@ void main() {
 
   group('CarHomeLayout without the pinned row (iOS 15–25)', () {
     CarHomeLayout layout({
-      Set<String> favorites = const {},
+      List<String> favorites = const [],
       Map<String, int> plays = const {},
     }) =>
         CarHomeLayout.compute(
@@ -102,12 +103,19 @@ void main() {
           maxPinned: 9,
         );
 
-    test('lists favorites in app order in their own section', () {
-      final result = layout(favorites: {'c', 'a'}, plays: {'c': 9});
+    test('lists favorites in the listener\'s order in their own section',
+        () {
+      final result = layout(favorites: ['c', 'a'], plays: {'a': 9});
 
       expect(result.pinned, isEmpty);
-      expect(result.favorites, ['a', 'c']);
+      expect(result.favorites, ['c', 'a']);
       expect(result.hasFavorites, isTrue);
+    });
+
+    test('leaves out favorites the app no longer lists', () {
+      final result = layout(favorites: ['gone', 'b']);
+
+      expect(result.favorites, ['b']);
     });
 
     test('a new listener gets the hint and the full list', () {

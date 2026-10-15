@@ -1272,12 +1272,16 @@ class AppAudioHandler extends BaseAudioHandler {
       case AudioService.recentRootId:
         return []; // Disabled: queue button on Now Playing screen is sufficient
       case "favoriteStationsRootId":
-        final favSlugs = stationDataService.favoriteStationSlugs.value;
-        return stationsMediaItems.value
-            .where((item) => favSlugs.contains(item.extras?["station_slug"]))
-            .map((item) =>
-                item.copyWith(id: '$_favoritesMediaIdPrefix${item.id}'))
-            .toList();
+        // In the listener's order, as the phone's Favorite section.
+        final bySlug = <Object?, MediaItem>{
+          for (final item in stationsMediaItems.value)
+            (item.extras?["station_slug"]): item,
+        };
+        return [
+          for (final slug in stationDataService.favoriteStationSlugs.value)
+            if (bySlug[slug] case final item?)
+              item.copyWith(id: '$_favoritesMediaIdPrefix${item.id}'),
+        ];
       case "allStationsRootId":
         return stationsMediaItems.value;
       default:

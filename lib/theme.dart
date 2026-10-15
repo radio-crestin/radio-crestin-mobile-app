@@ -154,6 +154,11 @@ class AppColors {
   // Its drop shadow, in both themes.
   static const Color statusSnackbarShadow = Color(0x40000000);
 
+  // The shadow of a station row lifted to move it, in the light theme and
+  // in the dark one, where it needs to be deeper to show.
+  static const Color liftedRowShadow = Color(0x38000000);
+  static const Color liftedRowShadowDark = Color(0x99000000);
+
   // Station filter sheet: each category's hue, keyed by its group slug. The
   // sheet pales it into the circle behind the category's picture.
   static const Map<String, Color> stationGroupHues = {

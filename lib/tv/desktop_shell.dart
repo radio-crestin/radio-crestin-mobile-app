@@ -133,18 +133,19 @@ class _DesktopShellState extends State<DesktopShell> {
       ).sorted;
     }
 
-    // Always surface favorites at the top, preserving their relative
-    // order from the active sort. The "recommended" sort already weaves
+    // Always surface favorites at the top, in the listener's order (as
+    // the phone's Favorite section). The "recommended" sort already weaves
     // favorites in, but the explicit bubble keeps them visually anchored
     // for any sort the user picks.
     if (_favoriteSlugs.isEmpty) return sorted;
     final favSet = _favoriteSlugs.toSet();
-    final favs = <Station>[];
-    final rest = <Station>[];
-    for (final s in sorted) {
-      (favSet.contains(s.slug) ? favs : rest).add(s);
-    }
-    return [...favs, ...rest];
+    final bySlug = {for (final s in sorted) s.slug: s};
+    return [
+      for (final slug in _favoriteSlugs)
+        if (bySlug[slug] case final station?) station,
+      for (final s in sorted)
+        if (!favSet.contains(s.slug)) s,
+    ];
   }
 
   void _playStation(Station station) {
@@ -860,9 +861,11 @@ class _DesktopSearchDialogState extends State<_DesktopSearchDialog> {
   List<Station> get _results {
     if (_query.isEmpty) {
       // Show favorites + current station first when no query.
-      final favs = widget.stations
-          .where((s) => widget.favoriteSlugs.contains(s.slug))
-          .toList();
+      final bySlug = {for (final s in widget.stations) s.slug: s};
+      final favs = [
+        for (final slug in widget.favoriteSlugs)
+          if (bySlug[slug] case final station?) station,
+      ];
       final rest =
           widget.stations.where((s) => !favs.contains(s)).toList();
       return [...favs, ...rest];
