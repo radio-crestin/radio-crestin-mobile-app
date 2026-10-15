@@ -57,6 +57,14 @@ class Utils {
     return stationThumbnailUrl;
   }
 
+  /// The station's own logo, proxied like [getStationThumbnailUrl] but
+  /// never the song's artwork.
+  static String getStationLogoUrl(Query$GetStations$stations station) {
+    final logo =
+        station.thumbnail_url ?? CONSTANTS.DEFAULT_STATION_THUMBNAIL_URL;
+    return '${CONSTANTS.IMAGE_PROXY_PREFIX}$logo';
+  }
+
   /// Host of the image CDN that resizes the API's thumbnails.
   static const String _imageCdnHost = 'cdn.radiocrestin.ro';
 

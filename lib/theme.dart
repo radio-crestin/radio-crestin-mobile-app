@@ -178,6 +178,22 @@ class AppColors {
   static const Color filterAccent = Color(0xfff48fb1);
   static const Color filterAccentOnLight = Color(0xffc2185b);
 
+  // Grouped lists in the iOS style of the settings page: the rounded card,
+  // its text, secondary text and the hairlines between rows. The `...Dark`
+  // ones are the dark theme's.
+  static const Color groupedCard = Color(0xfff2f2f7);
+  static const Color groupedCardDark = Color(0xff1c1c1e);
+  static const Color groupedText = Color(0xff1c1c1e);
+  static const Color groupedTextDark = Color(0xffe8e8e8);
+  static const Color groupedTextSecondary = Color(0xff6b6b6b);
+  static const Color groupedTextSecondaryDark = Color(0xff8a8a8a);
+  static const Color groupedDivider = Color(0xffd1d1d6);
+  static const Color groupedDividerDark = Color(0xff3a3a3c);
+  // A text button on those cards ("Readaugă"): the brand pink lightened on
+  // dark surfaces and deepened on light ones, for 4.5:1 contrast.
+  static const Color groupedAction = Color(0xfff48fb1);
+  static const Color groupedActionOnLight = Color(0xffc2185b);
+
   // Common colors
   static const Color error = Color(0xffd32f2f);
   static const Color success = Colors.green;

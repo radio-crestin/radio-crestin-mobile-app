@@ -8,6 +8,9 @@ import '../types/Station.dart';
 
 /// What the status snackbar reports, highest priority first.
 enum StatusKind {
+  /// The listener just hid a station. Transient, with an undo.
+  stationHidden,
+
   /// A station failed to play. Transient, with a retry.
   stationError,
 
@@ -63,6 +66,12 @@ class StatusMessage {
         title = stationTitle,
         body = stationErrorReason(reason);
 
+  /// The listener hid [station], which an undo shows again.
+  StatusMessage.stationHidden({required Station this.station})
+      : kind = StatusKind.stationHidden,
+        title = station.displayTitle,
+        body = 'Stație ascunsă. O poți readuce din Setări.';
+
   static const _noInternetOnWifi =
       'Ești conectat la WiFi, dar rețeaua nu are internet.';
   static const _noInternetOnMobileData =
@@ -79,12 +88,15 @@ class StatusMessage {
   /// The explanation under [title]; for back online, the optional suffix.
   final String? body;
 
-  /// The station that failed, for its artwork. Null for network statuses.
+  /// The station that failed or was hidden, for its artwork. Null for
+  /// network statuses.
   final Station? station;
 
-  /// Whether the listener can swipe it away: only a station error. Offline
-  /// stays for as long as the internet is out, back online for its 3s.
-  bool get isDismissible => kind == StatusKind.stationError;
+  /// Whether the listener can swipe it away: a station error or a hidden
+  /// station. Offline stays for as long as the internet is out, back online
+  /// for its 3s.
+  bool get isDismissible =>
+      kind == StatusKind.stationError || kind == StatusKind.stationHidden;
 
   /// Identifies the visible content, so only real changes cross-fade.
   String get contentKey => '${kind.name}|$title|${body ?? ''}';
@@ -102,16 +114,18 @@ class StatusMessage {
 }
 
 /// Decides what the status snackbar says, one status at a time: a station
-/// error, else offline, else back online.
+/// just hidden, else a station error, else offline, else back online.
 ///
 /// The page feeds it the network state (from `NetworkService`), connection
-/// errors, playback and the current station; it owns the timers that end
-/// the transient statuses. It holds no widgets, so tests drive it alone.
+/// errors, playback, the current station and the stations hidden; it owns
+/// the timers that end the transient statuses. It holds no widgets, so
+/// tests drive it alone.
 class StatusSnackbarController extends ChangeNotifier {
   /// Creates the controller; the durations are the design's.
   StatusSnackbarController({
     this.errorDuration = const Duration(seconds: 6),
     this.backOnlineDuration = const Duration(seconds: 3),
+    this.hiddenDuration = const Duration(seconds: 6),
   });
 
   /// How long a station error stays, unless errors are held.
@@ -119,6 +133,9 @@ class StatusSnackbarController extends ChangeNotifier {
 
   /// How long "back online" stays.
   final Duration backOnlineDuration;
+
+  /// How long a hidden station's undo stays, unless errors are held.
+  final Duration hiddenDuration;
 
   static const _fallbackStationTitle = 'Stația radio';
 
@@ -129,11 +146,17 @@ class StatusSnackbarController extends ChangeNotifier {
   bool _playingReady = false;
   bool _holdErrors = false;
   StatusMessage? _error;
+  StatusMessage? _hidden;
   Timer? _errorTimer;
+  Timer? _hiddenTimer;
   Timer? _backOnlineTimer;
 
   /// What the snackbar shows, or null for nothing.
   StatusMessage? get message {
+    // The listener's own action answers first; what it covers shows again
+    // once it goes.
+    final hidden = _hidden;
+    if (hidden != null) return hidden;
     final error = _error;
     if (error != null) return error;
     if (isOffline) {
@@ -154,7 +177,8 @@ class StatusSnackbarController extends ChangeNotifier {
   /// Whether the listener wants audio playing, which shapes the copy.
   set playIntent(bool value) => _update(() => _playIntent = value);
 
-  /// Keeps station errors until dismissed, retried or replaced.
+  /// Keeps station errors, and a hidden station's undo, until dismissed,
+  /// acted on or replaced.
   ///
   /// Set while a screen reader runs: a timed message could vanish before
   /// the listener reaches it.
@@ -162,6 +186,7 @@ class StatusSnackbarController extends ChangeNotifier {
     if (value == _holdErrors) return;
     _holdErrors = value;
     if (_error != null) _armErrorTimer();
+    if (_hidden != null) _armHiddenTimer();
   }
 
   /// Updates the network state, as `NetworkService` reports it: its
@@ -237,6 +262,27 @@ class StatusSnackbarController extends ChangeNotifier {
   /// date. The network statuses are not affected.
   void clearError() => _update(_removeError);
 
+  /// Shows that the listener hid [station], with an undo, replacing the
+  /// one about an earlier station.
+  void showStationHidden(Station station) {
+    _hidden = StatusMessage.stationHidden(station: station);
+    _armHiddenTimer();
+    notifyListeners();
+  }
+
+  /// Removes the hidden station's undo: undone, swiped away or timed out.
+  void clearStationHidden() => _update(_removeHidden);
+
+  /// Removes the message on show when the listener swiped it away: the
+  /// hidden station's undo or the station error.
+  void dismiss() => _update(() {
+        if (_hidden != null) {
+          _removeHidden();
+        } else {
+          _removeError();
+        }
+      });
+
   /// Runs [change] and notifies listeners only when [message] changed.
   void _update(VoidCallback change) {
     final before = message;
@@ -255,8 +301,20 @@ class StatusSnackbarController extends ChangeNotifier {
     _errorTimer = Timer(errorDuration, clearError);
   }
 
+  void _removeHidden() {
+    _hidden = null;
+    _hiddenTimer?.cancel();
+  }
+
+  void _armHiddenTimer() {
+    _hiddenTimer?.cancel();
+    if (_holdErrors) return;
+    _hiddenTimer = Timer(hiddenDuration, clearStationHidden);
+  }
+
   @override
   void dispose() {
+    _hiddenTimer?.cancel();
     _errorTimer?.cancel();
     _backOnlineTimer?.cancel();
     super.dispose();

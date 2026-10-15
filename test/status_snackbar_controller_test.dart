@@ -430,4 +430,78 @@ void main() {
       expect(controller.message?.body, isNull);
     });
   });
+  group('station hidden', () {
+    final station =
+        StationFactory.createStation(id: 7, slug: 'rve-sibiu', title: 'RVE Sibiu');
+
+    testWidgets('shows the station with an undo, then goes after exactly 6s',
+        (tester) async {
+      controller.showStationHidden(station);
+
+      expect(controller.message?.kind, StatusKind.stationHidden);
+      expect(controller.message?.title, 'RVE Sibiu');
+      expect(controller.message?.body,
+          'Stație ascunsă. O poți readuce din Setări.');
+      expect(controller.message?.station?.id, 7);
+      expect(controller.message?.isDismissible, isTrue);
+
+      await tester.pump(const Duration(milliseconds: 5999));
+      expect(controller.message?.kind, StatusKind.stationHidden);
+      await tester.pump(const Duration(milliseconds: 1));
+      expect(controller.message, isNull);
+    });
+
+    testWidgets('covers an error and offline, which show again once it goes',
+        (tester) async {
+      showError();
+      controller.showStationHidden(station);
+      expect(controller.message?.kind, StatusKind.stationHidden);
+
+      controller.clearStationHidden();
+      expect(controller.message?.kind, StatusKind.stationError);
+
+      controller.clearError();
+      goOffline();
+      controller.showStationHidden(station);
+      expect(controller.message?.kind, StatusKind.stationHidden);
+      await tester.pump(const Duration(seconds: 6));
+      expect(controller.message?.kind, StatusKind.offline);
+    });
+
+    testWidgets('a newer hide replaces the older and restarts the timer',
+        (tester) async {
+      controller.showStationHidden(station);
+      await tester.pump(const Duration(seconds: 3));
+
+      controller.showStationHidden(StationFactory.createStation(
+          id: 8, slug: 'radio-eldad', title: 'Radio Eldad'));
+      await tester.pump(const Duration(seconds: 3));
+      expect(controller.message?.title, 'Radio Eldad');
+      await tester.pump(const Duration(seconds: 3));
+      expect(controller.message, isNull);
+    });
+
+    testWidgets('a swipe dismisses it first, then the error under it',
+        (tester) async {
+      showError();
+      controller.showStationHidden(station);
+
+      controller.dismiss();
+      expect(controller.message?.kind, StatusKind.stationError);
+      controller.dismiss();
+      expect(controller.message, isNull);
+    });
+
+    testWidgets('is held while a screen reader runs', (tester) async {
+      controller.holdErrors = true;
+      controller.showStationHidden(station);
+
+      await tester.pump(const Duration(seconds: 30));
+      expect(controller.message?.kind, StatusKind.stationHidden);
+
+      controller.holdErrors = false;
+      await tester.pump(const Duration(seconds: 6));
+      expect(controller.message, isNull);
+    });
+  });
 }

@@ -4328,7 +4328,7 @@ class AppAudioHandler extends BaseAudioHandler {
   Future<void> playFromSearch(String query, [Map<String, dynamic>? extras]) {
     _log('playFromSearch($query, $extras)');
 
-    final stations = stationDataService.stations.value;
+    final stations = stationDataService.visibleStations;
     if (stations.isEmpty) return super.playFromSearch(query, extras);
 
     var maxR = 0;
@@ -4752,7 +4752,8 @@ class AppAudioHandler extends BaseAudioHandler {
   }
 
   Future<Station?> getLastPlayedStation() async {
-    final stations = stationDataService.stations.value;
+    // A hidden station left the lists, so a launch doesn't start it again.
+    final stations = stationDataService.visibleStations;
     if (stations.isEmpty) return null;
     var stationSlug = _prefs.getString(LAST_PLAYED_MEDIA_ITEM);
     return stations.firstWhere(
@@ -4762,6 +4763,11 @@ class AppAudioHandler extends BaseAudioHandler {
   }
 
   Future<void> setStationIsFavorite(Station station, bool isFavorite) async {
+    await _storeFavorite(station, isFavorite);
+    if (isFavorite) _countReviewAction();
+  }
+
+  Future<void> _storeFavorite(Station station, bool isFavorite) async {
     await stationDataService.setStationIsFavorite(station, isFavorite);
     // Update MediaItem rating so MediaSession reflects the new favorite state
     final currentItem = mediaItem.valueOrNull;
@@ -4770,7 +4776,32 @@ class AppAudioHandler extends BaseAudioHandler {
       // Update notification/Android Auto favorite icon
       _broadcastState(player.playbackEvent);
     }
-    if (isFavorite) _countReviewAction();
+  }
+
+  /// Hides [station] from every station list, the car's included. A
+  /// favorite stops being one, since the favorites only list stations on
+  /// show. Playing it goes on: it is hidden, not stopped.
+  Future<void> hideStation(Station station) async {
+    // Both lists change before the first await, so they redraw together.
+    final hiding = stationDataService.setStationIsHidden(station, true);
+    if (stationDataService.favoriteStationSlugs.value
+        .contains(station.slug)) {
+      await _storeFavorite(station, false);
+    }
+    await hiding;
+  }
+
+  /// Shows [station] in the lists again, back among the favorites with
+  /// [favorite] (an undone hide of a favorite).
+  Future<void> unhideStation(Station station, {bool favorite = false}) async {
+    final showing = stationDataService.setStationIsHidden(station, false);
+    // The full player's heart still works on a hidden station playing.
+    if (favorite &&
+        !stationDataService.favoriteStationSlugs.value
+            .contains(station.slug)) {
+      await _storeFavorite(station, true);
+    }
+    await showing;
   }
 
   /// Adds [station] to the favorites or removes it, going by the favorites
@@ -4905,33 +4936,7 @@ class AppAudioHandler extends BaseAudioHandler {
         if (updatedCurrentStation != null) currentStation.add(updatedCurrentStation);
       }
 
-      // Use the app's sort preference for the media browse tree so Android
-      // Auto's built-in media browser matches the custom UI order.
-      // Always use HTTPS artUri (not file:// cached paths) because Android
-      // Auto's system player runs in a separate process.
-      // Unfiltered: the phone's station-group filter cannot be seen or
-      // changed from the car, so browse, search, and playFromMediaId must
-      // cover the whole catalog.
-      final sortedStations =
-          stationDataService.getSortedStations(applyGroupFilter: false);
-      final newStationsMediaItems = sortedStations.map((station) {
-        final thumbnailUrl = station.rawStationData.thumbnail_url;
-        final artUri = (thumbnailUrl != null && thumbnailUrl.isNotEmpty)
-            ? Uri.parse(thumbnailUrl)
-            : Uri.parse(CONSTANTS.DEFAULT_STATION_THUMBNAIL_URL);
-        final item = station.mediaItem;
-        // Strip "Radio " prefix for the A-Z alphabet index so letters
-        // distribute evenly instead of clustering under "R".
-        final title = station.rawStationData.title;
-        final sortKey = title.startsWith('Radio ')
-            ? title.substring(6)
-            : title;
-        final extras = Map<String, dynamic>.from(item.extras ?? {});
-        extras['android.media.extra.SORT_KEY'] = sortKey;
-        return item.copyWith(artUri: artUri, extras: extras);
-      }).toList();
-
-      stationsMediaItems.add(newStationsMediaItems);
+      _publishStationsMediaItems();
 
       if (mediaItem.value != null && updatedCurrentStation != null) {
         final newSongId = updatedCurrentStation.songId;
@@ -4967,5 +4972,42 @@ class AppAudioHandler extends BaseAudioHandler {
         }
       }
     });
+
+    // A station hidden or shown again leaves or joins the browse tree.
+    stationDataService.hiddenStationSlugs.stream
+        .skip(1)
+        .listen((_) => _publishStationsMediaItems());
+  }
+
+  /// Rebuilds [stationsMediaItems], the stations Android Auto's media
+  /// browser lists, browses and searches.
+  void _publishStationsMediaItems() {
+    // Use the app's sort preference for the media browse tree so Android
+    // Auto's built-in media browser matches the custom UI order.
+    // Always use HTTPS artUri (not file:// cached paths) because Android
+    // Auto's system player runs in a separate process.
+    // Unfiltered: the phone's station-group filter cannot be seen or
+    // changed from the car, so browse, search, and playFromMediaId must
+    // cover the whole catalog (hidden stations aside).
+    final sortedStations =
+        stationDataService.getSortedStations(applyGroupFilter: false);
+    final newStationsMediaItems = sortedStations.map((station) {
+      final thumbnailUrl = station.rawStationData.thumbnail_url;
+      final artUri = (thumbnailUrl != null && thumbnailUrl.isNotEmpty)
+          ? Uri.parse(thumbnailUrl)
+          : Uri.parse(CONSTANTS.DEFAULT_STATION_THUMBNAIL_URL);
+      final item = station.mediaItem;
+      // Strip "Radio " prefix for the A-Z alphabet index so letters
+      // distribute evenly instead of clustering under "R".
+      final title = station.rawStationData.title;
+      final sortKey = title.startsWith('Radio ')
+          ? title.substring(6)
+          : title;
+      final extras = Map<String, dynamic>.from(item.extras ?? {});
+      extras['android.media.extra.SORT_KEY'] = sortKey;
+      return item.copyWith(artUri: artUri, extras: extras);
+    }).toList();
+
+    stationsMediaItems.add(newStationsMediaItems);
   }
 }

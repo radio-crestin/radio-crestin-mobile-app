@@ -1,4 +1,5 @@
 import 'package:extended_image/extended_image.dart';
+import 'package:flutter/gestures.dart' show kTouchSlop;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:radio_crestin/appAudioHandler.dart' show ConnectionErrorReason;
@@ -129,7 +130,7 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    Finder card() => find.byType(Dismissible);
+    Finder card() => find.byKey(StatusSnackbar.cardKey);
 
     Finder surface() => find.descendant(
           of: card(),
@@ -370,14 +371,71 @@ void main() {
       expect(light.textSecondary.a, closeTo(0.74, 0.005));
     });
 
-    testWidgets('a horizontal swipe dismisses a station error', (tester) async {
+    testWidgets('a swipe down dismisses a station error', (tester) async {
       await pumpSnackbar(tester, initial: _error);
 
-      await tester.drag(card(), const Offset(500, 0));
+      await tester.drag(card(), const Offset(0, 300));
       await tester.pumpAndSettle();
 
       expect(dismissed, 1);
       expect(find.text('Radio Vocea Evangheliei'), findsNothing);
+    });
+
+    testWidgets('a quick flick down dismisses it too', (tester) async {
+      await pumpSnackbar(tester, initial: _error);
+
+      final height = tester.getSize(card()).height;
+
+      // Less than the 40% that dismisses a slow swipe, but fast.
+      await tester.timedDrag(
+        card(),
+        Offset(0, kTouchSlop + height * 0.3),
+        const Duration(milliseconds: 40),
+        frequency: 200,
+      );
+      await tester.pumpAndSettle();
+
+      expect(dismissed, 1);
+    });
+
+    testWidgets('a short swipe down lets it back to its place',
+        (tester) async {
+      await pumpSnackbar(tester, initial: _error);
+      final rest = tester.getRect(card());
+
+      await tester.drag(card(), const Offset(0, 30));
+      await tester.pumpAndSettle();
+
+      expect(dismissed, 0);
+      expect(tester.getRect(card()), rest);
+    });
+
+    testWidgets('over the open full player a swipe down fades it out',
+        (tester) async {
+      await pumpSnackbar(tester, initial: _error, dense: true);
+
+      final finger = await tester.startGesture(tester.getCenter(card()));
+      await finger.moveBy(const Offset(0, kTouchSlop + 1));
+      await finger.moveBy(const Offset(0, 20));
+      await tester.pump();
+      expect(visibility(tester), inExclusiveRange(0, 1),
+          reason: 'it fades as it follows the finger');
+
+      await finger.moveBy(const Offset(0, 200));
+      await finger.up();
+      await tester.pumpAndSettle();
+      expect(dismissed, 1);
+    });
+
+    testWidgets('a swipe sideways no longer dismisses it', (tester) async {
+      await pumpSnackbar(tester, initial: _error);
+      final rest = tester.getRect(card());
+
+      await tester.drag(card(), const Offset(500, 0));
+      await tester.pumpAndSettle();
+
+      expect(dismissed, 0);
+      expect(tester.getRect(card()), rest);
     });
 
     for (final (name, status) in [
@@ -388,7 +446,7 @@ void main() {
         await pumpSnackbar(tester, initial: status);
         final rest = tester.getRect(card());
 
-        await tester.drag(card(), const Offset(500, 0));
+        await tester.drag(card(), const Offset(0, 300));
         await tester.pumpAndSettle();
 
         expect(dismissed, 0);
@@ -398,7 +456,7 @@ void main() {
 
     testWidgets('a message after a swipe shows again', (tester) async {
       await pumpSnackbar(tester, initial: _error);
-      await tester.drag(card(), const Offset(-500, 0));
+      await tester.drag(card(), const Offset(0, 300));
       await tester.pumpAndSettle();
 
       message.value = _offline;
@@ -408,11 +466,90 @@ void main() {
       expect(tester.getTopLeft(card()).dx, kStatusSnackbarMargin);
     });
 
-    testWidgets('enters in 250ms (fast out, slow in), sliding up',
-        (tester) async {
-      await pumpSnackbar(tester);
+    testWidgets('docked, it rises from under the player past its place, '
+        'then settles, in 380ms', (tester) async {
+      await pumpSnackbar(tester, initial: _offline);
+      final rest = tester.getRect(card());
+      message.value = null;
+      await tester.pumpAndSettle();
 
       message.value = _offline;
+      await tester.pump();
+      expect(tester.getTopLeft(card()).dy,
+          moreOrLessEquals(rest.bottom + kStatusSnackbarPlayerGap),
+          reason: 'out of sight, under the mini player');
+      // It starts with the next frame.
+      await tester.pump();
+
+      await tester.pump(const Duration(milliseconds: 274));
+      expect(tester.getTopLeft(card()).dy, lessThan(rest.top),
+          reason: 'a little past its place');
+
+      await tester.pump(const Duration(milliseconds: 106));
+      expect(tester.getRect(card()), rest);
+    });
+
+    testWidgets('a message coming in a slow frame still rises from under '
+        'the player', (tester) async {
+      await pumpSnackbar(tester, initial: _offline);
+      final rest = tester.getRect(card());
+      message.value = null;
+      await tester.pumpAndSettle();
+
+      message.value = _offline;
+      await tester.pump(); // the busy frame of the change it tells of
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(tester.getTopLeft(card()).dy,
+          moreOrLessEquals(rest.bottom + kStatusSnackbarPlayerGap),
+          reason: 'still under the player when its rise begins');
+
+      await tester.pump(const Duration(milliseconds: 60));
+      expect(tester.getTopLeft(card()).dy,
+          inExclusiveRange(rest.top, rest.bottom + kStatusSnackbarPlayerGap));
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('docked, it lifts a little, then drops under the player, '
+        'in 380ms', (tester) async {
+      await pumpSnackbar(tester, initial: _offline);
+      final rest = tester.getRect(card());
+
+      message.value = null;
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 99));
+      expect(tester.getTopLeft(card()).dy, lessThan(rest.top),
+          reason: 'it lifts first');
+
+      await tester.pump(const Duration(milliseconds: 280));
+      expect(tester.getTopLeft(card()).dy, greaterThan(rest.top));
+      await tester.pump(const Duration(milliseconds: 1));
+      expect(tester.getTopLeft(card()).dy,
+          moreOrLessEquals(rest.bottom + kStatusSnackbarPlayerGap));
+      // Removed on the next frame.
+      await tester.pump(const Duration(milliseconds: 1));
+      expect(card(), findsNothing);
+    });
+
+    testWidgets('docked, what goes past the mini player\'s edge is cut off',
+        (tester) async {
+      await pumpSnackbar(tester, initial: _offline);
+
+      final clip = tester.widget<ClipRect>(
+          find.ancestor(of: card(), matching: find.byType(ClipRect)).first);
+      final size = tester.getSize(card());
+
+      expect(clip.clipBehavior, Clip.hardEdge);
+      expect(clip.clipper!.getClip(size).bottom,
+          size.height + kStatusSnackbarPlayerGap);
+    });
+
+    testWidgets('over the open full player it enters in 250ms (fast out, '
+        'slow in), sliding up', (tester) async {
+      await pumpSnackbar(tester, dense: true);
+
+      message.value = _offline;
+      await tester.pump();
+      // It starts with the next frame.
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 125));
       expect(visibility(tester),
@@ -426,8 +563,9 @@ void main() {
       expect(enteringTop, greaterThan(tester.getTopLeft(card()).dy));
     });
 
-    testWidgets('exits in 200ms (ease in), sliding down', (tester) async {
-      await pumpSnackbar(tester, initial: _offline);
+    testWidgets('over the open full player it exits in 200ms (ease in), '
+        'sliding down', (tester) async {
+      await pumpSnackbar(tester, initial: _offline, dense: true);
       final restingTop = tester.getTopLeft(card()).dy;
 
       message.value = null;
@@ -788,7 +926,7 @@ void main() {
           reason: ConnectionErrorReason.unknown,
         );
 
-    Finder card() => find.byType(Dismissible);
+    Finder card() => find.byKey(StatusSnackbar.cardKey);
 
     /// The top edge of the panel, in screen coordinates.
     double panelTop(double position) =>
@@ -1023,13 +1161,13 @@ void main() {
       showError();
       await tester.pumpAndSettle();
 
-      await tester.drag(card(), const Offset(500, 0));
+      await tester.drag(card(), const Offset(0, 300));
       await tester.pumpAndSettle();
       expect(controller.message, isNull);
 
       goOffline();
       await tester.pumpAndSettle();
-      await tester.drag(card(), const Offset(500, 0));
+      await tester.drag(card(), const Offset(0, 300));
       await tester.pumpAndSettle();
       expect(find.text('Nu ai conexiune la internet'), findsOneWidget);
     });

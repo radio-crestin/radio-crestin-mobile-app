@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -30,8 +31,16 @@ const double kStatusSnackbarTopGap = 4.0;
 const double kStatusSnackbarDenseFromPanelPosition = 0.5;
 
 const _contentDuration = Duration(milliseconds: 250);
+
+/// Over the open full player: in, and out.
 const _enterDuration = Duration(milliseconds: 250);
 const _exitDuration = Duration(milliseconds: 200);
+
+/// Docked above the mini player, in and out, by way of under the player.
+const _hopDuration = Duration(milliseconds: 380);
+
+/// A swiped snackbar's way on down out of sight, or back to its place.
+const _swipeDuration = Duration(milliseconds: 200);
 const _radius = BorderRadius.all(Radius.circular(14));
 
 /// The snackbar's distance from the screen's bottom with the player panel
@@ -67,13 +76,18 @@ double statusSnackbarTop({
 }) =>
     math.max(minTop, areaHeight - bottom - rise - height);
 
-/// A calm Material 3 status snackbar: offline, back online, or a station
-/// that failed to play, with a retry.
+/// A calm Material 3 status snackbar: offline, back online, a station
+/// that failed to play, with a retry, or a station just hidden, with an
+/// undo.
 ///
-/// It slides up and fades in when [message] appears, slides down and fades
-/// out when it goes, and cross-fades its content (resizing smoothly) when
-/// it changes. A station error can be swiped away. It has no scrim and
-/// never takes touches outside its own box.
+/// Docked above the mini player, it rises from under the player when
+/// [message] appears, a little past its place, and settles; when it goes it
+/// lifts a little, like a spring, and drops back under the player. Cut off
+/// at the player's edge, it never covers the player. Over the open full
+/// player ([dense]) it slides up and fades in, and back. It cross-fades its
+/// content (resizing smoothly) when it changes. A station error or a hidden
+/// station can be swiped down, under the player. It has no scrim and never
+/// takes touches outside its own box.
 class StatusSnackbar extends StatefulWidget {
   /// Creates the snackbar for [message].
   const StatusSnackbar({
@@ -81,8 +95,14 @@ class StatusSnackbar extends StatefulWidget {
     required this.message,
     required this.onDismissed,
     required this.onRetry,
+    this.onUndo,
     this.dense = false,
+    this.hideDepth = kStatusSnackbarPlayerGap,
   });
+
+  /// Finds the card, which follows a swipe, in tests.
+  @visibleForTesting
+  static const Key cardKey = ValueKey('status-snackbar-card');
 
   /// What to show; null hides the snackbar.
   final StatusMessage? message;
@@ -91,41 +111,74 @@ class StatusSnackbar extends StatefulWidget {
   /// without the explanation, which screen readers still read.
   final bool dense;
 
-  /// The listener dismissed the station error (a swipe, or the screen
-  /// reader's dismiss action). The network statuses cannot be dismissed.
+  /// How far below its bottom edge the docked snackbar is out of sight:
+  /// the gap down to the mini player it slides under, or with no mini
+  /// player its whole way down to the screen's bottom edge.
+  final double hideDepth;
+
+  /// The listener dismissed the station error or the hidden station (a
+  /// swipe down, or the screen reader's dismiss action). The network
+  /// statuses cannot be dismissed.
   final VoidCallback onDismissed;
 
   /// The listener tapped "Reîncearcă" on a station error.
   final VoidCallback onRetry;
+
+  /// The listener tapped "Anulează" on a hidden station.
+  final VoidCallback? onUndo;
 
   @override
   State<StatusSnackbar> createState() => _StatusSnackbarState();
 }
 
 class _StatusSnackbarState extends State<StatusSnackbar>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _visibility;
-  late final CurvedAnimation _curve;
+    with TickerProviderStateMixin {
+  /// How far it slides over the open full player, fading.
+  static const double _slideDistance = 16;
+
+  /// On its way out it first lifts this much; on its way in it rises this
+  /// much past its place before it settles.
+  static const double _hopLift = 7;
+  static const double _hopOvershoot = 5;
+
+  /// Where the hops turn: out, from lifting to dropping; in, from rising
+  /// to settling (as shares of [_hopDuration]).
+  static const double _hopOutTurn = 0.26;
+  static const double _hopInTurn = 0.72;
+
+  /// A swipe down this far (as a share of the card's height), or this
+  /// fast (logical pixels a second), dismisses it; a shorter one lets it
+  /// back up.
+  static const double _swipeShare = 0.4;
+  static const double _swipeVelocity = 700;
+
+  /// Over the open full player a swipe fades it out over this distance.
+  static const double _denseSwipeFade = 48;
+
+  /// 1 when shown; how it moves between depends on [StatusSnackbar.dense].
+  late final AnimationController _visibility = AnimationController(
+    vsync: this,
+    duration: _hopDuration,
+  )..addStatusListener(_onVisibilityStatus);
+  late final CurvedAnimation _curve = CurvedAnimation(
+    parent: _visibility,
+    curve: Curves.fastOutSlowIn,
+    reverseCurve: Curves.easeIn,
+  );
+
+  /// How far the listener dragged it down, in logical pixels; once let go
+  /// it runs on out of sight, or back up.
+  late final AnimationController _drag =
+      AnimationController.unbounded(vsync: this);
+
+  late final Listenable _motion = Listenable.merge([_visibility, _drag]);
 
   /// What is on screen; outlives [StatusSnackbar.message] during the exit.
   StatusMessage? _shown;
 
-  /// Counts swipes, so the next message gets a fresh `Dismissible`.
-  int _swipes = 0;
-
   @override
   void initState() {
     super.initState();
-    _visibility = AnimationController(
-      vsync: this,
-      duration: _enterDuration,
-      reverseDuration: _exitDuration,
-    )..addStatusListener(_onVisibilityStatus);
-    _curve = CurvedAnimation(
-      parent: _visibility,
-      curve: Curves.fastOutSlowIn,
-      reverseCurve: Curves.easeIn,
-    );
     _sync();
   }
 
@@ -139,17 +192,54 @@ class _StatusSnackbarState extends State<StatusSnackbar>
   void dispose() {
     _curve.dispose();
     _visibility.dispose();
+    _drag.dispose();
     super.dispose();
   }
 
   void _sync() {
     final next = widget.message;
     if (next == null) {
-      if (_shown != null) _visibility.reverse();
+      if (_shown == null) return;
+      if (_visibility.isDismissed) {
+        // Gone before it began to show.
+        _shown = null;
+      } else if (TickerMode.valuesOf(context).enabled) {
+        _setDurations();
+        _visibility.reverse();
+      } else {
+        // Out of sight, under another page: gone at once. Its exit can't
+        // play there, and would only start once the page shows again,
+        // after a frame or more of the message drawn in full.
+        _shown = null;
+        _visibility.value = 0;
+        _drag.value = 0;
+      }
       return;
     }
+    final appearing = _shown == null;
     _shown = next;
-    _visibility.forward();
+    _setDurations();
+    if (!appearing) {
+      _visibility.forward();
+      return;
+    }
+    _drag.value = 0;
+    // A message often comes with the change it tells of (a station hidden,
+    // a stream failing), in a frame busy with that change. Started there,
+    // its first frames would be skipped and it would pop up near its place
+    // instead of rising from under the player: it starts with the next
+    // frame.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _shown != null && widget.message != null) {
+        _visibility.forward();
+      }
+    });
+  }
+
+  void _setDurations() {
+    _visibility
+      ..duration = widget.dense ? _enterDuration : _hopDuration
+      ..reverseDuration = widget.dense ? _exitDuration : _hopDuration;
   }
 
   void _onVisibilityStatus(AnimationStatus status) {
@@ -158,66 +248,158 @@ class _StatusSnackbarState extends State<StatusSnackbar>
     setState(() => _shown = null);
   }
 
-  /// Already slid off by the swipe: no exit animation, just gone.
-  void _onSwiped(DismissDirection _) {
-    setState(() {
-      _shown = null;
-      _swipes++;
-    });
+  void _onDragUpdate(DragUpdateDetails details) {
+    _drag.value = math.max(0, _drag.value + details.delta.dy);
+  }
+
+  /// Down far or fast enough, it goes on out of sight and is dismissed;
+  /// otherwise it goes back to its place.
+  void _onDragEnd(DragEndDetails details) {
+    final height = context.size?.height ?? 0;
+    final flung = details.velocity.pixelsPerSecond.dy >= _swipeVelocity;
+    if (!flung && _drag.value < height * _swipeShare) {
+      _letGo();
+      return;
+    }
+    final out = widget.dense ? _denseSwipeFade : height + widget.hideDepth;
+    _drag
+        .animateTo(
+          math.max(out, _drag.value),
+          duration: _swipeDuration,
+          curve: Curves.easeOut,
+        )
+        .whenComplete(_onSwiped);
+  }
+
+  void _letGo() => _drag.animateTo(
+        0,
+        duration: _swipeDuration,
+        curve: Curves.easeOut,
+      );
+
+  /// Already out of sight by the swipe: no exit animation, just gone.
+  void _onSwiped() {
+    if (!mounted) return;
+    setState(() => _shown = null);
     _visibility.value = 0;
+    _drag.value = 0;
     widget.onDismissed();
+  }
+
+  /// Where the card is drawn: [fraction] of its own height plus [pixels]
+  /// below its place, how opaque, and whether it is cut off at the edge it
+  /// hides under.
+  ({double fraction, double pixels, double opacity, bool clip}) _placement() {
+    final drag = _drag.value;
+    if (widget.dense) {
+      final shown = _curve.value.clamp(0.0, 1.0);
+      final kept = 1 - (drag / _denseSwipeFade).clamp(0.0, 1.0);
+      return (
+        fraction: 0,
+        pixels: (1 - shown) * _slideDistance + drag,
+        opacity: shown * kept,
+        clip: false,
+      );
+    }
+    final depth = widget.hideDepth;
+    final t = _visibility.value;
+    final (fraction, pixels) = switch (_visibility.status) {
+      AnimationStatus.forward => _hopIn(t, depth),
+      AnimationStatus.reverse => _hopOut(1 - t, depth),
+      AnimationStatus.completed => (0.0, 0.0),
+      AnimationStatus.dismissed => (1.0, depth),
+    };
+    return (fraction: fraction, pixels: pixels + drag, opacity: 1, clip: true);
+  }
+
+  /// Up from under the player, a little past its place, then settling.
+  static (double, double) _hopIn(double t, double depth) {
+    if (t < _hopInTurn) {
+      final s = Easing.emphasizedDecelerate.transform(t / _hopInTurn);
+      return (1 - s, lerpDouble(depth, -_hopOvershoot, s)!);
+    }
+    final s = Curves.easeInOut.transform(
+      (t - _hopInTurn) / (1 - _hopInTurn),
+    );
+    return (0, lerpDouble(-_hopOvershoot, 0, s)!);
+  }
+
+  /// A little lift, like a spring, then down under the player.
+  static (double, double) _hopOut(double p, double depth) {
+    if (p < _hopOutTurn) {
+      final s = Easing.legacyDecelerate.transform(p / _hopOutTurn);
+      return (0, -_hopLift * s);
+    }
+    final s = Easing.emphasizedAccelerate.transform(
+      (p - _hopOutTurn) / (1 - _hopOutTurn),
+    );
+    return (s, lerpDouble(-_hopLift, depth, s)!);
   }
 
   @override
   Widget build(BuildContext context) {
     final shown = _shown;
     if (shown == null) return const SizedBox.shrink();
-    return _SlideFade(
-      animation: _curve,
-      child: Dismissible(
-        key: ValueKey(_swipes),
-        // Always a Dismissible, so the content still cross-fades when the
-        // status changes kind; only a station error follows the swipe.
-        direction: shown.isDismissible
-            ? DismissDirection.horizontal
-            : DismissDirection.none,
-        // The swipe ends it; the page decides what shows next.
-        resizeDuration: null,
-        onDismissed: _onSwiped,
-        child: _Surface(
-          onDismiss: shown.isDismissible ? widget.onDismissed : null,
-          child: AnimatedSwitcher(
-            duration: _contentDuration,
-            child: _Content(
-              key: ValueKey('${shown.contentKey}|${widget.dense}'),
-              message: shown,
-              dense: widget.dense,
-              onRetry: widget.onRetry,
-            ),
+    final swipeable = shown.isDismissible;
+    final card = GestureDetector(
+      key: StatusSnackbar.cardKey,
+      onVerticalDragStart: swipeable ? (_) => _drag.stop() : null,
+      onVerticalDragUpdate: swipeable ? _onDragUpdate : null,
+      onVerticalDragEnd: swipeable ? _onDragEnd : null,
+      onVerticalDragCancel: swipeable ? _letGo : null,
+      child: _Surface(
+        onDismiss: swipeable ? widget.onDismissed : null,
+        child: AnimatedSwitcher(
+          duration: _contentDuration,
+          child: _Content(
+            key: ValueKey('${shown.contentKey}|${widget.dense}'),
+            message: shown,
+            dense: widget.dense,
+            onRetry: widget.onRetry,
+            onUndo: widget.onUndo ?? () {},
           ),
         ),
       ),
     );
+    return AnimatedBuilder(
+      animation: _motion,
+      child: card,
+      builder: (context, card) {
+        final place = _placement();
+        return ClipRect(
+          clipper: _AboveEdge(widget.hideDepth),
+          clipBehavior: place.clip ? Clip.hardEdge : Clip.none,
+          child: FractionalTranslation(
+            translation: Offset(0, place.fraction),
+            child: Transform.translate(
+              offset: Offset(0, place.pixels),
+              child: Opacity(opacity: place.opacity, child: card),
+            ),
+          ),
+        );
+      },
+    );
   }
 }
 
-/// Enters by sliding up 16pt while fading in; exits the reverse way.
-class _SlideFade extends AnimatedWidget {
-  const _SlideFade({required Animation<double> animation, required this.child})
-      : super(listenable: animation);
+/// Cuts off what goes [depth] below the box's bottom edge: the edge of the
+/// mini player, which the snackbar slides under. Leaves room on the other
+/// sides for the lift and the shadow.
+class _AboveEdge extends CustomClipper<Rect> {
+  const _AboveEdge(this.depth);
 
-  static const _distance = 16.0;
-
-  final Widget child;
+  final double depth;
 
   @override
-  Widget build(BuildContext context) {
-    final t = (listenable as Animation<double>).value.clamp(0.0, 1.0);
-    return Transform.translate(
-      offset: Offset(0, (1 - t) * _distance),
-      child: Opacity(opacity: t, child: child),
-    );
-  }
+  Rect getClip(Size size) => Rect.fromLTRB(
+        -size.width,
+        -size.height,
+        size.width * 2,
+        size.height + depth,
+      );
+
+  @override
+  bool shouldReclip(_AboveEdge oldClipper) => oldClipper.depth != depth;
 }
 
 /// The inverse-surface card: rounded, shadowed, announced to screen readers
@@ -267,11 +449,13 @@ class _Content extends StatelessWidget {
     required this.message,
     required this.dense,
     required this.onRetry,
+    required this.onUndo,
   });
 
   final StatusMessage message;
   final bool dense;
   final VoidCallback onRetry;
+  final VoidCallback onUndo;
 
   @override
   Widget build(BuildContext context) => switch (message.kind) {
@@ -280,10 +464,39 @@ class _Content extends StatelessWidget {
             : _OfflineContent(message: message),
         StatusKind.backOnline =>
           _BackOnlineContent(message: message, dense: dense),
-        StatusKind.stationError => dense
-            ? _DenseStationErrorContent(message: message, onRetry: onRetry)
-            : _StationErrorContent(message: message, onRetry: onRetry),
+        StatusKind.stationError => _station(
+            _StatusAction(
+              label: 'Reîncearcă',
+              icon: Icons.refresh_rounded,
+              onPressed: onRetry,
+            ),
+          ),
+        StatusKind.stationHidden => _station(
+            _StatusAction(
+              label: 'Anulează',
+              icon: Icons.undo_rounded,
+              onPressed: onUndo,
+            ),
+          ),
       };
+
+  Widget _station(_StatusAction action) => dense
+      ? _DenseStationContent(message: message, action: action)
+      : _StationContent(message: message, action: action);
+}
+
+/// The button on a station's status: its label, the icon that stands in
+/// for it in the one-line form at large text sizes, and what it does.
+class _StatusAction {
+  const _StatusAction({
+    required this.label,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onPressed;
 }
 
 TextStyle _titleStyle(Color color) => TextStyle(
@@ -420,30 +633,33 @@ class _BackOnlineContent extends StatelessWidget {
   }
 }
 
-class _StationErrorContent extends StatelessWidget {
-  const _StationErrorContent({required this.message, required this.onRetry});
+/// A station's status (a failure, or the station hidden): its artwork, the
+/// station and what happened, and the [action].
+class _StationContent extends StatelessWidget {
+  const _StationContent({required this.message, required this.action});
 
   /// Left padding, artwork and the gap after it.
   static const _leading = 12.0 + _StationArtwork.size + 12.0;
   static const _trailing = 6.0;
 
   final StatusMessage message;
-  final VoidCallback onRetry;
+  final _StatusAction action;
 
   @override
   Widget build(BuildContext context) {
-    final retryWidth = _RetryButton.widthIn(context);
+    final actionWidth = _ActionButton.widthIn(context, action.label);
     return LayoutBuilder(builder: (context, constraints) {
-      final textRoom = constraints.maxWidth - _leading - _trailing - retryWidth;
+      final textRoom =
+          constraints.maxWidth - _leading - _trailing - actionWidth;
       // With large text the action moves under the text, rather than
       // leaving it less room than the action itself.
-      final stacked = textRoom < retryWidth;
+      final stacked = textRoom < actionWidth;
       final summary = Row(
         children: [
           _StationArtwork(station: message.station),
           const SizedBox(width: 12),
           Expanded(child: _TitleAndBody(message: message, titleMaxLines: 1)),
-          if (!stacked) _RetryButton(onPressed: onRetry),
+          if (!stacked) _ActionButton(action: action),
         ],
       );
       if (!stacked) {
@@ -462,7 +678,7 @@ class _StationErrorContent extends StatelessWidget {
               padding: const EdgeInsets.only(right: 16 - _trailing),
               child: summary,
             ),
-            _RetryButton(onPressed: onRetry),
+            _ActionButton(action: action),
           ],
         ),
       );
@@ -470,12 +686,13 @@ class _StationErrorContent extends StatelessWidget {
   }
 }
 
-/// A station error in one line: the artwork, the reason and the retry. The
-/// station's name is left to the full player's header below it.
-class _DenseStationErrorContent extends StatelessWidget {
-  const _DenseStationErrorContent({
+/// A station's status in one line: the artwork, what happened (the reason
+/// for an error) and the [action]. The station's name is left to the full
+/// player's header below it.
+class _DenseStationContent extends StatelessWidget {
+  const _DenseStationContent({
     required this.message,
-    required this.onRetry,
+    required this.action,
   });
 
   static const _artwork = 28.0;
@@ -485,17 +702,18 @@ class _DenseStationErrorContent extends StatelessWidget {
   static const _trailing = 6.0;
 
   final StatusMessage message;
-  final VoidCallback onRetry;
+  final _StatusAction action;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).statusSnackbarColors;
-    final retryWidth = _RetryButton.widthIn(context);
+    final actionWidth = _ActionButton.widthIn(context, action.label);
     return LayoutBuilder(builder: (context, constraints) {
-      final textRoom = constraints.maxWidth - _leading - _trailing - retryWidth;
+      final textRoom =
+          constraints.maxWidth - _leading - _trailing - actionWidth;
       // With large text the labelled action would crowd out the reason;
       // its icon keeps the line, and the label for screen readers.
-      final iconOnly = textRoom < retryWidth;
+      final iconOnly = textRoom < actionWidth;
       return Padding(
         padding: const EdgeInsets.fromLTRB(10, 0, _trailing, 0),
         child: Row(
@@ -516,8 +734,8 @@ class _DenseStationErrorContent extends StatelessWidget {
               ),
             ),
             iconOnly
-                ? _RetryIconButton(onPressed: onRetry)
-                : _RetryButton(onPressed: onRetry),
+                ? _ActionIconButton(action: action)
+                : _ActionButton(action: action),
           ],
         ),
       );
@@ -589,24 +807,24 @@ class _StationArtwork extends StatelessWidget {
   }
 }
 
-class _RetryButton extends StatelessWidget {
-  const _RetryButton({required this.onPressed});
+/// The action as a text button, like "Reîncearcă" on a station error.
+class _ActionButton extends StatelessWidget {
+  const _ActionButton({required this.action});
 
-  static const _label = 'Reîncearcă';
   static const _padding = 14.0;
   static const _minSize = 48.0;
   static const _style = TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700);
 
-  final VoidCallback onPressed;
+  final _StatusAction action;
 
   /// The label's style: the theme's button text, at the design's size.
   static TextStyle _textStyle(BuildContext context) =>
       Theme.of(context).textTheme.labelLarge?.merge(_style) ?? _style;
 
-  /// Its width at the current text scale.
-  static double widthIn(BuildContext context) {
+  /// Its width with [label] at the current text scale.
+  static double widthIn(BuildContext context, String label) {
     final painter = TextPainter(
-      text: TextSpan(text: _label, style: _textStyle(context)),
+      text: TextSpan(text: label, style: _textStyle(context)),
       textDirection: Directionality.of(context),
       textScaler: MediaQuery.textScalerOf(context),
       maxLines: 1,
@@ -620,7 +838,7 @@ class _RetryButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).statusSnackbarColors;
     return TextButton(
-      onPressed: onPressed,
+      onPressed: action.onPressed,
       style: TextButton.styleFrom(
         foregroundColor: colors.action,
         padding: const EdgeInsets.symmetric(horizontal: _padding),
@@ -628,25 +846,25 @@ class _RetryButton extends StatelessWidget {
         tapTargetSize: MaterialTapTargetSize.padded,
         textStyle: _textStyle(context),
       ),
-      child: const Text(_label),
+      child: Text(action.label),
     );
   }
 }
 
-/// "Reîncearcă" as an icon, for the one-line form at large text sizes.
-class _RetryIconButton extends StatelessWidget {
-  const _RetryIconButton({required this.onPressed});
+/// The action as an icon, for the one-line form at large text sizes.
+class _ActionIconButton extends StatelessWidget {
+  const _ActionIconButton({required this.action});
 
-  final VoidCallback onPressed;
+  final _StatusAction action;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).statusSnackbarColors;
     return IconButton(
-      onPressed: onPressed,
-      tooltip: _RetryButton._label,
+      onPressed: action.onPressed,
+      tooltip: action.label,
       color: colors.action,
-      icon: const Icon(Icons.refresh_rounded, size: 22),
+      icon: Icon(action.icon, size: 22),
     );
   }
 }
@@ -672,6 +890,8 @@ class StatusSnackbarOverlay extends StatefulWidget {
     required this.listInset,
     required this.listReservedInset,
     required this.onRetry,
+    this.onUndo,
+    this.hasMiniPlayer = true,
   });
 
   /// Decides what the snackbar says.
@@ -695,6 +915,14 @@ class StatusSnackbarOverlay extends StatefulWidget {
 
   /// Retries the current station; the error is dismissed first.
   final VoidCallback onRetry;
+
+  /// Shows the station just hidden again; its message is dismissed first.
+  final VoidCallback? onUndo;
+
+  /// Whether the mini player is below the docked snackbar, which then
+  /// comes and goes from under it; without one, from under the screen's
+  /// bottom edge.
+  final bool hasMiniPlayer;
 
   @override
   State<StatusSnackbarOverlay> createState() => _StatusSnackbarOverlayState();
@@ -722,6 +950,15 @@ class _StatusSnackbarOverlayState extends State<StatusSnackbarOverlay> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     widget.controller.holdErrors = MediaQuery.accessibleNavigationOf(context);
+    // Another page covers this one, like Settings over Home, whatever its
+    // route: the navigator then mutes this page's tickers. A sheet or a
+    // dialog leaves the page in sight, and its tickers on. The listener
+    // moved on from the station they hid, and may even show it again from
+    // there, so its undo goes rather than wait for them on the way back.
+    // A station error stays: it is about what plays.
+    if (!TickerMode.valuesOf(context).enabled) {
+      widget.controller.clearStationHidden();
+    }
   }
 
   @override
@@ -781,6 +1018,11 @@ class _StatusSnackbarOverlayState extends State<StatusSnackbarOverlay> {
     widget.onRetry();
   }
 
+  void _undo() {
+    widget.controller.clearStationHidden();
+    widget.onUndo?.call();
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = widget.controller;
@@ -795,8 +1037,12 @@ class _StatusSnackbarOverlayState extends State<StatusSnackbarOverlay> {
           builder: (context, _) => StatusSnackbar(
             message: controller.message,
             dense: _dense,
-            onDismissed: controller.clearError,
+            hideDepth: widget.hasMiniPlayer
+                ? kStatusSnackbarPlayerGap
+                : widget.dockedBottom,
+            onDismissed: controller.dismiss,
             onRetry: _retry,
+            onUndo: _undo,
           ),
         ),
       ),
@@ -886,6 +1132,38 @@ class _PlacementDelegate extends SingleChildLayoutDelegate {
       oldDelegate.travel != travel ||
       oldDelegate.bottom != bottom ||
       oldDelegate.minTop != minTop;
+}
+
+/// Takes a hidden station's undo away once the listener scrolls [child],
+/// the station list: they moved on, and the message would only cover the
+/// rows. A station error stays, it still asks for an answer; and the list
+/// moving on its own (a slot closing, a jump) leaves the undo too.
+class StatusSnackbarScrollListener extends StatelessWidget {
+  /// Watches [child] for the listener's scrolls.
+  const StatusSnackbarScrollListener({
+    super.key,
+    required this.controller,
+    required this.child,
+  });
+
+  final StatusSnackbarController controller;
+  final Widget child;
+
+  bool _onUserScroll(UserScrollNotification notification) {
+    if (notification.depth == 0 &&
+        notification.direction != ScrollDirection.idle) {
+      controller.clearStationHidden();
+    }
+    return false;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return NotificationListener<UserScrollNotification>(
+      onNotification: _onUserScroll,
+      child: child,
+    );
+  }
 }
 
 /// A trailing sliver spacer that keeps the last station rows reachable

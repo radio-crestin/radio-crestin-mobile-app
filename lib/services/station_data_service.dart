@@ -247,6 +247,14 @@ class StationDataService {
   final BehaviorSubject<List<Station>> stations = BehaviorSubject.seeded(<Station>[]);
   final BehaviorSubject<List<Station>> filteredStations = BehaviorSubject.seeded(<Station>[]);
   final BehaviorSubject<List<String>> favoriteStationSlugs = BehaviorSubject.seeded([]);
+
+  /// Slugs of the stations the listener hid, oldest first.
+  ///
+  /// A hidden station leaves every list: the home page, its favorites, the
+  /// search, CarPlay and Android Auto. [stations] still holds it, so it
+  /// keeps playing, and showing its song, while it is the current station.
+  final BehaviorSubject<List<String>> hiddenStationSlugs =
+      BehaviorSubject.seeded([]);
   final BehaviorSubject<List<Query$GetStations$station_groups>> stationGroups =
       BehaviorSubject.seeded(<Query$GetStations$station_groups>[]);
   final BehaviorSubject<Query$GetStations$station_groups?> selectedStationGroup =
@@ -311,6 +319,7 @@ class StationDataService {
 
   // Constants
   static const _favoriteStationsKey = 'favoriteStationSlugs';
+  static const _hiddenStationsKey = 'hiddenStationSlugs';
   static const _startedFromFavoritesKey = 'started_from_favorites';
   static const _startedFromGroupKey = 'started_from_group';
   static const _cachedStationsKey = 'cached_stations_data';
@@ -391,6 +400,8 @@ class StationDataService {
   // ---------------------------------------------------------------------------
 
   Future<void> initialize() async {
+    // Before the first list is built, so a hidden station never shows.
+    _initHiddenStationSlugs();
     _initFilteredStationsStream();
     await _initFavoriteStationSlugs();
     _watchNetwork();
@@ -1183,6 +1194,55 @@ class StationDataService {
   }
 
   // ---------------------------------------------------------------------------
+  // Hidden stations
+  // ---------------------------------------------------------------------------
+
+  /// Hides [station] from every station list, or shows it again. See
+  /// [hiddenStationSlugs].
+  Future<void> setStationIsHidden(Station station, bool isHidden) async {
+    final hidden = hiddenStationSlugs.value;
+    if (hidden.contains(station.slug) == isHidden) return;
+    _log("setStationIsHidden: ${station.slug} $isHidden");
+    hiddenStationSlugs.add(isHidden
+        ? [...hidden, station.slug]
+        : hidden.where((slug) => slug != station.slug).toList());
+    final prefs = GetIt.instance<SharedPreferences>();
+    await prefs.setString(
+        _hiddenStationsKey, json.encode(hiddenStationSlugs.value));
+  }
+
+  /// The catalog the listener sees: [stations] without the hidden ones.
+  List<Station> get visibleStations => _withoutHidden(stations.value);
+
+  /// The hidden stations still in the catalog, the last one hidden first.
+  List<Station> get hiddenStations {
+    final bySlug = {for (final s in stations.value) s.slug: s};
+    return [
+      for (final slug in hiddenStationSlugs.value.reversed)
+        if (bySlug[slug] case final station?) station,
+    ];
+  }
+
+  List<Station> _withoutHidden(List<Station> list) {
+    final hidden = hiddenStationSlugs.value;
+    if (hidden.isEmpty) return list;
+    final slugs = hidden.toSet();
+    return list.where((s) => !slugs.contains(s.slug)).toList();
+  }
+
+  /// Synchronous: the instance loaded at startup already holds the value.
+  void _initHiddenStationSlugs() {
+    final stored =
+        GetIt.instance<SharedPreferences>().getString(_hiddenStationsKey);
+    if (stored == null) return;
+    try {
+      hiddenStationSlugs.add(List<String>.from(json.decode(stored)));
+    } catch (e) {
+      _log("Error loading hidden stations: $e");
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // Initial data loading
   // ---------------------------------------------------------------------------
 
@@ -1602,14 +1662,20 @@ class StationDataService {
   /// [applyGroupFilter] narrows the result to the station group picked on
   /// the phone's home screen. Car and media-browser callers pass `false`:
   /// the group cannot be seen or changed from the car, so they always get
-  /// the full catalog (in the same order).
+  /// the full catalog (in the same order). Hidden stations are left out
+  /// either way.
   ///
   /// The sort order is cached so it stays stable during the session.
   /// It only re-sorts on manual refresh, sort option change, or when
   /// the station set changes (new/removed stations).
-  List<Station> getSortedStations({bool applyGroupFilter = true}) {
-    final allStations =
-        applyGroupFilter ? filteredStations.value : stations.value;
+  List<Station> getSortedStations({bool applyGroupFilter = true}) =>
+      _sortStations(
+          applyGroupFilter ? filteredStations.value : visibleStations);
+
+  /// [allStations] in the order [getSortedStations] describes. A hidden
+  /// station keeps its place in the cached orders, so showing it again puts
+  /// it back where it was.
+  List<Station> _sortStations(List<Station> allStations) {
     if (allStations.isEmpty) return allStations;
     final sortOption = StationSortService.loadSavedSort();
 
@@ -1795,12 +1861,16 @@ class StationDataService {
     if (idx >= 0) return playlist[(idx + step) % playlist.length];
 
     // The current station left the playlist (e.g. it was just removed from
-    // favorites): continue from its slot in the sorted order.
-    final baseIdx = base.indexWhere((s) => s.slug == currentSlug);
-    if (baseIdx >= 0) {
+    // favorites): continue from its slot in the sorted order. A hidden one
+    // is in no list, so its slot is in the whole catalog's order.
+    final order = base.any((s) => s.slug == currentSlug)
+        ? base
+        : _sortStations(stations.value);
+    final orderIdx = order.indexWhere((s) => s.slug == currentSlug);
+    if (orderIdx >= 0) {
       final slugs = playlist.map((s) => s.slug).toSet();
-      for (var i = 1; i < base.length; i++) {
-        final candidate = base[(baseIdx + i * step) % base.length];
+      for (var i = 1; i < order.length; i++) {
+        final candidate = order[(orderIdx + i * step) % order.length];
         if (slugs.contains(candidate.slug)) return candidate;
       }
     }
@@ -1859,16 +1929,18 @@ class StationDataService {
   // ---------------------------------------------------------------------------
 
   void _initFilteredStationsStream() {
-    Rx.combineLatest2<Query$GetStations$station_groups?, List<Station>,
-        List<Station>>(
+    Rx.combineLatest3<Query$GetStations$station_groups?, List<Station>,
+        List<String>, List<Station>>(
       selectedStationGroup.stream,
       stations.stream,
-      filterByGroup,
+      hiddenStationSlugs.stream,
+      (group, all, hidden) =>
+          filterByGroup(group, all, hiddenSlugs: hidden.toSet()),
     ).listen((filtered) => filteredStations.add(filtered));
   }
 
   /// The [filteredStations] combiner: [allStations] ordered by `order`,
-  /// narrowed to [group] when one is selected.
+  /// without the [hiddenSlugs], narrowed to [group] when one is selected.
   ///
   /// Always returns a new list and never mutates its inputs: [allStations]
   /// is the published [stations] value, which the change gate compares
@@ -1878,10 +1950,12 @@ class StationDataService {
   @visibleForTesting
   static List<Station> filterByGroup(
     Query$GetStations$station_groups? group,
-    List<Station> allStations,
-  ) {
+    List<Station> allStations, {
+    Set<String> hiddenSlugs = const {},
+  }) {
     final indexed = [
-      for (var i = 0; i < allStations.length; i++) (i, allStations[i]),
+      for (var i = 0; i < allStations.length; i++)
+        if (!hiddenSlugs.contains(allStations[i].slug)) (i, allStations[i]),
     ];
     indexed.sort((a, b) {
       final byOrder =

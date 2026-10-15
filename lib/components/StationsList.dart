@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -13,6 +14,10 @@ import '../services/playlist_controller.dart';
 import '../types/Station.dart';
 import '../types/playlist_item.dart';
 import '../utils/station_ui.dart';
+import '../widgets/hide_station_dialog.dart';
+import '../widgets/share_sheet.dart';
+import '../widgets/station_actions_menu.dart';
+import '../widgets/station_row_transition.dart';
 
 class StationsList extends StatelessWidget {
   const StationsList({
@@ -23,6 +28,8 @@ class StationsList extends StatelessWidget {
     required this.favoriteSlugs,
     this.currentStation,
     this.isFavoritesList = false,
+    this.onStationHidden,
+    this.rowTransitions,
   });
 
   final Station? currentStation;
@@ -32,28 +39,136 @@ class StationsList extends StatelessWidget {
   final List<String> favoriteSlugs;
   final bool isFavoritesList;
 
+  /// Called once the listener hid a station from its long-press menu;
+  /// [wasFavorite]: hiding took it out of the favorites.
+  final void Function(Station station, bool wasFavorite)? onStationHidden;
+
+  /// Plays a hidden station's rows out before it leaves the list, and an
+  /// undone one's back in. Shared by every list of the page, so all the
+  /// rows of a station move together. Without it rows leave at once.
+  final StationRowTransitions? rowTransitions;
+
+  /// Rows are at most this wide: wider lists show a grid.
+  static const double _maxRowWidth = 700;
+
   static const double _cardMargin = 4;
   static const double _cardBorder = 1.5;
   static const double _thumbnailSize = 70;
   static const double _titleFontSize = 16;
   static const double _listenersFontSize = 12;
 
+  void _toggleFavorite(Station station, {required String source}) {
+    final isFavorite = audioHandler.toggleStationFavorite(station);
+    AnalyticsService.instance.capture('button_clicked', {
+      'button_name': 'favorite_toggle',
+      'station_slug': station.slug,
+      'station_id': station.id,
+      'is_favorite': isFavorite,
+      'source': source,
+    });
+  }
+
+  void _share(BuildContext context, Station station) {
+    AnalyticsService.instance.capture('button_clicked', {
+      'button_name': 'station_menu_share',
+      'station_slug': station.slug,
+      'station_id': station.id,
+    });
+    ShareSheet.showForStation(
+      context,
+      station: station,
+      client: audioHandler.graphqlClient,
+    );
+  }
+
+  bool _isFavorite(Station station) => audioHandler
+      .stationDataService.favoriteStationSlugs.value
+      .contains(station.slug);
+
+  /// A favorite is hidden only once the listener agreed to lose it from
+  /// the favorites.
+  Future<bool> _confirmHide(BuildContext context, Station station) async =>
+      !_isFavorite(station) ||
+      await confirmHideFavoriteStation(context, station);
+
+  /// Plays the station's rows out, then hides it.
+  void _hide(Station station) {
+    final wasFavorite = _isFavorite(station);
+    AnalyticsService.instance.capture('button_clicked', {
+      'button_name': 'station_hide',
+      'station_slug': station.slug,
+      'station_id': station.id,
+      'was_favorite': wasFavorite,
+      'from_favorites': isFavoritesList,
+    });
+    void hide() {
+      unawaited(audioHandler.hideStation(station));
+      onStationHidden?.call(station, wasFavorite);
+    }
+
+    final transitions = rowTransitions;
+    if (transitions == null) {
+      hide();
+    } else {
+      transitions.leave(station.slug, hide);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final metrics = _RowMetrics.of(context);
-    return SliverGrid(
-      gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 700,
-        mainAxisExtent: metrics.extent,
-      ),
-      delegate: SliverChildBuilderDelegate(
-        (context, itemIdx) {
-          final station = stations[itemIdx];
+    final indexByKey = {
+      for (final (index, station) in stations.indexed)
+        _rowKey(station): index,
+    };
+    return SliverLayoutBuilder(
+      builder: (context, constraints) {
+        // One column, as on a phone: a list, where a hidden station's slot
+        // can close. In a grid the other tiles can't slide into it.
+        final oneColumn = constraints.crossAxisExtent <= _maxRowWidth;
+        final delegate = SliverChildBuilderDelegate(
+          (context, index) => _buildRow(
+            context,
+            stations[index],
+            metrics,
+            collapses: oneColumn,
+          ),
+          childCount: stations.length,
+          // A row keeps its state when the rows around it change, so one
+          // sliding up into a closed slot isn't built anew.
+          findChildIndexCallback: (key) => indexByKey[key],
+        );
+        if (oneColumn) return SliverList(delegate: delegate);
+        return SliverGrid(
+          gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: _maxRowWidth,
+            mainAxisExtent: metrics.extent,
+          ),
+          delegate: delegate,
+        );
+      },
+    );
+  }
+
+  static Key _rowKey(Station station) => ValueKey('station-${station.slug}');
+
+  Widget _buildRow(
+    BuildContext context,
+    Station station,
+    _RowMetrics metrics, {
+    required bool collapses,
+  }) {
           final isSelected = station.slug == currentStation?.slug;
 
-          return KeyedSubtree(
-            key: ValueKey('station-${station.slug}'),
-            child: RepaintBoundary(
+          final row = SizedBox(
+            height: metrics.extent,
+            child: StationActionsMenu(
+            isFavorite: favoriteSlugs.contains(station.slug),
+            onToggleFavorite: () =>
+                _toggleFavorite(station, source: 'station_menu'),
+            onShare: () => _share(context, station),
+            confirmHide: () => _confirmHide(context, station),
+            onHide: () => _hide(station),
             child: GestureDetector(
               onTap: () async {
                 AnalyticsService.instance.capture('button_clicked', {'button_name': 'station_tap', 'station_id': station.id, 'station_slug': station.slug, 'from_favorites': isFavoritesList});
@@ -231,9 +346,7 @@ class StationsList extends StatelessWidget {
                         behavior: HitTestBehavior.opaque,
                         onTap: () {
                           HapticFeedback.lightImpact();
-                          final isFavorite =
-                              audioHandler.toggleStationFavorite(station);
-                          AnalyticsService.instance.capture('button_clicked', {'button_name': 'favorite_toggle', 'station_slug': station.slug, 'station_id': station.id, 'is_favorite': isFavorite});
+                          _toggleFavorite(station, source: 'heart');
                         },
                         child: Padding(
                           padding: const EdgeInsets.all(8),
@@ -259,11 +372,20 @@ class StationsList extends StatelessWidget {
                     )
                   ],
                 ),
-              )),
-            ),
-          );
-        },
-        childCount: stations.length, // Number of items in the list
+              ))));
+
+    final transitions = rowTransitions;
+    return KeyedSubtree(
+      key: _rowKey(station),
+      child: RepaintBoundary(
+        child: transitions == null
+            ? row
+            : StationRowTransition(
+                slug: station.slug,
+                transitions: transitions,
+                collapses: collapses,
+                child: row,
+              ),
       ),
     );
   }

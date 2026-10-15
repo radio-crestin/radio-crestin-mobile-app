@@ -153,6 +153,16 @@ class Station {
 
   Widget get thumbnail => displayThumbnail();
 
+  /// The station's own logo, never the song's artwork: for where the
+  /// station stands for itself rather than for what it plays, like the
+  /// list of hidden stations.
+  Widget get logo => Utils.displayImage(
+        Utils.getStationLogoUrl(rawStationData),
+        fallbackImageUrl: rawStationData.thumbnail_url,
+        cache: true,
+        cachedFilePath: cachedThumbnailPath,
+      );
+
   /// The current artwork: the song's when it has one, else the station logo.
   ///
   /// [sourceWidth] asks the image CDN for that many pixels instead of the

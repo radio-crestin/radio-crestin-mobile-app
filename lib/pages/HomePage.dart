@@ -42,6 +42,7 @@ import '../widgets/station_group_chip.dart';
 import '../widgets/station_group_filter_sheet.dart';
 import '../widgets/status_snackbar.dart';
 import '../widgets/status_snackbar_controller.dart';
+import '../widgets/station_row_transition.dart';
 import 'SettingsPage.dart';
 
 class HomePage extends StatefulWidget {
@@ -133,8 +134,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Timer? _imageCachePruneTimer;
   final GlobalKey<SharePromotionCardState> _sharePromotionKey = GlobalKey();
   ShareLinkData? _shareLinkData;
-  /// What the status snackbar says: offline, back online, a station error.
+  /// What the status snackbar says: offline, back online, a station error,
+  /// a station just hidden.
   final StatusSnackbarController _statusSnackbar = StatusSnackbarController();
+
+  /// The station last hidden from a list, for the snackbar's "Anulează";
+  /// [wasFavorite]: hiding took it out of the favorites.
+  ({Station station, bool wasFavorite})? _lastHidden;
+
+  /// Plays a hidden station's rows out of both lists, and an undone one's
+  /// back in.
+  final StationRowTransitions _rowTransitions = StationRowTransitions();
 
   /// Room at the end of the station list for the docked offline snackbar.
   final ValueNotifier<double> _statusListInset = ValueNotifier(0.0);
@@ -308,6 +318,32 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
+  /// Tells that [station] left the lists, with an undo.
+  void _onStationHidden(Station station, bool wasFavorite) {
+    _lastHidden = (station: station, wasFavorite: wasFavorite);
+    _statusSnackbar.showStationHidden(station);
+  }
+
+  /// Shows the station last hidden again, back among the favorites if it
+  /// was one.
+  void _undoHide() {
+    final hidden = _lastHidden;
+    if (hidden == null) return;
+    _lastHidden = null;
+    AnalyticsService.instance.capture('button_clicked', {
+      'button_name': 'station_unhide',
+      'source': 'undo',
+      'station_id': hidden.station.id,
+      'station_slug': hidden.station.slug,
+    });
+    // Before the lists get it back, so its rows grow in.
+    _rowTransitions.enter(hidden.station.slug);
+    unawaited(_audioHandler.unhideStation(
+      hidden.station,
+      favorite: hidden.wasFavorite,
+    ));
+  }
+
   void _pruneImageDiskCache() {
     final stations = _stationDataService.stations.value;
     // Without the station list, logos cannot be told apart from song art;
@@ -447,6 +483,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _imageCachePruneTimer?.cancel();
     _statusSnackbar.dispose();
     _statusListInset.dispose();
+    _rowTransitions.dispose();
     _panelSlide.dispose();
     super.dispose();
   }
@@ -537,14 +574,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   void _showFilterOptions(
     BuildContext context,
-    List<Station> stations,
     List<Query$GetStations$station_groups> stationGroups,
     Query$GetStations$station_groups? selectedGroup,
   ) {
     StationGroupFilterSheet.show(
       context,
       groups: stationGroups,
-      stations: stations,
+      // Counts what the lists show: hidden stations aside.
+      stations: _stationDataService.visibleStations,
       selected: selectedGroup,
       onSelected: (group) {
         AnalyticsService.instance.capture('button_clicked', {
@@ -788,7 +825,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                 context: context,
                                 builder: (BuildContext context) {
                                   return SelectDialog<Station>(
-                                    items: stations,
+                                    items: _stationDataService.visibleStations,
                                     displayFunction: (Station station) => station.displayTitle,
                                     searchFunction: (Station station) => station.displayTitle,
                                     onItemSelected: (Station station) {
@@ -866,6 +903,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     ),
                     // Scrollable station lists
                     Expanded(
+                      child: StatusSnackbarScrollListener(
+                      controller: _statusSnackbar,
                       child: RefreshIndicator(
                         onRefresh: _handleRefresh,
                         color: Theme.of(context).primaryColor,
@@ -875,7 +914,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         radius: const Radius.circular(8),
                         thickness: 4,
                         child: CustomScrollView(
-                          physics: PositionRetainedScrollPhysics(anchor: _sortRowAnchor).applyTo(const AlwaysScrollableScrollPhysics()),
+                          physics: PositionRetainedScrollPhysics(anchor: _sortRowAnchor, rows: _rowTransitions.scrollAnchor).applyTo(const AlwaysScrollableScrollPhysics()),
                           cacheExtent: 300.0,
                           slivers: <Widget>[
                           if (_homePromo
@@ -918,9 +957,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                     panelController: slidingUpPanelController,
                                     favoriteSlugs: favoriteSlugs,
                                     isFavoritesList: true,
+                                    onStationHidden: _onStationHidden,
+                                    rowTransitions: _rowTransitions,
                                   )),
                             ),
-                          if (filteredStations.isNotEmpty)
+                          // Also with a chosen category whose stations are
+                          // all hidden: its chip is the way back.
+                          if (filteredStations.isNotEmpty ||
+                              selectedStationGroup != null)
                             SliverStickyHeader(
                               key: _sortRowAnchor.key,
                               header: Container(
@@ -981,7 +1025,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                                 tooltip: 'Filtrează',
                                                 onPressed: () {
                                                   AnalyticsService.instance.capture('button_clicked', {'button_name': 'filter_menu'});
-                                                  _showFilterOptions(context, stations, stationGroups, null);
+                                                  _showFilterOptions(context, stationGroups, null);
                                                 },
                                               ),
                                             )
@@ -992,7 +1036,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                                 group: selectedStationGroup,
                                                 onPressed: () {
                                                   AnalyticsService.instance.capture('button_clicked', {'button_name': 'filter_menu', 'source': 'chip'});
-                                                  _showFilterOptions(context, stations, stationGroups, selectedStationGroup);
+                                                  _showFilterOptions(context, stationGroups, selectedStationGroup);
                                                 },
                                                 onCleared: () {
                                                   AnalyticsService.instance.capture('button_clicked', {'button_name': 'filter', 'filter_group': 'all', 'source': 'chip'});
@@ -1013,6 +1057,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                 audioHandler: _audioHandler,
                                 panelController: slidingUpPanelController,
                                 favoriteSlugs: favoriteSlugs,
+                                onStationHidden: _onStationHidden,
+                                rowTransitions: _rowTransitions,
                               ),
                             ),
                           // Bottom inset so the last rows clear the collapsed
@@ -1031,6 +1077,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         ],
                         ),
                         ),
+                      ),
                       ),
                     ),
                   ],
@@ -1081,7 +1128,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   listInset: _statusListInset,
                   listReservedInset:
                       currentStation != null ? panelMinHeight : 0,
+                  hasMiniPlayer: hasMiniPlayer,
                   onRetry: _retryCurrentStation,
+                  onUndo: _undoHide,
                 ),
               ),
             ],

@@ -3,10 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:graphql_flutter/graphql_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/analytics_service.dart';
 import '../services/share_service.dart';
 import '../theme.dart';
+import '../types/Station.dart';
 import '../utils.dart';
 import '../utils/share_utils.dart';
 import 'share_handler.dart';
@@ -97,6 +100,35 @@ class ShareSheet extends StatefulWidget {
         initialData: initialData,
         loader: loader,
       ),
+    );
+  }
+
+  /// Shows the sheet that invites a friend to [station], or to the app
+  /// without one. [client] fetches the user's personal link.
+  static Future<void> showForStation(
+    BuildContext context, {
+    required Station? station,
+    required GraphQLClient client,
+  }) {
+    final slug = station?.slug;
+    final shareUrl = slug != null && slug.isNotEmpty
+        ? 'https://www.radiocrestin.ro/$slug'
+        : 'https://www.radiocrestin.ro/descarca-aplicatia-radio-crestin';
+    return show(
+      context,
+      shareUrl: shareUrl,
+      shareMessage: 'Instalează și tu aplicația Radio Creștin și ascultă peste 60 de stații de radio creștin:\n$shareUrl',
+      stationName: station?.title,
+      stationThumbnailUrl: station?.thumbnailUrl,
+      songName: station?.songTitle,
+      songArtist: station?.songArtist,
+      songId: station?.songId,
+      loader: () async {
+        final prefs = await SharedPreferences.getInstance();
+        final deviceId = prefs.getString('device_id');
+        if (deviceId == null) return null;
+        return ShareService(client).getShareLink(deviceId);
+      },
     );
   }
 

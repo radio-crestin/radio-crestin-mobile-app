@@ -119,4 +119,22 @@ void main() {
 
     expect(_shownUrl(tester), _songA1);
   });
+
+  testImageWidgets(
+      "the logo shows the station's own logo, not its song's artwork",
+      () => http, (tester) async {
+    final station = _station(1, _logoA, songArt: _songA1);
+    await tester.pumpWidget(_miniPlayerArt(station));
+    await waitFor(tester, loadedImage);
+    expect(_shownUrl(tester), _songA1, reason: 'the artwork is the song');
+
+    await tester.pumpWidget(Directionality(
+      textDirection: TextDirection.ltr,
+      child: Center(child: SizedBox.square(dimension: 44, child: station.logo)),
+    ));
+    await waitFor(
+      tester,
+      find.byWidgetPredicate((_) => _shownUrl(tester) == _logoA),
+    );
+  });
 }

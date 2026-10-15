@@ -8,13 +8,11 @@ import 'package:flutter/services.dart';
 import 'package:like_button/like_button.dart';
 import 'package:radio_crestin/theme.dart';
 import 'package:radio_crestin/pages/HomePage.dart';
-import 'package:radio_crestin/services/share_service.dart';
 import 'package:radio_crestin/widgets/share_sheet.dart';
 import 'package:radio_crestin/services/song_like_service.dart';
 import 'package:radio_crestin/widgets/review_modal.dart';
 import 'package:radio_crestin/widgets/song_history_modal.dart';
 import '../services/analytics_service.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:get_it/get_it.dart';
@@ -1112,27 +1110,10 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
 
   /// Opens the sheet that invites a friend to the current station.
   void _showShareSheet(BuildContext context) {
-    final slug = currentStation?.slug;
-    final shareUrl = slug != null && slug.isNotEmpty
-        ? 'https://www.radiocrestin.ro/$slug'
-        : 'https://www.radiocrestin.ro/descarca-aplicatia-radio-crestin';
-
-    ShareSheet.show(
+    ShareSheet.showForStation(
       context,
-      shareUrl: shareUrl,
-      shareMessage: 'Instalează și tu aplicația Radio Creștin și ascultă peste 60 de stații de radio creștin:\n$shareUrl',
-      stationName: currentStation?.title,
-      stationThumbnailUrl: currentStation?.thumbnailUrl,
-      songName: currentStation?.songTitle,
-      songArtist: currentStation?.songArtist,
-      songId: currentStation?.songId,
-      loader: () async {
-        final prefs = await SharedPreferences.getInstance();
-        final deviceId = prefs.getString('device_id');
-        if (deviceId == null) return null;
-        final shareService = ShareService(widget.audioHandler.graphqlClient);
-        return shareService.getShareLink(deviceId);
-      },
+      station: currentStation,
+      client: widget.audioHandler.graphqlClient,
     );
   }
 

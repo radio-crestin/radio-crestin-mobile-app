@@ -83,6 +83,7 @@ class CarPlayService {
   String? _pinnedSignature;
   String? _categoriesSignature;
   StreamSubscription? _carPlayGroupsSubscription;
+  StreamSubscription? _carPlayHiddenSubscription;
 
   // Home rows by section, kept for live updates.
   late final _favoriteRows =
@@ -908,7 +909,7 @@ class CarPlayService {
           ),
       ],
       knownStationIds: {
-        for (final s in _stationDataService.stations.value) s.id as int,
+        for (final s in _stationDataService.visibleStations) s.id as int,
       },
     );
   }
@@ -1134,6 +1135,16 @@ class CarPlayService {
       _carPlayGroupsSubscription = _stationDataService.stationGroups.stream
           .skip(1)
           .listen((_) => _refreshCarPlayCategories());
+
+      // A station hidden or shown again on the phone leaves or joins every
+      // list, and the categories' station counts.
+      _carPlayHiddenSubscription = _stationDataService.hiddenStationSlugs
+          .stream
+          .skip(1)
+          .listen((_) {
+        _refreshCarPlayLists();
+        _refreshCarPlayCategories();
+      });
     } catch (e) {
       _log("Error setting up CarPlay: $e");
     }
@@ -1599,6 +1610,7 @@ class CarPlayService {
       // triggers a rebuild check + player update from the centralized state.
       _androidAutoStationSubscription = Rx.merge([
         _stationDataService.favoriteStationSlugs.stream.map((_) => 'favorites'),
+        _stationDataService.hiddenStationSlugs.stream.map((_) => 'hidden'),
         _audioHandler.currentStation.stream.map((_) => 'station'),
         _audioHandler.playbackState.stream.map((_) => 'playback'),
         _stationDataService.stations.stream.map((_) => 'metadata'),
@@ -1614,7 +1626,10 @@ class CarPlayService {
         // Determine if list rebuild is needed
         bool shouldRebuild = false;
 
-        if (source == 'favorites' || source == 'station' || source == 'sort') {
+        if (source == 'favorites' ||
+            source == 'hidden' ||
+            source == 'station' ||
+            source == 'sort') {
           shouldRebuild = true;
         } else if (source == 'metadata') {
           final hash = _computeStationListHash(_sortedAndroidAutoStations);
@@ -1791,6 +1806,7 @@ class CarPlayService {
     _carPlayStationsSubscription?.cancel();
     _carPlaySortOrderSubscription?.cancel();
     _carPlayGroupsSubscription?.cancel();
+    _carPlayHiddenSubscription?.cancel();
     _mediaItemSubscription?.cancel();
     _imageRetrySubscription?.cancel();
     _connectionErrorSubscription?.cancel();

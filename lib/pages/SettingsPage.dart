@@ -18,6 +18,8 @@ import '../main.dart' show getIt;
 import '../services/analytics_service.dart';
 import '../services/local_log_store.dart';
 import '../services/log_upload_service.dart';
+import '../services/station_data_service.dart';
+import 'HiddenStationsPage.dart';
 import 'LogsViewerPage.dart';
 import '../seek_mode_manager.dart';
 import '../theme.dart';
@@ -74,6 +76,10 @@ class _SettingsPageState extends State<SettingsPage> {
   StreamSubscription<List<StreamEvent>>? _streamEventsSub;
   Timer? _diagnosticTicker;
 
+  final StationDataService _stationDataService = getIt<StationDataService>();
+  late int _hiddenCount = _stationDataService.hiddenStations.length;
+  StreamSubscription<List<String>>? _hiddenSub;
+
 
   @override
   void initState() {
@@ -88,6 +94,11 @@ class _SettingsPageState extends State<SettingsPage> {
       _visitCount = shareLinkData.visitCount;
     }
     _loadShareData();
+    _hiddenSub = _stationDataService.hiddenStationSlugs.stream.listen((_) {
+      if (!mounted) return;
+      setState(
+          () => _hiddenCount = _stationDataService.hiddenStations.length);
+    });
 
     final audioHandler = getIt<AppAudioHandler>();
     _streamInfo = audioHandler.currentStreamInfo.valueOrNull;
@@ -113,6 +124,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _streamEventsSub?.cancel();
     _diagnosticTicker?.cancel();
     _versionTapReset?.cancel();
+    _hiddenSub?.cancel();
     super.dispose();
   }
 
@@ -811,6 +823,16 @@ class _SettingsPageState extends State<SettingsPage> {
                     },
                     value: _notificationsEnabled,
                   ),
+                ),
+                _buildSettingsTile(
+                  icon: Icons.visibility_off_outlined,
+                  title: 'Stații ascunse',
+                  subtitle: HiddenStationsPage.countText(_hiddenCount),
+                  onTap: () {
+                    AnalyticsService.instance.capture('button_clicked',
+                        {'button_name': 'hidden_stations'});
+                    HiddenStationsPage.show(context);
+                  },
                 ),
               ]),
 
