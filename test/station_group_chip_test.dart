@@ -121,6 +121,58 @@ void main() {
     expect(light?.textBaseline, dark?.textBaseline);
   });
 
+  testWidgets('the filter button keeps still while it swaps with the chip',
+      (tester) async {
+    Widget sortRow({required bool chosen}) => MaterialApp(
+          theme: darkTheme,
+          home: Scaffold(
+            // The 60 pt sticky header the sort row sits in on Home.
+            body: Container(
+              height: 60,
+              alignment: Alignment.centerLeft,
+              child: Row(
+                children: [
+                  const Expanded(child: Text('Pentru tine')),
+                  StationFilterSlot(
+                    child: chosen
+                        ? Padding(
+                            key: const ValueKey('chip'),
+                            padding: const EdgeInsets.only(right: 8),
+                            child: StationGroupChip(
+                              group: copii,
+                              onPressed: () {},
+                              onCleared: () {},
+                            ),
+                          )
+                        : const SizedBox(
+                            key: ValueKey('filter'),
+                            width: 44,
+                            height: 44,
+                          ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+    final filter = find.byKey(const ValueKey('filter'));
+
+    await tester.pumpWidget(sortRow(chosen: false));
+    final atRest = tester.getRect(filter);
+
+    // Going out under the incoming chip, then coming back as the chip goes.
+    for (final chosen in [true, false]) {
+      await tester.pumpWidget(sortRow(chosen: chosen));
+      for (var ms = 0; ms < 200; ms += 25) {
+        expect(tester.getRect(filter), atRest,
+            reason: '${chosen ? 'chip in' : 'chip out'}, $ms ms in');
+        await tester.pump(const Duration(milliseconds: 25));
+      }
+      await tester.pumpAndSettle();
+    }
+    expect(tester.getRect(filter), atRest);
+  });
+
   testWidgets('the cross tells screen readers what it does', (tester) async {
     await pumpChip(tester, theme: lightTheme);
 

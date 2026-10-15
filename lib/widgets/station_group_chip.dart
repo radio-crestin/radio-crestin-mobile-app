@@ -80,3 +80,32 @@ class StationGroupChip extends StatelessWidget {
     );
   }
 }
+
+/// The end of the sort row: the filter button, or a [StationGroupChip] in
+/// its place while a category is chosen.
+///
+/// Cross-fades the two at the row's right edge. [AnimatedSwitcher]'s default
+/// layout centres them in a stack as wide as the chip, so the filter button
+/// faded in over the middle of the chip and jumped right once it had gone.
+class StationFilterSlot extends StatelessWidget {
+  const StationFilterSlot({super.key, required this.child});
+
+  /// The filter button or the chip, keyed so the two cross-fade.
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 200),
+      layoutBuilder: _alignRight,
+      child: child,
+    );
+  }
+
+  static Widget _alignRight(Widget? current, List<Widget> previous) {
+    return Stack(
+      alignment: Alignment.centerRight,
+      children: [...previous, if (current != null) current],
+    );
+  }
+}

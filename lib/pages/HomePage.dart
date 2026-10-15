@@ -139,6 +139,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   /// Room at the end of the station list for the docked offline snackbar.
   final ValueNotifier<double> _statusListInset = ValueNotifier(0.0);
 
+  /// Keeps the sort row in place while the chosen category changes, though
+  /// the Favorite section above it hides or comes back.
+  final SliverAnchor _sortRowAnchor = SliverAnchor();
+
   /// `NetworkService.isOffline`: no network, or no internet through it.
   bool _isOffline = false;
   StreamSubscription? _offlineSub;
@@ -548,6 +552,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           'filter_group': group?.name ?? 'all',
           if (group != null) 'filter_group_id': group.id,
         });
+        _sortRowAnchor.hold();
         setState(() {
           _stationDataService.selectedStationGroup.add(group);
         });
@@ -870,7 +875,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         radius: const Radius.circular(8),
                         thickness: 4,
                         child: CustomScrollView(
-                          physics: const PositionRetainedScrollPhysics().applyTo(const AlwaysScrollableScrollPhysics()),
+                          physics: PositionRetainedScrollPhysics(anchor: _sortRowAnchor).applyTo(const AlwaysScrollableScrollPhysics()),
                           cacheExtent: 300.0,
                           slivers: <Widget>[
                           if (_homePromo
@@ -917,6 +922,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             ),
                           if (filteredStations.isNotEmpty)
                             SliverStickyHeader(
+                              key: _sortRowAnchor.key,
                               header: Container(
                                 height: 60.0,
                                 color: Theme.of(context).scaffoldBackgroundColor,
@@ -965,8 +971,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                     ),
                                     // The chosen category stands in for the
                                     // filter button, so it stays in view.
-                                    AnimatedSwitcher(
-                                      duration: const Duration(milliseconds: 200),
+                                    StationFilterSlot(
                                       child: selectedStationGroup == null
                                           ? KeyedSubtree(
                                               key: const ValueKey('filter'),
@@ -991,6 +996,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                                 },
                                                 onCleared: () {
                                                   AnalyticsService.instance.capture('button_clicked', {'button_name': 'filter', 'filter_group': 'all', 'source': 'chip'});
+                                                  _sortRowAnchor.hold();
                                                   setState(() {
                                                     _stationDataService.selectedStationGroup.add(null);
                                                   });
