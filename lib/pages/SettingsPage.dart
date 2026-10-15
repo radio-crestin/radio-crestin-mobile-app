@@ -33,15 +33,18 @@ class SettingsPage extends StatefulWidget {
 
   final ShareLinkData? shareLinkData;
 
+  /// Pushes the page onto the navigation stack, with the platform's page
+  /// transition: on iOS it slides in from the right, and a swipe from the
+  /// left edge takes it back.
   static void show(BuildContext context, {ShareLinkData? shareLinkData}) {
-    Navigator.push(context, PageRouteBuilder<void>(
-      // Named so PostHog records a `$screen` for it.
-      settings: const RouteSettings(name: '/settings'),
-      pageBuilder: (context, animation, secondaryAnimation) =>
-          SettingsPage(shareLinkData: shareLinkData),
-      transitionDuration: Duration.zero,
-      reverseTransitionDuration: Duration.zero,
-    ));
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        // Named so PostHog records a `$screen` for it.
+        settings: const RouteSettings(name: '/settings'),
+        builder: (_) => SettingsPage(shareLinkData: shareLinkData),
+      ),
+    );
   }
 
   @override

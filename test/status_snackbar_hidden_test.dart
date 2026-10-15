@@ -126,7 +126,7 @@ void main() {
     NavigatorState navigator(WidgetTester tester) => Navigator.of(tester
         .element(find.byType(StatusSnackbarOverlay, skipOffstage: false)));
 
-    /// A page that covers it at once, the way Settings opens.
+    /// A page that covers it at once, without a transition.
     Future<void> openPage(WidgetTester tester) async {
       unawaited(navigator(tester).push(PageRouteBuilder<void>(
         pageBuilder: (_, __, ___) => const Scaffold(),
@@ -151,7 +151,8 @@ void main() {
       expect(undos, 0);
     });
 
-    testWidgets('sliding in takes it away as well', (tester) async {
+    testWidgets('sliding in takes it away as well, the way Settings opens',
+        (tester) async {
       await pumpOverlay(tester);
       controller.showStationHidden(station);
       await tester.pumpAndSettle();
@@ -161,6 +162,12 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(controller.message, isNull);
+
+      navigator(tester).pop();
+      await tester.pump();
+      expect(undo, findsNothing,
+          reason: 'not drawn again as the page slides away');
+      expect(undos, 0);
     });
 
     testWidgets('a sheet, which leaves the page in sight, keeps it',
