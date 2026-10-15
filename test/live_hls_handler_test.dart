@@ -378,8 +378,9 @@ void main() {
 
   group('ICY titles (direct streams)', () {
     test(
-        'the first title of a stream costs one live fetch; a title change '
-        'follows the live list until the new row shows up', () async {
+        'the first title of a stream costs no fetch after the station '
+        'switch asked for the same list; a title change follows the live '
+        'list until the new row shows up', () async {
       await http.runWithClient(() async {
         await startHandler();
         unawaited(handler.playStation(stationOf(2)));
@@ -388,19 +389,22 @@ void main() {
         final before = backend.metadataRequests.length;
 
         channels.emitIcyTitle('Artist - Song P');
-        await until(() => backend.metadataRequests.length == before + 1);
+        await clock.settle();
+        expect(backend.metadataRequests, hasLength(before),
+            reason: 'the station switch already asked for this exact list');
         await clock.advance(const Duration(seconds: 60));
-        expect(backend.metadataRequests, hasLength(before + 1),
+        expect(backend.metadataRequests, hasLength(before),
             reason: 'no follow-up for the song already playing');
 
         channels.emitIcyTitle('Artist - Song Q');
-        await until(() => backend.metadataRequests.length == before + 2);
+        await clock.settle();
         backend.songChange(2, clock.now, const FakeSong(22, 'Song Q'));
+        await until(() => backend.metadataRequests.length == before + 1);
         await clock.advance(const Duration(seconds: 10));
-        expect(backend.metadataRequests, hasLength(before + 3));
+        expect(backend.metadataRequests, hasLength(before + 2));
         expect(stationOf(2).songTitle, 'Song Q');
         await clock.advance(const Duration(seconds: 60));
-        expect(backend.metadataRequests, hasLength(before + 3),
+        expect(backend.metadataRequests, hasLength(before + 2),
             reason: 'the follow-up stops once the row is live');
       }, () => routing);
     });

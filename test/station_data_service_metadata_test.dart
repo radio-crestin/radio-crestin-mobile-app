@@ -167,6 +167,70 @@ void main() {
           containsPair('changes_from_timestamp', '${epochOf(t(70))}'));
     });
 
+    test('a diff with the same parameters as the last one is not sent again',
+        () async {
+      await start();
+      await service().onStationPlayed();
+      await service().onStationPlayed();
+      await service().enqueueSync(SyncReason.liveMetadataChanged);
+
+      expect(backend.metadataRequests, hasLength(2),
+          reason: 'startup + one diff: the edge answers the same request '
+              'with the same copy');
+
+      await clock.advance(const Duration(seconds: 10));
+      await service().onStationPlayed();
+      expect(backend.metadataRequests, hasLength(3),
+          reason: 'a new timestamp is a new request');
+    });
+
+    test(
+        'the same timestamp from a newer cursor is sent: it can carry a row '
+        'ingested since', () async {
+      backend.songChange(2, t(-300), p);
+      await start();
+      await clock.advance(minute);
+      // Dated before the t+60 diff, ingested just after it.
+      backend.songChange(2, t(55), q, insertedAt: t(62));
+      await service().onStationPlayed();
+      expect(songOf(2), 'Song P');
+
+      await clock.advance(const Duration(seconds: 5));
+      await service().onStationPlayed();
+
+      expect(songOf(2), 'Song Q');
+      expect(backend.metadataRequests.last.queryParameters, {
+        'timestamp': '${epochOf(t(60))}',
+        'changes_from_timestamp': '${epochOf(t0)}',
+      });
+    });
+
+    test('a failed diff is sent again with the same parameters', () async {
+      await start();
+      backend.failNext('/stations-metadata');
+      await service().onStationPlayed();
+      await service().onStationPlayed();
+
+      final diffs = backend.metadataRequests.skip(1).toList();
+      expect(diffs, hasLength(2));
+      expect(diffs.last, diffs.first);
+    });
+
+    test('a full refresh lets the next diff go out even with the same '
+        'parameters', () async {
+      await start();
+      await service().onStationPlayed();
+      await service().refreshStations();
+      await service().onStationPlayed();
+
+      final diffs = backend.metadataRequests
+          .where((u) => u.queryParameters
+              .containsKey('changes_from_timestamp'))
+          .toList();
+      expect(diffs, hasLength(2));
+      expect(diffs.last, diffs.first);
+    });
+
     test('GraphQL failure still applies live metadata', () async {
       backend.songChange(2, t(-300), p);
       await start();
@@ -1309,6 +1373,21 @@ void main() {
       await tv.enqueueSync(SyncReason.startup);
       tv.dispose();
       expect(backend.metadataRequests, hasLength(2));
+    });
+
+    test(
+        'station switches within the same 10 s send each timeline\'s diff '
+        'once', () async {
+      await startListening(delay);
+      for (var i = 0; i < 3; i++) {
+        await service().onStationPlayed();
+      }
+
+      expect(metadataAt(t0), hasLength(2), reason: 'live: startup + diff');
+      expect(metadataAt(t(-140)), hasLength(2),
+          reason: 'listening: startup + diff');
+      expect(metadataAt(t(-70)), hasLength(2),
+          reason: 'lookahead: startup + diff');
     });
   });
 

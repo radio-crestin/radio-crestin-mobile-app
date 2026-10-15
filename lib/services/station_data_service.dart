@@ -109,6 +109,11 @@ class StationDataService {
 
   Timer? _periodicTimer;
 
+  /// Per timeline, the diff URL of its last successful fetch. The edge
+  /// caches each URL, so the same request again gets the same copy back:
+  /// nothing new to merge. A full fetch of the timeline clears it.
+  final Map<String, String> _lastDiffUrl = {};
+
   /// Network restore and mobile-data/WiFi switches (see [_watchNetwork]).
   final List<StreamSubscription<bool>> _networkSubscriptions = [];
 
@@ -1576,7 +1581,9 @@ class StationDataService {
   /// Fetches metadata from REST API.
   /// When [changesFromTimestamp] is provided, only returns stations that
   /// changed since that timestamp (differential update, like the
-  /// radiocrestin.ro web app). [timeline] only labels the logs.
+  /// radiocrestin.ro web app). A diff with the same parameters as the
+  /// [timeline]'s last successful one lists no changes, without a request
+  /// ([_lastDiffUrl]). [timeline] also labels the logs.
   Future<Map<int, Map<String, dynamic>>?> _fetchMetadata(
     int timestamp, {
     int? changesFromTimestamp,
@@ -1588,6 +1595,10 @@ class StationDataService {
     }
     final isDiff = changesFromTimestamp != null && changesFromTimestamp > 0;
     final mode = '$timeline ${isDiff ? 'diff' : 'full'}';
+    if (isDiff && _lastDiffUrl[timeline] == url) {
+      _log("= metadata fetch [$mode] ts=$timestamp skipped: same request");
+      return <int, Map<String, dynamic>>{};
+    }
     final stopwatch = Stopwatch()..start();
     _log("→ metadata fetch [$mode] ts=$timestamp"
         "${isDiff ? ' from=$changesFromTimestamp' : ''}");
@@ -1608,6 +1619,11 @@ class StationDataService {
           if (item is Map<String, dynamic> && item['id'] != null) {
             map[item['id'] as int] = item;
           }
+        }
+        if (isDiff) {
+          _lastDiffUrl[timeline] = url;
+        } else {
+          _lastDiffUrl.remove(timeline);
         }
         _log("✓ metadata fetch [$mode] ts=$timestamp "
             "→ ${map.length} stations in ${stopwatch.elapsedMilliseconds}ms");
