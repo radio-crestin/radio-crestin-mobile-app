@@ -26,6 +26,10 @@ let flutterEngine = FlutterEngine(name: "SharedEngine", project: nil, allowHeadl
             }
         }
 
+        // Lets the device sheet tell a blocked Local Network permission
+        // apart from a network with no Chromecast.
+        LocalNetworkAccessHandler.register(with: flutterEngine.binaryMessenger)
+
         // Mirror Android's "com.radiocrestin.app" channel so Flutter has a
         // single cross-platform interface. iOS cannot distinguish "launched
         // from icon" vs "launched from app switcher card" (a fresh process

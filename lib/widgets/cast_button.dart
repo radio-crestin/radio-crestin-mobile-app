@@ -5,9 +5,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_airplay/flutter_airplay.dart';
 import 'package:flutter_chrome_cast/flutter_chrome_cast.dart';
 import 'package:get_it/get_it.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../services/cast_service.dart';
 import '../services/analytics_service.dart';
+import '../services/local_network_access.dart';
 import '../theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════
@@ -272,6 +274,16 @@ class _DeviceSheetState extends State<_DeviceSheet> {
   String? _connectedDeviceName;
   bool _searching = true;
 
+  /// iOS Local Network access, which Chromecast discovery needs. `null`
+  /// until the native check answers, and on platforms without it.
+  LocalNetworkAccess? _localNetwork;
+  bool _deniedReported = false;
+
+  /// Chromecast discovery can't find anything, since iOS blocks the local
+  /// network: retrying won't help until the user allows it in Settings.
+  bool get _chromecastBlocked =>
+      _localNetwork == LocalNetworkAccess.denied && !_chromecastCasting;
+
   @override
   void initState() {
     super.initState();
@@ -304,8 +316,31 @@ class _DeviceSheetState extends State<_DeviceSheet> {
         if (mounted) setState(() => _connectedDeviceName = name);
       }));
     }
+    _subs.add(LocalNetworkAccessMonitor.watch().listen(_onLocalNetworkAccess));
 
     _startSearchTimer();
+  }
+
+  void _onLocalNetworkAccess(LocalNetworkAccess access) {
+    if (!mounted) return;
+    final regained = _localNetwork == LocalNetworkAccess.denied &&
+        access == LocalNetworkAccess.granted;
+    setState(() => _localNetwork = access);
+    // The scan found nothing while blocked; run it again now that it can.
+    if (regained) _rescan();
+    if (access == LocalNetworkAccess.denied && !_deniedReported) {
+      _deniedReported = true;
+      AnalyticsService.instance.capture('cast_local_network_denied');
+    }
+  }
+
+  Future<void> _openAppSettings() async {
+    AnalyticsService.instance.capture('cast_local_network_settings_opened');
+    try {
+      await launchUrl(Uri.parse('app-settings:'));
+    } catch (e) {
+      debugPrint('$runtimeType: opening Settings failed: $e');
+    }
   }
 
   void _startSearchTimer() {
@@ -363,7 +398,7 @@ class _DeviceSheetState extends State<_DeviceSheet> {
                       fontSize: 16, fontWeight: FontWeight.w600,
                       color: onSurface),
                   ),
-                  if (_searching) ...[
+                  if (_searching && !_chromecastBlocked) ...[
                     const Spacer(),
                     SizedBox(
                       width: 12, height: 12,
@@ -392,8 +427,23 @@ class _DeviceSheetState extends State<_DeviceSheet> {
                 _sectionLabel(context, 'ALTE DISPOZITIVE'),
             ],
 
+            // Local Network blocked: say why no Chromecast shows up
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 250),
+              transitionBuilder: (child, anim) => FadeTransition(
+                opacity: anim,
+                child: SizeTransition(sizeFactor: anim, child: child),
+              ),
+              child: _chromecastBlocked
+                  ? _LocalNetworkCard(
+                      key: const ValueKey('blocked'),
+                      onOpenSettings: _openAppSettings,
+                    )
+                  : const SizedBox.shrink(key: ValueKey('allowed')),
+            ),
+
             // Available Chromecast devices
-            if (!_chromecastCasting)
+            if (!_chromecastCasting && !_chromecastBlocked)
               ..._devices.map((device) => _DeviceRow(
                 icon: _chromecastIcon(device.friendlyName),
                 title: device.friendlyName,
@@ -405,7 +455,7 @@ class _DeviceSheetState extends State<_DeviceSheet> {
               )),
 
             // Scan again button — shown when not actively searching
-            if (!_chromecastCasting && !_searching)
+            if (!_chromecastCasting && !_searching && !_chromecastBlocked)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                 child: SizedBox(
@@ -657,6 +707,82 @@ class _ConnectedChromecastRow extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Shown in place of the Chromecast list while iOS blocks the local
+/// network, so the user learns why no device shows up and how to fix it.
+class _LocalNetworkCard extends StatelessWidget {
+  final VoidCallback onOpenSettings;
+
+  const _LocalNetworkCard({super.key, required this.onOpenSettings});
+
+  @override
+  Widget build(BuildContext context) {
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.cast_rounded, size: 24, color: AppColors.primary),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Permite accesul la rețeaua locală',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: onSurface,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Ca să găsim Chromecast-ul sau Google TV-ul tău, activează '
+                  '„Rețea locală” în setările aplicației.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    height: 1.4,
+                    color: onSurface.withValues(alpha: 0.6),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: 36,
+                  child: FilledButton(
+                    onPressed: onOpenSettings,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: const Text(
+                      'Deschide Setările',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
