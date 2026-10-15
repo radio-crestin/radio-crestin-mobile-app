@@ -47,7 +47,9 @@ class SongSearchTipMemory {
 ///
 /// It rises while [visible] and sinks once it turns false. "Am înțeles", or
 /// a tap anywhere outside the bubble, calls [onDismiss]; that tap still
-/// reaches what it lands on, so the bubble never stands in the way.
+/// reaches what it lands on, so the bubble never stands in the way. A tap
+/// in a [SongSearchTipTapRegion] counts as one on the bubble and leaves it
+/// up.
 class SongSearchTip extends StatefulWidget {
   const SongSearchTip({
     super.key,
@@ -151,6 +153,7 @@ class _SongSearchTipState extends State<SongSearchTip>
             scale: _scale,
             alignment: Alignment.bottomLeft,
             child: TapRegion(
+              groupId: SongSearchTipTapRegion.group,
               onTapOutside: (_) => widget.onDismiss(),
               child: _TipBubble(onDismiss: widget.onDismiss),
             ),
@@ -159,6 +162,24 @@ class _SongSearchTipState extends State<SongSearchTip>
       ),
     );
   }
+}
+
+/// Makes taps on [child] count as taps on the [SongSearchTip] bubble, so
+/// they leave it up.
+///
+/// For the skip buttons: the next station's song can be searched too, so
+/// the tip moves on to it instead of going away for good.
+class SongSearchTipTapRegion extends StatelessWidget {
+  const SongSearchTipTapRegion({super.key, required this.child});
+
+  /// The tap region group the bubble and these regions share.
+  static const Object group = SongSearchTip;
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) =>
+      TapRegion(groupId: group, child: child);
 }
 
 /// The bubble: a card in the theme's inverse surface, the same one as the

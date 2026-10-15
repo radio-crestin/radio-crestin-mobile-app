@@ -721,7 +721,8 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
 
   /// Transport controls: prev | play/pause | next, as bare glyphs in the
   /// text color, the way Apple Music shows them. [alignStart] left-aligns the
-  /// cluster for the landscape right-hand column.
+  /// cluster for the landscape right-hand column. Skipping leaves the song
+  /// search tip up, for the next station's song.
   Widget _buildTransportControls(
     BuildContext context, {
     required double playIconSize,
@@ -734,15 +735,17 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
       mainAxisAlignment:
           alignStart ? MainAxisAlignment.start : MainAxisAlignment.center,
       children: <Widget>[
-        IconButton(
-          tooltip: 'Stația anterioară',
-          iconSize: skipIconSize,
-          color: glyphColor,
-          onPressed: () {
-            _playButtonKey.currentState?.notifyWillPlay();
-            widget.audioHandler.skipToPrevious();
-          },
-          icon: const Icon(Icons.fast_rewind_rounded),
+        SongSearchTipTapRegion(
+          child: IconButton(
+            tooltip: 'Stația anterioară',
+            iconSize: skipIconSize,
+            color: glyphColor,
+            onPressed: () {
+              _playButtonKey.currentState?.notifyWillPlay();
+              widget.audioHandler.skipToPrevious();
+            },
+            icon: const Icon(Icons.fast_rewind_rounded),
+          ),
         ),
         SizedBox(width: skipSpacing),
         AnimatedPlayButton(
@@ -755,15 +758,17 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
           onStop: widget.audioHandler.stop,
         ),
         SizedBox(width: skipSpacing),
-        IconButton(
-          tooltip: 'Stația următoare',
-          iconSize: skipIconSize,
-          color: glyphColor,
-          onPressed: () {
-            _playButtonKey.currentState?.notifyWillPlay();
-            widget.audioHandler.skipToNext();
-          },
-          icon: const Icon(Icons.fast_forward_rounded),
+        SongSearchTipTapRegion(
+          child: IconButton(
+            tooltip: 'Stația următoare',
+            iconSize: skipIconSize,
+            color: glyphColor,
+            onPressed: () {
+              _playButtonKey.currentState?.notifyWillPlay();
+              widget.audioHandler.skipToNext();
+            },
+            icon: const Icon(Icons.fast_forward_rounded),
+          ),
         ),
       ],
     );

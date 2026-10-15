@@ -28,12 +28,6 @@ void main() {
     test('measured static titles are kept', () {
       expect(
           verdict(
-              station: 'Radio Micul Samaritean',
-              song: 'LIVE',
-              age: const Duration(hours: 156)),
-          NowPlayingVerdict.keep);
-      expect(
-          verdict(
               station: 'RVE Oradea Muzica',
               song: 'Cuprins am fost de uimire',
               artist: 'Corul Zorilor',
@@ -96,6 +90,40 @@ void main() {
     test('hideSong wins over dropArtist', () {
       expect(verdict(station: 'RVE', song: 'RVE', artist: 'RVE'),
           NowPlayingVerdict.hideSong);
+    });
+  });
+
+  group('on-air placeholder rule', () {
+    test('a song that only says LIVE is hidden at any age', () {
+      expect(
+          verdict(
+              station: 'Radio Micul Samaritean',
+              song: 'LIVE',
+              artist: 'Radio Micul Samaritean'),
+          NowPlayingVerdict.hideSong);
+      expect(
+          verdict(
+              station: 'Radio Micul Samaritean',
+              song: 'LIVE',
+              age: const Duration(hours: 156)),
+          NowPlayingVerdict.hideSong);
+    });
+
+    test('case, spaces and punctuation around it are folded', () {
+      expect(verdict(song: 'live'), NowPlayingVerdict.hideSong);
+      expect(verdict(song: '  Live! '), NowPlayingVerdict.hideSong);
+    });
+
+    test('a station without a title still hides it', () {
+      expect(verdict(station: '', song: 'LIVE'), NowPlayingVerdict.hideSong);
+    });
+
+    test('a title that only contains LIVE is a song', () {
+      expect(verdict(song: 'SO BE IT ASA VA FI, LIVE'), NowPlayingVerdict.keep);
+      expect(verdict(song: 'Se apropie mereu sfarsitul LIVE'),
+          NowPlayingVerdict.keep);
+      expect(verdict(song: 'Lucruri noi (live) - Lucruri Noi (Live)'),
+          NowPlayingVerdict.keep);
     });
   });
 

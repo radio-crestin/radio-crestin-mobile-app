@@ -47,14 +47,17 @@ void main() {
   group('SongSearchTip', () {
     late int dismissals;
     late int outsideTaps;
+    late int skips;
 
     setUp(() {
       dismissals = 0;
       outsideTaps = 0;
+      skips = 0;
     });
 
     /// Pumps the tip over a song line in the middle of the screen, with a
-    /// button below it to tap outside the bubble.
+    /// button below it to tap outside the bubble, and a skip button in a
+    /// [SongSearchTipTapRegion].
     Future<void> pumpTip(WidgetTester tester, {required bool visible}) {
       return tester.pumpWidget(
         MaterialApp(
@@ -72,6 +75,12 @@ void main() {
                 TextButton(
                   onPressed: () => outsideTaps++,
                   child: const Text('alt buton'),
+                ),
+                SongSearchTipTapRegion(
+                  child: TextButton(
+                    onPressed: () => skips++,
+                    child: const Text('următoarea'),
+                  ),
                 ),
               ],
             ),
@@ -116,6 +125,19 @@ void main() {
 
       expect(dismissals, 1);
       expect(outsideTaps, 1);
+    });
+
+    testWidgets('a tap in a SongSearchTipTapRegion leaves it up',
+        (tester) async {
+      await pumpTip(tester, visible: true);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('următoarea'));
+      await tester.pumpAndSettle();
+
+      expect(dismissals, 0);
+      expect(skips, 1);
+      expect(find.text(SongSearchTip.title), findsOneWidget);
     });
   });
 }

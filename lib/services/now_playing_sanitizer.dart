@@ -21,6 +21,11 @@ abstract final class NowPlayingSanitizer {
   /// and 6.5 d old; dead rows and garbage 25-181 d.
   static const staleAfter = Duration(days: 14);
 
+  /// A song title that only says the station is on air (normalized). Radio
+  /// Micul Samaritean sends "LIVE" as its song all the time; the app labels
+  /// a station without a song "Live" itself, with nothing to search for.
+  static const _onAirPlaceholder = 'live';
+
   static final _separators = RegExp(r'[^\p{L}\p{N}]+', unicode: true);
   static const _diacritics = {
     'ă': 'a',
@@ -35,8 +40,9 @@ abstract final class NowPlayingSanitizer {
   /// Cheap check on typed fields; `keep` for almost every station, so the
   /// caller rebuilds a station only when something must be hidden.
   ///
-  /// A stale row, or a song title that only repeats the station name, hides
-  /// the song; that wins over an artist that only repeats it.
+  /// A stale row, a song title that only says "live", or one that only
+  /// repeats the station name, hides the song; that wins over an artist
+  /// that only repeats it.
   static NowPlayingVerdict verdict({
     required String? stationTitle,
     required DateTime? startedAt,
@@ -48,9 +54,11 @@ abstract final class NowPlayingSanitizer {
     if (startedAt != null && now.difference(startedAt) > staleAfter) {
       return NowPlayingVerdict.hideSong;
     }
+    final song = normalize(songName);
+    if (song == _onAirPlaceholder) return NowPlayingVerdict.hideSong;
     final station = normalize(stationTitle ?? '');
     if (station.isEmpty) return NowPlayingVerdict.keep;
-    if (normalize(songName) == station) return NowPlayingVerdict.hideSong;
+    if (song == station) return NowPlayingVerdict.hideSong;
     if (artistName != null && normalize(artistName) == station) {
       return NowPlayingVerdict.dropArtist;
     }
