@@ -84,7 +84,7 @@ void main() {
 
     expect(find.text(_title), findsOneWidget);
     expect(
-      find.text('Niciun prieten nu a accesat link-ul tău'),
+      find.text('Niciun prieten n-a deschis încă invitația ta'),
       findsOneWidget,
     );
     await answer(tester, _shareLink());
@@ -96,7 +96,7 @@ void main() {
 
     await answer(tester, _shareLink(visitCount: 2));
 
-    expect(find.text('2 prieteni au accesat invitația ta'), findsOneWidget);
+    expect(find.text('2 prieteni au deschis invitația ta'), findsOneWidget);
     expect(cardSize(tester), before);
   });
 
@@ -108,11 +108,11 @@ void main() {
     unawaited(cardKey.currentState!.refreshShareLink());
     await tester.pump();
 
-    expect(find.text('2 prieteni au accesat invitația ta'), findsOneWidget);
+    expect(find.text('2 prieteni au deschis invitația ta'), findsOneWidget);
     expect(cardSize(tester), before);
 
     await answer(tester, _shareLink(visitCount: 3));
-    expect(find.text('3 prieteni au accesat invitația ta'), findsOneWidget);
+    expect(find.text('3 prieteni au deschis invitația ta'), findsOneWidget);
   });
 
   testWidgets('shows once the first link arrives when none is cached',

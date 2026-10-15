@@ -131,6 +131,11 @@ class AppColors {
   static const Color inviteAccent = Color(0xfff48fb1);
   static const Color inviteAccentOnLight = Color(0xffc2185b);
 
+  // The share card's "Distribuie link-ul" button, in both themes: the brand
+  // pink deepened so its white label keeps 4.5:1 contrast (plain `primary`
+  // falls just short).
+  static const Color shareAction = Color(0xffd81b60);
+
   // Status snackbar (offline, back online, station error), a Material 3
   // inverse surface: these are the dark theme's (a light snackbar), the
   // `...OnLight` ones the light theme's (a dark snackbar). Text keeps 4.5:1

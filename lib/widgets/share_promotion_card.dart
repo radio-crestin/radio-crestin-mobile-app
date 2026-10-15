@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:radio_crestin/services/share_service.dart';
+import 'package:radio_crestin/theme.dart';
 import 'package:radio_crestin/widgets/share_handler.dart';
 import 'package:radio_crestin/utils/share_utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -10,6 +11,13 @@ import 'package:device_info_plus/device_info_plus.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:radio_crestin/services/analytics_service.dart';
 
+const Color _whatsAppGreen = Color(0xFF25D366);
+const Color _facebookBlue = Color(0xFF1877F2);
+
+/// The home page card that asks the listener to share the app.
+///
+/// A plain surface with one accent: WhatsApp and Facebook are round neutral
+/// buttons, and the system share sheet is the card's only filled button.
 class SharePromotionCard extends StatefulWidget {
   final GraphQLClient client;
   final String? currentStationSlug;
@@ -17,28 +25,18 @@ class SharePromotionCard extends StatefulWidget {
   final VoidCallback? onClose;
 
   const SharePromotionCard({
-    Key? key,
+    super.key,
     required this.client,
     this.currentStationSlug,
     this.currentStationName,
     this.onClose,
-  }) : super(key: key);
+  });
 
   @override
   State<SharePromotionCard> createState() => SharePromotionCardState();
 }
 
 class SharePromotionCardState extends State<SharePromotionCard> {
-  // Color constants
-  static Color _accentColor(BuildContext context) {
-    // Use orange for light theme, keep yellow for dark theme
-    return Theme.of(context).brightness == Brightness.light
-        ? const Color(0xFFFF6B35) // Orange for light theme
-        : const Color(0xFFffc700); // Yellow for dark theme
-  }
-  static const Color _whatsappColor = Color(0xFF25D366);
-  static const Color _facebookColor = Color(0xFF1877F2);
-  
   ShareLinkData? _shareLinkData;
   String? _anonymousId;
 
@@ -94,33 +92,24 @@ class SharePromotionCardState extends State<SharePromotionCard> {
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
-    if (_shareLinkData == null) {
+    final data = _shareLinkData;
+    if (data == null) {
       return const SizedBox.shrink();
     }
+    final palette = _CardPalette.of(Theme.of(context));
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Theme.of(context).primaryColor.withValues(alpha: 0.1),
-            Theme.of(context).primaryColor.withValues(alpha: 0.05),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(15),
-        border: Border.all(
-          color: Theme.of(context).primaryColor.withValues(alpha: 0.2),
-          width: 1,
-        ),
+        color: palette.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: palette.edge),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
+            color: palette.shadow,
+            blurRadius: 12,
             offset: const Offset(0, 4),
           ),
         ],
@@ -128,210 +117,67 @@ class SharePromotionCardState extends State<SharePromotionCard> {
       child: Stack(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 14),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.people_outline_rounded,
-                      color: Theme.of(context).primaryColor,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _shareLinkData!.shareSectionTitle.isNotEmpty
-                          ? _shareLinkData!.shareSectionTitle
-                          : 'Distribuie aplicația',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.onSurface,
-                        ),
-                      ),
-                    ),
-                  ],
+                _Header(
+                  title: data.shareSectionTitle.isNotEmpty
+                      ? data.shareSectionTitle
+                      : 'Distribuie aplicația',
+                  palette: palette,
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 10),
                 Text(
-                  _shareLinkData!.shareSectionMessage.isNotEmpty
-                    ? _shareLinkData!.shareSectionMessage
-                    : 'Ajută la răspândirea Evangheliei prin intermediul radioului creștin. Apasă aici pentru a trimite această aplicație prietenilor tăi.',
+                  data.shareSectionMessage.isNotEmpty
+                      ? data.shareSectionMessage
+                      : 'Ajută la răspândirea Evangheliei prin intermediul '
+                          'radioului creștin. Apasă aici pentru a trimite '
+                          'această aplicație prietenilor tăi.',
                   style: TextStyle(
-                    fontSize: 13,
-                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.85),
-                    height: 1.4,
+                    fontSize: 13.5,
+                    height: 1.5,
+                    color: palette.body,
                   ),
                 ),
-                if (_shareLinkData != null) ...[
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: _accentColor(context).withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.people_outline_rounded,
-                          size: 16,
-                          color: _accentColor(context),
-                        ),
-                        const SizedBox(width: 6),
-                        Flexible(
-                          child: Text(
-                            _shareLinkData!.visitCount == 0
-                                ? 'Niciun prieten nu a accesat link-ul tău'
-                                : _shareLinkData!.visitCount == 1
-                                    ? '1 prieten a accesat invitația ta'
-                                    : '${_shareLinkData!.visitCount} prieteni au accesat invitația ta',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: _accentColor(context),
-                            ),
-                            textAlign: TextAlign.left,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-          const SizedBox(height: 12),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.start,
-            children: [
-              _buildShareButton(
-                context: context,
-                icon: FontAwesomeIcons.whatsapp.data,
-                color: _whatsappColor,
-                onTap: () {
-                  AnalyticsService.instance.capture('button_clicked', {'button_name': 'promo_share_whatsapp'});
-                  _shareToWhatsApp();
-                },
-              ),
-              const SizedBox(width: 6),
-              _buildShareButton(
-                context: context,
-                icon: FontAwesomeIcons.facebook.data,
-                color: _facebookColor,
-                onTap: () {
-                  AnalyticsService.instance.capture('button_clicked', {'button_name': 'promo_share_facebook'});
-                  _shareToFacebook();
-                },
-              ),
-              const SizedBox(width: 6),
-              _buildShareButton(
-                context: context,
-                icon: Icons.people_outline_rounded,
-                label: 'Distribuie',
-                color: Theme.of(context).primaryColor,
-                onTap: () {
-                  AnalyticsService.instance.capture('button_clicked', {'button_name': 'promo_share_generic'});
-                  _shareGeneric(context);
-                },
-              ),
-                ],
-              ),
-            ],
-          ),
-          ),
-          // Close X button
-          Positioned(
-            top: 12,
-            right: 12,
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () {
-                  AnalyticsService.instance.capture('button_clicked', {'button_name': 'promo_card_close'});
-                  _handleClose();
-                },
-                borderRadius: BorderRadius.circular(20),
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.close,
-                    size: 18,
-                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildShareButton({
-    required BuildContext context,
-    IconData? icon,
-    IconData? iconData,
-    String? label,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    final iconToUse = icon ?? iconData ?? Icons.people_outline_rounded;
-    
-    if (label != null) {
-      return Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(24),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                color: color.withValues(alpha: 0.3),
-                width: 1,
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(iconToUse, size: 20, color: color),
-                const SizedBox(width: 8),
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: color,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
+                const SizedBox(height: 10),
+                _VisitCount(count: data.visitCount, palette: palette),
+                const SizedBox(height: 14),
+                _ShareActions(
+                  palette: palette,
+                  onWhatsApp: () {
+                    AnalyticsService.instance.capture('button_clicked',
+                        {'button_name': 'promo_share_whatsapp'});
+                    _shareToWhatsApp();
+                  },
+                  onFacebook: () {
+                    AnalyticsService.instance.capture('button_clicked',
+                        {'button_name': 'promo_share_facebook'});
+                    _shareToFacebook();
+                  },
+                  onShare: (buttonContext) {
+                    AnalyticsService.instance.capture('button_clicked',
+                        {'button_name': 'promo_share_generic'});
+                    _shareGeneric(buttonContext);
+                  },
                 ),
               ],
             ),
           ),
-        ),
-      );
-    }
-    
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(24),
-        child: Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.1),
-            shape: BoxShape.circle,
+          // Centred on the title row.
+          Positioned(
+            top: 4,
+            right: 2,
+            child: _CloseButton(
+              palette: palette,
+              onTap: () {
+                AnalyticsService.instance.capture('button_clicked',
+                    {'button_name': 'promo_card_close'});
+                _handleClose();
+              },
+            ),
           ),
-          child: Icon(iconToUse, size: 24, color: color),
-        ),
+        ],
       ),
     );
   }
@@ -364,7 +210,7 @@ class SharePromotionCardState extends State<SharePromotionCard> {
   void _shareGeneric(BuildContext context) {
     final shareUrl = _getShareUrl();
     final shareMessage = _getShareMessage();
-    
+
     ShareHandler.shareApp(
       context: context,
       shareUrl: shareUrl,
@@ -377,5 +223,287 @@ class SharePromotionCardState extends State<SharePromotionCard> {
     if (widget.onClose != null) {
       widget.onClose!();
     }
+  }
+}
+
+/// The card's colors for the current theme.
+@immutable
+class _CardPalette {
+  const _CardPalette({
+    required this.isApple,
+    required this.surface,
+    required this.edge,
+    required this.shadow,
+    required this.text,
+    required this.body,
+    required this.secondary,
+    required this.chip,
+    required this.closeFill,
+    required this.closeIcon,
+  });
+
+  factory _CardPalette.of(ThemeData theme) {
+    final isDark = theme.brightness == Brightness.dark;
+    final onSurface = theme.colorScheme.onSurface;
+    final ink = isDark ? Colors.white : Colors.black;
+    return _CardPalette(
+      isApple: theme.platform == TargetPlatform.iOS ||
+          theme.platform == TargetPlatform.macOS,
+      surface: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+      edge: ink.withValues(alpha: 0.08),
+      shadow: Colors.black.withValues(alpha: isDark ? 0.25 : 0.06),
+      text: onSurface,
+      body: onSurface.withValues(alpha: 0.78),
+      secondary: onSurface.withValues(alpha: 0.62),
+      chip: ink.withValues(alpha: isDark ? 0.08 : 0.05),
+      closeFill: ink.withValues(alpha: isDark ? 0.06 : 0.04),
+      closeIcon: onSurface.withValues(alpha: 0.45),
+    );
+  }
+
+  /// iOS and macOS get the iOS share icon, the rest the Material one.
+  final bool isApple;
+  final Color surface;
+  final Color edge;
+  final Color shadow;
+  final Color text;
+
+  /// The message under the title.
+  final Color body;
+
+  /// The visit count.
+  final Color secondary;
+
+  /// The WhatsApp and Facebook circles.
+  final Color chip;
+  final Color closeFill;
+  final Color closeIcon;
+}
+
+/// The people icon in the brand pink, beside the title.
+class _Header extends StatelessWidget {
+  const _Header({required this.title, required this.palette});
+
+  final String title;
+  final _CardPalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const Icon(
+          Icons.people_outline_rounded,
+          size: 20,
+          color: AppColors.primary,
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            title,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.2,
+              height: 1.3,
+              color: palette.text,
+            ),
+          ),
+        ),
+        // Keeps the title clear of the close button, which reaches 18 px
+        // past the card's padding, so the usual title still fits on one
+        // line on 390 pt wide phones.
+        const SizedBox(width: 24),
+      ],
+    );
+  }
+}
+
+/// How many friends opened the link, as quiet secondary text.
+class _VisitCount extends StatelessWidget {
+  const _VisitCount({required this.count, required this.palette});
+
+  final int count;
+  final _CardPalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(Icons.visibility_outlined, size: 14, color: palette.secondary),
+        const SizedBox(width: 6),
+        Flexible(
+          child: Text(
+            ShareUtils.visitCountText(count),
+            style: TextStyle(fontSize: 12.5, color: palette.secondary),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// WhatsApp and Facebook as round buttons, then "Distribuie link-ul", which
+/// opens the system share sheet.
+class _ShareActions extends StatelessWidget {
+  const _ShareActions({
+    required this.palette,
+    required this.onWhatsApp,
+    required this.onFacebook,
+    required this.onShare,
+  });
+
+  final _CardPalette palette;
+  final VoidCallback onWhatsApp;
+  final VoidCallback onFacebook;
+
+  /// Gets the button's own context, so the iPad share popover points at it.
+  final ValueChanged<BuildContext> onShare;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        _RoundShareButton(
+          label: 'Trimite pe WhatsApp',
+          fill: palette.chip,
+          onTap: onWhatsApp,
+          icon: Icon(
+            FontAwesomeIcons.whatsapp.data,
+            size: 22,
+            color: _whatsAppGreen,
+          ),
+        ),
+        const SizedBox(width: 8),
+        _RoundShareButton(
+          label: 'Trimite pe Facebook',
+          fill: palette.chip,
+          onTap: onFacebook,
+          icon: const _FacebookLogo(),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Builder(
+            builder: (buttonContext) => FilledButton.icon(
+              onPressed: () => onShare(buttonContext),
+              icon: Icon(
+                palette.isApple
+                    ? Icons.ios_share_rounded
+                    : Icons.share_rounded,
+                size: 18,
+              ),
+              label: const Text(
+                'Distribuie link-ul',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.shareAction,
+                foregroundColor: Colors.white,
+                minimumSize: const Size.fromHeight(44),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                shape: const StadiumBorder(),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                textStyle: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// A 44 px round button with only an icon; [label] is its tooltip and what
+/// screen readers say.
+class _RoundShareButton extends StatelessWidget {
+  const _RoundShareButton({
+    required this.label,
+    required this.fill,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String label;
+  final Color fill;
+  final Widget icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: label,
+      child: Material(
+        color: fill,
+        shape: const CircleBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: SizedBox.square(dimension: 44, child: Center(child: icon)),
+        ),
+      ),
+    );
+  }
+}
+
+/// Facebook's white "f" on its blue circle, which reads the same on the
+/// light and the dark button.
+class _FacebookLogo extends StatelessWidget {
+  const _FacebookLogo();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 22,
+      height: 22,
+      alignment: Alignment.center,
+      decoration: const BoxDecoration(
+        color: _facebookBlue,
+        shape: BoxShape.circle,
+      ),
+      child: Icon(
+        FontAwesomeIcons.facebookF.data,
+        size: 13,
+        color: Colors.white,
+      ),
+    );
+  }
+}
+
+/// The small X in the corner, with a 44 px tap area around it.
+class _CloseButton extends StatelessWidget {
+  const _CloseButton({required this.palette, required this.onTap});
+
+  final _CardPalette palette;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: 'Închide',
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          onTap: onTap,
+          customBorder: const CircleBorder(),
+          child: SizedBox.square(
+            dimension: 44,
+            child: Center(
+              child: Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: palette.closeFill,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.close, size: 16, color: palette.closeIcon),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
