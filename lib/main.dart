@@ -44,6 +44,7 @@ import 'services/error_filter.dart';
 import 'services/hls_health_watchdog_flag.dart';
 import 'services/hls_start_variant.dart';
 import 'services/hls_timeline.dart';
+import 'services/home_widget_service.dart';
 import 'services/image_cache_service.dart';
 import 'services/log_flush_guard.dart';
 import 'services/remote_debug_controller.dart';
@@ -397,6 +398,17 @@ void main() async {
   // Wait for audio (packageInfo already resolved above)
   final audioHandler = await audioHandlerFuture;
   getIt.registerSingleton<AppAudioHandler>(audioHandler);
+
+  // Before runApp: a Home Screen widget's button may be what launched the
+  // app, and waits for this to say it can take it.
+  if (Platform.isIOS) {
+    getIt.registerSingleton<HomeWidgetService>(HomeWidgetService(
+      audioHandler: audioHandler,
+      stationDataService: getIt<StationDataService>(),
+      playCountService: getIt<PlayCountService>(),
+      prefs: prefs,
+    )..start());
+  }
 
   // Initialize theme synchronously using already-loaded prefs (no async overhead)
   ThemeManager.initializeFromPrefs(prefs);

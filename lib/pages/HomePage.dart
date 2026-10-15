@@ -22,6 +22,7 @@ import '../components/SelectDialog.dart';
 import '../components/StationsList.dart';
 import '../main.dart';
 import '../queries/getStations.graphql.dart';
+import '../services/home_widget_service.dart';
 import '../services/launch_source_service.dart';
 import '../services/network_service.dart';
 import '../services/playlist_controller.dart';
@@ -1334,6 +1335,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if(!autoPlayProcessed) {
       autoPlayProcessed = true;
       await waitForStationsUpdate();
+      // A Home Screen widget's button launched the app: it already chose
+      // what plays.
+      if (getIt.isRegistered<HomeWidgetService>() &&
+          getIt<HomeWidgetService>().playbackCommanded) {
+        return;
+      }
       final prefs = getIt<SharedPreferences>();
       final autoStart = prefs.getBool('_autoStartStation') ?? true;
       var station = await _audioHandler.getLastPlayedStation();

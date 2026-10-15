@@ -422,6 +422,12 @@ When modifying CarPlay or Android Auto features:
 - **Image paths:** Native code must handle both `https://` URLs and `file://` cached paths.
 - **Method channel:** `com.radiocrestin.nowplaying_buttons` for iOS CarPlay button events.
 
+When modifying the iOS Home Screen widgets ("Acum ascult" small/medium, "Favorite" medium):
+- **Extension:** `ios/RadioCrestinWidgets/` (target `RadioCrestinWidgetsExtension`, iOS 15+). `Shared/` is compiled into both the extension and Runner.
+- **Data:** `lib/services/home_widget_service.dart` sends what the widgets show (the audible song, as on the lock screen) over `com.radiocrestin.home_widgets`; `ios/Runner/HomeWidgetBridge.swift` saves it with downsized images in the App Group `group.com.radiocrestinsoftware.radioApp` and reloads the widgets.
+- **Buttons:** iOS 17+ `AudioPlaybackIntent`s, which iOS runs in the app's process (launching it in the background if needed); before iOS 17 they are `radiocrestin://<slug>` links.
+- **Pitfall:** `widgetAccentedRenderingMode` on an image inside a widget `Button` takes it out of the tap area; it is applied only on a tinted Home Screen.
+
 ---
 
 ## Security

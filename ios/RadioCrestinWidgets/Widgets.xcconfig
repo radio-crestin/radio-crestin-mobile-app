@@ -1,0 +1,5 @@
+// The app's version and build number (FLUTTER_BUILD_NAME and
+// FLUTTER_BUILD_NUMBER), which an extension must share with its app.
+// Unlike Flutter/Release.xcconfig it leaves out the Pods settings: the
+// extension links no pods.
+#include "../Flutter/Generated.xcconfig"
