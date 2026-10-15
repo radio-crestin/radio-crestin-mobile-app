@@ -1,7 +1,10 @@
+import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:like_button/like_button.dart';
 import 'package:radio_crestin/theme.dart';
 import 'package:radio_crestin/pages/HomePage.dart';
@@ -20,11 +23,14 @@ import '../appAudioHandler.dart';
 import '../types/Station.dart';
 import '../widgets/animated_play_button.dart';
 import '../widgets/cast_button.dart';
+import '../widgets/copied_toast.dart';
+import '../widgets/panel_drag_region.dart';
 import '../widgets/player_video_surface.dart';
 import '../widgets/playlist_player_section.dart';
 import '../widgets/shrink_to_fit_text.dart';
 import '../widgets/sleep_timer_button.dart';
 import '../widgets/sleep_timer_sheet.dart';
+import '../widgets/song_actions_button.dart';
 import '../widgets/song_search_tip.dart';
 import '../widgets/video_overlay_controls.dart';
 
@@ -142,6 +148,19 @@ PlayerLayoutMetrics computePlayerLayout({
   );
 }
 
+/// The song as copied to the clipboard: "title - artist".
+String songClipboardText({required String title, required String artist}) =>
+    _joinSongParts([title, artist]);
+
+/// The YouTube search for the song: "artist - title".
+String songSearchQuery({required String title, required String artist}) =>
+    _joinSongParts([artist, title]);
+
+/// Joins only the parts the station named, so a song without an artist
+/// isn't "title - ".
+String _joinSongParts(List<String> parts) =>
+    parts.where((part) => part.isNotEmpty).join(' - ');
+
 class FullAudioPlayer extends StatefulWidget {
   final AppAudioHandler audioHandler;
   final CustomPanelController slidingUpPanelController;
@@ -151,10 +170,15 @@ class FullAudioPlayer extends StatefulWidget {
   /// home indicator or the navigation bar.
   final double bottomInset;
 
+  /// How far the panel slides between closed and open, so a drag the player
+  /// passes on to the panel moves it with the finger.
+  final double panelTravel;
+
   const FullAudioPlayer({
     super.key,
     required this.audioHandler,
     required this.slidingUpPanelController,
+    required this.panelTravel,
     this.bottomInset = 0.0,
   });
 
@@ -170,6 +194,8 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   final List _subscriptions = [];
   List<String> _favoriteSlugs = [];
   final _playButtonKey = GlobalKey<AnimatedPlayButtonState>();
+  // Lets the copy confirmation rise just above the bottom action row.
+  final _actionRowKey = GlobalKey();
   // Replaced for every station: LikeButton plays its "liked" burst whenever
   // `isLiked` turns true on a live button, so reusing one would celebrate
   // each favorite that next/previous lands on instead of just showing it.
@@ -646,8 +672,9 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   }
 
   /// The song title and artist, with the like / dislike buttons on their
-  /// right. A tap on the song searches YouTube for it; with no song named
-  /// ("Live") the text is not a button.
+  /// right. A tap on the song searches YouTube for it and a long press
+  /// opens a menu to copy it or search for it; with no song named ("Live")
+  /// the text is not a button.
   Widget _buildSongInfo(BuildContext context) {
     final songId = currentStation?.songId ?? -1;
     return Row(
@@ -656,16 +683,22 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
           child: SongSearchTip(
             visible: _showSongSearchTip,
             onDismiss: _dismissSongSearchTip,
-            child: _SongSearchButton(
-              onTap: _hasSong ? _searchSongOnYoutube : null,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _buildSongTitle(context),
-                  const SizedBox(height: 4),
-                  _buildArtist(context),
-                ],
+            child: PanelDragRegion(
+              controller: widget.slidingUpPanelController,
+              travel: widget.panelTravel,
+              child: SongActionsButton(
+                onSearch: _hasSong ? _searchSongOnYoutube : null,
+                onCopy: _hasSong ? _copySong : null,
+                onMenuOpened: _trackSongMenuOpened,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildSongTitle(context),
+                    const SizedBox(height: 4),
+                    _buildArtist(context),
+                  ],
+                ),
               ),
             ),
           ),
@@ -767,30 +800,34 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
       ),
     ];
 
-    return MediaQuery.withClampedTextScaling(
-      maxScaleFactor: _maxActionLabelTextScale,
-      child: alignStart
-          // Scales down rather than overflowing a narrow column.
-          ? FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: AlignmentDirectional.centerStart,
-              child: Row(mainAxisSize: MainAxisSize.min, children: actions),
-            )
-          // On tablets the row spans no wider than the largest artwork and
-          // its margins, so the actions stay close together.
-          : ConstrainedBox(
-              constraints: const BoxConstraints(
-                maxWidth: _maxArtworkSize + 2 * _artworkSideMargin,
-              ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                child: Row(
-                  children: [
-                    for (final action in actions) Expanded(child: action),
-                  ],
+    // Keyed here: withClampedTextScaling drops the key it is given.
+    return KeyedSubtree(
+      key: _actionRowKey,
+      child: MediaQuery.withClampedTextScaling(
+        maxScaleFactor: _maxActionLabelTextScale,
+        child: alignStart
+            // Scales down rather than overflowing a narrow column.
+            ? FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: AlignmentDirectional.centerStart,
+                child: Row(mainAxisSize: MainAxisSize.min, children: actions),
+              )
+            // On tablets the row spans no wider than the largest artwork and
+            // its margins, so the actions stay close together.
+            : ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: _maxArtworkSize + 2 * _artworkSideMargin,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                  child: Row(
+                    children: [
+                      for (final action in actions) Expanded(child: action),
+                    ],
+                  ),
                 ),
               ),
-            ),
+      ),
     );
   }
 
@@ -1116,12 +1153,8 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     // Using the search is the lesson the tip teaches.
     _dismissSongSearchTip();
     AnalyticsService.instance.capture('button_clicked', {'button_name': 'youtube_search', 'station_id': station.id, 'station_slug': station.slug, 'song_id': station.songId, 'song_title': station.songTitle});
-    // Joined only from the parts the station named, so a song without an
-    // artist isn't searched as " - title".
     final query = Uri.encodeQueryComponent(
-      [station.songArtist, station.songTitle]
-          .where((part) => part.isNotEmpty)
-          .join(' - '),
+      songSearchQuery(title: station.songTitle, artist: station.songArtist),
     );
     try {
       await launchUrl(
@@ -1131,6 +1164,61 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     } catch (_) {
       // Neither the YouTube app nor a browser could take the link; nothing
       // else to offer from here.
+    }
+  }
+
+  void _trackSongMenuOpened() {
+    AnalyticsService.instance.capture('button_clicked', {'button_name': 'song_menu', 'station_id': currentStation?.id, 'station_slug': currentStation?.slug, 'song_id': currentStation?.songId});
+  }
+
+  /// Copies the playing song as "title - artist", with the platform's
+  /// success haptic, and confirms it on screen unless the system already
+  /// does.
+  ///
+  /// No sound: neither platform plays one for a copy, and it would land on
+  /// top of the station the user is listening to.
+  Future<void> _copySong() async {
+    final station = currentStation;
+    if (station == null) return;
+    AnalyticsService.instance.capture('button_clicked', {'button_name': 'copy_song', 'station_id': station.id, 'station_slug': station.slug, 'song_id': station.songId, 'song_title': station.songTitle});
+    try {
+      await Clipboard.setData(ClipboardData(
+        text: songClipboardText(
+          title: station.songTitle,
+          artist: station.songArtist,
+        ),
+      ));
+    } catch (_) {
+      return;
+    }
+    HapticFeedback.successNotification();
+    if (await _systemConfirmsCopies() || !mounted) return;
+    CopiedToast.show(
+      context,
+      message: 'Melodie copiată',
+      bottom: _aboveActionRow(),
+    );
+  }
+
+  /// How far above the screen's bottom edge a toast clears the bottom
+  /// action row, so it never covers those buttons; null if the row isn't
+  /// laid out.
+  double? _aboveActionRow() {
+    final row = _actionRowKey.currentContext?.findRenderObject();
+    if (row is! RenderBox || !row.hasSize) return null;
+    final rowTop = row.localToGlobal(Offset.zero).dy;
+    return MediaQuery.sizeOf(context).height - rowTop + 8;
+  }
+
+  /// Whether the system shows its own confirmation of a copy, as Android
+  /// does from 13 on; a second one from the app would only repeat it.
+  static Future<bool> _systemConfirmsCopies() async {
+    if (!Platform.isAndroid) return false;
+    try {
+      final info = await DeviceInfoPlugin().androidInfo;
+      return info.version.sdkInt >= 33;
+    } catch (_) {
+      return false;
     }
   }
 
@@ -1248,64 +1336,6 @@ class _EllipticalGradientTransform extends GradientTransform {
 /// The like / dislike buttons for the playing song: two outlined circles. A
 /// like floods its circle with the brand pink, a dislike with a quiet tint of
 /// the text color.
-/// The song title and artist as one button, which searches YouTube for the
-/// song. While pressed the text dims, the way iOS shows a pressed text
-/// button, rather than a highlight drawn around it.
-///
-/// A null [onTap] (no song named) leaves the text inert; the widgets stay
-/// the same either way, so the text still crossfades into the first song.
-class _SongSearchButton extends StatefulWidget {
-  const _SongSearchButton({required this.onTap, required this.child});
-
-  final VoidCallback? onTap;
-  final Widget child;
-
-  @override
-  State<_SongSearchButton> createState() => _SongSearchButtonState();
-}
-
-class _SongSearchButtonState extends State<_SongSearchButton> {
-  /// The text's opacity while a finger is on it.
-  static const double _pressedOpacity = 0.5;
-
-  bool _pressed = false;
-
-  void _setPressed(bool pressed) {
-    if (pressed != _pressed) setState(() => _pressed = pressed);
-  }
-
-  @override
-  void didUpdateWidget(_SongSearchButton oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // The song can go away mid-press, and with it the tap's end.
-    if (widget.onTap == null) _pressed = false;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final enabled = widget.onTap != null;
-    return MergeSemantics(
-      child: Semantics(
-        button: enabled,
-        hint: enabled ? 'Caută pe YouTube' : null,
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTapDown: enabled ? (_) => _setPressed(true) : null,
-          onTapUp: enabled ? (_) => _setPressed(false) : null,
-          onTapCancel: enabled ? () => _setPressed(false) : null,
-          onTap: widget.onTap,
-          child: AnimatedOpacity(
-            opacity: _pressed ? _pressedOpacity : 1,
-            duration: const Duration(milliseconds: 150),
-            curve: Curves.easeInOut,
-            child: widget.child,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _RatingButtons extends StatelessWidget {
   const _RatingButtons({
     required this.likeStatus,

@@ -1054,6 +1054,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     ? FullAudioPlayer(
                         audioHandler: _audioHandler,
                         slidingUpPanelController: slidingUpPanelController,
+                        panelTravel: panelMaxHeight - panelMinHeight,
                         bottomInset: panelBottomInset,
                       )
                     : null,
