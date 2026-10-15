@@ -265,6 +265,23 @@ void main() {
       expect(hides, 1);
     });
 
+    testWidgets('the first row in view hidden, the rows below move up into '
+        'its place', (tester) async {
+      // Its row leaves the list in the frame its slot closes, and is out of
+      // the tree, though not yet gone, while that frame lays out.
+      await pumpLists(tester, scrolled: 400);
+      final s4 = topOf(tester, 'S4');
+
+      hide('s4');
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      // Within the last step of its slot, which closes as its row leaves.
+      expect(topOf(tester, 'S5'), moreOrLessEquals(s4, epsilon: 3));
+      expect(controller.offset, moreOrLessEquals(400, epsilon: 3));
+      expect(hides, 1);
+    });
+
     testWidgets('its row closing above the view moves nothing in view',
         (tester) async {
       // Hidden from the full list, while its Favorite row is above.

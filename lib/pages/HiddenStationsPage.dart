@@ -7,6 +7,7 @@ import 'package:rxdart/rxdart.dart';
 import '../appAudioHandler.dart';
 import '../main.dart' show getIt;
 import '../services/analytics_service.dart';
+import '../services/now_playing_sanitizer.dart';
 import '../services/station_data_service.dart';
 import '../theme.dart';
 import '../types/Station.dart';
@@ -15,6 +16,7 @@ import '../widgets/pinned_title_sliver_header.dart';
 
 /// The stations the listener hid, last hidden first, each with a button
 /// that adds it back to the lists. Without any, it tells how to hide one.
+/// Over more than five, a search field narrows them down by name.
 class HiddenStationsPage extends StatefulWidget {
   const HiddenStationsPage({super.key});
 
@@ -40,27 +42,59 @@ class HiddenStationsPage extends StatefulWidget {
 }
 
 class _HiddenStationsPageState extends State<HiddenStationsPage> {
+  /// How many hidden stations the page lists before it offers a search.
+  static const _listedWithoutSearch = 5;
+
   final StationDataService _stationDataService = getIt<StationDataService>();
   final AppAudioHandler _audioHandler = getIt<AppAudioHandler>();
+  final TextEditingController _search = TextEditingController();
   StreamSubscription<List<Station>>? _subscription;
   late List<Station> _stations = _stationDataService.hiddenStations;
+
+  /// Whether the page shows its search field. Once shown, it stays while
+  /// the page is open, rather than leaving as stations are re-added.
+  late bool _searchable = _needsSearch(_stations);
+
+  static bool _needsSearch(List<Station> stations) =>
+      stations.length > _listedWithoutSearch;
 
   @override
   void initState() {
     super.initState();
+    _search.addListener(_onSearchChanged);
     _subscription = Rx.combineLatest2(
       _stationDataService.stations.stream,
       _stationDataService.hiddenStationSlugs.stream,
       (_, __) => _stationDataService.hiddenStations,
     ).listen((stations) {
-      if (mounted) setState(() => _stations = stations);
+      if (!mounted) return;
+      setState(() {
+        _stations = stations;
+        _searchable |= _needsSearch(stations);
+      });
     });
   }
 
   @override
   void dispose() {
     _subscription?.cancel();
+    _search.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged() => setState(() {});
+
+  /// The hidden stations whose name holds the search, with or without
+  /// diacritics, as the station search finds them.
+  List<Station> get _matching {
+    final query = NowPlayingSanitizer.normalize(_search.text);
+    if (query.isEmpty) return _stations;
+    return [
+      for (final station in _stations)
+        if (NowPlayingSanitizer.normalize(station.displayTitle)
+            .contains(query))
+          station,
+    ];
   }
 
   void _show(Station station) {
@@ -79,6 +113,7 @@ class _HiddenStationsPageState extends State<HiddenStationsPage> {
     final stations = _stations;
     return Scaffold(
       body: CustomScrollView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         slivers: [
           const PinnedTitleSliverHeader(title: 'Stații ascunse'),
           SliverSafeArea(
@@ -96,7 +131,12 @@ class _HiddenStationsPageState extends State<HiddenStationsPage> {
                     ? const _EmptyState()
                     : _HiddenList(
                         key: const ValueKey('list'),
-                        stations: stations,
+                        stations: _matching,
+                        // The last one leaves with the whole list instead.
+                        foldsAway: stations.length > 1,
+                        search: _searchable
+                            ? _SearchField(controller: _search)
+                            : null,
                         onShow: _show,
                       ),
               ),
@@ -154,18 +194,34 @@ class _HiddenList extends StatelessWidget {
   const _HiddenList({
     super.key,
     required this.stations,
+    required this.foldsAway,
     required this.onShow,
+    this.search,
   });
 
+  /// The stations listed: the ones the search finds.
   final List<Station> stations;
+
+  /// Whether "Readaugă" folds a row away before showing its station.
+  final bool foldsAway;
+
   final ValueChanged<Station> onShow;
+
+  /// The search field over the list, if it has one.
+  final Widget? search;
 
   @override
   Widget build(BuildContext context) {
     final colors = _Grouped.of(context);
+    final search = this.search;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (search != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: search,
+          ),
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
           child: Text(
@@ -173,30 +229,97 @@ class _HiddenList extends StatelessWidget {
             style: TextStyle(fontSize: 14, height: 1.4, color: colors.secondary),
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Material(
-            color: colors.card,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: Column(
-              children: [
-                for (final (index, station) in stations.indexed)
-                  _HiddenStationRow(
-                    key: ValueKey(station.slug),
-                    station: station,
-                    showDivider: index < stations.length - 1,
-                    foldsAway: stations.length > 1,
-                    onShow: () => onShow(station),
-                  ),
-              ],
+        if (stations.isEmpty)
+          const _NoMatch()
+        else
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Material(
+              color: colors.card,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                children: [
+                  for (final (index, station) in stations.indexed)
+                    _HiddenStationRow(
+                      key: ValueKey(station.slug),
+                      station: station,
+                      showDivider: index < stations.length - 1,
+                      foldsAway: foldsAway,
+                      onShow: () => onShow(station),
+                    ),
+                ],
+              ),
             ),
           ),
-        ),
         const SizedBox(height: 40),
       ],
+    );
+  }
+}
+
+/// "Caută o stație", a field in the color of the list's card.
+class _SearchField extends StatelessWidget {
+  const _SearchField({required this.controller});
+
+  final TextEditingController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = _Grouped.of(context);
+    final border = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide.none,
+    );
+    return TextField(
+      controller: controller,
+      textInputAction: TextInputAction.search,
+      autocorrect: false,
+      cursorColor: colors.action,
+      style: TextStyle(fontSize: 16, color: colors.text),
+      decoration: InputDecoration(
+        filled: true,
+        fillColor: colors.card,
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(vertical: 11),
+        hintText: 'Caută o stație',
+        hintStyle: TextStyle(fontSize: 16, color: colors.secondary),
+        prefixIcon:
+            Icon(Icons.search_rounded, size: 20, color: colors.secondary),
+        suffixIcon: controller.text.isEmpty
+            ? null
+            : IconButton(
+                onPressed: controller.clear,
+                tooltip: 'Șterge căutarea',
+                icon: Icon(
+                  Icons.cancel_rounded,
+                  size: 18,
+                  color: colors.secondary,
+                ),
+              ),
+        border: border,
+        enabledBorder: border,
+        focusedBorder: border,
+      ),
+    );
+  }
+}
+
+/// The search finds no hidden station.
+class _NoMatch extends StatelessWidget {
+  const _NoMatch();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(32, 24, 32, 0),
+      child: Text(
+        'Nicio stație găsită.',
+        textAlign: TextAlign.center,
+        style: TextStyle(fontSize: 15, color: _Grouped.of(context).secondary),
+      ),
     );
   }
 }

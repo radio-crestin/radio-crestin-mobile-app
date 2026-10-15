@@ -197,63 +197,57 @@ class FlutterCarplay {
   }
 
   /// It will update the sections of the [CPListTemplate] which has the given [elementId].
+  ///
+  /// The kept template takes the new sections as they are sent, rather than
+  /// once iOS answers: a tab bar update sent meanwhile carries the list
+  /// again, and iOS would put back the sections it held.
   Future<void> updateListTemplateSections({
     required String elementId,
     required List<CPListSection> sections,
   }) async {
-    final bool? isCompleted = await _carPlayController.methodChannel
+    FlutterCarPlayController.getTemplateFromHistory<CPListTemplate>(elementId)
+        ?.updateSections(sections);
+    await _carPlayController.methodChannel
         .invokeMethod('updateListTemplateSections', <String, dynamic>{
       'elementId': elementId,
       'sections':
           sections.map((CPListSection section) => section.toJson()).toList(),
     });
-
-    if (isCompleted == true) {
-      final template =
-          FlutterCarPlayController.getTemplateFromHistory<CPListTemplate>(
-              elementId);
-      template?.updateSections(sections);
-    }
-    return;
   }
 
   /// Replaces the buttons pinned at the top of the [CPListTemplate] which
   /// has the given [elementId]. Does nothing before iOS 26.
+  ///
+  /// Kept as they are sent, as for [updateListTemplateSections].
   Future<void> updateListTemplateHeaderGridButtons({
     required String elementId,
     required List<CPGridButton> buttons,
   }) async {
-    final bool? isCompleted = await _carPlayController.methodChannel
+    FlutterCarPlayController.getTemplateFromHistory<CPListTemplate>(elementId)
+        ?.updateHeaderGridButtons(buttons);
+    await _carPlayController.methodChannel
         .invokeMethod('updateListTemplateHeaderGridButtons', <String, dynamic>{
       'elementId': elementId,
       'buttons': buttons.map((CPGridButton button) => button.toJson()).toList(),
     });
-
-    if (isCompleted == true) {
-      FlutterCarPlayController.getTemplateFromHistory<CPListTemplate>(
-              elementId)
-          ?.updateHeaderGridButtons(buttons);
-    }
   }
 
   /// Replaces the titled row of pictures above the sections of the
   /// [CPListTemplate] which has the given [elementId]; null removes it.
   /// Does nothing before iOS 26.
+  ///
+  /// Kept as it is sent, as for [updateListTemplateSections].
   Future<void> updateListTemplateHeaderImageRow({
     required String elementId,
     required CPImageRow? row,
   }) async {
-    final bool? isCompleted = await _carPlayController.methodChannel
+    FlutterCarPlayController.getTemplateFromHistory<CPListTemplate>(elementId)
+        ?.headerImageRow = row;
+    await _carPlayController.methodChannel
         .invokeMethod('updateListTemplateHeaderImageRow', <String, dynamic>{
       'elementId': elementId,
       'row': row?.toJson(),
     });
-
-    if (isCompleted == true) {
-      FlutterCarPlayController.getTemplateFromHistory<CPListTemplate>(
-              elementId)
-          ?.headerImageRow = row;
-    }
   }
 
   /// What the CarPlay templates support on the running iOS version, such as

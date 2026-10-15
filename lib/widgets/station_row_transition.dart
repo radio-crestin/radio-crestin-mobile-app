@@ -164,6 +164,20 @@ class _StationRowTransitionState extends State<StationRowTransition>
 
   void _holdRowsInView() => widget.transitions.scrollAnchor.hold();
 
+  // Out of the tree, for good or until it moves within it: a row that left
+  // the list stays until the end of the frame, while the list lays out.
+  @override
+  void deactivate() {
+    widget.transitions.scrollAnchor.detach(context);
+    super.deactivate();
+  }
+
+  @override
+  void activate() {
+    super.activate();
+    widget.transitions.scrollAnchor.attach(context);
+  }
+
   @override
   void dispose() {
     _detach(widget.transitions);

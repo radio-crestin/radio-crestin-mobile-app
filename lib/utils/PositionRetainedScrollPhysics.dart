@@ -128,9 +128,11 @@ class RowScrollAnchor {
   /// The scroll position the held frame's layout started from.
   double? _from;
 
-  /// Makes [row] one of the rows kept in place.
+  /// Makes [row] one of the rows kept in place, while it is in the tree.
   void attach(BuildContext row) => _rows.add(row);
 
+  /// Takes [row] out of the rows kept in place: it left the tree, so it
+  /// can't be measured any more, even before it is disposed.
   void detach(BuildContext row) => _rows.remove(row);
 
   /// Remembers where the rows in view are, until the frame is drawn.
@@ -171,10 +173,11 @@ class RowScrollAnchor {
     if (held == null || oldPosition.pixels <= oldPosition.minScrollExtent) {
       return null;
     }
-    // The first row still there: a hidden one is gone once its slot closed,
-    // and the row after it took its place.
+    // The first row still there: a hidden one left the tree once its slot
+    // closed, in this very frame maybe, and the row after it took its
+    // place.
     for (final (row, top) in held) {
-      if (!row.mounted) continue;
+      if (!_rows.contains(row)) continue;
       final box = row.findRenderObject();
       final now = box == null || !box.attached ? null : _scrollOffsetOf(box);
       if (now == null) continue;

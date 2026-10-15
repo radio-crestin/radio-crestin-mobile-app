@@ -267,4 +267,41 @@ void main() {
     expect((args['row'] as Map)['_elementId'], replacement.uniqueId);
     expect(home.headerImageRow, same(replacement));
   });
+
+  test('a tab bar update sent before iOS answered a list update carries '
+      'the new list, so iOS keeps it', () async {
+    // Hiding a station updates Home, then the Categories tab (its station
+    // counts), which sends Home along with it.
+    final home = list(row: CPImageRow(title: 'Favorite', elements: []));
+    final tabBar = CPTabBarTemplate(templates: [home]);
+    FlutterCarPlayController.templateHistory.add(tabBar);
+    final carplay = FlutterCarplay();
+    final row = CPImageRow(title: 'Favorite', elements: [picture('Gosen')]);
+    final pinned = button('Radio Gosen');
+
+    final updates = [
+      carplay.updateListTemplateSections(
+        elementId: home.uniqueId,
+        sections: [CPListSection(items: [CPListItem(text: 'Gosen')])],
+      ),
+      carplay.updateListTemplateHeaderImageRow(
+          elementId: home.uniqueId, row: row),
+      carplay.updateListTemplateHeaderGridButtons(
+          elementId: home.uniqueId, buttons: [pinned]),
+      carplay.updateTabBarTemplates(
+          elementId: tabBar.uniqueId, templates: [home]),
+    ];
+    await Future.wait(updates);
+
+    final sent = calls.last;
+    expect(sent.method, 'updateTabBarTemplates');
+    final homeJson = ((sent.arguments as Map)['templates'] as List).single
+        as Map;
+    final items = ((homeJson['sections'] as List).single as Map)['items'];
+    expect([for (final item in items as List) (item as Map)['text']],
+        ['Gosen']);
+    expect((homeJson['headerImageRow'] as Map)['_elementId'], row.uniqueId);
+    expect((homeJson['headerGridButtons'] as List).single['_elementId'],
+        pinned.uniqueId);
+  });
 }

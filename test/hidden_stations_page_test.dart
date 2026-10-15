@@ -139,4 +139,95 @@ void main() {
 
     expect(service.hiddenStationSlugs.value, ['alpha']);
   });
+
+  group('search', () {
+    final titles = [
+      'Aripi Spre Cer',
+      'Aripi Spre Cer Predici',
+      'Calea Spre Cer',
+      'RVE Oradea',
+      'RVE Soveja',
+      'Vocea Evangheliei',
+      'Radio Credința',
+    ];
+    final many = [
+      for (final (i, title) in titles.indexed)
+        StationFactory.createStation(
+            id: 10 + i, slug: 's$i', title: title, thumbnailUrl: null),
+    ];
+    final searchField = find.byType(TextField);
+
+    Future<void> hide(int count) async {
+      service.applyPublicStationsForTest(many);
+      for (final station in many.take(count)) {
+        await service.setStationIsHidden(station, true);
+      }
+    }
+
+    List<String> listed() => [
+          for (final title in titles)
+            if (find.text(title).evaluate().isNotEmpty) title,
+        ];
+
+    testWidgets('five hidden stations are listed without one',
+        (tester) async {
+      await hide(5);
+      await pumpPage(tester);
+
+      expect(searchField, findsNothing);
+      expect(listed(), hasLength(5));
+    });
+
+    testWidgets('over five, it narrows them down by name, with or without '
+        'diacritics', (tester) async {
+      await hide(7);
+      await pumpPage(tester);
+      expect(searchField, findsOneWidget);
+
+      await tester.enterText(searchField, 'credinta');
+      await tester.pump();
+      expect(listed(), ['Radio Credința']);
+
+      await tester.enterText(searchField, 'aripi');
+      await tester.pump();
+      expect(listed(), ['Aripi Spre Cer', 'Aripi Spre Cer Predici']);
+
+      await tester.enterText(searchField, 'gosen');
+      await tester.pump();
+      expect(listed(), isEmpty);
+      expect(find.text('Nicio stație găsită.'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Șterge căutarea'));
+      await tester.pump();
+      expect(listed(), titles);
+      expect(find.byTooltip('Șterge căutarea'), findsNothing);
+    });
+
+    testWidgets('a station re-added from the results leaves them',
+        (tester) async {
+      await hide(7);
+      await pumpPage(tester);
+
+      await tester.enterText(searchField, 'aripi');
+      await tester.pump();
+      // The last hidden is listed first.
+      await tester.tap(find.text('Readaugă').first);
+      await tester.pumpAndSettle();
+
+      expect(service.hiddenStationSlugs.value, isNot(contains('s1')));
+      expect(listed(), ['Aripi Spre Cer']);
+    });
+
+    testWidgets('it stays while stations are re-added, down to five',
+        (tester) async {
+      await hide(6);
+      await pumpPage(tester);
+
+      await tester.tap(find.text('Readaugă').first);
+      await tester.pumpAndSettle();
+
+      expect(service.hiddenStationSlugs.value, hasLength(5));
+      expect(searchField, findsOneWidget);
+    });
+  });
 }
