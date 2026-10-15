@@ -4,6 +4,7 @@ import 'dart:developer' as developer;
 import 'package:http/http.dart' as http;
 import 'package:radio_crestin/constants.dart';
 import 'package:radio_crestin/services/audible_song_policy.dart';
+import 'package:radio_crestin/services/now_playing_sanitizer.dart';
 
 /// A single item in the song history timeline.
 class SongHistoryItem {
@@ -43,6 +44,16 @@ class SongHistoryItem {
   }
 
   bool get hasSong => songName != null && songName!.isNotEmpty;
+
+  /// [songName] as shown, starting with a capital letter like the live
+  /// song ([NowPlayingSanitizer.capitalized]); the merge keeps it as sent.
+  String? get displaySongName => _capitalized(songName);
+
+  /// [artistName] as shown, starting with a capital letter.
+  String? get displayArtistName => _capitalized(artistName);
+
+  static String? _capitalized(String? text) =>
+      text == null ? null : NowPlayingSanitizer.capitalized(text);
 
   DateTime get dateTime => DateTime.parse(timestamp);
 

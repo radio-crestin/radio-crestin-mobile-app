@@ -476,7 +476,7 @@ class _SongHistoryModalState extends State<SongHistoryModal> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      item.songName ?? 'Necunoscut',
+                      item.displaySongName ?? 'Necunoscut',
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodyMedium?.copyWith(
@@ -488,7 +488,7 @@ class _SongHistoryModalState extends State<SongHistoryModal> {
                     const SizedBox(height: 3),
                     if (item.artistName != null && item.artistName!.isNotEmpty)
                       Text(
-                        item.artistName!,
+                        item.displayArtistName!,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(

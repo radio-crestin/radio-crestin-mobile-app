@@ -1360,9 +1360,9 @@ class AppAudioHandler extends BaseAudioHandler {
             final thumbUrl = item.songThumbnailUrl ?? stationThumbUrl;
             return MediaItem(
               id: 'history_${station.slug}_${item.timestamp}',
-              title: item.songName ?? 'Necunoscut',
+              title: item.displaySongName ?? 'Necunoscut',
               artist: item.artistName != null
-                  ? '$timeStr - ${item.artistName}'
+                  ? '$timeStr - ${item.displayArtistName}'
                   : timeStr,
               artUri: thumbUrl != null ? Uri.parse(thumbUrl) : null,
             );

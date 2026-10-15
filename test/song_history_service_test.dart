@@ -55,6 +55,30 @@ void main() {
       });
       expect(item.hasSong, false);
     });
+
+    test('shows the song and artist capitalized, keeps them as sent', () {
+      final item = SongHistoryItem.fromJson({
+        'timestamp': '2026-04-15T12:34:56Z',
+        'song': {
+          'id': 1,
+          'name': 'mergand pe calea vieti',
+          'artist': {'id': 2, 'name': 'david dolha'},
+        },
+      });
+      expect(item.displaySongName, 'Mergand pe calea vieti');
+      expect(item.displayArtistName, 'David dolha');
+      expect(item.songName, 'mergand pe calea vieti');
+      expect(item.toNowPlayingJson()['song']['name'],
+          'mergand pe calea vieti');
+    });
+
+    test('shows no song or artist when there is none', () {
+      final item = SongHistoryItem.fromJson({
+        'timestamp': '2026-04-15T12:34:56Z',
+      });
+      expect(item.displaySongName, isNull);
+      expect(item.displayArtistName, isNull);
+    });
   });
 
   group('SongHistoryResponse.fromJson', () {

@@ -508,8 +508,8 @@ class CarPlayService {
           .map((item) {
             final time = item.dateTime.toLocal();
             final timeStr = '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
-            final title = item.songName ?? 'Necunoscut';
-            final artist = item.artistName != null ? '$timeStr - ${item.artistName}' : timeStr;
+            final title = item.displaySongName ?? 'Necunoscut';
+            final artist = item.artistName != null ? '$timeStr - ${item.displayArtistName}' : timeStr;
             final thumbUrl = _cachedOrNetworkUrl(songHistoryThumbnailSource(
               item.songThumbnailUrl,
               station.thumbnailUrl,

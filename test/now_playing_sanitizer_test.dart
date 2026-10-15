@@ -127,6 +127,73 @@ void main() {
     });
   });
 
+  group('capitalized', () {
+    String cap(String text) => NowPlayingSanitizer.capitalized(text);
+
+    test('starts a lowercase title or name with a capital letter', () {
+      expect(cap('mergand pe calea vieti'), 'Mergand pe calea vieti');
+      expect(cap('david dolha'), 'David dolha');
+      expect(cap('ștefan și prietenii'), 'Ștefan și prietenii');
+      expect(cap('copii-Arca lui Noe'), 'Copii-Arca lui Noe');
+      expect(cap('fr.Aschilean - Prin lunga noastra pribegie'),
+          'Fr.Aschilean - Prin lunga noastra pribegie');
+    });
+
+    test('the first letter can follow punctuation', () {
+      expect(cap('(in Fata Ta)'), '(In Fata Ta)');
+      expect(cap('- poate Domnul'), '- Poate Domnul');
+    });
+
+    test('keeps the rest as sent', () {
+      expect(cap('Acolo nu vor fi'), 'Acolo nu vor fi');
+      expect(cap('DE VORBA CU AVOCATUL'), 'DE VORBA CU AVOCATUL');
+    });
+
+    test('leaves a title that starts with a digit', () {
+      expect(cap('03. dana si crina'), '03. dana si crina');
+    });
+
+    test('leaves names styled in mixed case', () {
+      expect(cap('iBelieve Worship'), 'iBelieve Worship');
+      expect(cap('beCLEAN'), 'beCLEAN');
+      expect(cap('kL'), 'kL');
+    });
+
+    test('leaves web addresses', () {
+      expect(cap('www.rvesv.ro'), 'www.rvesv.ro');
+      expect(cap('(www.rvesv.ro)'), '(www.rvesv.ro)');
+      expect(cap('https://radiocrestin.ro'), 'https://radiocrestin.ro');
+    });
+
+    test('leaves text without a letter or digit', () {
+      expect(cap(''), '');
+      expect(cap(' - '), ' - ');
+    });
+  });
+
+  group('capitalize verdict', () {
+    test('a lowercase song or artist is capitalized', () {
+      expect(verdict(song: 'vine isus'), NowPlayingVerdict.capitalize);
+      expect(verdict(artist: 'speranta si prietenii'),
+          NowPlayingVerdict.capitalize);
+    });
+
+    test('a capitalized song is kept; a station without a title capitalizes',
+        () {
+      expect(verdict(artist: 'Speranta'), NowPlayingVerdict.keep);
+      expect(verdict(station: '', song: 'vine isus'),
+          NowPlayingVerdict.capitalize);
+    });
+
+    test('hiding wins over capitalizing', () {
+      expect(
+          verdict(song: 'vine isus', age: const Duration(days: 15)),
+          NowPlayingVerdict.hideSong);
+      expect(verdict(station: 'RVE Oradea', song: 'rve oradea'),
+          NowPlayingVerdict.hideSong);
+    });
+  });
+
   test('a fresh, ordinary row is kept; no song is kept', () {
     expect(verdict(artist: 'Hristic'), NowPlayingVerdict.keep);
     expect(verdict(song: null), NowPlayingVerdict.keep);
@@ -160,6 +227,48 @@ void main() {
       final out = NowPlayingSanitizer.apply(
           stationJson(), NowPlayingVerdict.dropArtist);
       expect(out['now_playing']['song']['name'], 'RVE Oradea');
+      expect(out['now_playing']['song']['artist'], isNull);
+    });
+
+    Map<String, dynamic> lowercaseJson({Object? artist}) => {
+          'id': 1,
+          'title': 'Radio Test',
+          'now_playing': {
+            'id': 3,
+            'timestamp': '2026-04-14T10:00:00Z',
+            'song': {
+              'id': 5,
+              'name': 'vine isus',
+              'thumbnail_url': 'https://x/song.jpg',
+              'artist': artist,
+            },
+          },
+        };
+
+    test('capitalize capitalizes the song and artist, keeps the rest', () {
+      final out = NowPlayingSanitizer.apply(
+          lowercaseJson(artist: {'id': 2, 'name': 'biji din barbulesti'}),
+          NowPlayingVerdict.capitalize);
+      final song = out['now_playing']['song'];
+      expect(song['name'], 'Vine isus');
+      expect(song['id'], 5);
+      expect(song['thumbnail_url'], 'https://x/song.jpg');
+      expect(song['artist'], {'id': 2, 'name': 'Biji din barbulesti'});
+      expect(out['now_playing']['timestamp'], '2026-04-14T10:00:00Z');
+    });
+
+    test('capitalize keeps a missing artist missing', () {
+      final out = NowPlayingSanitizer.apply(
+          lowercaseJson(), NowPlayingVerdict.capitalize);
+      expect(out['now_playing']['song']['name'], 'Vine isus');
+      expect(out['now_playing']['song']['artist'], isNull);
+    });
+
+    test('dropArtist capitalizes the song it keeps', () {
+      final out = NowPlayingSanitizer.apply(
+          lowercaseJson(artist: {'id': 2, 'name': 'Radio Test'}),
+          NowPlayingVerdict.dropArtist);
+      expect(out['now_playing']['song']['name'], 'Vine isus');
       expect(out['now_playing']['song']['artist'], isNull);
     });
 
