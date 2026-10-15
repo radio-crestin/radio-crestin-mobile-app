@@ -146,8 +146,29 @@ void main() {
           reason: 'the owner approximates now - (offset + hold-back)');
       expect(
           HlsTimeline.approximateLatency(const Duration(minutes: 2),
-              darwin: true),
+              darwin: true, startVariant: false),
           const Duration(seconds: 138));
+    });
+
+    test(
+        'a start variant is estimated at its offset plus one segment behind '
+        'live, with no hold-back on any platform', () {
+      // index-2m.m3u8 carries EXT-X-START:TIME-OFFSET=-120 in place of
+      // index.m3u8's -18, counted from the end of the newest segment.
+      for (final darwin in [true, false]) {
+        expect(
+            HlsTimeline.approximateLatency(const Duration(minutes: 2),
+                darwin: darwin, startVariant: true),
+            const Duration(seconds: 126));
+        expect(
+            HlsTimeline.approximateLatency(const Duration(minutes: 5),
+                darwin: darwin, startVariant: true),
+            const Duration(seconds: 306));
+      }
+      expect(
+          HlsTimeline.approximateLatency(const Duration(minutes: 2),
+              darwin: false, startVariant: false),
+          const Duration(minutes: 2));
     });
   });
 

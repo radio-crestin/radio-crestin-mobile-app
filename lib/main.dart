@@ -42,6 +42,7 @@ import 'services/analytics_service.dart';
 import 'services/device_registration_service.dart';
 import 'services/error_filter.dart';
 import 'services/hls_health_watchdog_flag.dart';
+import 'services/hls_start_variant.dart';
 import 'services/hls_timeline.dart';
 import 'services/image_cache_service.dart';
 import 'services/log_flush_guard.dart';
@@ -616,16 +617,19 @@ void main() async {
 }
 
 /// How far behind live a station tapped now is heard: local time-shifted
-/// HLS plays the seek offset plus the player's hold-back behind the live
-/// edge; a Cast receiver and Android TV (live metadata) play live.
+/// HLS plays the seek offset plus how far its start trails the live edge
+/// (see [HlsTimeline.approximateLatency]); a Cast receiver and Android TV
+/// (live metadata) play live.
 Duration _listeningDelay() {
   final getIt = GetIt.instance;
   final casting =
       getIt.isRegistered<CastService>() && getIt<CastService>().isCasting.value;
   if (casting || TvPlatform.isAndroidTV) return Duration.zero;
+  final offset = SeekModeManager.currentOffset;
   return HlsTimeline.approximateLatency(
-    SeekModeManager.currentOffset,
+    offset,
     darwin: Platform.isIOS || Platform.isMacOS,
+    startVariant: HlsStartVariant.isUsedAt(offset),
   );
 }
 

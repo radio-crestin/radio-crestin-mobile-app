@@ -113,6 +113,19 @@ void main() {
     });
   });
 
+  group('HlsStartVariant.isUsedAt', () {
+    test('the 2 and 5 minute offsets start from a variant', () {
+      // Tests run on macOS, where AVPlayer starts at EXT-X-START.
+      expect(HlsStartVariant.isUsedAt(twoMinutes), isTrue);
+      expect(HlsStartVariant.isUsedAt(fiveMinutes), isTrue);
+    });
+
+    test('instant mode and any other offset seek instead', () {
+      expect(HlsStartVariant.isUsedAt(Duration.zero), isFalse);
+      expect(HlsStartVariant.isUsedAt(const Duration(minutes: 3)), isFalse);
+    });
+  });
+
   group('HlsStartVariant.mayBeMissing', () {
     final timeout = TimeoutException('load', const Duration(seconds: 3));
     final exoSourceError = PlayerException(0, 'Source error', null);

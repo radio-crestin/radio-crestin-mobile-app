@@ -48,6 +48,11 @@ class HlsStartVariant {
     return uri.replace(path: '$directory$playlist').toString();
   }
 
+  /// Whether this platform starts the origin's stations [offset] behind live
+  /// from a variant (see [urlFor]).
+  static bool isUsedAt(Duration offset) =>
+      isSupportedPlatform && _playlistFor(offset) != null;
+
   static String? _playlistFor(Duration offset) {
     if (offset == const Duration(minutes: 2)) return 'index-2m.m3u8';
     if (offset == const Duration(minutes: 5)) return 'index-5m.m3u8';

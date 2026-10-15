@@ -799,8 +799,8 @@ void main() {
     });
 
     test(
-        'pending periodic + stationPlayed run one full refresh, and the '
-        'periodic side work still runs', () async {
+        'pending periodic + stationPlayed run one live diff, without the '
+        'catalog, and the periodic side work still runs', () async {
       await start();
       backend.beforeMetadataResponse =
           (_) => clock.wait(const Duration(seconds: 5));
@@ -814,9 +814,45 @@ void main() {
       unawaited(service().enqueueSync(SyncReason.stationPlayed));
       await clock.advance(const Duration(seconds: 20));
 
-      expect(backend.graphqlRequests, hasLength(graphql + 1));
+      expect(backend.graphqlRequests, hasLength(graphql));
       expect(backend.metadataRequests, hasLength(3));
+      expect(backend.metadataRequests.last.queryParameters,
+          contains('changes_from_timestamp'));
       expect(backend.privateRequests, hasLength(private + 1));
+    });
+
+    test(
+        'a station switch fetches the songs, not the catalog: the songs '
+        'never wait for it', () async {
+      backend.songChange(2, t(-300), p);
+      await start();
+      final graphql = backend.graphqlRequests.length;
+      backend.songChange(2, t(20), q);
+      await clock.advance(const Duration(seconds: 30));
+
+      await drive(service().onStationPlayed());
+
+      expect(songOf(2), 'Song Q');
+      expect(backend.graphqlRequests, hasLength(graphql));
+      expect(backend.metadataRequests.last.queryParameters,
+          containsPair('changes_from_timestamp', '${epochOf(t(-60))}'));
+    });
+
+    test('a manual refresh queued with a station switch still gets the catalog',
+        () async {
+      await start();
+      backend.beforeMetadataResponse =
+          (_) => clock.wait(const Duration(seconds: 5));
+      await clock.advance(minute);
+      unawaited(service().enqueueSync(SyncReason.periodic));
+      await clock.settle();
+      final graphql = backend.graphqlRequests.length;
+
+      unawaited(service().enqueueSync(SyncReason.stationPlayed));
+      unawaited(service().enqueueSync(SyncReason.manualRefresh));
+      await clock.advance(const Duration(seconds: 20));
+
+      expect(backend.graphqlRequests, hasLength(graphql + 1));
     });
 
     test('aligned resolution is not dropped while stationPlayed is pending',
@@ -1024,8 +1060,9 @@ void main() {
   });
 
   group('listening timeline', () {
-    // iOS on the 2-minute offset: 120 s plus AVPlayer's 18 s hold-back. The
-    // listening timestamp at t0 is floor10(t0 - 138 s) = t-140.
+    // iOS seeking 2 minutes behind live on index.m3u8: 120 s plus AVPlayer's
+    // 18 s hold-back. The listening timestamp at t0 is
+    // floor10(t0 - 138 s) = t-140.
     const delay = Duration(seconds: 138);
     var listeningDelay = Duration.zero;
 
@@ -1099,6 +1136,94 @@ void main() {
       await drive(service().onStationPlayed());
 
       expect(songOf(21), 'Song P', reason: 'never the live song first');
+    });
+
+    test(
+        'the live song shows once it started at now - delay, though the '
+        'listening timestamp, floored to 10 s, is before it', () async {
+      backend.songChange(20, t(-300), x);
+      backend.songChange(20, t(-139), y);
+
+      await startListening(delay);
+
+      expect(metadataAt(t(-140)), hasLength(1));
+      expect(songOf(20), 'Song Y', reason: 'what tapping it plays');
+    });
+
+    test(
+        'a station picked between two syncs shows the live song that reached '
+        'the listeners since the last one', () async {
+      backend.songChange(20, t(-300), x);
+      backend.songChange(20, t(-100), y);
+      await startListening(delay);
+      expect(songOf(20), 'Song X');
+
+      // No sync: now - delay moves from t-138 to t-88, past Song Y's start.
+      await clock.advance(const Duration(seconds: 50));
+      expect(songOf(20), 'Song X', reason: 'as of the last publish');
+
+      expect(service().shownNow(stationOf(20)).songTitle, 'Song Y');
+      expect(songOf(20), 'Song Y', reason: 'the list is republished');
+    });
+
+    test(
+        'a live list fetched less than the ingestion window after now - '
+        'delay keeps the listening row: a later song may not be in it yet',
+        () async {
+      backend.songChange(20, t(-300), x);
+      backend.songChange(20, t(-40), y);
+      await startListening(delay);
+
+      // now - delay = t-28: Song Y started before it, but the live list
+      // (t0) is only 28 s after it.
+      await clock.advance(const Duration(seconds: 110));
+
+      expect(service().shownNow(stationOf(20)).songTitle, 'Song X');
+    });
+
+    group('lookahead at 5 minutes', () {
+      // The 5-minute variant start plus one segment. floor10(t0 - 306 s) =
+      // t-310, and the lookahead reads 70 s later: t-240.
+      const fiveMin = Duration(seconds: 306);
+
+      test(
+          'a station picked a minute after the last sync shows the song that '
+          'started since, which is not the live song', () async {
+        backend.songChange(20, t(-600), x);
+        backend.songChange(20, t(-280), y);
+        backend.songChange(20, t(-100), z);
+        await startListening(fiveMin);
+        expect(metadataAt(t(-240)), hasLength(1));
+        expect(songOf(20), 'Song X', reason: 'Song Y starts after t-306');
+
+        // No sync: now - delay moves from t-306 to t-256, past Song Y's start.
+        await clock.advance(const Duration(seconds: 50));
+
+        expect(service().shownNow(stationOf(20)).songTitle, 'Song Y');
+      });
+
+      test('periodic ticks diff the lookahead from its own cursor', () async {
+        await startListening(fiveMin);
+        expect(metadataAt(t(-240)).single.queryParameters,
+            isNot(contains('changes_from_timestamp')));
+
+        await tick();
+
+        // t+60: the listening timestamp is t-250, the lookahead t-180.
+        final diff = metadataAt(t(-180)).single;
+        expect(diff.queryParameters['changes_from_timestamp'],
+            '${epochOf(t(-300))}');
+      });
+
+      test(
+          'at 2 minutes the lookahead instant is not final yet: no lookahead '
+          'request', () async {
+        await startListening(const Duration(seconds: 126));
+
+        // floor10(t0 - 126 s) = t-130; a lookahead would read t-60.
+        expect(metadataAt(t(-130)), hasLength(1));
+        expect(metadataAt(t(-60)), isEmpty);
+      });
     });
 
     test('periodic ticks diff the listening timeline from its own cursor',

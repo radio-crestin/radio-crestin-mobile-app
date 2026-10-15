@@ -41,9 +41,6 @@ enum SyncReason {
   /// App returned from background — distrust everything, refetch.
   appResumed,
 
-  /// User picked a station to play.
-  stationPlayed,
-
   /// Pull-to-refresh, back to the TV browse list, CarPlay connect.
   manualRefresh,
 
@@ -52,6 +49,10 @@ enum SyncReason {
   /// behind — or a full refresh when the catalog never arrived (a first
   /// launch offline shows the bundled list) or is over 10 minutes old.
   networkRestored,
+
+  /// User picked a station to play: a live diff, so its song and listeners
+  /// are the newest. Not the catalog: the songs would wait for its ~200 KB.
+  stationPlayed,
 
   /// A live stream announced a new song (ICY tag, Android TV playlist
   /// METADATA-CHANGED): fetch the live list now.
@@ -100,6 +101,11 @@ class StationDataService {
   /// them for good. Merges are idempotent, so re-delivered stations cost
   /// nothing.
   static const _diffOverlap = Duration(seconds: 60);
+
+  /// How far past the listening timestamp the lookahead reads: the next
+  /// periodic tick (60 s) plus the timestamp's 10 s floor, so a station
+  /// picked any time before that tick finds the song it plays.
+  static const _listeningLookahead = Duration(seconds: 70);
 
   Timer? _periodicTimer;
 
@@ -184,6 +190,15 @@ class StationDataService {
   /// Listening-timeline cursor (Unix seconds, 10s-rounded), like
   /// [_liveCursor]; 0 while the timeline is not fetched.
   int _listeningCursor = 0;
+
+  /// Each public station's `now_playing` at [_listeningLookahead] after the
+  /// listening timestamp ([_listeningAheadCursor]): the song a station picked
+  /// before the next sync can already play. Fetched only while that instant
+  /// is final on the server (see [_looksAhead]); empty otherwise.
+  Map<int, Map<String, dynamic>> _listeningAhead = {};
+
+  /// Lookahead cursor (Unix seconds, 10s-rounded); 0 while not fetched.
+  int _listeningAheadCursor = 0;
 
   /// Stations already rebuilt with their listening row, so a publish only
   /// rebuilds those whose live data or listening row changed.
@@ -721,32 +736,87 @@ class StationDataService {
       ? Duration.zero
       : getListeningDelay?.call() ?? Duration.zero;
 
-  /// Moves the listening timeline to now − the listening delay: a diff from
-  /// [_listeningCursor] like the live diff, or the whole list when [full],
-  /// without a cursor, or when the delay grew (the instant moved back). A
-  /// zero delay forgets the timeline. Returns whether its rows changed.
+  /// Moves the listening timeline to now − the listening delay, and its
+  /// lookahead to [_listeningLookahead] after it while [_looksAhead]: each a
+  /// diff from its own cursor like the live diff, or the whole list when
+  /// [full], without a cursor, or when the delay grew (the instant moved
+  /// back). A zero delay forgets both. Returns whether their rows changed.
   Future<bool> _syncListeningTimeline({required bool full}) async {
     final delay = _listeningDelay;
     if (delay <= Duration.zero) {
-      if (_listeningCursor == 0) return false;
+      if (_listeningCursor == 0 && _listeningAheadCursor == 0) return false;
       _listeningNowPlaying = {};
       _listeningShown.clear();
       _listeningCursor = 0;
+      _forgetListeningAhead();
       return true;
     }
     final ts = _roundedEpoch(_now().subtract(delay));
-    final canDiff = !full && _listeningCursor > 0 && _listeningCursor <= ts;
-    final rows = await _fetchMetadata(
+    final ahead = ts + _listeningLookahead.inSeconds;
+    final looksAhead = _looksAhead(delay);
+    final listeningFuture = _fetchTimelineRows(ts,
+        cursor: _listeningCursor,
+        rows: _listeningNowPlaying,
+        full: full,
+        timeline: 'listening');
+    final aheadFuture = looksAhead
+        ? _fetchTimelineRows(ahead,
+            cursor: _listeningAheadCursor,
+            rows: _listeningAhead,
+            full: full,
+            timeline: 'listening ahead')
+        : null;
+    final listening = await listeningFuture;
+    final aheadRows = await aheadFuture;
+    var changed = false;
+    if (listening != null) {
+      _listeningNowPlaying = listening;
+      _listeningCursor = ts;
+      changed = true;
+    }
+    if (aheadRows != null) {
+      _listeningAhead = aheadRows;
+      _listeningAheadCursor = ahead;
+      changed = true;
+    } else if (!looksAhead && _listeningAheadCursor != 0) {
+      _forgetListeningAhead();
+      changed = true;
+    }
+    return changed;
+  }
+
+  /// Whether the lookahead instant is final on the server, so its rows can
+  /// prove the song a picked station plays: it stays at least
+  /// [AudibleSongPolicy.ingestionSafety] behind now until the next sync. True
+  /// at 5 minutes (306 s), not at 2 (126 s), where the live song proves the
+  /// same within that window ([_liveSongReachedListeners]).
+  bool _looksAhead(Duration delay) =>
+      delay >= _listeningLookahead + AudibleSongPolicy.ingestionSafety;
+
+  void _forgetListeningAhead() {
+    _listeningAhead = {};
+    _listeningAheadCursor = 0;
+  }
+
+  /// [rows] moved to [ts]: the stations a diff from [cursor] lists merged
+  /// into them, or the whole list when it can't be a diff. Null when the
+  /// fetch failed.
+  Future<Map<int, Map<String, dynamic>>?> _fetchTimelineRows(
+    int ts, {
+    required int cursor,
+    required Map<int, Map<String, dynamic>> rows,
+    required bool full,
+    required String timeline,
+  }) async {
+    final canDiff = !full && cursor > 0 && cursor <= ts;
+    final fetched = await _fetchMetadata(
       ts,
-      changesFromTimestamp:
-          canDiff ? _listeningCursor - _diffOverlap.inSeconds : null,
-      timeline: 'listening',
+      changesFromTimestamp: canDiff ? cursor - _diffOverlap.inSeconds : null,
+      timeline: timeline,
     );
-    if (rows == null) return false;
-    final next = canDiff
-        ? Map.of(_listeningNowPlaying)
-        : <int, Map<String, dynamic>>{};
-    rows.forEach((id, metadata) {
+    if (fetched == null) return null;
+    final next = canDiff ? Map.of(rows) : <int, Map<String, dynamic>>{};
+    fetched.forEach((id, metadata) {
       final nowPlaying = metadata['now_playing'];
       if (nowPlaying is Map<String, dynamic>) {
         next[id] = nowPlaying;
@@ -754,9 +824,7 @@ class StationDataService {
         next.remove(id);
       }
     });
-    _listeningNowPlaying = next;
-    _listeningCursor = ts;
-    return true;
+    return next;
   }
 
   /// [station]'s row on the listening timeline when that is what the
@@ -784,8 +852,11 @@ class StationDataService {
   }
 
   Station _onListeningTimeline(Station station) {
-    final row = _listeningRowFor(station);
-    if (row == null) return station;
+    final listening = _listeningRowFor(station);
+    if (listening == null || _liveSongReachedListeners(station)) {
+      return station;
+    }
+    final row = _aheadSongReachedListeners(station) ?? listening;
     final memo = _listeningShown[station.id];
     if (memo != null &&
         identical(memo.live, station) &&
@@ -795,6 +866,50 @@ class StationDataService {
     final shown = _rebuild(station, (json) => _withNowPlaying(json, row));
     _listeningShown[station.id] = (live: station, row: row, shown: shown);
     return shown;
+  }
+
+  /// Whether [station]'s live song already started at now − the listening
+  /// delay, with a live list recent enough to prove that no later song did
+  /// ([AudibleSongPolicy.liveProvesAudible]): tapping the station plays it.
+  /// The listening row can still hold the song before: it is as old as its
+  /// last fetch, at a timestamp floored to 10 s.
+  bool _liveSongReachedListeners(Station station) {
+    final row = NowPlayingRow.fromNowPlayingJson(
+        station.rawStationData.now_playing?.toJson());
+    return row != null &&
+        AudibleSongPolicy.liveProvesAudible(
+          live: row,
+          audible: _now().subtract(_listeningDelay),
+          liveCursor: _liveCursor,
+        );
+  }
+
+  /// [station]'s lookahead row when its song started after the listening
+  /// timestamp and by now − the listening delay: tapping the station plays
+  /// it, while the listening row, as old as its last fetch, still holds the
+  /// song before. Null otherwise.
+  Map<String, dynamic>? _aheadSongReachedListeners(Station station) {
+    final row = _listeningAhead[station.id];
+    final ahead = NowPlayingRow.fromNowPlayingJson(row);
+    if (ahead == null) return null;
+    final startedAt = ahead.startedAt.millisecondsSinceEpoch;
+    final audible = _now().subtract(_listeningDelay).millisecondsSinceEpoch;
+    return startedAt > _listeningCursor * 1000 && startedAt <= audible
+        ? row
+        : null;
+  }
+
+  /// [station] as the list shows it now. Songs are placed on the listening
+  /// timeline when the list is published, and a live song can reach the
+  /// listeners between two syncs (see [_liveSongReachedListeners]), so this
+  /// republishes the list if that moved a song: a station picked now shows
+  /// the song it plays.
+  Station shownNow(Station station) {
+    _publishMerged();
+    return stations.value.firstWhere(
+      (shown) => shown.id == station.id,
+      orElse: () => station,
+    );
   }
 
   // ---------------------------------------------------------------------------

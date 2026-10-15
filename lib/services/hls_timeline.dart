@@ -100,6 +100,10 @@ class HlsTimeline {
   /// AVPlayer plays live HLS three target durations behind the edge.
   static const Duration darwinHoldBack = Duration(seconds: 18);
 
+  /// How far the newest published segment trails the live edge, at most:
+  /// the segment still being recorded.
+  static const Duration startVariantEdgeLag = Duration(seconds: 6);
+
   /// A recorded segment whose PDT moved by more than this was re-dated by
   /// the backend (a PDT re-anchor), not jittered.
   static const double redateThresholdSeconds = 0.5;
@@ -124,11 +128,26 @@ class HlsTimeline {
   bool _lacksPdt = false;
   bool _justAnchored = false;
 
-  /// Approximate listening latency when no PDT clock exists: the offset plus
-  /// the player's own hold-back. Documented approximation (no-PDT streams,
-  /// Windows/Linux).
-  static Duration approximateLatency(Duration offset, {required bool darwin}) =>
-      darwin ? offset + darwinHoldBack : offset;
+  /// Approximate listening latency: how far behind live a stream started
+  /// [offset] behind live is heard, for the listening timeline and where no
+  /// PDT clock exists (no-PDT streams, Windows/Linux).
+  ///
+  /// A start variant ([startVariant], see `HlsStartVariant`) starts
+  /// [offset] behind the end of its newest segment, which trails live by up
+  /// to [startVariantEdgeLag]: on iOS at 2 minutes, 40 of 42 starts were
+  /// heard 120-126 s behind live (median 123 s, at most 129.5 s). The upper
+  /// side is taken: a song shown a few seconds late waits for the anchor,
+  /// one shown before it is heard would flip back to the song before it.
+  /// Otherwise the player seeks [offset] behind its own live point, which
+  /// AVPlayer keeps [darwinHoldBack] behind the edge.
+  static Duration approximateLatency(
+    Duration offset, {
+    required bool darwin,
+    required bool startVariant,
+  }) {
+    if (startVariant) return offset + startVariantEdgeLag;
+    return darwin ? offset + darwinHoldBack : offset;
+  }
 
   bool get isAnchored => _clock.isAnchored;
   bool get isExactlyAnchored => _clock.quality == HlsAnchorQuality.exact;

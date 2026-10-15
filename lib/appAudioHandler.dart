@@ -1957,7 +1957,10 @@ class AppAudioHandler extends BaseAudioHandler {
     return super.customAction(name, extras);
   }
 
-  Future<void> selectStation(Station station) async {
+  Future<void> selectStation(Station picked) async {
+    // Its song as of now, not as of the list's last publish: a song can
+    // reach the listeners between two syncs.
+    final station = stationDataService.shownNow(picked);
     _log('selectStation($station)');
     print('RC_DEBUG: selectStation ${station.slug}');
 
@@ -2177,7 +2180,7 @@ class AppAudioHandler extends BaseAudioHandler {
     if (switchId != _stationSwitchId) return;
 
     // Tell the sync engine the user just picked this station — drives a
-    // full refresh so the playing-station UI sees the freshest now-playing
+    // live diff so the playing-station UI sees the freshest now-playing
     // and listener counts before audio starts.
     unawaited(stationDataService.onStationPlayed());
 
@@ -3393,11 +3396,14 @@ class AppAudioHandler extends BaseAudioHandler {
     }
     // Documented approximation for Windows/Linux (mpv live-HLS positions
     // are unvalidated) and playlists without PROGRAM-DATE-TIME. Frozen
-    // while not playing, like the real clock.
+    // while not playing, like the real clock. Neither starts from a start
+    // variant: Windows/Linux load none, and the origin, the only host that
+    // publishes them, stamps PROGRAM-DATE-TIME.
     final heardAt = player.playing ? now : (_stoppedPlayingAt ?? now);
     return heardAt.subtract(HlsTimeline.approximateLatency(
       SeekModeManager.currentOffset,
       darwin: Platform.isIOS || Platform.isMacOS,
+      startVariant: false,
     ));
   }
 
