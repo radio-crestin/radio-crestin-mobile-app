@@ -149,6 +149,30 @@ class AppColors {
   // Its drop shadow, in both themes.
   static const Color statusSnackbarShadow = Color(0x40000000);
 
+  // Station filter sheet: each category's hue, keyed by its group slug. The
+  // sheet pales it into the circle behind the category's picture.
+  static const Map<String, Color> stationGroupHues = {
+    'general': Color(0xff90a4ae),
+    'muzica': Color(0xffb69cff),
+    'emisiuni': Color(0xff4fc3f7),
+    'popular': Color(0xffff8a65),
+    'predici': Color(0xff5fd3bc),
+    'worship': Color(0xffffd166),
+    'international': Color(0xff66d19e),
+    'gospel': Color(0xffe59cff),
+    'instrumental': Color(0xff8c9eff),
+    'copii': Color(0xffffb45e),
+    'biblia': Color(0xffd7b98e),
+    'colinde': Color(0xffff6f6f),
+  };
+  // "Toate stațiile", and categories added later that have no hue yet.
+  static const Color stationGroupAllHue = Color(0xfff48fb1);
+  static const Color stationGroupFallbackHue = Color(0xffb0bec5);
+  // "Resetează": the brand pink lightened on dark surfaces and deepened on
+  // light ones, so the text button keeps 4.5:1 contrast.
+  static const Color filterAccent = Color(0xfff48fb1);
+  static const Color filterAccentOnLight = Color(0xffc2185b);
+
   // Common colors
   static const Color error = Color(0xffd32f2f);
   static const Color success = Colors.green;

@@ -38,6 +38,8 @@ import '../types/Station.dart';
 import '../utils.dart';
 import '../utils/PositionRetainedScrollPhysics.dart';
 import '../widgets/song_history_modal.dart';
+import '../widgets/station_group_chip.dart';
+import '../widgets/station_group_filter_sheet.dart';
 import '../widgets/status_snackbar.dart';
 import '../widgets/status_snackbar_controller.dart';
 import 'SettingsPage.dart';
@@ -531,132 +533,24 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   void _showFilterOptions(
     BuildContext context,
+    List<Station> stations,
     List<Query$GetStations$station_groups> stationGroups,
     Query$GetStations$station_groups? selectedGroup,
   ) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final sortedGroups = List<Query$GetStations$station_groups>.from(stationGroups)
-      ..sort((a, b) => a.order.compareTo(b.order));
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) {
-        return DraggableScrollableSheet(
-          initialChildSize: 0.7,
-          minChildSize: 0.4,
-          maxChildSize: 0.9,
-          expand: false,
-          builder: (context, scrollController) {
-            return Column(
-              children: [
-                // Drag handle
-                Padding(
-                  padding: const EdgeInsets.only(top: 10, bottom: 6),
-                  child: Container(
-                    width: 36,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: isDark ? Colors.white24 : Colors.black12,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                // Title
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Filtrează stații',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 20,
-                      ),
-                    ),
-                  ),
-                ),
-                Divider(height: 1, thickness: 0.5, color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.06)),
-                // Scrollable list
-                Expanded(
-                  child: ListView(
-                    controller: scrollController,
-                    padding: const EdgeInsets.only(top: 4, bottom: 24),
-                    children: [
-                      // "All stations" option
-                      ListTile(
-                        leading: Icon(
-                          Icons.radio_rounded,
-                          size: 20,
-                          color: selectedGroup == null
-                              ? Theme.of(context).colorScheme.primary
-                              : Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                        title: Text(
-                          'Toate stațiile radio',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: selectedGroup == null ? FontWeight.w600 : FontWeight.w400,
-                            color: selectedGroup == null
-                                ? Theme.of(context).colorScheme.primary
-                                : Theme.of(context).colorScheme.onSurface,
-                          ),
-                        ),
-                        trailing: selectedGroup == null
-                            ? Icon(Icons.check_rounded, size: 20, color: Theme.of(context).colorScheme.primary)
-                            : null,
-                        onTap: () {
-                          AnalyticsService.instance.capture('button_clicked', {'button_name': 'filter', 'filter_group': 'all'});
-                          setState(() {
-                            _stationDataService.selectedStationGroup.add(null);
-                          });
-                          Navigator.pop(context);
-                        },
-                      ),
-                      ...sortedGroups.map((group) {
-                        final isSelected = selectedGroup?.id == group.id;
-                        return ListTile(
-                          leading: Icon(
-                            Icons.folder_rounded,
-                            size: 20,
-                            color: isSelected
-                                ? Theme.of(context).colorScheme.primary
-                                : Theme.of(context).colorScheme.onSurfaceVariant,
-                          ),
-                          title: Text(
-                            group.name,
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                              color: isSelected
-                                  ? Theme.of(context).colorScheme.primary
-                                  : Theme.of(context).colorScheme.onSurface,
-                            ),
-                          ),
-                          trailing: isSelected
-                              ? Icon(Icons.check_rounded, size: 20, color: Theme.of(context).colorScheme.primary)
-                              : null,
-                          onTap: () {
-                            AnalyticsService.instance.capture('button_clicked', {'button_name': 'filter', 'filter_group': group.name, 'filter_group_id': group.id});
-                            setState(() {
-                              _stationDataService.selectedStationGroup.add(group);
-                            });
-                            Navigator.pop(context);
-                          },
-                        );
-                      }),
-                    ],
-                  ),
-                ),
-              ],
-            );
-          },
-        );
+    StationGroupFilterSheet.show(
+      context,
+      groups: stationGroups,
+      stations: stations,
+      selected: selectedGroup,
+      onSelected: (group) {
+        AnalyticsService.instance.capture('button_clicked', {
+          'button_name': 'filter',
+          'filter_group': group?.name ?? 'all',
+          if (group != null) 'filter_group_id': group.id,
+        });
+        setState(() {
+          _stationDataService.selectedStationGroup.add(group);
+        });
       },
     );
   }
@@ -780,8 +674,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
             // Favorites are also kept in the full list below, so liking a
             // station doesn't make it vanish from where the user found it,
-            // and the list matches the next/previous order.
-            final favoriteStations = filteredStations.where((station) => favoriteSlugs.contains(station.slug)).toList();
+            // and the list matches the next/previous order. While a category
+            // is chosen the Favorite section hides: its favorites are in the
+            // category's list already, and the rest would only push it down.
+            final favoriteStations = selectedStationGroup != null
+                ? const <Station>[]
+                : filteredStations
+                    .where((station) => favoriteSlugs.contains(station.slug))
+                    .toList();
             final hasMiniPlayer = currentStation != null && stations.isNotEmpty;
 
             return Stack(
@@ -1063,17 +963,40 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                         ),
                                       ),
                                     ),
-                                    _buildRoundedIconButton(
-                                      context: context,
-                                      icon: selectedStationGroup != null
-                                          ? Icons.filter_alt_rounded
-                                          : Icons.filter_alt_outlined,
-                                      tooltip: selectedStationGroup?.name ?? 'Filtrează',
-                                      isActive: selectedStationGroup != null,
-                                      onPressed: () {
-                                        AnalyticsService.instance.capture('button_clicked', {'button_name': 'filter_menu'});
-                                        _showFilterOptions(context, stationGroups, selectedStationGroup);
-                                      },
+                                    // The chosen category stands in for the
+                                    // filter button, so it stays in view.
+                                    AnimatedSwitcher(
+                                      duration: const Duration(milliseconds: 200),
+                                      child: selectedStationGroup == null
+                                          ? KeyedSubtree(
+                                              key: const ValueKey('filter'),
+                                              child: _buildRoundedIconButton(
+                                                context: context,
+                                                icon: Icons.filter_alt_outlined,
+                                                tooltip: 'Filtrează',
+                                                onPressed: () {
+                                                  AnalyticsService.instance.capture('button_clicked', {'button_name': 'filter_menu'});
+                                                  _showFilterOptions(context, stations, stationGroups, null);
+                                                },
+                                              ),
+                                            )
+                                          : Padding(
+                                              key: ValueKey(selectedStationGroup.id),
+                                              padding: const EdgeInsets.only(right: 8),
+                                              child: StationGroupChip(
+                                                group: selectedStationGroup,
+                                                onPressed: () {
+                                                  AnalyticsService.instance.capture('button_clicked', {'button_name': 'filter_menu', 'source': 'chip'});
+                                                  _showFilterOptions(context, stations, stationGroups, selectedStationGroup);
+                                                },
+                                                onCleared: () {
+                                                  AnalyticsService.instance.capture('button_clicked', {'button_name': 'filter', 'filter_group': 'all', 'source': 'chip'});
+                                                  setState(() {
+                                                    _stationDataService.selectedStationGroup.add(null);
+                                                  });
+                                                },
+                                              ),
+                                            ),
                                     ),
                                   ],
                                 ),
