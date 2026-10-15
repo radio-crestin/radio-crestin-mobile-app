@@ -16,6 +16,99 @@ extension CustomThemeColors on ThemeData {
       brightness == Brightness.light
           ? StatusSnackbarColors.onLight
           : StatusSnackbarColors.onDark;
+
+  /// The device sheet's colors (cast button: Chromecast, AirPlay, TV, car).
+  DeviceSheetColors get deviceSheetColors => brightness == Brightness.light
+      ? DeviceSheetColors.light
+      : DeviceSheetColors.dark;
+}
+
+/// Colors of the device sheet, for one theme brightness.
+@immutable
+class DeviceSheetColors {
+  /// Creates a palette; the app uses [light] and [dark].
+  const DeviceSheetColors({
+    required this.sheet,
+    required this.handle,
+    required this.card,
+    required this.cardInner,
+    required this.textSecondary,
+    required this.label,
+    required this.icon,
+    required this.chevron,
+    required this.accent,
+    required this.tint,
+    required this.beta,
+    required this.pulse,
+  });
+
+  /// The light theme's sheet.
+  static const light = DeviceSheetColors(
+    sheet: AppColors.lightSurface,
+    handle: AppColors.deviceHandle,
+    card: AppColors.deviceCard,
+    cardInner: AppColors.deviceCardInner,
+    textSecondary: AppColors.deviceTextSecondary,
+    label: AppColors.deviceLabel,
+    icon: AppColors.deviceIcon,
+    chevron: AppColors.deviceChevron,
+    accent: AppColors.deviceAccentOnLight,
+    tint: AppColors.deviceTint,
+    beta: AppColors.deviceBeta,
+    pulse: AppColors.primary,
+  );
+
+  /// The dark theme's sheet.
+  static const dark = DeviceSheetColors(
+    sheet: AppColors.darkSurface,
+    handle: AppColors.deviceHandleDark,
+    card: AppColors.deviceCardDark,
+    cardInner: AppColors.deviceCardInnerDark,
+    textSecondary: AppColors.deviceTextSecondaryDark,
+    label: AppColors.deviceLabelDark,
+    icon: AppColors.deviceIconDark,
+    chevron: AppColors.deviceChevronDark,
+    accent: AppColors.deviceAccent,
+    tint: AppColors.deviceTintDark,
+    beta: AppColors.deviceBetaDark,
+    pulse: AppColors.sleepAccent,
+  );
+
+  /// The sheet's surface.
+  final Color sheet;
+
+  /// The drag handle.
+  final Color handle;
+
+  /// The Chromecast card.
+  final Color card;
+
+  /// The circles and pills on the card (a device's icon, "Conectează").
+  final Color cardInner;
+
+  /// Explanations under a title.
+  final Color textSecondary;
+
+  /// Section labels ("SAU", "GĂSITE ÎN WI-FI-UL TĂU").
+  final Color label;
+
+  /// Row icons.
+  final Color icon;
+
+  /// The chevron at the end of a row.
+  final Color chevron;
+
+  /// Pink text ("Conectează", "BETA").
+  final Color accent;
+
+  /// The circle behind the lock.
+  final Color tint;
+
+  /// The "BETA" pill.
+  final Color beta;
+
+  /// The rings around the searching icon, and the spinner.
+  final Color pulse;
 }
 
 /// Colors of the status snackbar, for one theme brightness.
@@ -198,6 +291,37 @@ class AppColors {
   // dark surfaces and deepened on light ones, for 4.5:1 contrast.
   static const Color groupedAction = Color(0xfff48fb1);
   static const Color groupedActionOnLight = Color(0xffc2185b);
+
+  // The device sheet (cast button): its drag handle, the Chromecast card,
+  // the circles and pills on that card, secondary text, section labels, row
+  // icons and chevrons. The `...Dark` ones are the dark theme's. Text keeps
+  // 4.5:1 contrast on the card as well as on the sheet.
+  static const Color deviceHandle = Color(0x1f000000);
+  static const Color deviceHandleDark = Color(0x3dffffff);
+  static const Color deviceCard = Color(0xfff6f3f4);
+  static const Color deviceCardDark = Color(0xff262626);
+  static const Color deviceCardInner = Colors.white;
+  static const Color deviceCardInnerDark = Color(0xff333333);
+  static const Color deviceTextSecondary = Color(0xff6b6b6b);
+  static const Color deviceTextSecondaryDark = Color(0xffb3b3b3);
+  static const Color deviceLabel = Color(0xff6e6e73);
+  static const Color deviceLabelDark = Color(0xff9a9aa0);
+  static const Color deviceIcon = Color(0xff3f3f3f);
+  static const Color deviceIconDark = Color(0xffe0e0e0);
+  static const Color deviceChevron = Color(0xffb0b0b5);
+  static const Color deviceChevronDark = Color(0xff6a6a6f);
+  // Its pink text ("Conectează", "BETA"): the brand pink lightened on dark
+  // surfaces and deepened on light ones, for 4.5:1 contrast.
+  static const Color deviceAccent = Color(0xfff48fb1);
+  static const Color deviceAccentOnLight = Color(0xffc2185b);
+  // The circle behind the lock, and the "BETA" pill.
+  static const Color deviceTint = Color(0xfffdf0f4);
+  static const Color deviceTintDark = Color(0xff3a1f29);
+  static const Color deviceBeta = Color(0xfffce4ec);
+  static const Color deviceBetaDark = Color(0xff4a1f30);
+  // Its filled buttons and the circle behind a device that plays, in both
+  // themes: the brand pink deepened so a white label keeps 4.5:1 contrast.
+  static const Color deviceAction = Color(0xffd81b60);
 
   // Common colors
   static const Color error = Color(0xffd32f2f);

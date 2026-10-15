@@ -13,7 +13,7 @@ void main() {
 
   const channel = EventChannel('com.radiocrestin.local_network');
   const hint = 'Permite accesul la rețeaua locală';
-  const searching = 'Se caută dispozitive...';
+  const searching = 'Căutăm televizoare și boxe';
   MockStreamHandlerEventSink? native;
 
   /// Fakes the native browse. Called inside each test body, so a widget
@@ -110,8 +110,15 @@ void main() {
     expect(find.text(hint), findsNothing);
     expect(find.text(searching), findsOneWidget);
 
-    // Let the sheet's search timer run out before the test ends.
-    await tester.pump(const Duration(seconds: 16));
+    // The new scan gets its own 15 seconds: the first scan's countdown,
+    // which would end it a second early, no longer counts.
+    await tester.pump(const Duration(seconds: 14, milliseconds: 500));
+    expect(find.text(searching), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text(searching), findsNothing);
+    expect(find.text('Nu am găsit niciun dispozitiv'), findsOneWidget);
     debugDefaultTargetPlatformOverride = null;
   });
 }

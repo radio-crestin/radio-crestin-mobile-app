@@ -30,17 +30,41 @@ void showCastDevicePicker(BuildContext context, {required String source}) {
   // On iOS the first open starts discovery and with it the Local Network
   // permission prompt, which stays off app launch.
   castService?.onCastButtonTapped();
+  _showSheet(context, _DeviceSheet(castService: castService));
+}
+
+/// Opens [sheet] from the bottom, on the device sheet's surface.
+void _showSheet(BuildContext context, Widget sheet) {
   showModalBottomSheet(
     context: context,
-    backgroundColor: Theme.of(context).brightness == Brightness.dark
-        ? const Color(0xFF1E1E1E)
-        : Colors.white,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-    ),
+    // The sheet paints its own surface, which follows a theme change while
+    // it's open (iOS turning dark at sunset). A color given here is picked
+    // once, when the sheet opens.
+    backgroundColor: Colors.transparent,
+    elevation: 0,
     isScrollControlled: true,
-    builder: (_) => _DeviceSheet(castService: castService),
+    builder: (_) => _SheetSurface(child: sheet),
   );
+}
+
+/// The rounded surface under a device sheet, in the current theme's color.
+class _SheetSurface extends StatelessWidget {
+  final Widget child;
+
+  const _SheetSurface({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    // A Material, so the rows' ripples show on it.
+    return Material(
+      color: Theme.of(context).deviceSheetColors.sheet,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: child,
+    );
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -258,6 +282,24 @@ class _CastButtonState extends State<CastButton>
 // Device bottom sheet — live-updating, unified
 // ═══════════════════════════════════════════════════════════════════
 
+/// What the Chromecast card shows.
+enum _CastCardState {
+  /// Audio plays on a Chromecast; the card offers to disconnect it.
+  connected,
+
+  /// iOS blocks the local network, so no Chromecast can be found.
+  blocked,
+
+  /// The scan found Chromecasts on the Wi-Fi.
+  found,
+
+  /// The scan runs and has found nothing yet.
+  searching,
+
+  /// The scan ended without finding anything.
+  empty,
+}
+
 class _DeviceSheet extends StatefulWidget {
   final CastService? castService;
   const _DeviceSheet({required this.castService});
@@ -267,7 +309,11 @@ class _DeviceSheet extends StatefulWidget {
 }
 
 class _DeviceSheetState extends State<_DeviceSheet> {
+  /// How long a scan shows as running: mDNS can take up to 15s.
+  static const _searchDuration = Duration(seconds: 15);
+
   final List<StreamSubscription> _subs = [];
+  Timer? _searchTimer;
 
   List<GoogleCastDevice> _devices = [];
   bool _chromecastCasting = false;
@@ -279,10 +325,15 @@ class _DeviceSheetState extends State<_DeviceSheet> {
   LocalNetworkAccess? _localNetwork;
   bool _deniedReported = false;
 
-  /// Chromecast discovery can't find anything, since iOS blocks the local
-  /// network: retrying won't help until the user allows it in Settings.
-  bool get _chromecastBlocked =>
-      _localNetwork == LocalNetworkAccess.denied && !_chromecastCasting;
+  _CastCardState get _cardState {
+    if (_chromecastCasting) return _CastCardState.connected;
+    // Retrying won't help until the user allows it in Settings.
+    if (_localNetwork == LocalNetworkAccess.denied) {
+      return _CastCardState.blocked;
+    }
+    if (_devices.isNotEmpty) return _CastCardState.found;
+    return _searching ? _CastCardState.searching : _CastCardState.empty;
+  }
 
   @override
   void initState() {
@@ -304,7 +355,7 @@ class _DeviceSheetState extends State<_DeviceSheet> {
       // in-flight probes and forces the whole cycle to start over,
       // which makes the sheet look empty when devices were seconds
       // away from publishing. Manual refresh is available via the
-      // "Caută din nou" button below.
+      // "Caută din nou" buttons on the card.
 
       _subs.add(cs.devices.listen((d) {
         if (mounted) setState(() => _devices = d);
@@ -344,8 +395,9 @@ class _DeviceSheetState extends State<_DeviceSheet> {
   }
 
   void _startSearchTimer() {
-    // Show searching indicator while scanning (mDNS can take up to 15s)
-    Future.delayed(const Duration(seconds: 15), () {
+    // A new scan gets its full time, rather than ending with the old one.
+    _searchTimer?.cancel();
+    _searchTimer = Timer(_searchDuration, () {
       if (mounted) setState(() => _searching = false);
     });
   }
@@ -356,270 +408,804 @@ class _DeviceSheetState extends State<_DeviceSheet> {
     _startSearchTimer();
   }
 
+  Future<void> _connect(GoogleCastDevice device) async {
+    Navigator.of(context).pop();
+    await widget.castService?.connectToDevice(device);
+  }
+
+  void _disconnect() {
+    widget.castService?.disconnect();
+    Navigator.of(context).pop();
+  }
+
   @override
   void dispose() {
+    _searchTimer?.cancel();
     for (final s in _subs) { s.cancel(); }
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final onSurface = Theme.of(context).colorScheme.onSurface;
-    final dim = onSurface.withValues(alpha: 0.5);
-
     return SafeArea(
-      child: Padding(
+      // Scrolls only when large text makes it taller than the screen.
+      child: SingleChildScrollView(
         padding: const EdgeInsets.only(bottom: 8),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // ── Drag handle ──
-            Center(
-              child: Container(
-                width: 36, height: 4,
-                margin: const EdgeInsets.only(top: 12, bottom: 16),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).brightness == Brightness.dark
-                      ? Colors.white24 : Colors.black12,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
+            const _SheetHeader(),
+            _CastCard(
+              state: _cardState,
+              devices: _devices,
+              searching: _searching,
+              connectedDeviceName: _connectedDeviceName,
+              onConnect: _connect,
+              onDisconnect: _disconnect,
+              onRescan: _rescan,
+              onOpenSettings: _openAppSettings,
             ),
-
-            // ── Header ──
-            Padding(
-              padding: const EdgeInsets.only(left: 20, right: 20, bottom: 4),
-              child: Row(
-                children: [
-                  Text(
-                    'Selectează un dispozitiv',
-                    style: TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.w600,
-                      color: onSurface),
-                  ),
-                  if (_searching && !_chromecastBlocked) ...[
-                    const Spacer(),
-                    SizedBox(
-                      width: 12, height: 12,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 1.5, color: dim),
-                    ),
-                    const SizedBox(width: 6),
-                    Text('Se caută dispozitive...', style: TextStyle(
-                      fontSize: 12, color: dim)),
-                  ],
-                ],
-              ),
-            ),
-
-            // Connected Chromecast
-            if (_chromecastCasting) ...[
-              _sectionLabel(context, 'CONECTAT'),
-              _ConnectedChromecastRow(
-                deviceName: _connectedDeviceName,
-                onDisconnect: () {
-                  widget.castService?.disconnect();
-                  Navigator.of(context).pop();
-                },
-              ),
-              if (_devices.length > 1 || Platform.isIOS)
-                _sectionLabel(context, 'ALTE DISPOZITIVE'),
-            ],
-
-            // Local Network blocked: say why no Chromecast shows up
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 250),
-              transitionBuilder: (child, anim) => FadeTransition(
-                opacity: anim,
-                child: SizeTransition(sizeFactor: anim, child: child),
-              ),
-              child: _chromecastBlocked
-                  ? _LocalNetworkCard(
-                      key: const ValueKey('blocked'),
-                      onOpenSettings: _openAppSettings,
-                    )
-                  : const SizedBox.shrink(key: ValueKey('allowed')),
-            ),
-
-            // Available Chromecast devices
-            if (!_chromecastCasting && !_chromecastBlocked)
-              ..._devices.map((device) => _DeviceRow(
-                icon: _chromecastIcon(device.friendlyName),
-                title: device.friendlyName,
-                subtitle: device.modelName,
-                onTap: () async {
-                  Navigator.of(context).pop();
-                  await widget.castService?.connectToDevice(device);
-                },
-              )),
-
-            // Scan again button — shown when not actively searching
-            if (!_chromecastCasting && !_searching && !_chromecastBlocked)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                child: SizedBox(
-                  width: double.infinity,
-                  height: 40,
-                  child: OutlinedButton.icon(
-                    onPressed: _rescan,
-                    icon: const Icon(Icons.refresh_rounded, size: 18),
-                    label: Text(
-                      _devices.isEmpty
-                          ? 'Caută din nou'
-                          : 'Caută alte dispozitive',
-                      style: const TextStyle(fontSize: 13),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: dim,
-                      side: BorderSide(color: dim.withValues(alpha: 0.3)),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
-                    ),
-                  ),
-                ),
-              ),
-
+            const _SectionLabel('SAU'),
             // AirPlay — native picker (handles connect & disconnect)
-            if (Platform.isIOS)
-              _AirPlayRow(),
-
-            // Android TV & Apple TV
+            if (Platform.isIOS) const _AirPlayRow(),
             _DeviceRow(
               icon: Icons.tv_rounded,
-              title: 'Android TV și Apple TV',
-              subtitle: 'Instalează aplicația pe TV',
+              title: 'Aplicația pe televizor',
+              subtitle: 'Android TV și Apple TV',
               beta: true,
-              onTap: () => _showTvInstructions(context),
+              onTap: () => _showSheet(context, const _TvInstructionsSheet()),
             ),
-
-            // Android Auto & Apple CarPlay
             _DeviceRow(
               icon: Icons.directions_car_rounded,
-              title: 'Android Auto și Apple CarPlay',
-              subtitle: 'Ascultă în mașină',
-              onTap: () => _showCarInstructions(context),
+              title: 'În mașină',
+              subtitle: 'Android Auto și Apple CarPlay',
+              onTap: () => _showSheet(context, const _CarInstructionsSheet()),
             ),
-
           ],
         ),
       ),
     );
   }
+}
 
-  Widget _sectionLabel(BuildContext context, String text) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 20, top: 12, bottom: 4),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 1.2,
-          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
+/// The icon for a Chromecast, from the words in its name and model, in
+/// Romanian or English ("Televizor sufragerie", "Nest Audio").
+IconData _chromecastIcon(GoogleCastDevice device) {
+  final words =
+      '${device.friendlyName} ${device.modelName ?? ''}'.toLowerCase();
+  bool has(List<String> keys) => keys.any(words.contains);
+  // Before the speakers: a "Nest Hub" is a display.
+  if (has(const ['display', 'hub'])) return Icons.tablet_rounded;
+  if (has(const ['tv', 'televizor', 'television'])) return Icons.tv_rounded;
+  if (has(const ['speaker', 'nest', 'home', 'audio', 'boxă', 'boxa',
+      'difuzor'])) {
+    return Icons.speaker_rounded;
+  }
+  return Icons.cast_rounded;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Sheet header
+// ═══════════════════════════════════════════════════════════════════
+
+/// The drag handle at the top of each device sheet.
+class _DragHandle extends StatelessWidget {
+  final EdgeInsetsGeometry margin;
+
+  const _DragHandle({this.margin = const EdgeInsets.only(top: 10, bottom: 14)});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        width: 36,
+        height: 4,
+        margin: margin,
+        decoration: BoxDecoration(
+          color: Theme.of(context).deviceSheetColors.handle,
+          borderRadius: BorderRadius.circular(2),
         ),
       ),
     );
   }
+}
 
-  static IconData _chromecastIcon(String name) {
-    final n = name.toLowerCase();
-    if (n.contains('tv') || n.contains('television')) return Icons.tv_rounded;
-    if (n.contains('speaker') || n.contains('home') || n.contains('nest')) {
-      return Icons.speaker_rounded;
+/// The sheet's title, and the kinds of devices it offers.
+class _SheetHeader extends StatelessWidget {
+  const _SheetHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _DragHandle(),
+          Text(
+            'Ascultă pe alt dispozitiv',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              color: theme.colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            // Android has no AirPlay and Bluetooth row, so no headphones.
+            Platform.isIOS
+                ? 'Televizor, boxe, căști sau mașină'
+                : 'Televizor, boxe sau mașină',
+            style: TextStyle(
+              fontSize: 14,
+              color: theme.deviceSheetColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Chromecast card
+// ═══════════════════════════════════════════════════════════════════
+
+/// The Chromecast card: the scan, the devices it found, why it found none,
+/// or the device audio plays on.
+///
+/// It keeps at least [minHeight], so the sheet keeps its height as a scan
+/// starts, finds devices or ends.
+class _CastCard extends StatelessWidget {
+  static const double minHeight = 212;
+
+  final _CastCardState state;
+  final List<GoogleCastDevice> devices;
+  final bool searching;
+  final String? connectedDeviceName;
+  final ValueChanged<GoogleCastDevice> onConnect;
+  final VoidCallback onDisconnect;
+  final VoidCallback onRescan;
+  final VoidCallback onOpenSettings;
+
+  const _CastCard({
+    required this.state,
+    required this.devices,
+    required this.searching,
+    required this.connectedDeviceName,
+    required this.onConnect,
+    required this.onDisconnect,
+    required this.onRescan,
+    required this.onOpenSettings,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).deviceSheetColors;
+    final content = switch (state) {
+      _CastCardState.connected => _ConnectedChromecast(
+          deviceName: connectedDeviceName,
+          onDisconnect: onDisconnect,
+        ),
+      _CastCardState.blocked => _CardMessage(
+          leading: _IconBubble(
+            icon: Icons.lock_outline_rounded,
+            background: colors.tint,
+            color: colors.accent,
+            size: 44,
+          ),
+          title: 'Permite accesul la rețeaua locală',
+          body: 'Așa găsim televizorul sau boxa din Wi-Fi-ul tău.',
+          button: _CardButton(
+            label: 'Deschide Setările',
+            icon: Icons.north_east_rounded,
+            iconAlignment: IconAlignment.end,
+            onPressed: onOpenSettings,
+          ),
+        ),
+      _CastCardState.found => _FoundDevices(
+          devices: devices,
+          searching: searching,
+          onConnect: onConnect,
+          onRescan: onRescan,
+        ),
+      _CastCardState.searching => const _CardMessage(
+          leading: _PulsingCastIcon(),
+          title: 'Căutăm televizoare și boxe',
+          body: 'în rețeaua ta Wi-Fi · durează câteva secunde',
+        ),
+      _CastCardState.empty => _CardMessage(
+          title: 'Nu am găsit niciun dispozitiv',
+          body: 'Verifică dacă telefonul și televizorul sunt conectate la '
+              'același Wi-Fi și dacă televizorul e pornit.',
+          button: _CardButton(
+            label: 'Caută din nou',
+            icon: Icons.refresh_rounded,
+            onPressed: onRescan,
+          ),
+        ),
+    };
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Material(
+        color: colors.card,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        clipBehavior: Clip.antiAlias,
+        child: AnimatedSize(
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeInOut,
+          alignment: Alignment.topCenter,
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 250),
+            switchInCurve: Curves.easeInOut,
+            switchOutCurve: Curves.easeInOut,
+            layoutBuilder: (current, previous) => Stack(
+              alignment: Alignment.topCenter,
+              children: [...previous, if (current != null) current],
+            ),
+            child: KeyedSubtree(key: ValueKey(state), child: content),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A centered message on the card: what happens or went wrong, and the
+/// button that helps.
+class _CardMessage extends StatelessWidget {
+  final Widget? leading;
+  final String title;
+  final String body;
+  final Widget? button;
+
+  const _CardMessage({
+    this.leading,
+    required this.title,
+    required this.body,
+    this.button,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final leading = this.leading;
+    final button = this.button;
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: _CastCard.minHeight),
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (leading != null) ...[leading, const SizedBox(height: 16)],
+              Semantics(
+                liveRegion: true,
+                child: Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                body,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13,
+                  height: 1.45,
+                  color: theme.deviceSheetColors.textSecondary,
+                ),
+              ),
+              if (button != null) ...[const SizedBox(height: 14), button],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The card's filled pink button ("Caută din nou", "Deschide Setările").
+class _CardButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final IconAlignment iconAlignment;
+  final VoidCallback onPressed;
+
+  const _CardButton({
+    required this.label,
+    required this.icon,
+    this.iconAlignment = IconAlignment.start,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return FilledButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 18),
+      iconAlignment: iconAlignment,
+      label: Text(label),
+      style: FilledButton.styleFrom(
+        backgroundColor: AppColors.deviceAction,
+        foregroundColor: Colors.white,
+        minimumSize: const Size(0, 44),
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        shape: const StadiumBorder(),
+        textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+}
+
+/// The Chromecasts the scan found, each one tap from playing.
+class _FoundDevices extends StatelessWidget {
+  final List<GoogleCastDevice> devices;
+  final bool searching;
+  final ValueChanged<GoogleCastDevice> onConnect;
+  final VoidCallback onRescan;
+
+  const _FoundDevices({
+    required this.devices,
+    required this.searching,
+    required this.onConnect,
+    required this.onRescan,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).deviceSheetColors;
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: _CastCard.minHeight),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _SectionLabel(
+            'GĂSITE ÎN WI-FI-UL TĂU',
+            padding: const EdgeInsets.fromLTRB(16, 4, 4, 0),
+            // The scan keeps looking for more; once it ends, the user can
+            // start it again for a device that's missing.
+            trailing: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 150),
+              child: searching
+                  ? SizedBox.square(
+                      key: const ValueKey('searching'),
+                      dimension: 44,
+                      child: Center(
+                        child: SizedBox.square(
+                          dimension: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            color: colors.pulse,
+                            semanticsLabel: 'Se caută',
+                          ),
+                        ),
+                      ),
+                    )
+                  : IconButton(
+                      key: const ValueKey('rescan'),
+                      onPressed: onRescan,
+                      tooltip: 'Caută din nou',
+                      constraints:
+                          const BoxConstraints.tightFor(width: 44, height: 44),
+                      padding: EdgeInsets.zero,
+                      icon: Icon(
+                        Icons.refresh_rounded,
+                        size: 20,
+                        color: colors.label,
+                      ),
+                    ),
+            ),
+          ),
+          for (final device in devices)
+            _ChromecastRow(device: device, onTap: () => onConnect(device)),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+}
+
+/// A Chromecast the scan found; a tap plays the station on it.
+class _ChromecastRow extends StatelessWidget {
+  final GoogleCastDevice device;
+  final VoidCallback onTap;
+
+  const _ChromecastRow({required this.device, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).deviceSheetColors;
+    return Semantics(
+      button: true,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 12, 10),
+          child: Row(
+            children: [
+              _IconBubble(
+                icon: _chromecastIcon(device),
+                background: colors.cardInner,
+                color: colors.icon,
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: _RowTexts(
+                  title: device.friendlyName,
+                  subtitle: device.modelName,
+                ),
+              ),
+              const SizedBox(width: 8),
+              // The whole row connects; the pill says what a tap does.
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                decoration: BoxDecoration(
+                  color: colors.cardInner,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  'Conectează',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: colors.accent,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The Chromecast audio plays on, with the button that stops it.
+class _ConnectedChromecast extends StatelessWidget {
+  final String? deviceName;
+  final VoidCallback onDisconnect;
+
+  const _ConnectedChromecast({
+    required this.deviceName,
+    required this.onDisconnect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).deviceSheetColors;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const _SectionLabel(
+          'CONECTAT',
+          padding: EdgeInsets.fromLTRB(16, 14, 16, 6),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 12, 16),
+          child: Row(
+            children: [
+              const _IconBubble(
+                icon: Icons.cast_connected_rounded,
+                background: AppColors.deviceAction,
+                color: Colors.white,
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: _RowTexts(
+                  title: deviceName ?? 'Chromecast',
+                  titleWeight: FontWeight.w600,
+                  subtitle: 'Se aude acum',
+                  subtitleColor: colors.accent,
+                ),
+              ),
+              const SizedBox(width: 8),
+              TextButton(
+                onPressed: onDisconnect,
+                style: TextButton.styleFrom(
+                  backgroundColor: colors.cardInner,
+                  foregroundColor: colors.accent,
+                  minimumSize: const Size(0, 36),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  shape: const StadiumBorder(),
+                  textStyle: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                child: const Text('Deconectează'),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// The cast icon in a pink circle, with rings spreading out of it while the
+/// scan runs. Reduce Motion keeps it still.
+class _PulsingCastIcon extends StatefulWidget {
+  const _PulsingCastIcon();
+
+  @override
+  State<_PulsingCastIcon> createState() => _PulsingCastIconState();
+}
+
+class _PulsingCastIconState extends State<_PulsingCastIcon>
+    with SingleTickerProviderStateMixin {
+  static const double _size = 56;
+
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 2),
+  );
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _controller.stop();
+    } else if (!_controller.isAnimating) {
+      _controller.repeat();
     }
-    if (n.contains('display') || n.contains('hub')) return Icons.tablet_rounded;
-    return Icons.cast_rounded;
   }
 
-  void _showTvInstructions(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Theme.of(context).brightness == Brightness.dark
-          ? const Color(0xFF1E1E1E) : Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ringColor = Theme.of(context).deviceSheetColors.pulse;
+    return ExcludeSemantics(
+      child: SizedBox.square(
+        dimension: _size,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            if (!MediaQuery.disableAnimationsOf(context))
+              for (final phase in const [0.0, 0.5])
+                Positioned.fill(
+                  child: _PulseRing(
+                    animation: _controller,
+                    phase: phase,
+                    color: ringColor,
+                  ),
+                ),
+            const Positioned.fill(
+              child: _IconBubble(
+                icon: Icons.cast_rounded,
+                background: AppColors.deviceAction,
+                color: Colors.white,
+                size: _size,
+              ),
+            ),
+          ],
+        ),
       ),
-      isScrollControlled: true,
-      builder: (_) => const _TvInstructionsSheet(),
     );
   }
+}
 
-  void _showCarInstructions(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Theme.of(context).brightness == Brightness.dark
-          ? const Color(0xFF1E1E1E) : Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+/// One ring that grows out of the searching icon and fades as it goes.
+class _PulseRing extends AnimatedWidget {
+  /// Where in the loop this ring starts, so two rings take turns.
+  final double phase;
+  final Color color;
+
+  const _PulseRing({
+    required Animation<double> animation,
+    required this.phase,
+    required this.color,
+  }) : super(listenable: animation);
+
+  Animation<double> get _progress => listenable as Animation<double>;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = (_progress.value + phase) % 1;
+    return Transform.scale(
+      scale: 1 + 1.1 * Curves.easeOut.transform(t),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: color.withValues(alpha: 0.55 * (1 - t)),
+            width: 2,
+          ),
+        ),
       ),
-      isScrollControlled: true,
-      builder: (_) => const _CarInstructionsSheet(),
     );
   }
-
 }
 
 // ═══════════════════════════════════════════════════════════════════
 // Row widgets
 // ═══════════════════════════════════════════════════════════════════
 
-/// Generic tappable row.
+/// A small all-caps label over a group of rows, with an optional control
+/// at its end.
+class _SectionLabel extends StatelessWidget {
+  final String text;
+  final EdgeInsetsGeometry padding;
+  final Widget? trailing;
+
+  const _SectionLabel(
+    this.text, {
+    this.padding = const EdgeInsets.fromLTRB(20, 18, 20, 4),
+    this.trailing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final trailing = this.trailing;
+    final label = Semantics(
+      header: true,
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.6,
+          color: Theme.of(context).deviceSheetColors.label,
+        ),
+      ),
+    );
+    return Padding(
+      padding: padding,
+      child: trailing == null
+          ? label
+          : ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 44),
+              child: Row(children: [Expanded(child: label), trailing]),
+            ),
+    );
+  }
+}
+
+/// An icon in a filled circle.
+class _IconBubble extends StatelessWidget {
+  final IconData icon;
+  final Color background;
+  final Color color;
+  final double size;
+
+  const _IconBubble({
+    required this.icon,
+    required this.background,
+    required this.color,
+    this.size = 40,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(color: background, shape: BoxShape.circle),
+      child: Icon(icon, size: 22, color: color),
+    );
+  }
+}
+
+/// A row's title, with an optional badge after it, and the line under it.
+class _RowTexts extends StatelessWidget {
+  final String title;
+  final String? subtitle;
+  final Widget? titleTrailing;
+  final FontWeight titleWeight;
+  final Color? subtitleColor;
+
+  const _RowTexts({
+    required this.title,
+    this.subtitle,
+    this.titleTrailing,
+    this.titleWeight = FontWeight.w500,
+    this.subtitleColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final subtitle = this.subtitle;
+    final titleTrailing = this.titleTrailing;
+    final titleText = Text(
+      title,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        fontSize: 16,
+        fontWeight: titleWeight,
+        color: theme.colorScheme.onSurface,
+      ),
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (titleTrailing == null)
+          titleText
+        else
+          Row(
+            children: [
+              Flexible(child: titleText),
+              const SizedBox(width: 8),
+              titleTrailing,
+            ],
+          ),
+        if (subtitle != null && subtitle.isNotEmpty) ...[
+          const SizedBox(height: 2),
+          Text(
+            subtitle,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 13,
+              color: subtitleColor ?? theme.deviceSheetColors.textSecondary,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// Another way to listen, under "SAU": a tap opens how to set it up.
 class _DeviceRow extends StatelessWidget {
   final IconData icon;
   final String title;
-  final String? subtitle;
+  final String subtitle;
   final VoidCallback? onTap;
   final bool beta;
 
   const _DeviceRow({
     required this.icon,
     required this.title,
-    this.subtitle,
+    required this.subtitle,
     this.onTap,
     this.beta = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final color =
-        Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7);
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13),
-        child: Row(
-          children: [
-            Icon(icon, size: 24, color: color),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(title,
-                          style: TextStyle(
-                            fontSize: 15, fontWeight: FontWeight.w500,
-                            color: Theme.of(context).colorScheme.onSurface)),
-                      ),
-                      if (beta) ...[
-                        const SizedBox(width: 8),
-                        const _BetaBadge(),
-                      ],
-                    ],
-                  ),
-                  if (subtitle != null && subtitle!.isNotEmpty)
-                    Text(subtitle!,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Theme.of(context).colorScheme.onSurface
-                            .withValues(alpha: 0.5))),
-                ],
+    final colors = Theme.of(context).deviceSheetColors;
+    return Semantics(
+      button: true,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 9, 16, 9),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 40,
+                child: Icon(icon, size: 22, color: colors.icon),
               ),
-            ),
-          ],
+              const SizedBox(width: 14),
+              Expanded(
+                child: _RowTexts(
+                  title: title,
+                  subtitle: subtitle,
+                  titleTrailing: beta ? const _BetaBadge() : null,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(Icons.chevron_right_rounded, size: 20, color: colors.chevron),
+            ],
+          ),
         ),
       ),
     );
@@ -632,157 +1218,21 @@ class _BetaBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).deviceSheetColors;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.12),
+        color: colors.beta,
         borderRadius: BorderRadius.circular(6),
       ),
-      child: const Text(
+      child: Text(
         'BETA',
         style: TextStyle(
-          fontSize: 9,
+          fontSize: 10,
           fontWeight: FontWeight.w800,
           letterSpacing: 0.6,
-          color: AppColors.primary,
+          color: colors.accent,
         ),
-      ),
-    );
-  }
-}
-
-/// Connected Chromecast — highlighted with disconnect button.
-class _ConnectedChromecastRow extends StatelessWidget {
-  final String? deviceName;
-  final VoidCallback onDisconnect;
-  const _ConnectedChromecastRow({
-    this.deviceName,
-    required this.onDisconnect,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: AppColors.primary.withValues(alpha: 0.2), width: 1),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          children: [
-            const Icon(Icons.cast_connected_rounded,
-                size: 24, color: AppColors.primary),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(deviceName ?? 'Chromecast',
-                    style: TextStyle(
-                      fontSize: 15, fontWeight: FontWeight.w600,
-                      color: Theme.of(context).colorScheme.onSurface)),
-                  Text('Conectat',
-                    style: TextStyle(
-                      fontSize: 13, color: AppColors.primary)),
-                ],
-              ),
-            ),
-            SizedBox(
-              height: 34,
-              child: TextButton(
-                onPressed: onDisconnect,
-                style: TextButton.styleFrom(
-                  foregroundColor: AppColors.primary,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8)),
-                ),
-                child: const Text('Deconectare',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Shown in place of the Chromecast list while iOS blocks the local
-/// network, so the user learns why no device shows up and how to fix it.
-class _LocalNetworkCard extends StatelessWidget {
-  final VoidCallback onOpenSettings;
-
-  const _LocalNetworkCard({super.key, required this.onOpenSettings});
-
-  @override
-  Widget build(BuildContext context) {
-    final onSurface = Theme.of(context).colorScheme.onSurface;
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(Icons.cast_rounded, size: 24, color: AppColors.primary),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Permite accesul la rețeaua locală',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: onSurface,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Ca să găsim Chromecast-ul sau Google TV-ul tău, activează '
-                  '„Rețea locală” în setările aplicației.',
-                  style: TextStyle(
-                    fontSize: 13,
-                    height: 1.4,
-                    color: onSurface.withValues(alpha: 0.6),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  height: 36,
-                  child: FilledButton(
-                    onPressed: onOpenSettings,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    child: const Text(
-                      'Deschide Setările',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -790,14 +1240,16 @@ class _LocalNetworkCard extends StatelessWidget {
 
 /// AirPlay row with native picker overlay — always shows, handles both connect & disconnect.
 class _AirPlayRow extends StatelessWidget {
+  const _AirPlayRow();
+
   @override
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        _DeviceRow(
+        const _DeviceRow(
           icon: Icons.airplay_rounded,
           title: 'AirPlay și Bluetooth',
-          subtitle: 'AirPods, HomePod, Apple TV, difuzoare',
+          subtitle: 'Căști, boxe, HomePod, Apple TV',
         ),
         Positioned.fill(
           child: AirPlayRoutePickerView(
@@ -832,15 +1284,7 @@ class _TvInstructionsSheet extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Drag handle
-            Container(
-              width: 36, height: 4,
-              margin: const EdgeInsets.only(bottom: 20),
-              decoration: BoxDecoration(
-                color: Theme.of(context).brightness == Brightness.dark
-                    ? Colors.white24 : Colors.black12,
-                borderRadius: BorderRadius.circular(2)),
-            ),
+            const _DragHandle(margin: EdgeInsets.only(bottom: 20)),
 
             const Icon(Icons.tv_rounded, size: 48, color: AppColors.primary),
             const SizedBox(height: 12),
@@ -909,15 +1353,7 @@ class _CarInstructionsSheet extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Drag handle
-            Container(
-              width: 36, height: 4,
-              margin: const EdgeInsets.only(bottom: 20),
-              decoration: BoxDecoration(
-                color: Theme.of(context).brightness == Brightness.dark
-                    ? Colors.white24 : Colors.black12,
-                borderRadius: BorderRadius.circular(2)),
-            ),
+            const _DragHandle(margin: EdgeInsets.only(bottom: 20)),
 
             const Icon(Icons.directions_car_rounded,
                 size: 48, color: AppColors.primary),
