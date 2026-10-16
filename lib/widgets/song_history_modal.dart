@@ -386,68 +386,70 @@ class _SongHistoryModalState extends State<SongHistoryModal> {
       );
     }
 
-    final grouped = SongHistoryService.groupByDateAndHour(_history);
+    // One list item per row, not per day: a day's group held every song
+    // loaded for it, so the list built and laid out all of them at once
+    // (over 100 ms on a slow phone) to show the first few.
+    final rows = <Object>[
+      for (final day in SongHistoryService.groupByDateAndHour(_history)) ...[
+        day,
+        for (final hour in day.hours) ...[hour, ...hour.songs, _hourEnd],
+      ],
+    ];
 
     return ListView.builder(
       controller: _scrollController,
       padding: const EdgeInsets.only(bottom: 40),
-      itemCount: grouped.length + 1, // +1 for loading indicator
+      itemCount: rows.length + 1, // +1 for loading indicator
       itemBuilder: (context, index) {
-        if (index == grouped.length) {
+        if (index == rows.length) {
           return _buildFooter(theme);
         }
-        return _buildDateGroup(theme, isDark, grouped[index]);
+        return switch (rows[index]) {
+          final HistoryDateGroup day => _buildDateHeader(theme, isDark, day),
+          final HistoryHourGroup hour => _buildHourLabel(isDark, hour),
+          final SongHistoryItem song => _buildSongItem(theme, isDark, song),
+          _ => const SizedBox(height: 4),
+        };
       },
     );
   }
 
-  Widget _buildDateGroup(ThemeData theme, bool isDark, HistoryDateGroup dateGroup) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Sticky date header
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-          decoration: BoxDecoration(
-            color: isDark
-                ? Colors.white.withValues(alpha: 0.04)
-                : Colors.black.withValues(alpha: 0.03),
-          ),
-          child: Text(
-            dateGroup.dateLabel,
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-              fontSize: 13,
-              letterSpacing: 0.3,
-              color: theme.colorScheme.onSurface,
-            ),
-          ),
+  /// Marks the end of an hour's songs in the list's rows.
+  static const _hourEnd = Object();
+
+  Widget _buildDateHeader(ThemeData theme, bool isDark, HistoryDateGroup dateGroup) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      decoration: BoxDecoration(
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.04)
+            : Colors.black.withValues(alpha: 0.03),
+      ),
+      child: Text(
+        dateGroup.dateLabel,
+        style: theme.textTheme.titleSmall?.copyWith(
+          fontWeight: FontWeight.w700,
+          fontSize: 13,
+          letterSpacing: 0.3,
+          color: theme.colorScheme.onSurface,
         ),
-        ...dateGroup.hours.map((hourGroup) => _buildHourGroup(theme, isDark, hourGroup)),
-      ],
+      ),
     );
   }
 
-  Widget _buildHourGroup(ThemeData theme, bool isDark, HistoryHourGroup hourGroup) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 14, 20, 6),
-          child: Text(
-            hourGroup.hourLabel,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: isDark ? Colors.white38 : Colors.black38,
-              letterSpacing: 0.2,
-            ),
-          ),
+  Widget _buildHourLabel(bool isDark, HistoryHourGroup hourGroup) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 6),
+      child: Text(
+        hourGroup.hourLabel,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: isDark ? Colors.white38 : Colors.black38,
+          letterSpacing: 0.2,
         ),
-        ...hourGroup.songs.map((item) => _buildSongItem(theme, isDark, item)),
-        const SizedBox(height: 4),
-      ],
+      ),
     );
   }
 

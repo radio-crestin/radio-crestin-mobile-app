@@ -1,9 +1,11 @@
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:like_button/like_button.dart';
 import 'package:radio_crestin/theme.dart';
@@ -1244,7 +1246,7 @@ class _PlayerPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
+    return _BakedDecoration(
       decoration: BoxDecoration(
         borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(16.0),
@@ -1283,6 +1285,117 @@ class _PlayerPanel extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// A [DecoratedBox] that shades its [decoration] once per size into an image
+/// and draws that image on every frame after.
+///
+/// The player's backdrop gradient took a slow phone's GPU about 7 ms a frame
+/// (moto g7 plus), whatever its stops or shape, and every frame of a sheet
+/// sliding over the player, a song change or the panel opening redraws it:
+/// a sheet lost a quarter of its frames. The image holds the same pixels
+/// (one screen's worth, about 8 MB at 1080p) and costs next to nothing to
+/// draw.
+class _BakedDecoration extends SingleChildRenderObjectWidget {
+  const _BakedDecoration({required this.decoration, super.child});
+
+  final Decoration decoration;
+
+  @override
+  _RenderBakedDecoration createRenderObject(BuildContext context) =>
+      _RenderBakedDecoration(
+        decoration: decoration,
+        devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+      );
+
+  @override
+  void updateRenderObject(
+      BuildContext context, _RenderBakedDecoration renderObject) {
+    renderObject
+      ..decoration = decoration
+      ..devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
+  }
+}
+
+class _RenderBakedDecoration extends RenderProxyBox {
+  _RenderBakedDecoration({
+    required Decoration decoration,
+    required double devicePixelRatio,
+  })  : _decoration = decoration,
+        _devicePixelRatio = devicePixelRatio;
+
+  Decoration _decoration;
+  set decoration(Decoration value) {
+    if (value == _decoration) return;
+    _decoration = value;
+    _dropImage();
+    markNeedsPaint();
+  }
+
+  double _devicePixelRatio;
+  set devicePixelRatio(double value) {
+    if (value == _devicePixelRatio) return;
+    _devicePixelRatio = value;
+    _dropImage();
+    markNeedsPaint();
+  }
+
+  ui.Image? _image;
+
+  /// The size [_image] was shaded for.
+  Size? _imageSize;
+
+  void _dropImage() {
+    _image?.dispose();
+    _image = null;
+  }
+
+  ui.Image _imageFor(Size size) {
+    final cached = _image;
+    if (cached != null && _imageSize == size) return cached;
+    _dropImage();
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder)..scale(_devicePixelRatio);
+    final painter = _decoration.createBoxPainter();
+    painter.paint(canvas, Offset.zero, ImageConfiguration(size: size));
+    painter.dispose();
+    final picture = recorder.endRecording();
+    // Rendered on the GPU, never read back.
+    final image = picture.toImageSync(
+      (size.width * _devicePixelRatio).ceil(),
+      (size.height * _devicePixelRatio).ceil(),
+    );
+    picture.dispose();
+    _imageSize = size;
+    return _image = image;
+  }
+
+  // Taps on the bare backdrop land on the panel, as on a DecoratedBox,
+  // instead of falling through to what is under it.
+  @override
+  bool hitTestSelf(Offset position) => _decoration.hitTest(size, position);
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    if (!size.isEmpty) {
+      final image = _imageFor(size);
+      context.canvas.drawImageRect(
+        image,
+        Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),
+        offset &
+            Size(image.width / _devicePixelRatio,
+                image.height / _devicePixelRatio),
+        Paint()..filterQuality = FilterQuality.none,
+      );
+    }
+    super.paint(context, offset);
+  }
+
+  @override
+  void dispose() {
+    _dropImage();
+    super.dispose();
   }
 }
 
