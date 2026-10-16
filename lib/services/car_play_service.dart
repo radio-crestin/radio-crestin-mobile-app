@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_carplay/flutter_carplay.dart';
 import 'package:get_it/get_it.dart';
 import 'package:radio_crestin/appAudioHandler.dart';
+import 'package:radio_crestin/services/analytics_service.dart';
 import 'package:radio_crestin/services/car_play_layout.dart';
 import 'package:radio_crestin/services/image_cache_service.dart';
 import 'package:radio_crestin/services/image_retry_signal.dart';
@@ -164,6 +165,29 @@ class CarPlayService {
     developer.log("CarPlayService: $message");
   }
 
+  /// Logs a car connecting or going away. The car forces the 5-minute
+  /// offset and a disconnect pauses what plays, so these records explain
+  /// the ones around them in a listener's log.
+  static void _logCarConnection(
+    String car, {
+    required bool connected,
+    required bool playing,
+  }) {
+    AnalyticsService.instance.log(
+      connected ? 'car connected' : 'car disconnected',
+      {
+        'car': car,
+        'was_playing': playing,
+        if (!connected && playing) 'action': 'pause',
+      },
+    );
+  }
+
+  /// Why the car did not start the last station on connect.
+  static void _logCarAutoplaySkipped(String reason) => AnalyticsService
+      .instance
+      .log('car autoplay skipped', {'reason': reason});
+
   /// Auto-play the last station when car connects, if autoplay is enabled
   /// and not already playing. Detects whether the station is in favorites
   /// and passes the context so the correct tab/list is highlighted.
@@ -173,6 +197,7 @@ class CarPlayService {
   Future<void> _autoplayOnCarConnect() async {
     if (_audioHandler.playbackState.value.playing) {
       _log("Already playing, skipping car autoplay");
+      _logCarAutoplaySkipped('already_playing');
       return;
     }
     try {
@@ -180,6 +205,7 @@ class CarPlayService {
       final autoStart = prefs.getBool('_autoStartStation') ?? true;
       if (!autoStart) {
         _log("Autoplay disabled in settings, skipping car autoplay");
+        _logCarAutoplaySkipped('auto_start_off');
         return;
       }
 
@@ -192,14 +218,19 @@ class CarPlayService {
 
       if (station == null) {
         _log("No last played station after waiting, skipping car autoplay");
+        _logCarAutoplaySkipped('no_last_station');
         return;
       }
       // No list context: next/previous keep the persisted one, so a station
       // last picked from favorites keeps cycling through the favorites.
       _log("Car connected — autoplaying station: ${station.slug}");
+      AnalyticsService.instance
+          .log('car autoplay', {'station_slug': station.slug});
       _audioHandler.playStation(station);
     } catch (e) {
       _log("Error during car autoplay: $e");
+      AnalyticsService.instance
+          .logWarning('car autoplay failed', {'error': '$e'});
     }
   }
 
@@ -971,6 +1002,9 @@ class CarPlayService {
       if (connected && !wasConnected) {
         // Fresh CarPlay connection.
         _log(">>> CARPLAY CONNECTED (wasPlaying=${_audioHandler.playbackState.value.playing})");
+        _logCarConnection('carplay',
+            connected: true,
+            playing: _audioHandler.playbackState.value.playing);
         // A new drive: the pinned row follows the latest play counts.
         _takeCarPlaySnapshots();
         _refreshCarPlayLists();
@@ -988,6 +1022,9 @@ class CarPlayService {
         }
       } else if (!connected && wasConnected) {
         _log(">>> CARPLAY DISCONNECTED (wasPlaying=${_audioHandler.playbackState.value.playing})");
+        _logCarConnection('carplay',
+            connected: false,
+            playing: _audioHandler.playbackState.value.playing);
         if (_audioHandler.playbackState.value.playing) {
           _log("Pausing playback due to CarPlay disconnect");
           _audioHandler.pause();
@@ -1351,6 +1388,9 @@ class CarPlayService {
       if (isCarConnected.value == connected) return;
       isCarConnected.add(connected);
       SeekModeManager.changeCarConnected(connected);
+      _logCarConnection('android_auto',
+          connected: connected,
+          playing: _audioHandler.playbackState.value.playing);
       if (!connected && _audioHandler.playbackState.value.playing) {
         _log("Android Auto disconnected while playing, pausing");
         _audioHandler.pause();

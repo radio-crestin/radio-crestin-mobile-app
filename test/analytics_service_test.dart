@@ -844,6 +844,63 @@ void main() {
     });
   });
 
+  group('log context', () {
+    tearDown(() {
+      analytics.setLogContextProvider(null);
+      analytics.setDeveloperVerbose(false);
+    });
+
+    test('info and warn records carry the device state', () async {
+      await analytics.initialize();
+      analytics.setLogContextProvider(
+          () => {'network': 'online', 'car_connected': true});
+      fake.capturedLogs.clear();
+
+      analytics.log('started', {'k': 'v'});
+      analytics.logWarning('stalled');
+
+      final info = fake.capturedLogs.singleWhere((l) => l.body == 'started');
+      expect(info.attributes,
+          {'network': 'online', 'car_connected': true, 'k': 'v'});
+      final warn = fake.capturedLogs.singleWhere((l) => l.body == 'stalled');
+      expect(warn.attributes?['network'], 'online');
+    });
+
+    test("the record's own attributes win on a collision", () async {
+      await analytics.initialize();
+      analytics.setLogContextProvider(() => {'network': 'online'});
+      fake.capturedLogs.clear();
+
+      analytics.log('changed', {'network': 'offline'});
+
+      final rec = fake.capturedLogs.singleWhere((l) => l.body == 'changed');
+      expect(rec.attributes?['network'], 'offline');
+    });
+
+    test('debug records stay lean', () async {
+      await analytics.initialize();
+      analytics.setDeveloperVerbose(true);
+      analytics.setLogContextProvider(() => {'network': 'online'});
+      fake.capturedLogs.clear();
+
+      analytics.logDebug('detail', {'k': 1});
+
+      final rec = fake.capturedLogs.singleWhere((l) => l.body == 'detail');
+      expect(rec.attributes, {'k': 1});
+    });
+
+    test('a failing provider costs the context, not the record', () async {
+      await analytics.initialize();
+      analytics.setLogContextProvider(() => throw StateError('no binding'));
+      fake.capturedLogs.clear();
+
+      analytics.log('still here', {'k': 'v'});
+
+      final rec = fake.capturedLogs.singleWhere((l) => l.body == 'still here');
+      expect(rec.attributes, {'k': 'v'});
+    });
+  });
+
   group('verbose logging tiers', () {
     test('shouldShip gates strictly by severity order', () {
       const info = PostHogLogSeverity.info;

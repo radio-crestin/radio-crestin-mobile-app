@@ -11,6 +11,7 @@ import '../appAudioHandler.dart';
 import '../seek_mode_manager.dart';
 import '../types/Station.dart';
 import '../utils.dart';
+import 'analytics_service.dart';
 import 'image_cache_service.dart';
 import 'network_service.dart';
 import 'play_count_service.dart';
@@ -231,6 +232,12 @@ class HomeWidgetService {
     }
     final args = Map<String, dynamic>.from(call.arguments as Map);
     debugPrint('HomeWidgetService: button $args');
+    // A Home Screen button: why playback started, paused or moved on.
+    final slug = args['slug'];
+    AnalyticsService.instance.log('widget button', {
+      'action': args['action'],
+      if (slug is String && slug.isNotEmpty) 'station_slug': slug,
+    });
     _playbackCommanded = true;
     _commandsInFlight++;
     try {
@@ -249,6 +256,10 @@ class HomeWidgetService {
       }
     } catch (e) {
       debugPrint('HomeWidgetService: button failed: $e');
+      AnalyticsService.instance.logWarning('widget button failed', {
+        'action': args['action'],
+        'error': '$e',
+      });
     } finally {
       _commandsInFlight--;
     }
@@ -265,7 +276,11 @@ class HomeWidgetService {
     final station = slug.isEmpty
         ? shown ?? stations.firstOrNull
         : stations.where((s) => s.slug == slug).firstOrNull;
-    if (station == null) return;
+    if (station == null) {
+      AnalyticsService.instance
+          .logWarning('widget station not found', {'station_slug': slug});
+      return;
+    }
     // A favorite tile goes on through the favorites, another tile
     // through the whole list; resuming the station shown keeps where
     // next and previous go.

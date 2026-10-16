@@ -39,6 +39,7 @@ import 'package:flutter_chrome_cast/flutter_chrome_cast.dart'
 import 'services/tv_channel_service.dart';
 import 'package:flutter_airplay/flutter_airplay.dart' as flutter_airplay;
 import 'services/analytics_service.dart';
+import 'services/app_start_log.dart';
 import 'services/device_registration_service.dart';
 import 'services/error_filter.dart';
 import 'services/hls_health_watchdog_flag.dart';
@@ -46,6 +47,7 @@ import 'services/hls_start_variant.dart';
 import 'services/hls_timeline.dart';
 import 'services/home_widget_service.dart';
 import 'services/image_cache_service.dart';
+import 'services/log_context.dart';
 import 'services/log_flush_guard.dart';
 import 'services/remote_debug_controller.dart';
 import 'services/quick_actions_service.dart';
@@ -357,6 +359,16 @@ void main() async {
     buildNumber: packageInfo.buildNumber,
     platform: Platform.isAndroid ? 'android' : Platform.isIOS ? 'ios' : Platform.isMacOS ? 'macos' : Platform.isWindows ? 'windows' : Platform.isLinux ? 'linux' : 'other',
   );
+
+  // From here on every info+ log record carries the device's state, and
+  // the launch is marked in the log with what wrote it. After setup, so a
+  // session the previous run left open is not reported with today's state.
+  AnalyticsService.instance.setLogContextProvider(LogContext.current);
+  unawaited(AppStartLog.write(
+    prefs: prefs,
+    appVersion: packageInfo.version,
+    buildNumber: packageInfo.buildNumber,
+  ));
 
   if (prefs.getBool('_notificationsEnabled') ?? true) {
     AnalyticsService.instance.setUserProperty('personalized_n', 'true');

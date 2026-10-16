@@ -86,13 +86,18 @@ class SleepCountdownTicker {
 /// silent. Owned by `AppAudioHandler`, so the timer survives the full player
 /// being collapsed or rebuilt; the UI only reads [state] and calls [start] /
 /// [cancel].
+///
+/// [log] writes the timer's steps to the app log, so a stop it caused never
+/// reads like one the listener made.
 class SleepTimerService {
   SleepTimerService({
     required Future<void> Function() stopPlayback,
     required Future<void> Function(double volume) setVolume,
+    void Function(String message, Map<String, Object?> attributes)? log,
     DateTime Function()? now,
   })  : _stopPlayback = stopPlayback,
         _setVolume = setVolume,
+        _log = log ?? _noLog,
         _now = now ?? DateTime.now;
 
   /// How long before the end the volume starts to drop.
@@ -103,7 +108,10 @@ class SleepTimerService {
 
   final Future<void> Function() _stopPlayback;
   final Future<void> Function(double volume) _setVolume;
+  final void Function(String message, Map<String, Object?> attributes) _log;
   final DateTime Function() _now;
+
+  static void _noLog(String message, Map<String, Object?> attributes) {}
 
   /// The armed timer, or null when none is running.
   final BehaviorSubject<SleepTimerState?> state =
@@ -123,6 +131,7 @@ class SleepTimerService {
     _restoreVolume();
     state
         .add(SleepTimerState(duration: duration, endsAt: _now().add(duration)));
+    _log('sleep timer set', {'duration_s': duration.inSeconds});
 
     final untilFade = duration - fadeDuration;
     if (untilFade <= Duration.zero) {
@@ -135,7 +144,10 @@ class SleepTimerService {
 
   /// Disarms the timer; playback continues at full volume.
   void cancel() {
-    if (state.value == null) return;
+    final armed = state.value;
+    if (armed == null) return;
+    _log('sleep timer cancelled',
+        {'remaining_s': armed.remainingAt(_now()).inSeconds});
     _cancelTimers();
     _restoreVolume();
     state.add(null);
@@ -167,12 +179,15 @@ class SleepTimerService {
   }
 
   Future<void> _complete() async {
+    final duration = state.value?.duration;
     _cancelTimers();
     state.add(null);
+    _log('sleep timer stopped playback', {'duration_s': duration?.inSeconds});
     try {
       await _stopPlayback();
     } catch (e) {
       debugPrint('SleepTimerService: stopping playback failed: $e');
+      _log('sleep timer stop failed', {'error': '$e'});
     }
     // Restored only after the stop so the jump back to full volume is never
     // audible.

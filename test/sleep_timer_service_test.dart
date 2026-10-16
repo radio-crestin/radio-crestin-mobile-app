@@ -187,6 +187,65 @@ void main() {
     });
   });
 
+  group('log', () {
+    late List<(String, Map<String, Object?>)> logged;
+
+    void createLoggedService() {
+      clock = _FakeClock();
+      audio = _FakeAudio();
+      logged = [];
+      service = SleepTimerService(
+        stopPlayback: audio.stop,
+        setVolume: audio.setVolume,
+        log: (message, attributes) {
+          logged.add((message, attributes));
+          audio.events.add('log: $message');
+        },
+        now: () => clock.now,
+      );
+    }
+
+    testWidgets('records arming and cancelling', (tester) async {
+      createLoggedService();
+
+      service.start(const Duration(minutes: 30));
+      await jump(tester, const Duration(minutes: 10));
+      service.cancel();
+
+      expect(logged.map((e) => e.$1),
+          ['sleep timer set', 'sleep timer cancelled']);
+      expect(logged.map((e) => e.$2), [
+        {'duration_s': 1800},
+        {'remaining_s': 1200},
+      ]);
+    });
+
+    testWidgets('records the stop it caused before stopping', (tester) async {
+      createLoggedService();
+      service.start(const Duration(minutes: 15));
+
+      await jump(tester, const Duration(minutes: 14));
+      await advance(tester, const Duration(minutes: 1));
+
+      expect(
+        audio.events.where((e) => e == 'stop' || e.contains('stopped')),
+        ['log: sleep timer stopped playback', 'stop'],
+      );
+      expect(
+        logged.singleWhere((e) => e.$1 == 'sleep timer stopped playback').$2,
+        {'duration_s': 900},
+      );
+    });
+
+    testWidgets('cancelling with nothing armed logs nothing', (tester) async {
+      createLoggedService();
+
+      service.cancel();
+
+      expect(logged, isEmpty);
+    });
+  });
+
   group('SleepTimerState', () {
     final endsAt = DateTime(2026, 10, 12, 23, 30);
     final state = SleepTimerState(

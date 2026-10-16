@@ -9,8 +9,10 @@ import 'package:http/http.dart' as http;
 import 'package:radio_crestin/constants.dart';
 import 'package:radio_crestin/performance_monitor.dart';
 import 'package:radio_crestin/seek_mode_manager.dart';
+import 'package:radio_crestin/services/analytics_service.dart';
 import 'package:radio_crestin/services/audible_now_playing_resolver.dart';
 import 'package:radio_crestin/services/audible_song_policy.dart';
+import 'package:radio_crestin/services/failure_streak.dart';
 import 'package:radio_crestin/services/network_service.dart';
 import 'package:radio_crestin/services/now_playing_sanitizer.dart';
 import 'package:radio_crestin/services/play_count_service.dart';
@@ -399,6 +401,31 @@ class StationDataService {
 
   void _log(String message) {
     debugPrint("StationDataService: $message");
+  }
+
+  // The station list (GraphQL) and the live metadata (REST) fetch every
+  // minute or so: their failures are logged when they start and when they
+  // end, not each time.
+  final _catalogFailures = FailureStreak();
+  final _metadataFailures = FailureStreak();
+
+  void _noteFetchFailure(FailureStreak streak, String source, Object error) {
+    if (!streak.fail(_now())) return;
+    final text = '$error';
+    AnalyticsService.instance.logWarning('station data fetch failing', {
+      'source': source,
+      'error': text.length > 200 ? text.substring(0, 200) : text,
+    });
+  }
+
+  void _noteFetchSuccess(FailureStreak streak, String source) {
+    final ended = streak.succeed(_now());
+    if (ended == null) return;
+    AnalyticsService.instance.log('station data fetch recovered', {
+      'source': source,
+      'failures': ended.failures,
+      'failed_for_s': ended.duration.inSeconds,
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -1005,12 +1032,30 @@ class StationDataService {
       _log('audible: dropped a result for station ${result.stationId}');
       return;
     }
+    final previousSongId = _audible?.row.songId;
     _audible = result;
     _lastAudibleCheckAt = _now();
     _log('audible: ${result.source.name} song ${result.row.songId} '
         'started ${result.row.startedAt.toIso8601String()} '
         '(heard ${result.heardAt.toIso8601String()})');
+    if (result.row.songId != previousSongId) _logSongChanged(result);
     _publishMerged();
+  }
+
+  /// The song shown as heard changed: what it is, where it came from and
+  /// when it started, for "the wrong song is shown" reports.
+  static void _logSongChanged(AudibleNowPlaying result) {
+    final song = result.row.nowPlaying['song'];
+    final artist = song is Map<String, dynamic> ? song['artist'] : null;
+    AnalyticsService.instance.logDebug('song changed', {
+      'station_id': result.stationId,
+      'song_id': result.row.songId,
+      'song': song is Map<String, dynamic> ? song['name'] : null,
+      'artist': artist is Map<String, dynamic> ? artist['name'] : null,
+      'source': result.source.name,
+      'started_at': result.row.startedAt.toIso8601String(),
+      'heard_at': result.heardAt.toIso8601String(),
+    });
   }
 
   /// An anchor resolved before ingestion settled may miss a row that started
@@ -1479,9 +1524,19 @@ class StationDataService {
         // full refresh was pure UI-isolate and disk work.
         Options$Query$GetStations(fetchPolicy: FetchPolicy.noCache),
       );
+      // Under ErrorPolicy.none a failed query returns its error in the
+      // result instead of throwing.
+      final exception = result.exception;
+      if (exception != null) {
+        _log("stations query failed: $exception");
+        _noteFetchFailure(_catalogFailures, 'catalog', exception);
+      } else {
+        _noteFetchSuccess(_catalogFailures, 'catalog');
+      }
       return result.parsedData;
     } catch (e) {
       _log("stations query failed: $e");
+      _noteFetchFailure(_catalogFailures, 'catalog', e);
       return null;
     }
   }
@@ -1636,10 +1691,13 @@ class StationDataService {
         }
         _log("✓ metadata fetch [$mode] ts=$timestamp "
             "→ ${map.length} stations in ${stopwatch.elapsedMilliseconds}ms");
+        _noteFetchSuccess(_metadataFailures, 'metadata');
         return map;
       } else {
         _log("✗ metadata fetch [$mode] ts=$timestamp "
             "→ HTTP ${response.statusCode} in ${stopwatch.elapsedMilliseconds}ms");
+        _noteFetchFailure(
+            _metadataFailures, 'metadata', 'HTTP ${response.statusCode}');
         return null;
       }
     } catch (e) {
@@ -1647,6 +1705,7 @@ class StationDataService {
       if (!answered) NetworkService.instance.reportRequestFailure();
       _log("✗ metadata fetch [$mode] ts=$timestamp "
           "→ error in ${stopwatch.elapsedMilliseconds}ms: $e");
+      _noteFetchFailure(_metadataFailures, 'metadata', e);
       return null;
     }
   }

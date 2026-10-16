@@ -540,6 +540,12 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  /// Writes a settings change to the log, so a listener's log file shows
+  /// the mode playback ran in from then on.
+  void _logSettingChanged(String setting, Object value) => AnalyticsService
+      .instance
+      .log('setting changed', {'setting': setting, 'value': value});
+
   // ── Developer mode ──
 
   /// Hidden gesture on the version row: 7 taps within a 2s-per-tap window
@@ -583,6 +589,7 @@ class _SettingsPageState extends State<SettingsPage> {
     AnalyticsService.instance.setDeveloperVerbose(enabled);
     AnalyticsService.instance
         .capture('developer_mode_toggled', {'enabled': enabled});
+    _logSettingChanged('developer_mode', enabled);
     if (!mounted) return;
     setState(() => _developerMode = enabled);
     _showDevSnack(enabled
@@ -652,6 +659,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     onChanged: (ThemeMode? newValue) async {
                       if (newValue != null) {
                         AnalyticsService.instance.capture('button_clicked', {'button_name': 'theme_mode', 'theme_mode': newValue.name});
+                        _logSettingChanged('theme', newValue.name);
                         setState(() {
                           _themeMode = newValue;
                         });
@@ -694,6 +702,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         inactiveTrackColor: isDark ? const Color(0xff39393d) : const Color(0xffe9e9ea),
                         onChanged: (bool value) async {
                           AnalyticsService.instance.capture('button_clicked', {'button_name': 'unstable_connection', 'enabled': value});
+                          _logSettingChanged('unstable_connection', value);
                           setState(() {
                             _unstableConnection = value;
                             _seekMode = value ? SeekMode.fiveMinutes : SeekMode.twoMinutes;
@@ -744,6 +753,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         onChanged: (SeekMode? newValue) async {
                           if (newValue != null) {
                             AnalyticsService.instance.capture('button_clicked', {'button_name': 'buffer_size', 'seek_mode': newValue.name});
+                            _logSettingChanged('seek_mode', newValue.name);
                             setState(() {
                               _seekMode = newValue;
                             });
@@ -794,6 +804,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     inactiveTrackColor: isDark ? const Color(0xff39393d) : const Color(0xffe9e9ea),
                     onChanged: (bool value) async {
                       AnalyticsService.instance.capture('button_clicked', {'button_name': 'auto_start_station', 'enabled': value});
+                      _logSettingChanged('auto_start', value);
                       final prefs = await SharedPreferences.getInstance();
                       await prefs.setBool('_autoStartStation', value);
                       if (!mounted) return;
@@ -815,6 +826,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     inactiveTrackColor: isDark ? const Color(0xff39393d) : const Color(0xffe9e9ea),
                     onChanged: (bool value) async {
                       AnalyticsService.instance.capture('button_clicked', {'button_name': 'custom_notifications', 'enabled': value});
+                      _logSettingChanged('notifications', value);
                       final prefs = await SharedPreferences.getInstance();
                       await prefs.setBool('_notificationsEnabled', value);
                       if (mounted) {

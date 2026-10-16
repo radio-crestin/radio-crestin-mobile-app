@@ -56,6 +56,17 @@ class AnalyticsService {
   /// Set while the hidden developer mode (Settings) is enabled.
   void setDeveloperVerbose(bool enabled) => _verboseDeveloper = enabled;
 
+  // The device's state (network, app state, car, seek offset), merged under
+  // every info+ record so each one reads on its own. Registered by main();
+  // null in tests, where records carry only their own attributes.
+  Map<String, Object> Function()? _contextProvider;
+
+  /// Registers the device state merged under every info+ log record, or
+  /// drops it with null. The record's own attributes win on a key
+  /// collision.
+  void setLogContextProvider(Map<String, Object> Function()? provider) =>
+      _contextProvider = provider;
+
   /// Whether a record at [level] ships to PostHog given [minLevel].
   /// Pure — unit tested directly.
   @visibleForTesting
@@ -411,15 +422,31 @@ class AnalyticsService {
     Map<String, Object>? attributes,
   ]) {
     if (body.trim().isEmpty) return;
+    // Debug records are the high-volume detail: they stay lean.
+    final record = level.index >= PostHogLogSeverity.info.index
+        ? _withContext(attributes)
+        : attributes;
     // Local copy first: it also captures records emitted before PostHog is up
     // and always receives every severity, including debug.
-    LocalLogStore.instance.append(level.name, body, attributes);
+    LocalLogStore.instance.append(level.name, body, record);
     if (!_initialized || !shouldShip(level, minShipLevel)) return;
     unawaited(
       Posthog()
-          .captureLog(body: body, level: level, attributes: attributes)
+          .captureLog(body: body, level: level, attributes: record)
           .catchError((Object _) {}),
     );
+  }
+
+  /// [attributes] over the registered device state. A provider that throws
+  /// costs the record its context, never the record itself.
+  Map<String, Object>? _withContext(Map<String, Object>? attributes) {
+    final provider = _contextProvider;
+    if (provider == null) return attributes;
+    try {
+      return {...provider(), ...?attributes};
+    } catch (_) {
+      return attributes;
+    }
   }
 
   /// Identity + station/stream context shared by every rich log record.

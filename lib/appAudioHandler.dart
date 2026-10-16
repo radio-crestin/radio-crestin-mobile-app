@@ -25,6 +25,7 @@ import 'package:radio_crestin/tv/tv_platform.dart';
 import 'package:radio_crestin/services/play_count_service.dart';
 import 'package:radio_crestin/services/playback_failure.dart';
 import 'package:radio_crestin/services/network_service.dart';
+import 'package:radio_crestin/services/retry_log_throttle.dart';
 import 'package:radio_crestin/services/review_service.dart';
 import 'package:radio_crestin/services/silence_keeper.dart';
 import 'package:radio_crestin/services/sleep_timer_service.dart';
@@ -953,7 +954,7 @@ class AppAudioHandler extends BaseAudioHandler {
   // iOS sees continuous audio output and never suspends the engine, so
   // the recovery code (idle-while-playing, isOffline-restored, the
   // stall-timer reattempt) keeps running.
-  late final SilenceKeeper _silenceKeeper = SilenceKeeper(log: _log);
+  late final SilenceKeeper _silenceKeeper = SilenceKeeper(log: _trace);
   Timer? _silenceKeepAliveStartTimer;
   static const _silenceKeepAliveDelay = Duration(seconds: 3);
   // Track every buffering enter/exit so short rebuffers (the audible-glitch
@@ -968,6 +969,8 @@ class AppAudioHandler extends BaseAudioHandler {
   // Dedup playbackEventStream errors so a sticky error doesn't spam the log.
   int? _lastPlayerErrorCode;
   String? _lastPlayerErrorMessage;
+  // How often the last logged error came again since.
+  int _playerErrorRepeats = 0;
   // Monotonically increasing ID to cancel stale play() operations.
   // Each playStation() increments this; play() checks it after every await
   // to bail out if a newer operation has superseded it.
@@ -1072,6 +1075,7 @@ class AppAudioHandler extends BaseAudioHandler {
   late final SleepTimerService sleepTimer = SleepTimerService(
     stopPlayback: stop,
     setVolume: _setOutputVolume,
+    log: AnalyticsService.instance.log,
   );
 
   /// Applies [volume] (0..1) to every local engine that can be audible: the
@@ -1170,6 +1174,18 @@ class AppAudioHandler extends BaseAudioHandler {
     });
   }
 
+  /// Whether the [repeats]-th repeat of an error is logged: the 1st, 10th,
+  /// 100th and so on. Pure — unit tested directly.
+  @visibleForTesting
+  static bool isRepeatLogged(int repeats) {
+    if (repeats < 1) return false;
+    var n = repeats;
+    while (n % 10 == 0) {
+      n ~/= 10;
+    }
+    return n == 1;
+  }
+
   /// Subscriber for `playbackEventStream.onError`. just_audio surfaces
   /// transient errors here without changing processingState (e.g. iOS HLS
   /// segment errors that the player recovers from). Dedup against the last
@@ -1184,13 +1200,25 @@ class AppAudioHandler extends BaseAudioHandler {
     } else {
       msg = error.toString();
     }
-    if (code == _lastPlayerErrorCode && msg == _lastPlayerErrorMessage) return;
-    _lastPlayerErrorCode = code;
-    _lastPlayerErrorMessage = msg;
-    final lastInfo = currentStreamInfo.valueOrNull;
     final shortMsg = msg == null
         ? ''
         : (msg.length > 120 ? msg.substring(0, 120) : msg);
+    if (code == _lastPlayerErrorCode && msg == _lastPlayerErrorMessage) {
+      _playerErrorRepeats++;
+      // How sticky the error is, at a bounded cost.
+      if (isRepeatLogged(_playerErrorRepeats)) {
+        AnalyticsService.instance.logDebug('stream player error repeated', {
+          'repeats': _playerErrorRepeats,
+          'error_code': code,
+          'error_message': shortMsg,
+        });
+      }
+      return;
+    }
+    _lastPlayerErrorCode = code;
+    _lastPlayerErrorMessage = msg;
+    _playerErrorRepeats = 0;
+    final lastInfo = currentStreamInfo.valueOrNull;
     _recordStreamEvent(
       StreamEventKind.playerError,
       'Player error${code != null ? ' code=$code' : ''}${shortMsg.isNotEmpty ? ': $shortMsg' : ''}',
@@ -1212,6 +1240,15 @@ class AppAudioHandler extends BaseAudioHandler {
 
   _log(String message) {
     developer.log("AppAudioHandler: $message");
+  }
+
+  /// [_log] that also lands in the app log at debug level: the commands and
+  /// decisions a listener's log file should show (resume or reload, HLS
+  /// starts and seeks, video handoffs). Not for anything that repeats every
+  /// few seconds, which would push the history out of the file.
+  void _trace(String message) {
+    _log(message);
+    AnalyticsService.instance.logDebug(message);
   }
 
   /// Compact error description for logs/PostHog (avoids dumping multi-line stack traces).
@@ -1353,7 +1390,7 @@ class AppAudioHandler extends BaseAudioHandler {
     if (_isConnecting) _restartPassAtPreferred = true;
     final wake = _retryBackoffWake;
     if (wake == null || wake.isCompleted) return;
-    _log('play: network back — retrying now instead of after the backoff');
+    _trace('play: network back — retrying now instead of after the backoff');
     wake.complete();
   }
 
@@ -1554,7 +1591,7 @@ class AppAudioHandler extends BaseAudioHandler {
 
   // Audio Player
   Future<void> _initPlayer() async {
-    _log("initPlayer");
+    _trace("initPlayer");
 
     // Propagate all events from the audio player to AudioService clients.
     // Errors raised on this stream (PlayerException etc.) are surfaced through
@@ -1605,12 +1642,12 @@ class AppAudioHandler extends BaseAudioHandler {
         // The song already playing when the stream started, not a change:
         // its row may have started minutes ago, so a follow-up waiting for
         // a fresh row would only repeat the live fetch for 40 s.
-        _log("icy metadata: first title $title — refreshing live");
+        _trace("icy metadata: first title $title — refreshing live");
         unawaited(
             stationDataService.enqueueSync(SyncReason.liveMetadataChanged));
         return;
       }
-      _log("icy metadata change: $title — refreshing");
+      _trace("icy metadata change: $title — refreshing");
       unawaited(stationDataService.refreshMetadataNow());
     });
 
@@ -1633,7 +1670,7 @@ class AppAudioHandler extends BaseAudioHandler {
         if (state == ProcessingState.completed) {
           _bufferingStallTimer?.cancel();
           if (_isConnecting) return;
-          _log('processingStateStream: playlist item completed → advance');
+          _trace('processingStateStream: playlist item completed → advance');
           onPlaylistItemCompleted?.call();
         } else if (state == ProcessingState.buffering && player.playing) {
           if (_bufferingStartedAt == null) {
@@ -1664,7 +1701,7 @@ class AppAudioHandler extends BaseAudioHandler {
           final lastLoad = _lastSuccessfulLoadAt;
           if (lastLoad != null &&
               DateTime.now().difference(lastLoad) < _terminalStateReloadDebounce) {
-            _log("processingStateStream: HLS completed within debounce window — ignoring (likely PDT confusion, not real EOS)");
+            _trace("processingStateStream: HLS completed within debounce window — ignoring (likely PDT confusion, not real EOS)");
             _recordStreamEvent(
               StreamEventKind.hlsCompleted,
               'HLS completed (debounced — recently loaded)',
@@ -1738,7 +1775,7 @@ class AppAudioHandler extends BaseAudioHandler {
         final lastLoad = _lastSuccessfulLoadAt;
         if (lastLoad != null &&
             DateTime.now().difference(lastLoad) < _terminalStateReloadDebounce) {
-          _log("processingStateStream: idle-while-playing within debounce window — ignoring");
+          _trace("processingStateStream: idle-while-playing within debounce window — ignoring");
           _recordStreamEvent(
             StreamEventKind.lostIdle,
             'Stream idle-while-playing (debounced — recently loaded)',
@@ -1873,6 +1910,9 @@ class AppAudioHandler extends BaseAudioHandler {
       });
     } catch (e) {
       _log('audio session handlers setup failed: $e');
+      // Calls and unplugged headphones will then go unhandled.
+      AnalyticsService.instance
+          .logWarning('audio session handlers failed', {'error': '$e'});
     }
   }
 
@@ -1893,6 +1933,8 @@ class AppAudioHandler extends BaseAudioHandler {
       _resumeAfterInterruption = false;
       if (resume) {
         _log('interruption ended, resuming');
+        AnalyticsService.instance
+            .log('system resume', {'reason': 'interruption_ended'});
         _isInterruptionResume = true;
         unawaited(play());
       }
@@ -1930,6 +1972,7 @@ class AppAudioHandler extends BaseAudioHandler {
   bool _pauseForSystemEvent(String reason) {
     if (isCasting || !(_hasBeenPlayed || player.playing)) return false;
     _log('system pause ($reason)');
+    AnalyticsService.instance.log('system pause', {'reason': reason});
     unawaited(pause());
     return true;
   }
@@ -1953,7 +1996,7 @@ class AppAudioHandler extends BaseAudioHandler {
 
   @override
   Future<void> setRating(Rating rating, [Map<String, dynamic>? extras]) async {
-    _log('setRating($rating)');
+    _trace('setRating($rating)');
     final station = currentStation.value;
     if (station == null) return;
     await setStationIsFavorite(station, rating.hasHeart());
@@ -1961,7 +2004,7 @@ class AppAudioHandler extends BaseAudioHandler {
 
   @override
   Future<dynamic> customAction(String name, [Map<String, dynamic>? extras]) async {
-    _log('customAction($name, $extras)');
+    _trace('customAction($name, $extras)');
     switch (name) {
       case 'toggleFavorite':
         final station = currentStation.value;
@@ -2204,7 +2247,7 @@ class AppAudioHandler extends BaseAudioHandler {
     if (station.isPlaylist &&
         _playlistMode &&
         _playlistController.activeStation?.id == station.id) {
-      _log('playStation: playlist ${station.slug} already active, skipping');
+      _trace('playStation: playlist ${station.slug} already active, skipping');
       return;
     }
 
@@ -2213,7 +2256,7 @@ class AppAudioHandler extends BaseAudioHandler {
     if (!station.isPlaylist &&
         currentStation.valueOrNull?.id == station.id &&
         isPlayingOrConnecting) {
-      _log('playStation: already playing/loading station ${station.slug}, skipping');
+      _trace('playStation: already playing/loading station ${station.slug}, skipping');
       return;
     }
 
@@ -2292,7 +2335,7 @@ class AppAudioHandler extends BaseAudioHandler {
 
     // When casting, send directly to Chromecast — don't start local audio.
     if (isCasting) {
-      _log('playStation: casting active, sending to Cast');
+      _trace('playStation: casting active, sending to Cast');
       _isConnecting = false;
       // Nothing plays here while casting: no silence to keep either.
       _stopSilenceKeepAlive();
@@ -2380,7 +2423,7 @@ class AppAudioHandler extends BaseAudioHandler {
 
   @override
   Future<void> skipToNext() {
-    _log('skipToNext() startedFromFavorites='
+    _trace('skipToNext() startedFromFavorites='
         '${stationDataService.startedFromFavorites} '
         'startedFromGroup=${stationDataService.startedFromGroup}');
     // Playlist active: steering-wheel / lock-screen next skips to the next item.
@@ -2391,7 +2434,7 @@ class AppAudioHandler extends BaseAudioHandler {
       current,
       wholeCatalog: isCarConnected,
     );
-    _log('skipToNext: current=$current, next=${next?.slug}');
+    _trace('skipToNext: current=$current, next=${next?.slug}');
     if (next == null) return super.skipToNext();
     // A one-station catalog is its own next: playStation resumes it if
     // paused.
@@ -2403,7 +2446,7 @@ class AppAudioHandler extends BaseAudioHandler {
 
   @override
   Future<void> skipToPrevious() {
-    _log('skipToPrevious() startedFromFavorites='
+    _trace('skipToPrevious() startedFromFavorites='
         '${stationDataService.startedFromFavorites} '
         'startedFromGroup=${stationDataService.startedFromGroup}');
     if (_playlistMode) return _playlistController.skipToPrevious();
@@ -2413,7 +2456,7 @@ class AppAudioHandler extends BaseAudioHandler {
       current,
       wholeCatalog: isCarConnected,
     );
-    _log('skipToPrevious: current=$current, prev=${prev?.slug}');
+    _trace('skipToPrevious: current=$current, prev=${prev?.slug}');
     if (prev == null) return super.skipToPrevious();
     if (prev.slug != current) {
       AnalyticsService.instance.trackStationSkip(current, prev.slug, 'previous');
@@ -2426,7 +2469,7 @@ class AppAudioHandler extends BaseAudioHandler {
     // The session queue only holds 'Recently played' history rows
     // (_updateSongHistoryQueue), never stations: like playFromMediaId,
     // tapping one keeps the current station playing.
-    _log('skipToQueueItem($index): history queue, ignored');
+    _trace('skipToQueueItem($index): history queue, ignored');
   }
 
   /// Determines the playback source for stream tracking.
@@ -2472,7 +2515,7 @@ class AppAudioHandler extends BaseAudioHandler {
 
   @override
   Future<void> play() async {
-    _log("play (isCasting=$isCasting)");
+    _trace("play (isCasting=$isCasting)");
     _resumeAfterInterruption = false;
     // A play after a pause or stop is the user's resume. Reconnects run
     // while playback is still wanted, and playStation() counted its own.
@@ -2509,7 +2552,7 @@ class AppAudioHandler extends BaseAudioHandler {
       final backgrounded = _lifecycleState == AppLifecycleState.paused ||
           _lifecycleState == AppLifecycleState.hidden;
       if (backgrounded && !_playlistMode) return _handoffTvVideoToAudio();
-      _log('play: resuming video mode');
+      _trace('play: resuming video mode');
       _disconnectTimer?.cancel();
       stationDataService.resumePolling();
       await videoService.play();
@@ -2524,11 +2567,11 @@ class AppAudioHandler extends BaseAudioHandler {
       _disconnectTimer?.cancel();
       stationDataService.resumePolling();
       if (_playlistYoutubeActive) {
-        _log('play: resuming youtube item');
+        _trace('play: resuming youtube item');
         _playlistController.resumeYoutube();
         return;
       }
-      _log('play: resuming playlist audio item');
+      _trace('play: resuming playlist audio item');
       await _playPlayer();
       return;
     }
@@ -2563,10 +2606,10 @@ class AppAudioHandler extends BaseAudioHandler {
             pausedFor: pausedFor,
           );
       if (!reload) {
-        _log("play: fast resume (stream already loaded)");
+        _trace("play: fast resume (stream already loaded)");
         return _playPlayer();
       }
-      _log('play: paused ${pausedFor.inSeconds}s exceeds safe DVR runway — '
+      _trace('play: paused ${pausedFor.inSeconds}s exceeds safe DVR runway — '
           'reloading to re-anchor behind live edge');
       _loadedStreamUrl = null;
       _loadedStreamType = null;
@@ -2578,7 +2621,7 @@ class AppAudioHandler extends BaseAudioHandler {
     // whole load timeout. A loop waiting out its backoff is restarted
     // below, to try again now.
     if (_isLoadingStation(currentStation.valueOrNull)) {
-      _log('play: already loading this station, keeping that load');
+      _trace('play: already loading this station, keeping that load');
       return;
     }
 
@@ -2600,6 +2643,9 @@ class AppAudioHandler extends BaseAudioHandler {
     if (Platform.isIOS) unawaited(_startSilenceKeepAlive());
     var retry = 0;
     Object? lastError;
+    // The loop never gives up: past its first passes, failures are summed
+    // up instead of logged one by one.
+    final retryLog = RetryLogThrottle();
     // Retry-cycle start index — computed once from the failure memory so a
     // reconnect after a mid-playback HLS death starts at the next healthy
     // stream instead of re-looping on the dead one (the old `retry % total`
@@ -2703,16 +2749,18 @@ class AppAudioHandler extends BaseAudioHandler {
       );
       // Debug-only: high volume on healthy connections. Errors and switches
       // still ship in production via capture() below.
-      AnalyticsService.instance.captureDebug('stream_attempt', {
-        'station_slug': stationSlug,
-        if (stationId != null) 'station_id': stationId,
-        'stream_url': streamUrl,
-        'stream_type': streamType,
-        'stream_index': attemptIndex,
-        'total_streams': totalStreams,
-        'retry': retry,
-        'player_backend': isVideoModeActive ? 'media_kit' : 'just_audio',
-      });
+      if (retryLog.isDetailed(retry: retry, totalStreams: totalStreams)) {
+        AnalyticsService.instance.captureDebug('stream_attempt', {
+          'station_slug': stationSlug,
+          if (stationId != null) 'station_id': stationId,
+          'stream_url': streamUrl,
+          'stream_type': streamType,
+          'stream_index': attemptIndex,
+          'total_streams': totalStreams,
+          'retry': retry,
+          'player_backend': isVideoModeActive ? 'media_kit' : 'just_audio',
+        });
+      }
 
       final attemptStart = DateTime.now();
       try {
@@ -2763,9 +2811,14 @@ class AppAudioHandler extends BaseAudioHandler {
           StreamEventKind.loaded,
           '${streamType ?? '?'} loaded in ${elapsedMs}ms',
         );
-        // Debug-only: paired with stream_attempt; listening_started and
-        // listening_resumed already carry the loaded URL/type in production.
-        AnalyticsService.instance.captureDebug('stream_loaded', {
+        // The stream that actually plays: `listening started` fires before
+        // the load and can't say. For HLS, `variant_url` is the start
+        // variant loaded and `start_variant_s` how far behind live it
+        // begins; without them the stream's own URL loaded, with a seek
+        // behind live. Never `loaded.url`: its tracking parameters carry
+        // the device id.
+        final startVariant = loaded.startVariantOffset;
+        AnalyticsService.instance.log('stream_loaded', {
           'station_slug': stationSlug,
           if (stationId != null) 'station_id': stationId,
           'stream_url': streamUrl,
@@ -2774,6 +2827,10 @@ class AppAudioHandler extends BaseAudioHandler {
           'total_streams': totalStreams,
           'elapsed_ms': elapsedMs,
           'retry': retry,
+          if (startVariant != null) ...{
+            'variant_url': HlsStartVariant.urlFor(streamUrl, startVariant),
+            'start_variant_s': startVariant.inSeconds,
+          },
         });
 
         // Fire stream_switched only when the loaded URL differs from the
@@ -2815,7 +2872,7 @@ class AppAudioHandler extends BaseAudioHandler {
         _loadedStreamType = null;
         // If superseded by a newer playStation(), exit immediately
         if (myOpId != _playOperationId) {
-          _log("play: cancelled (op $myOpId < $_playOperationId)");
+          _trace("play: cancelled (op $myOpId < $_playOperationId)");
           break;
         }
         _recordStreamFailure(streamUrl, DateTime.now());
@@ -2842,8 +2899,18 @@ class AppAudioHandler extends BaseAudioHandler {
           'elapsed_ms': elapsedMs,
           'error': _shortErr(e),
         };
-        AnalyticsService.instance
-            .logWarning('stream attempt failed', failedProps);
+        if (retryLog.isDetailed(retry: retry, totalStreams: totalStreams)) {
+          AnalyticsService.instance
+              .logWarning('stream attempt failed', failedProps);
+        } else {
+          final failures = retryLog.quietFailure(DateTime.now());
+          if (failures != null) {
+            AnalyticsService.instance.logWarning('stream retrying', {
+              ...failedProps,
+              'failed_attempts': failures,
+            });
+          }
+        }
         retry++;
         // Every stream failed a full pass: surface the error once (toast
         // + analytics) but keep the spinner and keep cycling — stopping
@@ -2875,7 +2942,7 @@ class AppAudioHandler extends BaseAudioHandler {
     // error toast (a play from the lock screen, a headset or the car while
     // a retry loop was waiting).
     if (myOpId != _playOperationId) {
-      _log("play: superseded (op $myOpId < $_playOperationId), aborting");
+      _trace("play: superseded (op $myOpId < $_playOperationId), aborting");
       // Its own measurement: the monitor pairs starts and ends in order.
       PerformanceMonitor.endOperation('audio_play');
       return;
@@ -2894,7 +2961,7 @@ class AppAudioHandler extends BaseAudioHandler {
         seekRestartsPlayback: _reloadNeedsSeekToPlay,
       )) {
         case HlsStartFollowUp.none:
-          _log('play: the start variant already begins ${offset.inSeconds}s '
+          _trace('play: the start variant already begins ${offset.inSeconds}s '
               'behind live, no seek');
         case HlsStartFollowUp.restart:
           _restartWhereLoaded();
@@ -2905,7 +2972,7 @@ class AppAudioHandler extends BaseAudioHandler {
           // the setting asked for (reapplySeekOffset) skipped the load in
           // flight. It runs once this plays, from the offset the stream
           // really starts at.
-          _log('play: instant mode came on while the start variant loaded, '
+          _trace('play: instant mode came on while the start variant loaded, '
               'reloading at the live point');
           _anchoredOffset = startVariantOffset;
           reloadAtLivePoint = true;
@@ -3098,7 +3165,7 @@ class AppAudioHandler extends BaseAudioHandler {
 
   @override
   Future<void> pause() async {
-    _log("pause (isCasting=$isCasting)");
+    _trace("pause (isCasting=$isCasting)");
     // Cancels a station switch in flight (playStation re-checks this after
     // each await) and the loading state it set, which the cast and
     // playlist branches would otherwise leave behind.
@@ -3127,7 +3194,7 @@ class AppAudioHandler extends BaseAudioHandler {
       _hasBeenPlayed = false;
       AnalyticsService.instance.endListening(reason: 'pause');
       if (_playlistYoutubeActive) {
-        _log('pause: pausing youtube item');
+        _trace('pause: pausing youtube item');
         _playlistController.pauseYoutube();
         return super.pause();
       }
@@ -3156,7 +3223,7 @@ class AppAudioHandler extends BaseAudioHandler {
     // If the user resumes within 60s, play() will fast-resume without reconnecting.
     _disconnectTimer?.cancel();
     _disconnectTimer = Timer(_disconnectDelay, () {
-      _log("pause: disconnecting idle stream after ${_disconnectDelay.inSeconds}s");
+      _trace("pause: disconnecting idle stream after ${_disconnectDelay.inSeconds}s");
       _loadedStreamUrl = null;
       _loadedStreamType = null;
       // The paused title stays until resume (the resume reloads and
@@ -3193,10 +3260,10 @@ class AppAudioHandler extends BaseAudioHandler {
     // When the offset is already in effect (5-min mode, unstable or
     // auto-slow) a reload would only cut the audio for nothing.
     if (SeekModeManager.currentOffset == _anchoredOffset) {
-      _log('reapplySeekOffset: offset unchanged, skipping');
+      _trace('reapplySeekOffset: offset unchanged, skipping');
       return;
     }
-    _log('reapplySeekOffset: restarting HLS stream with new offset');
+    _trace('reapplySeekOffset: restarting HLS stream with new offset');
     _loadedStreamUrl = null;
     _loadedStreamType = null;
     await play();
@@ -3236,7 +3303,7 @@ class AppAudioHandler extends BaseAudioHandler {
     }
     final duration = player.duration;
     if (duration == null || duration.inSeconds < 10) {
-      _log('_seekBehindLiveEdge: no duration or too short ($duration), skipping');
+      _trace('_seekBehindLiveEdge: no duration or too short ($duration), skipping');
       return;
     }
     // Clamp the offset so the playhead never lands closer than
@@ -3253,9 +3320,9 @@ class AppAudioHandler extends BaseAudioHandler {
     }
     final effectiveOffset = offset > maxOffset ? maxOffset : offset;
     final seekTarget = duration - effectiveOffset;
-    _log('_seekBehindLiveEdge: duration=$duration, offset=$offset, effectiveOffset=$effectiveOffset, seeking to $seekTarget');
+    _trace('_seekBehindLiveEdge: duration=$duration, offset=$offset, effectiveOffset=$effectiveOffset, seeking to $seekTarget');
     player.seek(seekTarget).catchError((e) {
-      _log('_seekBehindLiveEdge: seek failed ($e), continuing from live edge');
+      _trace('_seekBehindLiveEdge: seek failed ($e), continuing from live edge');
     });
   }
 
@@ -3270,13 +3337,13 @@ class AppAudioHandler extends BaseAudioHandler {
   void _stayAtLiveEdge(String reason) {
     final duration = player.duration;
     if (!_reloadNeedsSeekToPlay || duration == null) {
-      _log('_seekBehindLiveEdge: $reason, skipping');
+      _trace('_seekBehindLiveEdge: $reason, skipping');
       return;
     }
-    _log('_seekBehindLiveEdge: $reason, reloaded while playing: seeking to '
+    _trace('_seekBehindLiveEdge: $reason, reloaded while playing: seeking to '
         'the live point ($duration) so the player resumes');
     player.seek(duration).catchError((e) {
-      _log('_seekBehindLiveEdge: live-point seek failed ($e)');
+      _trace('_seekBehindLiveEdge: live-point seek failed ($e)');
     });
   }
 
@@ -3286,10 +3353,10 @@ class AppAudioHandler extends BaseAudioHandler {
   /// live. Non-blocking, like [_seekBehindLiveEdge].
   void _restartWhereLoaded() {
     final start = player.playbackEvent.updatePosition;
-    _log('play: the start variant was reloaded while playing, restarting it '
+    _trace('play: the start variant was reloaded while playing, restarting it '
         'where it begins ($start)');
     player.seek(start).catchError((e) {
-      _log('play: restart seek failed ($e)');
+      _trace('play: restart seek failed ($e)');
     });
   }
 
@@ -3313,7 +3380,7 @@ class AppAudioHandler extends BaseAudioHandler {
       return;
     }
     if (_liveHlsWatchdogTimer != null) return;
-    _log('live-hls watchdog: started');
+    _trace('live-hls watchdog: started');
     _liveHlsWatchdogTimer = Timer.periodic(
       ReconnectPolicy.liveHlsWatchdogInterval,
       (_) => _checkLiveHlsHealth(),
@@ -3334,7 +3401,7 @@ class AppAudioHandler extends BaseAudioHandler {
   /// next playing flip (which, in a car, may not come for the whole drive).
   void _checkLiveHlsHealth() {
     if (!HlsHealthWatchdogFlag.instance.enabled) {
-      _log('live-hls watchdog: disabled by the remote flag, stopping');
+      _trace('live-hls watchdog: disabled by the remote flag, stopping');
       _stopLiveHlsWatchdog();
       return;
     }
@@ -3625,7 +3692,7 @@ class AppAudioHandler extends BaseAudioHandler {
     if (_hlsTimeline.isExactlyAnchored) return;
     final isLast = _hlsAnchorCheckIndex == _hlsAnchorCheckpoints.length - 1;
     if (!isLast && _hlsTimeline.needsAnchorSnapshot(now)) {
-      _log('hls-timeline: no snapshot matches the native position, '
+      _trace('hls-timeline: no snapshot matches the native position, '
           'refetching the playlist');
       unawaited(_pollHlsPlaylist(generation: generation));
     }
@@ -3748,7 +3815,7 @@ class AppAudioHandler extends BaseAudioHandler {
       final changedAt = s.metadataChangedAt;
       if (changedAt == null || changedAt == _lastMetadataChangedAt) return;
       _lastMetadataChangedAt = changedAt;
-      _log('song-boundary: METADATA-CHANGED '
+      _trace('song-boundary: METADATA-CHANGED '
           '${changedAt.toIso8601String()}, refreshing live (TV)');
       unawaited(stationDataService.refreshMetadataNow(boundary: changedAt));
       return;
@@ -3771,12 +3838,12 @@ class AppAudioHandler extends BaseAudioHandler {
         : player.playing && player.processingState == ProcessingState.ready;
     if (audible == null || !advancing) return;
     if (_songBoundaries.reopenAfter(audible)) {
-      _log('song-boundary: audible instant moved back, re-syncing');
+      _trace('song-boundary: audible instant moved back, re-syncing');
       unawaited(stationDataService.refreshMetadataNow());
     }
     final due = _songBoundaries.takeReached(audible);
     if (due != null) {
-      _log('song-boundary: reached ${due.at.toIso8601String()} '
+      _trace('song-boundary: reached ${due.at.toIso8601String()} '
           '(audible ${audible.toIso8601String()})');
       unawaited(stationDataService.refreshMetadataNow(
           boundary: due.at, hint: due.hint));
@@ -3917,9 +3984,9 @@ class AppAudioHandler extends BaseAudioHandler {
       } else {
         await http.head(uri).timeout(const Duration(seconds: 5));
       }
-      _log('prewarm: warmed ${station.slug} (${isHls ? 'HLS' : 'direct'} $url)');
+      _trace('prewarm: warmed ${station.slug} (${isHls ? 'HLS' : 'direct'} $url)');
     } catch (e) {
-      _log('prewarm: $e');
+      _trace('prewarm: $e');
     }
   }
 
@@ -3969,7 +4036,7 @@ class AppAudioHandler extends BaseAudioHandler {
     required bool live,
     Duration? startPosition,
   }) async {
-    _log('enterVideoMode($url, live=$live)');
+    _trace('enterVideoMode($url, live=$live)');
     if (Platform.isIOS) {
       await _startSilenceKeepAlive();
     }
@@ -4003,7 +4070,7 @@ class AppAudioHandler extends BaseAudioHandler {
     try {
       await videoService.open(url, live: live, startPosition: startPosition);
     } catch (e) {
-      _log('enterVideoMode: open failed: $e');
+      _trace('enterVideoMode: open failed: $e');
       // A synchronous open failure is a hard failure — fall back immediately.
       unawaited(_triggerVideoFallback(url,
           live: live, startPosition: startPosition, reason: 'open_failed'));
@@ -4031,14 +4098,15 @@ class AppAudioHandler extends BaseAudioHandler {
 
     _videoFallbackSubs.add(vs.hasFrameStream.listen((has) {
       if (has) {
-        _log('video first frame rendered → cancel fallback watchdog');
+        _trace('video first frame rendered → cancel fallback watchdog');
         _cancelVideoFallbackWatchdog();
       }
     }));
     _videoFallbackSubs.add(vs.errorStream.listen((e) {
       if (!_videoMode) return;
       _videoFallbackErrorCount++;
-      _log('video error #$_videoFallbackErrorCount (hasFrame=${vs.hasRenderedFrame}): $e');
+      // Bounded: repeated errors fall back to audio below.
+      _trace('video error #$_videoFallbackErrorCount (hasFrame=${vs.hasRenderedFrame}): $e');
       if (!vs.hasRenderedFrame) {
         // Errored before ever showing a picture — the pipeline can't start on
         // this device/codec. Fall back to audio immediately (don't wait out
@@ -4117,7 +4185,7 @@ class AppAudioHandler extends BaseAudioHandler {
       }
       return;
     }
-    _log('exitVideoMode(stopVideo=$stopVideo)');
+    _trace('exitVideoMode(stopVideo=$stopVideo)');
     _videoMode = false;
     isVideoMode.add(false);
     if (stopVideo) {
@@ -4167,7 +4235,7 @@ class AppAudioHandler extends BaseAudioHandler {
 
   /// Car/Cast connected while in video mode — hand off to audio-only.
   void _handleRouteRequiresAudio() {
-    _log('route requires audio (car/cast connected) → handing off');
+    _trace('route requires audio (car/cast connected) → handing off');
     if (_playlistMode) {
       unawaited(_playlistController.handleRouteChangeToAudio());
     } else {
@@ -4184,7 +4252,7 @@ class AppAudioHandler extends BaseAudioHandler {
     // blocked by this one's audio load.
     _tvHandoffInFlight = true;
     try {
-      _log('handoffTvVideoToAudio');
+      _trace('handoffTvVideoToAudio');
       if (Platform.isIOS) {
         await _startSilenceKeepAlive();
       }
@@ -4207,10 +4275,10 @@ class AppAudioHandler extends BaseAudioHandler {
     // This stream already failed to render video — stay audio-only rather than
     // re-attempting video and fighting the fallback on every resume.
     if (_fallenBackUrl == url) {
-      _log('handoffTvAudioToVideo: skipped (fell back to audio for this url)');
+      _trace('handoffTvAudioToVideo: skipped (fell back to audio for this url)');
       return;
     }
-    _log('handoffTvAudioToVideo');
+    _trace('handoffTvAudioToVideo');
     await _enterVideoMode(url, live: true);
   }
 
@@ -4268,7 +4336,7 @@ class AppAudioHandler extends BaseAudioHandler {
     String url, {
     Duration? startPosition,
   }) async {
-    _log('playPlaylistAudioItem($url)');
+    _trace('playPlaylistAudioItem($url)');
     await _exitVideoMode(stopVideo: true);
     _playlistMode = true;
     _playlistYoutubeActive = false; // an engine-owned source is taking over
@@ -4297,7 +4365,7 @@ class AppAudioHandler extends BaseAudioHandler {
       await _playPlayer();
     } catch (e) {
       _isConnecting = false;
-      _log('playPlaylistAudioItem failed: $e');
+      _trace('playPlaylistAudioItem failed: $e');
       onPlaylistItemError?.call(e);
     }
   }
@@ -4309,7 +4377,7 @@ class AppAudioHandler extends BaseAudioHandler {
     bool live = false,
     Duration? startPosition,
   }) async {
-    _log('playPlaylistVideoItem($url, live=$live)');
+    _trace('playPlaylistVideoItem($url, live=$live)');
     _playlistMode = true;
     _playlistYoutubeActive = false; // an engine-owned source is taking over
     final useVideo = VideoModeDecision.shouldUseVideoMode(
@@ -4335,7 +4403,7 @@ class AppAudioHandler extends BaseAudioHandler {
   /// Stops both backends without leaving playlist mode (used between items and
   /// for youtube items, which have no engine-owned player).
   Future<void> stopPlaylistPlayback() async {
-    _log('stopPlaylistPlayback');
+    _trace('stopPlaylistPlayback');
     _disconnectTimer?.cancel();
     _bufferingStallTimer?.cancel();
     await _exitVideoMode(stopVideo: true);
@@ -4423,7 +4491,7 @@ class AppAudioHandler extends BaseAudioHandler {
   /// This keeps MPRemoteCommandCenter alive so CarPlay/lock-screen
   /// next/prev/play buttons still work and the user can recover.
   Future<void> _stopDueToError() async {
-    _log("_stopDueToError (keeping command center alive)");
+    _trace("_stopDueToError (keeping command center alive)");
     _cancelInFlightPlay();
     _hasBeenPlayed = false;
     _resumeAfterInterruption = false;
@@ -4448,7 +4516,7 @@ class AppAudioHandler extends BaseAudioHandler {
 
   @override
   Future<void> stop() async {
-    _log("stop (isCasting=$isCasting)");
+    _trace("stop (isCasting=$isCasting)");
     // Cancels a station switch in flight, like pause().
     _stationSwitchId++;
     _isConnecting = false;
@@ -4527,7 +4595,7 @@ class AppAudioHandler extends BaseAudioHandler {
     // In release mode, Android Auto can call playMediaItem before stations
     // have loaded from the API. Wait for the first non-empty emission.
     if (station == null && stationDataService.stations.value.isEmpty) {
-      _log('playMediaItem: stations not loaded yet, waiting...');
+      _trace('playMediaItem: stations not loaded yet, waiting...');
       try {
         await stationDataService.stations.stream
             .firstWhere((stations) => stations.isNotEmpty)
@@ -4535,7 +4603,7 @@ class AppAudioHandler extends BaseAudioHandler {
         station = stationDataService.stations.value.cast<Station?>()
             .firstWhere((element) => element!.id == stationId, orElse: () => null);
       } catch (e) {
-        _log('playMediaItem: timeout waiting for stations: $e');
+        _trace('playMediaItem: timeout waiting for stations: $e');
       }
     }
 
@@ -4543,7 +4611,7 @@ class AppAudioHandler extends BaseAudioHandler {
       final fromFavorites = mediaItem.extras?['fromFavorites'] as bool?;
       playStation(station, fromFavorites: fromFavorites);
     } else {
-      _log('playMediaItem: station not found for $stationId');
+      _trace('playMediaItem: station not found for $stationId');
     }
   }
 
@@ -4746,12 +4814,12 @@ class AppAudioHandler extends BaseAudioHandler {
 
   @override
   Future<void> onTaskRemoved() {
-    _log('onTaskRemoved()');
+    _trace('onTaskRemoved()');
     // Don't stop audio if CarPlay/Android Auto is connected — user may still be listening
     try {
       final carPlayService = GetIt.instance<CarPlayService>();
       if (carPlayService.isConnected) {
-        _log('onTaskRemoved: CarPlay/Android Auto connected, keeping audio alive');
+        _trace('onTaskRemoved: CarPlay/Android Auto connected, keeping audio alive');
         return super.onTaskRemoved();
       }
     } catch (_) {}
@@ -4760,7 +4828,7 @@ class AppAudioHandler extends BaseAudioHandler {
     // OS kills the process abruptly.
     try {
       if (isCasting) {
-        _log('onTaskRemoved: stopping Cast playback');
+        _trace('onTaskRemoved: stopping Cast playback');
         GetIt.instance<CastService>().disconnect();
       }
     } catch (_) {}
@@ -4781,7 +4849,7 @@ class AppAudioHandler extends BaseAudioHandler {
 
   // Method to completely stop and cleanup the audio service
   Future<void> dispose() async {
-    _log('dispose()');
+    _trace('dispose()');
     _cancelInFlightPlay();
     _disconnectTimer?.cancel();
     _bufferingStallTimer?.cancel();
@@ -4825,12 +4893,14 @@ class AppAudioHandler extends BaseAudioHandler {
   @override
   Future<void> click([MediaButton button = MediaButton.media]) {
     _log('click($button)');
+    // A headset or Bluetooth button: why the audio paused or started.
+    AnalyticsService.instance.log('media button', {'button': button.name});
     return super.click(button);
   }
 
   @override
   Future<void> playFromMediaId(String mediaId, [Map<String, dynamic>? extras]) async {
-    _log('playFromMediaId($mediaId, $extras)');
+    _trace('playFromMediaId($mediaId, $extras)');
     // History items: tapping keeps the current station playing
     if (mediaId.startsWith('history_')) return;
     // Any other browsed item (all stations, search results) is a pick from
@@ -4844,7 +4914,7 @@ class AppAudioHandler extends BaseAudioHandler {
 
     // Wait for stations to load if not yet available (release mode race condition)
     if (selectedMediaItem == null && stationsMediaItems.value.isEmpty) {
-      _log('playFromMediaId: waiting for stations to load...');
+      _trace('playFromMediaId: waiting for stations to load...');
       try {
         await stationsMediaItems.stream
             .firstWhere((items) => items.isNotEmpty)
@@ -4853,7 +4923,7 @@ class AppAudioHandler extends BaseAudioHandler {
             .firstWhere((item) => item!.id == stationMediaId,
                 orElse: () => null);
       } catch (e) {
-        _log('playFromMediaId: timeout waiting for stations: $e');
+        _trace('playFromMediaId: timeout waiting for stations: $e');
       }
     }
 
@@ -4893,11 +4963,11 @@ class AppAudioHandler extends BaseAudioHandler {
       isCasting: isCasting,
     );
     if (!shouldReconnect) {
-      _log("reconnectIfNeeded(${trigger.name}): no-op "
+      _trace("reconnectIfNeeded(${trigger.name}): no-op "
           "(state=${player.processingState}, playing=${player.playing})");
       return;
     }
-    _log("reconnectIfNeeded(${trigger.name}): reconnecting "
+    _trace("reconnectIfNeeded(${trigger.name}): reconnecting "
         "(state=${player.processingState}, playing=${player.playing})");
     _loadedStreamUrl = null;
     _loadedStreamType = null;
@@ -5050,11 +5120,11 @@ class AppAudioHandler extends BaseAudioHandler {
       if (_isLocalLiveHls && _loadedStreamUrl != null) {
         unawaited(_pollHlsPlaylist());
       }
-      _log("isOffline -> false: will reconnect in "
+      _trace("isOffline -> false: will reconnect in "
           "${ReconnectPolicy.networkRestoreReconnectDelay.inMilliseconds}ms");
       Future.delayed(ReconnectPolicy.networkRestoreReconnectDelay, () {
         if (network.isOffline.value) return; // dropped again meanwhile
-        _log("isOffline -> false: checking if player needs reconnect");
+        _trace("isOffline -> false: checking if player needs reconnect");
         _wakeRetryBackoff();
         reconnectIfNeeded(trigger: ReconnectTrigger.networkRestored);
       });
@@ -5125,6 +5195,8 @@ class AppAudioHandler extends BaseAudioHandler {
               GetIt.instance<CastService>().updateCastMetadata(updatedCurrentStation);
             } catch (e) {
               _log('Cast metadata update failed: $e');
+              AnalyticsService.instance
+                  .logWarning('cast metadata update failed', {'error': '$e'});
             }
           }
 

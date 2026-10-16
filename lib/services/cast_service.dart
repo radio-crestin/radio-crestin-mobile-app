@@ -222,6 +222,13 @@ class CastService {
           _adoptedSession = false;
         }
         _log('Session changed: state=$state, wasCasting=$wasCasting, nowCasting=$nowCasting, device=${session?.device?.friendlyName}');
+        if (nowCasting != wasCasting) {
+          // The model only: a device's own name is the listener's.
+          AnalyticsService.instance.log(
+            nowCasting ? 'cast connected' : 'cast disconnected',
+            {'device_model': session?.device?.modelName},
+          );
+        }
       }, onError: (e) {
         _log('Session stream error: $e');
       });
@@ -235,6 +242,8 @@ class CastService {
           castPlayerState.add(status.playerState);
           if (prev != status.playerState) {
             _log('Cast player state: $prev -> ${status.playerState}');
+            AnalyticsService.instance.logDebug(
+                'cast player state', {'state': status.playerState.name});
           }
         }
       }, onError: (e) {
@@ -265,6 +274,7 @@ class CastService {
       }
     } catch (e, st) {
       _log('Initialize failed: $e\n$st');
+      AnalyticsService.instance.logWarning('cast init failed', {'error': '$e'});
     }
   }
 
@@ -327,6 +337,10 @@ class CastService {
       return true;
     } catch (e, st) {
       _log('Connect failed: $e\n$st');
+      AnalyticsService.instance.logWarning('cast connect failed', {
+        'device_model': device.modelName,
+        'error': '$e',
+      });
       return false;
     }
   }
@@ -388,6 +402,8 @@ class CastService {
     final pick = _pickCastStream(station);
     if (pick == null) {
       _log('castStation: no stream URL for station ${station.title}');
+      AnalyticsService.instance
+          .logWarning('cast no stream', {'station_slug': station.slug});
       return;
     }
 
@@ -410,8 +426,17 @@ class CastService {
         'station_slug': station.slug,
         'stream_type': pick.type,
       });
+      AnalyticsService.instance.log('cast station', {
+        'station_slug': station.slug,
+        'stream_type': pick.type,
+      });
     } catch (e) {
       _log('castStation: loadMedia FAILED: $e');
+      AnalyticsService.instance.logWarning('cast load failed', {
+        'station_slug': station.slug,
+        'stream_type': pick.type,
+        'error': '$e',
+      });
     }
   }
 
