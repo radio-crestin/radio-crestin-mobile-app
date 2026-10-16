@@ -825,6 +825,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               backdropEnabled: true,
               backdropTapClosesPanel: true,
               boxShadow: const [],
+              // The players paint their own backgrounds; the sheet shows only
+              // until the mini player has a station, at start. The package's
+              // white flashed there in the dark theme.
+              color: Theme.of(context).scaffoldBackgroundColor,
               controller: slidingUpPanelController,
               onPanelSlide: (position) {
                 _panelSlide.value = position;
@@ -877,7 +881,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       (slidingUpPanelController.isPanelClosed ||
                           slidingUpPanelController.isPanelOpen)) ||
                   isDraggable,
-              body: SafeArea(
+              body: ClipRect(
+                clipper: _AbovePanelClipper(
+                  slide: _panelSlide,
+                  minHeight: panelMinHeight,
+                  maxHeight: panelMaxHeight,
+                ),
+                child: SafeArea(
                 bottom: false,
                 child: Column(
                   children: [
@@ -1207,6 +1217,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   ],
                 ),
               ),
+              ),
               collapsed: currentStation != null && stations.isNotEmpty
                   ? Container(
                       padding: EdgeInsets.only(
@@ -1411,6 +1422,41 @@ String? hiddenInCategoryText(
   return hidden == 1
       ? 'O stație din $category e ascunsă.'
       : '${stations(hidden)} din $category sunt ascunse.';
+}
+
+/// Clips the page under the player panel to what shows above the panel,
+/// its rounded top corners included.
+///
+/// The open player covers nine tenths of the screen, yet the station list
+/// under it was drawn again on every frame the player animated; on a
+/// low-end phone's GPU that cost frames going to the next station.
+class _AbovePanelClipper extends CustomClipper<Rect> {
+  _AbovePanelClipper({
+    required this.slide,
+    required this.minHeight,
+    required this.maxHeight,
+  }) : super(reclip: slide);
+
+  /// The panel's position, 0 closed to 1 open.
+  final ValueNotifier<double> slide;
+  final double minHeight;
+  final double maxHeight;
+
+  /// The panel's corner radius: the page shows in its rounded corners.
+  static const double _cornerRadius = 16;
+
+  @override
+  Rect getClip(Size size) {
+    final panelHeight = minHeight + slide.value * (maxHeight - minHeight);
+    final shown = size.height - panelHeight + _cornerRadius;
+    return Rect.fromLTWH(0, 0, size.width, shown.clamp(0.0, size.height));
+  }
+
+  @override
+  bool shouldReclip(_AbovePanelClipper oldClipper) =>
+      oldClipper.slide != slide ||
+      oldClipper.minHeight != minHeight ||
+      oldClipper.maxHeight != maxHeight;
 }
 
 /// The line above a category's hidden stations shown in their places,
