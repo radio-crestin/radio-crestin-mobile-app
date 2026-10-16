@@ -267,8 +267,9 @@ void main() {
 
     test(
         'an offset change while playing reloads from the new variant and '
-        'still seeks: a Darwin reload while playing restarts only then',
-        () async {
+        'restarts it where it begins: a Darwin reload while playing '
+        'restarts only with a seek', () async {
+      channels.avPlayerLiveGeometry = true;
       await http.runWithClient(() async {
         unawaited(handler.playStation(station()));
         await untilPlaying(loads: 1);
@@ -280,7 +281,28 @@ void main() {
 
         expect(loaded(1).path, fiveMinutePath);
         await until(() => channels.seeks.isNotEmpty);
-        expect(channels.seeks, [window - const Duration(minutes: 5)]);
+        expect(channels.seeks, [window - const Duration(minutes: 5)],
+            reason: 'where #EXT-X-START puts it, not 5 minutes before the '
+                'end of the seekable range, 18 s further back');
+      }, () => routing);
+    });
+
+    test(
+        'a liveness reload while playing restarts the variant where it '
+        'begins, not a hold-back further behind live', () async {
+      channels.avPlayerLiveGeometry = true;
+      await http.runWithClient(() async {
+        unawaited(handler.playStation(station()));
+        await untilPlaying(loads: 1);
+        expect(channels.seeks, isEmpty);
+
+        handler.debugRecoverFromLiveHlsStall(
+            LiveHlsStall.starving, DateTime.now());
+        await untilPlaying(loads: 2);
+
+        expect(loadedPaths(), [twoMinutePath, twoMinutePath]);
+        await until(() => channels.seeks.isNotEmpty);
+        expect(channels.seeks, [window - const Duration(minutes: 2)]);
       }, () => routing);
     });
 

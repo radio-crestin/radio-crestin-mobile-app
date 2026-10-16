@@ -55,6 +55,19 @@ class FakeJustAudioChannels {
   /// says it plays. Off by default: ready players play at once.
   bool waitsAfterPlay = false;
 
+  /// Whether live loads follow AVPlayer's geometry: the reported duration
+  /// (its seekable range) ends [avPlayerHoldBack] before the end of
+  /// [liveWindow], a start variant (`index-2m.m3u8`, `index-5m.m3u8`)
+  /// loads where its `#EXT-X-START` puts it (2 or 5 minutes before the
+  /// end), `index.m3u8` at the live point (the end of the seekable range),
+  /// and a seek moves the reported position. Off by default: the duration
+  /// is [liveWindow] and every report is at position 0.
+  bool avPlayerLiveGeometry = false;
+
+  /// How far AVPlayer's seekable range ends before the playlist: three
+  /// target durations.
+  static const avPlayerHoldBack = Duration(seconds: 18);
+
   /// Whether a native player plays: told to play, and not paused or
   /// disposed since. just_audio's stop() disposes the native player.
   bool get isAnyPlayerPlaying => _players.values.any((p) => p._playing);
@@ -122,6 +135,7 @@ class _FakeNativePlayer {
   MockStreamHandlerEventSink? _events;
   int _state = 0; // ProcessingStateMessage.idle
   Duration? _duration;
+  Duration _position = Duration.zero;
   String? _icyTitle;
   bool _playing = false;
   // The held answer to a play call (see holdPlayUntilStopped).
@@ -169,6 +183,9 @@ class _FakeNativePlayer {
       case 'seek':
         final micros = (call.arguments as Map)['position'] as int?;
         owner.seeks.add(micros == null ? null : Duration(microseconds: micros));
+        if (owner.avPlayerLiveGeometry) {
+          _position = Duration(microseconds: micros ?? 0);
+        }
         emit();
         return <String, Object?>{};
       case 'play':
@@ -206,10 +223,33 @@ class _FakeNativePlayer {
       throw PlatformException(
           code: owner.failureCode, message: 'Failed to load: $url');
     }
-    _duration = url.contains('.m3u8') ? FakeJustAudioChannels.liveWindow : null;
+    _duration = url.contains('.m3u8') ? _liveDuration() : null;
+    _position = _startPosition(url);
     _state = 3; // ProcessingStateMessage.ready
     emit();
     return {'duration': _duration?.inMicroseconds ?? -1};
+  }
+
+  Duration _liveDuration() {
+    const window = FakeJustAudioChannels.liveWindow;
+    return owner.avPlayerLiveGeometry
+        ? window - FakeJustAudioChannels.avPlayerHoldBack
+        : window;
+  }
+
+  Duration _startPosition(String url) {
+    if (!owner.avPlayerLiveGeometry || !url.contains('.m3u8')) {
+      return Duration.zero;
+    }
+    const window = FakeJustAudioChannels.liveWindow;
+    if (url.contains('/index-2m.m3u8')) {
+      return window - const Duration(minutes: 2);
+    }
+    if (url.contains('/index-5m.m3u8')) {
+      return window - const Duration(minutes: 5);
+    }
+    // index.m3u8: its #EXT-X-START (-18 s) is the end of the seekable range.
+    return _liveDuration();
   }
 
   /// Sends the current playback event, optionally with an ICY title.
@@ -219,7 +259,7 @@ class _FakeNativePlayer {
     _events?.success(<String, Object?>{
       'processingState': _state,
       'updateTime': DateTime.now().millisecondsSinceEpoch,
-      'updatePosition': 0,
+      'updatePosition': _position.inMicroseconds,
       'bufferedPosition': 0,
       'duration': _duration?.inMicroseconds ?? -1,
       'icyMetadata': title == null

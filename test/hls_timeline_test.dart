@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:radio_crestin/appAudioHandler.dart';
@@ -396,6 +398,226 @@ void main() {
         'our polls fail while the player keeps loading (its own requests '
         'succeed): failed polls alone never fire', () {
       expect(deadOriginFire(playerStillLoads: true), isNull);
+    });
+  });
+
+  group('buffer still ahead (iPhone load pauses)', () {
+    // A 5-minute start variant: the item starts 360 s into a 660 s window
+    // (the seekable start is 0 then), and AVPlayer keeps 126 s loaded
+    // ahead, a segment at a time. just_audio's buffer reports keep the
+    // load's position report, as on the iPhone.
+    const start = 360.0;
+    const fill = 126.0;
+
+    ({
+      double? firedAt,
+      LiveHlsStall? stall,
+      bool paused,
+      List<double> ahead,
+      HlsAnchorQuality? quality,
+      List<LiveHlsLoadPauseEvent> logged,
+    }) play(bool Function(double rel) loads,
+        {double? slidReportAt,
+        bool snapshotAtLoad = true,
+        double seconds = 240}) {
+      final o = _Origin(sigma: 0);
+      final t = HlsTimeline()..beginLoad(at(o.t0));
+      final pauses = LiveHlsLoadPauses();
+      var buffered = start + fill;
+      void report({double position = start, double reportedAt = 0}) =>
+          t.onPlayerEvent(
+            playing: true,
+            ready: true,
+            updatePosition: Duration(microseconds: (position * 1e6).round()),
+            updateTime: at(o.t0 + reportedAt),
+            bufferedPosition: Duration(microseconds: (buffered * 1e6).round()),
+            now: at(o.t0 + (reportedAt > 0 ? reportedAt : 0)),
+          );
+      if (snapshotAtLoad) t.onSnapshot(o.snapshot(o.t0), at(o.t0));
+      report();
+      double? firedAt;
+      LiveHlsStall? stall;
+      var paused = false;
+      final ahead = <double>[];
+      final logged = <LiveHlsLoadPauseEvent>[];
+      for (var rel = 1.0; rel <= seconds && firedAt == null; rel += 1) {
+        final now = at(o.t0 + rel);
+        if (rel % 10 == 0) t.onSnapshot(o.snapshot(o.t0 + rel), now);
+        if (loads(rel) && rel % 6 == 0) {
+          buffered = start + rel + fill;
+          t.onPlayerEvent(
+            playing: true,
+            ready: true,
+            updatePosition: const Duration(seconds: 360),
+            updateTime: at(o.t0),
+            bufferedPosition: Duration(microseconds: (buffered * 1e6).round()),
+            now: now,
+          );
+        }
+        if (rel == slidReportAt) {
+          // A later report (a resume) is relative to a seekable start that
+          // slid by 8 segments.
+          report(position: start + rel - 48, reportedAt: rel);
+        }
+        t.tick(now);
+        final s = t.healthSample(now);
+        if (s.bufferedAheadSeconds != null) ahead.add(s.bufferedAheadSeconds!);
+        paused |= ReconnectPolicy.isLoadPause(s, now);
+        // The watchdog's tick.
+        if (rel % 5 == 0) {
+          final e = pauses.tick(s, now, playing: true);
+          if (e != null) logged.add(e);
+        }
+        final fired = ReconnectPolicy.liveHlsStall(
+          playing: true,
+          processingState: ProcessingState.ready,
+          hasLiveHlsLoaded: true,
+          isCasting: false,
+          isVideoOrPlaylistMode: false,
+          silentStallPossible: true,
+          now: now,
+          s: s,
+        );
+        if (fired != LiveHlsStall.none) {
+          firedAt = rel;
+          stall = fired;
+        }
+      }
+      return (
+        firedAt: firedAt,
+        stall: stall,
+        paused: paused,
+        ahead: ahead,
+        quality: t.anchorQuality,
+        logged: logged,
+      );
+    }
+
+    test('measures the buffer in item time, as the window slides', () {
+      final r = play((_) => true, seconds: 200);
+      // 126 s right after a top-up, 120 s just before the next one.
+      expect(r.ahead.reduce(math.min), greaterThanOrEqualTo(fill - 6 - 0.01));
+      expect(r.ahead.reduce(math.max), lessThanOrEqualTo(fill + 0.01));
+      expect(r.firedAt, isNull);
+    });
+
+    test(
+        'a later position report relative to a slid seekable start does not '
+        'move the estimate', () {
+      final r = play((_) => true, slidReportAt: 100, seconds: 200);
+      expect(r.ahead.reduce(math.min), greaterThanOrEqualTo(fill - 6 - 0.01));
+      expect(r.ahead.reduce(math.max), lessThanOrEqualTo(fill + 0.01));
+    });
+
+    test(
+        'an anchor upgraded by a slid report keeps the first anchor\'s item '
+        'time', () {
+      // The poll sent with the load failed: projected at 10 s, then the
+      // slid report matches the poll at 100 s and upgrades the anchor.
+      final r = play((_) => true,
+          slidReportAt: 100, snapshotAtLoad: false, seconds: 200);
+      expect(r.quality, HlsAnchorQuality.exact);
+      expect(r.firedAt, isNull);
+      expect(r.ahead.reduce(math.min), greaterThanOrEqualTo(fill - 6 - 0.01));
+      expect(r.ahead.reduce(math.max), lessThanOrEqualTo(fill + 0.01));
+    });
+
+    test(
+        'a 72 s load pause with a full buffer is waited out (the iPhone on '
+        'mobile data), and logged when it starts and when loading resumes',
+        () {
+      // Last load at 54 s, next at 126 s.
+      final r = play((rel) => rel < 60 || rel >= 125);
+      expect(r.firedAt, isNull);
+      expect(r.paused, isTrue);
+      expect(r.logged, hasLength(2));
+      final started = r.logged.first;
+      expect(started.resumed, isFalse);
+      expect(started.seconds, closeTo(46, 0.01));
+      expect(started.bufferedAheadSeconds, closeTo(fill + 54 - 100, 0.01));
+      final ended = r.logged.last;
+      expect(ended.resumed, isTrue);
+      expect(ended.seconds, closeTo(126 - 54, 0.01));
+      // 486 + 54 s loaded, the playhead at 360 + 126 s when it loaded again.
+      expect(ended.bufferedAheadSeconds, closeTo(fill + 54 - 126, 0.01));
+    });
+
+    test(
+        'loading stopped for good: starving once 20 s are left, before the '
+        'buffer runs out', () {
+      // Last load at 54 s (180 s of media from the start): dry at 180 s.
+      final r = play((rel) => rel < 60);
+      expect(r.stall, LiveHlsStall.starving);
+      expect(r.firedAt, inInclusiveRange(180 - 20 - 1, 180 - 20 + 1));
+    });
+
+    test('an unknown buffer keeps the 45 s rule', () {
+      final sample = LiveHlsHealthSample(
+        playheadSeq: 1,
+        bufferedChangedAt: at(0),
+        originAdvancedAt: at(40),
+        advancingSince: at(0),
+      );
+      expect(
+          ReconnectPolicy.liveHlsStall(
+            playing: true,
+            processingState: ProcessingState.ready,
+            hasLiveHlsLoaded: true,
+            isCasting: false,
+            isVideoOrPlaylistMode: false,
+            silentStallPossible: true,
+            now: at(46),
+            s: sample,
+          ),
+          LiveHlsStall.starving);
+      expect(ReconnectPolicy.isLoadPause(sample, at(46)), isFalse);
+    });
+
+    test(
+        'a first anchor made after the window may have slid (paused before '
+        'anchoring) leaves the buffer unknown: the 45 s rule', () {
+      final o = _Origin(sigma: 0);
+      final t = HlsTimeline()..beginLoad(at(o.t0));
+      Duration secs(double s) => Duration(microseconds: (s * 1e6).round());
+      void report(double rel, {required bool playing, required double pos}) =>
+          t.onPlayerEvent(
+            playing: playing,
+            ready: true,
+            updatePosition: secs(pos),
+            updateTime: at(o.t0 + rel),
+            bufferedPosition: secs(start + fill),
+            now: at(o.t0 + rel),
+          );
+      report(0.3, playing: true, pos: start);
+      // Paused within the settle, before any anchor.
+      report(0.8, playing: false, pos: start + 0.5);
+      // Resumed in place 45 s later: the report is relative to a seekable
+      // start that slid by 8 segments meanwhile.
+      report(45.8, playing: true, pos: start + 0.5 - 48);
+      double? firedAt;
+      for (var rel = 46.0; rel <= 200 && firedAt == null; rel += 1) {
+        final now = at(o.t0 + rel);
+        if (rel % 10 == 0) t.onSnapshot(o.snapshot(o.t0 + rel), now);
+        t.tick(now);
+        final s = t.healthSample(now);
+        if (t.isExactlyAnchored) expect(s.bufferedAheadSeconds, isNull);
+        final fired = ReconnectPolicy.liveHlsStall(
+          playing: true,
+          processingState: ProcessingState.ready,
+          hasLiveHlsLoaded: true,
+          isCasting: false,
+          isVideoOrPlaylistMode: false,
+          silentStallPossible: true,
+          now: now,
+          s: s,
+        );
+        if (fired != LiveHlsStall.none) firedAt = rel;
+      }
+      expect(t.isExactlyAnchored, isTrue);
+      // Nothing loaded since 0.3 s: starving once the resume's grace ends,
+      // not after a buffer estimate 48 s too high runs out.
+      final graceEnd = 45.8 + ReconnectPolicy.liveHlsGrace.inSeconds;
+      expect(firedAt, closeTo(graceEnd, 1));
     });
   });
 

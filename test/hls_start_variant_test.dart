@@ -238,10 +238,13 @@ void main() {
       expect(followUp(fiveMinutes, fiveMinutes), HlsStartFollowUp.none);
     });
 
-    test('a variant reloaded while playing on Darwin: the seek restarts it',
-        () {
+    test(
+        'a variant reloaded while playing on Darwin: a seek where it begins '
+        'restarts it', () {
       expect(followUp(twoMinutes, twoMinutes, restart: true),
-          HlsStartFollowUp.seek);
+          HlsStartFollowUp.restart);
+      expect(followUp(fiveMinutes, fiveMinutes, restart: true),
+          HlsStartFollowUp.restart);
     });
 
     test('the offset changed while the variant loaded: the seek to it', () {

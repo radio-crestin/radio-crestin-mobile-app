@@ -171,6 +171,12 @@ class HlsPlayheadClock {
   /// accepted when no snapshot matched (first poll failed).
   static const Duration projectAfter = Duration(seconds: 10);
 
+  /// How long after the load started a position report is still relative
+  /// to the window the item loaded (see [itemPositionAt]): AVPlayer
+  /// reloads a live playlist one target duration (6 s) after loading it,
+  /// and only a reload slides its seekable start.
+  static const Duration firstWindowFor = Duration(seconds: 5);
+
   final HlsSegmentLedger _ledger;
 
   HlsPlayheadClock(this._ledger);
@@ -184,6 +190,8 @@ class HlsPlayheadClock {
   DateTime? _nativeTime;
   DateTime? _anchorNativeTime;
   Duration? _anchorSnapshotGap;
+  double? _itemPosition;
+  DateTime? _loadAt;
 
   bool get isAnchored => _position != null;
   HlsAnchorQuality? get quality => _quality;
@@ -198,8 +206,8 @@ class HlsPlayheadClock {
   /// Gap between the anchoring report and its snapshot (log telemetry).
   Duration? get anchorSnapshotGap => _anchorSnapshotGap;
 
-  /// Forgets everything (new load).
-  void beginLoad() {
+  /// Forgets everything (new load, started at [at] when known).
+  void beginLoad([DateTime? at]) {
     _position = null;
     _lastAt = null;
     _advancing = false;
@@ -209,6 +217,8 @@ class HlsPlayheadClock {
     _nativeTime = null;
     _anchorNativeTime = null;
     _anchorSnapshotGap = null;
+    _itemPosition = null;
+    _loadAt = at;
   }
 
   /// Integrates up to [at], then records the new player state and report.
@@ -234,6 +244,7 @@ class HlsPlayheadClock {
     if (pos == null || last == null) return;
     final elapsed = _advancing ? _seconds(now.difference(last)) : 0.0;
     _position = _walk(pos.seq, pos.offset + (elapsed < 0 ? 0 : elapsed));
+    _itemPosition = _itemPositionAfter(last, now);
   }
 
   /// The playhead at [now], or null until anchored.
@@ -243,6 +254,29 @@ class HlsPlayheadClock {
     if (pos == null || last == null) return null;
     final elapsed = _advancing ? _seconds(now.difference(last)) : 0.0;
     return _walk(pos.seq, pos.offset + (elapsed < 0 ? 0 : elapsed));
+  }
+
+  /// The playhead in the native item's own time at [now] (seconds since
+  /// the start of the first segment of the window the item loaded), or
+  /// null until anchored.
+  ///
+  /// The time base of AVPlayer's loaded ranges, which just_audio reports
+  /// as the buffered position. Its position reports are relative to the
+  /// seekable start instead, which slides by a segment whenever the window
+  /// does, so this is taken from the report of the first anchor and then
+  /// advanced with the playhead. Only from a report made within
+  /// [firstWindowFor] of the load, before the window could slide: a later
+  /// one (a pause before anchoring) leaves it unknown for the load.
+  double? itemPositionAt(DateTime now) {
+    final last = _lastAt;
+    return last == null ? null : _itemPositionAfter(last, now);
+  }
+
+  double? _itemPositionAfter(DateTime last, DateTime now) {
+    final item = _itemPosition;
+    if (item == null) return null;
+    final elapsed = _advancing ? _seconds(now.difference(last)) : 0.0;
+    return item + (elapsed < 0 ? 0 : elapsed);
   }
 
   /// Settle-then-anchor; returns true when it (re)anchored.
@@ -282,11 +316,27 @@ class HlsPlayheadClock {
     // The report holds until playback started advancing.
     final from = reportAt.isAfter(since) ? reportAt : since;
     final elapsed = _seconds(now.difference(from));
-    _position = _walk(at.seq, at.offset + (elapsed < 0 ? 0 : elapsed));
+    final ran = elapsed < 0 ? 0.0 : elapsed;
+    final last = _lastAt;
+    // An upgrade keeps the item time of the first anchor: a later report
+    // may be relative to a seekable start that already slid.
+    if (_itemPosition != null && last != null) {
+      _itemPosition = _itemPositionAfter(last, now);
+    } else if (_inFirstWindow(reportAt)) {
+      _itemPosition = _seconds(_nativePosition!) + ran;
+    }
+    _position = _walk(at.seq, at.offset + ran);
     _lastAt = now;
     _quality = quality;
     _anchorNativeTime = reportAt;
     _anchorSnapshotGap = snapshotGap;
+  }
+
+  /// Whether a report made at [reportAt] is still relative to the window
+  /// the item loaded. An unknown load start counts as early.
+  bool _inFirstWindow(DateTime reportAt) {
+    final loadAt = _loadAt;
+    return loadAt == null || reportAt.difference(loadAt) < firstWindowFor;
   }
 
   /// Carries [offset] past segment ends while the next segment is known.

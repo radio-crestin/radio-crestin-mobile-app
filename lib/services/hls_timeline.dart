@@ -46,6 +46,14 @@ class LiveHlsHealthSample {
   /// When the native buffered position last changed.
   final DateTime? bufferedChangedAt;
 
+  /// Seconds of media the player loaded past the playhead (negative once
+  /// the playhead ran past it); null until anchored, and for a load whose
+  /// item time is unknown (see `HlsPlayheadClock.itemPositionAt`).
+  /// Measured in AVPlayer's item time, the time base of its loaded ranges,
+  /// so only meaningful on Darwin, the one platform the liveness rules run
+  /// on.
+  final double? bufferedAheadSeconds;
+
   /// When the app's own playlist poll last failed. A player that loads
   /// nothing while our polls fail too is cut off from the network, not
   /// starved by the origin.
@@ -67,6 +75,7 @@ class LiveHlsHealthSample {
     this.originUnreachableFor,
     this.edgeLagAtStall,
     this.bufferedChangedAt,
+    this.bufferedAheadSeconds,
     this.pollFailedAt,
     this.advancingSince,
     this.targetDuration = HlsTimeline.defaultTargetDuration,
@@ -166,12 +175,14 @@ class HlsTimeline {
   /// Gap between the anchoring report and its snapshot (log telemetry).
   Duration? get anchorSnapshotGap => _clock.anchorSnapshotGap;
 
-  /// New load: forget everything.
-  void beginLoad() => reset();
+  /// New load, started at [at]: forget everything.
+  void beginLoad([DateTime? at]) => _reset(loadAt: at);
 
-  void reset() {
+  void reset() => _reset();
+
+  void _reset({DateTime? loadAt}) {
     _ledger.clear();
-    _clock.beginLoad();
+    _clock.beginLoad(loadAt);
     _wallMap.reset();
     _snapshots.clear();
     _edgeUri = null;
@@ -304,6 +315,8 @@ class HlsTimeline {
     final pos = _clock.positionAt(now);
     final lastOk = _lastPollOkAt;
     final advancedAt = _originAdvancedAt;
+    final item = _clock.itemPositionAt(now);
+    final buffered = _buffered;
     return LiveHlsHealthSample(
       playheadSeq: pos?.seq,
       edgeLagSeconds: _edgeLag(pos),
@@ -315,6 +328,9 @@ class HlsTimeline {
           (_failedPolls >= 2 && lastOk != null) ? now.difference(lastOk) : null,
       edgeLagAtStall: _edgeLagAtStall,
       bufferedChangedAt: _bufferedChangedAt,
+      bufferedAheadSeconds: item == null || buffered == null
+          ? null
+          : buffered.inMicroseconds / 1e6 - item,
       pollFailedAt: _lastPollFailedAt,
       advancingSince: _clock.advancingSince,
       targetDuration: _targetDuration,

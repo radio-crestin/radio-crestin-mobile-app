@@ -97,7 +97,7 @@ class HlsStartVariant {
     if (variantOffset == null) return HlsStartFollowUp.seek;
     if (variantOffset == currentOffset) {
       return seekRestartsPlayback
-          ? HlsStartFollowUp.seek
+          ? HlsStartFollowUp.restart
           : HlsStartFollowUp.none;
     }
     // The offset changed while the variant loaded. The seek reaches any
@@ -113,6 +113,12 @@ class HlsStartVariant {
 enum HlsStartFollowUp {
   /// Nothing: the player already starts at the listening offset.
   none,
+
+  /// A seek to where the variant starts, only to restart playback. The
+  /// seek behind live would land a hold-back (18 s) further back: it counts
+  /// back from the end of AVPlayer's seekable range, which ends three
+  /// target durations before the playlist does.
+  restart,
 
   /// The seek behind live (or to the live point), as after `index.m3u8`.
   seek,

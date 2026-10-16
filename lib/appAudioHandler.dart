@@ -157,6 +157,75 @@ class LiveHlsStallRecovery {
   }
 }
 
+/// The start ([resumed] false) or the end ([resumed] true) of a load pause
+/// the live-HLS watchdog rides out. See [LiveHlsLoadPauses].
+class LiveHlsLoadPauseEvent {
+  final bool resumed;
+
+  /// Seconds without a load: so far at the start, in all at the end.
+  final double seconds;
+
+  /// Buffer ahead of the playhead: at the start, or what was left when
+  /// the player loaded again.
+  final double? bufferedAheadSeconds;
+
+  const LiveHlsLoadPauseEvent({
+    required this.resumed,
+    required this.seconds,
+    this.bufferedAheadSeconds,
+  });
+}
+
+/// Follows the load pauses the live-HLS watchdog rides out (see
+/// [ReconnectPolicy.isLoadPause]) for the log: how long iPhones pause, and
+/// how low the buffer gets before they load again (see
+/// [ReconnectPolicy.starvingBufferFloor]). Pure: [tick] takes the time.
+class LiveHlsLoadPauses {
+  ({DateTime since, double? ahead, DateTime at})? _pause;
+
+  /// Forgets the pause in progress: a new load, or playback stopped, which
+  /// would read as buffer drained.
+  void reset() => _pause = null;
+
+  /// The watchdog tick at [now]: the start of a pause (once per pause) or
+  /// its end, the first buffer growth after it. [playing]: playing and
+  /// ready.
+  LiveHlsLoadPauseEvent? tick(
+    LiveHlsHealthSample s,
+    DateTime now, {
+    required bool playing,
+  }) {
+    final since = s.bufferedChangedAt;
+    final pause = _pause;
+    if (pause != null) {
+      if (since == null || !since.isAfter(pause.since)) {
+        _pause = (since: pause.since, ahead: s.bufferedAheadSeconds, at: now);
+        return null;
+      }
+      _pause = null;
+      final ahead = pause.ahead;
+      return LiveHlsLoadPauseEvent(
+        resumed: true,
+        seconds: _seconds(since.difference(pause.since)),
+        // The last estimate, drained by the playing since.
+        bufferedAheadSeconds:
+            ahead == null ? null : ahead - _seconds(since.difference(pause.at)),
+      );
+    }
+    if (since == null || !playing || !ReconnectPolicy.isLoadPause(s, now)) {
+      return null;
+    }
+    _pause = (since: since, ahead: s.bufferedAheadSeconds, at: now);
+    return LiveHlsLoadPauseEvent(
+      resumed: false,
+      seconds: _seconds(now.difference(since)),
+      bufferedAheadSeconds: s.bufferedAheadSeconds,
+    );
+  }
+
+  static double _seconds(Duration d) => d.inMilliseconds / 1000;
+}
+
 /// Pure fast-start tuning policy: how conservatively the player should buffer
 /// before it begins (or resumes) playback, split by whether the source is a
 /// live stream or seekable VOD.
@@ -309,15 +378,30 @@ class ReconnectPolicy {
 
   /// A dead origin also needs the player's own loading to have stopped for
   /// this long, so failed app polls alone (our request failing while the
-  /// player's succeed) never fire: a playing AVPlayer moves its buffered
-  /// position at least every 6.2 s (measured). Same value as [starvingAfter].
+  /// player's succeed) never fire: near the live edge, where this rule
+  /// applies, the forward buffer can never fill, and AVPlayer moves its
+  /// buffered position at least every 6.2 s (measured). Same value as
+  /// [starvingAfter].
   static const Duration deadOriginBufferStagnantAfter = Duration(seconds: 45);
 
   /// Native buffered position unchanged for this long while the origin
-  /// keeps publishing means new segments do not load. Healthy Darwin gaps
-  /// are <= 6.2 s (x7 margin); fires long before the 120 s forward buffer
-  /// drains.
+  /// keeps publishing: new segments may not load. Only [starving] once the
+  /// buffer is also nearly played out (see [starvingBufferFloor]).
   static const Duration starvingAfter = Duration(seconds: 45);
+
+  /// A load stalled for [starvingAfter] is [starving] only once less than
+  /// this is left in the buffer.
+  ///
+  /// With a full forward buffer an iPhone on mobile data may load nothing
+  /// for over a minute (measured on an iPhone 13: nothing loaded for 65 s
+  /// from 126 s buffered, 73 s still left when the stall rule fired), while
+  /// the Mac and the simulator top it up every segment. Reloading then
+  /// threw away a minute of healthy audio and restarted behind it. 20 s
+  /// covers the 5 s watchdog tick and a segment of error in the estimate
+  /// (see `HlsPlayheadClock.itemPositionAt`) before the audio runs out.
+  /// The cost: an AVPlayer gone silent with a full buffer, still reporting
+  /// playing, is reloaded only once the estimate drains to here.
+  static const Duration starvingBufferFloor = Duration(seconds: 20);
 
   /// `starving` only when the origin published within this window.
   static const Duration originFreshWithin = Duration(seconds: 30);
@@ -406,13 +490,22 @@ class ReconnectPolicy {
         now.difference(bufferedAt) >= deadOriginBufferStagnantAfter;
   }
 
-  /// The origin keeps publishing but the player loads nothing.
-  ///
+  /// The origin keeps publishing, the player loads nothing, and its buffer
+  /// is nearly played out.
+  static bool _isStarving(LiveHlsHealthSample s, DateTime now) =>
+      _loadStalled(s, now) && !_bufferOutlastsStall(s);
+
+  /// Whether the player loaded nothing for [starvingAfter] while the origin
+  /// published, yet more than [starvingBufferFloor] is still buffered: a
+  /// load pause, not a fault. The watchdog logs it once per pause.
+  static bool isLoadPause(LiveHlsHealthSample s, DateTime now) =>
+      _loadStalled(s, now) && _bufferOutlastsStall(s);
+
   /// The wait counts from the later of the last buffer growth and our last
   /// failed poll: while our polls fail too, the device is cut off (a tunnel),
   /// and once the network is back the player needs a few seconds to resume
   /// loading. Counting the outage would reload a healthy stream right then.
-  static bool _isStarving(LiveHlsHealthSample s, DateTime now) {
+  static bool _loadStalled(LiveHlsHealthSample s, DateTime now) {
     final bufferedAt = s.bufferedChangedAt;
     final advancedAt = s.originAdvancedAt;
     if (bufferedAt == null || advancedAt == null) return false;
@@ -421,6 +514,13 @@ class ReconnectPolicy {
         failedAt != null && failedAt.isAfter(bufferedAt) ? failedAt : bufferedAt;
     return now.difference(stagnantSince) >= starvingAfter &&
         now.difference(advancedAt) <= originFreshWithin;
+  }
+
+  /// An unknown buffer (not anchored) never holds a fire back.
+  static bool _bufferOutlastsStall(LiveHlsHealthSample s) {
+    final ahead = s.bufferedAheadSeconds;
+    return ahead != null &&
+        ahead > starvingBufferFloor.inMicroseconds / 1e6;
   }
 
   /// Returns true when a paused live-HLS stream has aged past the point where
@@ -607,11 +707,11 @@ Future<AppAudioHandler> initAudioService({required graphqlClient}) async {
             FastStartConfig.liveDarwinAutomaticallyWaits,
         // How much AVPlayer loads ahead: what plays through a network
         // drop. 120 s, measured on the live streams with the 2- and 5-min
-        // offsets (60 s cut the audio in drops over a minute): AVPlayer
-        // tops a 120 s buffer up every segment. A larger cap does not
-        // raise the floor, as AVPlayer resumes loading only once less
-        // than ~120 s is left; it only adds long load pauses, which
-        // ReconnectPolicy.starvingAfter would take for a stuck stream.
+        // offsets (60 s cut the audio in drops over a minute). On the Mac
+        // and the simulator AVPlayer tops it up every segment, so a larger
+        // cap does not raise the floor and only adds load pauses. An
+        // iPhone on mobile data may still load nothing for over a minute
+        // once it is full (see ReconnectPolicy.starvingBufferFloor).
         preferredForwardBufferDuration: Duration(seconds: 120),
       ),
     ),
@@ -795,6 +895,8 @@ class AppAudioHandler extends BaseAudioHandler {
   // (frozen or failing playlist, window reset). This Darwin-only periodic
   // check evaluates [ReconnectPolicy.liveHlsStall] and reloads.
   Timer? _liveHlsWatchdogTimer;
+  // The load pauses the watchdog rides out, for the log.
+  final LiveHlsLoadPauses _loadPauses = LiveHlsLoadPauses();
   // When the player last stopped playing (pause, interruption, route
   // disconnect); null while playing. Freezes the approximate audible
   // instant (see _audibleInstant), and Fix 2 in play() measures the pause
@@ -2794,6 +2896,8 @@ class AppAudioHandler extends BaseAudioHandler {
         case HlsStartFollowUp.none:
           _log('play: the start variant already begins ${offset.inSeconds}s '
               'behind live, no seek');
+        case HlsStartFollowUp.restart:
+          _restartWhereLoaded();
         case HlsStartFollowUp.seek:
           _seekBehindLiveEdge(); // non-blocking: seek starts, play() follows immediately
         case HlsStartFollowUp.reload:
@@ -3176,6 +3280,19 @@ class AppAudioHandler extends BaseAudioHandler {
     });
   }
 
+  /// Restarts a start variant reloaded while playing (see
+  /// [_stayAtLiveEdge]) where it begins: a seek to the native position the
+  /// load reported, which `#EXT-X-START` put the listening offset behind
+  /// live. Non-blocking, like [_seekBehindLiveEdge].
+  void _restartWhereLoaded() {
+    final start = player.playbackEvent.updatePosition;
+    _log('play: the start variant was reloaded while playing, restarting it '
+        'where it begins ($start)');
+    player.seek(start).catchError((e) {
+      _log('play: restart seek failed ($e)');
+    });
+  }
+
   /// Whether the source just loaded plays only once a seek completes: a
   /// Darwin reload while already playing (see [_stayAtLiveEdge]).
   bool get _reloadNeedsSeekToPlay =>
@@ -3206,6 +3323,7 @@ class AppAudioHandler extends BaseAudioHandler {
   void _stopLiveHlsWatchdog() {
     _liveHlsWatchdogTimer?.cancel();
     _liveHlsWatchdogTimer = null;
+    _loadPauses.reset();
   }
 
   /// Periodic tick: evaluates [ReconnectPolicy.liveHlsStall] and, when a rule
@@ -3237,8 +3355,41 @@ class AppAudioHandler extends BaseAudioHandler {
       now: now,
       s: sample,
     );
-    if (stall == LiveHlsStall.none || url == null) return;
+    if (url == null) return;
+    if (stall == LiveHlsStall.none) {
+      _noteLiveHlsLoadPause(sample, now);
+      return;
+    }
     _recoverFromLiveHlsStall(stall, url, sample, now);
+  }
+
+  /// Logs the load pauses the watchdog rides out, when they start and when
+  /// the player loads again (see [LiveHlsLoadPauses]).
+  void _noteLiveHlsLoadPause(LiveHlsHealthSample s, DateTime now) {
+    final e = _loadPauses.tick(s, now,
+        playing: player.playing &&
+            player.processingState == ProcessingState.ready);
+    if (e == null) return;
+    final ahead = e.bufferedAheadSeconds;
+    final slug = currentStation.valueOrNull?.slug ?? '';
+    if (e.resumed) {
+      _log('live-hls watchdog: loading again after ${e.seconds}s, '
+          '${ahead?.toStringAsFixed(1)}s were left');
+      AnalyticsService.instance.logDebug('stream hls load resumed', {
+        'station_slug': slug,
+        'paused_s': e.seconds,
+        'buffered_ahead_s': ahead,
+      });
+      return;
+    }
+    _log('live-hls watchdog: no load for ${e.seconds}s, '
+        '${ahead?.toStringAsFixed(1)}s still buffered, waiting');
+    AnalyticsService.instance.logDebug('stream hls load pause', {
+      'station_slug': slug,
+      'stagnant_s': e.seconds,
+      'buffered_ahead_s': ahead,
+      'playhead_lag_s': s.edgeLagSeconds,
+    });
   }
 
   /// Reloads after a liveness fire, failing the stream over only on a
@@ -3308,7 +3459,8 @@ class AppAudioHandler extends BaseAudioHandler {
     _log('live-hls watchdog: ${stall.name} — $verb '
         '(edgeLag=${edgeLag}s originStale=${secs(s.originStaleFor)}s '
         'unreachable=${secs(s.originUnreachableFor)}s '
-        'bufferStagnant=${since(s.bufferedChangedAt)}s)');
+        'bufferStagnant=${since(s.bufferedChangedAt)}s '
+        'bufferedAhead=${s.bufferedAheadSeconds?.toStringAsFixed(1)}s)');
     _recordStreamEvent(
       StreamEventKind.hlsStalled,
       'HLS silent (${stall.name}) — $verb',
@@ -3329,6 +3481,7 @@ class AppAudioHandler extends BaseAudioHandler {
       'origin_stale_s': since(s.originAdvancedAt),
       'origin_unreachable_s': secs(s.originUnreachableFor),
       'buffer_stagnant_s': since(s.bufferedChangedAt),
+      'buffered_ahead_s': s.bufferedAheadSeconds,
       'anchor_quality': _hlsTimeline.anchorQuality?.name,
     });
   }
@@ -3382,7 +3535,8 @@ class AppAudioHandler extends BaseAudioHandler {
     _hlsPlaylistPollTimer = null;
     _cancelSongBoundaryTimer();
     _cancelHlsAnchorChecks();
-    _hlsTimeline.beginLoad();
+    _hlsTimeline.beginLoad(DateTime.now());
+    _loadPauses.reset();
     _songBoundaries.clear();
     _lastMetadataChangedAt = null;
     return ++_hlsLoadGeneration;
