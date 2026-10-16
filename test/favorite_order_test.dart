@@ -98,6 +98,24 @@ void main() {
         ['gamma', 'alpha', 'beta']);
   });
 
+  test('a favorite added back at its place goes there', () async {
+    service.favoriteStationSlugs.add(['gamma', 'alpha']);
+
+    await service.setStationIsFavorite(beta, true, index: 1);
+
+    expect(service.favoriteStationSlugs.value, ['gamma', 'beta', 'alpha']);
+    expect(stored(), ['gamma', 'beta', 'alpha']);
+  });
+
+  test('a place past the end, the favorites having shrunk since, is last',
+      () async {
+    service.favoriteStationSlugs.add(['gamma']);
+
+    await service.setStationIsFavorite(beta, true, index: 3);
+
+    expect(service.favoriteStationSlugs.value, ['gamma', 'beta']);
+  });
+
   group('the order shown before favorites could be arranged', () {
     test('is kept once, from the station list\'s sort', () async {
       // Saved oldest first, shown alphabetically until now.

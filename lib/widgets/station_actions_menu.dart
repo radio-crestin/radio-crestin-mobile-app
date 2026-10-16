@@ -14,6 +14,8 @@ import 'package:flutter/services.dart';
 /// the menu is about, and a touch on the row only closes the menu.
 ///
 /// Hiding asks [confirmHide] while the menu closes, then calls [onHide].
+/// The row stays sunk meanwhile, under the alert asking to confirm it,
+/// and as it plays out; it rises again if the listener declines.
 /// Screen readers reach every action as a custom action on the row.
 ///
 /// With [drag], the row can also move to another place in its list: held,
@@ -70,7 +72,8 @@ class StationActionsMenu extends StatefulWidget {
 }
 
 class _StationActionsMenuState extends State<StationActionsMenu> {
-  /// The row's size while its menu is open.
+  /// The row's size while its menu is open, or the station is being
+  /// hidden.
   static const double _sunkScale = 0.97;
 
   /// How far a finger holding the row moves before the row follows it: a
@@ -87,6 +90,9 @@ class _StationActionsMenuState extends State<StationActionsMenu> {
 
   AnimationStatus _menuStatus = AnimationStatus.dismissed;
 
+  /// Whether hiding the station waits for the listener to confirm it.
+  bool _confirmingHide = false;
+
   /// Whether the listener confirmed hiding the station, which is now on its
   /// way out of the list.
   bool _hiding = false;
@@ -98,6 +104,8 @@ class _StationActionsMenuState extends State<StationActionsMenu> {
   bool _dragging = false;
 
   bool get _menuOpen => _menuStatus.isForwardOrCompleted;
+
+  bool get _sunk => _menuOpen || _confirmingHide || _hiding;
 
   bool get _cupertino => switch (Theme.of(context).platform) {
         TargetPlatform.iOS || TargetPlatform.macOS => true,
@@ -180,9 +188,17 @@ class _StationActionsMenuState extends State<StationActionsMenu> {
   /// Hides the station without waiting for the menu: its spring settles
   /// well after it looks closed, and the row plays out long after that.
   Future<void> _hide() async {
-    if (_hiding || !await widget.confirmHide() || !mounted) return;
-    _hiding = true;
-    widget.onHide();
+    if (_hiding || _confirmingHide) return;
+    // Kept sunk in the frame the menu starts closing, so it doesn't rise.
+    setState(() => _confirmingHide = true);
+    if (_menuOpen) _menuController.close();
+    final confirmed = await widget.confirmHide();
+    if (!mounted) return;
+    setState(() {
+      _confirmingHide = false;
+      _hiding = confirmed;
+    });
+    if (confirmed) widget.onHide();
   }
 
   List<Widget> _cupertinoItems() => [
@@ -225,6 +241,9 @@ class _StationActionsMenuState extends State<StationActionsMenu> {
       const Divider(height: 8),
       MenuItemButton(
         onPressed: _hide,
+        // It closes the menu itself: the menu would call it a frame after
+        // closing, and the row would start to rise in between.
+        closeOnActivate: false,
         leadingIcon: Icon(Icons.visibility_off_outlined, color: error),
         style: MenuItemButton.styleFrom(foregroundColor: error),
         child: const Text(StationActionsMenu.hideLabel),
@@ -263,7 +282,7 @@ class _StationActionsMenuState extends State<StationActionsMenu> {
             ),
           },
           child: AnimatedScale(
-            scale: _menuOpen ? _sunkScale : 1,
+            scale: _sunk ? _sunkScale : 1,
             duration: const Duration(milliseconds: 150),
             curve: Curves.easeInOut,
             child: widget.child,

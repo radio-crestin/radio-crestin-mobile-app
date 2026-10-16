@@ -20,7 +20,7 @@ class _FakeAudioHandler extends BaseAudioHandler implements AppAudioHandler {
   final StationDataService data;
 
   @override
-  Future<void> unhideStation(Station station, {bool favorite = false}) =>
+  Future<void> unhideStation(Station station, {int? favoriteIndex}) =>
       data.setStationIsHidden(station, false);
 
   @override

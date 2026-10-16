@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,6 +13,10 @@ void main() {
   late int hides;
   late bool confirmAnswer;
 
+  /// The listener's answer while they are still asked, in place of
+  /// [confirmAnswer].
+  Completer<bool>? pendingAnswer;
+
   setUp(() {
     plays = 0;
     favoriteToggles = 0;
@@ -18,6 +24,7 @@ void main() {
     confirmations = 0;
     hides = 0;
     confirmAnswer = true;
+    pendingAnswer = null;
   });
 
   final row = find.text('Radio Test');
@@ -39,7 +46,10 @@ void main() {
                 onShare: () => shares++,
                 confirmHide: () async {
                   confirmations++;
-                  return confirmAnswer;
+                  final pending = pendingAnswer;
+                  return pending == null
+                      ? confirmAnswer
+                      : await pending.future;
                 },
                 onHide: () => hides++,
                 child: GestureDetector(
@@ -168,6 +178,52 @@ void main() {
     await tester.tap(row);
     expect(plays, 1, reason: 'the row is usable again');
   }, variant: bothPlatforms);
+
+  group('the row stays sunk', () {
+    double rowScale(WidgetTester tester) => tester
+        .widget<AnimatedScale>(
+            find.ancestor(of: row, matching: find.byType(AnimatedScale)))
+        .scale;
+
+    /// Holds the row, picks "Ascunde stația" and checks every frame while
+    /// the menu closes and the listener is asked.
+    Future<void> askToHide(WidgetTester tester) async {
+      pendingAnswer = Completer<bool>();
+      await pumpRow(tester, isFavorite: true);
+      await tester.longPress(row);
+      await tester.pumpAndSettle();
+      expect(rowScale(tester), lessThan(1));
+
+      await tester.tap(hideItem);
+      for (var frame = 0; frame < 40; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(rowScale(tester), lessThan(1), reason: 'frame $frame');
+      }
+      expect(hideItem, findsNothing);
+      expect(confirmations, 1);
+    }
+
+    testWidgets('while hiding it waits for the listener, and rises when '
+        'they decline', (tester) async {
+      await askToHide(tester);
+
+      pendingAnswer!.complete(false);
+      await tester.pumpAndSettle();
+
+      expect(rowScale(tester), 1);
+      expect(hides, 0);
+    }, variant: bothPlatforms);
+
+    testWidgets('once hiding is confirmed, as it plays out', (tester) async {
+      await askToHide(tester);
+
+      pendingAnswer!.complete(true);
+      await tester.pumpAndSettle();
+
+      expect(hides, 1);
+      expect(rowScale(tester), lessThan(1));
+    }, variant: bothPlatforms);
+  });
 
   testWidgets('a tap on the row while the menu is open only closes it',
       (tester) async {

@@ -4925,8 +4925,13 @@ class AppAudioHandler extends BaseAudioHandler {
     if (isFavorite) _countReviewAction();
   }
 
-  Future<void> _storeFavorite(Station station, bool isFavorite) async {
-    await stationDataService.setStationIsFavorite(station, isFavorite);
+  Future<void> _storeFavorite(
+    Station station,
+    bool isFavorite, {
+    int? index,
+  }) async {
+    await stationDataService.setStationIsFavorite(station, isFavorite,
+        index: index);
     // Update MediaItem rating so MediaSession reflects the new favorite state
     final currentItem = mediaItem.valueOrNull;
     if (currentItem != null && currentStation.value?.slug == station.slug) {
@@ -4939,25 +4944,28 @@ class AppAudioHandler extends BaseAudioHandler {
   /// Hides [station] from every station list, the car's included. A
   /// favorite stops being one, since the favorites only list stations on
   /// show. Playing it goes on: it is hidden, not stopped.
-  Future<void> hideStation(Station station) async {
-    // Both lists change before the first await, so they redraw together.
-    final hiding = stationDataService.setStationIsHidden(station, true);
-    if (stationDataService.favoriteStationSlugs.value
-        .contains(station.slug)) {
-      await _storeFavorite(station, false);
-    }
-    await hiding;
+  ///
+  /// Returns the place [station] had among the favorites, null if it was
+  /// not one, for [unhideStation] to put it back there.
+  int? hideStation(Station station) {
+    final favoriteIndex =
+        stationDataService.favoriteStationSlugs.value.indexOf(station.slug);
+    // Both lists change before this returns, so they redraw together.
+    unawaited(stationDataService.setStationIsHidden(station, true));
+    if (favoriteIndex < 0) return null;
+    unawaited(_storeFavorite(station, false));
+    return favoriteIndex;
   }
 
-  /// Shows [station] in the lists again, back among the favorites with
-  /// [favorite] (an undone hide of a favorite).
-  Future<void> unhideStation(Station station, {bool favorite = false}) async {
+  /// Shows [station] in the lists again, back among the favorites at
+  /// [favoriteIndex] (an undone hide of a favorite, see [hideStation]).
+  Future<void> unhideStation(Station station, {int? favoriteIndex}) async {
     final showing = stationDataService.setStationIsHidden(station, false);
     // The full player's heart still works on a hidden station playing.
-    if (favorite &&
+    if (favoriteIndex != null &&
         !stationDataService.favoriteStationSlugs.value
             .contains(station.slug)) {
-      await _storeFavorite(station, true);
+      await _storeFavorite(station, true, index: favoriteIndex);
     }
     await showing;
   }

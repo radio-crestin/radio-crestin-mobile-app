@@ -1185,10 +1185,19 @@ class StationDataService {
   // Favorites
   // ---------------------------------------------------------------------------
 
-  Future<void> setStationIsFavorite(Station station, bool isFavorite) async {
+  /// Adds [station] to the favorites, last or at [index] of
+  /// [favoriteStationSlugs] (the place it had before it was hidden), or
+  /// removes it.
+  Future<void> setStationIsFavorite(
+    Station station,
+    bool isFavorite, {
+    int? index,
+  }) async {
     _log("setStationIsFavorite: ${station.slug} $isFavorite");
     if (isFavorite) {
-      favoriteStationSlugs.add([...favoriteStationSlugs.value, station.slug]);
+      final current = favoriteStationSlugs.value;
+      final at = (index ?? current.length).clamp(0, current.length);
+      favoriteStationSlugs.add([...current]..insert(at, station.slug));
     } else {
       favoriteStationSlugs
           .add(favoriteStationSlugs.value.where((slug) => slug != station.slug).toList());

@@ -25,7 +25,10 @@ class _FakeAudioHandler extends Fake implements AppAudioHandler {
   final StationDataService stationDataService = _FakeData();
 
   @override
-  Future<void> hideStation(Station station) async => hidden.add(station.slug);
+  int? hideStation(Station station) {
+    hidden.add(station.slug);
+    return null;
+  }
 }
 
 /// A category whose stations are all hidden lists them in their places,

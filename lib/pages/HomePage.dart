@@ -142,8 +142,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   final StatusSnackbarController _statusSnackbar = StatusSnackbarController();
 
   /// The station last hidden from a list, for the snackbar's "Anulează";
-  /// [wasFavorite]: hiding took it out of the favorites.
-  ({Station station, bool wasFavorite})? _lastHidden;
+  /// [favoriteIndex]: the place it had among the favorites, which hiding
+  /// took it out of.
+  ({Station station, int? favoriteIndex})? _lastHidden;
 
   /// The category whose hidden stations the list shows in their places,
   /// dimmed: one chosen with all its stations hidden. They stay while it
@@ -341,8 +342,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   /// Tells that [station] left the lists, with an undo.
-  void _onStationHidden(Station station, bool wasFavorite) {
-    _lastHidden = (station: station, wasFavorite: wasFavorite);
+  void _onStationHidden(Station station, int? favoriteIndex) {
+    _lastHidden = (station: station, favoriteIndex: favoriteIndex);
     _statusSnackbar.showStationHidden(station);
     _growInHiddenAround(station);
   }
@@ -386,8 +387,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     unawaited(_audioHandler.unhideStation(station));
   }
 
-  /// Shows the station last hidden again, back among the favorites if it
-  /// was one.
+  /// Shows the station last hidden again, back in its place among the
+  /// favorites if it was one.
   void _undoHide() {
     final hidden = _lastHidden;
     if (hidden == null) return;
@@ -405,7 +406,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
     unawaited(_audioHandler.unhideStation(
       hidden.station,
-      favorite: hidden.wasFavorite,
+      favoriteIndex: hidden.favoriteIndex,
     ));
   }
 

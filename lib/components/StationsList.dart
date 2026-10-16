@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -46,8 +45,9 @@ class StationsList extends StatelessWidget {
   final bool isFavoritesList;
 
   /// Called once the listener hid a station from its long-press menu;
-  /// [wasFavorite]: hiding took it out of the favorites.
-  final void Function(Station station, bool wasFavorite)? onStationHidden;
+  /// [favoriteIndex]: the place it had among the favorites, which hiding
+  /// took it out of.
+  final void Function(Station station, int? favoriteIndex)? onStationHidden;
 
   /// Plays a hidden station's rows out before it leaves the list, and an
   /// undone one's back in. Shared by every list of the page, so all the
@@ -130,8 +130,8 @@ class StationsList extends StatelessWidget {
       'from_favorites': isFavoritesList,
     });
     void hide() {
-      unawaited(audioHandler.hideStation(station));
-      onStationHidden?.call(station, wasFavorite);
+      final favoriteIndex = audioHandler.hideStation(station);
+      onStationHidden?.call(station, favoriteIndex);
     }
 
     final transitions = rowTransitions;

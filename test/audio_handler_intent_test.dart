@@ -651,6 +651,44 @@ void main() {
     });
   });
 
+  // "Anulează" after hiding a favorite.
+  group('hide undone', () {
+    test('puts a favorite back in its place among the favorites', () async {
+      await http.runWithClient(() async {
+        await startHandler();
+        final order = [stationOf(1), stationOf(3), stationOf(5)];
+        for (final station in order) {
+          await service.setStationIsFavorite(station, true);
+        }
+        final slugs = [for (final station in order) station.slug];
+
+        final favoriteIndex = handler.hideStation(stationOf(3));
+        expect(favoriteIndex, 1);
+        expect(service.favoriteStationSlugs.value, [slugs[0], slugs[2]]);
+
+        await handler.unhideStation(stationOf(3),
+            favoriteIndex: favoriteIndex);
+        expect(service.favoriteStationSlugs.value, slugs);
+        expect(service.hiddenStationSlugs.value, isEmpty);
+        expect(json.decode(prefs.getString('favoriteStationSlugs')!), slugs);
+      }, () => routing);
+    });
+
+    test('leaves a station that was no favorite out of them', () async {
+      await http.runWithClient(() async {
+        await startHandler();
+
+        final favoriteIndex = handler.hideStation(stationOf(3));
+        expect(favoriteIndex, isNull);
+
+        await handler.unhideStation(stationOf(3),
+            favoriteIndex: favoriteIndex);
+        expect(service.favoriteStationSlugs.value, isEmpty);
+        expect(service.hiddenStationSlugs.value, isEmpty);
+      }, () => routing);
+    });
+  });
+
   // What brings the car's no-internet alert back (OfflineAlertGate).
   group('play requests', () {
     late List<void> requests;
