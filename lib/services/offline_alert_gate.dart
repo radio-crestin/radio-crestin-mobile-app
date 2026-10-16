@@ -4,8 +4,8 @@ import 'dart:async';
 /// modal alert, Android Auto's error in place of the player.
 ///
 /// On the road the internet drops often and briefly: tunnels, cell
-/// handoffs, leaving the home WiFi. The forward buffer (up to 2 minutes)
-/// plays most drops through and playback reconnects on its own, so a modal
+/// handoffs, leaving the home WiFi. The forward buffer (5 minutes in the
+/// car) plays most drops through and playback reconnects on its own, so a modal
 /// alert the driver has to tap away would only distract. It shows once the
 /// internet has been out for [delay] with the car connected and no audio
 /// coming out, and goes as soon as the internet or the audio is back. Once

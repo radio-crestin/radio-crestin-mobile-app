@@ -670,6 +670,18 @@ class StreamEvent {
   });
 }
 
+/// How much AVPlayer may load ahead of the playhead: what plays through a
+/// network drop.
+///
+/// AVPlayer loads only up to the live edge, so the listening offset sets
+/// the buffer (measured on the Mac, topped up every segment): ~18 s live,
+/// ~120 s at 2 minutes, ~300 s at 5 minutes. The cap must clear the
+/// longest offset: at 120 s the 5-minute mode kept only 2 minutes and went
+/// silent 2 minutes into an outage. 30 s of margin for the latency that
+/// rebuffers add. An iPhone on mobile data may still load nothing for over
+/// a minute once it is full (see [ReconnectPolicy.starvingBufferFloor]).
+const Duration darwinForwardBuffer = Duration(minutes: 5, seconds: 30);
+
 Future<AppAudioHandler> initAudioService({required graphqlClient}) async {
   final AudioPlayer player = AudioPlayer(
     // TODO: enable userAgent to identify users
@@ -706,14 +718,7 @@ Future<AppAudioHandler> initAudioService({required graphqlClient}) async {
         // not be false.
         automaticallyWaitsToMinimizeStalling:
             FastStartConfig.liveDarwinAutomaticallyWaits,
-        // How much AVPlayer loads ahead: what plays through a network
-        // drop. 120 s, measured on the live streams with the 2- and 5-min
-        // offsets (60 s cut the audio in drops over a minute). On the Mac
-        // and the simulator AVPlayer tops it up every segment, so a larger
-        // cap does not raise the floor and only adds load pauses. An
-        // iPhone on mobile data may still load nothing for over a minute
-        // once it is full (see ReconnectPolicy.starvingBufferFloor).
-        preferredForwardBufferDuration: Duration(seconds: 120),
+        preferredForwardBufferDuration: darwinForwardBuffer,
       ),
     ),
   );
@@ -965,7 +970,7 @@ class AppAudioHandler extends BaseAudioHandler {
   static const _bufferingDropMinDuration = Duration(milliseconds: 250);
   DateTime? _bufferingStartedAt;
   Duration _bufferingStartPosition = Duration.zero;
-  Duration _bufferingStartBuffered = Duration.zero;
+  Duration? _bufferingStartAhead;
   // Dedup playbackEventStream errors so a sticky error doesn't spam the log.
   int? _lastPlayerErrorCode;
   String? _lastPlayerErrorMessage;
@@ -1153,11 +1158,11 @@ class AppAudioHandler extends BaseAudioHandler {
     if (duration < _bufferingDropMinDuration) return;
     final positionEnd = player.position;
     final positionStart = _bufferingStartPosition;
-    final bufferedAheadAtStart = _bufferingStartBuffered - positionStart;
+    final bufferedAheadAtStart = _bufferingStartAhead;
     final lastInfo = currentStreamInfo.valueOrNull;
     _recordStreamEvent(
       StreamEventKind.bufferingDrop,
-      'Rebuffer ${duration.inMilliseconds}ms — buf ${bufferedAheadAtStart.inMilliseconds}ms ahead at start, end=${endState.name}',
+      'Rebuffer ${duration.inMilliseconds}ms — buf ${bufferedAheadAtStart?.inMilliseconds ?? '?'}ms ahead at start, end=${endState.name}',
     );
     AnalyticsService.instance.logWarning('stream buffering drop', {
       'station_slug': lastInfo?.stationSlug ?? currentStation.valueOrNull?.slug ?? '',
@@ -1169,9 +1174,32 @@ class AppAudioHandler extends BaseAudioHandler {
       'duration_ms': duration.inMilliseconds,
       'position_start_ms': positionStart.inMilliseconds,
       'position_end_ms': positionEnd.inMilliseconds,
-      'buffered_ahead_at_start_ms': bufferedAheadAtStart.inMilliseconds,
+      'buffered_ahead_at_start_ms': bufferedAheadAtStart?.inMilliseconds,
       'end_state': endState.name,
     });
+  }
+
+  /// Starts a buffering episode: when, where, and how much was buffered
+  /// ahead (null when unknown).
+  void _beginBufferingEpisode() {
+    final now = DateTime.now();
+    _bufferingStartedAt = now;
+    _bufferingStartPosition = player.position;
+    _bufferingStartAhead = _bufferedAhead(now);
+  }
+
+  /// What the player has loaded ahead of the playhead. For live HLS on
+  /// AVPlayer, the timeline's estimate (see
+  /// [HlsTimeline.bufferedAheadSeconds]); ExoPlayer and VOD report both
+  /// positions in the same time base.
+  Duration? _bufferedAhead(DateTime now) {
+    if (!(ReconnectPolicy.silentStallPossible && _isLocalLiveHls)) {
+      return player.bufferedPosition - player.position;
+    }
+    final seconds = _hlsTimeline.bufferedAheadSeconds(now);
+    return seconds == null
+        ? null
+        : Duration(microseconds: (seconds * 1e6).round());
   }
 
   /// Whether the [repeats]-th repeat of an error is logged: the 1st, 10th,
@@ -1674,7 +1702,7 @@ class AppAudioHandler extends BaseAudioHandler {
           onPlaylistItemCompleted?.call();
         } else if (state == ProcessingState.buffering && player.playing) {
           if (_bufferingStartedAt == null) {
-            _bufferingStartedAt = DateTime.now();
+            _beginBufferingEpisode();
             _scheduleSilenceKeepAlive();
           }
         } else if (state == ProcessingState.ready) {
@@ -1818,9 +1846,7 @@ class AppAudioHandler extends BaseAudioHandler {
         // state would silently advance the snapshot while the timer keeps
         // counting from the original moment, skewing buf-ahead-at-start.
         if (_bufferingStartedAt == null) {
-          _bufferingStartedAt = DateTime.now();
-          _bufferingStartPosition = player.position;
-          _bufferingStartBuffered = player.bufferedPosition;
+          _beginBufferingEpisode();
           _scheduleSilenceKeepAlive();
         }
         // Stall timer: if buffering doesn't resolve, kick a fresh play()
@@ -3406,8 +3432,8 @@ class AppAudioHandler extends BaseAudioHandler {
       return;
     }
     // Without internet a reload cannot load anything, and it would throw
-    // away the audio still buffered (up to 2 minutes). The player plays
-    // on and the network-restored path takes over.
+    // away the audio still buffered (as much as the 2 or 5 min offset).
+    // The player plays on and the network-restored path takes over.
     if (NetworkService.instance.isOffline.value) return;
     final now = DateTime.now();
     final url = _loadedStreamUrl;

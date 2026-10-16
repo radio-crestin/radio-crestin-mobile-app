@@ -311,12 +311,22 @@ class HlsTimeline {
         isUtc: true);
   }
 
+  /// Seconds AVPlayer has loaded ahead of the playhead, or null until
+  /// known: its buffered position in item time minus the item playhead.
+  /// just_audio reports a live position relative to the seekable start
+  /// instead, so `bufferedPosition - position` means nothing there.
+  double? bufferedAheadSeconds(DateTime now) {
+    final item = _clock.itemPositionAt(now);
+    final buffered = _buffered;
+    return item == null || buffered == null
+        ? null
+        : buffered.inMicroseconds / 1e6 - item;
+  }
+
   LiveHlsHealthSample healthSample(DateTime now) {
     final pos = _clock.positionAt(now);
     final lastOk = _lastPollOkAt;
     final advancedAt = _originAdvancedAt;
-    final item = _clock.itemPositionAt(now);
-    final buffered = _buffered;
     return LiveHlsHealthSample(
       playheadSeq: pos?.seq,
       edgeLagSeconds: _edgeLag(pos),
@@ -328,9 +338,7 @@ class HlsTimeline {
           (_failedPolls >= 2 && lastOk != null) ? now.difference(lastOk) : null,
       edgeLagAtStall: _edgeLagAtStall,
       bufferedChangedAt: _bufferedChangedAt,
-      bufferedAheadSeconds: item == null || buffered == null
-          ? null
-          : buffered.inMicroseconds / 1e6 - item,
+      bufferedAheadSeconds: bufferedAheadSeconds(now),
       pollFailedAt: _lastPollFailedAt,
       advancingSince: _clock.advancingSince,
       targetDuration: _targetDuration,

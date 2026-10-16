@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:radio_crestin/appAudioHandler.dart' show darwinForwardBuffer;
 import 'package:radio_crestin/seek_mode_manager.dart';
 
 void main() {
@@ -62,6 +63,22 @@ void main() {
         SeekModeManager.changeSeekMode(SeekMode.instant);
         SeekModeManager.changeCarConnected(true);
         expect(SeekModeManager.effectiveSeekMode, SeekMode.fiveMinutes);
+      });
+    });
+
+    group('iOS forward buffer', () {
+      // AVPlayer loads only up to the live edge, so an outage plays out as
+      // much audio as the offset only while the cap clears the offset.
+      test('clears every offset, the car-forced one included', () {
+        for (final mode in SeekMode.values) {
+          SeekModeManager.changeSeekMode(mode);
+          for (final car in [false, true]) {
+            SeekModeManager.changeCarConnected(car);
+            expect(darwinForwardBuffer,
+                greaterThan(SeekModeManager.currentOffset),
+                reason: '$mode, car connected: $car');
+          }
+        }
       });
     });
 
