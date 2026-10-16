@@ -15,8 +15,8 @@ import 'network_service.dart';
 /// is offline remember (`pending_log_flush` in [SharedPreferences]) to flush
 /// when connectivity returns — including on the next launch after a crash.
 ///
-/// Log/event uploads are tiny, so unlike session replay they are NOT gated
-/// on WiFi — any connectivity is enough.
+/// Log/event uploads are tiny, so they are NOT gated on WiFi — any
+/// connectivity is enough.
 class LogFlushGuard {
   static final LogFlushGuard _instance = LogFlushGuard();
 

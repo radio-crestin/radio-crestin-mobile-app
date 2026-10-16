@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
-import 'package:posthog_flutter/posthog_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:radio_crestin/widgets/review_modal.dart';
@@ -110,22 +109,6 @@ void main() {
       await tester.pump();
 
       expect(find.text('5/500'), findsOneWidget);
-    });
-
-    testWidgets('message input is masked in session replay', (tester) async {
-      await tester.pumpWidget(_wrap(const ReviewModal(
-        stationId: 1,
-        stationTitle: 'S',
-      )));
-
-      // maskAllTexts is off app-wide, so free text needs its own mask.
-      expect(
-        find.ancestor(
-          of: find.byType(TextField),
-          matching: find.byType(PostHogMaskWidget),
-        ),
-        findsOneWidget,
-      );
     });
 
     testWidgets('renders the primary submit button labeled "Trimite mesajul"', (tester) async {

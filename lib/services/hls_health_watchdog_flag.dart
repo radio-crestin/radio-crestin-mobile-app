@@ -8,7 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 ///
 /// The watchdog reloads streams it judges silent; a bad rule in the field
 /// would interrupt healthy listening, so it must be switchable without a
-/// release. Mirrors the `SessionReplayController` pattern: the last-seen
+/// release. Mirrors the `RemoteDebugController` pattern: the last-seen
 /// value is cached in [SharedPreferences] and applies from startup on the
 /// next launch.
 class HlsHealthWatchdogFlag {

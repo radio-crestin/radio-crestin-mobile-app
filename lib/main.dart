@@ -51,7 +51,6 @@ import 'services/remote_debug_controller.dart';
 import 'services/quick_actions_service.dart';
 import 'services/network_service.dart';
 import 'services/play_count_service.dart';
-import 'services/session_replay_controller.dart';
 import 'services/song_like_service.dart';
 import 'services/station_data_service.dart';
 import 'services/video_playback_service.dart';
@@ -310,10 +309,8 @@ void main() async {
   // Now await Firebase (likely already done since audio init takes longer)
   await firebaseInitFuture;
 
-  // Load the cached flag decisions (from the previous launch) so PostHog
-  // setup can decide whether to install the native replay integration.
-  // Does not block on the network.
-  await SessionReplayController.instance.loadCache(prefs);
+  // Load the flag decisions cached by the previous launch, so they apply
+  // from startup. Does not block on the network.
   await RemoteDebugController.instance.loadCache(prefs);
   await HlsHealthWatchdogFlag.instance.loadCache(prefs);
 
@@ -329,11 +326,7 @@ void main() async {
   // The onFeatureFlags callback lets the controllers apply the live flags once
   // PostHog has loaded them.
   await AnalyticsService.instance.initialize(
-    sessionReplayAtSetup:
-        SessionReplayController.instance.enableReplayAtSetup ||
-            RemoteDebugController.instance.forceSessionReplay,
     onFeatureFlagsLoaded: () {
-      unawaited(SessionReplayController.instance.onFlagsLoaded());
       unawaited(RemoteDebugController.instance.onFlagsLoaded());
       unawaited(HlsHealthWatchdogFlag.instance.onFlagsLoaded());
     },
@@ -341,12 +334,7 @@ void main() async {
     prefs: prefs,
   );
 
-  // Start the replay controller: subscribe to connectivity and stop recording
-  // until the flag-driven decision (and WiFi gate) allow it. After setup.
-  SessionReplayController.instance.start();
-
-  // Apply the cached remote-debug config (verbose logs, forced replay,
-  // auto log upload). After the replay controller so its override lands.
+  // Apply the cached remote-debug config (verbose logs, auto log upload).
   RemoteDebugController.instance.start();
 
   // Settle any flush owed from a previous offline exception (or a crash
@@ -356,10 +344,7 @@ void main() async {
   // Suppress known-benign runtime/network/plugin errors so they neither crash
   // the app nor drown out real issues in PostHog. Must run AFTER PostHog setup —
   // it wraps the FlutterError/PlatformDispatcher handlers PostHog just installed.
-  // A non-benign error also starts `on-error` session replay.
-  ErrorFilter.install(
-    onReportableError: SessionReplayController.instance.notifyErrorCaptured,
-  );
+  ErrorFilter.install();
 
   globals.appVersion = packageInfo.version;
   globals.buildNumber = packageInfo.buildNumber;
@@ -694,44 +679,39 @@ class RadioCrestinApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // TV gets a dedicated dark theme and TV-optimized UI shell.
-    // PostHogWidget wraps the app so session replay can capture the UI tree.
     if (TvPlatform.isTV) {
-      return PostHogWidget(
-        child: MaterialApp(
+      return MaterialApp(
+        navigatorKey: globals.navigatorKey,
+        navigatorObservers: [PosthogObserver()],
+        title: 'Radio Crestin',
+        debugShowCheckedModeBanner: false,
+        theme: tvTheme,
+        darkTheme: tvTheme,
+        themeMode: ThemeMode.dark,
+        home: const TvShell(),
+      );
+    }
+
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: ThemeManager.themeMode,
+      builder: (context, themeMode, child) {
+        return MaterialApp(
           navigatorKey: globals.navigatorKey,
           navigatorObservers: [PosthogObserver()],
           title: 'Radio Crestin',
           debugShowCheckedModeBanner: false,
-          theme: tvTheme,
-          darkTheme: tvTheme,
-          themeMode: ThemeMode.dark,
-          home: const TvShell(),
-        ),
-      );
-    }
-
-    return PostHogWidget(
-      child: ValueListenableBuilder<ThemeMode>(
-        valueListenable: ThemeManager.themeMode,
-        builder: (context, themeMode, child) {
-          return MaterialApp(
-            navigatorKey: globals.navigatorKey,
-            navigatorObservers: [PosthogObserver()],
-            title: 'Radio Crestin',
-            debugShowCheckedModeBanner: false,
-            theme: lightTheme,
-            darkTheme: darkTheme,
-            themeMode: themeMode,
-            home: UpgradeAlert(
-              dialogStyle: Platform.isIOS
-                  ? UpgradeDialogStyle.cupertino
-                  : UpgradeDialogStyle.material,
-              upgrader: _upgrader,
-              child: const HomePage(),
-            ),
-          );
-        },
-      ),
+          theme: lightTheme,
+          darkTheme: darkTheme,
+          themeMode: themeMode,
+          home: UpgradeAlert(
+            dialogStyle: Platform.isIOS
+                ? UpgradeDialogStyle.cupertino
+                : UpgradeDialogStyle.material,
+            upgrader: _upgrader,
+            child: const HomePage(),
+          ),
+        );
+      },
     );
   }
 }

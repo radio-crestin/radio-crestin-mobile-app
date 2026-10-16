@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:get_it/get_it.dart';
-import 'package:posthog_flutter/posthog_flutter.dart';
 import 'package:radio_crestin/services/analytics_service.dart';
 import 'package:radio_crestin/services/review_service.dart';
 import 'package:radio_crestin/theme.dart';
@@ -262,47 +261,43 @@ class _ReviewModalState extends State<ReviewModal> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                // Free text can carry names, phone numbers or emails; mask it
-                // in session replay regardless of the global maskAllTexts.
-                PostHogMaskWidget(
-                  child: TextField(
-                    controller: _messageController,
-                    onChanged: (_) => setState(() {}),
-                    maxLength: 500,
-                    maxLines: 4,
-                    style: TextStyle(
+                TextField(
+                  controller: _messageController,
+                  onChanged: (_) => setState(() {}),
+                  maxLength: 500,
+                  maxLines: 4,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'Spune-ne părerea ta despre această melodie...',
+                    hintStyle: TextStyle(
                       fontSize: 14,
-                      color: theme.colorScheme.onSurface,
+                      color: isDark ? Colors.white24 : Colors.black26,
                     ),
-                    decoration: InputDecoration(
-                      hintText: 'Spune-ne părerea ta despre această melodie...',
-                      hintStyle: TextStyle(
-                        fontSize: 14,
-                        color: isDark ? Colors.white24 : Colors.black26,
+                    filled: true,
+                    fillColor: isDark
+                        ? Colors.white.withValues(alpha: 0.05)
+                        : Colors.black.withValues(alpha: 0.03),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: isDark ? Colors.white10 : Colors.black12,
                       ),
-                      filled: true,
-                      fillColor: isDark
-                          ? Colors.white.withValues(alpha: 0.05)
-                          : Colors.black.withValues(alpha: 0.03),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(
-                          color: isDark ? Colors.white10 : Colors.black12,
-                        ),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(
-                          color: isDark ? Colors.white10 : Colors.black12,
-                        ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: AppColors.primary, width: 1.5),
-                      ),
-                      contentPadding: const EdgeInsets.all(14),
-                      counterText: '',
                     ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: isDark ? Colors.white10 : Colors.black12,
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: AppColors.primary, width: 1.5),
+                    ),
+                    contentPadding: const EdgeInsets.all(14),
+                    counterText: '',
                   ),
                 ),
                 const SizedBox(height: 6),

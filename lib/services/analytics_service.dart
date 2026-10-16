@@ -9,7 +9,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'local_log_store.dart';
 import 'log_flush_guard.dart';
-import 'session_replay_controller.dart';
 
 /// Centralized analytics service wrapping PostHog.
 /// Handles user identification, event tracking, error tracking,
@@ -34,11 +33,6 @@ class AnalyticsService {
   bool _initialized = false;
   String? _sessionId;
   String? _userId;
-
-  // The config handed to setup, kept only when it installed the native
-  // replay integration. The SDK stores this same object, and
-  // `PostHogWidget` reads its `sessionReplay` when it mounts.
-  PostHogConfig? _replayConfig;
 
   // Identity context, attached to every structured log record so a log line in
   // PostHog Logs can be pinned to an app version / platform without a join.
@@ -131,17 +125,12 @@ class AnalyticsService {
 
   /// Initialize PostHog with manual setup for error tracking support.
   ///
-  /// [sessionReplayAtSetup] decides `config.sessionReplay`. It must be true for
-  /// the native replay integration to install so that runtime start/stop works
-  /// (see [SessionReplayController]); the controller then stops recording until
-  /// the `mobile-session-replay` feature flag allows it. [onFeatureFlagsLoaded]
-  /// is invoked once PostHog has loaded feature flags, which is when the
-  /// replay decision can first be read. [appVersion] becomes the OTLP
-  /// `service.version` on every log record. [prefs] persists the open
-  /// listening session and the person properties already sent; without it
-  /// neither survives a restart.
+  /// [onFeatureFlagsLoaded] is invoked once PostHog has loaded feature
+  /// flags, which is when their live values can first be read. [appVersion]
+  /// becomes the OTLP `service.version` on every log record. [prefs]
+  /// persists the open listening session and the person properties already
+  /// sent; without it neither survives a restart.
   Future<void> initialize({
-    bool sessionReplayAtSetup = false,
     VoidCallback? onFeatureFlagsLoaded,
     String? appVersion,
     SharedPreferences? prefs,
@@ -160,26 +149,10 @@ class AnalyticsService {
     // Lifecycle events
     config.captureApplicationLifecycleEvents = true;
 
-    // Session replay (screen recording) — Android & iOS.
-    // Requires "Record user sessions" enabled in PostHog Project Settings.
-    // Whether recording actually runs is decided at runtime by the
-    // `mobile-session-replay` feature flag (see SessionReplayController); this
-    // only installs the native integration so runtime start/stop can work.
-    config.sessionReplay = sessionReplayAtSetup;
-    // No sensitive data is shown (station names, song titles, artwork), so we
-    // leave text and images unmasked to keep recordings useful. Wrap any
-    // sensitive widget with PostHogMaskWidget to mask it individually.
-    config.sessionReplayConfig.maskAllTexts = false;
-    config.sessionReplayConfig.maskAllImages = false;
-    // Snapshot throttle — higher = fewer captures, so audio streaming keeps the
-    // bandwidth/CPU. Smooth playback is the priority, so we throttle to 1.5s.
-    config.sessionReplayConfig.throttleDelay =
-        const Duration(milliseconds: 1500);
-    // Always full-rate: sampling is done by the flag's 10% variant rollout, not
-    // the SDK.
-    config.sessionReplayConfig.sampleRate = 1.0;
+    // No session replay: the screen is never recorded. False is the SDK
+    // default; set here so the decision stays visible.
+    config.sessionReplay = false;
 
-    // Feature flags gate session replay; fire the caller's callback once loaded.
     config.onFeatureFlags = onFeatureFlagsLoaded;
 
     // PostHog Logs (OTLP) resource attributes. Buffering, disk persistence
@@ -219,8 +192,6 @@ class AnalyticsService {
     await Posthog().setup(config);
     // Lets dashboards and the test-account filter drop debug runs.
     await Posthog().register('build_mode', buildMode);
-    // Only after setup, which has already sent the flag to native.
-    _replayConfig = sessionReplayAtSetup ? config : null;
     _initialized = true;
     if (prefs != null) _attachStorage(prefs);
     _sessionId = await Posthog().getSessionId();
@@ -234,20 +205,6 @@ class AnalyticsService {
     _reportInterruptedSession();
     // A session that started before storage was attached is saved now.
     if (_isListening) _saveOpenSession();
-  }
-
-  /// Arms or idles `PostHogWidget`'s snapshot loop before it mounts.
-  ///
-  /// The widget reads `config.sessionReplay` only in `initState`, and the
-  /// SDK leaves it true even after `stopSessionRecording`, so a device that
-  /// is not recording would otherwise walk the whole widget tree every
-  /// 1.5 s for the entire session. Once mounted, the widget follows
-  /// start/stop on its own. Safe after setup: the config was already sent
-  /// to native and nothing else reads the flag.
-  void setReplayCaptureArmed(bool armed) {
-    // Null without the native integration, where recording can never
-    // start: never arm.
-    _replayConfig?.sessionReplay = armed;
   }
 
   /// Manually capture an exception with context.
@@ -301,9 +258,6 @@ class AnalyticsService {
         ...extra,
       },
     );
-
-    // Real error → start replay for `on-error` devices (WiFi gate still applies).
-    SessionReplayController.instance.notifyErrorCaptured();
 
     // Guarantee upload: flush now, or owe a flush until connectivity returns
     // (LogFlushGuard persists the debt across restarts, and the SDK's queues

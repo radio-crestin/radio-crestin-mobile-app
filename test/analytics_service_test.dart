@@ -413,6 +413,12 @@ void main() {
       expect(fake.receivedConfig, isNotNull);
       expect(analytics.sessionId, 'fresh-session-id');
     });
+
+    test('never turns on session replay', () async {
+      await analytics.initialize();
+
+      expect(fake.receivedConfig?.sessionReplay, isFalse);
+    });
   });
 
   group('identify', () {
@@ -759,26 +765,6 @@ void main() {
       analytics.ensureListening('rve', 'RVE');
 
       expect(fake.events.map((e) => e.eventName), ['listening_started']);
-    });
-  });
-
-  group('setReplayCaptureArmed', () {
-    test('toggles config.sessionReplay when replay was installed', () async {
-      await analytics.initialize(sessionReplayAtSetup: true);
-
-      analytics.setReplayCaptureArmed(false);
-      expect(fake.receivedConfig?.sessionReplay, isFalse);
-
-      analytics.setReplayCaptureArmed(true);
-      expect(fake.receivedConfig?.sessionReplay, isTrue);
-    });
-
-    test('never arms when replay was not installed at setup', () async {
-      await analytics.initialize(sessionReplayAtSetup: false);
-
-      analytics.setReplayCaptureArmed(true);
-
-      expect(fake.receivedConfig?.sessionReplay, isFalse);
     });
   });
 
