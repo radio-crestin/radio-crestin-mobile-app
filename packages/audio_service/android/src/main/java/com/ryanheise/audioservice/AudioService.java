@@ -305,6 +305,13 @@ public class AudioService extends MediaBrowserServiceCompat {
     // holds nativeActions (custom actions are left out of it). These are the
     // same buttons as indices into nativeActions.
     private int[] nativeCompactActionIndices;
+    // Where each control sits in nativeActions, or -1 for a custom action.
+    private int[] nativeIndexOfControl = new int[0];
+    // Looked up once: resolving a resource by name and creating a
+    // PendingIntent (a call into the system) take milliseconds each on a
+    // low-end phone, on the main thread, where they delay Flutter's frames.
+    private final Map<String, Integer> resourceIds = new HashMap<>();
+    private final Map<Integer, PendingIntent> mediaButtonIntents = new HashMap<>();
     private MediaMetadataCompat mediaMetadata;
     private Bitmap artBitmap;
     private String notificationChannelId;
@@ -406,6 +413,9 @@ public class AudioService extends MediaBrowserServiceCompat {
         queue.clear();
         mediaMetadataCache.clear();
         controls.clear();
+        nativeActions.clear();
+        customActions.clear();
+        nativeIndexOfControl = new int[0];
         artBitmapCache.evictAll();
         compactActionIndices = null;
         nativeCompactActionIndices = null;
@@ -454,10 +464,14 @@ public class AudioService extends MediaBrowserServiceCompat {
     }
 
     int getResourceId(String resource) {
+        final Integer cached = resourceIds.get(resource);
+        if (cached != null) return cached;
         String[] parts = resource.split("/");
         String resourceType = parts[0];
         String resourceName = parts[1];
-        return getResources().getIdentifier(resourceName, resourceType, getApplicationContext().getPackageName());
+        final int id = getResources().getIdentifier(resourceName, resourceType, getApplicationContext().getPackageName());
+        resourceIds.put(resource, id);
+        return id;
     }
 
     NotificationCompat.Action createAction(String resource, String label, long actionCode) {
@@ -529,6 +543,8 @@ public class AudioService extends MediaBrowserServiceCompat {
         int keyCode = toKeyCode(action);
         if (keyCode == KeyEvent.KEYCODE_UNKNOWN)
             return null;
+        final PendingIntent cached = mediaButtonIntents.get(keyCode);
+        if (cached != null) return cached;
         Intent intent = new Intent(this, MediaButtonReceiver.class);
         intent.setAction(Intent.ACTION_MEDIA_BUTTON);
         intent.putExtra(Intent.EXTRA_KEY_EVENT, new KeyEvent(KeyEvent.ACTION_DOWN, keyCode));
@@ -536,7 +552,9 @@ public class AudioService extends MediaBrowserServiceCompat {
         if (Build.VERSION.SDK_INT >= 23) {
             flags |= PendingIntent.FLAG_IMMUTABLE;
         }
-        return PendingIntent.getBroadcast(this, keyCode, intent, flags);
+        final PendingIntent pendingIntent = PendingIntent.getBroadcast(this, keyCode, intent, flags);
+        mediaButtonIntents.put(keyCode, pendingIntent);
+        return pendingIntent;
     }
 
     PendingIntent buildDeletePendingIntent() {
@@ -554,22 +572,27 @@ public class AudioService extends MediaBrowserServiceCompat {
         if (!Arrays.equals(compactActionIndices, this.compactActionIndices)) {
             notificationChanged = true;
         }
-        if (!controls.equals(this.controls)) {
+        final boolean controlsChanged = !controls.equals(this.controls);
+        if (controlsChanged) {
             notificationChanged = true;
         }
         this.controls = controls;
-        this.nativeActions.clear();
-        this.customActions.clear();
-        final int[] nativeIndexOfControl = new int[controls.size()];
-        for (int i = 0; i < controls.size(); i++) {
-            final MediaControl control = controls.get(i);
-            final PlaybackStateCompat.CustomAction customAction = createCustomAction(control);
-            if (customAction != null) {
-                customActions.add(customAction);
-                nativeIndexOfControl[i] = -1;
-            } else {
-                nativeIndexOfControl[i] = nativeActions.size();
-                nativeActions.add(createAction(control.icon, control.label, control.actionCode));
+        // Most updates (position, buffering) bring the same buttons, which
+        // keep the actions already built.
+        if (controlsChanged) {
+            this.nativeActions.clear();
+            this.customActions.clear();
+            nativeIndexOfControl = new int[controls.size()];
+            for (int i = 0; i < controls.size(); i++) {
+                final MediaControl control = controls.get(i);
+                final PlaybackStateCompat.CustomAction customAction = createCustomAction(control);
+                if (customAction != null) {
+                    customActions.add(customAction);
+                    nativeIndexOfControl[i] = -1;
+                } else {
+                    nativeIndexOfControl[i] = nativeActions.size();
+                    nativeActions.add(createAction(control.icon, control.label, control.actionCode));
+                }
             }
         }
         this.compactActionIndices = compactActionIndices;
