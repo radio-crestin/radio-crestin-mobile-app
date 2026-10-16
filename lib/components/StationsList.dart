@@ -172,17 +172,13 @@ class StationsList extends StatelessWidget {
       for (final (index, station) in stations.indexed)
         _rowKey(station): index,
     };
-    return SliverLayoutBuilder(
-      builder: (context, constraints) {
-        // One column, as on a phone: a list, where a hidden station's slot
-        // can close. In a grid the other tiles can't slide into it.
-        final oneColumn = constraints.crossAxisExtent <= _maxRowWidth;
-        final delegate = SliverChildBuilderDelegate(
+    SliverChildBuilderDelegate rows({required bool collapses}) =>
+        SliverChildBuilderDelegate(
           (context, index) => _buildRow(
             context,
             stations[index],
             metrics,
-            collapses: oneColumn,
+            collapses: collapses,
             order: order,
           ),
           childCount: stations.length,
@@ -190,15 +186,22 @@ class StationsList extends StatelessWidget {
           // sliding up into a closed slot isn't built anew.
           findChildIndexCallback: (key) => indexByKey[key],
         );
-        if (oneColumn) return SliverList(delegate: delegate);
-        return SliverGrid(
-          gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-            maxCrossAxisExtent: _maxRowWidth,
-            mainAxisExtent: metrics.extent,
-          ),
-          delegate: delegate,
-        );
-      },
+    // One column, as on a phone: a list, where a hidden station's slot can
+    // close. In a grid the other tiles can't slide into it.
+    final list = SliverList(delegate: rows(collapses: true));
+    final grid = SliverGrid(
+      gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: _maxRowWidth,
+        mainAxisExtent: metrics.extent,
+      ),
+      delegate: rows(collapses: false),
+    );
+    // The builder runs on every scroll frame, as the sliver's constraints
+    // move with the scroll offset. Handing back the same widget leaves the
+    // rows alone, where a new delegate would rebuild every row on screen.
+    return SliverLayoutBuilder(
+      builder: (context, constraints) =>
+          constraints.crossAxisExtent <= _maxRowWidth ? list : grid,
     );
   }
 
