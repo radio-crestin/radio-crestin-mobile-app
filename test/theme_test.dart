@@ -59,8 +59,8 @@ void main() {
       expect(lightTheme.scaffoldBackgroundColor, AppColors.lightBackground);
     });
 
-    test('bottom app bar uses the crimson player bar, as in dark', () {
-      expect(lightTheme.bottomAppBarTheme.color, const Color(0xff75002c));
+    test('bottom app bar uses the burgundy player bar', () {
+      expect(lightTheme.bottomAppBarTheme.color, const Color(0xff8f0133));
     });
 
     test('icon theme defaults to 24px white', () {
@@ -102,7 +102,7 @@ void main() {
 
   group('CustomThemeColors extension', () {
     test('light theme cardColorSelected is correct', () {
-      expect(lightTheme.cardColorSelected, const Color(0xFFCFCFCF));
+      expect(lightTheme.cardColorSelected, const Color(0xFFDBDBDB));
     });
 
     test('dark theme cardColorSelected is correct', () {

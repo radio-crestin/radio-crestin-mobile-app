@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 
 extension CustomThemeColors on ThemeData {
   Color get cardColorSelected => brightness == Brightness.light
-      ? const Color(0xFFCFCFCF)
+      ? const Color(0xFFDBDBDB)
       : const Color(0xFF353535);
 
   /// Secondary text, such as the artist under a song or an icon's label.
@@ -167,10 +167,12 @@ class AppColors {
   static const Color primaryLight = Color(0xfff8bbd0);
   static const Color primaryDark = Color(0xff8f0133);
 
-  // The mini player bar, in both themes, and the controls that pair with it
-  // (the playlist play button, the sleep sheet's chosen time): a deep crimson
-  // rather than the bright brand pink.
+  // The mini player bar, and the controls that pair with it (the playlist
+  // play button, the sleep sheet's chosen time): a deep crimson in the dark
+  // theme and the brand's burgundy in the light one, both calmer than the
+  // bright brand pink.
   static const Color playerBar = Color(0xff75002c);
+  static const Color playerBarLight = primaryDark;
 
   // Light theme colors
   static const Color lightBackground = Color(0xfffafafa);
@@ -374,7 +376,7 @@ final ThemeData lightTheme = ThemeData(
         fontWeight: FontWeight.bold,
       )),
   bottomAppBarTheme: const BottomAppBarThemeData(
-    color: AppColors.playerBar,
+    color: AppColors.playerBarLight,
   ),
   buttonTheme: const ButtonThemeData(
     textTheme: ButtonTextTheme.normal,

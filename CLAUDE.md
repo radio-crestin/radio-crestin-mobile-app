@@ -66,9 +66,9 @@ GraphQL API --> AppAudioHandler (BehaviorSubject streams) --> UI Widgets
 ### Brand Colors
 | Token | Hex | Usage |
 |-------|-----|-------|
-| `AppColors.primary` | `#E91E63` | Brand pink. Buttons, accents, bottom bar. |
+| `AppColors.primary` | `#E91E63` | Brand pink. Buttons, accents. |
 | `AppColors.primaryLight` | `#F8BBD0` | Hover states, selections. |
-| `AppColors.primaryDark` | `#8F0133` | Dark mode bottom bar, pressed states. |
+| `AppColors.primaryDark` | `#8F0133` | Light theme bottom bar (mini player), pressed states. |
 | `AppColors.error` | `#D32F2F` | Error states. |
 | `AppColors.success` | `Colors.green` | Online/success indicators. |
 | `AppColors.offline` | `Colors.red` | Offline station indicator. |
@@ -83,7 +83,8 @@ GraphQL API --> AppAudioHandler (BehaviorSubject streams) --> UI Widgets
 ### Light Theme
 - Background: `#FAFAFA` | Surface: `#FFFFFF`
 - Text: `#000000` (primary), `54% black` (secondary)
-- Card: `#E4E4E4` at 54% opacity | Selected card: `#CFCFCF`
+- Card: `#E4E4E4` at 54% opacity | Selected card: `#DBDBDB`, no border
+- Bottom bar (mini player): `#8F0133`
 
 ### Dark Theme
 - Background: `#121212` | Surface: `#1E1E1E`

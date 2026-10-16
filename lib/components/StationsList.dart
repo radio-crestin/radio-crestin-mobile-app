@@ -238,8 +238,12 @@ class StationsList extends StatelessWidget {
                     ? Theme.of(context).cardColorSelected
                     : Theme.of(context).cardColor,
                   borderRadius: const BorderRadius.all(Radius.circular(16.0)),
+                  // In the light theme the deeper fill alone marks the
+                  // playing station; the border keeps its width either way
+                  // so the content never shifts.
                   border: Border.all(
-                    color: isSelected
+                    color: isSelected &&
+                            Theme.of(context).brightness == Brightness.dark
                       ? const Color(0xFF555555).withValues(alpha: 0.35)
                       : Colors.transparent,
                     width: _cardBorder,
