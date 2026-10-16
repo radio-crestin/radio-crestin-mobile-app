@@ -83,7 +83,7 @@ GraphQL API --> AppAudioHandler (BehaviorSubject streams) --> UI Widgets
 ### Light Theme
 - Background: `#FAFAFA` | Surface: `#FFFFFF`
 - Text: `#000000` (primary), `54% black` (secondary)
-- Card: `#E4E4E4` at 54% opacity | Selected card: `#DBDBDB`, no border
+- Card: `#E4E4E4` at 54% opacity | Selected card: `#D9D9D9` with a 1.5px 10% black border
 - Bottom bar (mini player): `#8F0133`
 
 ### Dark Theme

@@ -3,8 +3,14 @@ import 'package:flutter/services.dart';
 
 extension CustomThemeColors on ThemeData {
   Color get cardColorSelected => brightness == Brightness.light
-      ? const Color(0xFFDBDBDB)
+      ? const Color(0xFFD9D9D9)
       : const Color(0xFF353535);
+
+  /// The fine outline of the playing station's card, around
+  /// [cardColorSelected].
+  Color get cardBorderSelected => brightness == Brightness.light
+      ? Colors.black.withValues(alpha: 0.1)
+      : const Color(0xFF555555).withValues(alpha: 0.35);
 
   /// Secondary text, such as the artist under a song or an icon's label.
   Color get textSecondary => brightness == Brightness.light

@@ -102,11 +102,25 @@ void main() {
 
   group('CustomThemeColors extension', () {
     test('light theme cardColorSelected is correct', () {
-      expect(lightTheme.cardColorSelected, const Color(0xFFDBDBDB));
+      expect(lightTheme.cardColorSelected, const Color(0xFFD9D9D9));
     });
 
     test('dark theme cardColorSelected is correct', () {
       expect(darkTheme.cardColorSelected, const Color(0xFF353535));
+    });
+
+    test('light theme cardBorderSelected is a 10% black outline', () {
+      expect(
+        lightTheme.cardBorderSelected,
+        Colors.black.withValues(alpha: 0.1),
+      );
+    });
+
+    test('dark theme cardBorderSelected is unchanged', () {
+      expect(
+        darkTheme.cardBorderSelected,
+        const Color(0xFF555555).withValues(alpha: 0.35),
+      );
     });
   });
 }
