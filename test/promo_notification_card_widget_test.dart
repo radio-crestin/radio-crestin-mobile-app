@@ -41,7 +41,9 @@ void main() {
       host(
         PromoNotificationCard(
           notification: const PromoNotification(
-            id: 'x', title: 'T', message: 'M',
+            id: 'x',
+            title: 'T',
+            message: 'M',
           ),
           onDismiss: () {},
         ),
@@ -59,7 +61,9 @@ void main() {
       host(
         PromoNotificationCard(
           notification: const PromoNotification(
-            id: 'x', title: 'T', message: 'M',
+            id: 'x',
+            title: 'T',
+            message: 'M',
           ),
           onDismiss: () => dismissed++,
         ),
@@ -71,12 +75,101 @@ void main() {
     expect(dismissed, 1);
   });
 
+  group('narrow screens', () {
+    const carMessage = PromoNotification(
+      id: 'carplay_android_auto_v1',
+      title: 'Ascultă Radio Creștin în mașină',
+      message: 'Conectează telefonul prin Apple CarPlay sau Android Auto și '
+          'bucură-te de toate stațiile tale preferate pe drum.',
+    );
+
+    Future<void> pumpCard(
+      WidgetTester tester, {
+      required double width,
+      double textScale = 1,
+    }) async {
+      tester.view.physicalSize = Size(width, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(MaterialApp(
+        home: Builder(
+          builder: (context) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(textScaler: TextScaler.linear(textScale)),
+            child: Scaffold(
+              // Home shows the card at the top of its station list.
+              body: CustomScrollView(slivers: [
+                SliverToBoxAdapter(
+                  child: PromoNotificationCard(
+                    notification: carMessage,
+                    onDismiss: () {},
+                  ),
+                ),
+              ]),
+            ),
+          ),
+        ),
+      ));
+      await tester.pump();
+    }
+
+    Rect badge(WidgetTester tester, String label) => tester.getRect(
+          find
+              .ancestor(of: find.text(label), matching: find.byType(Container))
+              .first,
+        );
+
+    // The test font draws every glyph fontSize wide, so the badges need
+    // about 420px side by side: more than a phone, unlike Roboto (~280px).
+    testWidgets('keeps the badges side by side when they fit', (tester) async {
+      await pumpCard(tester, width: 600);
+
+      final carPlay = badge(tester, 'Apple CarPlay');
+      final androidAuto = badge(tester, 'Android Auto');
+      expect(androidAuto.top, carPlay.top);
+      expect(androidAuto.left, greaterThan(carPlay.right));
+    });
+
+    // An overflow would fail these tests on its own. 320 is the narrowest
+    // phone width; 2.0 is an accessibility text size.
+    for (final (width, textScale) in [
+      (320.0, 1.0),
+      (360.0, 1.3),
+      (320.0, 2.0)
+    ]) {
+      testWidgets(
+          'stacks the badges, equally wide, at ${width}px, ${textScale}x text',
+          (tester) async {
+        await pumpCard(tester, width: width, textScale: textScale);
+
+        final card = tester.getRect(find.byType(PromoNotificationCard));
+        final carPlay = badge(tester, 'Apple CarPlay');
+        final androidAuto = badge(tester, 'Android Auto');
+        expect(androidAuto.top, greaterThan(carPlay.bottom));
+        expect(androidAuto.left, carPlay.left);
+        expect(androidAuto.width, carPlay.width);
+        expect(carPlay.right, lessThanOrEqualTo(card.right - 20));
+        expect(androidAuto.right, lessThanOrEqualTo(card.right - 20));
+      });
+    }
+
+    testWidgets('keeps the title clear of the close button', (tester) async {
+      await pumpCard(tester, width: 320);
+
+      final title = tester.getRect(find.text(carMessage.title));
+      final close = tester.getRect(find.byIcon(Icons.close));
+      expect(title.right, lessThan(close.left));
+    });
+  });
+
   testWidgets('renders without crashing in dark mode', (tester) async {
     await tester.pumpWidget(
       host(
         PromoNotificationCard(
           notification: const PromoNotification(
-            id: 'x', title: 'T', message: 'M',
+            id: 'x',
+            title: 'T',
+            message: 'M',
           ),
           onDismiss: () {},
         ),
