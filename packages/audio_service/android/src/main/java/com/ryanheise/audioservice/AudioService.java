@@ -301,6 +301,10 @@ public class AudioService extends MediaBrowserServiceCompat {
     private List<NotificationCompat.Action> nativeActions = new ArrayList<>();
     private List<PlaybackStateCompat.CustomAction> customActions = new ArrayList<>();
     private int[] compactActionIndices;
+    // compactActionIndices point into controls, but the notification only
+    // holds nativeActions (custom actions are left out of it). These are the
+    // same buttons as indices into nativeActions.
+    private int[] nativeCompactActionIndices;
     private MediaMetadataCompat mediaMetadata;
     private Bitmap artBitmap;
     private String notificationChannelId;
@@ -404,6 +408,7 @@ public class AudioService extends MediaBrowserServiceCompat {
         controls.clear();
         artBitmapCache.evictAll();
         compactActionIndices = null;
+        nativeCompactActionIndices = null;
         releaseMediaSession();
         ServiceCompat.stopForeground(this, config.androidResumeOnClick ? STOP_FOREGROUND_DETACH : STOP_FOREGROUND_REMOVE);
         // This still does not solve the Android 11 problem.
@@ -555,15 +560,20 @@ public class AudioService extends MediaBrowserServiceCompat {
         this.controls = controls;
         this.nativeActions.clear();
         this.customActions.clear();
-        for (MediaControl control : controls) {
+        final int[] nativeIndexOfControl = new int[controls.size()];
+        for (int i = 0; i < controls.size(); i++) {
+            final MediaControl control = controls.get(i);
             final PlaybackStateCompat.CustomAction customAction = createCustomAction(control);
             if (customAction != null) {
                 customActions.add(customAction);
+                nativeIndexOfControl[i] = -1;
             } else {
+                nativeIndexOfControl[i] = nativeActions.size();
                 nativeActions.add(createAction(control.icon, control.label, control.actionCode));
             }
         }
         this.compactActionIndices = compactActionIndices;
+        this.nativeCompactActionIndices = toNativeActionIndices(compactActionIndices, nativeIndexOfControl);
         boolean wasPlaying = this.playing;
         AudioProcessingState oldProcessingState = this.processingState;
         this.processingState = processingState;
@@ -654,8 +664,24 @@ public class AudioService extends MediaBrowserServiceCompat {
         }
     }
 
+    // Maps indices into controls onto nativeActions, dropping those of custom
+    // actions and those out of range. Before Android 13 an index past the last
+    // notification action makes the system fail to inflate the notification
+    // ("Couldn't inflate contentViews") and kill the app.
+    private static int[] toNativeActionIndices(int[] controlIndices, int[] nativeIndexOfControl) {
+        if (controlIndices == null) return null;
+        final int[] nativeIndices = new int[controlIndices.length];
+        int count = 0;
+        for (int controlIndex : controlIndices) {
+            if (controlIndex < 0 || controlIndex >= nativeIndexOfControl.length) continue;
+            final int nativeIndex = nativeIndexOfControl[controlIndex];
+            if (nativeIndex >= 0) nativeIndices[count++] = nativeIndex;
+        }
+        return Arrays.copyOf(nativeIndices, count);
+    }
+
     private Notification buildNotification() {
-        int[] compactActionIndices = this.compactActionIndices;
+        int[] compactActionIndices = this.nativeCompactActionIndices;
         if (compactActionIndices == null) {
             compactActionIndices = new int[Math.min(MAX_COMPACT_ACTIONS, nativeActions.size())];
             for (int i = 0; i < compactActionIndices.length; i++) compactActionIndices[i] = i;
