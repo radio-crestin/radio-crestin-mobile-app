@@ -17,6 +17,7 @@ import 'package:radio_crestin/seek_mode_manager.dart';
 import 'package:radio_crestin/services/network_service.dart';
 import 'package:radio_crestin/services/offline_alert_gate.dart';
 import 'package:radio_crestin/services/play_count_service.dart';
+import 'package:radio_crestin/services/promo_notification_service.dart';
 import 'package:radio_crestin/services/song_history_service.dart';
 import 'package:radio_crestin/services/song_like_service.dart';
 import 'package:radio_crestin/services/station_data_service.dart';
@@ -224,6 +225,18 @@ class CarPlayService {
         if (!connected && playing) 'action': 'pause',
       },
     );
+  }
+
+  /// A listener who opened the app in the car needs no card on the phone
+  /// inviting them to: it counts as already shown.
+  static Future<void> _forgetCarCard() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await PromoNotificationService(prefs)
+          .dismiss(PromoNotificationService.carCardId);
+    } catch (e) {
+      _log("Error forgetting the car card: $e");
+    }
   }
 
   /// Why the car did not start the last station on connect.
@@ -1103,6 +1116,7 @@ class CarPlayService {
         _logCarConnection('carplay',
             connected: true,
             playing: _audioHandler.playbackState.value.playing);
+        _forgetCarCard();
         // A new drive: the pinned row follows the latest play counts.
         _takeCarPlaySnapshots();
         _refreshCarPlayLists();
@@ -1504,6 +1518,7 @@ class CarPlayService {
       // buffers everything up to the live edge, the offset it plays at.
       _audioHandler.refreshCurrentMetadata();
       if (connected) {
+        _forgetCarCard();
         // Android Auto just connected — rebuild the template now that
         // the MainScreen is available on the native side.
         _rebuildAndroidAutoTemplate();

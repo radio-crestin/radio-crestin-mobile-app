@@ -19,11 +19,14 @@ class PromoNotification {
 class PromoNotificationService {
   static const String _dismissedKey = 'promo_notifications_dismissed';
 
+  /// The card inviting the listener to CarPlay and Android Auto.
+  static const String carCardId = 'carplay_android_auto_v1';
+
   /// All registered notifications, in display order.
   /// Only one is shown per app session; dismissed ones are skipped.
   static const List<PromoNotification> _notifications = [
     PromoNotification(
-      id: 'carplay_android_auto_v1',
+      id: carCardId,
       title: 'Ascultă Radio Creștin în mașină',
       message:
           'Conectează telefonul prin Apple CarPlay sau Android Auto și '
