@@ -43,6 +43,7 @@ import 'services/app_start_log.dart';
 import 'services/device_registration_service.dart';
 import 'services/error_filter.dart';
 import 'services/hls_health_watchdog_flag.dart';
+import 'services/hls_hold_proxy_flag.dart';
 import 'services/hls_start_variant.dart';
 import 'services/hls_timeline.dart';
 import 'services/home_widget_service.dart';
@@ -315,6 +316,7 @@ void main() async {
   // from startup. Does not block on the network.
   await RemoteDebugController.instance.loadCache(prefs);
   await HlsHealthWatchdogFlag.instance.loadCache(prefs);
+  await HlsHoldProxyFlag.instance.loadCache(prefs);
 
   // Developer mode (Settings hidden gesture) ships debug-level logs.
   AnalyticsService.instance
@@ -331,6 +333,7 @@ void main() async {
     onFeatureFlagsLoaded: () {
       unawaited(RemoteDebugController.instance.onFlagsLoaded());
       unawaited(HlsHealthWatchdogFlag.instance.onFlagsLoaded());
+      unawaited(HlsHoldProxyFlag.instance.onFlagsLoaded());
     },
     appVersion: packageInfo.version,
     prefs: prefs,

@@ -31,6 +31,8 @@ import 'package:radio_crestin/services/silence_keeper.dart';
 import 'package:radio_crestin/services/sleep_timer_service.dart';
 import 'package:radio_crestin/services/song_history_service.dart';
 import 'package:radio_crestin/services/hls_health_watchdog_flag.dart';
+import 'package:radio_crestin/services/hls_hold_proxy.dart';
+import 'package:radio_crestin/services/hls_hold_proxy_flag.dart';
 import 'package:radio_crestin/services/hls_start_variant.dart';
 import 'package:radio_crestin/services/hls_timeline.dart';
 import 'package:radio_crestin/services/song_like_service.dart';
@@ -415,6 +417,48 @@ class ReconnectPolicy {
   /// only cause a needless reload (measured).
   static bool get silentStallPossible => Platform.isIOS || Platform.isMacOS;
 
+  /// Shortest outage after which a live HLS stream still playing from its
+  /// buffer is checked for loading again once the internet is back (see
+  /// [outageCheckDelay]).
+  ///
+  /// AVPlayer retries a live playlist that fails to load for a while, then
+  /// gives up: it loads nothing more, however long the network has been
+  /// back, until its buffer runs dry, and then restarts at the live point,
+  /// skipping what the 2- or 5-minute offset kept. macOS 27 gives up ~30 s
+  /// after its first failure (15 and 25 s outages resumed at once, 35 s to
+  /// 280 s ones never did), an iPhone 13 on mobile data (iOS 27) after
+  /// about 100 s (20, 60 and two of three 100 s outages resumed at once;
+  /// 150, 200 and 280 s ones never did). No call the app can make wakes it
+  /// up: seeks, pause and play, or the load settings it can change.
+  static const Duration outageCheckAfter = Duration(seconds: 20);
+
+  /// How long the player gets, once the internet answers again, to load
+  /// by itself. One still retrying loads as the network comes back: the
+  /// iPhone did before the app's own probe answered, macOS retries every
+  /// 5 s. One that had not by then never did, watched for 2 minutes.
+  static const Duration outageResumeGrace = Duration(seconds: 8);
+
+  /// What is left of the buffer when the check runs at the latest, so it
+  /// runs before AVPlayer's own restart at the live point.
+  static const Duration outageCheckBufferMargin = Duration(seconds: 4);
+
+  /// How long after the internet came back to check that a live HLS stream
+  /// still playing from its buffer after an outage of [outage] loads again;
+  /// null when the outage was too short for the player to give up.
+  ///
+  /// [bufferedAhead], what the player has left (null: unknown), brings the
+  /// check forward so it runs before the buffer runs dry.
+  static Duration? outageCheckDelay({
+    required Duration outage,
+    required Duration? bufferedAhead,
+  }) {
+    if (outage < outageCheckAfter) return null;
+    if (bufferedAhead == null) return outageResumeGrace;
+    final latest = bufferedAhead - outageCheckBufferMargin;
+    if (latest <= Duration.zero) return Duration.zero;
+    return latest < outageResumeGrace ? latest : outageResumeGrace;
+  }
+
   /// Fraction of the trailing-edge runway we let elapse while paused before
   /// forcing a reload (re-anchor) instead of resuming in place. 0.6 leaves a
   /// 40% cushion for segment granularity and clock skew, so we reload well
@@ -782,6 +826,13 @@ class AppAudioHandler extends BaseAudioHandler {
   @visibleForTesting
   static bool playerWaitsAfterPlay = Platform.isIOS || Platform.isMacOS;
 
+  /// Whether live HLS loads of the origin go through the local hold proxy
+  /// ([HlsHoldProxy]), which keeps AVPlayer from giving up on a playlist an
+  /// outage keeps failing. iOS only: ExoPlayer rides outages out by itself,
+  /// and macOS is not in scope.
+  @visibleForTesting
+  static bool holdProxyPlatform = Platform.isIOS;
+
   // Set by _playPlayer() while the player's `ready` predates the play (see
   // playerWaitsAfterPlay): _broadcastState reports buffering for it, so
   // the play button keeps its spinner until audio comes out. Ends with the
@@ -917,6 +968,20 @@ class AppAudioHandler extends BaseAudioHandler {
   // variant yet: they load index.m3u8 and seek behind live, as before.
   final Set<String> _streamsWithoutStartVariant = {};
 
+  // ── Hold proxy (iOS, see holdProxyPlatform) ───────────────────────────
+  // Created at the first live HLS load of the origin. Each load through it
+  // is a session of its own.
+  HlsHoldProxy? _holdProxy;
+  StreamSubscription<bool>? _holdProxyNetworkSub;
+  // The proxy URL the loaded stream plays from; null when the player
+  // loaded the stream's own URL. Set with _loadedStreamUrl, and only read
+  // while that is set.
+  String? _loadedProxyUrl;
+  // Streams that loaded directly after their load through the proxy had
+  // failed (see _mayBypassHoldProxy): they skip it until the device moves
+  // to another network.
+  final Set<String> _streamsWithoutHoldProxy = {};
+
   // ── Auto slow-connection escalation ───────────────────────────────────
   // Repeated stream trouble (buffering stalls / watchdog reconnects) within a
   // short window means the link can't sustain a small forward buffer, so we
@@ -1000,6 +1065,17 @@ class AppAudioHandler extends BaseAudioHandler {
   // When the internet was last lost, so a failed pass that overlapped it
   // does not blame the station.
   DateTime? _lastOfflineAt;
+  // The outage the loaded live HLS stream is checked for once the internet
+  // is back (see _scheduleOutageLoadCheck): when it began, kept across a
+  // network that drops again before the check so a flapping restore still
+  // counts from the first loss (null: no outage to check); and, from the
+  // last loss, the load playing (its generation), what it had buffered and
+  // when it first loaded more.
+  DateTime? _outageSince;
+  int? _outageHlsGeneration;
+  Duration _outageBufferedPosition = Duration.zero;
+  DateTime? _outageLoadResumedAt;
+  Timer? _outageLoadCheck;
   // Since when a network has been up without internet; null otherwise.
   DateTime? _noInternetSince;
   // The play() call (op id) whose connection error was shown, and the one
@@ -1632,6 +1708,7 @@ class AppAudioHandler extends BaseAudioHandler {
         _broadcastState(event);
         _onPlayerEventForTimeline(event);
         _reportAudioArriving(event.bufferedPosition);
+        _noteLoadAfterOutage(event.bufferedPosition);
       },
       onError: _onPlayerStreamError,
     );
@@ -2631,12 +2708,26 @@ class AppAudioHandler extends BaseAudioHandler {
             windowDepth: player.duration,
             pausedFor: pausedFor,
           );
-      if (!reload) {
+      // An item loaded through the hold proxy reaches nothing once the
+      // proxy listens on another port: iOS may reclaim a suspended app's
+      // listening socket, and the restart may not get the port back.
+      final proxyUrl = _loadedProxyUrl;
+      var proxyMoved = false;
+      if (!reload && proxyUrl != null) {
+        final switchId = _stationSwitchId;
+        proxyMoved = !await _holdProxyServes(proxyUrl);
+        // A pause, stop or station switch came in meanwhile.
+        if (switchId != _stationSwitchId) return;
+      }
+      if (!reload && !proxyMoved) {
         _trace("play: fast resume (stream already loaded)");
         return _playPlayer();
       }
-      _trace('play: paused ${pausedFor.inSeconds}s exceeds safe DVR runway — '
-          'reloading to re-anchor behind live edge');
+      _trace(proxyMoved
+          ? 'play: the hold proxy moved to another port since the load — '
+              'reloading'
+          : 'play: paused ${pausedFor.inSeconds}s exceeds safe DVR runway — '
+              'reloading to re-anchor behind live edge');
       _loadedStreamUrl = null;
       _loadedStreamType = null;
     }
@@ -2809,6 +2900,7 @@ class AppAudioHandler extends BaseAudioHandler {
         );
         startVariantOffset = loaded.startVariantOffset;
         _loadedStreamUrl = streamUrl;
+        _loadedProxyUrl = loaded.proxyUrl;
         _loadedStreamType = streamType;
         _lastSuccessfulLoadAt = DateTime.now();
         _failover.recordSuccess(streamUrl);
@@ -2857,6 +2949,7 @@ class AppAudioHandler extends BaseAudioHandler {
             'variant_url': HlsStartVariant.urlFor(streamUrl, startVariant),
             'start_variant_s': startVariant.inSeconds,
           },
+          if (loaded.proxyUrl != null) 'hold_proxy': true,
         });
 
         // Fire stream_switched only when the loaded URL differs from the
@@ -3073,8 +3166,9 @@ class AppAudioHandler extends BaseAudioHandler {
 
   /// Loads [streamUrl] into the player with the tracking parameters,
   /// racing [canceller] under the stream's load timeout, for play()'s
-  /// attempt [opId]. Returns the URL loaded and, for a start variant (see
-  /// [HlsStartVariant]), the offset behind live it begins at.
+  /// attempt [opId]. Returns the URL loaded, the hold proxy URL the player
+  /// loaded it from (null: directly, see [_holdProxyFor]) and, for a start
+  /// variant (see [HlsStartVariant]), the offset behind live it begins at.
   ///
   /// A live HLS stream at the 2- or 5-minute offset loads its variant.
   /// When that load fails as a variant the origin does not publish does
@@ -3084,7 +3178,14 @@ class AppAudioHandler extends BaseAudioHandler {
   /// fine. Once that load succeeds, the stream is remembered for the
   /// session. Any other error, the fallback's included, is the caller's,
   /// as before.
-  Future<({String url, Duration? startVariantOffset})> _loadStreamSource(
+  ///
+  /// A load through the hold proxy that fails before the origin answered
+  /// any of its requests may be the proxy's own failure (see
+  /// [_mayBypassHoldProxy]): the URL then loads again at once directly,
+  /// and once that succeeds, the stream skips the proxy until the device
+  /// moves to another network.
+  Future<({String url, String? proxyUrl, Duration? startVariantOffset})>
+      _loadStreamSource(
     String streamUrl, {
     required bool isHls,
     required Future<void> canceller,
@@ -3094,20 +3195,60 @@ class AppAudioHandler extends BaseAudioHandler {
     // a failure and advances to the next stream (StreamFailover owns
     // the values so they are asserted in tests).
     final timeout = StreamFailover.loadTimeout(isHls: isHls);
-    // Listeners are counted from the tracking parameters, so the variant
-    // carries them too.
-    Future<String> load(String url) async {
-      final trackedUrl = addTrackingParametersToUrl(url);
+    Future<void> loadPlayer(String uri) async {
       // Race setAudioSource against the canceller so playStation() can
       // break this await immediately instead of waiting for the timeout.
       final loadFuture = player.setAudioSource(
-        AudioSource.uri(Uri.parse(trackedUrl)),
+        AudioSource.uri(Uri.parse(uri)),
         preload: true,
       );
       // Prevent unhandled error if abandoned by Future.any
       loadFuture.ignore();
       await Future.any([loadFuture, canceller]).timeout(timeout);
-      return trackedUrl;
+    }
+
+    // Listeners are counted from the tracking parameters, so the variant
+    // carries them too, and so does the request the hold proxy makes. The
+    // app keeps the URL itself: the proxy URL is the player's alone.
+    Future<({String url, String? proxyUrl})> load(String url) async {
+      final trackedUrl = addTrackingParametersToUrl(url);
+      final proxy = _streamsWithoutHoldProxy.contains(streamUrl)
+          ? null
+          : _holdProxyFor(trackedUrl, isHls: isHls);
+      final proxied = proxy == null
+          ? null
+          : await Future.any([
+              _holdProxyUrl(proxy, trackedUrl, opId),
+              canceller.then((_) => null),
+            ]);
+      // A newer load took over while the proxy got ready.
+      if (opId != _playOperationId) throw StateError('load superseded');
+      if (proxy == null || proxied == null) {
+        await loadPlayer(trackedUrl);
+        return (url: trackedUrl, proxyUrl: null);
+      }
+      try {
+        await loadPlayer(proxied.url);
+        return (url: trackedUrl, proxyUrl: proxied.url);
+      } catch (e) {
+        if (!_mayBypassHoldProxy(e, proxy, proxied.session, opId)) rethrow;
+        _trace('play: the load through the hold proxy failed before the '
+            'origin answered (${_shortErr(e)}), loading $url directly');
+        // A fresh native player, as for every retry in play().
+        await player.stop();
+        if (opId != _playOperationId) rethrow;
+        await loadPlayer(trackedUrl);
+        // Only now is the proxy suspect: the origin answers without it. Had
+        // this load failed too, the network or the origin would explain
+        // both, and the next load goes through the proxy again.
+        _streamsWithoutHoldProxy.add(streamUrl);
+        AnalyticsService.instance.logWarning('stream hold proxy bypassed', {
+          'station_slug': currentStation.valueOrNull?.slug,
+          'stream_url': streamUrl,
+          'error': _shortErr(e),
+        });
+        return (url: trackedUrl, proxyUrl: null);
+      }
     }
 
     final offset = SeekModeManager.currentOffset;
@@ -3117,10 +3258,20 @@ class AppAudioHandler extends BaseAudioHandler {
         ? HlsStartVariant.urlFor(streamUrl, offset)
         : null;
     if (variantUrl == null) {
-      return (url: await load(streamUrl), startVariantOffset: null);
+      final loaded = await load(streamUrl);
+      return (
+        url: loaded.url,
+        proxyUrl: loaded.proxyUrl,
+        startVariantOffset: null,
+      );
     }
     try {
-      return (url: await load(variantUrl), startVariantOffset: offset);
+      final loaded = await load(variantUrl);
+      return (
+        url: loaded.url,
+        proxyUrl: loaded.proxyUrl,
+        startVariantOffset: offset,
+      );
     } catch (e) {
       final missing = HlsStartVariant.mayBeMissing(
         e,
@@ -3134,7 +3285,7 @@ class AppAudioHandler extends BaseAudioHandler {
       // A fresh native player, as for every retry in play().
       await player.stop();
       if (opId != _playOperationId) rethrow;
-      final loadedUrl = await load(streamUrl);
+      final loaded = await load(streamUrl);
       // Only now is the variant what is missing: the origin answers for
       // the stream itself. Had that load failed too, the network or the
       // stream would explain both (a pod restarting, a dropped signal),
@@ -3145,9 +3296,151 @@ class AppAudioHandler extends BaseAudioHandler {
         'variant_url': variantUrl,
         'error': _shortErr(e),
       });
-      return (url: loadedUrl, startVariantOffset: null);
+      return (
+        url: loaded.url,
+        proxyUrl: loaded.proxyUrl,
+        startVariantOffset: null,
+      );
     }
   }
+
+  // ── Hold proxy (iOS) ──────────────────────────────────────────────────
+
+  /// The hold proxy to load [url] through, created at the first need: a
+  /// live HLS stream ([isHls]) of the origin, on iOS (see
+  /// [holdProxyPlatform]), the remote kill switch on. Null to load [url]
+  /// directly.
+  ///
+  /// Only the player's requests go through it: the app's own playlist
+  /// polls, the timeline and Cast use the stream's URL.
+  HlsHoldProxy? _holdProxyFor(String url, {required bool isHls}) {
+    if (!isHls || !holdProxyPlatform || !HlsHoldProxyFlag.instance.enabled) {
+      return null;
+    }
+    final host = Uri.tryParse(url)?.host;
+    if (host == null || !HlsStartVariant.hosts.contains(host)) return null;
+    return _holdProxy ??= _createHoldProxy();
+  }
+
+  /// The URL the player loads [trackedUrl] from through [proxy], in a new
+  /// session, and that session, for play()'s attempt [opId]; null, to load
+  /// [trackedUrl] directly, when the proxy cannot listen, or when a newer
+  /// load took over meanwhile (its session must stay the current one).
+  Future<({String url, int session})?> _holdProxyUrl(
+    HlsHoldProxy proxy,
+    String trackedUrl,
+    int opId,
+  ) async {
+    if (!await proxy.ensureRunning() || opId != _playOperationId) return null;
+    final session = proxy.beginSession();
+    final url = proxy.wrap(trackedUrl, session);
+    return url == null ? null : (url: url, session: session);
+  }
+
+  /// Whether a load through the hold proxy, in its [session], that failed
+  /// with [error] may have failed for the proxy's own sake, so that play()'s
+  /// attempt [opId] loads the URL directly instead.
+  ///
+  /// Only when the origin answered none of the session's requests: an HTTP
+  /// status is that answer, and so is any response the proxy got. The
+  /// proxy's way to the origin is dart:io's, not the system's: a network
+  /// that requires an HTTP proxy (corporate, school, hotel WiFi), or a TLS
+  /// or HTTP/1.1 fault on the way, fails every load through it while the
+  /// player alone would play. Not without any network: nothing would load.
+  bool _mayBypassHoldProxy(
+    Object error,
+    HlsHoldProxy proxy,
+    int session,
+    int opId,
+  ) =>
+      opId == _playOperationId &&
+      !_isHttpStatusError(error) &&
+      !proxy.originAnswered(session) &&
+      NetworkService.instance.status.value != ConnectionStatus.offline;
+
+  HlsHoldProxy _createHoldProxy() {
+    final network = NetworkService.instance;
+    // A switch between WiFi and mobile data leaves the upstream requests
+    // and connections on the network that left, where they would hang.
+    // The proxy may work on the new network where it failed on the last.
+    _holdProxyNetworkSub = network.isOnMobileData.stream.skip(1).listen((_) {
+      _holdProxy?.networkChanged();
+      _streamsWithoutHoldProxy.clear();
+    });
+    return HlsHoldProxy(
+      allowedHosts: HlsStartVariant.hosts,
+      isOffline: () => network.isOffline.value,
+      offlineChanges: network.isOffline.stream,
+      onEvent: _onHoldProxyEvent,
+    );
+  }
+
+  /// Whether the loaded item's [proxyUrl] still reaches the hold proxy,
+  /// which is restarted first if it stopped listening (see
+  /// [HlsHoldProxy.ensureRunning]).
+  Future<bool> _holdProxyServes(String proxyUrl) async {
+    final proxy = _holdProxy;
+    return proxy != null &&
+        await proxy.ensureRunning() &&
+        proxy.serves(proxyUrl);
+  }
+
+  /// Logs the hold proxy's holds (never its normal requests), and reports
+  /// the failures it hides from the player to NetworkService: a held
+  /// request is the outage's only sign from the player's side, and a
+  /// tunnel changes no network.
+  void _onHoldProxyEvent(HlsHoldProxyEvent e) {
+    final error = e.error == null ? null : HlsHoldProxy.describe(e.error!);
+    switch (e.kind) {
+      case HlsHoldProxyEventKind.holdStarted:
+        NetworkService.instance.reportRequestFailure();
+        _log('hold proxy: holding ${e.resource} (session ${e.session}): '
+            '$error');
+        AnalyticsService.instance.logDebug('stream hold started', {
+          'station_slug': currentStation.valueOrNull?.slug,
+          'resource': e.resource,
+          'session': e.session,
+          'error': error,
+        });
+      case HlsHoldProxyEventKind.holdRetryFailed:
+        NetworkService.instance.reportRequestFailure();
+      case HlsHoldProxyEventKind.holdEnded:
+        final held = (e.held?.inMilliseconds ?? 0) / 1000;
+        _log('hold proxy: ${e.resource} held ${held}s, '
+            '${e.endReason?.name} (${e.attempts} tries)');
+        AnalyticsService.instance.logDebug('stream hold ended', {
+          'station_slug': currentStation.valueOrNull?.slug,
+          'resource': e.resource,
+          'session': e.session,
+          'held_s': held,
+          'reason': e.endReason?.name,
+          'attempts': e.attempts,
+          'status': e.status,
+          if (e.endReason != HlsHoldEnd.answered) 'error': error,
+        });
+      case HlsHoldProxyEventKind.failedFast:
+        // The player's load fails, which play() logs.
+        _log('hold proxy: ${e.resource} failed at once '
+            '(session ${e.session}): $error');
+      case HlsHoldProxyEventKind.serverStarted:
+      case HlsHoldProxyEventKind.serverClosed:
+        _trace('hold proxy: ${e.kind.name} (port ${e.port}'
+            '${error == null ? '' : ', $error'})');
+      case HlsHoldProxyEventKind.internalError:
+        AnalyticsService.instance.logWarning('stream hold proxy error', {
+          'resource': e.resource,
+          'session': e.session,
+          'error': error,
+        });
+      case HlsHoldProxyEventKind.responded:
+        // Only with traceResponses, which the app leaves off.
+        break;
+    }
+  }
+
+  /// The hold proxy, once a load needed it.
+  @visibleForTesting
+  HlsHoldProxy? get debugHoldProxy => _holdProxy;
 
   /// Retry-cycle start index for [streams]: the first stream without a
   /// recent failure (see [StreamFailover.startIndex]). Logs a
@@ -3579,6 +3872,122 @@ class AppAudioHandler extends BaseAudioHandler {
     });
   }
 
+  // ── Live HLS after an outage (Darwin) ──────────────────────────────────
+
+  /// Notes the outage starting now for the check once the internet is back
+  /// (see [_scheduleOutageLoadCheck]): the live HLS load playing and what
+  /// it had buffered. A check still pending belongs to this outage too, the
+  /// network having dropped again before it ran: it waits for the next
+  /// restore, counting from the first loss.
+  void _noteOutageStart() {
+    _outageLoadCheck?.cancel();
+    _outageSince ??= DateTime.now();
+    _outageHlsGeneration =
+        _isLocalLiveHls && _loadedStreamUrl != null ? _hlsLoadGeneration : null;
+    _outageBufferedPosition = player.bufferedPosition;
+    _outageLoadResumedAt = null;
+  }
+
+  /// Notes when the load the outage check follows first loads more, for its
+  /// log: how long after the internet came back the player resumed.
+  void _noteLoadAfterOutage(Duration bufferedPosition) {
+    if (_outageSince == null || _outageLoadResumedAt != null) return;
+    if (_outageHlsGeneration != _hlsLoadGeneration) return;
+    if (bufferedPosition > _outageBufferedPosition) {
+      _outageLoadResumedAt = DateTime.now();
+    }
+  }
+
+  /// Once the internet answered again at [restoredAt], checks that the live
+  /// HLS stream still playing from its buffer loads again, when the outage
+  /// lasted long enough for AVPlayer to stop retrying (see
+  /// [ReconnectPolicy.outageCheckAfter]).
+  void _scheduleOutageLoadCheck(DateTime restoredAt) {
+    final since = _outageSince;
+    if (since == null) return;
+    final ahead = _hlsTimeline.bufferedAheadSeconds(DateTime.now());
+    final delay = _outageCheckApplies
+        ? ReconnectPolicy.outageCheckDelay(
+            outage: restoredAt.difference(since),
+            bufferedAhead: ahead == null
+                ? null
+                : Duration(milliseconds: (ahead * 1000).round()),
+          )
+        : null;
+    if (delay == null) {
+      _outageSince = null;
+      return;
+    }
+    _outageLoadCheck?.cancel();
+    _outageLoadCheck =
+        Timer(delay, () => _checkLoadingAfterOutage(since, restoredAt));
+  }
+
+  /// Whether the live HLS load that played when the internet was lost
+  /// still plays from its buffer, on the player that stops retrying
+  /// (AVPlayer), with the liveness kill switch on.
+  bool get _outageCheckApplies =>
+      ReconnectPolicy.silentStallPossible &&
+      HlsHealthWatchdogFlag.instance.enabled &&
+      _isLocalLiveHls &&
+      _loadedStreamUrl != null &&
+      _outageHlsGeneration == _hlsLoadGeneration &&
+      player.playing &&
+      player.processingState == ProcessingState.ready;
+
+  /// Reloads the live HLS stream when its player loaded nothing since the
+  /// outage that began at [since]: it would play its buffer out, then
+  /// restart at the live point (see [ReconnectPolicy.outageCheckAfter]).
+  /// The outage kept the listening offset, so the reload, which starts
+  /// there again, goes on about where the audio was.
+  void _checkLoadingAfterOutage(DateTime since, DateTime restoredAt) {
+    _outageSince = null;
+    if (!_outageCheckApplies || NetworkService.instance.isOffline.value) {
+      return;
+    }
+    final now = DateTime.now();
+    final s = _hlsTimeline.healthSample(now);
+    final loaded = player.bufferedPosition - _outageBufferedPosition;
+    final outage = restoredAt.difference(since);
+    double? afterRestore(DateTime? t) =>
+        t == null ? null : t.difference(restoredAt).inMilliseconds / 1000;
+    final props = <String, Object?>{
+      'station_slug': currentStation.valueOrNull?.slug ?? '',
+      'station_id': currentStation.valueOrNull?.id,
+      'stream_url': _loadedStreamUrl,
+      'outage_s': outage.inMilliseconds / 1000,
+      'since_restore_s': afterRestore(now),
+      'resumed_after_restore_s': afterRestore(_outageLoadResumedAt),
+      'loaded_s': loaded.inMilliseconds / 1000,
+      'buffered_ahead_s': s.bufferedAheadSeconds,
+      'playhead_lag_s': s.edgeLagSeconds,
+    };
+    final ahead = s.bufferedAheadSeconds?.toStringAsFixed(1);
+    if (loaded > Duration.zero) {
+      _log('after a ${outage.inSeconds}s outage the player loads again '
+          '(${loaded.inSeconds}s loaded, bufferedAhead=${ahead}s)');
+      AnalyticsService.instance
+          .logDebug('stream hls loading after outage', props);
+      return;
+    }
+    _log('after a ${outage.inSeconds}s outage the player loaded nothing, '
+        'reloading at the listening offset (bufferedAhead=${ahead}s)');
+    _recordStreamEvent(
+      StreamEventKind.hlsStalled,
+      'HLS not loading after a ${outage.inSeconds}s outage — reloading',
+    );
+    AnalyticsService.instance.logWarning('stream hls stuck after outage', props);
+    _loadedStreamUrl = null;
+    _loadedStreamType = null;
+    play();
+  }
+
+  /// Test seam: runs the outage check for a live HLS stream whose internet
+  /// was lost at [since] and answered again at [restoredAt], at once.
+  @visibleForTesting
+  void debugCheckLoadingAfterOutage(DateTime since, DateTime restoredAt) =>
+      _checkLoadingAfterOutage(since, restoredAt);
+
   /// Records a stream-trouble event and, once enough accumulate within
   /// [_slowConnectionWindow], escalates the seek offset to 5 minutes so the
   /// player keeps a large forward buffer on a slow/flaky link. Sticky for the
@@ -4005,8 +4414,15 @@ class AppAudioHandler extends BaseAudioHandler {
       final isHls = first['type'] == 'HLS';
       if (isHls) {
         // Reuses the lightweight playlist GET — primes DNS/TLS and the CDN
-        // edge, on the client whose pooled connection the first poll uses.
-        await _hlsHttp.get(uri).timeout(const Duration(seconds: 5));
+        // edge, on the client whose pooled connection the first poll uses,
+        // and, for a load through the hold proxy, on the proxy's upstream
+        // client, whose connection the player's first request then reuses.
+        final holdProxy = _holdProxyFor(url, isHls: true);
+        await Future.wait([
+          _hlsHttp.get(uri).timeout(const Duration(seconds: 5)),
+          if (holdProxy != null)
+            holdProxy.start().then((_) => holdProxy.prewarm(url)),
+        ]);
       } else {
         await http.head(uri).timeout(const Duration(seconds: 5));
       }
@@ -4487,6 +4903,12 @@ class AppAudioHandler extends BaseAudioHandler {
   /// delegates to [PlaylistController] for playlist stations.
   void onAppLifecycleChanged(AppLifecycleState state) {
     _lifecycleState = state;
+    // Back from the background, where iOS may have reclaimed the hold
+    // proxy's listening socket: listening again before the player asks.
+    final holdProxy = _holdProxy;
+    if (state == AppLifecycleState.resumed && holdProxy != null) {
+      unawaited(holdProxy.ensureRunning());
+    }
     if (_playlistMode) {
       _playlistController.onAppLifecycleChanged(state);
       return;
@@ -4882,6 +5304,8 @@ class AppAudioHandler extends BaseAudioHandler {
     _stopLiveHlsWatchdog();
     _stopHlsPlaylistRefresh();
     _hlsHttp.close();
+    await _holdProxyNetworkSub?.cancel();
+    await _holdProxy?.stop();
     _stopSilenceKeepAlive();
     for (final s in _videoSubs) {
       await s.cancel();
@@ -5132,8 +5556,10 @@ class AppAudioHandler extends BaseAudioHandler {
     network.isOffline.stream.skip(1).listen((offline) {
       if (offline) {
         _lastOfflineAt = DateTime.now();
+        _noteOutageStart();
         return;
       }
+      final restoredAt = DateTime.now();
       _failover.forgetFailures();
       // audio_service downloads the artwork of the lock screen and of
       // CarPlay's Now Playing each time the media item is sent, and never
@@ -5153,6 +5579,7 @@ class AppAudioHandler extends BaseAudioHandler {
         _trace("isOffline -> false: checking if player needs reconnect");
         _wakeRetryBackoff();
         reconnectIfNeeded(trigger: ReconnectTrigger.networkRestored);
+        _scheduleOutageLoadCheck(restoredAt);
       });
     });
 

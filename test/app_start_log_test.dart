@@ -64,6 +64,8 @@ void main() {
     expect(attributes['notifications'], isTrue);
     expect(attributes['developer_mode'], isTrue);
     expect(attributes['hls_watchdog'], isTrue);
+    expect(attributes.containsKey('hls_hold_proxy'), Platform.isIOS,
+        reason: 'the hold proxy runs on iOS only');
   });
 
   test('details the remote debug flag only while it is on', () async {

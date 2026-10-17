@@ -68,6 +68,10 @@ class FakeJustAudioChannels {
   /// target durations.
   static const avPlayerHoldBack = Duration(seconds: 18);
 
+  /// The buffered position every native player reports: where what the
+  /// player loaded ends.
+  Duration bufferedPosition = Duration.zero;
+
   /// Whether a native player plays: told to play, and not paused or
   /// disposed since. just_audio's stop() disposes the native player.
   bool get isAnyPlayerPlaying => _players.values.any((p) => p._playing);
@@ -95,6 +99,15 @@ class FakeJustAudioChannels {
   void emitIcyTitle(String title) {
     for (final player in _players.values) {
       player.emit(icyTitle: title);
+    }
+  }
+
+  /// Reports [position] buffered on every native player, as a player that
+  /// loaded more media does.
+  void emitBufferedPosition(Duration position) {
+    bufferedPosition = position;
+    for (final player in _players.values) {
+      player.emit();
     }
   }
 
@@ -260,7 +273,7 @@ class _FakeNativePlayer {
       'processingState': _state,
       'updateTime': DateTime.now().millisecondsSinceEpoch,
       'updatePosition': _position.inMicroseconds,
-      'bufferedPosition': 0,
+      'bufferedPosition': owner.bufferedPosition.inMicroseconds,
       'duration': _duration?.inMicroseconds ?? -1,
       'icyMetadata': title == null
           ? null

@@ -9,6 +9,7 @@ import '../seek_mode_manager.dart';
 import '../tv/tv_platform.dart';
 import 'analytics_service.dart';
 import 'hls_health_watchdog_flag.dart';
+import 'hls_hold_proxy_flag.dart';
 import 'remote_debug_controller.dart';
 
 /// Marks each launch in the log with an `app started` record, written
@@ -73,6 +74,8 @@ abstract final class AppStartLog {
       'notifications': prefs.getBool('_notificationsEnabled') ?? true,
       'developer_mode': prefs.getBool('developer_mode_enabled') ?? false,
       'hls_watchdog': HlsHealthWatchdogFlag.instance.enabled,
+      // Only where the proxy runs (see AppAudioHandler.holdProxyPlatform).
+      if (Platform.isIOS) 'hls_hold_proxy': HlsHoldProxyFlag.instance.enabled,
       'remote_debug': remoteDebug.enabled,
       if (remoteDebug.enabled) ...{
         'remote_verbose_logs': remoteDebug.verboseLogs,

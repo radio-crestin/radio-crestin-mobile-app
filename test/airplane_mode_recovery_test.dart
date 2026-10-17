@@ -697,6 +697,47 @@ void main() {
     });
   });
 
+  // AVPlayer stops retrying a live playlist ~30 s after its first failure
+  // and then loads nothing until its buffer runs dry, when it restarts at
+  // the live point: a 4 min 40 s outage at 5 minutes skipped ~4.5 min.
+  group('ReconnectPolicy.outageCheckDelay', () {
+    Duration? delay(int outageSeconds, {double? aheadSeconds}) =>
+        ReconnectPolicy.outageCheckDelay(
+          outage: Duration(seconds: outageSeconds),
+          bufferedAhead: aheadSeconds == null
+              ? null
+              : Duration(milliseconds: (aheadSeconds * 1000).round()),
+        );
+
+    test('starts below the outage AVPlayer gives up after, and waits out '
+        'one of its retries', () {
+      expect(ReconnectPolicy.outageCheckAfter,
+          lessThan(const Duration(seconds: 30)));
+      expect(ReconnectPolicy.outageResumeGrace,
+          greaterThan(const Duration(seconds: 5)));
+    });
+
+    test('a short outage needs no check: the player still retries', () {
+      expect(delay(5, aheadSeconds: 295), isNull);
+      expect(delay(19, aheadSeconds: 281), isNull);
+    });
+
+    test('a longer one gives the player the grace to load by itself', () {
+      expect(delay(20, aheadSeconds: 280), ReconnectPolicy.outageResumeGrace);
+      expect(delay(60, aheadSeconds: 240), ReconnectPolicy.outageResumeGrace);
+      expect(delay(60), ReconnectPolicy.outageResumeGrace,
+          reason: 'an unknown buffer waits the whole grace');
+    });
+
+    test('a nearly played out buffer brings the check forward', () {
+      // The iPhone outage: 4 min 40 s, ~13 s left once the internet answered.
+      expect(delay(282, aheadSeconds: 13), ReconnectPolicy.outageResumeGrace);
+      expect(delay(286, aheadSeconds: 10), const Duration(seconds: 6));
+      expect(delay(295, aheadSeconds: 3), Duration.zero);
+      expect(delay(300, aheadSeconds: -1), Duration.zero);
+    });
+  });
+
   // ── Fix 2: re-anchor on stale resume ────────────────────────────────────
   group('ReconnectPolicy.shouldReloadAfterPause', () {
     const twoMin = Duration(minutes: 2);

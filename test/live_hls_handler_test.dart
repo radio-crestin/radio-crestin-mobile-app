@@ -1,6 +1,7 @@
 import 'dart:async';
-import 'dart:io' show HttpDate;
+import 'dart:io' show HttpDate, InternetAddress, ServerSocket, SocketException;
 
+import 'package:flutter/widgets.dart' show AppLifecycleState;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:http/http.dart' as http;
@@ -11,7 +12,9 @@ import 'package:radio_crestin/graphql_rest_mappings.dart';
 import 'package:radio_crestin/seek_mode_manager.dart';
 import 'package:radio_crestin/services/analytics_service.dart';
 import 'package:radio_crestin/services/hls_health_watchdog_flag.dart';
+import 'package:radio_crestin/services/hls_hold_proxy_flag.dart';
 import 'package:radio_crestin/services/hls_timeline.dart' show SongBoundaryHint;
+import 'package:radio_crestin/services/network_service.dart';
 import 'package:radio_crestin/services/play_count_service.dart';
 import 'package:radio_crestin/services/private_stations_service.dart';
 import 'package:radio_crestin/services/song_like_service.dart';
@@ -20,6 +23,7 @@ import 'package:radio_crestin/services/video_playback_service.dart';
 import 'package:radio_crestin/types/Station.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'helpers/fake_connectivity.dart';
 import 'helpers/fake_just_audio_channels.dart';
 import 'helpers/fake_metadata_backend.dart';
 import 'helpers/hls_fixtures.dart' show playlistText;
@@ -266,6 +270,376 @@ void main() {
 
         expect(channels.seeks, [FakeJustAudioChannels.liveWindow],
             reason: 'the live point: where the item starts anyway');
+      }, () => routing);
+    });
+  });
+
+  group('live HLS after an outage (Darwin)', () {
+    final hlsUrl = FakeMetadataBackend.hlsUrlOf('rve-suceava');
+
+    /// Plays station 1 with [buffered] loaded, then loses the internet.
+    Future<void> playThenLoseInternet(Duration buffered) async {
+      await startHandler();
+      unawaited(handler.playStation(stationOf(1)));
+      await untilPlaying(hlsUrl, loads: 1);
+      channels.emitBufferedPosition(buffered);
+      await pumpEventQueue();
+      NetworkService.instance.isOffline.add(true);
+      await pumpEventQueue();
+    }
+
+    /// The internet answers again; the check runs as after [outage].
+    Future<void> restoreAfter(Duration outage) async {
+      NetworkService.instance.isOffline.add(false);
+      await pumpEventQueue();
+      final now = DateTime.now();
+      handler.debugCheckLoadingAfterOutage(now.subtract(outage), now);
+    }
+
+    test(
+        'a player that loaded nothing since is reloaded at the listening '
+        'offset, before it plays its buffer out and restarts at the live '
+        'point', () async {
+      await http.runWithClient(() async {
+        await playThenLoseInternet(const Duration(minutes: 9));
+        await restoreAfter(const Duration(seconds: 60));
+
+        await untilPlaying(hlsUrl, loads: 2);
+        expect(channels.loads.last, contains('/index.m3u8'));
+        expect(handler.loadedStreamType, 'HLS', reason: 'no failover');
+      }, () => routing);
+    });
+
+    test('a player that loads again by itself is left alone', () async {
+      await http.runWithClient(() async {
+        await playThenLoseInternet(const Duration(minutes: 9));
+        // AVPlayer loads the segments it missed as soon as it can.
+        channels.emitBufferedPosition(const Duration(minutes: 9, seconds: 42));
+        await pumpEventQueue();
+        await restoreAfter(const Duration(seconds: 60));
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+
+        expect(channels.loads, hasLength(1));
+        expect(handler.player.playing, isTrue);
+      }, () => routing);
+    });
+
+    test(
+        'what counts is a load since the network last dropped: one during '
+        'a blip before it does not vouch for the player', () async {
+      await http.runWithClient(() async {
+        await playThenLoseInternet(const Duration(minutes: 9));
+        NetworkService.instance.isOffline.add(false);
+        channels.emitBufferedPosition(const Duration(minutes: 9, seconds: 42));
+        await pumpEventQueue();
+        NetworkService.instance.isOffline.add(true);
+        await pumpEventQueue();
+        await restoreAfter(const Duration(minutes: 3));
+
+        await untilPlaying(hlsUrl, loads: 2);
+      }, () => routing);
+    });
+
+    test('a stream the listener paused is left alone', () async {
+      await http.runWithClient(() async {
+        await playThenLoseInternet(const Duration(minutes: 9));
+        await handler.pause();
+        await restoreAfter(const Duration(seconds: 60));
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+
+        expect(channels.loads, hasLength(1));
+        expect(handler.player.playing, isFalse);
+      }, () => routing);
+    });
+
+    test('the liveness kill switch turns it off too', () async {
+      await http.runWithClient(() async {
+        await prefs.setBool('hls_health_watchdog_enabled', false);
+        await HlsHealthWatchdogFlag.instance.loadCache(prefs);
+        addTearDown(() async {
+          await prefs.setBool('hls_health_watchdog_enabled', true);
+          await HlsHealthWatchdogFlag.instance.loadCache(prefs);
+        });
+        await playThenLoseInternet(const Duration(minutes: 9));
+        await restoreAfter(const Duration(seconds: 60));
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+
+        expect(channels.loads, hasLength(1));
+      }, () => routing);
+    });
+  });
+
+  group('hold proxy (iOS)', () {
+    const originUrl = 'https://hls.radiocrestin.ro/hls/rve-origin/index.m3u8';
+
+    setUp(() async {
+      AppAudioHandler.holdProxyPlatform = true;
+      await HlsHoldProxyFlag.instance.loadCache(prefs);
+      backend.addStation(11, 'rve-origin', 'RVE Origin',
+          hls: true, hlsUrl: originUrl);
+    });
+
+    tearDown(() async {
+      AppAudioHandler.holdProxyPlatform = false;
+      await handler.debugHoldProxy?.stop();
+    });
+
+    test(
+        'a live HLS load of the origin plays through the proxy, while the '
+        'app keeps the stream\'s own URL', () async {
+      final polled = <Uri>[];
+      final recording = MockClient((request) async {
+        polled.add(request.url);
+        return http.Response.fromStream(await routing.send(request));
+      });
+      await http.runWithClient(() async {
+        await startHandler();
+        unawaited(handler.playStation(stationOf(11)));
+        await untilPlaying(originUrl, loads: 1);
+
+        final proxy = handler.debugHoldProxy!;
+        final loaded = Uri.parse(channels.loads.single);
+        expect(loaded.origin, 'http://127.0.0.1:${proxy.port}');
+        expect(loaded.path,
+            '/${proxy.session}/https/hls.radiocrestin.ro/hls/rve-origin/'
+            'index-2m.m3u8',
+            reason: 'the start variant, through the proxy');
+        expect(loaded.queryParameters['ref'], startsWith('radio-crestin-'),
+            reason: 'listeners are counted from the tracking parameters');
+        expect(loaded.queryParameters, contains('s'));
+        expect(proxy.serves(loaded.toString()), isTrue);
+        expect(handler.currentStreamInfo.value!.url, originUrl);
+        expect(handler.loadedStreamType, 'HLS');
+        await until(() => polled.any((u) => u.path.endsWith('.m3u8')));
+        expect(
+            polled.where((u) => u.path.endsWith('.m3u8')).map((u) => '$u'),
+            everyElement(originUrl),
+            reason: 'the app polls the stream itself, not the proxy');
+      }, () => recording);
+    });
+
+    test('every load is a session of its own', () async {
+      await http.runWithClient(() async {
+        await startHandler();
+        unawaited(handler.playStation(stationOf(11)));
+        await untilPlaying(originUrl, loads: 1);
+
+        handler.debugRecoverFromLiveHlsStall(
+            LiveHlsStall.pastLiveEdge, DateTime.now());
+        await untilPlaying(originUrl, loads: 2);
+
+        final sessions =
+            channels.loads.map((u) => Uri.parse(u).pathSegments.first);
+        expect(sessions.toSet(), hasLength(2));
+        expect(sessions.last, '${handler.debugHoldProxy!.session}');
+      }, () => routing);
+    });
+
+    test('with the remote kill switch off the player loads the stream itself',
+        () async {
+      await prefs.setBool('hls_hold_proxy_enabled', false);
+      await HlsHoldProxyFlag.instance.loadCache(prefs);
+      addTearDown(() async {
+        await prefs.setBool('hls_hold_proxy_enabled', true);
+        await HlsHoldProxyFlag.instance.loadCache(prefs);
+      });
+      await http.runWithClient(() async {
+        await startHandler();
+        unawaited(handler.playStation(stationOf(11)));
+        await untilPlaying(originUrl, loads: 1);
+
+        expect(channels.loads.single,
+            startsWith('https://hls.radiocrestin.ro/hls/rve-origin/'
+                'index-2m.m3u8?'));
+        expect(handler.debugHoldProxy, isNull);
+      }, () => routing);
+    });
+
+    test('direct streams and HLS of other hosts load directly', () async {
+      await http.runWithClient(() async {
+        await startHandler();
+        unawaited(handler.playStation(stationOf(2)));
+        await untilPlaying(FakeMetadataBackend.mp3UrlOf('s2'), loads: 1);
+        unawaited(handler.playStation(stationOf(1)));
+        await untilPlaying(FakeMetadataBackend.hlsUrlOf('rve-suceava'),
+            loads: 2);
+
+        expect(channels.loads[0],
+            startsWith('${FakeMetadataBackend.mp3UrlOf('s2')}?'));
+        expect(channels.loads[1],
+            startsWith('${FakeMetadataBackend.hlsUrlOf('rve-suceava')}?'));
+        expect(handler.debugHoldProxy, isNull);
+      }, () => routing);
+    });
+
+    test(
+        'a start variant the origin answers 404 for falls back to the '
+        'stream\'s own playlist, through the proxy in a new session',
+        () async {
+      // AVPlayer's HTTP 404, relayed by the proxy as the origin sent it.
+      channels
+        ..failingUrlParts.add('index-2m.m3u8')
+        ..failureCode = '-1100';
+      await http.runWithClient(() async {
+        await startHandler();
+        unawaited(handler.playStation(stationOf(11)));
+        await untilPlaying(originUrl, loads: 2);
+
+        final variant = Uri.parse(channels.loads[0]);
+        final fallback = Uri.parse(channels.loads[1]);
+        expect(variant.path, endsWith('/rve-origin/index-2m.m3u8'));
+        expect(fallback.path,
+            '/${handler.debugHoldProxy!.session}/https/hls.radiocrestin.ro/'
+            'hls/rve-origin/index.m3u8');
+        expect(fallback.pathSegments.first,
+            isNot(variant.pathSegments.first));
+        expect(variant.host, '127.0.0.1',
+            reason: 'a status is the origin answering through the proxy: '
+                'never loaded directly for it');
+        expect(handler.loadedStreamType, 'HLS', reason: 'no failover');
+      }, () => routing);
+    });
+
+    test(
+        'a load through the proxy that fails before the origin answered '
+        'loads directly at once, and the stream skips the proxy from then '
+        'on', () async {
+      // AVPlayer's connection closed without a response: nothing got
+      // through the proxy (a network that requires an HTTP proxy, say).
+      channels
+        ..failingUrlParts.add('127.0.0.1')
+        ..failureCode = '-1005';
+      await http.runWithClient(() async {
+        await startHandler();
+        unawaited(handler.playStation(stationOf(11)));
+        await untilPlaying(originUrl, loads: 2);
+
+        expect(Uri.parse(channels.loads[0]).host, '127.0.0.1');
+        expect(
+            channels.loads[1],
+            startsWith('https://hls.radiocrestin.ro/hls/rve-origin/'
+                'index-2m.m3u8?'),
+            reason: 'the same start variant, directly');
+        expect(handler.loadedStreamType, 'HLS', reason: 'no failover');
+
+        handler.debugRecoverFromLiveHlsStall(
+            LiveHlsStall.pastLiveEdge, DateTime.now());
+        await untilPlaying(originUrl, loads: 3);
+        expect(channels.loads[2], startsWith('https://hls.radiocrestin.ro/'),
+            reason: 'the stream skips the proxy from then on');
+
+        // On another network the proxy may work again: it is tried again.
+        final network = NetworkService.instance;
+        addTearDown(() => network.isOnMobileData.add(false));
+        network.isOnMobileData.add(true);
+        await pumpEventQueue();
+        handler.debugRecoverFromLiveHlsStall(LiveHlsStall.pastLiveEdge,
+            DateTime.now().add(const Duration(hours: 1)));
+        await untilPlaying(originUrl, loads: 5);
+        expect(Uri.parse(channels.loads[3]).host, '127.0.0.1');
+        expect(channels.loads[4], startsWith('https://hls.radiocrestin.ro/'));
+      }, () => routing);
+    });
+
+    test(
+        'without any network, a load through the proxy that fails is not '
+        'loaded directly, nor taken for a missing start variant', () async {
+      // NetworkService as main() sets it up, on a network that goes away.
+      final connectivity = FakeConnectivity(wifi);
+      final network = NetworkService(
+        connectivity: connectivity,
+        httpClient: MockClient(
+            (_) async => throw const SocketException('No route to host')),
+        probes: [
+          InternetProbe(Uri.parse('https://probe.example/generate_204'),
+              (response) => response.statusCode == 204),
+        ],
+        probeTimeout: const Duration(milliseconds: 200),
+      );
+      await network.initialize();
+      addTearDown(() {
+        network.dispose();
+        NetworkService(); // the unmonitored default again
+      });
+      channels
+        ..failingUrlParts.add('127.0.0.1')
+        ..failureCode = '-1005';
+      await http.runWithClient(() async {
+        await startHandler();
+        connectivity.emit(none);
+        await until(() => network.isOffline.value);
+        unawaited(handler.playStation(stationOf(11)));
+        final mp3Url = FakeMetadataBackend.mp3UrlOf('rve-origin');
+        await untilPlaying(mp3Url, loads: 2);
+
+        final failed = Uri.parse(channels.loads[0]);
+        expect(failed.host, '127.0.0.1');
+        expect(failed.path, endsWith('/rve-origin/index-2m.m3u8'),
+            reason: 'a network error is no missing start variant');
+        expect(channels.loads[1], startsWith('$mp3Url?'),
+            reason: 'the failover goes on to the next stream, as before');
+      }, () => routing);
+    });
+
+    test('back from the background, a proxy that stopped listening listens '
+        'again on its port', () async {
+      await http.runWithClient(() async {
+        await startHandler();
+        unawaited(handler.playStation(stationOf(11)));
+        await untilPlaying(originUrl, loads: 1);
+        final proxy = handler.debugHoldProxy!;
+        final port = proxy.port;
+        // iOS reclaimed the listening socket while the app was suspended.
+        await proxy.debugCloseServer();
+        await until(() => !proxy.isRunning);
+
+        handler.onAppLifecycleChanged(AppLifecycleState.resumed);
+
+        await until(() => proxy.isRunning);
+        expect(proxy.port, port);
+        expect(proxy.serves(channels.loads.single), isTrue,
+            reason: 'the loaded item reaches it again');
+      }, () => routing);
+    });
+
+    test('a resume after a pause plays on from the proxy still serving it',
+        () async {
+      await http.runWithClient(() async {
+        await startHandler();
+        unawaited(handler.playStation(stationOf(11)));
+        await untilPlaying(originUrl, loads: 1);
+        await handler.pause();
+
+        await handler.play();
+
+        expect(handler.player.playing, isTrue);
+        expect(channels.loads, hasLength(1), reason: 'a fast resume');
+      }, () => routing);
+    });
+
+    test(
+        'a resume after the proxy moved to another port reloads instead of '
+        'resuming an item that reaches nothing', () async {
+      await http.runWithClient(() async {
+        await startHandler();
+        unawaited(handler.playStation(stationOf(11)));
+        await untilPlaying(originUrl, loads: 1);
+        await handler.pause();
+        // iOS reclaimed the listening socket while the app was suspended,
+        // and the port is taken by the time the proxy listens again.
+        final proxy = handler.debugHoldProxy!;
+        final oldPort = proxy.port!;
+        await proxy.stop();
+        final squatter =
+            await ServerSocket.bind(InternetAddress.loopbackIPv4, oldPort);
+        addTearDown(squatter.close);
+
+        unawaited(handler.play());
+        await untilPlaying(originUrl, loads: 2);
+
+        final reloaded = channels.loads.last;
+        expect(Uri.parse(reloaded).port, isNot(oldPort));
+        expect(proxy.serves(reloaded), isTrue);
       }, () => routing);
     });
   });
