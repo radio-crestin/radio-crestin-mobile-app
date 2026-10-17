@@ -176,23 +176,27 @@ struct NowPlayingMediumView: View {
     var body: some View {
         let palette = WidgetPalette.of(colorScheme)
         GeometryReader { proxy in
-            HStack(spacing: 14) {
+            HStack(alignment: .top, spacing: 14) {
                 artwork(palette)
                     .frame(width: proxy.size.height, height: proxy.size.height)
                 VStack(alignment: .leading, spacing: 0) {
                     header(palette)
-                    Spacer(minLength: 4)
-                    Text(content.title)
-                        .font(.system(size: 17, weight: .bold))
-                        .foregroundColor(palette.text)
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
+                    MediumTitle(text: content.title, color: palette.text)
+                        .padding(.top, 4)
+                        // Sized first, from the room the other rows leave,
+                        // so it drops its second line instead of pushing
+                        // the buttons out of the widget.
+                        .layoutPriority(1)
                     subtitle(palette)
                         .padding(.top, 2)
                     Spacer(minLength: 6)
                     controls(palette)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(
+                    maxWidth: .infinity,
+                    maxHeight: .infinity,
+                    alignment: .topLeading
+                )
             }
         }
         .widgetCard(palette.card)
@@ -207,10 +211,7 @@ struct NowPlayingMediumView: View {
                     Artwork(image: content.logo, cornerRadius: 9, outlined: false)
                         .frame(width: 26, height: 26)
                         .padding(2)
-                        .background(
-                            RoundedRectangle(cornerRadius: 9, style: .continuous)
-                                .fill(palette.card)
-                        )
+                        .background(LogoBadgeFrame(color: palette.card))
                         .padding(6)
                 }
             }
@@ -297,5 +298,69 @@ struct NowPlayingMediumView: View {
             )
         }
         .accessibilityLabel(forward ? "Stația următoare" : "Stația anterioară")
+    }
+}
+
+/// The card-colored frame of the station's logo on the cover.
+///
+/// On a tinted Home Screen iOS paints shapes over the images, so a filled
+/// frame covered the logo with a white block; there it is only the border.
+private struct LogoBadgeFrame: View {
+    let color: Color
+
+    fileprivate static let shape = RoundedRectangle(cornerRadius: 9, style: .continuous)
+
+    var body: some View {
+        if #available(iOS 16.0, *) {
+            TintAwareLogoBadgeFrame(color: color)
+        } else {
+            Self.shape.fill(color)
+        }
+    }
+}
+
+@available(iOS 16.0, *)
+private struct TintAwareLogoBadgeFrame: View {
+    let color: Color
+
+    @Environment(\.widgetRenderingMode) private var renderingMode
+
+    var body: some View {
+        if renderingMode == .accented {
+            LogoBadgeFrame.shape.strokeBorder(color, lineWidth: 2)
+        } else {
+            LogoBadgeFrame.shape.fill(color)
+        }
+    }
+}
+
+/// The medium size's big line: 17 pt when it fits on one line, else 14 pt
+/// on up to two, so a song change never moves the cover or the buttons.
+///
+/// Where two lines don't fit either (iPhone mini and SE), it stays at
+/// 17 pt and ends in "…".
+private struct MediumTitle: View {
+    let text: String
+    let color: Color
+
+    var body: some View {
+        if #available(iOS 16.0, *) {
+            ViewThatFits(in: .horizontal) {
+                line(size: 17, lines: 1)
+                ViewThatFits(in: .vertical) {
+                    line(size: 14, lines: 2)
+                    line(size: 17, lines: 1)
+                }
+            }
+        } else {
+            line(size: 17, lines: 1)
+        }
+    }
+
+    private func line(size: CGFloat, lines: Int) -> some View {
+        Text(text)
+            .font(.system(size: size, weight: .bold))
+            .foregroundColor(color)
+            .lineLimit(lines)
     }
 }
