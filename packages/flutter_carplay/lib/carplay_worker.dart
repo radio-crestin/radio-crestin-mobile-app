@@ -446,6 +446,20 @@ class FlutterCarplay {
     return isCompleted ?? false;
   }
 
+  /// Loads the list item [images] (web or `file://`) ahead of the list that
+  /// shows them, and completes once each one loaded or failed.
+  ///
+  /// A row sent while its picture is loaded shows it with the list; a
+  /// picture that arrives after the list reached the car shows up there
+  /// about half a second later. iOS keeps the latest few dozen in memory.
+  static Future<bool> prefetchImages(List<String> images) async {
+    final bool? isCompleted = await _carPlayController.flutterToNativeModule(
+      FCPChannelTypes.prefetchImages,
+      images,
+    );
+    return isCompleted ?? false;
+  }
+
   /// Returns the runtime type string for native communication.
   /// Uses explicit type checks to ensure compatibility with Dart obfuscation.
   static String _getCPRuntimeTypeString(CPTemplate template) {

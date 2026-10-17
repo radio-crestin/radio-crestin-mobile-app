@@ -21,6 +21,7 @@ enum FCPChannelTypes {
   popToRootTemplate,
   onScreenBackButtonPressed,
   retryFailedImages,
+  prefetchImages,
 }
 
 enum FAAChannelTypes {

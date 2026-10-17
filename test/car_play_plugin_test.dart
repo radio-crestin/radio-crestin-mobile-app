@@ -226,6 +226,20 @@ void main() {
     });
   });
 
+  test('pictures loaded ahead of a list are sent to iOS as they are',
+      () async {
+    const pictures = [
+      'https://cdn.radiocrestin.ro/song.webp',
+      'file:///cache/station.png',
+    ];
+
+    expect(await FlutterCarplay.prefetchImages(pictures), isTrue);
+
+    final call = calls.single;
+    expect(call.method, 'prefetchImages');
+    expect(call.arguments, pictures);
+  });
+
   test('updating the pinned row reaches iOS and the kept template', () async {
     final home = list(pinned: [button('Old')]);
     FlutterCarPlayController.templateHistory.add(

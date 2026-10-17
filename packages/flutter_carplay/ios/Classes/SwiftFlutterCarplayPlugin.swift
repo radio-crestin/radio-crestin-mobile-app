@@ -301,6 +301,10 @@ public class SwiftFlutterCarplayPlugin: NSObject, FlutterPlugin {
       FCPImageRetry.runAll()
       result(true)
       break
+    case FCPChannelTypes.prefetchImages:
+      let images = call.arguments as? [String] ?? []
+      FCPImageCache.prefetch(images) { result(true) }
+      break
     case FCPChannelTypes.popToRootTemplate:
       guard let animated = call.arguments as? Bool,
         SwiftFlutterCarplayPlugin.templateStack.count >= 2 else {

@@ -76,13 +76,18 @@ class FCPListItem {
     return listItem
   }
   
-  // Shows `image` on `listItem`: the placeholder at once, the picture once
-  // it loads. A download that fails shows a question mark and runs again on
+  // Shows `image` on `listItem`: a picture loaded ahead (`FCPImageCache`)
+  // at once, any other the placeholder at once and the picture once it
+  // loads. A download that fails shows a question mark and runs again on
   // `retryFailedImages`. The request is kept on the row (`userInfo`), not
   // on this object, which section updates swap for a fresh one while the
   // row stays: a load the row no longer asks for is dropped.
   private static func loadImage(_ image: String, into listItem: CPListItem) {
     listItem.userInfo = image
+    if let loaded = FCPImageCache.image(for: image) {
+      listItem.setImage(loaded)
+      return
+    }
     listItem.setImage(makeSafeUIPlaceholder())
     fetchImage(image, into: listItem)
   }

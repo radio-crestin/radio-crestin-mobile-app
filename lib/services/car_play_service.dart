@@ -10,6 +10,7 @@ import 'package:get_it/get_it.dart';
 import 'package:radio_crestin/appAudioHandler.dart';
 import 'package:radio_crestin/services/analytics_service.dart';
 import 'package:radio_crestin/services/car_play_layout.dart';
+import 'package:radio_crestin/services/car_song_history.dart';
 import 'package:radio_crestin/services/image_cache_service.dart';
 import 'package:radio_crestin/services/image_retry_signal.dart';
 import 'package:radio_crestin/seek_mode_manager.dart';
@@ -102,6 +103,20 @@ class CarPlayService {
   // its order for the whole drive instead of moving under the driver's
   // finger.
   Map<String, int> _carPlayCountsSnapshot = const {};
+
+  // "Redate recent" (Up Next on Now Playing), and its rows by station and
+  // song start: a song listed again keeps its row.
+  late final _songHistory = CarSongHistory(
+    playingStation: () => _audioHandler.currentStation.value,
+    fetchSongs: _fetchSongHistory,
+    loadPictures: _loadSongHistoryPictures,
+    isShown: (templateId) =>
+        FlutterCarPlayController.getTemplateFromHistory<CPListTemplate>(
+            templateId) !=
+        null,
+    showSongs: _showSongHistoryUpdate,
+  );
+  Map<String, CPListItem> _songHistoryRows = const {};
 
   // Android Auto state
   List<Station> _sortedAndroidAutoStations = [];
@@ -280,6 +295,8 @@ class CarPlayService {
   static const _allStationsHeader = 'Toate stațiile';
   static const _moreTitle = 'Mai multe';
   static const _moreCategoriesTitle = 'Mai multe categorii';
+  static const _songHistoryTitle = 'Redate recent';
+  static const _noSongHistoryTitle = 'Nicio melodie redată recent';
 
   /// The last picture of the "Favorite" row when not all of them fit: it
   /// opens every favorite. Short, as it sits under a picture.
@@ -438,6 +455,7 @@ class CarPlayService {
           _lastSyncedLikeStatus = null;
           _syncNowPlayingLikeState();
         }
+        _songHistory.follow(station, carConnected: isCarConnected.value);
       }
     });
 
@@ -518,56 +536,108 @@ class CarPlayService {
   }
 
   /// Shows the recently played song history as a CarPlay list template.
+  ///
+  /// It opens with what [_songHistory] loaded ahead, pictures included, and
+  /// then follows the station and its songs.
   Future<void> _showCarPlaySongHistory() async {
     final station = _audioHandler.currentStation.value;
     if (station == null) return;
 
     try {
-      // The default window (last hour) is one URL per station shared at the
-      // edge; a per-second `to_timestamp` would never be shared.
-      final history = await SongHistoryService.fetchHistory(station.slug);
-      if (history == null || history.history.isEmpty) {
+      final songs = await _songHistory.load(station);
+      final sections =
+          songs == null ? null : _songHistorySections(station, songs);
+      if (sections == null || sections.isEmpty) {
         _log("No song history available for ${station.slug}");
         return;
       }
 
-      // Only songs already heard: on time-shifted HLS the newest rows are
-      // still ahead of the audible instant.
-      final pastSongs = SongHistoryService.playedBefore(history.history,
-          _audioHandler.stationDataService.playedCutoffFor(station.id));
-      final items = pastSongs
-          .take(30)
-          .map((item) {
-            final time = item.dateTime.toLocal();
-            final timeStr = '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
-            final title = item.displaySongName ?? 'Necunoscut';
-            final artist = item.artistName != null ? '$timeStr - ${item.displayArtistName}' : timeStr;
-            final thumbUrl = _cachedOrNetworkUrl(songHistoryThumbnailSource(
-              item.songThumbnailUrl,
-              station.thumbnailUrl,
-            ));
-            return CPListItem(
-              text: title,
-              detailText: artist,
-              image: thumbUrl,
-            );
-          })
-          .toList();
-
-      if (items.isEmpty) return;
-
-      const title = 'Redate recent';
       final listTemplate = CPListTemplate(
-        title: title,
-        sections: [CPListSection(items: items)],
+        title: _songHistoryTitle,
+        sections: sections,
+        emptyViewTitleVariants: const [_noSongHistoryTitle],
         systemIcon: "clock.arrow.circlepath",
       );
 
-      await FlutterCarplay.push(template: listTemplate, animated: true);
+      if (await FlutterCarplay.push(template: listTemplate, animated: true)) {
+        await _songHistory.showing(listTemplate.uniqueId, station);
+      }
     } catch (e) {
       _log("Error showing CarPlay song history: $e");
     }
   }
+
+  Future<List<SongHistoryItem>?> _fetchSongHistory(Station station) async {
+    // The default window (last hour) is one URL per station shared at the
+    // edge; a per-second `to_timestamp` would never be shared.
+    final history = await SongHistoryService.fetchHistory(station.slug);
+    return history?.history.where((song) => song.hasSong).toList();
+  }
+
+  // A picture set on a row after its list reached the car shows up there
+  // about half a second later; one loaded before shows with the list.
+  Future<void> _loadSongHistoryPictures(
+    Station station,
+    List<SongHistoryItem> songs,
+  ) =>
+      FlutterCarplay.prefetchImages({
+        for (final song in songs)
+          if (_songHistoryImage(song, station) case final image?) image,
+      }.toList());
+
+  Future<void> _showSongHistoryUpdate(
+    String templateId,
+    Station station,
+    List<SongHistoryItem> songs,
+  ) async {
+    await _flutterCarplay?.updateListTemplateSections(
+      elementId: templateId,
+      sections: _songHistorySections(station, songs),
+    );
+  }
+
+  /// The "Redate recent" sections for [songs] of [station]: the songs
+  /// already heard, newest first; none when no song was heard yet. A song
+  /// listed before keeps its row, so a list sent again keeps its native
+  /// rows and their pictures.
+  List<CPListSection> _songHistorySections(
+    Station station,
+    List<SongHistoryItem> songs,
+  ) {
+    // Only songs already heard: on time-shifted HLS the newest rows are
+    // still ahead of the audible instant.
+    final heard = SongHistoryService.playedBefore(songs,
+            _audioHandler.stationDataService.playedCutoffFor(station.id))
+        .take(30);
+    final previous = _songHistoryRows;
+    _songHistoryRows = {
+      for (final song in heard)
+        '${station.slug}|${song.timestamp}':
+            previous['${station.slug}|${song.timestamp}'] ??
+                _songHistoryRow(song, station),
+    };
+    final rows = _songHistoryRows.values.toList();
+    return rows.isEmpty ? const [] : [CPListSection(items: rows)];
+  }
+
+  CPListItem _songHistoryRow(SongHistoryItem song, Station station) {
+    final time = song.dateTime.toLocal();
+    final timeStr = '${time.hour.toString().padLeft(2, '0')}:'
+        '${time.minute.toString().padLeft(2, '0')}';
+    return CPListItem(
+      text: song.displaySongName ?? 'Necunoscut',
+      detailText: song.artistName != null
+          ? '$timeStr - ${song.displayArtistName}'
+          : timeStr,
+      image: _songHistoryImage(song, station),
+    );
+  }
+
+  String? _songHistoryImage(SongHistoryItem song, Station station) =>
+      _cachedOrNetworkUrl(songHistoryThumbnailSource(
+        song.songThumbnailUrl,
+        station.thumbnailUrl,
+      ));
 
   /// Every set of CarPlay station rows: Home sections, then pushed lists.
   /// Pushed lists CarPlay has popped are dropped first.
@@ -1008,6 +1078,10 @@ class CarPlayService {
         // A new drive: the pinned row follows the latest play counts.
         _takeCarPlaySnapshots();
         _refreshCarPlayLists();
+        // ...and "Redate recent" loads afresh for the playing station.
+        _songHistory.reset();
+        final station = _audioHandler.currentStation.value;
+        if (station != null) _songHistory.follow(station, carConnected: true);
         final wasPlaying = _audioHandler.playbackState.value.playing;
         _audioHandler.refreshCurrentMetadata();
         if (wasPlaying) {
@@ -1025,6 +1099,7 @@ class CarPlayService {
         _logCarConnection('carplay',
             connected: false,
             playing: _audioHandler.playbackState.value.playing);
+        _songHistory.reset();
         if (_audioHandler.playbackState.value.playing) {
           _log("Pausing playback due to CarPlay disconnect");
           _audioHandler.pause();

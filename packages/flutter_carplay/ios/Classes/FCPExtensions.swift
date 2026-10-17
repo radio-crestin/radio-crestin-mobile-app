@@ -127,13 +127,73 @@ func makeSystemSymbolImage(named name: String, canvas: CGFloat = 40) -> UIImage?
 }
 
 // Downloads the image at `url`: nil when the request fails or the answer
-// is not an image. Always calls completion on main thread.
-func downloadUIImage(from url: URL, completion: @escaping (UIImage?) -> Void) {
-    let task = URLSession.shared.dataTask(with: url) { data, _, _ in
+// is not an image. `timeout` is how long the request may wait for data.
+// Always calls completion on main thread.
+func downloadUIImage(
+    from url: URL,
+    timeout: TimeInterval = 60,
+    completion: @escaping (UIImage?) -> Void
+) {
+    var request = URLRequest(url: url)
+    request.timeoutInterval = timeout
+    let task = URLSession.shared.dataTask(with: request) { data, _, _ in
         let image = data.flatMap { UIImage(data: $0) }
         DispatchQueue.main.async { completion(image) }
     }
     task.resume()
+}
+
+// Pictures loaded ahead of the list that shows them (`prefetchImages`), by
+// image string. A row built while its picture is here shows it with the
+// list: one set after the list reached the car shows up there about half a
+// second later. iOS may drop them when memory runs low. Main thread only.
+enum FCPImageCache {
+    // A song history list holds up to 30 rows: room for it and the next.
+    private static let images: NSCache<NSString, UIImage> = {
+        let cache = NSCache<NSString, UIImage>()
+        cache.countLimit = 64
+        return cache
+    }()
+
+    // As for the app's own requests: a stalled download holds the list
+    // back for seconds, not for URLSession's minute.
+    private static let timeout: TimeInterval = 8
+
+    static func image(for image: String) -> UIImage? {
+        images.object(forKey: image as NSString)
+    }
+
+    // Loads the pictures of `images` not held yet, then calls `completion`
+    // once each one loaded or failed.
+    static func prefetch(_ images: [String], completion: @escaping () -> Void) {
+        let group = DispatchGroup()
+        for image in Set(images) where self.image(for: image) == nil {
+            group.enter()
+            load(image) { uiImage in
+                if let uiImage = uiImage {
+                    self.images.setObject(uiImage, forKey: image as NSString)
+                }
+                group.leave()
+            }
+        }
+        group.notify(queue: .main, execute: completion)
+    }
+
+    private static func load(_ image: String, completion: @escaping (UIImage?) -> Void) {
+        switch image.toImageSource() {
+        case .url(let url):
+            downloadUIImage(from: url, timeout: timeout, completion: completion)
+        case .file(let path):
+            DispatchQueue.global(qos: .userInitiated).async {
+                let uiImage = UIImage(contentsOfFile: path)
+                DispatchQueue.main.async { completion(uiImage) }
+            }
+        case .flutterAsset, .systemSymbol:
+            // Never asked for: the lists that prefetch show web and cached
+            // pictures only.
+            completion(nil)
+        }
+    }
 }
 
 // Image downloads that failed, run again when the app reports the internet
