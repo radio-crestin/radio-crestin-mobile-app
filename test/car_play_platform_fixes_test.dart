@@ -42,6 +42,43 @@ void main() {
     });
   });
 
+  group('CarPlayService.keptCarImageUrl', () {
+    test('a picture keeps the name its first row gave it, so iOS reuses '
+        'the picture that row loaded', () {
+      final shown = <String, String>{};
+      const logo = 'https://example.com/logo.webp';
+
+      // Home's rows, built at launch before the disk cache knows the file.
+      final first = CarPlayService.keptCarImageUrl(shown, logo, (_) => null);
+      // A category opened once the file is on disk.
+      final later = CarPlayService.keptCarImageUrl(
+          shown, logo, (_) => '/data/image_cache/logo.img');
+
+      expect(first, logo);
+      expect(later, logo);
+    });
+
+    test('a picture first seen on disk keeps its file', () {
+      final shown = <String, String>{};
+      const art = 'https://example.com/song.webp';
+
+      final first = CarPlayService.keptCarImageUrl(
+          shown, art, (_) => '/data/image_cache/song.img');
+      final later = CarPlayService.keptCarImageUrl(shown, art, (_) => null);
+
+      expect(first, 'file:///data/image_cache/song.img');
+      expect(later, first);
+    });
+
+    test('no picture for a null or empty URL, and nothing kept', () {
+      final shown = <String, String>{};
+
+      expect(CarPlayService.keptCarImageUrl(shown, null, (_) => 'x'), isNull);
+      expect(CarPlayService.keptCarImageUrl(shown, '', (_) => 'x'), isNull);
+      expect(shown, isEmpty);
+    });
+  });
+
   group('CarPlayService.songHistoryThumbnailSource', () {
     test('prefers the song artwork when present', () {
       expect(

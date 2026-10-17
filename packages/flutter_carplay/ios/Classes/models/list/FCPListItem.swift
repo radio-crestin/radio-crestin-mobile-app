@@ -76,12 +76,13 @@ class FCPListItem {
     return listItem
   }
   
-  // Shows `image` on `listItem`: a picture loaded ahead (`FCPImageCache`)
+  // Shows `image` on `listItem`: a picture already loaded (`FCPImageCache`)
   // at once, any other the placeholder at once and the picture once it
-  // loads. A download that fails shows a question mark and runs again on
-  // `retryFailedImages`. The request is kept on the row (`userInfo`), not
-  // on this object, which section updates swap for a fresh one while the
-  // row stays: a load the row no longer asks for is dropped.
+  // loads. A web or cached picture that fails to load shows a question
+  // mark and runs again on `retryFailedImages`. The request is kept on the
+  // row (`userInfo`), not on this object, which section updates swap for a
+  // fresh one while the row stays: a load the row no longer asks for is
+  // dropped.
   private static func loadImage(_ image: String, into listItem: CPListItem) {
     listItem.userInfo = image
     if let loaded = FCPImageCache.image(for: image) {
@@ -93,27 +94,27 @@ class FCPListItem {
   }
 
   private static func fetchImage(_ image: String, into listItem: CPListItem) {
-    let source = image.toImageSource()
-    guard case .url(let url) = source else {
+    switch image.toImageSource() {
+    case .url, .file:
+      FCPImageCache.load(image) { [weak listItem] uiImage in
+        guard let listItem = listItem,
+              listItem.userInfo as? String == image else { return }
+        if let uiImage = uiImage {
+          listItem.setImage(uiImage)
+          return
+        }
+        listItem.setImage(UIImage(systemName: "questionmark"))
+        FCPImageRetry.add { [weak listItem] in
+          guard let listItem = listItem,
+                listItem.userInfo as? String == image else { return }
+          fetchImage(image, into: listItem)
+        }
+      }
+    case let source:
       loadUIImageAsync(from: source) { [weak listItem] uiImage in
         guard let listItem = listItem, let uiImage = uiImage,
               listItem.userInfo as? String == image else { return }
         listItem.setImage(uiImage)
-      }
-      return
-    }
-    downloadUIImage(from: url) { [weak listItem] uiImage in
-      guard let listItem = listItem,
-            listItem.userInfo as? String == image else { return }
-      if let uiImage = uiImage {
-        listItem.setImage(uiImage)
-        return
-      }
-      listItem.setImage(UIImage(systemName: "questionmark"))
-      FCPImageRetry.add { [weak listItem] in
-        guard let listItem = listItem,
-              listItem.userInfo as? String == image else { return }
-        fetchImage(image, into: listItem)
       }
     }
   }

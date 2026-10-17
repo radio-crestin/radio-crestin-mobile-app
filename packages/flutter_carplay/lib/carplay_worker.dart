@@ -451,7 +451,8 @@ class FlutterCarplay {
   ///
   /// A row sent while its picture is loaded shows it with the list; a
   /// picture that arrives after the list reached the car shows up there
-  /// about half a second later. iOS keeps the latest few dozen in memory.
+  /// about half a second later. The iOS side keeps them, and the pictures
+  /// rows loaded, for the lists after (a few MB; the oldest go first).
   static Future<bool> prefetchImages(List<String> images) async {
     final bool? isCompleted = await _carPlayController.flutterToNativeModule(
       FCPChannelTypes.prefetchImages,

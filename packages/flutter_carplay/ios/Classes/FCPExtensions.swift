@@ -143,56 +143,104 @@ func downloadUIImage(
     task.resume()
 }
 
-// Pictures loaded ahead of the list that shows them (`prefetchImages`), by
-// image string. A row built while its picture is here shows it with the
-// list: one set after the list reached the car shows up there about half a
-// second later. iOS may drop them when memory runs low. Main thread only.
+// Pictures a list can show at once, by image string. A row built while its
+// picture is here shows it with the list: one set after the list reached
+// the car shows up there about half a second later. So a category shows
+// the station logos Home's rows loaded at launch as it slides in, and
+// "Redate recent" the pictures loaded ahead of it. Main thread only.
 enum FCPImageCache {
-    // A song history list holds up to 30 rows: room for it and the next.
-    private static let images: NSCache<NSString, UIImage> = {
-        let cache = NSCache<NSString, UIImage>()
-        cache.countLimit = 64
-        return cache
-    }()
+    // The bytes of each picture rather than the picture: a few KB each
+    // instead of a decoded bitmap, so they can stay. Not an NSCache, which
+    // iOS empties as the app goes to the background (the car screen on
+    // another app, the phone locked): the next list would load its
+    // pictures again, and show them late.
+    private static var bytes: [String: Data] = [:]
+    // Image strings, the least recently used first.
+    private static var recent: [String] = []
+    private static var total = 0
+    // Room for a few hundred station logos and song pictures.
+    private static let budget = 4 * 1024 * 1024
 
     // As for the app's own requests: a stalled download holds the list
     // back for seconds, not for URLSession's minute.
-    private static let timeout: TimeInterval = 8
+    private static let prefetchTimeout: TimeInterval = 8
 
     static func image(for image: String) -> UIImage? {
-        images.object(forKey: image as NSString)
+        guard let data = bytes[image] else { return nil }
+        use(image)
+        return UIImage(data: data)
     }
 
     // Loads the pictures of `images` not held yet, then calls `completion`
     // once each one loaded or failed.
     static func prefetch(_ images: [String], completion: @escaping () -> Void) {
         let group = DispatchGroup()
-        for image in Set(images) where self.image(for: image) == nil {
+        for image in Set(images) where bytes[image] == nil {
             group.enter()
-            load(image) { uiImage in
-                if let uiImage = uiImage {
-                    self.images.setObject(uiImage, forKey: image as NSString)
-                }
-                group.leave()
-            }
+            load(image, timeout: prefetchTimeout) { _ in group.leave() }
         }
         group.notify(queue: .main, execute: completion)
     }
 
-    private static func load(_ image: String, completion: @escaping (UIImage?) -> Void) {
+    // Loads the web or cached picture `image` and keeps it; calls
+    // `completion` with nil when it fails or is no picture.
+    static func load(
+        _ image: String,
+        timeout: TimeInterval = 60,
+        completion: @escaping (UIImage?) -> Void
+    ) {
+        loadBytes(of: image, timeout: timeout) { data, uiImage in
+            if let data = data, uiImage != nil {
+                keep(data, for: image)
+            }
+            completion(uiImage)
+        }
+    }
+
+    // Reads the bytes of `image` and makes the picture off the main
+    // thread, then calls `completion` on it.
+    private static func loadBytes(
+        of image: String,
+        timeout: TimeInterval,
+        completion: @escaping (Data?, UIImage?) -> Void
+    ) {
+        let finish = { (data: Data?) in
+            let uiImage = data.flatMap { UIImage(data: $0) }
+            DispatchQueue.main.async { completion(data, uiImage) }
+        }
         switch image.toImageSource() {
         case .url(let url):
-            downloadUIImage(from: url, timeout: timeout, completion: completion)
+            var request = URLRequest(url: url)
+            request.timeoutInterval = timeout
+            URLSession.shared.dataTask(with: request) { data, _, _ in
+                finish(data)
+            }.resume()
         case .file(let path):
             DispatchQueue.global(qos: .userInitiated).async {
-                let uiImage = UIImage(contentsOfFile: path)
-                DispatchQueue.main.async { completion(uiImage) }
+                finish(FileManager.default.contents(atPath: path))
             }
         case .flutterAsset, .systemSymbol:
-            // Never asked for: the lists that prefetch show web and cached
-            // pictures only.
-            completion(nil)
+            // Bundled pictures, drawn on the spot.
+            completion(nil, nil)
         }
+    }
+
+    private static func keep(_ data: Data, for image: String) {
+        if let replaced = bytes.updateValue(data, forKey: image) {
+            total -= replaced.count
+        }
+        total += data.count
+        use(image)
+        while total > budget, recent.count > 1 {
+            let oldest = recent.removeFirst()
+            total -= bytes.removeValue(forKey: oldest)?.count ?? 0
+        }
+    }
+
+    // Marks `image` as the most recently used.
+    private static func use(_ image: String) {
+        recent.removeAll { $0 == image }
+        recent.append(image)
     }
 }
 

@@ -176,6 +176,34 @@ class CarPlayService {
         (u) => _imageCacheService?.getCachedPath(u),
       );
 
+  /// Pure core for a CarPlay row's image string: the one [shown] holds for
+  /// [url], or the one [resolveCarImageUrl] gives now, kept in [shown].
+  ///
+  /// iOS keeps each picture a row loaded under its image string, so a list
+  /// pushed later (a category, "Redate recent") shows the logos Home's rows
+  /// loaded as it slides in, instead of loading them again and showing
+  /// them ~0.5 s after. Home's rows are built at launch, before the disk
+  /// cache knows its files, so they name the web address; later rows keep
+  /// that name rather than the file's.
+  static String? keptCarImageUrl(
+    Map<String, String> shown,
+    String? url,
+    String? Function(String url) cachedPathFor,
+  ) {
+    if (url == null || url.isEmpty) return null;
+    return shown[url] ??= resolveCarImageUrl(url, cachedPathFor) ?? url;
+  }
+
+  // The image string each picture is shown with on CarPlay, by URL, for
+  // the whole session.
+  final Map<String, String> _carPlayImages = {};
+
+  String? _carPlayImage(String? url) => keptCarImageUrl(
+        _carPlayImages,
+        url,
+        (u) => _imageCacheService?.getCachedPath(u),
+      );
+
   static void _log(String message) {
     developer.log("CarPlayService: $message");
   }
@@ -634,7 +662,7 @@ class CarPlayService {
   }
 
   String? _songHistoryImage(SongHistoryItem song, Station station) =>
-      _cachedOrNetworkUrl(songHistoryThumbnailSource(
+      _carPlayImage(songHistoryThumbnailSource(
         song.songThumbnailUrl,
         station.thumbnailUrl,
       ));
@@ -752,7 +780,7 @@ class CarPlayService {
           if (bySlug[slug] case final station?)
             CPImageRowElement(
               title: station.title as String,
-              image: _cachedOrNetworkUrl(station.thumbnailUrl) ?? 'sf:radio',
+              image: _carPlayImage(station.thumbnailUrl) ?? 'sf:radio',
               onPress: () => _playFromCar(station, fromFavorites: true),
             ),
         if (layout.hiddenFavoriteCount > 0)
@@ -785,7 +813,7 @@ class CarPlayService {
     return CPListItem(
       text: starred ? "★ ${station.title}" : station.title,
       detailText: _stationListSubtitle(station),
-      image: _cachedOrNetworkUrl(station.thumbnailUrl),
+      image: _carPlayImage(station.thumbnailUrl),
       isPlaying: station.slug == currentSlug &&
           _audioHandler.playbackState.value.playing,
       onPress: (complete, item) async {
