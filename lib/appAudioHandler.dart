@@ -37,6 +37,7 @@ import 'package:radio_crestin/services/hls_hold_proxy.dart';
 import 'package:radio_crestin/services/hls_hold_proxy_flag.dart';
 import 'package:radio_crestin/services/hls_start_variant.dart';
 import 'package:radio_crestin/services/hls_timeline.dart';
+import 'package:radio_crestin/services/ios_background_task.dart';
 import 'package:radio_crestin/services/song_like_service.dart';
 import 'package:radio_crestin/services/station_data_service.dart';
 import 'package:radio_crestin/stream_failover.dart';
@@ -824,6 +825,21 @@ class AppAudioHandler extends BaseAudioHandler {
   @visibleForTesting
   static bool holdProxyPlatform = Platform.isIOS;
 
+  /// Whether a pause of a live HLS stream holds iOS background time
+  /// ([IosBackgroundTask]) until the resume.
+  ///
+  /// iOS suspends an app paused in the background within seconds, and
+  /// AVPlayer then drops everything it had loaded ahead: the resume loads
+  /// again from the network, and without one has nothing to play, although
+  /// the 2 or 5 minutes ahead were loaded (iPhone 13, iOS 27: a 40 s pause
+  /// in the background emptied the buffer, with or without the hold proxy;
+  /// with the app kept running, it kept all of it). The time iOS grants
+  /// (~30 s) covers the short pauses: a car or headphones disconnecting, a
+  /// call, Siri. Silence would keep the app running longer, but iOS then
+  /// shows the pause button on the lock screen and in CarPlay.
+  @visibleForTesting
+  static bool pausedStreamBackgroundTimePlatform = Platform.isIOS;
+
   // Set by _playPlayer() while the player's `ready` predates the play (see
   // playerWaitsAfterPlay): _broadcastState reports buffering for it, so
   // the play button keeps its spinner until audio comes out. Ends with the
@@ -1018,6 +1034,11 @@ class AppAudioHandler extends BaseAudioHandler {
   late final SilenceKeeper _silenceKeeper = SilenceKeeper(log: _trace);
   Timer? _silenceKeepAliveStartTimer;
   static const _silenceKeepAliveDelay = Duration(seconds: 3);
+
+  // Held from a pause of a live HLS stream to the resume, the disconnect or
+  // a stop (see pausedStreamBackgroundTimePlatform).
+  final IosBackgroundTask _pausedStreamTask = IosBackgroundTask();
+
   // Track every buffering enter/exit so short rebuffers (the audible-glitch
   // case) get logged. _bufferingStallTimer above is the long-stall escalation.
   // 250ms threshold: tried 100ms during the screen-lock investigation but
@@ -2812,6 +2833,8 @@ class AppAudioHandler extends BaseAudioHandler {
   Future<void> play() async {
     _trace("play (isCasting=$isCasting)");
     _resumeAfterInterruption = false;
+    // The audio, or the silence while a load runs, keeps the app running.
+    unawaited(_pausedStreamTask.end());
     // A play after a pause or stop is the user's resume. Reconnects run
     // while playback is still wanted, and playStation() counted its own.
     final isUserResume = !_hasBeenPlayed && !_isInterruptionResume;
@@ -3735,6 +3758,7 @@ class AppAudioHandler extends BaseAudioHandler {
     _disconnectTimer?.cancel();
     _disconnectTimer = Timer(_disconnectDelay, () {
       _trace("pause: disconnecting idle stream after ${_disconnectDelay.inSeconds}s");
+      unawaited(_pausedStreamTask.end());
       _loadedStreamUrl = null;
       _loadedStreamType = null;
       // The paused title stays until resume (the resume reloads and
@@ -3759,6 +3783,10 @@ class AppAudioHandler extends BaseAudioHandler {
         stationDataService.pausePolling();
       }
     });
+    if (pausedStreamBackgroundTimePlatform && _isLocalLiveHls) {
+      _trace('pause: holding iOS background time for the loaded buffer');
+      unawaited(_pausedStreamTask.begin());
+    }
 
     return super.pause();
   }
@@ -5143,6 +5171,7 @@ class AppAudioHandler extends BaseAudioHandler {
     _stopHlsPlaylistRefresh();
     _bufferingStartedAt = null;
     _stopSilenceKeepAlive();
+    unawaited(_pausedStreamTask.end());
     _lastPlayerErrorCode = null;
     _lastPlayerErrorMessage = null;
     _loadedStreamUrl = null;
@@ -5179,6 +5208,7 @@ class AppAudioHandler extends BaseAudioHandler {
     _stopLiveHlsWatchdog();
     _bufferingStartedAt = null;
     _stopSilenceKeepAlive();
+    unawaited(_pausedStreamTask.end());
     _lastPlayerErrorCode = null;
     _lastPlayerErrorMessage = null;
     _stopHlsPlaylistRefresh();

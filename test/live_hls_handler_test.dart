@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io' show HttpDate, InternetAddress, ServerSocket, SocketException;
 
+import 'package:flutter/services.dart' show MethodChannel;
 import 'package:flutter/widgets.dart' show AppLifecycleState;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
@@ -14,6 +15,7 @@ import 'package:radio_crestin/services/analytics_service.dart';
 import 'package:radio_crestin/services/hls_health_watchdog_flag.dart';
 import 'package:radio_crestin/services/hls_hold_proxy_flag.dart';
 import 'package:radio_crestin/services/hls_timeline.dart' show SongBoundaryHint;
+import 'package:radio_crestin/services/ios_background_task.dart';
 import 'package:radio_crestin/services/network_service.dart';
 import 'package:radio_crestin/services/play_count_service.dart';
 import 'package:radio_crestin/services/private_stations_service.dart';
@@ -813,6 +815,77 @@ void main() {
         await clock.advance(const Duration(seconds: 60));
         await service.onAppResumed();
         expect(stationOf(2).songTitle, 'Song Q');
+      }, () => routing);
+    });
+  });
+
+  group('iOS background time while a live stream is paused', () {
+    final hlsUrl = FakeMetadataBackend.hlsUrlOf('rve-suceava');
+    final mp3Url = FakeMetadataBackend.mp3UrlOf('s2');
+    const channel = MethodChannel(IosBackgroundTask.channelName);
+    final calls = <String>[];
+
+    setUp(() {
+      AppAudioHandler.pausedStreamBackgroundTimePlatform = true;
+      calls.clear();
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+        calls.add(call.method);
+        return call.method == 'begin' ? true : null;
+      });
+    });
+
+    tearDown(() {
+      AppAudioHandler.pausedStreamBackgroundTimePlatform = false;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null);
+    });
+
+    test(
+        'a pause holds background time, and the resume of the kept stream '
+        'gives it back', () async {
+      await http.runWithClient(() async {
+        await startHandler();
+        unawaited(handler.playStation(stationOf(1)));
+        await untilPlaying(hlsUrl, loads: 1);
+        expect(calls, isEmpty, reason: 'audio keeps the app running');
+
+        await handler.pause();
+        await pumpEventQueue();
+        expect(calls, ['begin']);
+
+        await handler.play();
+        await until(() => handler.player.playing);
+        expect(calls, ['begin', 'end']);
+        expect(channels.loads, hasLength(1),
+            reason: 'a fast resume of the kept stream');
+      }, () => routing);
+    });
+
+    test('a stop gives it back', () async {
+      await http.runWithClient(() async {
+        await startHandler();
+        unawaited(handler.playStation(stationOf(1)));
+        await untilPlaying(hlsUrl, loads: 1);
+        await handler.pause();
+        await pumpEventQueue();
+
+        await handler.stop();
+        await pumpEventQueue();
+        expect(calls, ['begin', 'end']);
+      }, () => routing);
+    });
+
+    test('a direct stream holds none: it is not played from a buffer',
+        () async {
+      await http.runWithClient(() async {
+        await startHandler();
+        unawaited(handler.playStation(stationOf(2)));
+        await untilPlaying(mp3Url, loads: 1);
+
+        await handler.pause();
+        await pumpEventQueue();
+        expect(calls, isEmpty);
       }, () => routing);
     });
   });

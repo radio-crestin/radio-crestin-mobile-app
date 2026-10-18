@@ -30,6 +30,10 @@ let flutterEngine = FlutterEngine(name: "SharedEngine", project: nil, allowHeadl
         // apart from a network with no Chromecast.
         LocalNetworkAccessHandler.register(with: flutterEngine.binaryMessenger)
 
+        // Keeps a paused live stream's buffer while iOS would suspend the
+        // app (see IosBackgroundTask in Dart).
+        BackgroundTaskHandler.register(with: flutterEngine.binaryMessenger)
+
         // Before a Home Screen widget's button, which may be what launched
         // the app, reaches it.
         HomeWidgetBridge.shared.register(with: flutterEngine.binaryMessenger)
