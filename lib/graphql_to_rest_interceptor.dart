@@ -20,7 +20,9 @@ class GraphQLToRestInterceptorLink extends Link {
   /// still decode and transform a late response.
   static const _requestTimeout = Duration(seconds: 10);
 
-  /// [httpClient] defaults to a real client; tests inject a fake.
+  /// [httpClient] defaults to a real client; tests inject a fake. main()
+  /// passes the API client `StationDataService` uses, whose connections
+  /// outlive its 60 s tick, so the station list does not open a new one.
   GraphQLToRestInterceptorLink({
     required this.queryToRestMap,
     http.Client? httpClient,

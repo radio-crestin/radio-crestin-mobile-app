@@ -76,6 +76,17 @@ class FakeJustAudioChannels {
   /// disposed since. just_audio's stop() disposes the native player.
   bool get isAnyPlayerPlaying => _players.values.any((p) => p._playing);
 
+  /// The id of every native player created, in order: just_audio creates
+  /// one per activation, as for the first load after a stop().
+  final List<String> createdPlayers = [];
+
+  /// The id of every native player disposed, in order: just_audio's
+  /// stop() disposes its native player.
+  final List<String> disposedPlayers = [];
+
+  /// How many times a native player was told to pause.
+  int pauses = 0;
+
   final Map<String, _FakeNativePlayer> _players = {};
 
   TestDefaultBinaryMessenger get _messenger =>
@@ -126,10 +137,12 @@ class FakeJustAudioChannels {
     switch (call.method) {
       case 'init':
         final id = (call.arguments as Map)['id'] as String;
+        createdPlayers.add(id);
         _players[id] = _FakeNativePlayer(id, this)..register(_messenger);
         return null;
       case 'disposePlayer':
         final id = (call.arguments as Map)['id'] as String;
+        disposedPlayers.add(id);
         // Like the native dispose, this answers a pending play call.
         _players.remove(id)?.unregister(_messenger);
         return <String, Object?>{};
@@ -210,6 +223,7 @@ class _FakeNativePlayer {
         _answerPlay();
         return (_playResult = Completer<Object?>()).future;
       case 'pause':
+        owner.pauses++;
         _stopPlaying();
         emit();
         return <String, Object?>{};

@@ -6,7 +6,7 @@ import 'dart:io';
 import 'package:audio_service/audio_service.dart';
 import 'package:audio_session/audio_session.dart';
 import 'package:http/http.dart' as http;
-import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter/foundation.dart' show kDebugMode, listEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:fuzzywuzzy/fuzzywuzzy.dart';
@@ -17,6 +17,8 @@ import 'package:radio_crestin/performance_monitor.dart';
 import 'package:radio_crestin/types/Station.dart';
 import 'package:flutter_airplay/flutter_airplay.dart' as flutter_airplay;
 import 'package:radio_crestin/services/image_cache_service.dart';
+import 'package:radio_crestin/services/android_auto_browse.dart';
+import 'package:radio_crestin/services/car_play_layout.dart';
 import 'package:radio_crestin/services/car_play_service.dart';
 import 'package:radio_crestin/services/analytics_service.dart';
 import 'package:radio_crestin/services/cast_service.dart';
@@ -1498,23 +1500,27 @@ class AppAudioHandler extends BaseAudioHandler {
     wake.complete();
   }
 
-  /// Media ID prefix for the items of the Android Auto favorites folder.
-  ///
-  /// Android Auto plays a browsed item by its media ID alone (the item's
-  /// extras are not sent back), so the folder it was picked from has to be
-  /// part of the ID for next/previous to stay within the favorites.
-  static const _favoritesMediaIdPrefix = 'favorites:';
-
   // Android Auto media browsing support.
   // The system's built-in media browser calls this to build the browse tree.
   // No CarAppService needed — works like YouTube Music / Spotify.
+  // Tabs, rows and their wording follow CarPlay's.
   @override
   Future<List<MediaItem>> getChildren(String parentMediaId, [Map<String, dynamic>? options]) async {
     _log("getChildren: $parentMediaId");
+    return _androidAutoChildren(parentMediaId);
+  }
+
+  /// The rows of the Android Auto folder [parentMediaId].
+  ///
+  /// [getChildren] returns them and [subscribeToChildren] compares them, so
+  /// a folder reloads exactly when the rows it shows change.
+  List<MediaItem> _androidAutoChildren(String parentMediaId) {
     switch (parentMediaId) {
       case AudioService.recentRootId:
         return []; // Disabled: queue button on Now Playing screen is sufficient
-      case "favoriteStationsRootId":
+      case AudioService.browsableRootId:
+        return _androidAutoTabs();
+      case AndroidAutoBrowseIds.favorites:
         // In the listener's order, as the phone's Favorite section.
         final bySlug = <Object?, MediaItem>{
           for (final item in stationsMediaItems.value)
@@ -1523,40 +1529,185 @@ class AppAudioHandler extends BaseAudioHandler {
         return [
           for (final slug in stationDataService.favoriteStationSlugs.value)
             if (bySlug[slug] case final item?)
-              item.copyWith(id: '$_favoritesMediaIdPrefix${item.id}'),
+              _androidAutoRow(item,
+                  id: AndroidAutoBrowseIds.favoriteItem(item.id)),
         ];
-      case "allStationsRootId":
-        return stationsMediaItems.value;
+      case AndroidAutoBrowseIds.allStations:
+        final favorites = stationDataService.favoriteStationSlugs.value.toSet();
+        return [
+          for (final item in stationsMediaItems.value)
+            _androidAutoRow(item, starred: favorites, withSong: false),
+        ];
+      case AndroidAutoBrowseIds.categories:
+        return _androidAutoCategories();
       default:
-        if (parentMediaId == AudioService.browsableRootId) {
-          const pkg = 'com.radiocrestin.radio_crestin';
-          return [
-            MediaItem(
-              id: "favoriteStationsRootId",
-              title: "Stații Favorite",
-              artUri: Uri.parse('android.resource://$pkg/drawable/ic_favorite'),
-              playable: false,
-              extras: const {
-                'android.media.browse.CONTENT_STYLE_PLAYABLE_HINT': 1, // list
-              },
-            ),
-            MediaItem(
-              id: "allStationsRootId",
-              title: "Toate Stațiile",
-              artUri: Uri.parse('android.resource://$pkg/drawable/ic_radio'),
-              playable: false,
-              extras: const {
-                'android.media.browse.CONTENT_STYLE_PLAYABLE_HINT': 1, // list
-              },
-            ),
-          ];
+        if (AndroidAutoBrowseIds.groupSlugOf(parentMediaId) case final slug?) {
+          return _androidAutoCategoryStations(slug);
         }
         return [];
     }
   }
 
+  static const _androidResources =
+      'android.resource://com.radiocrestin.radio_crestin/drawable';
+
+  /// The root tabs: Favorite, Toate stațiile and, when a category
+  /// qualifies, Categorii, as on CarPlay.
+  List<MediaItem> _androidAutoTabs() => [
+        MediaItem(
+          id: AndroidAutoBrowseIds.favorites,
+          title: CarStrings.favorites,
+          artUri: Uri.parse('$_androidResources/ic_favorite'),
+          playable: false,
+          extras: const {
+            'android.media.browse.CONTENT_STYLE_PLAYABLE_HINT': 1, // list
+          },
+        ),
+        MediaItem(
+          id: AndroidAutoBrowseIds.allStations,
+          title: CarStrings.allStations,
+          artUri: Uri.parse('$_androidResources/ic_radio'),
+          playable: false,
+          extras: const {
+            'android.media.browse.CONTENT_STYLE_PLAYABLE_HINT': 1, // list
+          },
+        ),
+        if (!stationDataService.carCategoryLayout().isEmpty)
+          MediaItem(
+            id: AndroidAutoBrowseIds.categories,
+            title: CarStrings.categories,
+            artUri: Uri.parse('$_androidResources/ic_category'),
+            playable: false,
+            extras: const {
+              'android.media.browse.CONTENT_STYLE_BROWSABLE_HINT': 1, // list
+            },
+          ),
+      ];
+
+  /// The categories, in the order a CarPlay driver meets them (see
+  /// [CarCategoryLayout.all]), each with its CarPlay symbol as a white
+  /// icon. Android Auto lists scroll, so the ones behind CarPlay's
+  /// "Mai multe" need no level of their own.
+  List<MediaItem> _androidAutoCategories() {
+    return [
+      for (final category in stationDataService.carCategoryLayout().all)
+        MediaItem(
+          id: AndroidAutoBrowseIds.group(category.slug),
+          title: category.name,
+          displayTitle: category.name,
+          displaySubtitle: CarPlayService.stationCountText(
+            category.stationIds.length,
+            isRomanian: true,
+          ),
+          artUri: Uri.parse('$_androidResources/${category.androidIcon}'),
+          playable: false,
+          extras: const {
+            'android.media.browse.CONTENT_STYLE_PLAYABLE_HINT': 1, // list
+          },
+        ),
+    ];
+  }
+
+  /// The stations of the category [slug], in the car's order, with a star
+  /// on the favorites. Their ids keep next/previous within the category.
+  List<MediaItem> _androidAutoCategoryStations(String slug) {
+    final category = stationDataService
+        .carCategoryLayout()
+        .all
+        .where((c) => c.slug == slug)
+        .firstOrNull;
+    if (category == null) return const [];
+    final favorites = stationDataService.favoriteStationSlugs.value.toSet();
+    return [
+      for (final item in stationsMediaItems.value)
+        if (category.stationIds.contains(item.extras?['station_id']))
+          _androidAutoRow(item,
+              id: AndroidAutoBrowseIds.groupItem(slug, item.id),
+              starred: favorites,
+              withSong: false),
+    ];
+  }
+
+  /// The station [item] of [stationsMediaItems] as a row of an Android Auto
+  /// list, under [id] (by default its own media id).
+  ///
+  /// The stations of [starred] get a star, as CarPlay marks favorites in
+  /// lists that mix them with other stations. Search, [playFromMediaId]
+  /// and the NFC page read the plain titles of [stationsMediaItems].
+  ///
+  /// Without [withSong], the row leaves out the song playing on the
+  /// station and keeps only what doesn't change while it plays ("Listă de
+  /// redare" under a playlist station). Android Auto can't change a row in
+  /// place: a new song reloads the whole list, which then jumps away from
+  /// where the driver scrolled, and in a long list some station changes
+  /// its song almost every minute.
+  ///
+  /// Of the extras, the row keeps Android Auto's own (`android.…`) and the
+  /// station's id and slug, which [playMediaItem] reads. The stream list
+  /// and the song fields, which nothing reads there, made every load of a
+  /// long list a ~133 KB binder call; [playFromMediaId] finds the station
+  /// with all of them in [stationsMediaItems].
+  static MediaItem _androidAutoRow(
+    MediaItem item, {
+    String? id,
+    Set<String> starred = const {},
+    bool withSong = true,
+  }) {
+    final isStarred = starred.contains(item.extras?['station_slug']);
+    final isPlaylist =
+        item.extras?['station_type'] == StationMediaType.playlist.name;
+    return item.copyWith(
+      id: id ?? item.id,
+      title: isStarred
+          ? CarStrings.starredOnAndroidAuto(item.title)
+          : item.title,
+      // Android Auto shows the display title when there is one.
+      displayTitle: isStarred
+          ? CarStrings.starredOnAndroidAuto(item.displayTitle ?? item.title)
+          : item.displayTitle,
+      displaySubtitle: withSong
+          ? item.displaySubtitle
+          : CarPlayService.computeStationListSubtitle(
+                displaySubtitle: '',
+                isPlaylist: isPlaylist,
+                isRomanian: true,
+              ) ??
+              '',
+      artist: withSong ? item.artist : null,
+      extras: {
+        for (final MapEntry(:key, :value) in (item.extras ?? const {}).entries)
+          if (key.startsWith('android.') ||
+              key == 'station_id' ||
+              key == 'station_slug')
+            key: value,
+      },
+    );
+  }
+
+  /// What Android Auto draws of [rows], comparable by value (a [MediaItem]
+  /// equals every other one with its id).
+  ///
+  /// Android draws a row's display texts when it has a display title, and
+  /// otherwise its title, artist and album (`MediaMetadataCompat
+  /// .getDescription`). The extras it reads, the content style and the
+  /// sort key, are fixed for a row or follow its title.
+  static List<Object?> _androidAutoSignature(List<MediaItem> rows) => [
+        for (final row in rows)
+          (
+            row.id,
+            row.playable,
+            row.artUri,
+            (row.displayTitle?.isNotEmpty ?? false)
+                ? (row.displayTitle, row.displaySubtitle,
+                    row.displayDescription)
+                : (row.title, row.artist, row.album),
+          ),
+      ];
+
+  /// The audio_service channel whose native side sets the media session's
+  /// queue title. Its client channel only handles `configure`.
   static const _audioServiceChannel =
-      MethodChannel('com.ryanheise.audio_service.client.methods');
+      MethodChannel('com.ryanheise.audio_service.handler.methods');
 
   /// Fetches song history for the current station and sets it as the
   /// MediaSession queue. Android Auto shows this as a "Up next"-style
@@ -1571,8 +1722,9 @@ class AppAudioHandler extends BaseAudioHandler {
       return;
     }
     // Set localized queue title FIRST (cached in native queueTitleOverride,
-    // then re-applied each time setQueue is called).
-    const title = 'Redate recent';
+    // then re-applied each time setQueue is called). Sent every time: the
+    // native side keeps it only once its service runs.
+    const title = CarStrings.songHistory;
     queueTitle.add(title);
     // Fire-and-forget: cache the title on the native side before queue is set
     _audioServiceChannel.invokeMethod('setQueueTitle', {'title': title}).catchError((e) {
@@ -1637,18 +1789,40 @@ class AppAudioHandler extends BaseAudioHandler {
         return _recentSubject.hasValue
             ? stream.shareValueSeeded(<String, dynamic>{})
             : stream.shareValue();
-      case "favoriteStationsRootId":
-        final stream = stationDataService.favoriteStationSlugs.map((_) => <String, dynamic>{});
-        return stationDataService.favoriteStationSlugs.hasValue
-            ? stream.shareValueSeeded(<String, dynamic>{})
-            : stream.shareValue();
       default:
-        final stream = stationsMediaItems.map((_) => <String, dynamic>{});
-        return stationsMediaItems.hasValue
-            ? stream.shareValueSeeded(<String, dynamic>{})
-            : stream.shareValue();
+        return _childrenChanges(parentMediaId);
     }
   }
+
+  /// Asks Android Auto to reload the folder [parentMediaId] when the rows it
+  /// shows change, and only then.
+  ///
+  /// A reload rebuilds the list on the car screen, which can move it away
+  /// from where the driver scrolled (a tap then starts another station), so
+  /// a poll that changes nothing on the screen, such as listener counts,
+  /// reloads nothing. The songs under the favorites stay live, as on
+  /// CarPlay; Toate stațiile and the categories show none (see
+  /// [_androidAutoRow]), and the root tabs reload only when Categorii comes
+  /// or goes.
+  ///
+  /// audio_service reloads the folder on every event. The sources are
+  /// [BehaviorSubject]s that replay their values on listen, so the first
+  /// signature is the folder's first load and only later changes count.
+  /// The seed reloads every folder once after its first load.
+  ValueStream<Map<String, dynamic>> _childrenChanges(String parentMediaId) =>
+      Rx.merge<Object?>([
+        // The station list (songs, hidden stations), the favorites (their
+        // order and stars) and the categories.
+        stationsMediaItems,
+        stationDataService.favoriteStationSlugs,
+        stationDataService.stationGroups,
+      ])
+          .map((_) =>
+              _androidAutoSignature(_androidAutoChildren(parentMediaId)))
+          .distinct(listEquals)
+          .skip(1)
+          .map((_) => <String, dynamic>{})
+          .shareValueSeeded(<String, dynamic>{});
 
   final AudioPlayer player;
 
@@ -2312,6 +2486,29 @@ class AppAudioHandler extends BaseAudioHandler {
     ImageCacheService.instance.getOrDownload(songThumbnailUrl);
   }
 
+  /// Whether a switch between two audio stations keeps the native player:
+  /// it pauses the old station, and the new station's load replaces it.
+  ///
+  /// just_audio's stop() disposes the native player, and the next load
+  /// builds a new one. On Android, ExoPlayer's release holds the main
+  /// thread, which is also the UI thread, for 23–36 ms on every switch,
+  /// before the new station shows. A load on the same ExoPlayer first
+  /// stops the old source without waiting, so it goes silent at once.
+  /// iOS is unchanged: its silence keeper and hold proxy were built
+  /// around the stop. Retries still load on a fresh player.
+  @visibleForTesting
+  static bool switchKeepsNativePlayer = Platform.isAndroid;
+
+  /// Whether the switch to [station] loads its stream right away over the
+  /// old one (see [switchKeepsNativePlayer]). A playlist, a TV station
+  /// (video) or a Cast session plays elsewhere: the player stops, as
+  /// before.
+  bool _switchReplacesSource(Station station) =>
+      switchKeepsNativePlayer &&
+      !station.isPlaylist &&
+      !station.isTv &&
+      !isCasting;
+
   Future<void> playStation(
     Station station, {
     bool? fromFavorites,
@@ -2388,11 +2585,13 @@ class AppAudioHandler extends BaseAudioHandler {
       if (switchId != _stationSwitchId) return;
     }
 
-    // Enter "connecting" state BEFORE stopping the player so that
-    // _broadcastState emits processingState=loading (not ready).
-    // Without this, player.stop() → idle → mapped to ready → AnimatedPlayButton
-    // treats it as settled state and clears the optimistic play intent,
-    // causing the pause button to stop working during the transition.
+    // Enter "connecting" state BEFORE stopping (or pausing, see
+    // switchKeepsNativePlayer) the player so that _broadcastState emits
+    // processingState=loading (not ready).
+    // Without this, player.stop() → idle → mapped to ready (a paused player
+    // stays ready) → AnimatedPlayButton treats it as settled state and
+    // clears the optimistic play intent, causing the pause button to stop
+    // working during the transition.
     _isConnecting = true;
     _broadcastState(player.playbackEvent);
     // The silence play() keeps until the new station plays (see there)
@@ -2408,7 +2607,18 @@ class AppAudioHandler extends BaseAudioHandler {
     _disconnectTimer?.cancel();
     _stopHlsPlaylistRefresh(endAlignedPlayback: false);
     if (player.playing || player.processingState != ProcessingState.idle) {
-      await player.stop();
+      if (_switchReplacesSource(station)) {
+        // Forgotten before the await: a pause landing in it would otherwise
+        // leave the old source to a fast resume, its timeline reset above.
+        // A rebuffer the switch cuts short is logged as the stop's idle
+        // logged it.
+        _loadedStreamUrl = null;
+        _loadedStreamType = null;
+        _recordBufferingExit(ProcessingState.idle);
+        await player.pause();
+      } else {
+        await player.stop();
+      }
       if (switchId != _stationSwitchId) return;
     }
     _loadedStreamUrl = null;
@@ -3530,8 +3740,8 @@ class AppAudioHandler extends BaseAudioHandler {
     _stopLiveHlsWatchdog();
     AnalyticsService.instance.endListening(reason: 'pause');
     await player.pause();
-    // During a station switch the player is already stopped, so pause()
-    // emits nothing and the switch's loading state would linger.
+    // During a station switch the player is already stopped (or paused),
+    // so pause() emits nothing and the switch's loading state would linger.
     _broadcastState(player.playbackEvent);
     // The audible clock is frozen while paused; the timeline listener also
     // cancels on advancing=false, this keeps the intent explicit. The poll
@@ -5056,8 +5266,12 @@ class AppAudioHandler extends BaseAudioHandler {
     }
 
     if (station != null) {
-      final fromFavorites = mediaItem.extras?['fromFavorites'] as bool?;
-      playStation(station, fromFavorites: fromFavorites);
+      // A category pick (Android Auto) keeps next/previous within it.
+      final fromGroup = mediaItem.extras?['fromGroup'] as String?;
+      final fromFavorites = fromGroup != null
+          ? false
+          : mediaItem.extras?['fromFavorites'] as bool?;
+      playStation(station, fromFavorites: fromFavorites, fromGroup: fromGroup);
     } else {
       _trace('playMediaItem: station not found for $stationId');
     }
@@ -5117,6 +5331,61 @@ class AppAudioHandler extends BaseAudioHandler {
     _broadcastState(player.playbackEvent);
   }
 
+  /// The media session's buttons and the three the compact notification
+  /// shows (previous, play or pause, next).
+  ///
+  /// [onAndroidAuto] gives Now Playing CarPlay's buttons, in its order:
+  /// like, favorite, dislike. Android Auto has its own button for the queue
+  /// ("Redate recent"), so "Melodii recente", which opens the phone app,
+  /// stays on the phone notification.
+  static ({List<MediaControl> controls, List<int> compact}) sessionControls({
+    required bool onAndroidAuto,
+    required bool playing,
+    required bool isFav,
+    required bool isLiked,
+    required bool isDisliked,
+  }) {
+    final favorite = MediaControl.custom(
+      androidIcon:
+          isFav ? 'drawable/ic_favorite' : 'drawable/ic_favorite_border',
+      label: isFav ? 'Elimină din favorite' : 'Adaugă la favorite',
+      name: 'toggleFavorite',
+    );
+    final history = MediaControl.custom(
+      androidIcon: 'drawable/ic_history',
+      label: 'Melodii recente',
+      name: 'showSongHistory',
+    );
+    // The thumbs are outlined until the song is liked or disliked.
+    final like = MediaControl.custom(
+      androidIcon:
+          isLiked ? 'drawable/ic_thumb_up' : 'drawable/ic_thumb_up_outline',
+      label: isLiked ? 'Retrage like' : 'Îmi place',
+      name: 'likeSong',
+    );
+    final dislike = MediaControl.custom(
+      androidIcon: isDisliked
+          ? 'drawable/ic_thumb_down'
+          : 'drawable/ic_thumb_down_outline',
+      label: isDisliked ? 'Retrage dislike' : 'Nu îmi place',
+      name: 'dislikeSong',
+    );
+    final leading =
+        onAndroidAuto ? [like, favorite] : [favorite, history, like];
+    return (
+      controls: [
+        ...leading,
+        MediaControl.skipToPrevious,
+        if (playing) MediaControl.pause else MediaControl.play,
+        MediaControl.skipToNext,
+        dislike,
+      ],
+      // From the buttons' places: an index past the last button once
+      // crashed the notification (c12c673).
+      compact: [leading.length, leading.length + 1, leading.length + 2],
+    );
+  }
+
   void _broadcastState(PlaybackEvent event) {
     // Source of truth for `playing`: media_kit in video mode, the inline
     // YouTube iframe for a UI-owned youtube playlist item, the cast-side flag
@@ -5144,45 +5413,16 @@ class AppAudioHandler extends BaseAudioHandler {
     final isLiked = likeStatus == 1;
     final isDisliked = likeStatus == -1;
 
+    final controls = sessionControls(
+      onAndroidAuto: Platform.isAndroid && isCarConnected,
+      playing: playing,
+      isFav: isFav,
+      isLiked: isLiked,
+      isDisliked: isDisliked,
+    );
+
     playbackState.add(playbackState.value.copyWith(
-      controls: [
-        // [0] Favorite toggle
-        MediaControl.custom(
-          androidIcon: isFav ? 'drawable/ic_favorite' : 'drawable/ic_favorite_border',
-          label: isFav
-              ? 'Elimină din favorite'
-              : 'Adaugă la favorite',
-          name: 'toggleFavorite',
-        ),
-        // [1] Recent songs
-        MediaControl.custom(
-          androidIcon: 'drawable/ic_history',
-          label: 'Melodii recente',
-          name: 'showSongHistory',
-        ),
-        // [2] Like song (outline when not liked, filled when liked)
-        MediaControl.custom(
-          androidIcon: isLiked ? 'drawable/ic_thumb_up' : 'drawable/ic_thumb_up_outline',
-          label: isLiked
-              ? 'Retrage like'
-              : 'Îmi place',
-          name: 'likeSong',
-        ),
-        // [3] Previous
-        MediaControl.skipToPrevious,
-        // [4] Play/Pause
-        if (playing) MediaControl.pause else MediaControl.play,
-        // [5] Next
-        MediaControl.skipToNext,
-        // [6] Dislike song (outline when not disliked, filled when disliked)
-        MediaControl.custom(
-          androidIcon: isDisliked ? 'drawable/ic_thumb_down' : 'drawable/ic_thumb_down_outline',
-          label: isDisliked
-              ? 'Retrage dislike'
-              : 'Nu îmi place',
-          name: 'dislikeSong',
-        ),
-      ],
+      controls: controls.controls,
       systemActions: const {
         MediaAction.play,
         MediaAction.pause,
@@ -5193,7 +5433,7 @@ class AppAudioHandler extends BaseAudioHandler {
         MediaAction.setRating,
         MediaAction.skipToQueueItem,
       },
-      androidCompactActionIndices: const [3, 4, 5],
+      androidCompactActionIndices: controls.compact,
       processingState: offlineError
         ? AudioProcessingState.error
         : _isConnecting
@@ -5353,12 +5593,10 @@ class AppAudioHandler extends BaseAudioHandler {
     _trace('playFromMediaId($mediaId, $extras)');
     // History items: tapping keeps the current station playing
     if (mediaId.startsWith('history_')) return;
-    // Any other browsed item (all stations, search results) is a pick from
-    // the full list.
-    final fromFavorites = mediaId.startsWith(_favoritesMediaIdPrefix);
-    final stationMediaId = fromFavorites
-        ? mediaId.substring(_favoritesMediaIdPrefix.length)
-        : mediaId;
+    // The id names the list it was picked from: the favorites, a category,
+    // or else the full list (all stations, search results).
+    final (:stationMediaId, :fromFavorites, :fromGroup) =
+        AndroidAutoBrowseIds.parseItem(mediaId);
     var selectedMediaItem = stationsMediaItems.value.cast<MediaItem?>()
         .firstWhere((item) => item!.id == stationMediaId, orElse: () => null);
 
@@ -5379,9 +5617,11 @@ class AppAudioHandler extends BaseAudioHandler {
 
     if (selectedMediaItem != null) {
       // playMediaItem reads the navigation context from the extras.
-      return playMediaItem(selectedMediaItem.copyWith(
-        extras: {...?selectedMediaItem.extras, 'fromFavorites': fromFavorites},
-      ));
+      return playMediaItem(selectedMediaItem.copyWith(extras: {
+        ...?selectedMediaItem.extras,
+        'fromFavorites': fromFavorites,
+        'fromGroup': fromGroup,
+      }));
     }
   }
 
@@ -5696,7 +5936,18 @@ class AppAudioHandler extends BaseAudioHandler {
           : title;
       final extras = Map<String, dynamic>.from(item.extras ?? {});
       extras['android.media.extra.SORT_KEY'] = sortKey;
-      return item.copyWith(artUri: artUri, extras: extras);
+      return item.copyWith(
+        artUri: artUri,
+        // The second line of CarPlay's rows: the song, or "Listă de redare"
+        // for a playlist station. `artist` keeps the song for the search.
+        displaySubtitle: CarPlayService.computeStationListSubtitle(
+              displaySubtitle: station.displaySubtitle,
+              isPlaylist: station.isPlaylist,
+              isRomanian: true,
+            ) ??
+            '',
+        extras: extras,
+      );
     }).toList();
 
     stationsMediaItems.add(newStationsMediaItems);

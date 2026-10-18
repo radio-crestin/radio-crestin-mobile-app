@@ -221,8 +221,13 @@ void main() async {
 
   final queryToRestMap = createGraphQLToRestMappings();
 
+  // One client for the API's REST calls: the station list then reuses the
+  // connections the 60 s metadata tick keeps open, instead of a handshake.
+  final apiHttpClient = StationDataService.createHttpClient();
+
   final graphqlToRestInterceptor = GraphQLToRestInterceptorLink(
     queryToRestMap: queryToRestMap,
+    httpClient: apiHttpClient,
   );
 
   final Link graphqlLink = graphqlToRestInterceptor.concat(authLink.concat(httpLink));
@@ -274,8 +279,10 @@ void main() async {
   // The seek offset sets the listening delay the station list follows, so
   // it is known before the first sync and tracked from then on.
   SeekModeManager.initializeFromPrefs(prefs);
-  final stationDataService = StationDataService(graphqlClient: graphqlClient)
-    ..getListeningDelay = _listeningDelay;
+  final stationDataService = StationDataService(
+    graphqlClient: graphqlClient,
+    httpClient: apiHttpClient,
+  )..getListeningDelay = _listeningDelay;
   SeekModeManager.offsetChanges
       .addListener(stationDataService.onListeningDelayChanged);
   getIt.registerSingleton<StationDataService>(stationDataService);

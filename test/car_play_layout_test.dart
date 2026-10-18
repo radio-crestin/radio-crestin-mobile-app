@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:radio_crestin/services/car_play_layout.dart';
 import 'package:radio_crestin/services/car_play_service.dart';
@@ -226,6 +228,25 @@ void main() {
     test('known group slugs get their own symbol', () {
       expect(group(1, 'Muzica', {1}).symbol, 'music.note');
       expect(group(2, 'Necunoscut', {1}).symbol, 'square.grid.2x2');
+    });
+
+    test('every category has an Android Auto icon in the app', () {
+      const slugs = [
+        'general', 'muzica', 'emisiuni', 'popular', 'predici', 'worship',
+        'international', 'gospel', 'instrumental', 'copii', 'biblia',
+        'colinde', 'necunoscut',
+      ];
+      final icons = {for (final s in slugs) s: group(1, s, {1}).androidIcon};
+
+      expect(icons['muzica'], 'ic_category_muzica');
+      expect(icons['necunoscut'], 'ic_category_other');
+      for (final icon in icons.values) {
+        expect(
+          File('android/app/src/main/res/drawable/$icon.xml').existsSync(),
+          isTrue,
+          reason: '$icon is drawn by Android Auto from res/drawable',
+        );
+      }
     });
   });
 

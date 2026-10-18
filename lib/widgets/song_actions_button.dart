@@ -3,12 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
+import 'menu_back_guard.dart';
+
 /// The playing song's title and artist as one button: a tap searches YouTube
 /// for the song, and a long press opens a menu to copy it or search for it.
 ///
 /// The menu is the platform's own, opening from the song like a dropdown: on
 /// iOS the pull-down menu, which the finger can slide onto an option and
-/// release; on Android the Material menu.
+/// release; on Android the Material menu. BACK closes it, rather than
+/// leaving the app.
 ///
 /// While pressed, and while its menu is open, the text dims the way iOS
 /// shows a pressed text button, rather than a highlight drawn around it.
@@ -49,6 +52,8 @@ class _SongActionsButtonState extends State<SongActionsButton> {
   static const double _pressedOpacity = 0.5;
 
   final _menuController = MenuController();
+
+  late final _backGuard = MenuBackGuard(onBack: _menuController.close);
 
   /// Keeps the song's widgets, and a touch in progress on them, while the
   /// iOS menu takes its long-press layer away from around them as it closes
@@ -95,6 +100,7 @@ class _SongActionsButtonState extends State<SongActionsButton> {
     final open = status.isForwardOrCompleted;
     if (!mounted || open == _menuOpen) return;
     setState(() => _menuOpen = open);
+    _backGuard.open = open;
     if (!open) return;
     if (_cupertino) {
       HapticFeedback.mediumImpact();
@@ -109,6 +115,18 @@ class _SongActionsButtonState extends State<SongActionsButton> {
   /// that long press away until it has finished, and this one fills in.
   void _openMenu() {
     if (!_menuOpen) _menuController.open();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _backGuard.route = ModalRoute.of(context);
+  }
+
+  @override
+  void dispose() {
+    _backGuard.dispose();
+    super.dispose();
   }
 
   @override

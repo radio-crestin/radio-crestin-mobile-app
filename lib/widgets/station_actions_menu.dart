@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
+import 'menu_back_guard.dart';
+
 /// A station row that opens a menu of the station's actions on a long
 /// press: add it to the favorites or remove it, share it, or hide it.
 ///
@@ -11,7 +13,8 @@ import 'package:flutter/services.dart';
 /// player: on iOS the pull-down menu, which the finger can slide onto an
 /// action and release; on Android the Material menu, opening at the finger.
 /// While it is open the row sinks a little, so it is clear which station
-/// the menu is about, and a touch on the row only closes the menu.
+/// the menu is about, and a touch on the row only closes the menu. BACK
+/// closes it too, rather than leaving the app.
 ///
 /// Hiding asks [confirmHide] while the menu closes, then calls [onHide].
 /// The row stays sunk meanwhile, under the alert asking to confirm it,
@@ -82,6 +85,8 @@ class _StationActionsMenuState extends State<StationActionsMenu> {
 
   final _menuController = MenuController();
 
+  late final _backGuard = MenuBackGuard(onBack: _menuController.close);
+
   /// Keeps the row's widgets, and a touch in progress on them, while the
   /// iOS menu takes its long-press layer away from around
   /// them as it closes and puts it back once closed. Without it they would
@@ -122,6 +127,7 @@ class _StationActionsMenuState extends State<StationActionsMenu> {
     if (!mounted) return;
     final wasOpen = _menuOpen;
     setState(() => _menuStatus = status);
+    _backGuard.open = _menuOpen;
     if (_menuOpen && !wasOpen) {
       if (_cupertino) {
         HapticFeedback.mediumImpact();
@@ -180,8 +186,15 @@ class _StationActionsMenuState extends State<StationActionsMenu> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _backGuard.route = ModalRoute.of(context);
+  }
+
+  @override
   void dispose() {
     if (_dragging) widget.drag?.cancel();
+    _backGuard.dispose();
     super.dispose();
   }
 

@@ -5,6 +5,7 @@ import 'dart:io' show HttpDate;
 import 'package:audio_service/audio_service.dart';
 import 'package:audio_session/audio_session.dart'
     show AudioInterruptionEvent, AudioInterruptionType;
+import 'package:flutter/services.dart' show MethodCall, MethodChannel;
 import 'package:flutter/widgets.dart' show AppLifecycleState;
 import 'package:flutter_chrome_cast/flutter_chrome_cast.dart'
     show CastMediaPlayerState;
@@ -969,6 +970,13 @@ void main() {
       return handler.getChildren(folder);
     }
 
+    /// Waits until station [id] plays, so no load is left running into
+    /// the tear-down.
+    Future<void> untilPlayingStation(int id) => until(() =>
+        handler.currentStreamInfo.valueOrNull?.url ==
+            FakeMetadataBackend.mp3UrlOf('s$id') &&
+        handler.player.playing);
+
     test(
         'a station picked from the favorites folder keeps next and previous '
         'within the favorites', () async {
@@ -990,6 +998,7 @@ void main() {
         await until(() => handler.currentStation.value?.id == 3);
         unawaited(handler.skipToPrevious());
         await until(() => handler.currentStation.value?.id == 5);
+        await untilPlayingStation(5);
       }, () => routing);
     });
 
@@ -1011,6 +1020,252 @@ void main() {
         expect(expected.id, isNot(5), reason: 'the full list, not favorites');
         unawaited(handler.skipToNext());
         await until(() => handler.currentStation.value?.id == expected.id);
+        await untilPlayingStation(expected.id as int);
+      }, () => routing);
+    });
+
+    /// The titles of the root tabs, in order.
+    Future<List<String>> tabs() async => [
+          for (final tab in await browse(AudioService.browsableRootId))
+            tab.title,
+        ];
+
+    /// The events [folder]'s subscription sends after its first one (the
+    /// seed every subscription starts with).
+    Future<List<Object?>> changesOf(String folder) async {
+      final events = <Object?>[];
+      final sub = handler.subscribeToChildren(folder).listen(events.add);
+      addTearDown(sub.cancel);
+      await pumpEventQueue();
+      expect(events, hasLength(1), reason: 'only the seed');
+      events.clear();
+      return events;
+    }
+
+    /// The "Copii" category and the API's group of every station, which
+    /// the car leaves out.
+    void addCategories() {
+      backend
+        ..addGroup(1, 'toate', 'Toate', [for (var id = 1; id <= 11; id++) id])
+        ..addGroup(2, 'copii', 'Copii', [3, 5, 7]);
+    }
+
+    test('the root tabs read as on CarPlay, without Categorii when no '
+        'category qualifies', () async {
+      await http.runWithClient(() async {
+        await startHandler();
+
+        final root = await browse(AudioService.browsableRootId);
+        expect(root.map((i) => i.title), ['Favorite', 'Toate stațiile']);
+        expect(root.map((i) => i.id),
+            ['favoriteStationsRootId', 'allStationsRootId'],
+            reason: 'ids Android Auto remembers keep working');
+      }, () => routing);
+    });
+
+    test('the Favorite tab follows the songs and the favorites', () async {
+      await http.runWithClient(() async {
+        await startHandler();
+        await service.setStationIsFavorite(stationOf(3), true);
+        await service.setStationIsFavorite(stationOf(5), true);
+        final changes = await changesOf('favoriteStationsRootId');
+
+        backend.songChange(
+            3, t(30), const FakeSong(31, 'Song N', artist: 'Artist N'));
+        await clock.advance(const Duration(seconds: 60));
+        unawaited(service.enqueueSync(SyncReason.periodic));
+        await until(() => stationOf(3).songTitle == 'Song N');
+        await until(() => changes.isNotEmpty);
+
+        final favorites = await browse('favoriteStationsRootId');
+        expect(favorites.first.displaySubtitle, 'Song N • Artist N');
+
+        changes.clear();
+        await service.setStationIsFavorite(stationOf(7), true);
+        await until(() => changes.isNotEmpty);
+        expect(
+          (await browse('favoriteStationsRootId'))
+              .map((i) => i.extras?['station_slug']),
+          ['s3', 's5', 's7'],
+        );
+      }, () => routing);
+    });
+
+    test(
+        'Toate stațiile stars the favorites, follows the heart, and plays '
+        'a starred row from the full list', () async {
+      await http.runWithClient(() async {
+        await startHandler();
+        final changes = await changesOf('allStationsRootId');
+        await service.setStationIsFavorite(stationOf(3), true);
+        await until(() => changes.isNotEmpty);
+
+        var all = await browse('allStationsRootId');
+        MediaItem rowOf(String slug) =>
+            all.firstWhere((i) => i.extras?['station_slug'] == slug);
+        expect(rowOf('s3').displayTitle, 'Station 3 ★');
+        expect(rowOf('s3').title, 'Station 3 ★');
+        expect(
+          [
+            for (final item in all)
+              if (item.displayTitle!.contains('★'))
+                item.extras?['station_slug'],
+          ],
+          ['s3'],
+        );
+        expect(
+          handler.stationsMediaItems.value
+              .where((i) => i.title.contains('★')),
+          isEmpty,
+          reason: 'search and the NFC page read plain titles',
+        );
+
+        unawaited(handler.playFromMediaId(rowOf('s3').id));
+        await until(() => handler.currentStation.valueOrNull?.id == 3);
+        expect(service.startedFromFavorites, isFalse);
+        await untilPlayingStation(3);
+
+        changes.clear();
+        await service.setStationIsFavorite(stationOf(3), false);
+        await until(() => changes.isNotEmpty);
+        all = await browse('allStationsRootId');
+        expect(rowOf('s3').displayTitle, 'Station 3');
+      }, () => routing);
+    });
+
+    test(
+        'Toate stațiile shows no songs, only "Listă de redare" under a '
+        'playlist station; the favorites show their songs', () async {
+      backend
+        ..addStation(12, 'pl', 'Playlist X', stationType: 'playlist')
+        ..songChange(4, t(-100),
+            const FakeSong(41, 'Song R', artist: 'Artist R'));
+      await http.runWithClient(() async {
+        await startHandler();
+        await service.setStationIsFavorite(stationOf(4), true);
+
+        final all = await browse('allStationsRootId');
+        MediaItem rowOf(String slug) =>
+            all.firstWhere((i) => i.extras?['station_slug'] == slug);
+        expect(rowOf('pl').displaySubtitle, 'Listă de redare');
+        expect(rowOf('s4').displaySubtitle, '',
+            reason: 'a new song would reload the whole list');
+        expect(rowOf('s4').artist, isNull);
+        expect(rowOf('s6').displaySubtitle, '', reason: 'no song: one line');
+
+        final favorites = await browse('favoriteStationsRootId');
+        expect(favorites.single.displaySubtitle, 'Song R • Artist R');
+
+        final found = await handler.search('Song R');
+        expect(found.map((i) => i.extras?['station_slug']), contains('s4'),
+            reason: 'the search still matches songs');
+      }, () => routing);
+    });
+
+    test(
+        'Categorii lists the car categories; their stations star the '
+        'favorites', () async {
+      addCategories();
+      await http.runWithClient(() async {
+        await startHandler();
+        expect(await tabs(), ['Favorite', 'Toate stațiile', 'Categorii']);
+
+        final categories = await browse('categoriesRootId');
+        expect(categories.map((i) => i.title), ['Copii'],
+            reason: 'the group of every station repeats Toate stațiile');
+        expect(categories.single.displaySubtitle, '3 stații');
+        expect(categories.single.artUri, Uri.parse(
+            'android.resource://com.radiocrestin.radio_crestin/drawable/'
+            'ic_category_copii'));
+        expect(categories.single.playable, isFalse);
+        expect(
+          categories.map((i) => i.title),
+          service.carCategoryLayout().all.map((c) => c.name),
+          reason: 'the categories CarPlay shows',
+        );
+
+        final folder = categories.single.id;
+        final changes = await changesOf(folder);
+        var copii = await browse(folder);
+        expect(copii.map((i) => i.extras?['station_slug']), ['s3', 's5', 's7']);
+        expect(copii.map((i) => i.displayTitle),
+            ['Station 3', 'Station 5', 'Station 7']);
+
+        await service.setStationIsFavorite(stationOf(5), true);
+        await until(() => changes.isNotEmpty);
+        copii = await browse(folder);
+        expect(copii.map((i) => i.displayTitle),
+            ['Station 3', 'Station 5 ★', 'Station 7']);
+
+        handler.hideStation(stationOf(7));
+        await until(() => handler.stationsMediaItems.value
+            .every((i) => i.extras?['station_slug'] != 's7'));
+        expect((await browse('categoriesRootId')).single.displaySubtitle,
+            '2 stații');
+        expect((await browse(folder)).map((i) => i.extras?['station_slug']),
+            ['s3', 's5']);
+        expect(await browse('group:unknown'), isEmpty);
+      }, () => routing);
+    });
+
+    test(
+        'a station picked from a category keeps next and previous within '
+        'it; a pick from Toate stațiile leaves it', () async {
+      addCategories();
+      await http.runWithClient(() async {
+        await startHandler();
+        final copii = await browse('group:copii');
+        final s5 = copii.firstWhere((i) => i.extras?['station_slug'] == 's5');
+
+        unawaited(handler.playFromMediaId(s5.id));
+        await until(() => handler.currentStation.valueOrNull?.id == 5);
+        expect(service.startedFromGroup, 'copii');
+        expect(service.startedFromFavorites, isFalse);
+
+        unawaited(handler.skipToNext());
+        await until(() => handler.currentStation.value?.id == 7);
+        unawaited(handler.skipToNext());
+        await until(() => handler.currentStation.value?.id == 3);
+        unawaited(handler.skipToPrevious());
+        await until(() => handler.currentStation.value?.id == 7);
+
+        final all = await browse('allStationsRootId');
+        final s2 = all.firstWhere((i) => i.extras?['station_slug'] == 's2');
+        unawaited(handler.playFromMediaId(s2.id));
+        await until(() => handler.currentStation.value?.id == 2);
+        expect(service.startedFromGroup, isNull);
+        await untilPlayingStation(2);
+      }, () => routing);
+    });
+  });
+
+  group('Android Auto queue title', () {
+    test('the session queue is titled "Redate recent"', () async {
+      const channel =
+          MethodChannel('com.ryanheise.audio_service.handler.methods');
+      final calls = <MethodCall>[];
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        calls.add(call);
+        return null;
+      });
+      addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+
+      await http.runWithClient(() async {
+        await startHandler();
+        unawaited(handler.playStation(stationOf(2)));
+        await untilPlaying(mp3Of2, loads: 1);
+
+        // A song change sends it again: at least once.
+        expect(
+          [
+            for (final call in calls)
+              if (call.method == 'setQueueTitle')
+                (call.arguments as Map)['title'],
+          ],
+          contains('Redate recent'),
+        );
       }, () => routing);
     });
   });

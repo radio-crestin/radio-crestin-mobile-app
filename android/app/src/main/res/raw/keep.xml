@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools"
-    tools:keep="@drawable/ic_favorite,
+    tools:keep="@drawable/ic_category,
+                @drawable/ic_category_*,
+                @drawable/ic_favorite,
                 @drawable/ic_favorite_border,
                 @drawable/ic_radio,
                 @drawable/ic_thumb_up,

@@ -1,3 +1,20 @@
+/// Wording that CarPlay and Android Auto share, so both cars name their lists
+/// and rows the same way. Car screens are in Romanian only, like the app.
+abstract final class CarStrings {
+  static const favorites = 'Favorite';
+  static const allStations = 'Toate stațiile';
+  static const categories = 'Categorii';
+  static const songHistory = 'Redate recent';
+
+  /// A favorite's title in a list that mixes it with other stations.
+  static String starred(String title) => '★ $title';
+
+  /// [starred] on Android Auto, with the star after the name: its A·Z
+  /// index files a row under the first character of its title, so
+  /// "★ RVE Brasov" would sit under "#" instead of "R".
+  static String starredOnAndroidAuto(String title) => '$title ★';
+}
+
 /// What the CarPlay "Home" tab shows, computed from plain data so the rules
 /// can be unit tested without the CarPlay plugin.
 ///
@@ -107,6 +124,12 @@ class CarCategory {
   /// The SF Symbol for this category's grid button.
   String get symbol => _symbols[slug] ?? 'square.grid.2x2';
 
+  /// The drawable for this category's Android Auto row: the Material
+  /// counterpart of [symbol], white, in `res/drawable`.
+  String get androidIcon => _symbols.containsKey(slug)
+      ? 'ic_category_$slug'
+      : 'ic_category_other';
+
   static const _symbols = {
     'general': 'radio',
     'muzica': 'music.note',
@@ -143,6 +166,10 @@ class CarCategoryLayout {
   final List<CarCategory> more;
 
   bool get isEmpty => onGrid.isEmpty;
+
+  /// Every category in the order a driver meets them: the grid buttons,
+  /// then the categories behind "More".
+  List<CarCategory> get all => [...onGrid, ...more];
 
   /// Lays out [groups] (in API order) for the grid.
   ///

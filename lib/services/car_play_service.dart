@@ -329,14 +329,14 @@ class CarPlayService {
   static const _loadingStations = 'Se încarcă stațiile...';
   static const _pleaseWait = 'Vă rugăm așteptați';
   static const _homeTitle = 'Acasă';
-  static const _categoriesTitle = 'Categorii';
-  static const _favoritesHeader = 'Favorite';
+  static const _categoriesTitle = CarStrings.categories;
+  static const _favoritesHeader = CarStrings.favorites;
   static const _noFavoritesTitle = 'Nu ai stații favorite';
   static const _noFavoritesHint = 'Apasă ♡ în ecranul de redare';
-  static const _allStationsHeader = 'Toate stațiile';
+  static const _allStationsHeader = CarStrings.allStations;
   static const _moreTitle = 'Mai multe';
   static const _moreCategoriesTitle = 'Mai multe categorii';
-  static const _songHistoryTitle = 'Redate recent';
+  static const _songHistoryTitle = CarStrings.songHistory;
   static const _noSongHistoryTitle = 'Nicio melodie redată recent';
 
   /// The last picture of the "Favorite" row when not all of them fit: it
@@ -824,7 +824,7 @@ class CarPlayService {
     final currentSlug = _audioHandler.currentStation.value?.slug;
     final starred = starIfFavorite && _isFavorite(station.slug);
     return CPListItem(
-      text: starred ? "★ ${station.title}" : station.title,
+      text: starred ? CarStrings.starred(station.title) : station.title,
       detailText: _stationListSubtitle(station),
       image: _carPlayImage(station.thumbnailUrl),
       isPlaying: station.slug == currentSlug &&
@@ -933,7 +933,7 @@ class CarPlayService {
       final station = bySlug[entry.key];
       if (station == null) continue;
       final text = _isFavorite(entry.key)
-          ? "★ ${station.title}"
+          ? CarStrings.starred(station.title)
           : station.title as String;
       if (entry.value.text == text) continue;
       if (updateNative && rows.isShown(entry.key)) {
@@ -1027,33 +1027,6 @@ class CarPlayService {
     }
   }
 
-  /// The station groups for the Categories grid, in the app's order.
-  CarCategoryLayout _computeCategoryLayout() {
-    final groups = _stationDataService.stationGroups.value;
-    final indexed = [for (var i = 0; i < groups.length; i++) (i, groups[i])]
-      ..sort((a, b) {
-        final byOrder = a.$2.order.compareTo(b.$2.order);
-        return byOrder != 0 ? byOrder : a.$1.compareTo(b.$1);
-      });
-    return CarCategoryLayout.compute(
-      groups: [
-        for (final (_, group) in indexed)
-          CarCategory(
-            id: group.id,
-            slug: group.slug,
-            name: group.name,
-            stationIds: {
-              for (final link in group.station_to_station_groups)
-                link.station_id,
-            },
-          ),
-      ],
-      knownStationIds: {
-        for (final s in _stationDataService.visibleStations) s.id as int,
-      },
-    );
-  }
-
   CPGridTemplate? _buildCategoriesTemplate(CarCategoryLayout layout) {
     if (layout.isEmpty) return null;
     return CPGridTemplate(
@@ -1084,7 +1057,7 @@ class CarPlayService {
     final carplay = _flutterCarplay;
     if (tabBar == null || home == null || carplay == null) return;
 
-    final layout = _computeCategoryLayout();
+    final layout = _stationDataService.carCategoryLayout();
     if (layout.signature == _categoriesSignature) return;
     _categoriesSignature = layout.signature;
     final categories = _buildCategoriesTemplate(layout);
@@ -1250,7 +1223,7 @@ class CarPlayService {
       );
       _pinnedSignature = _pinnedSignatureOf(layout);
 
-      final categoryLayout = _computeCategoryLayout();
+      final categoryLayout = _stationDataService.carCategoryLayout();
       _categoriesSignature = categoryLayout.signature;
       final categories = _buildCategoriesTemplate(categoryLayout);
 
@@ -1517,6 +1490,8 @@ class CarPlayService {
       // and replay the minutes between the two offsets. ExoPlayer already
       // buffers everything up to the live edge, the offset it plays at.
       _audioHandler.refreshCurrentMetadata();
+      // Now Playing's buttons differ in the car (see sessionControls).
+      _audioHandler.broadcastCurrentState();
       if (connected) {
         _forgetCarCard();
         // Android Auto just connected — rebuild the template now that

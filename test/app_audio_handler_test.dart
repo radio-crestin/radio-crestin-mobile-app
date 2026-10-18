@@ -307,28 +307,6 @@ void main() {
   });
 
   group('Android Auto browsing', () {
-    test('getChildren returns browsable root with two categories', () {
-      // Verify the expected root media items structure
-      const rootItems = [
-        MediaItem(
-          id: "favoriteStationsRootId",
-          title: "Statii Favorite",
-          playable: false,
-        ),
-        MediaItem(
-          id: "allStationsRootId",
-          title: "Toate Statiile",
-          playable: false,
-        ),
-      ];
-
-      expect(rootItems.length, 2);
-      expect(rootItems[0].id, 'favoriteStationsRootId');
-      expect(rootItems[0].playable, false);
-      expect(rootItems[1].id, 'allStationsRootId');
-      expect(rootItems[1].playable, false);
-    });
-
     test('filters media items by favorite slugs', () {
       final stations = StationFactory.createPlaylist(count: 5);
       final mediaItems = stations.map((s) => s.mediaItem).toList();

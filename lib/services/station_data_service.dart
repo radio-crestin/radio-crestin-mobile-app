@@ -1,17 +1,20 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show HttpClient, HttpException, SocketException;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:get_it/get_it.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:http/http.dart' as http;
+import 'package:http/io_client.dart' show IOClient;
 import 'package:radio_crestin/constants.dart';
 import 'package:radio_crestin/performance_monitor.dart';
 import 'package:radio_crestin/seek_mode_manager.dart';
 import 'package:radio_crestin/services/analytics_service.dart';
 import 'package:radio_crestin/services/audible_now_playing_resolver.dart';
 import 'package:radio_crestin/services/audible_song_policy.dart';
+import 'package:radio_crestin/services/car_play_layout.dart';
 import 'package:radio_crestin/services/failure_streak.dart';
 import 'package:radio_crestin/services/network_service.dart';
 import 'package:radio_crestin/services/now_playing_sanitizer.dart';
@@ -79,6 +82,19 @@ class StationDataService {
   /// REST client for `/stations-metadata` and the history endpoint.
   final http.Client _http;
   final bool _ownsHttpClient;
+
+  /// How long an unused API connection stays open: past the 60 s tick,
+  /// with room for a late timer, so each tick reuses the last one's
+  /// connections. dart:io's default (15 s) had every tick open new ones
+  /// (up to three), with their TLS handshakes on the UI isolate. The API's
+  /// edge (Cloudflare) keeps idle connections open longer than that.
+  static const _httpIdleTimeout = Duration(seconds: 90);
+
+  /// A client for the API whose connections last from one tick to the
+  /// next. main() shares it with the station list's REST link, so that
+  /// request reuses them too.
+  static http.Client createHttpClient() =>
+      IOClient(HttpClient()..idleTimeout = _httpIdleTimeout);
 
   /// Wall clock and delay, injectable so tests control time.
   final DateTime Function() _now;
@@ -357,6 +373,8 @@ class StationDataService {
 
   /// [httpClient], [clock] and [wait] default to the real network, wall
   /// clock and timers; tests inject a fake backend and controlled time.
+  /// main() passes a [createHttpClient] it shares. The default client,
+  /// which [dispose] closes, follows `http.runWithClient`, as tests use.
   StationDataService({
     required this.graphqlClient,
     PrivateStationsService? privateStationsService,
@@ -623,7 +641,7 @@ class StationDataService {
   /// it this singleton, can survive that: audio_service keeps the Flutter
   /// engine cached, so a relaunch reuses this instance and the app-resume
   /// path ([onAppResumed] → [resumePeriodic]) restarts it. [dispose] would
-  /// close the HTTP client for good.
+  /// end the service for good.
   void suspend() {
     pausePeriodic();
     _liveFollowUp++;
@@ -1670,8 +1688,10 @@ class StationDataService {
     // answer makes NetworkService check it.
     var answered = false;
     try {
-      final response =
-          await _http.get(Uri.parse(url)).timeout(const Duration(seconds: 8));
+      // The 8 s covers the retry too, so an outage reports no later.
+      final response = await _getRetryingTransportFailure(
+              Uri.parse(url), '[$mode] ts=$timestamp')
+          .timeout(const Duration(seconds: 8));
       answered = true;
       NetworkService.instance.reportRequestSuccess();
       stopwatch.stop();
@@ -1709,6 +1729,33 @@ class StationDataService {
       return null;
     }
   }
+
+  /// GETs [uri], once more at once if the request failed in transport.
+  ///
+  /// Connections stay open between ticks, so a request can go out on one
+  /// the server or a NAT has just closed ("Connection closed before full
+  /// header was received", a reset). That is no outage and must not reach
+  /// NetworkService as one. dart:io drops the dead connection, so the
+  /// retry goes out on another. An HTTP error status is an answer and a
+  /// timeout is the caller's: neither is retried.
+  Future<http.Response> _getRetryingTransportFailure(
+      Uri uri, String label) async {
+    try {
+      return await _http.get(uri);
+    } catch (e) {
+      if (!_isTransportFailure(e)) rethrow;
+      _log("↻ metadata fetch $label connection lost, retrying: $e");
+      return _http.get(uri);
+    }
+  }
+
+  /// Whether [error] is the connection failing rather than the API
+  /// answering. [IOClient] reports dart:io's socket and HTTP errors as
+  /// [http.ClientException]s.
+  static bool _isTransportFailure(Object error) =>
+      error is http.ClientException ||
+      error is SocketException ||
+      error is HttpException;
 
   /// Merges lightweight live metadata (uptime, now_playing, listeners) into
   /// an existing station. Preserves all other fields (station_streams,
@@ -2072,6 +2119,32 @@ class StationDataService {
         stationGroups.value.where((g) => g.slug == slug).firstOrNull;
     if (group == null) return null;
     return {for (final e in group.station_to_station_groups) e.station_id};
+  }
+
+  /// The car "Categories" (CarPlay's grid, Android Auto's tab): the station
+  /// groups in the app's order, with the stations the listener can see.
+  CarCategoryLayout carCategoryLayout() {
+    final groups = stationGroups.value;
+    final indexed = [for (var i = 0; i < groups.length; i++) (i, groups[i])]
+      ..sort((a, b) {
+        final byOrder = a.$2.order.compareTo(b.$2.order);
+        return byOrder != 0 ? byOrder : a.$1.compareTo(b.$1);
+      });
+    return CarCategoryLayout.compute(
+      groups: [
+        for (final (_, group) in indexed)
+          CarCategory(
+            id: group.id,
+            slug: group.slug,
+            name: group.name,
+            stationIds: {
+              for (final link in group.station_to_station_groups)
+                link.station_id,
+            },
+          ),
+      ],
+      knownStationIds: {for (final s in visibleStations) s.id as int},
+    );
   }
 
   // ---------------------------------------------------------------------------
