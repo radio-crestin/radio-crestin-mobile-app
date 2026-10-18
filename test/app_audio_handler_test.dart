@@ -47,18 +47,6 @@ void main() {
     });
   });
 
-  group('PlayerState enum', () {
-    test('has all expected values', () {
-      expect(PlayerState.values, containsAll([
-        PlayerState.started,
-        PlayerState.stopped,
-        PlayerState.playing,
-        PlayerState.buffering,
-        PlayerState.error,
-      ]));
-    });
-  });
-
   group('Tracking URL parameters', () {
     String tracked(String url) => AppAudioHandler.withTrackingParameters(
           url,

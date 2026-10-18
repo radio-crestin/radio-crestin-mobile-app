@@ -85,8 +85,6 @@ class CastService {
   /// a station from this app, so we take ownership).
   bool _adoptedSession = false;
 
-  bool get isSessionAdopted => _adoptedSession;
-
   /// Mark the currently connected Cast session as adopted — tells
   /// `updateCastMetadata` to no-op so we don't send a LOAD that would
   /// replace another sender's media.

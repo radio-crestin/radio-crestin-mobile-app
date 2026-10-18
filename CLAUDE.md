@@ -14,7 +14,7 @@
 
 ## Project Overview
 
-Radio Crestin is a production Flutter app for streaming Romanian Christian radio stations. It supports background audio, CarPlay (iOS), Android Auto, NFC tag writing, deep linking, and push notifications. The app is live on both app stores.
+Radio Crestin is a production Flutter app for streaming Romanian Christian radio stations. It supports background audio, CarPlay (iOS), Android Auto, deep linking (also from NFC tags), and push notifications. The app is live on both app stores.
 
 **Version:** 1.3.2+56
 **Min Android SDK:** 21 | **Min iOS:** (CocoaPods managed)
@@ -180,7 +180,6 @@ lib/
   pages/
     HomePage.dart                    # Main page (tabs + sliding panel)
     SettingsPage.dart                # Settings screen
-    WriteNfcTag.dart                 # NFC tag writing
   widgets/
     animated_play_button.dart        # Two-layer optimistic play/pause button
     share_handler.dart               # Hands links to WhatsApp/Facebook/system share

@@ -21,7 +21,6 @@ void main() {
     Widget buildWidget({
       VoidCallback? onPlay,
       VoidCallback? onPause,
-      VoidCallback? onStop,
       double iconSize = 48,
       Color? backgroundColor,
     }) {
@@ -34,7 +33,6 @@ void main() {
             backgroundColor: backgroundColor,
             onPlay: onPlay ?? () {},
             onPause: onPause ?? () {},
-            onStop: onStop ?? () {},
           ),
         ),
       );
@@ -152,14 +150,11 @@ void main() {
     });
 
     testWidgets('tapping spinner cancels in-flight play via onPause', (tester) async {
-      // The widget intentionally routes spinner taps to onPause (not onStop)
-      // so a stuck buffering state doesn't kill the player and leave the
+      // A stuck buffering state must not stop the player, which left the
       // button unresponsive after skip-next. See AnimatedPlayButton.build().
       var pauseCalled = false;
-      var stopCalled = false;
       await tester.pumpWidget(buildWidget(
         onPause: () => pauseCalled = true,
-        onStop: () => stopCalled = true,
       ));
       await tester.pump();
 
@@ -172,7 +167,6 @@ void main() {
 
       await tester.tap(find.byType(InkWell));
       expect(pauseCalled, true);
-      expect(stopCalled, false);
     });
 
     testWidgets('renders with background color when provided', (tester) async {

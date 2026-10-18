@@ -54,9 +54,6 @@ class HlsSegmentLedger {
 
   HlsLedgerEntry? operator [](int seq) => _entries[seq];
 
-  bool get isEmpty => _entries.isEmpty;
-  int? get lastSeq => _entries.isEmpty ? null : _entries.lastKey();
-
   /// Whether [s] continues the recorded media: no known sequence number
   /// names a different segment, and the sequence did not restart below
   /// everything recorded (a playlist reset on today's backend).

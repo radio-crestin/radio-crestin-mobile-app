@@ -12,16 +12,9 @@ PODS:
     - Flutter
   - Firebase/CoreOnly (12.8.0):
     - FirebaseCore (~> 12.8.0)
-  - Firebase/Installations (12.8.0):
-    - Firebase/CoreOnly
-    - FirebaseInstallations (~> 12.8.0)
   - Firebase/Messaging (12.8.0):
     - Firebase/CoreOnly
     - FirebaseMessaging (~> 12.8.0)
-  - firebase_app_installations (0.4.0-6):
-    - Firebase/Installations (= 12.8.0)
-    - firebase_core
-    - Flutter
   - firebase_core (4.4.0):
     - Firebase/CoreOnly (= 12.8.0)
     - Flutter
@@ -59,8 +52,6 @@ PODS:
     - google-cast-sdk (~> 4.8)
     - Protobuf
   - flutter_native_splash (2.4.3):
-    - Flutter
-  - flutter_nfc_kit (3.6.0):
     - Flutter
   - fluttertoast (0.0.2):
     - Flutter
@@ -120,7 +111,7 @@ PODS:
     - Flutter
     - FlutterMacOS
     - PostHog (< 4.0.0, >= 3.61.0)
-  - PromisesObjC (2.4.0)
+  - PromisesObjC (2.4.1)
   - Protobuf (5.34.1)
   - quick_actions_ios (0.0.1):
     - Flutter
@@ -171,7 +162,6 @@ DEPENDENCIES:
   - audio_session (from `.symlinks/plugins/audio_session/ios`)
   - connectivity_plus (from `.symlinks/plugins/connectivity_plus/ios`)
   - device_info_plus (from `.symlinks/plugins/device_info_plus/ios`)
-  - firebase_app_installations (from `.symlinks/plugins/firebase_app_installations/ios`)
   - firebase_core (from `.symlinks/plugins/firebase_core/ios`)
   - firebase_messaging (from `.symlinks/plugins/firebase_messaging/ios`)
   - Flutter (from `Flutter`)
@@ -179,7 +169,6 @@ DEPENDENCIES:
   - flutter_carplay (from `.symlinks/plugins/flutter_carplay/ios`)
   - flutter_chrome_cast (from `.symlinks/plugins/flutter_chrome_cast/ios`)
   - flutter_native_splash (from `.symlinks/plugins/flutter_native_splash/ios`)
-  - flutter_nfc_kit (from `.symlinks/plugins/flutter_nfc_kit/ios`)
   - fluttertoast (from `.symlinks/plugins/fluttertoast/ios`)
   - in_app_review (from `.symlinks/plugins/in_app_review/ios`)
   - just_audio (from `.symlinks/plugins/just_audio/darwin`)
@@ -226,8 +215,6 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/connectivity_plus/ios"
   device_info_plus:
     :path: ".symlinks/plugins/device_info_plus/ios"
-  firebase_app_installations:
-    :path: ".symlinks/plugins/firebase_app_installations/ios"
   firebase_core:
     :path: ".symlinks/plugins/firebase_core/ios"
   firebase_messaging:
@@ -242,8 +229,6 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/flutter_chrome_cast/ios"
   flutter_native_splash:
     :path: ".symlinks/plugins/flutter_native_splash/ios"
-  flutter_nfc_kit:
-    :path: ".symlinks/plugins/flutter_nfc_kit/ios"
   fluttertoast:
     :path: ".symlinks/plugins/fluttertoast/ios"
   in_app_review:
@@ -288,7 +273,6 @@ SPEC CHECKSUMS:
   connectivity_plus: 2a701ffec2c0ae28a48cf7540e279787e77c447d
   device_info_plus: bf2e3232933866d73fe290f2942f2156cdd10342
   Firebase: 9a58fdbc9d8655ed7b79a19cf9690bb007d3d46d
-  firebase_app_installations: 5f02d479b71f445f230807551c7a70d5c352829a
   firebase_core: 8d5e24676350f15dd111aa59a88a1ae26605f9ba
   firebase_messaging: 834cfc0887393d3108cdb19da8e57655c54fd0e4
   FirebaseCore: 0dbad74bda10b8fb9ca34ad8f375fb9dd3ebef7c
@@ -300,7 +284,6 @@ SPEC CHECKSUMS:
   flutter_carplay: 7326e72d693f7540711bf2d80be7e5aee4fe22b5
   flutter_chrome_cast: 6c587fcbed3ad19ab8aba50c01af195be2290c7e
   flutter_native_splash: df59bb2e1421aa0282cb2e95618af4dcb0c56c29
-  flutter_nfc_kit: 3985c93f749b9cb4747479205c2f10bd2f877a11
   fluttertoast: 21eecd6935e7064cc1fcb733a4c5a428f3f24f0f
   google-cast-sdk: 32f65af50d164e3c475e79ad123db3cc26fbcd37
   GoogleDataTransport: aae35b7ea0c09004c3797d53c8c41f66f219d6a7
@@ -316,7 +299,7 @@ SPEC CHECKSUMS:
   permission_handler_apple: 9878588469a2b0d0fc1e048d9f43605f92e6cec2
   PostHog: 25761c8bb9adebb5ab0cf26dbb72f9a6dc8d77c6
   posthog_flutter: ba961b6d613822b95702e9a7e4e94548c511fef6
-  PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
+  PromisesObjC: 752c3227f599e3467650e47ea36f433eeb10c273
   Protobuf: b51e2d95aace0c1ce911b7483315efb7c3ab037f
   quick_actions_ios: b49ed09d6362da1bf520dacc204661978a8fc5c2
   share_plus: 8b6f8b3447e494cca5317c8c3073de39b3600d1f

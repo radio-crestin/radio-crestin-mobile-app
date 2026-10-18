@@ -56,7 +56,6 @@ class HomePage extends StatefulWidget {
 }
 
 class CustomPanelController extends PanelController {
-  final BehaviorSubject<bool> isDraggableSubject = BehaviorSubject.seeded(true);
 
   /// Whether the panel is expanded enough to show video / YouTube surfaces.
   /// Driven by the panel slide/open/close callbacks; the full player uses it to
@@ -77,29 +76,20 @@ class CustomPanelController extends PanelController {
       isExpandedSubject.add(expanded);
     }
   }
-
-  setIsDraggable(bool isDraggable) {
-    assert(isAttached, "PanelController must be attached to a SlidingUpPanel");
-    isDraggableSubject.add(isDraggable);
-  }
 }
 
 class HomePageState {
   final Station? currentStation;
   final List<Station> stations;
-  final List<Station> filteredStations;
   final List<Query$GetStations$station_groups> stationGroups;
   final Query$GetStations$station_groups? selectedStationGroup;
-  final bool isDraggable;
   final List<String> favoriteSlugs;
 
   const HomePageState(
     this.currentStation,
     this.stations,
-    this.filteredStations,
     this.stationGroups,
     this.selectedStationGroup,
-    this.isDraggable,
     this.favoriteSlugs,
   );
 }
@@ -222,9 +212,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       if (event is Map && event['action'] == 'showSongHistory') {
         final stationId = event['stationId'] as int?;
         final slug = event['stationSlug'] as String?;
-        final title = event['stationTitle'] as String?;
         final thumbUrl = event['stationThumbnailUrl'] as String?;
-        if (stationId != null && slug != null && title != null) {
+        if (stationId != null && slug != null) {
           // Open full player panel, then show song history modal
           if (slidingUpPanelController.isAttached) {
             slidingUpPanelController.open();
@@ -234,7 +223,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             SongHistoryModal.show(
               context,
               stationSlug: slug,
-              stationTitle: title,
               stationThumbnailUrl: thumbUrl,
               playedCutoff: () =>
                   _stationDataService.playedCutoffFor(stationId),
@@ -527,7 +515,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       SongHistoryModal.show(
         context,
         stationSlug: station.slug,
-        stationTitle: station.title,
         stationThumbnailUrl: station.thumbnailUrl,
         playedCutoff: () => _stationDataService.playedCutoffFor(station.id),
       );
@@ -731,26 +718,25 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   /// Created once: a stream built inside `build` would make the
   /// StreamBuilder cancel and resubscribe all seven sources (and rebuild the
   /// whole page again on their replay) on every HomePage rebuild.
-  late final Stream<HomePageState> _homeState = Rx.combineLatest7<
+  late final Stream<HomePageState> _homeState = Rx.combineLatest6<
       Station?,
       List<Station>,
       List<Station>,
       List<Query$GetStations$station_groups>,
       Query$GetStations$station_groups?,
-      bool,
       List<String>,
       HomePageState>(
     _audioHandler.currentStation.stream,
     _stationDataService.stations.stream,
+    // Only rebuilds the page: it reads the list sorted, see build().
     _stationDataService.filteredStations.stream,
     _stationDataService.stationGroups,
     _stationDataService.selectedStationGroup.stream,
-    slidingUpPanelController.isDraggableSubject,
     _stationDataService.favoriteStationSlugs.stream,
-    (currentStation, stations, filteredStations, stationGroups,
-            selectedStationGroup, isDraggable, favoriteSlugs) =>
-        HomePageState(currentStation, stations, filteredStations,
-            stationGroups, selectedStationGroup, isDraggable, favoriteSlugs),
+    (currentStation, stations, _, stationGroups, selectedStationGroup,
+            favoriteSlugs) =>
+        HomePageState(currentStation, stations, stationGroups,
+            selectedStationGroup, favoriteSlugs),
   );
 
   @override
@@ -774,7 +760,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             final currentStation = snapshot.data?.currentStation;
             final stations = snapshot.data?.stations ?? [];
             final stationGroups = snapshot.data?.stationGroups ?? [];
-            final isDraggable = snapshot.data?.isDraggable ?? true;
             final selectedStationGroup = snapshot.data?.selectedStationGroup;
             final favoriteSlugs = snapshot.data?.favoriteSlugs ?? [];
 
@@ -877,10 +862,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 topLeft: Radius.circular(16.0),
                 topRight: Radius.circular(16.0),
               ),
-              isDraggable: (slidingUpPanelController.isAttached &&
-                      (slidingUpPanelController.isPanelClosed ||
-                          slidingUpPanelController.isPanelOpen)) ||
-                  isDraggable,
               body: ClipRect(
                 clipper: _AbovePanelClipper(
                   slide: _panelSlide,

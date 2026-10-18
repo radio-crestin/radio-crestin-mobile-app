@@ -755,7 +755,6 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
           iconColor: glyphColor,
           onPlay: widget.audioHandler.play,
           onPause: widget.audioHandler.pause,
-          onStop: widget.audioHandler.stop,
         ),
         SizedBox(width: skipSpacing),
         SongSearchTipTapRegion(
@@ -1127,7 +1126,6 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     SongHistoryModal.show(
       context,
       stationSlug: station.slug,
-      stationTitle: station.title,
       stationThumbnailUrl: station.thumbnailUrl,
       playedCutoff: () => _stationDataService.playedCutoffFor(station.id),
     );

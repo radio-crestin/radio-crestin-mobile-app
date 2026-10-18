@@ -11,7 +11,6 @@ import 'package:url_launcher/url_launcher.dart';
 /// Features: grouped by date/hour, date filter, infinite scroll (1-hour pages).
 class SongHistoryModal extends StatefulWidget {
   final String stationSlug;
-  final String stationTitle;
   final String? stationThumbnailUrl;
 
   /// The newest instant the listener has heard on this station (the audible
@@ -22,7 +21,6 @@ class SongHistoryModal extends StatefulWidget {
   const SongHistoryModal({
     super.key,
     required this.stationSlug,
-    required this.stationTitle,
     this.stationThumbnailUrl,
     this.playedCutoff,
   });
@@ -30,7 +28,6 @@ class SongHistoryModal extends StatefulWidget {
   static Future<void> show(
     BuildContext context, {
     required String stationSlug,
-    required String stationTitle,
     String? stationThumbnailUrl,
     DateTime Function()? playedCutoff,
   }) {
@@ -41,7 +38,6 @@ class SongHistoryModal extends StatefulWidget {
       backgroundColor: Colors.transparent,
       builder: (context) => SongHistoryModal(
         stationSlug: stationSlug,
-        stationTitle: stationTitle,
         stationThumbnailUrl: stationThumbnailUrl,
         playedCutoff: playedCutoff,
       ),

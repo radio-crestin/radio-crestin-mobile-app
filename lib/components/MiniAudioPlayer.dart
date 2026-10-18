@@ -129,7 +129,6 @@ class MiniAudioPlayer extends StatelessWidget {
                       iconColor: Theme.of(context).iconTheme.color!,
                       onPlay: audioHandler.play,
                       onPause: audioHandler.pause,
-                      onStop: audioHandler.stop,
                     ),
                   ),
                 ],

@@ -131,12 +131,10 @@ class HistoryDateGroup {
 }
 
 class HistoryHourGroup {
-  final String hourKey;
   final String hourLabel;
   final List<SongHistoryItem> songs;
 
   const HistoryHourGroup({
-    required this.hourKey,
     required this.hourLabel,
     required this.songs,
   });
@@ -297,7 +295,6 @@ class SongHistoryService {
         songs.sort((a, b) => b.dateTime.compareTo(a.dateTime));
         final hour = songs.first.dateTime.toLocal().hour;
         return HistoryHourGroup(
-          hourKey: hourKey,
           hourLabel: '${hour.toString().padLeft(2, '0')}:00 - ${hour.toString().padLeft(2, '0')}:59',
           songs: songs,
         );

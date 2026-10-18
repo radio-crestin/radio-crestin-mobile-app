@@ -28,8 +28,6 @@ class VideoPlaybackService {
   Future<VideoController>? _initFuture;
   final List<StreamSubscription<dynamic>> _subs = [];
 
-  bool _live = false;
-  bool _muted = false;
   double _volume = 1.0;
 
   // Seeded so the UI/handler can subscribe before the first [open].
@@ -75,14 +73,6 @@ class VideoPlaybackService {
   /// The video output controller for the UI's `Video(controller: ...)` widget.
   /// Null until [ensureInitialized]/[open] has run.
   VideoController? get controller => _controller;
-
-  /// The underlying media_kit player. Prefer the wrapper methods; exposed for
-  /// advanced UI needs (e.g. track selection).
-  Player? get player => _player;
-
-  /// True when the current media was opened as a live stream (no seekable VOD
-  /// timeline). Drives `isLive` on the lock-screen media item.
-  bool get isLive => _live;
 
   Duration get position => _player?.state.position ?? Duration.zero;
   Duration get duration => _player?.state.duration ?? Duration.zero;
@@ -270,7 +260,6 @@ class VideoPlaybackService {
   }) async {
     await ensureInitialized();
     final player = _player!;
-    _live = live;
     _completed.add(false);
     // Reset first-frame tracking for the new media so the watchdog re-arms.
     _lastWidth = null;
@@ -283,8 +272,8 @@ class VideoPlaybackService {
     // starts fast, without leaving the tighter limits set for a later VOD.
     await _configureProbing(player, live);
     await player.open(Media(url), play: autoPlay);
-    // Re-apply volume/mute across media changes (libmpv keeps them, but be safe).
-    await player.setVolume(_muted ? 0.0 : _volume * 100.0);
+    // Re-apply the volume across media changes (libmpv keeps it, but be safe).
+    await player.setVolume(_volume * 100.0);
     if (!live && startPosition != null && startPosition > Duration.zero) {
       // Seek after open; libmpv accepts a seek queued right after load.
       await player.seek(startPosition);
@@ -307,12 +296,7 @@ class VideoPlaybackService {
   /// Sets volume in the 0..1 range (media_kit uses 0..100 internally).
   Future<void> setVolume(double volume) async {
     _volume = volume.clamp(0.0, 1.0);
-    if (!_muted) await _player?.setVolume(_volume * 100.0);
-  }
-
-  Future<void> setMute(bool mute) async {
-    _muted = mute;
-    await _player?.setVolume(mute ? 0.0 : _volume * 100.0);
+    await _player?.setVolume(_volume * 100.0);
   }
 
   /// Fully tears down native resources. After this the service must be

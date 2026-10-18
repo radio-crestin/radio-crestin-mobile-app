@@ -256,13 +256,6 @@ void main() {
               'real connectivity_plus event must always be respected.');
     });
 
-    test(
-        'FIX: bufferingStall within debounce → STILL reconnects '
-        '(we already waited 3s, this is escalation not noise)', () {
-      expect(call(ReconnectTrigger.bufferingStall, lastLoad: twoSecondsAgo),
-          isTrue);
-    });
-
     test('terminalState within debounce → no-op (debounce honored)', () {
       expect(call(ReconnectTrigger.terminalState, lastLoad: twoSecondsAgo),
           isFalse);
@@ -362,10 +355,9 @@ void main() {
   });
 
   group('ReconnectTrigger taxonomy', () {
-    test('all four triggers are defined', () {
+    test('all three triggers are defined', () {
       expect(ReconnectTrigger.values, containsAll([
         ReconnectTrigger.networkRestored,
-        ReconnectTrigger.bufferingStall,
         ReconnectTrigger.lifecycleResumed,
         ReconnectTrigger.terminalState,
       ]));

@@ -23,11 +23,10 @@ void main() {
         expect(SeekModeManager.currentOffset, const Duration(minutes: 5));
       });
 
-      test('forces effectiveSeekMode to fiveMinutes', () {
+      test('forces 5 minutes over two minutes and reports itself', () {
         SeekModeManager.changeSeekMode(SeekMode.twoMinutes);
-        expect(SeekModeManager.effectiveSeekMode, SeekMode.twoMinutes);
         SeekModeManager.changeAutoSlowConnection(true);
-        expect(SeekModeManager.effectiveSeekMode, SeekMode.fiveMinutes);
+        expect(SeekModeManager.currentOffset, const Duration(minutes: 5));
         expect(SeekModeManager.isAutoSlowConnection, isTrue);
       });
 
@@ -57,12 +56,6 @@ void main() {
         SeekModeManager.changeSeekMode(SeekMode.twoMinutes);
         SeekModeManager.changeUnstableConnection(true);
         expect(SeekModeManager.currentOffset, const Duration(minutes: 5));
-      });
-
-      test('effectiveSeekMode reflects the override', () {
-        SeekModeManager.changeSeekMode(SeekMode.instant);
-        SeekModeManager.changeCarConnected(true);
-        expect(SeekModeManager.effectiveSeekMode, SeekMode.fiveMinutes);
       });
     });
 
@@ -119,37 +112,6 @@ void main() {
       });
     });
 
-    group('loadSeekMode', () {
-      test('returns twoMinutes as default', () async {
-        final mode = await SeekModeManager.loadSeekMode();
-        expect(mode, SeekMode.twoMinutes);
-      });
-
-      test('loads instant mode', () async {
-        SharedPreferences.setMockInitialValues({
-          'seek_mode': 'SeekMode.instant',
-        });
-        final mode = await SeekModeManager.loadSeekMode();
-        expect(mode, SeekMode.instant);
-      });
-
-      test('loads fiveMinutes mode', () async {
-        SharedPreferences.setMockInitialValues({
-          'seek_mode': 'SeekMode.fiveMinutes',
-        });
-        final mode = await SeekModeManager.loadSeekMode();
-        expect(mode, SeekMode.fiveMinutes);
-      });
-
-      test('returns twoMinutes for unknown value', () async {
-        SharedPreferences.setMockInitialValues({
-          'seek_mode': 'SeekMode.unknown',
-        });
-        final mode = await SeekModeManager.loadSeekMode();
-        expect(mode, SeekMode.twoMinutes);
-      });
-    });
-
     group('changeSeekMode', () {
       test('updates the ValueNotifier', () {
         SeekModeManager.changeSeekMode(SeekMode.instant);
@@ -193,6 +155,21 @@ void main() {
 
         SeekModeManager.initializeFromPrefs(prefs);
         expect(SeekModeManager.seekMode.value, SeekMode.twoMinutes);
+      });
+
+      test('loads instant mode; an unknown value is two minutes', () async {
+        Future<SeekMode> initializedWith(String saved) async {
+          SharedPreferences.setMockInitialValues({
+            'seek_mode_migrated_v2': true,
+            'seek_mode': saved,
+          });
+          SeekModeManager.initializeFromPrefs(
+              await SharedPreferences.getInstance());
+          return SeekModeManager.seekMode.value;
+        }
+
+        expect(await initializedWith('SeekMode.instant'), SeekMode.instant);
+        expect(await initializedWith('SeekMode.unknown'), SeekMode.twoMinutes);
       });
 
       test('v2 migration hard-resets a legacy 5-minute install exactly once',

@@ -186,7 +186,6 @@ class AppColors {
   static const Color lightText = Color(0xff000000);
   static const Color lightTextSecondary = Color(0x8a000000);
   static const Color lightDivider = Color(0x1f000000);
-  static const Color lightDisabled = Color(0x61000000);
 
   // Dark theme colors
   static const Color darkBackground = Color(0xff121212);
@@ -194,7 +193,6 @@ class AppColors {
   static const Color darkText = Colors.white;
   static const Color darkTextSecondary = Color(0xb3ffffff);
   static const Color darkDivider = Color(0x1fffffff);
-  static const Color darkDisabled = Color(0x62ffffff);
 
   // The full player's panel, from the glow behind the artwork to the bottom
   // edge: a wine that deepens downward in the dark theme, a soft pink that
@@ -335,7 +333,6 @@ class AppColors {
   static const Color error = Color(0xffd32f2f);
   static const Color success = Colors.green;
   static const Color offline = Colors.red;
-  static const Color offlineBanner = Color(0xFF2C2C2C);
 }
 
 /// Corner radii for station artwork across the app.

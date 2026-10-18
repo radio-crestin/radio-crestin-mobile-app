@@ -40,11 +40,6 @@ class PlaylistSyncService {
   /// Emits the full ordered playlist on every successful poll (may be empty).
   Stream<List<PlaylistItem>> get updates => _updates.stream;
 
-  /// The station slug currently being synced, or null when idle.
-  String? get activeSlug => _activeSlug;
-
-  bool get isRunning => _timer != null;
-
   /// Starts polling [stationSlug]. Fetches immediately, then every 5s. Calling
   /// with a different slug switches targets; calling with the same slug while
   /// already running is a no-op.

@@ -32,37 +32,6 @@ void main() {
       });
     });
 
-    group('loadThemeMode', () {
-      test('returns dark when nothing is stored', () async {
-        final mode = await ThemeManager.loadThemeMode();
-        expect(mode, ThemeMode.dark);
-      });
-
-      test('returns light when light is stored', () async {
-        SharedPreferences.setMockInitialValues({
-          'theme_mode': 'ThemeMode.light',
-        });
-        final mode = await ThemeManager.loadThemeMode();
-        expect(mode, ThemeMode.light);
-      });
-
-      test('returns dark when dark is stored', () async {
-        SharedPreferences.setMockInitialValues({
-          'theme_mode': 'ThemeMode.dark',
-        });
-        final mode = await ThemeManager.loadThemeMode();
-        expect(mode, ThemeMode.dark);
-      });
-
-      test('returns system for unknown stored value', () async {
-        SharedPreferences.setMockInitialValues({
-          'theme_mode': 'ThemeMode.unknown',
-        });
-        final mode = await ThemeManager.loadThemeMode();
-        expect(mode, ThemeMode.system);
-      });
-    });
-
     group('changeThemeMode', () {
       test('updates the ValueNotifier', () {
         ThemeManager.changeThemeMode(ThemeMode.light);
@@ -82,20 +51,29 @@ void main() {
       });
     });
 
-    group('initialize', () {
-      test('loads saved theme and updates notifier', () async {
-        SharedPreferences.setMockInitialValues({
-          'theme_mode': 'ThemeMode.light',
-        });
+    group('initializeFromPrefs', () {
+      Future<ThemeMode> initializedWith(Map<String, Object> saved) async {
+        SharedPreferences.setMockInitialValues(saved);
+        ThemeManager.initializeFromPrefs(await SharedPreferences.getInstance());
+        return ThemeManager.themeMode.value;
+      }
 
-        await ThemeManager.initialize();
-        expect(ThemeManager.themeMode.value, ThemeMode.light);
+      test('defaults to dark when nothing is saved', () async {
+        expect(await initializedWith({}), ThemeMode.dark);
       });
 
-      test('defaults to dark when nothing saved', () async {
-        SharedPreferences.setMockInitialValues({});
-        await ThemeManager.initialize();
-        expect(ThemeManager.themeMode.value, ThemeMode.dark);
+      test('loads the saved theme', () async {
+        expect(await initializedWith({'theme_mode': 'ThemeMode.light'}),
+            ThemeMode.light);
+        expect(await initializedWith({'theme_mode': 'ThemeMode.dark'}),
+            ThemeMode.dark);
+        expect(await initializedWith({'theme_mode': 'ThemeMode.system'}),
+            ThemeMode.system);
+      });
+
+      test('falls back to system for an unknown value', () async {
+        expect(await initializedWith({'theme_mode': 'ThemeMode.unknown'}),
+            ThemeMode.system);
       });
     });
   });

@@ -524,7 +524,6 @@ class _Transport extends StatelessWidget {
           backgroundColor: Theme.of(context).bottomAppBarTheme.color,
           onPlay: audioHandler.play,
           onPause: audioHandler.pause,
-          onStop: audioHandler.stop,
         ),
         const SizedBox(width: 24),
         InkWell(

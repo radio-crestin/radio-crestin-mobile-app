@@ -10,7 +10,6 @@ class AnimatedPlayButton extends StatefulWidget {
   final Color? backgroundColor;
   final VoidCallback onPlay;
   final VoidCallback onPause;
-  final VoidCallback onStop;
 
   const AnimatedPlayButton({
     super.key,
@@ -19,7 +18,6 @@ class AnimatedPlayButton extends StatefulWidget {
     required this.iconColor,
     required this.onPlay,
     required this.onPause,
-    required this.onStop,
     this.backgroundColor,
   });
 
@@ -183,9 +181,9 @@ class AnimatedPlayButtonState extends State<AnimatedPlayButton> {
 
     final VoidCallback onTap;
     if (showSpinner) {
-      // During loading/buffering, tapping pauses (cancels in-flight play).
-      // Previously this called onStop() which killed the player entirely,
-      // making the button unresponsive after skip next.
+      // During loading/buffering, tapping pauses (cancels in-flight play)
+      // rather than stopping, which left the button unresponsive after a
+      // skip.
       onTap = () { _setIntent(false); widget.onPause(); };
     } else if (showPlaying) {
       onTap = () { _setIntent(false); widget.onPause(); };

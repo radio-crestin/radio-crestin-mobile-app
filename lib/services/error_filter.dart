@@ -105,11 +105,6 @@ class ErrorFilter {
     return false;
   }
 
-  /// Whether [error] should be reported to error tracking. The negation of
-  /// [isBenign]; provided for call-site readability.
-  static bool shouldReport(Object error, [StackTrace? stackTrace]) =>
-      !isBenign(error, stackTrace);
-
   static bool _containsUrl(String text) =>
       text.contains('http://') || text.contains('https://');
 }

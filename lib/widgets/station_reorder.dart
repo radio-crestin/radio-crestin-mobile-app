@@ -41,9 +41,6 @@ class StationReorder extends ChangeNotifier {
   /// Whether the rows are taking their new places, all at once.
   bool _settling = false;
 
-  /// Whether a row is being moved, or settling after.
-  bool get isDragging => _drag != null;
-
   /// Whether [slug]'s row is the one the finger moves.
   bool isMoving(String slug) => _drag?.slug == slug;
 

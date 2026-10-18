@@ -97,13 +97,4 @@ void main() {
       expect(ErrorFilter.isBenign(StateError('Failed to load data')), isFalse);
     });
   });
-
-  group('ErrorFilter.shouldReport', () {
-    test('is the negation of isBenign', () {
-      final benign = PlayerInterruptedException('Loading interrupted');
-      final real = ArgumentError('boom');
-      expect(ErrorFilter.shouldReport(benign), isFalse);
-      expect(ErrorFilter.shouldReport(real), isTrue);
-    });
-  });
 }

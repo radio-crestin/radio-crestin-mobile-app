@@ -335,14 +335,6 @@ packages:
       relative: true
     source: path
     version: "2.0.2"
-  easy_search_bar:
-    dependency: "direct main"
-    description:
-      name: easy_search_bar
-      sha256: b20343be8ab94ed9e1550cf8cbd5323c344bd9b58b9319fb6e62d75395c0bcaa
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.5.0"
   extended_image:
     dependency: "direct main"
     description:
@@ -391,30 +383,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "7.0.1"
-  firebase_app_installations:
-    dependency: "direct main"
-    description:
-      name: firebase_app_installations
-      sha256: "4a242ab20ae423ff9d84e2ac257d4a262675c05343a517827159bf0316ff76f9"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.4.0+6"
-  firebase_app_installations_platform_interface:
-    dependency: transitive
-    description:
-      name: firebase_app_installations_platform_interface
-      sha256: fcc5af54f2cd018453ada243075f463a5da0aaf3779c9cb7d060708910fdc6e5
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.1.4+65"
-  firebase_app_installations_web:
-    dependency: transitive
-    description:
-      name: firebase_app_installations_web
-      sha256: "020c73ff3e75f5d10713f2e225451087dc042594c68f6e6a979de69d9d63fe41"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.1.7+2"
   firebase_core:
     dependency: "direct main"
     description:
@@ -537,14 +505,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.4.7"
-  flutter_nfc_kit:
-    dependency: "direct main"
-    description:
-      name: flutter_nfc_kit
-      sha256: a2b324785173930f1b5afac8b190637d612593b994ecfd0a5334b72a841b9298
-      url: "https://pub.dev"
-    source: hosted
-    version: "3.6.2"
   flutter_sticky_header:
     dependency: "direct main"
     description:
@@ -1051,14 +1011,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.0"
-  mockito:
-    dependency: "direct dev"
-    description:
-      name: mockito
-      sha256: a45d1aa065b796922db7b9e7e7e45f921aed17adf3a8318a1f47097e7e695566
-      url: "https://pub.dev"
-    source: hosted
-    version: "5.6.3"
   native_toolchain_c:
     dependency: transitive
     description:
@@ -1067,22 +1019,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.17.6"
-  ndef:
-    dependency: transitive
-    description:
-      name: ndef
-      sha256: "198ba3798e80cea381648569d84059dbba64cd140079fb7b0d9c3f1e0f5973f3"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.4.0"
-  nested:
-    dependency: transitive
-    description:
-      name: nested
-      sha256: "03bac4c528c64c95c722ec99280375a6f2fc708eec17c7b3f07253b626cd2a20"
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.0.0"
   nm:
     dependency: transitive
     description:
@@ -1299,14 +1235,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "5.30.0"
-  provider:
-    dependency: "direct main"
-    description:
-      name: provider
-      sha256: "4e82183fa20e5ca25703ead7e05de9e4cceed1fbd1eadc1ac3cb6f565a09f272"
-      url: "https://pub.dev"
-    source: hosted
-    version: "6.1.5+1"
   pub_semver:
     dependency: transitive
     description:
@@ -1503,14 +1431,6 @@ packages:
       relative: true
     source: path
     version: "3.3.0+1"
-  source_gen:
-    dependency: transitive
-    description:
-      name: source_gen
-      sha256: "1d562a3c1f713904ebbed50d2760217fd8a51ca170ac4b05b0db490699dbac17"
-      url: "https://pub.dev"
-    source: hosted
-    version: "4.2.0"
   source_span:
     dependency: transitive
     description:

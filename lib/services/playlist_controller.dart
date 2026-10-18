@@ -119,10 +119,6 @@ class PlaylistController {
   bool get isActive => _activeStation != null;
   int get itemCount => items.value.length;
 
-  /// The video service backing `video`-type items — the UI embeds
-  /// `Video(controller: playlistController.videoService.controller)`.
-  VideoPlaybackService get videoService => _video;
-
   bool _wired = false;
   final List<StreamSubscription<dynamic>> _subs = [];
 

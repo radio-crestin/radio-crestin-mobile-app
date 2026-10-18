@@ -52,19 +52,17 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'constants.dart';
 import 'globals.dart' as globals;
 
-enum PlayerState { started, stopped, playing, buffering, error }
-
 /// Why a [reconnectIfNeeded] call was issued. Controls whether the
 /// "just successfully loaded" debounce applies.
 ///
 /// AVPlayer occasionally misreports `completed` / `idle-while-playing`
 /// in the first ~8s after a successful HLS load (PDT-decoder confusion).
 /// To avoid a reload loop, lifecycle/terminal-state triggers are debounced.
-/// True external events — a network drop+restore, or a sustained buffering
-/// stall — are not debounced: they're real reconnect signals, not flickers.
+/// A network drop+restore is not debounced: it is a real reconnect signal,
+/// not a flicker. (A sustained buffering stall replays directly, see
+/// [ReconnectPolicy.bufferingStallTimeout].)
 enum ReconnectTrigger {
   networkRestored,    // NetworkService.isOffline true → false (bypass debounce)
-  bufferingStall,     // _bufferingStallTimer fired (bypass debounce)
   lifecycleResumed,   // App returned to foreground (honor debounce)
   terminalState,      // processingState == completed/idle (honor debounce)
 }
@@ -231,14 +229,13 @@ class LiveHlsLoadPauses {
   static double _seconds(Duration d) => d.inMilliseconds / 1000;
 }
 
-/// Pure fast-start tuning policy: how conservatively the player should buffer
-/// before it begins (or resumes) playback, split by whether the source is a
-/// live stream or seekable VOD.
+/// Pure fast-start tuning policy: how much the player buffers before it
+/// begins (or resumes) playback.
 ///
 /// The just_audio player is a single instance shared by live radio/TV and VOD
-/// playlist items, so its load configuration is global. These values encode the
-/// intent (live favours a snappy start; VOD keeps a safer pre-roll) and are the
-/// single source of truth used both when constructing the player and in tests.
+/// playlist items, so its load configuration is global and tuned for live.
+/// These values are the single source of truth used both when constructing
+/// the player and in tests.
 class FastStartConfig {
   /// Android `bufferForPlaybackDuration` for live: lowered from 3s so ExoPlayer
   /// starts ~1.5s sooner. Safe because the 50s `minBufferDuration`, the 2s
@@ -246,13 +243,6 @@ class FastStartConfig {
   /// rebuffer risk — this only moves the "ok to start" line, not the fill goal.
   static const Duration liveAndroidBufferForPlayback =
       Duration(milliseconds: 1500);
-
-  /// Android `bufferForPlaybackDuration` for VOD — keeps the conservative 3s
-  /// (a VOD stall is more jarring than a few hundred ms of live start latency).
-  static const Duration vodAndroidBufferForPlayback = Duration(seconds: 3);
-
-  static Duration androidBufferForPlayback({required bool isLive}) =>
-      isLive ? liveAndroidBufferForPlayback : vodAndroidBufferForPlayback;
 
   /// iOS/macOS `automaticallyWaitsToMinimizeStalling` for live sources. Must
   /// stay true, like VOD. With false, a resumed live stream (after a pause or
@@ -275,9 +265,8 @@ class ReconnectPolicy {
   ///
   /// Only honored for [ReconnectTrigger.lifecycleResumed] and
   /// [ReconnectTrigger.terminalState] — those are the triggers that
-  /// genuinely fire on AVPlayer noise. A real network drop+restore or a
-  /// sustained buffering stall is not noise; suppressing them was the
-  /// root cause of "audio doesn't come back after airplane mode" when
+  /// genuinely fire on AVPlayer noise. A real network drop+restore is not
+  /// noise; suppressing it was the root cause of "audio doesn't come back after airplane mode" when
   /// the toggle happened within 8s of a successful load.
   static const Duration justLoadedDebounce = Duration(seconds: 8);
 
@@ -1632,8 +1621,8 @@ class AppAudioHandler extends BaseAudioHandler {
   /// list, under [id] (by default its own media id).
   ///
   /// The stations of [starred] get a star, as CarPlay marks favorites in
-  /// lists that mix them with other stations. Search, [playFromMediaId]
-  /// and the NFC page read the plain titles of [stationsMediaItems].
+  /// lists that mix them with other stations. Search and
+  /// [playFromMediaId] read the plain titles of [stationsMediaItems].
   ///
   /// Without [withSong], the row leaves out the song playing on the
   /// station and keeps only what doesn't change while it plays ("Listă de
@@ -2375,7 +2364,6 @@ class AppAudioHandler extends BaseAudioHandler {
           'action': 'showSongHistory',
           'stationId': station.id,
           'stationSlug': station.slug,
-          'stationTitle': station.title,
           'stationThumbnailUrl': station.thumbnailUrl,
         });
         break;
@@ -2707,12 +2695,6 @@ class AppAudioHandler extends BaseAudioHandler {
     final streams = Utils.getStationStreamObjects(station.rawStationData);
     if (streams.isEmpty) return null;
     return streams.first['url'];
-  }
-
-  /// Returns stations sorted by the user's saved sort preference.
-  /// Delegates to StationDataService (the single source of truth).
-  List<Station> getSortedStations() {
-    return stationDataService.getSortedStations();
   }
 
   @override
@@ -5625,18 +5607,13 @@ class AppAudioHandler extends BaseAudioHandler {
     }
   }
 
-
-  String get currentStreamUrl {
-    return mediaItem.value?.id ?? "-";
-  }
-
   /// Reconnect if the stream was silently lost or the user-intent says
   /// "play" but the player isn't. Decision delegated to [ReconnectPolicy]
   /// so the timing rules (debounce, who bypasses it) live in one
   /// unit-testable place.
   ///
   /// [trigger] determines whether the just-loaded debounce applies:
-  ///   - networkRestored / bufferingStall: bypass (real reconnect signals)
+  ///   - networkRestored: bypass (a real reconnect signal)
   ///   - lifecycleResumed / terminalState: honor (AVPlayer noise)
   void reconnectIfNeeded({
     ReconnectTrigger trigger = ReconnectTrigger.lifecycleResumed,

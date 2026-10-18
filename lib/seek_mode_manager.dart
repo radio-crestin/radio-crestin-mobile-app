@@ -20,8 +20,6 @@ class SeekModeManager {
   static ValueNotifier<SeekMode> get seekMode => _seekModeNotifier;
   static ValueNotifier<bool> get unstableConnection => _unstableConnectionNotifier;
   static ValueNotifier<bool> get carConnected => _carConnectedNotifier;
-  static ValueNotifier<bool> get autoSlowConnection =>
-      _autoSlowConnectionNotifier;
 
   /// Notifies whenever [currentOffset] may have changed: the setting, a car
   /// connection, the unstable-connection toggle or the auto-detected slow
@@ -60,13 +58,6 @@ class SeekModeManager {
     }
   }
 
-  /// The effective seek mode considering car connection, manual unstable, and
-  /// auto-detected slow-connection overrides.
-  static SeekMode get effectiveSeekMode {
-    if (_forcesFiveMinutes) return SeekMode.fiveMinutes;
-    return _seekModeNotifier.value;
-  }
-
   static void changeCarConnected(bool connected) {
     _carConnectedNotifier.value = connected;
   }
@@ -81,12 +72,6 @@ class SeekModeManager {
   static Future<void> saveSeekMode(SeekMode mode) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_seekModeKey, mode.toString());
-  }
-
-  static Future<SeekMode> loadSeekMode() async {
-    final prefs = await SharedPreferences.getInstance();
-    final seekModeString = prefs.getString(_seekModeKey);
-    return _parseSeekMode(seekModeString);
   }
 
   static void changeSeekMode(SeekMode mode) {
