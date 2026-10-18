@@ -175,7 +175,7 @@ void main() {
 
   test(
       'a song change reloads only the Favorite tab, when the station is a '
-      'favorite; Toate stațiile and the categories show no songs', () async {
+      'favorite; Toate radiourile and the categories show no songs', () async {
     addCopii();
     backend.songChange(5, t(-100), const FakeSong(51, 'Song B'));
     await withBackend(() async {
@@ -211,18 +211,21 @@ void main() {
   });
 
   test(
-      'the root tabs stay put through station data and favorites, and '
-      'reload when Categorii comes', () async {
+      'the root tabs stay put; Categorii stays put through songs and '
+      'favorites and reloads when a category comes', () async {
     await withBackend(() async {
       await startHandler();
       final changes = await changesOf(root);
-      expect(await titlesIn(root), ['Favorite', 'Toate stațiile']);
+      final categories = await changesOf(categoriesTab);
+      expect(await titlesIn(root), ['Favorite', 'Categorii']);
+      expect(await titlesIn(categoriesTab), ['Toate radiourile']);
 
       backend.songChange(3, t(30), const FakeSong(32, 'Song N'));
       await poll();
       await until(() => publishedOf('s3').displaySubtitle == 'Song N');
       await service.setStationIsFavorite(stationOf(3), true);
       await pumpEventQueue();
+      expect(categories, isEmpty);
       expect(changes, isEmpty);
 
       service.stationGroups.add([
@@ -241,11 +244,13 @@ void main() {
             ],
           ),
       ]);
-      await until(() => changes.isNotEmpty);
+      await until(() => categories.isNotEmpty);
       await pumpEventQueue();
-      expect(changes, hasLength(1));
+      expect(categories, hasLength(1));
       expect(
-          await titlesIn(root), ['Favorite', 'Toate stațiile', 'Categorii']);
+          await titlesIn(categoriesTab), ['Toate radiourile', 'copii']);
+      expect(changes, isEmpty);
+      expect(await titlesIn(root), ['Favorite', 'Categorii']);
     });
   });
 

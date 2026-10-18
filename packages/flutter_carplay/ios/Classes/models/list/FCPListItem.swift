@@ -89,6 +89,13 @@ class FCPListItem {
       listItem.setImage(loaded)
       return
     }
+    // A symbol tile is drawn at once, so it reaches the car with the list
+    // instead of a moment after it.
+    if case .symbolTile(let name, let color) = image.toImageSource(),
+       let tile = makeSymbolTileImage(named: name, color: color) {
+      listItem.setImage(tile)
+      return
+    }
     listItem.setImage(makeSafeUIPlaceholder())
     fetchImage(image, into: listItem)
   }

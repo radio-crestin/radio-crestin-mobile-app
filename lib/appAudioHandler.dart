@@ -1561,8 +1561,7 @@ class AppAudioHandler extends BaseAudioHandler {
   static const _androidResources =
       'android.resource://com.radiocrestin.radio_crestin/drawable';
 
-  /// The root tabs: Favorite, Toate stațiile and, when a category
-  /// qualifies, Categorii, as on CarPlay.
+  /// The root tabs: Favorite and Categorii, as on CarPlay.
   List<MediaItem> _androidAutoTabs() => [
         MediaItem(
           id: AndroidAutoBrowseIds.favorites,
@@ -1574,32 +1573,36 @@ class AppAudioHandler extends BaseAudioHandler {
           },
         ),
         MediaItem(
-          id: AndroidAutoBrowseIds.allStations,
-          title: CarStrings.allStations,
-          artUri: Uri.parse('$_androidResources/ic_radio'),
+          id: AndroidAutoBrowseIds.categories,
+          title: CarStrings.categories,
+          artUri: Uri.parse('$_androidResources/ic_category'),
           playable: false,
           extras: const {
-            'android.media.browse.CONTENT_STYLE_PLAYABLE_HINT': 1, // list
+            'android.media.browse.CONTENT_STYLE_BROWSABLE_HINT': 1, // list
           },
         ),
-        if (!stationDataService.carCategoryLayout().isEmpty)
-          MediaItem(
-            id: AndroidAutoBrowseIds.categories,
-            title: CarStrings.categories,
-            artUri: Uri.parse('$_androidResources/ic_category'),
-            playable: false,
-            extras: const {
-              'android.media.browse.CONTENT_STYLE_BROWSABLE_HINT': 1, // list
-            },
-          ),
       ];
 
-  /// The categories, in the order a CarPlay driver meets them (see
-  /// [CarCategoryLayout.all]), each with its CarPlay symbol as a white
-  /// icon. Android Auto lists scroll, so the ones behind CarPlay's
-  /// "Mai multe" need no level of their own.
+  /// The Categorii tab: every station first, then the categories in the
+  /// order a CarPlay driver meets them (see [CarCategoryLayout.all]), each
+  /// with its CarPlay symbol as a white icon. Android Auto lists scroll, so
+  /// the ones behind CarPlay's "Mai multe" need no level of their own.
   List<MediaItem> _androidAutoCategories() {
     return [
+      MediaItem(
+        id: AndroidAutoBrowseIds.allStations,
+        title: CarStrings.allStations,
+        displayTitle: CarStrings.allStations,
+        displaySubtitle: CarPlayService.stationCountText(
+          stationsMediaItems.value.length,
+          isRomanian: true,
+        ),
+        artUri: Uri.parse('$_androidResources/ic_category_all'),
+        playable: false,
+        extras: const {
+          'android.media.browse.CONTENT_STYLE_PLAYABLE_HINT': 1, // list
+        },
+      ),
       for (final category in stationDataService.carCategoryLayout().all)
         MediaItem(
           id: AndroidAutoBrowseIds.group(category.slug),
@@ -1811,9 +1814,8 @@ class AppAudioHandler extends BaseAudioHandler {
   /// from where the driver scrolled (a tap then starts another station), so
   /// a poll that changes nothing on the screen, such as listener counts,
   /// reloads nothing. The songs under the favorites stay live, as on
-  /// CarPlay; Toate stațiile and the categories show none (see
-  /// [_androidAutoRow]), and the root tabs reload only when Categorii comes
-  /// or goes.
+  /// CarPlay; Toate radiourile and the categories show none (see
+  /// [_androidAutoRow]). The root tabs never change.
   ///
   /// audio_service reloads the folder on every event. The sources are
   /// [BehaviorSubject]s that replay their values on listen, so the first

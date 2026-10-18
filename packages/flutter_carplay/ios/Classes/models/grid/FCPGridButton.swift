@@ -85,7 +85,7 @@ class FCPGridButton {
     switch source {
     case .url, .file:
       return uiImage.isSymbolImage ? uiImage : makeRoundedSquareImage(from: uiImage)
-    case .flutterAsset, .systemSymbol:
+    case .flutterAsset, .systemSymbol, .symbolTile:
       return uiImage
     }
   }

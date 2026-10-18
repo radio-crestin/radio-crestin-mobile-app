@@ -76,7 +76,7 @@ void main() {
   group('CarStrings', () {
     test("CarPlay's wording", () {
       expect(CarStrings.favorites, 'Favorite');
-      expect(CarStrings.allStations, 'Toate stațiile');
+      expect(CarStrings.allStations, 'Toate radiourile');
       expect(CarStrings.categories, 'Categorii');
       expect(CarStrings.songHistory, 'Redate recent');
       expect(CarStrings.starred('RVE Brasov'), '★ RVE Brasov');

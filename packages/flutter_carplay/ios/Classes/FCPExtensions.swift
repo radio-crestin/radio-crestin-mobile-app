@@ -14,6 +14,9 @@ enum ImageSource {
     case flutterAsset(String)
     // An SF Symbol, written "sf:<name>" on the Dart side.
     case systemSymbol(String)
+    // An SF Symbol on a square of a color, written "tile:<name>:<RRGGBB>"
+    // on the Dart side.
+    case symbolTile(String, UIColor)
 }
 
 // String → ImageSource
@@ -21,6 +24,13 @@ extension String {
     func toImageSource() -> ImageSource {
         if self.hasPrefix("sf:") {
             return .systemSymbol(String(self.dropFirst(3)))
+        } else if self.hasPrefix("tile:") {
+            let parts = self.dropFirst(5).split(separator: ":", maxSplits: 1)
+            let name = parts.first.map(String.init) ?? ""
+            guard parts.count > 1, let color = UIColor(rgbHex: String(parts[1])) else {
+                return .systemSymbol(name)
+            }
+            return .symbolTile(name, color)
         } else if self.starts(with: "http") {
             guard let url = URL(string: self) else {
                 return .flutterAsset(self)
@@ -81,6 +91,54 @@ func makeUIImage(from source: ImageSource) -> UIImage {
     case .systemSymbol(let name):
         return makeSystemSymbolImage(named: name)
             ?? UIImage(systemName: "questionmark")!
+
+    case .symbolTile(let name, let color):
+        return makeSymbolTileImage(named: name, color: color)
+            ?? UIImage(systemName: "questionmark")!
+    }
+}
+
+extension UIColor {
+    // A color written "RRGGBB"; nil for anything else.
+    convenience init?(rgbHex: String) {
+        guard rgbHex.count == 6, let value = UInt32(rgbHex, radix: 16) else {
+            return nil
+        }
+        self.init(
+            red: CGFloat((value >> 16) & 0xFF) / 255,
+            green: CGFloat((value >> 8) & 0xFF) / 255,
+            blue: CGFloat(value & 0xFF) / 255,
+            alpha: 1
+        )
+    }
+}
+
+// The SF Symbol `name` in dark grey on a square of `color`, the way a
+// category shows in car lists. CarPlay rounds the corners itself. Nil when
+// iOS has no symbol with that name.
+func makeSymbolTileImage(named name: String, color: UIColor, side: CGFloat = 100) -> UIImage? {
+    let config = UIImage.SymbolConfiguration(pointSize: side * 0.4, weight: .medium)
+    guard let symbol = UIImage(systemName: name, withConfiguration: config) else {
+        return nil
+    }
+    let format = UIGraphicsImageRendererFormat()
+    format.opaque = false
+    format.scale = 3
+    let canvas = CGRect(x: 0, y: 0, width: side, height: side)
+    // Wide symbols (e.g. two figures) shrink to keep the same margin.
+    let fit = min(1, side * 0.5 / max(symbol.size.width, symbol.size.height))
+    let size = CGSize(width: symbol.size.width * fit, height: symbol.size.height * fit)
+    let frame = CGRect(
+        x: (side - size.width) / 2,
+        y: (side - size.height) / 2,
+        width: size.width,
+        height: size.height
+    )
+    let glyph = UIColor(red: 0.11, green: 0.11, blue: 0.14, alpha: 1)
+    return UIGraphicsImageRenderer(bounds: canvas, format: format).image { context in
+        color.setFill()
+        context.fill(canvas)
+        symbol.withTintColor(glyph, renderingMode: .alwaysOriginal).draw(in: frame)
     }
 }
 
@@ -219,7 +277,7 @@ enum FCPImageCache {
             DispatchQueue.global(qos: .userInitiated).async {
                 finish(FileManager.default.contents(atPath: path))
             }
-        case .flutterAsset, .systemSymbol:
+        case .flutterAsset, .systemSymbol, .symbolTile:
             // Bundled pictures, drawn on the spot.
             completion(nil, nil)
         }
@@ -284,6 +342,11 @@ func loadUIImageAsync(from source: ImageSource, completion: @escaping (UIImage?)
     case .systemSymbol(let name):
         DispatchQueue.main.async {
             completion(makeSystemSymbolImage(named: name))
+        }
+
+    case .symbolTile(let name, let color):
+        DispatchQueue.main.async {
+            completion(makeSymbolTileImage(named: name, color: color))
         }
     }
 }

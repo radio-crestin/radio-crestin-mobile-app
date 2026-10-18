@@ -14,9 +14,9 @@ import 'package:radio_crestin/services/car_song_history.dart';
 import 'package:radio_crestin/services/image_cache_service.dart';
 import 'package:radio_crestin/services/image_retry_signal.dart';
 import 'package:radio_crestin/seek_mode_manager.dart';
+import 'package:radio_crestin/theme.dart';
 import 'package:radio_crestin/services/network_service.dart';
 import 'package:radio_crestin/services/offline_alert_gate.dart';
-import 'package:radio_crestin/services/play_count_service.dart';
 import 'package:radio_crestin/services/promo_notification_service.dart';
 import 'package:radio_crestin/services/song_history_service.dart';
 import 'package:radio_crestin/services/song_like_service.dart';
@@ -75,35 +75,22 @@ class CarPlayService {
   // Android Auto's error state.
   OfflineAlertGate? _offlineAlertGate;
 
-  // What the running iOS supports (the pinned row needs iOS 26).
-  CPCapabilities _carPlayCapabilities = CPCapabilities.fallback;
-
-  // The CarPlay tabs: "Home" (a list) and "Categories" (a grid, left out
-  // while the catalog has no groups), and what the pinned row and the grid
-  // show, to skip updates that change nothing.
+  // The CarPlay tabs, as on Android Auto: "Favorites" (a list) and
+  // "Categories" (a grid whose first button lists every station), and what
+  // the grid shows, to skip updates that change nothing.
   CPTabBarTemplate? _carPlayTabBar;
-  CPListTemplate? _homeTemplate;
-  String? _pinnedSignature;
+  CPListTemplate? _favoritesTemplate;
   String? _categoriesSignature;
   StreamSubscription? _carPlayGroupsSubscription;
   StreamSubscription? _carPlayHiddenSubscription;
 
-  // Home rows by section, kept for live updates.
-  late final _favoriteRows =
+  // The Favorites tab's rows, kept for live updates.
+  late final _favoritesTabRows =
       _CarStationRows((s) => _carStationRow(s, fromFavorites: true));
-  late final _allStationsRows = _CarStationRows(
-    (s) => _carStationRow(s, fromFavorites: false, starIfFavorite: true),
-    starsFavorites: true,
-  );
 
-  // Station lists pushed over a tab (a category, all favorites), by
-  // template id; dropped once CarPlay pops them.
+  // Station lists pushed over a tab (a category), by template id; dropped
+  // once CarPlay pops them.
   final Map<String, _PushedStationList> _pushedLists = {};
-
-  // Play counts as they were when the car connected: the pinned row keeps
-  // its order for the whole drive instead of moving under the driver's
-  // finger.
-  Map<String, int> _carPlayCountsSnapshot = const {};
 
   // "Redate recent" (Up Next on Now Playing), and its rows by station and
   // song start: a song listed again keeps its row.
@@ -181,11 +168,11 @@ class CarPlayService {
   /// [url], or the one [resolveCarImageUrl] gives now, kept in [shown].
   ///
   /// iOS keeps each picture a row loaded under its image string, so a list
-  /// pushed later (a category, "Redate recent") shows the logos Home's rows
-  /// loaded as it slides in, instead of loading them again and showing
-  /// them ~0.5 s after. Home's rows are built at launch, before the disk
-  /// cache knows its files, so they name the web address; later rows keep
-  /// that name rather than the file's.
+  /// pushed later (every station, a category, "Redate recent") shows the
+  /// logos loaded ahead as it slides in, instead of loading them again and
+  /// showing them ~0.5 s after. The first rows are built at launch, before
+  /// the disk cache knows its files, so they name the web address; later
+  /// rows keep that name rather than the file's.
   static String? keptCarImageUrl(
     Map<String, String> shown,
     String? url,
@@ -328,20 +315,16 @@ class CarPlayService {
   static const _loadingTitle = 'Se încarcă...';
   static const _loadingStations = 'Se încarcă stațiile...';
   static const _pleaseWait = 'Vă rugăm așteptați';
-  static const _homeTitle = 'Acasă';
+  static const _favoritesTab = CarStrings.favorites;
   static const _categoriesTitle = CarStrings.categories;
-  static const _favoritesHeader = CarStrings.favorites;
   static const _noFavoritesTitle = 'Nu ai stații favorite';
   static const _noFavoritesHint = 'Apasă ♡ în ecranul de redare';
-  static const _allStationsHeader = CarStrings.allStations;
   static const _moreTitle = 'Mai multe';
+  // What the first grid button reads where "Toate radiourile" doesn't fit.
+  static const _allTitle = 'Toate';
   static const _moreCategoriesTitle = 'Mai multe categorii';
   static const _songHistoryTitle = CarStrings.songHistory;
   static const _noSongHistoryTitle = 'Nicio melodie redată recent';
-
-  /// The last picture of the "Favorite" row when not all of them fit: it
-  /// opens every favorite. Short, as it sits under a picture.
-  static String _allFavoritesTitle(int count) => 'Toate ($count)';
 
   /// "5 stații", "23 de stații" (Romanian puts "de" after 20 and up).
   static String stationCountText(int count, {required bool isRomanian}) {
@@ -526,7 +509,7 @@ class CarPlayService {
       if (currentStation != null) {
         _updateNowPlayingFavoriteState(_isFavorite(currentStation.slug));
       }
-      // Update the CarPlay lists (pinned row, sections, star prefixes)
+      // Update the CarPlay lists (the Favorites tab, stars in pushed lists)
       _refreshCarPlayLists();
     });
   }
@@ -680,12 +663,11 @@ class CarPlayService {
         station.thumbnailUrl,
       ));
 
-  /// Every set of CarPlay station rows: Home sections, then pushed lists.
-  /// Pushed lists CarPlay has popped are dropped first.
+  /// Every set of CarPlay station rows: the Favorites tab, then pushed
+  /// lists. Pushed lists CarPlay has popped are dropped first.
   Iterable<_CarStationRows> get _carStationRowSets sync* {
     _dropPoppedLists();
-    yield _favoriteRows;
-    yield _allStationsRows;
+    yield _favoritesTabRows;
     for (final list in _pushedLists.values) {
       yield list.rows;
     }
@@ -720,7 +702,7 @@ class CarPlayService {
   }
 
   // ---------------------------------------------------------------------------
-  // CarPlay Home and Categories tabs
+  // CarPlay Favorites and Categories tabs
   // ---------------------------------------------------------------------------
 
   /// The full catalog in the app's order: the phone's group filter can't be
@@ -728,92 +710,48 @@ class CarPlayService {
   List<Station> _carSortedStations() =>
       _stationDataService.getSortedStations(applyGroupFilter: false);
 
-  /// Remembers play counts as they are now, for the order of the pinned
-  /// row until the next connection.
-  void _takeCarPlaySnapshots() {
-    final playCounts = GetIt.instance.isRegistered<PlayCountService>()
-        ? GetIt.instance<PlayCountService>()
-        : null;
-    playCounts?.refresh();
-    _carPlayCountsSnapshot = Map.of(playCounts?.playCounts ?? const {});
-  }
-
-  CarHomeLayout _computeHomeLayout(List<Station> sorted) =>
-      CarHomeLayout.compute(
-        sortedSlugs: [for (final s in sorted) s.slug as String],
-        favoriteSlugs: _stationDataService.favoriteStationSlugs.value,
-        playCounts: _carPlayCountsSnapshot,
-        usePinnedRow: _carPlayCapabilities.supportsHeaderImageRow,
-        maxPinned: _carPlayCapabilities.maximumHeaderImageRowCount,
-      );
-
-  /// The Home list sections: "Favorites" and "All stations". "Favorites"
-  /// lists them only without the pinned row, and holds a hint on how to
+  /// The Favorites tab: every favorite in the listener's order, or how to
   /// add one while there are none.
-  List<CPListSection> _homeSections(
-    CarHomeLayout layout,
-    Map<String, Station> bySlug,
-  ) {
-    List<Station> stationsOf(List<String> slugs) =>
-        [for (final slug in slugs) if (bySlug[slug] case final s?) s];
-    final favorites = _favoriteRows.rowsFor(stationsOf(layout.favorites));
-    final all = _allStationsRows.rowsFor(stationsOf(layout.all));
+  List<CPListSection> _favoritesTabSections(List<Station> sorted) {
+    final rows =
+        _favoritesTabRows.rowsFor(_stationDataService.favoritesIn(sorted));
     return [
-      if (favorites.isNotEmpty)
-        CPListSection(header: _favoritesHeader, items: favorites)
-      else if (!layout.hasFavorites)
-        CPListSection(header: _favoritesHeader, items: [_noFavoritesRow()]),
-      CPListSection(header: _allStationsHeader, items: all),
+      CPListSection(items: rows.isEmpty ? [_noFavoritesRow()] : rows),
     ];
   }
 
   /// Tells a listener without favorites how to add one: the heart on Now
-  /// Playing, which a tap opens while a station is loaded.
+  /// Playing, which a tap opens.
   CPListItem _noFavoritesRow() => CPListItem(
         text: _noFavoritesTitle,
         detailText: _noFavoritesHint,
         image: 'sf:heart',
-        onPress: (complete, item) {
+        onPress: (complete, item) async {
           complete();
-          if (_audioHandler.currentStation.value == null) return;
-          FlutterCarplay.showSharedNowPlaying(animated: true);
+          await _showNowPlayingFromCar();
         },
       );
 
-  /// The pinned row (iOS 26+): "Favorite" with the favorites, most played
-  /// first. Null without favorites.
-  CPImageRow? _pinnedRow(CarHomeLayout layout, Map<String, Station> bySlug) {
-    if (layout.pinned.isEmpty) return null;
-    final favoritesCount =
-        layout.pinned.length + layout.hiddenFavoriteCount;
-    return CPImageRow(
-      title: _favoritesHeader,
-      elements: [
-        for (final slug in layout.pinned)
-          if (bySlug[slug] case final station?)
-            CPImageRowElement(
-              title: station.title as String,
-              image: _carPlayImage(station.thumbnailUrl) ?? 'sf:radio',
-              onPress: () => _playFromCar(station, fromFavorites: true),
-            ),
-        if (layout.hiddenFavoriteCount > 0)
-          CPImageRowElement(
-            title: _allFavoritesTitle(favoritesCount),
-            image: 'sf:ellipsis',
-            onPress: _showAllFavorites,
-          ),
-      ],
-      onTitlePress: _showAllFavorites,
-    );
+  /// Opens Now Playing on the playing station. While none plays, it resumes
+  /// the paused station or starts the last played one, so Now Playing
+  /// never opens empty.
+  Future<void> _showNowPlayingFromCar() async {
+    if (_audioHandler.playbackState.value.playing) {
+      FlutterCarplay.showSharedNowPlaying(animated: true);
+      return;
+    }
+    if (_audioHandler.currentStation.value case final paused?) {
+      _log("CarPlay: resuming ${paused.slug} for Now Playing");
+      FlutterCarplay.showSharedNowPlaying(animated: true);
+      await _audioHandler.play();
+      return;
+    }
+    final station = await _audioHandler.getLastPlayedStation();
+    if (station != null) await _playFromCar(station, fromFavorites: false);
   }
 
-  static String _pinnedSignatureOf(CarHomeLayout layout) => [
-        layout.hiddenFavoriteCount,
-        ...layout.pinned,
-      ].join('|');
-
   /// A row for [station] in a car list. With [starIfFavorite], favorites
-  /// get a star before the title, as in "All stations". See [_playFromCar]
+  /// get a star before the title, as in "Toate radiourile". See [_playFromCar]
   /// for [fromFavorites] and [fromGroup].
   CPListItem _carStationRow(
     Station station, {
@@ -863,35 +801,24 @@ class CarPlayService {
   }
 
   /// Brings the CarPlay lists in line with the favorites and the sort
-  /// order: Home (pinned row and sections), stars, and pushed lists.
+  /// order: the Favorites tab, and the stars and rows of pushed lists.
   ///
   /// Skipped while no car is connected: the lists are built at launch but
   /// nobody sees them, and connecting refreshes them.
   void _refreshCarPlayLists() {
-    final home = _homeTemplate;
+    final favoritesTab = _favoritesTemplate;
     final carplay = _flutterCarplay;
-    if (home == null || carplay == null || !isCarConnected.value) return;
+    if (favoritesTab == null || carplay == null || !isCarConnected.value) {
+      return;
+    }
 
     final sorted = _carSortedStations();
     final bySlug = {for (final s in sorted) s.slug as String: s};
-    final layout = _computeHomeLayout(sorted);
 
-    // Home rows are sent again below, so their stars are only stored;
-    // pushed rows stay on screen and are updated in place.
-    _syncFavoriteStars(_allStationsRows, bySlug, updateNative: false);
     carplay.updateListTemplateSections(
-      elementId: home.uniqueId,
-      sections: _homeSections(layout, bySlug),
+      elementId: favoritesTab.uniqueId,
+      sections: _favoritesTabSections(sorted),
     );
-
-    final signature = _pinnedSignatureOf(layout);
-    if (signature != _pinnedSignature) {
-      _pinnedSignature = signature;
-      carplay.updateListTemplateHeaderImageRow(
-        elementId: home.uniqueId,
-        row: _pinnedRow(layout, bySlug),
-      );
-    }
 
     _dropPoppedLists();
     for (final entry in _pushedLists.entries) {
@@ -977,14 +904,6 @@ class CarPlayService {
     }
   }
 
-  /// Every favorite, in the listener's order (the pinned row has no room).
-  Future<void> _showAllFavorites() => _pushStationList(
-        title: _favoritesHeader,
-        stations: () => _stationDataService.favoritesIn(_carSortedStations()),
-        fromFavorites: true,
-        starFavorites: false,
-      );
-
   /// The stations of [category]; next/previous then stay within them.
   Future<void> _showCategory(CarCategory category) => _pushStationList(
         title: category.name,
@@ -993,6 +912,15 @@ class CarPlayService {
             .toList(),
         fromFavorites: false,
         fromGroup: category.slug,
+        starFavorites: true,
+      );
+
+  /// Every station, favorites starred; next/previous then go through the
+  /// whole catalog.
+  Future<void> _showAllStations() => _pushStationList(
+        title: CarStrings.allStations,
+        stations: _carSortedStations,
+        fromFavorites: false,
         starFavorites: true,
       );
 
@@ -1009,6 +937,7 @@ class CarPlayService {
                 category.stationIds.length,
                 isRomanian: true,
               ),
+              image: _categoryTile(category),
               accessoryType: CPListItemAccessoryTypes.disclosureIndicator,
               onPress: (complete, item) async {
                 await _showCategory(category);
@@ -1027,12 +956,18 @@ class CarPlayService {
     }
   }
 
-  CPGridTemplate? _buildCategoriesTemplate(CarCategoryLayout layout) {
-    if (layout.isEmpty) return null;
+  /// The Categories tab: every station first, then the categories, the
+  /// ones that don't fit behind "More".
+  CPGridTemplate _buildCategoriesTemplate(CarCategoryLayout layout) {
     return CPGridTemplate(
       title: _categoriesTitle,
       systemIcon: 'square.grid.2x2.fill',
       buttons: [
+        CPGridButton(
+          titleVariants: const [CarStrings.allStations, _allTitle],
+          image: 'sf:list.bullet',
+          onPress: _showAllStations,
+        ),
         for (final category in layout.onGrid)
           CPGridButton(
             titleVariants: [category.name],
@@ -1049,24 +984,46 @@ class CarPlayService {
     );
   }
 
+  /// The picture of [category] in car lists: its symbol on its hue, as on
+  /// the phone's category sheet.
+  static String _categoryTile(CarCategory category) {
+    final hue = AppColors.stationGroupHues[category.slug] ??
+        AppColors.stationGroupFallbackHue;
+    final rgb = (hue.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0');
+    return 'tile:${category.symbol}:$rgb';
+  }
+
   /// Rebuilds the Categories tab when a catalog refresh changed the
-  /// groups it shows; adds or removes the tab when groups come or go.
+  /// groups it shows.
   void _refreshCarPlayCategories() {
     final tabBar = _carPlayTabBar;
-    final home = _homeTemplate;
+    final favorites = _favoritesTemplate;
     final carplay = _flutterCarplay;
-    if (tabBar == null || home == null || carplay == null) return;
+    if (tabBar == null || favorites == null || carplay == null) return;
 
     final layout = _stationDataService.carCategoryLayout();
     if (layout.signature == _categoriesSignature) return;
     _categoriesSignature = layout.signature;
-    final categories = _buildCategoriesTemplate(layout);
     carplay.updateTabBarTemplates(
       elementId: tabBar.uniqueId,
-      templates: [home, if (categories != null) categories],
+      templates: [favorites, _buildCategoriesTemplate(layout)],
     );
     _log("CarPlay categories updated: ${layout.onGrid.length} on the grid, "
         "${layout.more.length} under More");
+  }
+
+  /// Loads the station logos ahead, so a list pushed later (every station,
+  /// a category) shows them as it slides in: a picture loaded after the
+  /// list reached the car shows up about half a second late.
+  void _prefetchStationLogos() {
+    final logos = {
+      for (final station in _carSortedStations())
+        if (_carPlayImage(station.thumbnailUrl) case final logo?) logo,
+    };
+    FlutterCarplay.prefetchImages(logos.toList()).catchError((Object e) {
+      _log("Error loading CarPlay station logos: $e");
+      return false;
+    });
   }
 
   void _initializeCarPlay() {
@@ -1090,10 +1047,11 @@ class CarPlayService {
             connected: true,
             playing: _audioHandler.playbackState.value.playing);
         _forgetCarCard();
-        // A new drive: the pinned row follows the latest play counts.
-        _takeCarPlaySnapshots();
+        // The lists skipped updates while no car was connected.
         _refreshCarPlayLists();
-        // ...and "Redate recent" loads afresh for the playing station.
+        // Logos pushed out by song pictures since launch.
+        _prefetchStationLogos();
+        // "Redate recent" loads afresh for the playing station.
         _songHistory.reset();
         final station = _audioHandler.currentStation.value;
         if (station != null) _songHistory.follow(station, carConnected: true);
@@ -1128,16 +1086,6 @@ class CarPlayService {
       }
     });
 
-    _loadCarPlayCapabilitiesThenSetup();
-  }
-
-  /// Asks iOS what the templates support (the pinned row needs iOS 26)
-  /// before the first lists are built.
-  Future<void> _loadCarPlayCapabilitiesThenSetup() async {
-    _carPlayCapabilities = await FlutterCarplay.getCapabilities();
-    _log("CarPlay capabilities: pinned row="
-        "${_carPlayCapabilities.supportsHeaderImageRow}, "
-        "max pinned=${_carPlayCapabilities.maximumHeaderImageRowCount}");
     _trySetupCarPlayStations();
   }
 
@@ -1209,26 +1157,20 @@ class CarPlayService {
     try {
       _log("Setting up CarPlay with ${stations.length} stations");
 
-      _takeCarPlaySnapshots();
       final sorted = _carSortedStations();
-      final bySlug = {for (final s in sorted) s.slug as String: s};
-      final layout = _computeHomeLayout(sorted);
 
-      final home = _homeTemplate = CPListTemplate(
-        title: _homeTitle,
-        sections: _homeSections(layout, bySlug),
-        headerImageRow: _pinnedRow(layout, bySlug),
-        systemIcon: "house.fill",
+      final favorites = _favoritesTemplate = CPListTemplate(
+        title: _favoritesTab,
+        sections: _favoritesTabSections(sorted),
+        systemIcon: "heart.fill",
         sectionIndexEnabled: false,
       );
-      _pinnedSignature = _pinnedSignatureOf(layout);
 
       final categoryLayout = _stationDataService.carCategoryLayout();
       _categoriesSignature = categoryLayout.signature;
-      final categories = _buildCategoriesTemplate(categoryLayout);
 
       final tabBar = _carPlayTabBar = CPTabBarTemplate(
-        templates: [home, if (categories != null) categories],
+        templates: [favorites, _buildCategoriesTemplate(categoryLayout)],
       );
 
       FlutterCarplay.setRootTemplate(
@@ -1236,12 +1178,12 @@ class CarPlayService {
         animated: true,
       );
       _flutterCarplay?.forceUpdateRootTemplate();
+      _prefetchStationLogos();
 
       // Mark as initialized - this template will NEVER be replaced
       _carPlayInitialized = true;
       _log("CarPlay setup complete - template locked "
-          "(pinned=${layout.pinned.length}, "
-          "favorites section=${layout.favorites.length}, "
+          "(favorites=${_favoritesTabRows.shown.length}, "
           "categories=${categoryLayout.onGrid.length})");
 
       // Listen for station metadata changes (song title, artist from 10s polls)

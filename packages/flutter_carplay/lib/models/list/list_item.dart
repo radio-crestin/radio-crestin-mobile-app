@@ -23,6 +23,8 @@ class CPListItem {
   /// - **Asset path**: `images/flutter_logo.png` (from pubspec.yaml assets)
   /// - **File path**: `file:///path/to/image.png` (local file on device)
   /// - **Network URL**: `https://example.com/image.png` (remote image)
+  /// - **Symbol tile**: `tile:music.note:B69CFF`, the symbol in dark grey on
+  ///   a square of that color, drawn at once so it arrives with the list
   String? image;
 
   /// Playback progress status for the content that the list item represents.

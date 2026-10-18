@@ -1050,15 +1050,14 @@ void main() {
         ..addGroup(2, 'copii', 'Copii', [3, 5, 7]);
     }
 
-    test('the root tabs read as on CarPlay, without Categorii when no '
-        'category qualifies', () async {
+    test('the root tabs read as on CarPlay', () async {
       await http.runWithClient(() async {
         await startHandler();
 
         final root = await browse(AudioService.browsableRootId);
-        expect(root.map((i) => i.title), ['Favorite', 'Toate stațiile']);
+        expect(root.map((i) => i.title), ['Favorite', 'Categorii']);
         expect(root.map((i) => i.id),
-            ['favoriteStationsRootId', 'allStationsRootId'],
+            ['favoriteStationsRootId', 'categoriesRootId'],
             reason: 'ids Android Auto remembers keep working');
       }, () => routing);
     });
@@ -1092,7 +1091,7 @@ void main() {
     });
 
     test(
-        'Toate stațiile stars the favorites, follows the heart, and plays '
+        'Toate radiourile stars the favorites, follows the heart, and plays '
         'a starred row from the full list', () async {
       await http.runWithClient(() async {
         await startHandler();
@@ -1134,7 +1133,7 @@ void main() {
     });
 
     test(
-        'Toate stațiile shows no songs, only "Listă de redare" under a '
+        'Toate radiourile shows no songs, only "Listă de redare" under a '
         'playlist station; the favorites show their songs', () async {
       backend
         ..addStation(12, 'pl', 'Playlist X', stationType: 'playlist')
@@ -1168,11 +1167,11 @@ void main() {
       addCategories();
       await http.runWithClient(() async {
         await startHandler();
-        expect(await tabs(), ['Favorite', 'Toate stațiile', 'Categorii']);
+        expect(await tabs(), ['Favorite', 'Categorii']);
 
-        final categories = await browse('categoriesRootId');
+        final categories = (await browse('categoriesRootId')).skip(1);
         expect(categories.map((i) => i.title), ['Copii'],
-            reason: 'the group of every station repeats Toate stațiile');
+            reason: 'the group of every station repeats Toate radiourile');
         expect(categories.single.displaySubtitle, '3 stații');
         expect(categories.single.artUri, Uri.parse(
             'android.resource://com.radiocrestin.radio_crestin/drawable/'
@@ -1200,7 +1199,7 @@ void main() {
         handler.hideStation(stationOf(7));
         await until(() => handler.stationsMediaItems.value
             .every((i) => i.extras?['station_slug'] != 's7'));
-        expect((await browse('categoriesRootId')).single.displaySubtitle,
+        expect((await browse('categoriesRootId')).last.displaySubtitle,
             '2 stații');
         expect((await browse(folder)).map((i) => i.extras?['station_slug']),
             ['s3', 's5']);
@@ -1208,9 +1207,28 @@ void main() {
       }, () => routing);
     });
 
+    test('Categorii starts with "Toate radiourile", which lists every station',
+        () async {
+      addCategories();
+      await http.runWithClient(() async {
+        await startHandler();
+
+        final all = (await browse('categoriesRootId')).first;
+        expect((all.id, all.title, all.playable),
+            ('allStationsRootId', 'Toate radiourile', false));
+        expect(all.displaySubtitle, '11 stații');
+        expect(all.artUri, Uri.parse(
+            'android.resource://com.radiocrestin.radio_crestin/drawable/'
+            'ic_category_all'));
+        expect((await browse(all.id)).map((i) => i.extras?['station_slug']),
+            handler.stationsMediaItems.value
+                .map((i) => i.extras?['station_slug']));
+      }, () => routing);
+    });
+
     test(
         'a station picked from a category keeps next and previous within '
-        'it; a pick from Toate stațiile leaves it', () async {
+        'it; a pick from Toate radiourile leaves it', () async {
       addCategories();
       await http.runWithClient(() async {
         await startHandler();
