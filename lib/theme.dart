@@ -346,6 +346,19 @@ class AppRadius {
   static const double artwork = 20.0;
 }
 
+/// The platforms' default page transitions, with Android's fading the pages
+/// through [background].
+///
+/// Android fades the old page out and the new one in over the colour
+/// scheme's surface by default. Here that is not the page colour (grey 800
+/// in the dark theme), so the screen flashed it on every page change.
+PageTransitionsTheme _pageTransitionsOver(Color background) =>
+    PageTransitionsTheme(builders: {
+      ...const PageTransitionsTheme().builders,
+      TargetPlatform.android:
+          PredictiveBackPageTransitionsBuilder(fallbackColor: background),
+    });
+
 final ThemeData lightTheme = ThemeData(
   useMaterial3: true,
   // fontFamily: 'Inter',
@@ -356,6 +369,7 @@ final ThemeData lightTheme = ThemeData(
   hintColor: AppColors.primary,
   canvasColor: AppColors.lightBackground,
   scaffoldBackgroundColor: AppColors.lightBackground,
+  pageTransitionsTheme: _pageTransitionsOver(AppColors.lightBackground),
   cardColor:const Color(0x8ae4e4e4),
   dividerColor: AppColors.lightDivider,
   highlightColor: const Color(0x66bcbcbc),
@@ -635,6 +649,7 @@ final ThemeData darkTheme = ThemeData(
   hintColor: AppColors.primary,
   canvasColor: AppColors.darkBackground,
   scaffoldBackgroundColor: AppColors.darkBackground,
+  pageTransitionsTheme: _pageTransitionsOver(AppColors.darkBackground),
   cardColor: AppColors.darkSurface,
   dividerColor: AppColors.darkDivider,
   highlightColor: const Color(0x40cccccc),

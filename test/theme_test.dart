@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -98,6 +99,40 @@ void main() {
     test('bottom app bar uses dark primary', () {
       expect(darkTheme.bottomAppBarTheme.color, const Color(0xff75002c));
     });
+  });
+
+  group('page transitions', () {
+    for (final (name, theme) in [('light', lightTheme), ('dark', darkTheme)]) {
+      // Tests run as Android, so the pages fade the way they do there.
+      testWidgets('$name: pages fade through the page colour', (tester) async {
+        final navigator = GlobalKey<NavigatorState>();
+        await tester.pumpWidget(MaterialApp(
+          theme: theme,
+          navigatorKey: navigator,
+          home: const Scaffold(body: Text('Home')),
+        ));
+
+        navigator.currentState!.push(MaterialPageRoute<void>(
+          builder: (_) => const Scaffold(body: Text('Setări')),
+        ));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 150));
+
+        final colors = tester
+            .widgetList<ColoredBox>(find.byType(ColoredBox))
+            .map((box) => box.color);
+        expect(colors, contains(theme.scaffoldBackgroundColor));
+        expect(colors, isNot(contains(theme.colorScheme.surface)));
+      });
+
+      test('$name: other platforms keep their transitions', () {
+        final builders = theme.pageTransitionsTheme.builders;
+        expect(builders[TargetPlatform.iOS],
+            isA<CupertinoPageTransitionsBuilder>());
+        expect(builders[TargetPlatform.macOS],
+            isA<CupertinoPageTransitionsBuilder>());
+      });
+    }
   });
 
   group('CustomThemeColors extension', () {

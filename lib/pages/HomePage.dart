@@ -30,6 +30,8 @@ import '../services/station_data_service.dart';
 import '../services/station_retry.dart';
 import '../services/station_sort_service.dart';
 import '../widgets/cast_button.dart';
+import '../widgets/floating_sliver_header.dart';
+import '../widgets/keyboard_free_media_query.dart';
 import '../widgets/mini_player_bottom_inset.dart';
 import '../widgets/promo_notification_card.dart';
 import '../services/home_promo_slot.dart';
@@ -765,9 +767,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    // The page has no text field: the keyboard is the search dialog's, and
+    // would only move the list under it.
+    return KeyboardFreeMediaQuery(child: Builder(builder: _buildPage));
+  }
+
+  Widget _buildPage(BuildContext context) {
     // Depend on size and padding only: the full MediaQuery would also
-    // rebuild the page on every keyboard-animation frame (viewInsets), e.g.
-    // while the search dialog opens above it.
+    // rebuild the page whenever anything else in it changes.
     final panelMaxHeight = MediaQuery.sizeOf(context).height * .9;
     final bottomPadding = MediaQuery.paddingOf(context).bottom;
     // The panel reaches the screen's bottom edge, so the player's backdrop
@@ -909,9 +916,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           physics: PositionRetainedScrollPhysics(anchor: _sortRowAnchor, rows: _rowTransitions.scrollAnchor).applyTo(const AlwaysScrollableScrollPhysics()),
                           cacheExtent: 300.0,
                           slivers: <Widget>[
-                          // Hides as the list scrolls on, and comes back over
-                          // it as soon as the list scrolls back.
-                          SliverFloatingHeader(
+                          // Hides as the user scrolls on, and comes back over
+                          // the list as soon as they scroll back.
+                          FloatingSliverHeader(
                             child: Container(
                               key: _appBarKey,
                               color: Theme.of(context).scaffoldBackgroundColor,
