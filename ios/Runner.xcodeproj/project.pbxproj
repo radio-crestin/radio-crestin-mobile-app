@@ -22,6 +22,7 @@
 		74858FB11ED2DC5600515810 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74858FB01ED2DC5600515810 /* SceneDelegate.swift */; };
 		7756795CB76605BF908567F2 /* SnapshotProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7762EF26EC607C0585A72E8B /* SnapshotProvider.swift */; };
 		779F9C55B747777379B38186 /* HomeWidgetBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65CF5900A3E4DD9FAA79B349 /* HomeWidgetBridge.swift */; };
+		A71C3E5D9B2F4E8A1C6D0F01 /* SiriMediaHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = A71C3E5D9B2F4E8A1C6D0F02 /* SiriMediaHandler.swift */; };
 		787C3C61E849594CA68FBF3B /* WidgetIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8265AE2F22B46CB79862B36 /* WidgetIntents.swift */; };
 		7E847C18D1F69CF56C3D24A2 /* NowPlayingWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE9952BC863FD48C90E20245 /* NowPlayingWidget.swift */; };
 		97C146FC1CF9000F007C117D /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FA1CF9000F007C117D /* Main.storyboard */; };
@@ -98,6 +99,7 @@
 		8B3F2C1A6D4E4F7A9C0B1D2F /* BackgroundTaskHandler.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = BackgroundTaskHandler.swift; sourceTree = "<group>"; };
 		6402BB615CAFCB14CFD15855 /* Pods-RunnerTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.release.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.release.xcconfig"; sourceTree = "<group>"; };
 		65CF5900A3E4DD9FAA79B349 /* HomeWidgetBridge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeWidgetBridge.swift; sourceTree = "<group>"; };
+		A71C3E5D9B2F4E8A1C6D0F02 /* SiriMediaHandler.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SiriMediaHandler.swift; sourceTree = "<group>"; };
 		74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Runner-Bridging-Header.h"; sourceTree = "<group>"; };
 		74858FAE1ED2DC5600515810 /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		74858FB01ED2DC5600515810 /* SceneDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
@@ -238,6 +240,7 @@
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
 				CA2F82CB0BE2A628A890A9E1 /* NowPlayingButtonsHandler.swift */,
 				65CF5900A3E4DD9FAA79B349 /* HomeWidgetBridge.swift */,
+				A71C3E5D9B2F4E8A1C6D0F02 /* SiriMediaHandler.swift */,
 			);
 			path = Runner;
 			sourceTree = "<group>";
@@ -570,6 +573,7 @@
 				9B94BF45A15FBF091C4E5497 /* WidgetStorage.swift in Sources */,
 				787C3C61E849594CA68FBF3B /* WidgetIntents.swift in Sources */,
 				779F9C55B747777379B38186 /* HomeWidgetBridge.swift in Sources */,
+				A71C3E5D9B2F4E8A1C6D0F01 /* SiriMediaHandler.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

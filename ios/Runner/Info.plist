@@ -119,6 +119,27 @@
 		</array>
 		<key>FlutterDeepLinkingEnabled</key>
 		<false/>
+		<key>INAlternativeAppNames</key>
+		<array>
+			<dict>
+				<key>INAlternativeAppName</key>
+				<string>Radio Creștin</string>
+				<key>INAlternativeAppNamePronunciationHint</key>
+				<string>radio kresh teen</string>
+			</dict>
+			<dict>
+				<key>INAlternativeAppName</key>
+				<string>Radio Christian</string>
+			</dict>
+		</array>
+		<key>INIntentsSupported</key>
+		<array>
+			<string>INPlayMediaIntent</string>
+		</array>
+		<key>INSupportedMediaCategories</key>
+		<array>
+			<string>INMediaCategoryRadio</string>
+		</array>
 		<key>NSUserActivityTypes</key>
 		<array>
 			<string>NSUserActivityTypeBrowsingWeb</string>

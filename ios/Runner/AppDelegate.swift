@@ -1,6 +1,7 @@
 import UIKit
 import Flutter
 import FirebaseCore
+import Intents
 
 let flutterEngine = FlutterEngine(name: "SharedEngine", project: nil, allowHeadlessExecution: true)
 
@@ -38,6 +39,10 @@ let flutterEngine = FlutterEngine(name: "SharedEngine", project: nil, allowHeadl
         // the app, reaches it.
         HomeWidgetBridge.shared.register(with: flutterEngine.binaryMessenger)
 
+        // Before a Siri request to play a station, which may be what
+        // launched the app, reaches it.
+        SiriMediaHandler.shared.register(with: flutterEngine.binaryMessenger)
+
         // Mirror Android's "com.radiocrestin.app" channel so Flutter has a
         // single cross-platform interface. iOS cannot distinguish "launched
         // from icon" vs "launched from app switcher card" (a fresh process
@@ -68,6 +73,13 @@ let flutterEngine = FlutterEngine(name: "SharedEngine", project: nil, allowHeadl
         application.registerForRemoteNotifications()
 
         return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+    }
+
+    /// Siri's requests to play a station, handled in the app rather than in
+    /// an extension: the stations and the player are here.
+    override func application(_ application: UIApplication, handlerFor intent: INIntent) -> Any? {
+        if intent is INPlayMediaIntent { return SiriMediaHandler.shared }
+        return super.application(application, handlerFor: intent)
     }
 
     override func applicationWillTerminate(_ application: UIApplication) {

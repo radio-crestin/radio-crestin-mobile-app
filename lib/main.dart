@@ -54,6 +54,7 @@ import 'services/remote_debug_controller.dart';
 import 'services/quick_actions_service.dart';
 import 'services/network_service.dart';
 import 'services/play_count_service.dart';
+import 'services/siri_media_service.dart';
 import 'services/song_like_service.dart';
 import 'services/station_data_service.dart';
 import 'services/video_playback_service.dart';
@@ -414,6 +415,11 @@ void main() async {
       stationDataService: getIt<StationDataService>(),
       playCountService: getIt<PlayCountService>(),
       prefs: prefs,
+    )..start());
+    // Siri can launch the app in the background to play a station.
+    getIt.registerSingleton<SiriMediaService>(SiriMediaService(
+      audioHandler: audioHandler,
+      stationDataService: getIt<StationDataService>(),
     )..start());
   }
 
