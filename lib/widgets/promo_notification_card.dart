@@ -15,6 +15,10 @@ class PromoNotificationCard extends StatelessWidget {
     required this.onDismiss,
   });
 
+  /// The X's touch area, as Material asks: its 28 px circle alone was hard
+  /// to hit.
+  static const double _closeTarget = 48;
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -95,30 +99,39 @@ class PromoNotificationCard extends StatelessWidget {
               ],
             ),
           ),
-          // Close X button
+          // The X: a small circle 24 px in from the corner, whose touch
+          // area reaches the corner all around it.
           Positioned(
-            top: 10,
-            right: 10,
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: onDismiss,
-                borderRadius: BorderRadius.circular(20),
-                child: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? Colors.white.withValues(alpha: 0.06)
-                        : Colors.black.withValues(alpha: 0.04),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.close,
-                    size: 16,
-                    color: Theme.of(context)
-                        .colorScheme
-                        .onSurface
-                        .withValues(alpha: 0.45),
+            top: 0,
+            right: 0,
+            child: Tooltip(
+              message: 'Închide',
+              child: Material(
+                type: MaterialType.transparency,
+                child: InkWell(
+                  onTap: onDismiss,
+                  customBorder: const CircleBorder(),
+                  child: SizedBox.square(
+                    dimension: _closeTarget,
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.06)
+                              : Colors.black.withValues(alpha: 0.04),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.close,
+                          size: 16,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.45),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),

@@ -75,6 +75,37 @@ void main() {
     expect(dismissed, 1);
   });
 
+  testWidgets('the close button takes touches up to the card\'s corner',
+      (tester) async {
+    var dismissed = 0;
+    await tester.pumpWidget(
+      host(
+        PromoNotificationCard(
+          notification: const PromoNotification(
+            id: 'x',
+            title: 'T',
+            message: 'M',
+          ),
+          onDismiss: () => dismissed++,
+        ),
+      ),
+    );
+    await tester.pump();
+    final icon = tester.getCenter(find.byIcon(Icons.close));
+
+    // Near the card's top right corner, then below and left of the circle.
+    for (final offset in const [
+      Offset(20, -20),
+      Offset(0, 21),
+      Offset(-21, 0),
+    ]) {
+      await tester.tapAt(icon + offset);
+      await tester.pumpAndSettle();
+    }
+
+    expect(dismissed, 3);
+  });
+
   group('narrow screens', () {
     const carMessage = PromoNotification(
       id: 'carplay_android_auto_v1',

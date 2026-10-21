@@ -11,6 +11,7 @@ import '../services/cast_service.dart';
 import '../services/analytics_service.dart';
 import '../services/local_network_access.dart';
 import '../theme.dart';
+import 'bar_icon_button.dart';
 
 // ═══════════════════════════════════════════════════════════════════
 // Device picker entry point
@@ -190,7 +191,10 @@ class _PlayerCastButtonState extends State<PlayerCastButton>
 /// app bar only surfaces an active Chromecast or AirPlay route, so the user
 /// sees where the audio goes and can stop it in one tap.
 class CastButton extends StatefulWidget {
-  const CastButton({super.key});
+  const CastButton({super.key, required this.height});
+
+  /// The height of the app bar, all of which takes the button's touches.
+  final double height;
 
   @override
   State<CastButton> createState() => _CastButtonState();
@@ -233,8 +237,8 @@ class _CastButtonState extends State<CastButton>
   Widget _airPlayButton({required Key key}) {
     return SizedBox(
       key: key,
-      width: 44,
-      height: 44,
+      width: BarIconButton.width,
+      height: widget.height,
       child: Stack(
         children: [
           const Center(
@@ -257,23 +261,13 @@ class _CastButtonState extends State<CastButton>
   /// Opens the device sheet, which shows the connected Chromecast with its
   /// "Deconectare" action.
   Widget _chromecastButton({required Key key}) {
-    return Material(
+    return BarIconButton(
       key: key,
-      type: MaterialType.transparency,
-      shape: const CircleBorder(),
-      child: InkWell(
-        onTap: () => showCastDevicePicker(context, source: 'app_bar'),
-        customBorder: const CircleBorder(),
-        child: const Tooltip(
-          message: 'Dispozitiv conectat',
-          child: SizedBox(
-            width: 44,
-            height: 44,
-            child: Icon(Icons.cast_connected_rounded,
-                size: 22, color: AppColors.primary),
-          ),
-        ),
-      ),
+      icon: Icons.cast_connected_rounded,
+      color: AppColors.primary,
+      tooltip: 'Dispozitiv conectat',
+      height: widget.height,
+      onPressed: () => showCastDevicePicker(context, source: 'app_bar'),
     );
   }
 }

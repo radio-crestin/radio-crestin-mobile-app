@@ -28,6 +28,7 @@ import '../services/playlist_controller.dart';
 import '../services/station_data_service.dart';
 import '../services/station_retry.dart';
 import '../services/station_sort_service.dart';
+import '../widgets/bar_icon_button.dart';
 import '../widgets/cast_button.dart';
 import '../widgets/floating_sliver_header.dart';
 import '../widgets/keyboard_free_media_query.dart';
@@ -149,8 +150,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   /// the list while their section scrolls under them.
   static const double _sectionHeaderHeight = 60;
 
-  /// The app bar's height at the default text size: its 44 px buttons and
-  /// their padding.
+  /// The app bar's height at the default text size, all of which its
+  /// buttons take touches across.
   static const double _appBarHeight = 54;
 
   /// The app bar (logo, title, search, settings) at the top of the list.
@@ -695,21 +696,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     return bottom.clamp(0.0, box.size.height);
   }
 
-  Widget _buildRoundedIconButton({
-    required BuildContext context,
-    required IconData icon,
-    required String tooltip,
-    required VoidCallback onPressed,
-    bool isActive = false,
-  }) {
-    return _AnimatedRoundedIconButton(
-      icon: icon,
-      tooltip: tooltip,
-      onPressed: onPressed,
-      isActive: isActive,
-    );
-  }
-
   void _showSortOptions(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     showModalBottomSheet(
@@ -1075,7 +1061,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                               color: Theme.of(context).scaffoldBackgroundColor,
                               // Right inset matches the filter row below, so the
                               // icon glyphs line up with the 16px content gutter.
-                              padding: const EdgeInsets.only(top: 6, left: 16, right: 4, bottom: 4),
+                              // The buttons fill the bar's height, so a touch
+                              // anywhere above or below an icon counts.
+                              padding: const EdgeInsets.only(left: 16, right: 2),
+                              constraints: const BoxConstraints(
+                                minHeight: _appBarHeight,
+                              ),
                               child: AnimatedSwitcher(
                                 duration: const Duration(milliseconds: 200),
                                 switchInCurve: Curves.easeInOut,
@@ -1105,17 +1096,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                     ),
                                   ),
                                   const SizedBox(width: 4),
-                                  const CastButton(),
-                                  _buildRoundedIconButton(
-                                    context: context,
+                                  const CastButton(height: _appBarHeight),
+                                  BarIconButton(
                                     icon: Icons.search_rounded,
                                     tooltip: 'Caută stații sau melodii',
+                                    height: _appBarHeight,
                                     onPressed: _startSearch,
                                   ),
-                                  _buildRoundedIconButton(
-                                    context: context,
+                                  BarIconButton(
                                     icon: Icons.settings_outlined,
                                     tooltip: 'Setări aplicație',
+                                    height: _appBarHeight,
                                     onPressed: () {
                                       AnalyticsService.instance.capture('button_clicked', {'button_name': 'settings'});
                                       SettingsPage.show(context, shareLinkData: _shareLinkData);
@@ -1201,46 +1192,56 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                               header: Container(
                                 height: _sectionHeaderHeight,
                                 color: Theme.of(context).scaffoldBackgroundColor,
-                                padding: const EdgeInsets.only(left: 16.0, right: 4.0),
+                                padding: const EdgeInsets.only(left: 16.0, right: 2.0),
                                 alignment: Alignment.centerLeft,
                                 child: Row(
                                   children: [
                                     Expanded(
-                                      child: GestureDetector(
-                                        onTap: () {
-                                          AnalyticsService.instance.capture('button_clicked', {'button_name': 'sort_menu'});
-                                          _showSortOptions(context);
-                                        },
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(
-                                              StationSortLabels.icons[_sortOption],
-                                              size: 18,
-                                              color: _sortOption == StationSortOption.recommended
-                                                  ? const Color(0xFFF59E0B)
-                                                  : Theme.of(context).colorScheme.onSurface,
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Flexible(
-                                              child: Text(
-                                                StationSortLabels.labels[_sortOption] ?? '',
-                                                style: TextStyle(
-                                                  fontSize: 17,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: Theme.of(context).colorScheme.onSurface,
+                                      child: Align(
+                                        alignment: Alignment.centerLeft,
+                                        // The label takes touches across the
+                                        // row's height, not only on its text.
+                                        child: GestureDetector(
+                                          behavior: HitTestBehavior.opaque,
+                                          onTap: () {
+                                            AnalyticsService.instance.capture('button_clicked', {'button_name': 'sort_menu'});
+                                            _showSortOptions(context);
+                                          },
+                                          child: SizedBox(
+                                            height: _sectionHeaderHeight,
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(
+                                                  StationSortLabels.icons[_sortOption],
+                                                  size: 18,
+                                                  color: _sortOption == StationSortOption.recommended
+                                                      ? const Color(0xFFF59E0B)
+                                                      : Theme.of(context).colorScheme.onSurface,
                                                 ),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
+                                                const SizedBox(width: 8),
+                                                Flexible(
+                                                  child: Text(
+                                                    StationSortLabels.labels[_sortOption] ?? '',
+                                                    style: TextStyle(
+                                                      fontSize: 17,
+                                                      fontWeight: FontWeight.w600,
+                                                      color: Theme.of(context).colorScheme.onSurface,
+                                                    ),
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Icon(
+                                                  Icons.keyboard_arrow_down_rounded,
+                                                  size: 20,
+                                                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                                ),
+                                                const SizedBox(width: 8),
+                                              ],
                                             ),
-                                            const SizedBox(width: 4),
-                                            Icon(
-                                              Icons.keyboard_arrow_down_rounded,
-                                              size: 20,
-                                              color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                            ),
-                                          ],
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -1250,10 +1251,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                       child: selectedStationGroup == null
                                           ? KeyedSubtree(
                                               key: const ValueKey('filter'),
-                                              child: _buildRoundedIconButton(
-                                                context: context,
+                                              child: BarIconButton(
                                                 icon: Icons.filter_alt_outlined,
                                                 tooltip: 'Filtrează',
+                                                height: _sectionHeaderHeight,
                                                 onPressed: () {
                                                   AnalyticsService.instance.capture('button_clicked', {'button_name': 'filter_menu'});
                                                   _showFilterOptions(context, stationGroups, null);
@@ -1262,7 +1263,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                             )
                                           : Padding(
                                               key: ValueKey(selectedStationGroup.id),
-                                              padding: const EdgeInsets.only(right: 8),
+                                              padding: const EdgeInsets.only(right: 10),
                                               child: StationGroupChip(
                                                 group: selectedStationGroup,
                                                 onPressed: () {
@@ -1661,7 +1662,7 @@ class _HomeSearchBarState extends State<_HomeSearchBar> {
   final TextEditingController _text = TextEditingController();
   final FocusNode _focus = FocusNode();
 
-  /// As tall as the app bar's buttons, so the bar keeps its height.
+  /// The field's height, within the app bar's.
   static const double _height = 44;
 
   @override
@@ -1829,99 +1830,3 @@ class _SearchResults extends StatelessWidget {
   }
 }
 
-class _AnimatedRoundedIconButton extends StatefulWidget {
-  final IconData icon;
-  final String tooltip;
-  final VoidCallback onPressed;
-  final bool isActive;
-
-  const _AnimatedRoundedIconButton({
-    required this.icon,
-    required this.tooltip,
-    required this.onPressed,
-    this.isActive = false,
-  });
-
-  @override
-  State<_AnimatedRoundedIconButton> createState() => _AnimatedRoundedIconButtonState();
-}
-
-class _AnimatedRoundedIconButtonState extends State<_AnimatedRoundedIconButton>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final Animation<double> _scaleAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 120),
-      reverseDuration: const Duration(milliseconds: 200),
-      vsync: this,
-    );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.88).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _onTapDown(TapDownDetails _) {
-    _controller.forward();
-  }
-
-  void _onTapUp(TapUpDetails _) {
-    _controller.reverse();
-  }
-
-  void _onTapCancel() {
-    _controller.reverse();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return ScaleTransition(
-      scale: _scaleAnimation,
-      child: Semantics(
-        button: true,
-        child: Material(
-          // Idle buttons are bare icons; the circle shows only as the press
-          // ripple, or as a tint while a state is on (e.g. a filter is set).
-          color: widget.isActive
-              ? colorScheme.primary.withValues(alpha: 0.12)
-              : Colors.transparent,
-          shape: const CircleBorder(),
-          child: InkWell(
-            // `onTap` (not `onTapUp`) carries the action: it is what InkWell
-            // exposes to TalkBack/VoiceOver, Switch/Voice Access and the
-            // keyboard. It fires right after `onTapUp` in the same gesture.
-            onTap: widget.onPressed,
-            onTapDown: _onTapDown,
-            onTapUp: _onTapUp,
-            onTapCancel: _onTapCancel,
-            customBorder: const CircleBorder(),
-            child: Tooltip(
-              message: widget.tooltip,
-              child: SizedBox(
-                width: 44,
-                height: 44,
-                child: Icon(
-                  widget.icon,
-                  size: 22,
-                  color: widget.isActive
-                      ? colorScheme.primary
-                      : colorScheme.onSurface.withValues(alpha: 0.85),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
