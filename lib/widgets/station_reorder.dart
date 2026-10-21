@@ -22,10 +22,11 @@ class StationReorder extends ChangeNotifier {
   /// Saves the rows' new order, as their slugs, top first.
   final ValueChanged<List<String>> onReorder;
 
-  /// What covers the edges of the scroll view the list is in, such as a
-  /// pinned header at the top or the mini player at the bottom. The lifted
-  /// row stays clear of them, and the list scrolls once it reaches them.
-  EdgeInsets coveredEdges = EdgeInsets.zero;
+  /// What covers the edges of the scroll view the list is in as a row
+  /// lifts, such as a pinned header at the top or the mini player at the
+  /// bottom. The lifted row stays clear of them, and the list scrolls once
+  /// it reaches them.
+  ValueGetter<EdgeInsets> coveredEdges = () => EdgeInsets.zero;
 
   /// How long a row takes to slide out of the way, or to settle.
   static const Duration slideDuration = Duration(milliseconds: 200);
@@ -113,7 +114,7 @@ class StationReorder extends ChangeNotifier {
       pointer: position,
       position: scrollable?.position,
       viewport: scrollable?.context.findRenderObject() as RenderBox?,
-      covered: coveredEdges,
+      covered: coveredEdges(),
       overlayOrigin: overlayBox?.localToGlobal(Offset.zero) ?? Offset.zero,
     );
     final themes = InheritedTheme.capture(from: row, to: overlay.context);

@@ -147,6 +147,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   /// the list while their section scrolls under them.
   static const double _sectionHeaderHeight = 60;
 
+  /// The app bar's height at the default text size: its 44 px buttons and
+  /// their padding.
+  static const double _appBarHeight = 54;
+
+  /// The app bar (logo, title, search, settings) at the top of the list.
+  final GlobalKey _appBarKey = GlobalKey();
+
   final StationRowTransitions _rowTransitions = StationRowTransitions();
 
   /// The listener's order of the favorites, which they arrange by holding
@@ -542,6 +549,23 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     super.dispose();
   }
 
+  /// How much of the app bar shows at the top of the list: all of it at the
+  /// start or once the list scrolls back, none once it scrolls on.
+  double _appBarExtentInView() {
+    final appBar = _appBarKey.currentContext;
+    final box = appBar?.findRenderObject();
+    final viewport = appBar == null
+        ? null
+        : Scrollable.maybeOf(appBar)?.context.findRenderObject();
+    if (box is! RenderBox || !box.hasSize || viewport is! RenderBox) {
+      return 0;
+    }
+    final bottom = box
+        .localToGlobal(Offset(0, box.size.height), ancestor: viewport)
+        .dy;
+    return bottom.clamp(0.0, box.size.height);
+  }
+
   Widget _buildRoundedIconButton({
     required BuildContext context,
     required IconData icon,
@@ -795,10 +819,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 ? const <Station>[]
                 : _stationDataService.favoritesIn(filteredStations);
             final hasMiniPlayer = currentStation != null && stations.isNotEmpty;
-            // A favorite moved by hand stays clear of the pinned "Favorite"
-            // header and of the mini player.
-            _favoriteReorder.coveredEdges = EdgeInsets.only(
-              top: _sectionHeaderHeight,
+            // A favorite moved by hand stays clear of the app bar while it
+            // shows, of the pinned "Favorite" header and of the mini player.
+            _favoriteReorder.coveredEdges = () => EdgeInsets.only(
+              top: _appBarExtentInView() + _sectionHeaderHeight,
               bottom: hasMiniPlayer ? panelMinHeight : 0,
             );
 
@@ -870,128 +894,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 ),
                 child: SafeArea(
                 bottom: false,
-                child: Column(
-                  children: [
-                    // Fixed app bar
-                    Container(
-                      color: Theme.of(context).scaffoldBackgroundColor,
-                      // Right inset matches the filter row below, so the
-                      // icon glyphs line up with the 16px content gutter.
-                      padding: const EdgeInsets.only(top: 6, left: 16, right: 4, bottom: 4),
-                      child: Row(
-                        children: [
-                          const Image(
-                            image: AssetImage('assets/icons/ic_logo_filled.png'),
-                            width: 40,
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              "Radio Creștin",
-                              style: GoogleFonts.nunito(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0.3,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          const CastButton(),
-                          _buildRoundedIconButton(
-                            context: context,
-                            icon: Icons.search_rounded,
-                            tooltip: 'Caută o stație radio',
-                            onPressed: () {
-                              AnalyticsService.instance.capture('button_clicked', {'button_name': 'search'});
-                              showDialog(
-                                context: context,
-                                builder: (BuildContext context) {
-                                  return SelectDialog<Station>(
-                                    items: _stationDataService.visibleStations,
-                                    displayFunction: (Station station) => station.displayTitle,
-                                    searchFunction: (Station station) => station.displayTitle,
-                                    onItemSelected: (Station station) {
-                                      AnalyticsService.instance.capture('button_clicked', {'button_name': 'search_result_tap', 'station_id': station.id, 'station_slug': station.slug});
-                                      _audioHandler.playStation(station,
-                                          fromFavorites: false);
-                                    },
-                                    itemBuilder: (context, station) {
-                                      return Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                        child: Row(
-                                          children: [
-                                            SizedBox(
-                                              width: 48,
-                                              height: 48,
-                                              child: ClipRRect(
-                                                borderRadius: BorderRadius.circular(10),
-                                                child: station.thumbnail,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 12),
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  Text(
-                                                    station.displayTitle,
-                                                    style: TextStyle(
-                                                      color: Theme.of(context).colorScheme.onSurface,
-                                                      fontWeight: FontWeight.w500,
-                                                      fontSize: 15,
-                                                    ),
-                                                    maxLines: 1,
-                                                    overflow: TextOverflow.ellipsis,
-                                                  ),
-                                                  if (station.songTitle != "")
-                                                    Padding(
-                                                      padding: const EdgeInsets.only(top: 2),
-                                                      child: Text(
-                                                        station.songArtist != ""
-                                                            ? "${station.songTitle} - ${station.songArtist}"
-                                                            : station.songTitle,
-                                                        style: TextStyle(
-                                                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
-                                                          fontSize: 13,
-                                                        ),
-                                                        maxLines: 1,
-                                                        overflow: TextOverflow.ellipsis,
-                                                      ),
-                                                    ),
-                                                ],
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      );
-                                    },
-                                  );
-                                },
-                              );
-                            },
-                          ),
-                          _buildRoundedIconButton(
-                            context: context,
-                            icon: Icons.settings_outlined,
-                            tooltip: 'Setări aplicație',
-                            onPressed: () {
-                              AnalyticsService.instance.capture('button_clicked', {'button_name': 'settings'});
-                              SettingsPage.show(context, shareLinkData: _shareLinkData);
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                    // Scrollable station lists
-                    Expanded(
-                      child: StatusSnackbarScrollListener(
+                child: StatusSnackbarScrollListener(
                       controller: _statusSnackbar,
                       child: RefreshIndicator(
                         onRefresh: _handleRefresh,
                         color: Theme.of(context).primaryColor,
                         child: RawScrollbar(
-                        padding: const EdgeInsets.only(top: 60),
+                        padding: const EdgeInsets.only(
+                            top: _appBarHeight + _sectionHeaderHeight),
                         thumbColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.35),
                         radius: const Radius.circular(8),
                         thickness: 4,
@@ -999,6 +909,121 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           physics: PositionRetainedScrollPhysics(anchor: _sortRowAnchor, rows: _rowTransitions.scrollAnchor).applyTo(const AlwaysScrollableScrollPhysics()),
                           cacheExtent: 300.0,
                           slivers: <Widget>[
+                          // Hides as the list scrolls on, and comes back over
+                          // it as soon as the list scrolls back.
+                          SliverFloatingHeader(
+                            child: Container(
+                              key: _appBarKey,
+                              color: Theme.of(context).scaffoldBackgroundColor,
+                              // Right inset matches the filter row below, so the
+                              // icon glyphs line up with the 16px content gutter.
+                              padding: const EdgeInsets.only(top: 6, left: 16, right: 4, bottom: 4),
+                              child: Row(
+                                children: [
+                                  const Image(
+                                    image: AssetImage('assets/icons/ic_logo_filled.png'),
+                                    width: 40,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      "Radio Creștin",
+                                      style: GoogleFonts.nunito(
+                                        fontSize: 22,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: 0.3,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  const CastButton(),
+                                  _buildRoundedIconButton(
+                                    context: context,
+                                    icon: Icons.search_rounded,
+                                    tooltip: 'Caută o stație radio',
+                                    onPressed: () {
+                                      AnalyticsService.instance.capture('button_clicked', {'button_name': 'search'});
+                                      showDialog(
+                                        context: context,
+                                        builder: (BuildContext context) {
+                                          return SelectDialog<Station>(
+                                            items: _stationDataService.visibleStations,
+                                            displayFunction: (Station station) => station.displayTitle,
+                                            searchFunction: (Station station) => station.displayTitle,
+                                            onItemSelected: (Station station) {
+                                              AnalyticsService.instance.capture('button_clicked', {'button_name': 'search_result_tap', 'station_id': station.id, 'station_slug': station.slug});
+                                              _audioHandler.playStation(station,
+                                                  fromFavorites: false);
+                                            },
+                                            itemBuilder: (context, station) {
+                                              return Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                                child: Row(
+                                                  children: [
+                                                    SizedBox(
+                                                      width: 48,
+                                                      height: 48,
+                                                      child: ClipRRect(
+                                                        borderRadius: BorderRadius.circular(10),
+                                                        child: station.thumbnail,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 12),
+                                                    Expanded(
+                                                      child: Column(
+                                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                                        mainAxisSize: MainAxisSize.min,
+                                                        children: [
+                                                          Text(
+                                                            station.displayTitle,
+                                                            style: TextStyle(
+                                                              color: Theme.of(context).colorScheme.onSurface,
+                                                              fontWeight: FontWeight.w500,
+                                                              fontSize: 15,
+                                                            ),
+                                                            maxLines: 1,
+                                                            overflow: TextOverflow.ellipsis,
+                                                          ),
+                                                          if (station.songTitle != "")
+                                                            Padding(
+                                                              padding: const EdgeInsets.only(top: 2),
+                                                              child: Text(
+                                                                station.songArtist != ""
+                                                                    ? "${station.songTitle} - ${station.songArtist}"
+                                                                    : station.songTitle,
+                                                                style: TextStyle(
+                                                                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                                                                  fontSize: 13,
+                                                                ),
+                                                                maxLines: 1,
+                                                                overflow: TextOverflow.ellipsis,
+                                                              ),
+                                                            ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              );
+                                            },
+                                          );
+                                        },
+                                      );
+                                    },
+                                  ),
+                                  _buildRoundedIconButton(
+                                    context: context,
+                                    icon: Icons.settings_outlined,
+                                    tooltip: 'Setări aplicație',
+                                    onPressed: () {
+                                      AnalyticsService.instance.capture('button_clicked', {'button_name': 'settings'});
+                                      SettingsPage.show(context, shareLinkData: _shareLinkData);
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
                           if (_homePromo
                               case NotificationPromo(:final notification))
                             SliverToBoxAdapter(
@@ -1194,9 +1219,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         ),
                       ),
                       ),
-                    ),
-                  ],
-                ),
               ),
               ),
               collapsed: currentStation != null && stations.isNotEmpty
