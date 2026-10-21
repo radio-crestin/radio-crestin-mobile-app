@@ -604,9 +604,16 @@ public class AudioService extends MediaBrowserServiceCompat {
         this.repeatMode = repeatMode;
         this.shuffleMode = shuffleMode;
 
+        // Android Auto shows the position over the duration, so an item
+        // without one (a live station) read "6:06 / 0:00". An unknown
+        // position hides both the time and the bar.
+        final boolean hasDuration = mediaMetadata != null
+                && mediaMetadata.containsKey(MediaMetadataCompat.METADATA_KEY_DURATION);
         PlaybackStateCompat.Builder stateBuilder = new PlaybackStateCompat.Builder()
                 .setActions(AUTO_ENABLED_ACTIONS | actionBits)
-                .setState(getPlaybackState(), position, speed, updateTime)
+                .setState(getPlaybackState(),
+                        hasDuration ? position : PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN,
+                        speed, updateTime)
                 .setBufferedPosition(bufferedPosition);
 
         for (PlaybackStateCompat.CustomAction action : this.customActions) {
