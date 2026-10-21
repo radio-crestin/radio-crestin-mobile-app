@@ -7,7 +7,11 @@ const _headerHeight = 54.0;
 
 /// A list like Home's: the header, rows, and a bottom inset that keeps the
 /// last rows clear of the mini player and the navigation bar.
-Widget _list(ValueNotifier<double> bottomInset) {
+Widget _list(
+  ValueNotifier<double> bottomInset, {
+  bool pinned = false,
+  Widget header = const Text('Radio Creștin'),
+}) {
   return MaterialApp(
     home: Scaffold(
       body: ValueListenableBuilder<double>(
@@ -16,11 +20,12 @@ Widget _list(ValueNotifier<double> bottomInset) {
           physics: const PositionRetainedScrollPhysics()
               .applyTo(const AlwaysScrollableScrollPhysics()),
           slivers: [
-            const FloatingSliverHeader(
+            FloatingSliverHeader(
+              pinned: pinned,
               child: SizedBox(
-                key: ValueKey('header'),
+                key: const ValueKey('header'),
                 height: _headerHeight,
-                child: Text('Radio Creștin'),
+                child: header,
               ),
             ),
             SliverFixedExtentList.builder(
@@ -100,5 +105,39 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(_header(tester).bottom, lessThanOrEqualTo(0));
+  });
+
+  testWidgets('stays in view while pinned, whichever way the list scrolls',
+      (tester) async {
+    await tester.pumpWidget(_list(ValueNotifier(144), pinned: true));
+
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -800));
+    await tester.pumpAndSettle();
+
+    expect(_header(tester).top, 0);
+  });
+
+  testWidgets('leaves the list in place as a field in it gets the keyboard',
+      (tester) async {
+    await tester.pumpWidget(_list(
+      ValueNotifier(144),
+      pinned: true,
+      header: const TextField(),
+    ));
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -800));
+    await tester.pumpAndSettle();
+    final position = tester
+        .state<ScrollableState>(find.byType(Scrollable).first)
+        .position;
+    final scrolled = position.pixels;
+
+    // The field asks to be shown as it gets focus and as its text changes.
+    await tester.tap(find.byType(TextField));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'elim');
+    await tester.pumpAndSettle();
+
+    expect(position.pixels, scrolled);
+    expect(_header(tester).top, 0);
   });
 }

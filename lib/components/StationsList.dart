@@ -12,6 +12,7 @@ import '../services/analytics_service.dart';
 import '../services/playlist_controller.dart';
 import '../types/Station.dart';
 import '../types/playlist_item.dart';
+import '../utils/station_search.dart';
 import '../utils/station_ui.dart';
 import '../widgets/hide_station_dialog.dart';
 import '../widgets/re_add_station_button.dart';
@@ -35,6 +36,8 @@ class StationsList extends StatelessWidget {
     this.shownHidden,
     this.hidesInPlace = false,
     this.onShowHidden,
+    this.highlight,
+    this.onStationTap,
   });
 
   final Station? currentStation;
@@ -70,6 +73,13 @@ class StationsList extends StatelessWidget {
 
   /// Adds back a hidden station listed in its place.
   final ValueChanged<Station>? onShowHidden;
+
+  /// What the listener searched for: the parts of the station names that
+  /// match it show in bold. See [stationTitleMatch].
+  final String? highlight;
+
+  /// Called as a row is tapped, before its station starts.
+  final ValueChanged<Station>? onStationTap;
 
   /// Rows are at most this wide: wider lists show a grid.
   static const double _maxRowWidth = 700;
@@ -281,15 +291,14 @@ class StationsList extends StatelessWidget {
                                     const SizedBox(width: 6),
                                   ],
                                   Flexible(
-                                    child: Text(
-                                      station.displayTitle,
+                                    child: _StationTitle(
+                                      title: station.displayTitle,
+                                      highlight: highlight,
                                       style: TextStyle(
                                         color: Theme.of(context).colorScheme.onSurface,
                                         fontWeight: FontWeight.normal,
                                         fontSize: _titleFontSize,
                                       ),
-                                      overflow: TextOverflow.ellipsis,
-                                      maxLines: 1,
                                     ),
                                   ),
                                   if (station.averageRating > 0) ...[
@@ -436,6 +445,7 @@ class StationsList extends StatelessWidget {
             onMoveDown: moveBy(1),
             child: GestureDetector(
               onTap: () async {
+                onStationTap?.call(station);
                 AnalyticsService.instance.capture('button_clicked', {'button_name': 'station_tap', 'station_id': station.id, 'station_slug': station.slug, 'from_favorites': isFavoritesList});
                 await audioHandler.playStation(station, fromFavorites: isFavoritesList);
                 // TV channels and video-first playlists open the full player
@@ -500,6 +510,45 @@ class StationsList extends StatelessWidget {
                 child: row,
               ),
       ),
+    );
+  }
+}
+
+/// A station's name on its row, the parts that match [highlight] in bold.
+class _StationTitle extends StatelessWidget {
+  const _StationTitle({
+    required this.title,
+    required this.highlight,
+    required this.style,
+  });
+
+  final String title;
+  final String? highlight;
+  final TextStyle style;
+
+  @override
+  Widget build(BuildContext context) {
+    final highlight = this.highlight;
+    final matches = highlight == null
+        ? null
+        : stationTitleMatch(title, highlight);
+    final spans = <TextSpan>[];
+    var end = 0;
+    for (final match in matches ?? const <TextRange>[]) {
+      spans
+        ..add(TextSpan(text: title.substring(end, match.start)))
+        ..add(TextSpan(
+          text: title.substring(match.start, match.end),
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ));
+      end = match.end;
+    }
+    spans.add(TextSpan(text: title.substring(end)));
+    return Text.rich(
+      TextSpan(children: spans),
+      style: style,
+      overflow: TextOverflow.ellipsis,
+      maxLines: 1,
     );
   }
 }

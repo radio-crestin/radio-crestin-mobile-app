@@ -13,11 +13,15 @@ class PositionRetainedScrollPhysics extends ScrollPhysics {
   /// Keeps the rows in view in place while rows grow or shrink.
   final RowScrollAnchor? rows;
 
+  /// Puts the list where the page asks, as its content changes.
+  final ScrollPositionRequest? request;
+
   const PositionRetainedScrollPhysics({
     super.parent,
     this.shouldRetain = true,
     this.anchor,
     this.rows,
+    this.request,
   });
 
   @override
@@ -27,6 +31,7 @@ class PositionRetainedScrollPhysics extends ScrollPhysics {
       shouldRetain: shouldRetain,
       anchor: anchor,
       rows: rows,
+      request: request,
     );
   }
 
@@ -44,7 +49,8 @@ class PositionRetainedScrollPhysics extends ScrollPhysics {
       velocity: velocity,
     );
 
-    final anchored = anchor?.takePosition(oldPosition.pixels) ??
+    final anchored = request?.takePosition() ??
+        anchor?.takePosition(oldPosition.pixels) ??
         rows?.takePosition(oldPosition, newPosition);
     if (anchored != null) {
       return anchored.clamp(
@@ -61,6 +67,60 @@ class PositionRetainedScrollPhysics extends ScrollPhysics {
     } else {
       return position;
     }
+  }
+}
+
+/// Puts the list at a scroll position the page chose, in the layout that
+/// shows a change to the list: e.g. at the top of a search's results as
+/// the text changes, and back where the list was once the search ends.
+///
+/// A jump made before that layout would be moved on by the physics, which
+/// keeps the distance to the list's end as the list changes length; one
+/// made after it would show the list in the wrong place for a frame.
+class ScrollPositionRequest {
+  double? _pixels;
+  bool _taken = false;
+  bool _jumped = false;
+
+  /// Puts [position] at [pixels] in the next frame's layout, or right after
+  /// it if that layout doesn't measure the list anew.
+  void request(ScrollPosition position, double pixels) {
+    final pending = _pixels != null;
+    _pixels = pixels;
+    _taken = false;
+    _jumped = false;
+    if (pending) return;
+    _afterNextFrame(position);
+  }
+
+  void _afterNextFrame(ScrollPosition position) {
+    SchedulerBinding.instance
+      ..addPostFrameCallback((_) => _letGo(position))
+      ..ensureVisualUpdate();
+  }
+
+  /// Lets go once a layout took the position. Otherwise the frame laid the
+  /// list out without measuring it anew: it kept its length, or a list
+  /// whose rows in view stayed the same doesn't notice it changed until
+  /// its next layout. Jumps there, and holds on for the layout the jump
+  /// causes, in case it finds a new length.
+  void _letGo(ScrollPosition position) {
+    final pixels = _pixels;
+    if (pixels == null) return;
+    if (_taken || _jumped || !position.hasPixels) {
+      _pixels = null;
+      return;
+    }
+    _jumped = true;
+    _afterNextFrame(position);
+    if (pixels != position.pixels) position.jumpTo(pixels);
+  }
+
+  /// The position asked for, or null when none is. The same in every
+  /// layout of the frame, so the layouts the move causes settle on it.
+  double? takePosition() {
+    if (_pixels != null) _taken = true;
+    return _pixels;
   }
 }
 

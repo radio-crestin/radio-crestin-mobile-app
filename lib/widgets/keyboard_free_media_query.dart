@@ -2,12 +2,13 @@ import 'package:flutter/widgets.dart';
 
 /// Lays [child] out as if the keyboard were closed.
 ///
-/// For a page with no text field of its own, under a dialog that has one:
-/// the dialog's keyboard reaches the page too. The page's scaffold shrinks
-/// above it, and the navigation bar leaves the bottom padding (up to
-/// Android 10 also the view padding) while the keyboard covers it. Home's
-/// list ends with that padding, so it scrolled when the search dialog
-/// opened and again when it closed.
+/// For a page whose list shouldn't move as the keyboard comes and goes.
+/// The page's scaffold would shrink above it, and the navigation bar
+/// leaves the bottom padding (up to Android 10 also the view padding)
+/// while the keyboard covers it. Home's list ends with that padding, so it
+/// scrolled when the keyboard opened and again when it closed. Home's
+/// search field is at the top of the page, clear of the keyboard, and the
+/// list closes the keyboard as soon as the listener scrolls it.
 ///
 /// Routes pushed from [child] are built by the navigator, above this
 /// widget, so dialogs and sheets still make room for the keyboard.

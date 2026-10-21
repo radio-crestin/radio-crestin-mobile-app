@@ -241,4 +241,109 @@ void main() {
       expect(rowTop(tester), 290);
     });
   });
+
+  group('ScrollPositionRequest', () {
+    // Home in miniature while searching: the station list narrows to the
+    // results and widens back to all the stations.
+    late ScrollPositionRequest request;
+    late ScrollController controller;
+    late StateSetter setList;
+    late double above;
+    late int stations;
+
+    setUp(() {
+      request = ScrollPositionRequest();
+      controller = ScrollController();
+      above = 0;
+      stations = 64;
+    });
+    tearDown(() => controller.dispose());
+
+    Future<void> pumpList(WidgetTester tester) {
+      return tester.pumpWidget(
+        MaterialApp(
+          home: StatefulBuilder(builder: (context, setState) {
+            setList = setState;
+            return CustomScrollView(
+              controller: controller,
+              physics: PositionRetainedScrollPhysics(request: request)
+                  .applyTo(const ClampingScrollPhysics()),
+              slivers: [
+                SliverToBoxAdapter(child: SizedBox(height: above)),
+                SliverFixedExtentList.builder(
+                  itemExtent: 105,
+                  itemCount: stations,
+                  itemBuilder: (_, i) => Text('station $i'),
+                ),
+              ],
+            );
+          }),
+        ),
+      );
+    }
+
+    Future<void> showStations(WidgetTester tester, int count) async {
+      setList(() => stations = count);
+      await tester.pump();
+    }
+
+    testWidgets('puts the narrowed list at the top', (tester) async {
+      await pumpList(tester);
+      controller.jumpTo(3000);
+      await tester.pump();
+
+      request.request(controller.position, 0);
+      await showStations(tester, 30);
+
+      expect(controller.offset, 0);
+      expect(tester.getTopLeft(find.text('station 0')).dy, 0);
+    });
+
+    // The rows in view stay the same, so the list doesn't notice it got
+    // longer in that frame.
+    testWidgets('puts the widened list back where it was', (tester) async {
+      await pumpList(tester);
+      controller.jumpTo(3000);
+      await tester.pump();
+      request.request(controller.position, 0);
+      await showStations(tester, 30);
+      // The listener scrolls the results.
+      controller.jumpTo(500);
+      await tester.pump();
+
+      request.request(controller.position, 3000);
+      await showStations(tester, 64);
+
+      expect(controller.offset, 3000);
+    });
+
+    testWidgets('jumps after the frame when the list keeps its length',
+        (tester) async {
+      await pumpList(tester);
+      controller.jumpTo(500);
+      await tester.pump();
+
+      request.request(controller.position, 0);
+      await tester.pump();
+
+      expect(controller.offset, 0);
+    });
+
+    testWidgets('only applies to the next frame', (tester) async {
+      await pumpList(tester);
+      controller.jumpTo(3000);
+      await tester.pump();
+      request.request(controller.position, 0);
+      await tester.pump();
+      controller.jumpTo(1000);
+      await tester.pump();
+
+      // Favorite comes back above the rows in view.
+      setList(() => above = 290);
+      await tester.pump();
+
+      // The physics keep the distance to the end, as before.
+      expect(controller.offset, 1000 + 290);
+    });
+  });
 }

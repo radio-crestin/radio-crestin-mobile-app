@@ -18,7 +18,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sliding_up_panel2/sliding_up_panel2.dart';
 
 import '../components/MiniAudioPlayer.dart';
-import '../components/SelectDialog.dart';
 import '../components/StationsList.dart';
 import '../main.dart';
 import '../queries/getStations.graphql.dart';
@@ -41,6 +40,7 @@ import '../types/Station.dart';
 import '../utils.dart';
 import '../utils/PositionRetainedScrollPhysics.dart';
 import '../utils/romanian_count.dart';
+import '../utils/station_search.dart';
 import '../widgets/song_history_modal.dart';
 import '../widgets/station_group_chip.dart';
 import '../widgets/station_group_filter_sheet.dart';
@@ -197,6 +197,21 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   /// The promo card above the station list: one at a time.
   HomePromo? _homePromo;
 
+  /// Whether the app bar is a search field: the list then shows only the
+  /// stations whose names match what the listener types into it.
+  bool _searching = false;
+
+  /// What the list is narrowed to: the search text, trimmed; empty shows
+  /// the list as it is.
+  String _query = '';
+
+  /// Where the list was before it showed search results, to go back there
+  /// once they're gone.
+  double? _offsetBeforeResults;
+
+  /// Puts the list at the top of the results, and back where it was.
+  final ScrollPositionRequest _scrollRequest = ScrollPositionRequest();
+
   @override
   void initState() {
     super.initState();
@@ -342,7 +357,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   void _onStationHidden(Station station, int? favoriteIndex) {
     _lastHidden = (station: station, favoriteIndex: favoriteIndex);
     _statusSnackbar.showStationHidden(station);
-    _growInHiddenAround(station);
+    // Search results leave the chosen category aside.
+    if (_query.isEmpty) _growInHiddenAround(station);
   }
 
   /// Hiding the last station on show in the chosen category lists its
@@ -549,6 +565,60 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _favoriteReorder.dispose();
     _panelSlide.dispose();
     super.dispose();
+  }
+
+  /// The station list's scroll position, once it is laid out.
+  ScrollPosition? get _listPosition {
+    final appBar = _appBarKey.currentContext;
+    return appBar == null ? null : Scrollable.maybeOf(appBar)?.position;
+  }
+
+  /// Turns the app bar into the search field, which takes the keyboard.
+  void _startSearch() {
+    AnalyticsService.instance
+        .capture('button_clicked', {'button_name': 'search'});
+    setState(() => _searching = true);
+  }
+
+  /// Narrows the list to the stations whose names match [text]. Results
+  /// start at the top; once there are none, the list is back where it was.
+  void _search(String text) {
+    final query = text.trim();
+    if (query == _query) return;
+    final position = _listPosition;
+    if (position != null && position.hasPixels) {
+      if (_query.isEmpty) _offsetBeforeResults = position.pixels;
+      _scrollRequest.request(
+        position,
+        query.isEmpty ? _offsetBeforeResults ?? 0 : 0,
+      );
+    }
+    if (query.isEmpty) _offsetBeforeResults = null;
+    setState(() => _query = query);
+  }
+
+  /// Gives the app bar back, and the whole list where it was.
+  void _endSearch() {
+    AnalyticsService.instance
+        .capture('button_clicked', {'button_name': 'search_cancel'});
+    _closeKeyboard();
+    _search('');
+    setState(() => _searching = false);
+  }
+
+  /// Takes the keyboard away from the search field.
+  void _closeKeyboard() => FocusManager.instance.primaryFocus?.unfocus();
+
+  /// A station tapped while searching starts, and the keyboard makes way
+  /// for its row and the mini player.
+  void _onSearchResultTap(Station station) {
+    _closeKeyboard();
+    if (_query.isEmpty) return;
+    AnalyticsService.instance.capture('button_clicked', {
+      'button_name': 'search_result_tap',
+      'station_id': station.id,
+      'station_slug': station.slug,
+    });
   }
 
   /// How much of the app bar shows at the top of the list: all of it at the
@@ -767,9 +837,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    // The page has no text field: the keyboard is the search dialog's, and
-    // would only move the list under it.
-    return KeyboardFreeMediaQuery(child: Builder(builder: _buildPage));
+    // The keyboard would only move the list under the search field.
+    return KeyboardFreeMediaQuery(
+      child: PopScope(
+        // BACK ends a search before it leaves the app.
+        canPop: !_searching,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop && _searching) _endSearch();
+        },
+        child: Builder(builder: _buildPage),
+      ),
+    );
   }
 
   Widget _buildPage(BuildContext context) {
@@ -822,9 +900,24 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             // is chosen the Favorite section hides: its favorites are in the
             // category's list already, and the rest would only push it down.
             // They come in the listener's order, which they can rearrange.
-            final favoriteStations = selectedStationGroup != null
-                ? const <Station>[]
-                : _stationDataService.favoritesIn(filteredStations);
+            //
+            // Search results come from every category: a station missing
+            // from the chosen one is still the one the listener means.
+            final query = _query;
+            final searchResults = query.isEmpty
+                ? null
+                : [
+                    for (final station in _stationDataService
+                        .getSortedStations(applyGroupFilter: false))
+                      if (stationTitleMatch(station.displayTitle, query) !=
+                          null)
+                        station,
+                  ];
+            final favoriteStations = searchResults != null
+                ? _stationDataService.favoritesIn(searchResults)
+                : selectedStationGroup != null
+                    ? const <Station>[]
+                    : _stationDataService.favoritesIn(filteredStations);
             final hasMiniPlayer = currentStation != null && stations.isNotEmpty;
             // A favorite moved by hand stays clear of the app bar while it
             // shows, of the pinned "Favorite" header and of the mini player.
@@ -913,19 +1006,37 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         radius: const Radius.circular(8),
                         thickness: 4,
                         child: CustomScrollView(
-                          physics: PositionRetainedScrollPhysics(anchor: _sortRowAnchor, rows: _rowTransitions.scrollAnchor).applyTo(const AlwaysScrollableScrollPhysics()),
+                          physics: PositionRetainedScrollPhysics(anchor: _sortRowAnchor, rows: _rowTransitions.scrollAnchor, request: _scrollRequest).applyTo(const AlwaysScrollableScrollPhysics()),
+                          // Scrolling the search results makes way for all
+                          // of them. Always on: switching it wraps the list
+                          // in a new widget, which starts it at the top.
+                          keyboardDismissBehavior:
+                              ScrollViewKeyboardDismissBehavior.onDrag,
                           cacheExtent: 300.0,
                           slivers: <Widget>[
                           // Hides as the user scrolls on, and comes back over
-                          // the list as soon as they scroll back.
+                          // the list as soon as they scroll back; stays while
+                          // it is the search field.
                           FloatingSliverHeader(
+                            pinned: _searching,
                             child: Container(
                               key: _appBarKey,
                               color: Theme.of(context).scaffoldBackgroundColor,
                               // Right inset matches the filter row below, so the
                               // icon glyphs line up with the 16px content gutter.
                               padding: const EdgeInsets.only(top: 6, left: 16, right: 4, bottom: 4),
-                              child: Row(
+                              child: AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 200),
+                                switchInCurve: Curves.easeInOut,
+                                switchOutCurve: Curves.easeInOut,
+                                child: _searching
+                                    ? _HomeSearchBar(
+                                        key: const ValueKey('search'),
+                                        onChanged: _search,
+                                        onCancel: _endSearch,
+                                      )
+                                    : Row(
+                                key: const ValueKey('app-bar'),
                                 children: [
                                   const Image(
                                     image: AssetImage('assets/icons/ic_logo_filled.png'),
@@ -948,75 +1059,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                     context: context,
                                     icon: Icons.search_rounded,
                                     tooltip: 'Caută o stație radio',
-                                    onPressed: () {
-                                      AnalyticsService.instance.capture('button_clicked', {'button_name': 'search'});
-                                      showDialog(
-                                        context: context,
-                                        builder: (BuildContext context) {
-                                          return SelectDialog<Station>(
-                                            items: _stationDataService.visibleStations,
-                                            displayFunction: (Station station) => station.displayTitle,
-                                            searchFunction: (Station station) => station.displayTitle,
-                                            onItemSelected: (Station station) {
-                                              AnalyticsService.instance.capture('button_clicked', {'button_name': 'search_result_tap', 'station_id': station.id, 'station_slug': station.slug});
-                                              _audioHandler.playStation(station,
-                                                  fromFavorites: false);
-                                            },
-                                            itemBuilder: (context, station) {
-                                              return Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                                child: Row(
-                                                  children: [
-                                                    SizedBox(
-                                                      width: 48,
-                                                      height: 48,
-                                                      child: ClipRRect(
-                                                        borderRadius: BorderRadius.circular(10),
-                                                        child: station.thumbnail,
-                                                      ),
-                                                    ),
-                                                    const SizedBox(width: 12),
-                                                    Expanded(
-                                                      child: Column(
-                                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                                        mainAxisSize: MainAxisSize.min,
-                                                        children: [
-                                                          Text(
-                                                            station.displayTitle,
-                                                            style: TextStyle(
-                                                              color: Theme.of(context).colorScheme.onSurface,
-                                                              fontWeight: FontWeight.w500,
-                                                              fontSize: 15,
-                                                            ),
-                                                            maxLines: 1,
-                                                            overflow: TextOverflow.ellipsis,
-                                                          ),
-                                                          if (station.songTitle != "")
-                                                            Padding(
-                                                              padding: const EdgeInsets.only(top: 2),
-                                                              child: Text(
-                                                                station.songArtist != ""
-                                                                    ? "${station.songTitle} - ${station.songArtist}"
-                                                                    : station.songTitle,
-                                                                style: TextStyle(
-                                                                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
-                                                                  fontSize: 13,
-                                                                ),
-                                                                maxLines: 1,
-                                                                overflow: TextOverflow.ellipsis,
-                                                              ),
-                                                            ),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              );
-                                            },
-                                          );
-                                        },
-                                      );
-                                    },
+                                    onPressed: _startSearch,
                                   ),
                                   _buildRoundedIconButton(
                                     context: context,
@@ -1029,17 +1072,20 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                   ),
                                 ],
                               ),
+                              ),
                             ),
                           ),
+                          // Search results come first.
                           if (_homePromo
-                              case NotificationPromo(:final notification))
+                              case NotificationPromo(:final notification)
+                              when searchResults == null)
                             SliverToBoxAdapter(
                               child: PromoNotificationCard(
                                 notification: notification,
                                 onDismiss: _closeHomePromo,
                               ),
                             ),
-                          if (_homePromo is SharePromo)
+                          if (_homePromo is SharePromo && searchResults == null)
                             SliverToBoxAdapter(
                               child: SharePromotionCard(
                                 key: _sharePromotionKey,
@@ -1073,12 +1119,38 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                     isFavoritesList: true,
                                     onStationHidden: _onStationHidden,
                                     rowTransitions: _rowTransitions,
-                                    reorder: _favoriteReorder,
+                                    // Moved among the results only, a
+                                    // favorite would land among the others
+                                    // somewhere the listener can't see.
+                                    reorder: searchResults == null
+                                        ? _favoriteReorder
+                                        : null,
+                                    highlight:
+                                        searchResults == null ? null : query,
+                                    onStationTap:
+                                        _searching ? _onSearchResultTap : null,
                                   )),
                             ),
+                          if (searchResults != null)
+                            _SearchResults(
+                              query: query,
+                              list: StationsList(
+                                stations: searchResults,
+                                currentStation: currentStation,
+                                audioHandler: _audioHandler,
+                                panelController: slidingUpPanelController,
+                                favoriteSlugs: favoriteSlugs,
+                                onStationHidden: _onStationHidden,
+                                rowTransitions: _rowTransitions,
+                                highlight: query,
+                                onStationTap: _onSearchResultTap,
+                              ),
+                              count: searchResults.length,
+                              headerHeight: _sectionHeaderHeight,
+                            )
                           // Also with a chosen category whose stations are
                           // all hidden: its chip is the way back.
-                          if (filteredStations.isNotEmpty ||
+                          else if (filteredStations.isNotEmpty ||
                               selectedStationGroup != null)
                             SliverStickyHeader(
                               key: _sortRowAnchor.key,
@@ -1204,6 +1276,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                         (showsHidden ||
                                             filteredStations.length == 1),
                                     onShowHidden: _showHiddenInPlace,
+                                    onStationTap:
+                                        _searching ? _onSearchResultTap : null,
                                   ),
                                 ],
                               ),
@@ -1517,6 +1591,196 @@ class _HiddenInCategoryNote extends StatelessWidget {
                 ],
               ),
             ),
+    );
+  }
+}
+
+/// The app bar while searching: the field, which takes the keyboard as it
+/// comes, and "Anulează", which gives the app bar back.
+class _HomeSearchBar extends StatefulWidget {
+  const _HomeSearchBar({
+    super.key,
+    required this.onChanged,
+    required this.onCancel,
+  });
+
+  /// Called with the text as the listener types it.
+  final ValueChanged<String> onChanged;
+
+  final VoidCallback onCancel;
+
+  @override
+  State<_HomeSearchBar> createState() => _HomeSearchBarState();
+}
+
+class _HomeSearchBarState extends State<_HomeSearchBar> {
+  final TextEditingController _text = TextEditingController();
+  final FocusNode _focus = FocusNode();
+
+  /// As tall as the app bar's buttons, so the bar keeps its height.
+  static const double _height = 44;
+
+  @override
+  void dispose() {
+    _text.dispose();
+    _focus.dispose();
+    super.dispose();
+  }
+
+  void _clear() {
+    _text.clear();
+    widget.onChanged('');
+    _focus.requestFocus();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final faint = scheme.onSurface.withValues(alpha: 0.55);
+    final shape = BorderRadius.circular(_height / 2);
+    const iconBox = BoxConstraints(minWidth: _height, minHeight: _height);
+    return Row(
+      children: [
+        Expanded(
+          child: SizedBox(
+            height: _height,
+            child: TextField(
+              controller: _text,
+              focusNode: _focus,
+              autofocus: true,
+              onChanged: widget.onChanged,
+              // A touch anywhere else closes the keyboard, as on iOS and
+              // Android search screens; Flutter keeps it open on phones.
+              // The clear button is part of the field, so it doesn't.
+              onTapOutside: (_) => _focus.unfocus(),
+              textInputAction: TextInputAction.search,
+              // Station names, not words to correct.
+              autocorrect: false,
+              enableSuggestions: false,
+              cursorColor: scheme.primary,
+              textAlignVertical: TextAlignVertical.center,
+              style: TextStyle(fontSize: 16, color: scheme.onSurface),
+              decoration: InputDecoration(
+                hintText: 'Caută o stație',
+                hintStyle: TextStyle(fontSize: 16, color: faint),
+                prefixIcon: Icon(Icons.search_rounded, size: 22, color: faint),
+                prefixIconConstraints: iconBox,
+                suffixIcon: ValueListenableBuilder<TextEditingValue>(
+                  valueListenable: _text,
+                  builder: (context, value, _) => value.text.isEmpty
+                      ? const SizedBox.shrink()
+                      : IconButton(
+                          onPressed: _clear,
+                          tooltip: 'Șterge textul',
+                          constraints: const BoxConstraints.tightFor(
+                            width: _height,
+                            height: _height,
+                          ),
+                          padding: EdgeInsets.zero,
+                          icon: Icon(Icons.cancel, size: 20, color: faint),
+                        ),
+                ),
+                suffixIconConstraints: iconBox,
+                isDense: true,
+                contentPadding: EdgeInsets.zero,
+                filled: true,
+                fillColor: scheme.onSurface.withValues(alpha: 0.06),
+                border: OutlineInputBorder(
+                  borderRadius: shape,
+                  borderSide: BorderSide.none,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: shape,
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: shape,
+                  borderSide: BorderSide(color: scheme.primary, width: 2),
+                ),
+              ),
+            ),
+          ),
+        ),
+        TextButton(
+          onPressed: widget.onCancel,
+          style: TextButton.styleFrom(
+            foregroundColor: scheme.primary,
+            minimumSize: const Size(0, _height),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            textStyle:
+                const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+          ),
+          child: const Text('Anulează'),
+        ),
+      ],
+    );
+  }
+}
+
+/// The stations whose names match the search, under a header that counts
+/// them; a line saying there are none when none does.
+class _SearchResults extends StatelessWidget {
+  const _SearchResults({
+    required this.query,
+    required this.list,
+    required this.count,
+    required this.headerHeight,
+  });
+
+  final String query;
+
+  /// The rows of the matching stations.
+  final Widget list;
+
+  final int count;
+  final double headerHeight;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final faint = theme.colorScheme.onSurface.withValues(alpha: 0.6);
+    if (count == 0) {
+      return SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+          child: Text(
+            'Nicio stație găsită pentru „$query”.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 15, height: 1.5, color: faint),
+          ),
+        ),
+      );
+    }
+    return SliverStickyHeader(
+      header: Container(
+        height: headerHeight,
+        color: theme.scaffoldBackgroundColor,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Toate stațiile',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: theme.colorScheme.onSurface,
+                ),
+              ),
+            ),
+            Text(
+              romanianCount(count, one: 'stație', many: 'stații'),
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: faint,
+              ),
+            ),
+          ],
+        ),
+      ),
+      sliver: list,
     );
   }
 }

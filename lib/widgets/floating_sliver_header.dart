@@ -10,13 +10,22 @@ import 'package:flutter/widgets.dart';
 /// Works like Flutter's [SliverFloatingHeader], except that the header only
 /// follows the user's scrolling. The list also scrolls by itself to keep
 /// what is on screen in place: while a liked station joins Favorite above
-/// the rows in view, or while the keyboard of the search dialog changes the
-/// list's bottom inset. [SliverFloatingHeader] took those for the user
-/// scrolling on and hid; this header stays where it is.
+/// the rows in view, or while the list's bottom inset changes as the mini
+/// player comes. [SliverFloatingHeader] took those for the user scrolling
+/// on and hid; this header stays where it is.
+///
+/// While [pinned], it stays in view whichever way the list scrolls, e.g.
+/// while it holds a search field.
 class FloatingSliverHeader extends StatefulWidget {
-  const FloatingSliverHeader({super.key, required this.child});
+  const FloatingSliverHeader({
+    super.key,
+    required this.child,
+    this.pinned = false,
+  });
 
   final Widget child;
+
+  final bool pinned;
 
   @override
   State<FloatingSliverHeader> createState() => _FloatingSliverHeaderState();
@@ -28,6 +37,7 @@ class _FloatingSliverHeaderState extends State<FloatingSliverHeader>
   Widget build(BuildContext context) {
     return _FloatingHeader(
       vsync: this,
+      pinned: widget.pinned,
       child: _SnapTrigger(child: widget.child),
     );
   }
@@ -73,25 +83,36 @@ class _SnapTriggerState extends State<_SnapTrigger> {
 }
 
 class _FloatingHeader extends SingleChildRenderObjectWidget {
-  const _FloatingHeader({required this.vsync, super.child});
+  const _FloatingHeader({
+    required this.vsync,
+    required this.pinned,
+    super.child,
+  });
 
   final TickerProvider vsync;
+  final bool pinned;
 
   @override
   _RenderFloatingHeader createRenderObject(BuildContext context) =>
-      _RenderFloatingHeader(vsync: vsync);
+      _RenderFloatingHeader(vsync: vsync, pinned: pinned);
 
   @override
   void updateRenderObject(
     BuildContext context,
     _RenderFloatingHeader renderObject,
   ) {
-    renderObject.vsync = vsync;
+    renderObject
+      ..vsync = vsync
+      ..pinned = pinned;
   }
 }
 
 class _RenderFloatingHeader extends RenderSliverSingleBoxAdapter {
-  _RenderFloatingHeader({required TickerProvider vsync}) : _vsync = vsync;
+  _RenderFloatingHeader({
+    required TickerProvider vsync,
+    required bool pinned,
+  })  : _vsync = vsync,
+        _pinned = pinned;
 
   static const Duration _snapDuration = Duration(milliseconds: 300);
 
@@ -101,6 +122,15 @@ class _RenderFloatingHeader extends RenderSliverSingleBoxAdapter {
     if (value == _vsync) return;
     _vsync = value;
     _snapController?.resync(value);
+  }
+
+  bool _pinned;
+
+  set pinned(bool value) {
+    if (value == _pinned) return;
+    _pinned = value;
+    _snapController?.stop();
+    markNeedsLayout();
   }
 
   AnimationController? _snapController;
@@ -125,6 +155,7 @@ class _RenderFloatingHeader extends RenderSliverSingleBoxAdapter {
   /// Once the user's scroll ends, shows a part-shown header the way they
   /// scrolled back, or hides it the way they scrolled on.
   void scrollingChanged(ScrollPosition position) {
+    if (_pinned) return;
     if (position.isScrollingNotifier.value) {
       _snapController?.stop();
       return;
@@ -166,7 +197,9 @@ class _RenderFloatingHeader extends RenderSliverSingleBoxAdapter {
     final extent = _extent;
     final scrollOffset = constraints.scrollOffset;
     final last = _lastScrollOffset;
-    if (last == null) {
+    if (_pinned) {
+      _hidden = 0;
+    } else if (last == null) {
       _hidden = scrollOffset;
     } else if (constraints.userScrollDirection == ScrollDirection.idle) {
       // The list moved by itself to keep its content in place, or the
@@ -201,9 +234,31 @@ class _RenderFloatingHeader extends RenderSliverSingleBoxAdapter {
         constraints.remainingPaintExtent,
       ),
       maxPaintExtent: extent,
+      // Pinned, it covers the top of the list, which revealing a row has
+      // to leave clear.
+      maxScrollObstructionExtent: _pinned ? extent : 0,
       hasVisualOverflow: true,
     );
     _lastScrollOffset = scrollOffset;
+  }
+
+  /// Leaves the list where it is when the header shows already: a field in
+  /// it asks to be shown as it gets the keyboard and as its text changes,
+  /// and the list would scroll back to the header's place at its top.
+  @override
+  void showOnScreen({
+    RenderObject? descendant,
+    Rect? rect,
+    Duration duration = Duration.zero,
+    Curve curve = Curves.ease,
+  }) {
+    if (_hidden <= 0) return;
+    super.showOnScreen(
+      descendant: descendant,
+      rect: rect,
+      duration: duration,
+      curve: curve,
+    );
   }
 
   @override
