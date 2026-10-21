@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'widgets/snapshot_page_transitions.dart';
+
 extension CustomThemeColors on ThemeData {
   Color get cardColorSelected => brightness == Brightness.light
       ? const Color(0xFFD9D9D9)
@@ -347,7 +349,7 @@ class AppRadius {
 }
 
 /// The platforms' default page transitions, with Android's fading the pages
-/// through [background].
+/// through [background] and drawing them as images while they fade.
 ///
 /// Android fades the old page out and the new one in over the colour
 /// scheme's surface by default. Here that is not the page colour (grey 800
@@ -355,8 +357,9 @@ class AppRadius {
 PageTransitionsTheme _pageTransitionsOver(Color background) =>
     PageTransitionsTheme(builders: {
       ...const PageTransitionsTheme().builders,
-      TargetPlatform.android:
-          PredictiveBackPageTransitionsBuilder(fallbackColor: background),
+      TargetPlatform.android: SnapshotFadeForwardsPageTransitionsBuilder(
+        backgroundColor: background,
+      ),
     });
 
 final ThemeData lightTheme = ThemeData(

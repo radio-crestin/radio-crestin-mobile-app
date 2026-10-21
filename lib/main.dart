@@ -7,7 +7,6 @@ import 'package:device_info_plus/device_info_plus.dart';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:posthog_flutter/posthog_flutter.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
@@ -54,6 +53,7 @@ import 'services/remote_debug_controller.dart';
 import 'services/quick_actions_service.dart';
 import 'services/network_service.dart';
 import 'services/play_count_service.dart';
+import 'services/posthog_screen_observer.dart';
 import 'services/siri_media_service.dart';
 import 'services/song_like_service.dart';
 import 'services/station_data_service.dart';
@@ -718,7 +718,7 @@ class RadioCrestinApp extends StatelessWidget {
     if (TvPlatform.isTV) {
       return MaterialApp(
         navigatorKey: globals.navigatorKey,
-        navigatorObservers: [PosthogObserver()],
+        navigatorObservers: [PosthogScreenObserver()],
         title: 'Radio Crestin',
         debugShowCheckedModeBanner: false,
         theme: tvTheme,
@@ -733,7 +733,7 @@ class RadioCrestinApp extends StatelessWidget {
       builder: (context, themeMode, child) {
         return MaterialApp(
           navigatorKey: globals.navigatorKey,
-          navigatorObservers: [PosthogObserver()],
+          navigatorObservers: [PosthogScreenObserver()],
           title: 'Radio Crestin',
           debugShowCheckedModeBanner: false,
           theme: lightTheme,

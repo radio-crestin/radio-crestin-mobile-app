@@ -17,6 +17,9 @@ abstract final class EdgeToEdge {
   /// Whether the app is drawn behind the navigation bar.
   static bool get enabled => _enabled;
 
+  @visibleForTesting
+  static set enabledForTesting(bool value) => _enabled = value;
+
   /// Switches it on. Call once, before `runApp`.
   static Future<void> enable() async {
     if (!Platform.isAndroid) return;
@@ -38,6 +41,11 @@ abstract final class EdgeToEdge {
 /// the pages, the strip under the mini player, the player's backdrop and
 /// the bottom sheets. So one style for the whole app is enough, and no
 /// system scrim is needed to keep the buttons visible.
+///
+/// The status bar takes the app bar's style, as every page header does, so
+/// changing pages never changes the style. Each change relaid out the
+/// window on Android 10 and earlier, ~40 ms on the main thread (moto g7
+/// plus), which also draws Flutter's frames.
 class EdgeToEdgeNavigationBar extends StatelessWidget {
   const EdgeToEdgeNavigationBar({super.key, required this.child});
 
@@ -46,9 +54,12 @@ class EdgeToEdgeNavigationBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!EdgeToEdge.enabled) return child;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final statusBar =
+        theme.appBarTheme.systemOverlayStyle ?? const SystemUiOverlayStyle();
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle(
+      value: statusBar.copyWith(
         systemNavigationBarColor: Colors.transparent,
         systemNavigationBarDividerColor: Colors.transparent,
         systemNavigationBarIconBrightness:

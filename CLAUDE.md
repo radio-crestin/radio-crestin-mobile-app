@@ -147,6 +147,7 @@ Use for color, size, and opacity changes:
 - Always use `const Duration(...)` - never dynamic durations.
 - Use `Curves.easeInOut` as default curve. `Curves.fastOutSlowIn` for entrances.
 - Never animate layout properties that trigger relayout (prefer `Transform`, `Opacity`).
+- Never fade a whole page or another large area live (`Opacity`, `FadeTransition`): on a low-end Android GPU each full-screen opacity layer costs ~10 ms a frame. Fade small elements, or fade an image of the area (`SnapshotWidget`, as in `lib/widgets/snapshot_page_transitions.dart`). Measure on the moto g7 plus in profile or release, never in debug.
 - Loading spinners: `CircularProgressIndicator` with `strokeWidth: 2.5` and brand color.
 
 ---
