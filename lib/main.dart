@@ -63,6 +63,7 @@ import 'services/playlist_controller.dart';
 import 'tv/tv_platform.dart';
 import 'tv/tv_shell.dart';
 import 'tv/tv_theme.dart';
+import 'widgets/edge_to_edge.dart';
 
 final getIt = GetIt.instance;
 
@@ -166,6 +167,11 @@ void main() async {
   // load never throws (memory-only fallback), so it is safe to start early.
   final tvPlatformFuture = TvPlatform.initialize();
   final songLikeFuture = SongLikeService.init();
+  // Awaited before runApp, so the first frame already has the navigation
+  // bar's inset. A TV has no navigation bar to draw behind.
+  final edgeToEdgeFuture = tvPlatformFuture.then((_) async {
+    if (!TvPlatform.isTV) await EdgeToEdge.enable();
+  });
 
   // Construct services early (sync constructors) and start their async init
   // in parallel with hive — they only need path_provider / connectivity, not hive.
@@ -422,6 +428,8 @@ void main() async {
       stationDataService: getIt<StationDataService>(),
     )..start());
   }
+
+  await edgeToEdgeFuture;
 
   // Initialize theme synchronously using already-loaded prefs (no async overhead)
   ThemeManager.initializeFromPrefs(prefs);
@@ -731,6 +739,7 @@ class RadioCrestinApp extends StatelessWidget {
           theme: lightTheme,
           darkTheme: darkTheme,
           themeMode: themeMode,
+          builder: (context, child) => EdgeToEdgeNavigationBar(child: child!),
           home: UpgradeAlert(
             dialogStyle: Platform.isIOS
                 ? UpgradeDialogStyle.cupertino

@@ -394,7 +394,10 @@ class _SongHistoryModalState extends State<SongHistoryModal> {
 
     return ListView.builder(
       controller: _scrollController,
-      padding: const EdgeInsets.only(bottom: 40),
+      // The sheet runs under the home indicator / navigation bar.
+      padding: EdgeInsets.only(
+        bottom: 40 + MediaQuery.paddingOf(context).bottom,
+      ),
       itemCount: rows.length + 1, // +1 for loading indicator
       itemBuilder: (context, index) {
         if (index == rows.length) {

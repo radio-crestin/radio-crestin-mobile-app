@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -305,9 +306,9 @@ class _SheetContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      // The same 24 as the sides, on top of the home indicator / navigation
-      // bar inset, so the last row never sits right on the indicator.
-      padding: EdgeInsets.fromLTRB(24, 0, 24, bottomInset + 24),
+      // More than the 24 of the sides, on top of the home indicator /
+      // navigation bar inset, so the last row sits well clear of them.
+      padding: EdgeInsets.fromLTRB(24, 0, 24, bottomInset + 40),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -418,13 +419,25 @@ class _ChooseHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _HeaderLines(
-      top: Text(
-        'Somn',
-        style: TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: palette.secondaryText,
-        ),
+      top: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // The player's "somn" icon, at the label's size and color.
+          Icon(
+            CupertinoIcons.moon_zzz_fill,
+            size: 14,
+            color: palette.secondaryText,
+          ),
+          const SizedBox(width: 5),
+          Text(
+            'Somn',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: palette.secondaryText,
+            ),
+          ),
+        ],
       ),
       gap: 4,
       bottom: const Text(
