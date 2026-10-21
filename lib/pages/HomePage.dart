@@ -636,12 +636,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   /// What the search lists for [query]: the stations whose names match it,
-  /// then the ones whose songs do, along with the favorites among them in
-  /// the same two groups. A station whose song stops matching plays its
-  /// rows out, and one whose new song matches grows in.
-  ({List<Station> stations, List<Station> favorites}) _searchResultsFor(
-    String query,
-  ) {
+  /// then the ones whose songs do. A station whose song stops matching
+  /// plays its row out, and one whose new song matches grows in.
+  List<Station> _searchResultsFor(String query) {
     final listed =
         _stationDataService.getSortedStations(applyGroupFilter: false);
     final found = searchStations(listed, query);
@@ -651,18 +648,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       <String>{for (final station in listed) station.slug},
     );
     _playSearchChanges(update);
-    final byName = <String>{
-      for (final station in found.byName) station.slug,
-    };
-    return (
-      stations: update.shown,
-      favorites: [
-        ..._stationDataService.favoritesIn(found.byName),
-        ..._stationDataService.favoritesIn(
-          update.shown.where((station) => !byName.contains(station.slug)),
-        ),
-      ],
-    );
+    return update.shown;
   }
 
   /// Grows in the rows of the stations new to the search results, and
@@ -973,13 +959,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             // They come in the listener's order, which they can rearrange.
             //
             // Search results come from every category: a station missing
-            // from the chosen one is still the one the listener means.
+            // from the chosen one is still the one the listener means. The
+            // Favorite section hides then too: the results hold the
+            // favorites that match, and would list them twice.
             final query = _query;
-            final search = query.isEmpty ? null : _searchResultsFor(query);
-            final searchResults = search?.stations;
-            final favoriteStations = search != null
-                ? search.favorites
-                : selectedStationGroup != null
+            final searchResults =
+                query.isEmpty ? null : _searchResultsFor(query);
+            final favoriteStations =
+                searchResults != null || selectedStationGroup != null
                     ? const <Station>[]
                     : _stationDataService.favoritesIn(filteredStations);
             final hasMiniPlayer = currentStation != null && stations.isNotEmpty;
@@ -1183,14 +1170,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                     isFavoritesList: true,
                                     onStationHidden: _onStationHidden,
                                     rowTransitions: _rowTransitions,
-                                    // Moved among the results only, a
-                                    // favorite would land among the others
-                                    // somewhere the listener can't see.
-                                    reorder: searchResults == null
-                                        ? _favoriteReorder
-                                        : null,
-                                    highlight:
-                                        searchResults == null ? null : query,
+                                    reorder: _favoriteReorder,
                                     onStationTap:
                                         _searching ? _onSearchResultTap : null,
                                   )),

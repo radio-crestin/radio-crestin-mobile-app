@@ -5,7 +5,8 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
 /// A header at the top of a scroll view that hides as the user scrolls on
-/// and comes back over the list as soon as they scroll back.
+/// and comes back over the list once they scroll back a fair way, as in
+/// Gmail: going back a row or so to look at it again leaves it away.
 ///
 /// Works like Flutter's [SliverFloatingHeader], except that the header only
 /// follows the user's scrolling. The list also scrolls by itself to keep
@@ -116,6 +117,10 @@ class _RenderFloatingHeader extends RenderSliverSingleBoxAdapter {
 
   static const Duration _snapDuration = Duration(milliseconds: 300);
 
+  /// How far the user scrolls back before a hidden header starts to come
+  /// back: about a row and a half of the station list.
+  static const double _revealAfter = 160;
+
   TickerProvider _vsync;
 
   set vsync(TickerProvider value) {
@@ -143,6 +148,9 @@ class _RenderFloatingHeader extends RenderSliverSingleBoxAdapter {
   /// all shows, its extent or more once it is gone.
   double _hidden = 0;
 
+  /// How far the user has scrolled back since they last scrolled on.
+  double _scrolledBack = 0;
+
   double get _extent {
     final child = this.child;
     if (child == null) return 0;
@@ -166,7 +174,11 @@ class _RenderFloatingHeader extends RenderSliverSingleBoxAdapter {
       // The list scrolled by itself: the header stays as it is.
       ScrollDirection.idle => null,
     };
-    if (show == null || (show ? _hidden <= 0 : _hidden >= _extent)) return;
+    // A header the user didn't scroll back far enough for stays away.
+    final done = show == true
+        ? _hidden <= 0 || _hidden >= _extent
+        : _hidden >= _extent;
+    if (show == null || done) return;
     final controller = _snapController ??=
         AnimationController(vsync: _vsync, duration: _snapDuration)
           ..addListener(_snapped);
@@ -209,11 +221,14 @@ class _RenderFloatingHeader extends RenderSliverSingleBoxAdapter {
       var delta = last - scrollOffset;
       if (constraints.userScrollDirection == ScrollDirection.forward) {
         _hidden = math.min(_hidden, extent);
+        delta = _bringingIn(delta, extent);
       } else {
+        _scrolledBack = 0;
         delta = math.min(delta, 0);
       }
       _hidden -= delta;
     } else {
+      if (scrollOffset > last) _scrolledBack = 0;
       _hidden = scrollOffset;
     }
     // Never below its place at the top of the list.
@@ -240,6 +255,16 @@ class _RenderFloatingHeader extends RenderSliverSingleBoxAdapter {
       hasVisualOverflow: true,
     );
     _lastScrollOffset = scrollOffset;
+  }
+
+  /// Of [delta], the user scrolling back by that much, the part that brings
+  /// the header in: all of it once part of the header shows, and for a
+  /// hidden one only what goes past [_revealAfter] scrolled back in all.
+  double _bringingIn(double delta, double extent) {
+    if (_hidden < extent) return delta;
+    final before = _scrolledBack;
+    _scrolledBack += delta;
+    return math.max(0, _scrolledBack - math.max(before, _revealAfter));
   }
 
   /// Leaves the list where it is when the header shows already: a field in

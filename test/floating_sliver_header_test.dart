@@ -45,12 +45,27 @@ Widget _list(
 Rect _header(WidgetTester tester) => tester
     .getRect(find.byKey(const ValueKey('header'), skipOffstage: false));
 
-/// Scrolls on, then back a little, so the header comes back over the list.
+/// Drags the list by [dy] as a finger does, a little every frame, and
+/// stops before lifting, so it doesn't fling: a negative [dy] moves the
+/// finger up, scrolling on.
+Future<void> _scroll(WidgetTester tester, double dy) async {
+  const step = 10.0;
+  final gesture = await tester
+      .startGesture(tester.getCenter(find.byType(CustomScrollView)));
+  for (var moved = 0.0; moved < dy.abs(); moved += step) {
+    await gesture.moveBy(Offset(0, dy.sign * step));
+    await tester.pump(const Duration(milliseconds: 16));
+  }
+  await tester.pump(const Duration(milliseconds: 100));
+  await gesture.up();
+  await tester.pumpAndSettle();
+}
+
+/// Scrolls on, then back a fair way, so the header comes back over the
+/// list.
 Future<void> _showHeaderOverList(WidgetTester tester) async {
-  await tester.drag(find.byType(CustomScrollView), const Offset(0, -800));
-  await tester.pumpAndSettle();
-  await tester.drag(find.byType(CustomScrollView), const Offset(0, 200));
-  await tester.pumpAndSettle();
+  await _scroll(tester, -800);
+  await _scroll(tester, 300);
 }
 
 void main() {
@@ -74,6 +89,47 @@ void main() {
         .state<ScrollableState>(find.byType(Scrollable))
         .position;
     expect(position.pixels, greaterThan(_headerHeight));
+  });
+
+  testWidgets('stays away as the user scrolls back a little',
+      (tester) async {
+    await tester.pumpWidget(_list(ValueNotifier(144)));
+    await _scroll(tester, -800);
+
+    await _scroll(tester, 120);
+
+    expect(_header(tester).bottom, lessThanOrEqualTo(0));
+  });
+
+  testWidgets('comes back after a few short scrolls back', (tester) async {
+    await tester.pumpWidget(_list(ValueNotifier(144)));
+    await _scroll(tester, -800);
+
+    await _scroll(tester, 120);
+    await _scroll(tester, 120);
+
+    expect(_header(tester).top, 0);
+  });
+
+  testWidgets('starts over once the user scrolls on again', (tester) async {
+    await tester.pumpWidget(_list(ValueNotifier(144)));
+    await _scroll(tester, -800);
+
+    await _scroll(tester, 120);
+    await _scroll(tester, -60);
+    await _scroll(tester, 120);
+
+    expect(_header(tester).bottom, lessThanOrEqualTo(0));
+  });
+
+  testWidgets('shows near the top, where it belongs', (tester) async {
+    await tester.pumpWidget(_list(ValueNotifier(144)));
+    await _scroll(tester, -100);
+    expect(_header(tester).top, lessThan(0));
+
+    await _scroll(tester, 80);
+
+    expect(_header(tester).top, 0);
   });
 
   testWidgets('stays as the list keeps its rows in place by itself',
