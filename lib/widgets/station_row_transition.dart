@@ -11,10 +11,14 @@ import '../utils/PositionRetainedScrollPhysics.dart';
 /// Hiding a station first plays its rows out, every row of it at once (in
 /// the Favorite section and in the full list), and only then hides it, so
 /// the rows below slide up instead of jumping. Undoing a hide marks the
-/// station as entering, so its rows grow back in when they appear.
+/// station as entering, so its rows grow back in when they appear. Search
+/// results come and go the same way as the songs on the stations change.
 class StationRowTransitions extends ChangeNotifier {
-  final Map<String, VoidCallback> _leaving = {};
+  final Map<String, ({VoidCallback onLeft, bool hiding})> _leaving = {};
   final Set<String> _entering = {};
+
+  /// How many rows of each station the lists have built.
+  final Map<String, int> _rows = {};
 
   /// Keeps the rows in view in place while rows grow or shrink, for the
   /// list's [PositionRetainedScrollPhysics]: the rows below a closing slot
@@ -24,12 +28,33 @@ class StationRowTransitions extends ChangeNotifier {
   /// Whether the rows of [slug] are playing out.
   bool isLeaving(String slug) => _leaving.containsKey(slug);
 
-  /// Plays the rows of [slug] out, then calls [onLeft], which hides the
-  /// station. A station already leaving is left alone.
-  void leave(String slug, VoidCallback onLeft) {
+  /// Whether the rows of [slug] play out as their station is hidden.
+  bool isHiding(String slug) => _leaving[slug]?.hiding ?? false;
+
+  /// Whether the lists have built rows of [slug], in view or nearly.
+  bool hasRows(String slug) => _rows.containsKey(slug);
+
+  /// Plays the rows of [slug] out, then calls [onLeft], which takes the
+  /// station out of the lists. A station already leaving is left alone,
+  /// and one without rows built leaves at once.
+  ///
+  /// [hiding]: the station is being hidden, which a crossed-out eye over
+  /// its rows says. Otherwise they go the way they come in, backwards.
+  void leave(String slug, VoidCallback onLeft, {bool hiding = true}) {
     if (isLeaving(slug)) return;
     _entering.remove(slug);
-    _leaving[slug] = onLeft;
+    if (!hasRows(slug)) {
+      onLeft();
+      return;
+    }
+    _leaving[slug] = (onLeft: onLeft, hiding: hiding);
+    notifyListeners();
+  }
+
+  /// Brings back the rows of [slug] on their way out without [hiding]:
+  /// the station stays listed after all. Its `onLeft` isn't called.
+  void stay(String slug) {
+    if (_leaving.remove(slug) == null) return;
     notifyListeners();
   }
 
@@ -38,7 +63,18 @@ class StationRowTransitions extends ChangeNotifier {
   ///
   /// It tells no listener: the rows are gone at the next build, and one
   /// drawn in full again before that would flash.
-  void left(String slug) => _leaving.remove(slug)?.call();
+  void left(String slug) => _leaving.remove(slug)?.onLeft();
+
+  void _rowBuilt(String slug) => _rows[slug] = (_rows[slug] ?? 0) + 1;
+
+  void _rowGone(String slug) {
+    final rows = (_rows[slug] ?? 1) - 1;
+    if (rows > 0) {
+      _rows[slug] = rows;
+    } else {
+      _rows.remove(slug);
+    }
+  }
 
   /// Whether rows of [slug] that appear now should grow in.
   bool isEntering(String slug) => _entering.contains(slug);
@@ -57,11 +93,12 @@ class StationRowTransitions extends ChangeNotifier {
 /// A station row that plays out, or grows in, as [transitions] says for the
 /// station with [slug].
 ///
-/// Out: a pink eye pops up over the row and a line crosses it out, the row
-/// fades away, then the eye goes and the row's slot closes, so the rows
-/// below slide up. In: the slot opens and the row fades in. Only a list of
-/// one column can close the slot ([collapses]); a grid can't move its other
-/// tiles, so there the row only fades.
+/// Out, as the station is hidden: a pink eye pops up over the row and a
+/// line crosses it out, the row fades away, then the eye goes and the
+/// row's slot closes, so the rows below slide up. In: the slot opens and
+/// the row fades in; a row leaving otherwise does that backwards. Only a
+/// list of one column can close the slot ([collapses]); a grid can't move
+/// its other tiles, so there the row only fades.
 class StationRowTransition extends StatefulWidget {
   const StationRowTransition({
     super.key,
@@ -148,18 +185,20 @@ class _StationRowTransitionState extends State<StationRowTransition>
     if (oldWidget.transitions != widget.transitions) {
       _detach(oldWidget.transitions);
       _attach(widget.transitions);
-      _sync();
     }
+    _sync();
   }
 
   void _attach(StationRowTransitions transitions) {
     transitions.addListener(_sync);
     transitions.scrollAnchor.attach(context);
+    transitions._rowBuilt(widget.slug);
   }
 
   void _detach(StationRowTransitions transitions) {
     transitions.removeListener(_sync);
     transitions.scrollAnchor.detach(context);
+    transitions._rowGone(widget.slug);
   }
 
   void _holdRowsInView() => widget.transitions.scrollAnchor.hold();
@@ -184,7 +223,7 @@ class _StationRowTransitionState extends State<StationRowTransition>
     // Gone mid-way (scrolled far off): the station is hidden all the same.
     // Not from here, though: hiding updates other widgets, and the tree is
     // locked while it disposes this one.
-    if (_leave.isAnimating) {
+    if (_leave.isAnimating || _playsOutBackwards) {
       final transitions = widget.transitions;
       final slug = widget.slug;
       scheduleMicrotask(() => transitions.left(slug));
@@ -194,9 +233,19 @@ class _StationRowTransitionState extends State<StationRowTransition>
     super.dispose();
   }
 
+  /// Whether the row is going the way it came in, backwards.
+  bool get _playsOutBackwards => _enter.status == AnimationStatus.reverse;
+
   void _sync() {
-    if (_leave.isDismissed && widget.transitions.isLeaving(widget.slug)) {
-      _leave.forward();
+    final transitions = widget.transitions;
+    final slug = widget.slug;
+    if (!transitions.isLeaving(slug)) {
+      // Told to stay on its way out, or listed again once out.
+      if (_playsOutBackwards || _enter.isDismissed) _enter.forward();
+    } else if (transitions.isHiding(slug)) {
+      if (_leave.isDismissed) _leave.forward();
+    } else if (!_playsOutBackwards) {
+      _enter.reverse();
     }
   }
 
@@ -206,6 +255,7 @@ class _StationRowTransitionState extends State<StationRowTransition>
 
   void _onEnterStatus(AnimationStatus status) {
     if (status.isCompleted) widget.transitions.entered(widget.slug);
+    if (status.isDismissed) widget.transitions.left(widget.slug);
   }
 
   @override

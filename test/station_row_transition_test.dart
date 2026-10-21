@@ -178,6 +178,78 @@ void main() {
     expect(hides, 1);
   });
 
+  group('a row leaving without hiding', () {
+    late int left;
+    setUp(() => left = 0);
+
+    void leaveB() => transitions.leave('b', () => left++, hiding: false);
+
+    Finder eye() => find.descendant(
+          of: find.byType(StationRowTransition),
+          matching: find.byType(CustomPaint),
+        );
+
+    testWidgets('goes the way rows come in, backwards, with no eye',
+        (tester) async {
+      await pumpList(tester, ['a', 'b', 'c']);
+      final cTop = topOf(tester, 'C');
+
+      leaveB();
+      await tester.pump();
+      await tester.pump(StationRowTransition.enterDuration ~/ 2);
+      expect(eye(), findsNothing);
+      expect(opacityOf(tester, 'B'), lessThan(1));
+      expect(topOf(tester, 'C'), lessThan(cTop));
+      expect(topOf(tester, 'C'), greaterThan(cTop - rowHeight));
+      expect(left, 0);
+
+      await tester.pumpAndSettle();
+      expect(topOf(tester, 'C'), moreOrLessEquals(cTop - rowHeight));
+      expect(left, 1);
+      expect(transitions.isLeaving('b'), isFalse);
+    });
+
+    testWidgets('grows back when told to stay', (tester) async {
+      await pumpList(tester, ['a', 'b', 'c']);
+      final cTop = topOf(tester, 'C');
+
+      leaveB();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 150));
+      transitions.stay('b');
+      await tester.pumpAndSettle();
+
+      expect(topOf(tester, 'C'), moreOrLessEquals(cTop));
+      expect(opacityOf(tester, 'B'), 1);
+      expect(left, 0);
+    });
+
+    testWidgets('grows back once out if still listed', (tester) async {
+      await pumpList(tester, ['a', 'b', 'c']);
+      final cTop = topOf(tester, 'C');
+      leaveB();
+      await tester.pumpAndSettle();
+      expect(left, 1);
+
+      await pumpList(tester, ['a', 'b', 'c']);
+      await tester.pumpAndSettle();
+
+      expect(topOf(tester, 'C'), moreOrLessEquals(cTop));
+      expect(opacityOf(tester, 'B'), 1);
+    });
+
+    testWidgets('leaves at once without a row built', (tester) async {
+      await pumpList(tester, ['a']);
+
+      transitions.leave('b', () => left++, hiding: false);
+
+      expect(left, 1);
+      expect(transitions.isLeaving('b'), isFalse);
+      expect(transitions.hasRows('a'), isTrue);
+      expect(transitions.hasRows('b'), isFalse);
+    });
+  });
+
   group('in a scrolled list', () {
     // Home in miniature: a section above (Favorite), then the full list,
     // on the app's scroll physics, in a 600 high view.
@@ -295,6 +367,23 @@ void main() {
 
       expect(topOf(tester, 'S4'), s4 - rowHeight);
       expect(controller.offset, 350 - rowHeight);
+    });
+
+    testWidgets('a row leaving without hiding moves no row in view',
+        (tester) async {
+      await pumpLists(tester, scrolled: 450);
+      final s8 = topOf(tester, 'S8');
+
+      transitions.leave(
+        's7',
+        () => setLists(() => list = [...list]..remove('s7')),
+        hiding: false,
+      );
+      await tester.pump();
+      await expectStill(tester, 'S5', () => transitions.isLeaving('s7'));
+
+      expect(topOf(tester, 'S8'), s8 - rowHeight);
+      expect(controller.offset, 450);
     });
 
     testWidgets('a row coming back pushes only the rows below it down',

@@ -198,7 +198,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   HomePromo? _homePromo;
 
   /// Whether the app bar is a search field: the list then shows only the
-  /// stations whose names match what the listener types into it.
+  /// stations whose names, or songs on now, match what the listener types
+  /// into it.
   bool _searching = false;
 
   /// What the list is narrowed to: the search text, trimmed; empty shows
@@ -211,6 +212,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   /// Puts the list at the top of the results, and back where it was.
   final ScrollPositionRequest _scrollRequest = ScrollPositionRequest();
+
+  /// The search results as the songs on the stations change.
+  final LiveSearchResults _liveResults = LiveSearchResults();
 
   @override
   void initState() {
@@ -580,11 +584,18 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     setState(() => _searching = true);
   }
 
-  /// Narrows the list to the stations whose names match [text]. Results
-  /// start at the top; once there are none, the list is back where it was.
+  /// Narrows the list to the stations whose names or songs match [text].
+  /// Results start at the top; once there are none, the list is back
+  /// where it was.
   void _search(String text) {
     final query = text.trim();
     if (query == _query) return;
+    // A row on its way out of the old results may be among the new ones,
+    // or in the whole list.
+    for (final slug in _liveResults.leaving) {
+      _rowTransitions.stay(slug);
+    }
+    _liveResults.clear();
     final position = _listPosition;
     if (position != null && position.hasPixels) {
       if (_query.isEmpty) _offsetBeforeResults = position.pixels;
@@ -618,6 +629,66 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       'button_name': 'search_result_tap',
       'station_id': station.id,
       'station_slug': station.slug,
+      'matched_by': stationTitleMatch(station.displayTitle, _query) != null
+          ? 'name'
+          : 'song',
+    });
+  }
+
+  /// What the search lists for [query]: the stations whose names match it,
+  /// then the ones whose songs do, along with the favorites among them in
+  /// the same two groups. A station whose song stops matching plays its
+  /// rows out, and one whose new song matches grows in.
+  ({List<Station> stations, List<Station> favorites}) _searchResultsFor(
+    String query,
+  ) {
+    final listed =
+        _stationDataService.getSortedStations(applyGroupFilter: false);
+    final found = searchStations(listed, query);
+    final update = _liveResults.update(
+      query,
+      [...found.byName, ...found.bySong],
+      <String>{for (final station in listed) station.slug},
+    );
+    _playSearchChanges(update);
+    final byName = <String>{
+      for (final station in found.byName) station.slug,
+    };
+    return (
+      stations: update.shown,
+      favorites: [
+        ..._stationDataService.favoritesIn(found.byName),
+        ..._stationDataService.favoritesIn(
+          update.shown.where((station) => !byName.contains(station.slug)),
+        ),
+      ],
+    );
+  }
+
+  /// Grows in the rows of the stations new to the search results, and
+  /// plays out the rows of the ones leaving them.
+  void _playSearchChanges(SearchResultsUpdate update) {
+    if (update.arriving.isEmpty && update.leaving.isEmpty) return;
+    // Before their rows are built, which grow in as they come.
+    for (final slug in update.arriving) {
+      _rowTransitions.enter(slug);
+    }
+    // The leaving rows are told once built, outside the build.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      for (final slug in update.arriving) {
+        // Out of view: it would grow in only once scrolled to.
+        if (!_rowTransitions.hasRows(slug)) _rowTransitions.entered(slug);
+      }
+      for (final slug in update.leaving) {
+        _rowTransitions.leave(
+          slug,
+          () {
+            if (_liveResults.left(slug) && mounted) setState(() {});
+          },
+          hiding: false,
+        );
+      }
     });
   }
 
@@ -904,17 +975,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             // Search results come from every category: a station missing
             // from the chosen one is still the one the listener means.
             final query = _query;
-            final searchResults = query.isEmpty
-                ? null
-                : [
-                    for (final station in _stationDataService
-                        .getSortedStations(applyGroupFilter: false))
-                      if (stationTitleMatch(station.displayTitle, query) !=
-                          null)
-                        station,
-                  ];
-            final favoriteStations = searchResults != null
-                ? _stationDataService.favoritesIn(searchResults)
+            final search = query.isEmpty ? null : _searchResultsFor(query);
+            final searchResults = search?.stations;
+            final favoriteStations = search != null
+                ? search.favorites
                 : selectedStationGroup != null
                     ? const <Station>[]
                     : _stationDataService.favoritesIn(filteredStations);
@@ -1058,7 +1122,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                   _buildRoundedIconButton(
                                     context: context,
                                     icon: Icons.search_rounded,
-                                    tooltip: 'Caută o stație radio',
+                                    tooltip: 'Caută stații sau melodii',
                                     onPressed: _startSearch,
                                   ),
                                   _buildRoundedIconButton(
@@ -1654,14 +1718,14 @@ class _HomeSearchBarState extends State<_HomeSearchBar> {
               // The clear button is part of the field, so it doesn't.
               onTapOutside: (_) => _focus.unfocus(),
               textInputAction: TextInputAction.search,
-              // Station names, not words to correct.
+              // Names of stations, songs and singers, not words to correct.
               autocorrect: false,
               enableSuggestions: false,
               cursorColor: scheme.primary,
               textAlignVertical: TextAlignVertical.center,
               style: TextStyle(fontSize: 16, color: scheme.onSurface),
               decoration: InputDecoration(
-                hintText: 'Caută o stație',
+                hintText: 'Caută stații sau melodii',
                 hintStyle: TextStyle(fontSize: 16, color: faint),
                 prefixIcon: Icon(Icons.search_rounded, size: 22, color: faint),
                 prefixIconConstraints: iconBox,

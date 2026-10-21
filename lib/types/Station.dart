@@ -79,6 +79,14 @@ class Station {
   String get songTitle => rawStationData.now_playing?.song?.name ?? "";
   String get songArtist => rawStationData.now_playing?.song?.artist?.name ?? "";
 
+  /// The song as the station's row shows it, "Title - Artist", or empty
+  /// without a title.
+  String get songLine => songTitle.isEmpty
+      ? ''
+      : songArtist.isEmpty
+          ? songTitle
+          : '$songTitle - $songArtist';
+
   /// Playback kind of the station, defaulting to [StationMediaType.radio] when
   /// the backend omits `station_type` (old caches / fallback asset).
   StationMediaType get stationType =>

@@ -74,8 +74,9 @@ class StationsList extends StatelessWidget {
   /// Adds back a hidden station listed in its place.
   final ValueChanged<Station>? onShowHidden;
 
-  /// What the listener searched for: the parts of the station names that
-  /// match it show in bold. See [stationTitleMatch].
+  /// What the listener searched for: the parts of the station names and
+  /// of their songs that match it show in bold. See [stationTitleMatch]
+  /// and [songLineMatch].
   final String? highlight;
 
   /// Called as a row is tapped, before its station starts.
@@ -226,6 +227,7 @@ class StationsList extends StatelessWidget {
   }) {
           final isSelected = station.slug == currentStation?.slug;
           final reorder = this.reorder;
+          final highlight = this.highlight;
           final String slug = station.slug;
           final index = order?.indexOf(slug) ?? -1;
 
@@ -291,9 +293,14 @@ class StationsList extends StatelessWidget {
                                     const SizedBox(width: 6),
                                   ],
                                   Flexible(
-                                    child: _StationTitle(
-                                      title: station.displayTitle,
-                                      highlight: highlight,
+                                    child: _MatchedText(
+                                      text: station.displayTitle,
+                                      matches: highlight == null
+                                          ? null
+                                          : stationTitleMatch(
+                                              station.displayTitle,
+                                              highlight,
+                                            ),
                                       style: TextStyle(
                                         color: Theme.of(context).colorScheme.onSurface,
                                         fontWeight: FontWeight.normal,
@@ -348,6 +355,7 @@ class StationsList extends StatelessWidget {
                                       : _StationSubtitle(
                                           station: station,
                                           isCurrent: isSelected,
+                                          highlight: highlight,
                                         ),
                                   ),
                                 ),
@@ -514,36 +522,33 @@ class StationsList extends StatelessWidget {
   }
 }
 
-/// A station's name on its row, the parts that match [highlight] in bold.
-class _StationTitle extends StatelessWidget {
-  const _StationTitle({
-    required this.title,
-    required this.highlight,
+/// A line of a station's row, the parts that match a search ([matches])
+/// in bold.
+class _MatchedText extends StatelessWidget {
+  const _MatchedText({
+    required this.text,
+    required this.matches,
     required this.style,
   });
 
-  final String title;
-  final String? highlight;
+  final String text;
+  final List<TextRange>? matches;
   final TextStyle style;
 
   @override
   Widget build(BuildContext context) {
-    final highlight = this.highlight;
-    final matches = highlight == null
-        ? null
-        : stationTitleMatch(title, highlight);
     final spans = <TextSpan>[];
     var end = 0;
     for (final match in matches ?? const <TextRange>[]) {
       spans
-        ..add(TextSpan(text: title.substring(end, match.start)))
+        ..add(TextSpan(text: text.substring(end, match.start)))
         ..add(TextSpan(
-          text: title.substring(match.start, match.end),
+          text: text.substring(match.start, match.end),
           style: const TextStyle(fontWeight: FontWeight.w700),
         ));
       end = match.end;
     }
-    spans.add(TextSpan(text: title.substring(end)));
+    spans.add(TextSpan(text: text.substring(end)));
     return Text.rich(
       TextSpan(children: spans),
       style: style,
@@ -765,12 +770,18 @@ class _RowMetrics {
 /// never look broken: playlist stations show the current item title when this
 /// is the playing station (else a "Listă de redare" label), TV stations show a
 /// "Transmisiune live" label, and radio shows its song or, without one,
-/// "Live".
+/// "Live". While searching, the parts of the song that match the search
+/// ([highlight]) show in bold.
 class _StationSubtitle extends StatelessWidget {
-  const _StationSubtitle({required this.station, required this.isCurrent});
+  const _StationSubtitle({
+    required this.station,
+    required this.isCurrent,
+    this.highlight,
+  });
 
   final Station station;
   final bool isCurrent;
+  final String? highlight;
 
   static const double _fontSize = 13;
 
@@ -817,11 +828,7 @@ class _StationSubtitle extends StatelessWidget {
     }
 
     // radio / tv
-    final songLine = station.songTitle.isNotEmpty
-        ? (station.songArtist.isNotEmpty
-            ? "${station.songTitle} - ${station.songArtist}"
-            : station.songTitle)
-        : '';
+    final songLine = station.songLine;
     final subtitle = computeStationSubtitle(
       type: station.stationType,
       songLine: songLine,
@@ -829,7 +836,16 @@ class _StationSubtitle extends StatelessWidget {
       tvLiveFallback: true,
     );
     if (subtitle != null && subtitle.isNotEmpty) {
-      return _line(context, subtitle);
+      final highlight = this.highlight;
+      // The song, not a TV channel's label without one.
+      if (highlight == null || songLine.isEmpty) {
+        return _line(context, subtitle);
+      }
+      return _MatchedText(
+        text: subtitle,
+        matches: songLineMatch(subtitle, highlight),
+        style: _style(context),
+      );
     }
     return _line(context, "Live");
   }

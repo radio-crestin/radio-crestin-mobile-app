@@ -23,6 +23,10 @@ final _station = StationFactory.createStation(
   slug: 'rve-cluj',
   title: 'RVE Cluj',
   thumbnailUrl: '',
+  nowPlaying: StationFactory.createNowPlaying(
+    songName: 'Nu Te Teme',
+    artistName: 'Gabriel Gorcea',
+  ),
 );
 
 Future<void> _pumpList(
@@ -47,10 +51,21 @@ Future<void> _pumpList(
     ));
 
 /// The parts of the station's name on its row, and whether each is bold.
-List<(String, bool)> _titleParts(WidgetTester tester) {
-  final title = tester.widget<Text>(find.text('RVE Cluj'));
+List<(String, bool)> _titleParts(WidgetTester tester) =>
+    _parts(tester, 'RVE Cluj');
+
+/// The parts of the song on the station's row, and whether each is bold.
+List<(String, bool)> _songParts(WidgetTester tester) =>
+    _parts(tester, 'Nu Te Teme - Gabriel Gorcea');
+
+/// The parts of the line of the row that reads [text], and whether each is
+/// bold.
+List<(String, bool)> _parts(WidgetTester tester, String text) {
+  final line = tester.widget<Text>(find.text(text));
+  final span = line.textSpan;
+  if (span == null) return [(line.data!, false)];
   final parts = <(String, bool)>[];
-  title.textSpan!.visitChildren((span) {
+  span.visitChildren((span) {
     final text = (span as TextSpan).text;
     if (text != null && text.isNotEmpty) {
       parts.add((text, span.style?.fontWeight == FontWeight.w700));
@@ -72,6 +87,21 @@ void main() {
     testWidgets('show the name as it is without a search', (tester) async {
       await _pumpList(tester);
 
+      expect(_titleParts(tester), [('RVE Cluj', false)]);
+      expect(_songParts(tester), [('Nu Te Teme - Gabriel Gorcea', false)]);
+    });
+
+    testWidgets('show the part of the song searched for in bold',
+        (tester) async {
+      await _pumpList(tester, highlight: 'gabriel teme');
+
+      expect(_songParts(tester), [
+        ('Nu Te ', false),
+        ('Teme', true),
+        (' - ', false),
+        ('Gabriel', true),
+        (' Gorcea', false),
+      ]);
       expect(_titleParts(tester), [('RVE Cluj', false)]);
     });
 
