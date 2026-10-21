@@ -90,6 +90,7 @@ RELEASE_NOTES       := $(DIST)/RELEASE_NOTES.md
 OP_VAULT            := radio-crestin-app
 APPSTORE_KEY_FILE   := /tmp/radio-crestin-appstore-key.p8
 PLAY_JSON_FILE      := /tmp/radio-crestin-play-key.json
+PLAY_PRODUCTION_URL := https://play.google.com/console/u/0/developers/8868187498740609824/app/4976094058297658387/tracks/production
 
 # PostHog Error Tracking: iOS dSYMs, so native crashes symbolicate.
 # Auth once per machine: posthog-cli --host $(POSTHOG_HOST) login
@@ -128,7 +129,8 @@ release-help:
 	@echo "  make upload-dsyms-ios      iOS dSYMs -> PostHog (auto after release-ios*)"
 	@echo
 	@echo "  make deploy-ios            build +1, fresh app-store IPA -> TestFlight via Xcode account"
-	@echo "  make deploy-android        build +1, fresh AAB -> Play internal testing, as a draft"
+	@echo "  make deploy-android        build +1, fresh release AAB, shown in Finder to drop"
+	@echo "                             in Play Console -> Production (link printed)"
 	@echo "  make deploy                build +1 once, then both (same +N on both stores)"
 	@echo "                             after the upload, commit the new version (no push)"
 	@echo "                             NO_BUMP=1 keeps the build number (retry, other platform)"
@@ -144,13 +146,17 @@ $(DIST):
 	@mkdir -p $(DIST)
 
 # ----- Android ---------------------------------------------------------------
-.PHONY: release-android
-release-android: | $(DIST)
+.PHONY: release-android release-android-aab
+release-android: release-android-aab | $(DIST)
 	flutter build apk --release --no-tree-shake-icons
-	flutter build appbundle --release --no-tree-shake-icons
 	cp build/app/outputs/flutter-apk/app-release.apk $(ANDROID_APK)
-	cp build/app/outputs/bundle/release/app-release.aab $(ANDROID_AAB)
 	@ls -lh $(ANDROID_APK) $(ANDROID_AAB)
+
+# The Play Store takes only the bundle, so store deploys skip the APK.
+release-android-aab: | $(DIST)
+	flutter build appbundle --release --no-tree-shake-icons
+	cp build/app/outputs/bundle/release/app-release.aab $(ANDROID_AAB)
+	@ls -lh $(ANDROID_AAB)
 
 # ----- iOS (ad-hoc IPA for GitHub Release distribution) ----------------------
 .PHONY: release-ios
@@ -436,15 +442,17 @@ upload-testflight-xcode:
 
 # ----- Store deploys (bump + build + upload, one command per platform) ------
 # Each deploy bumps the build number (+1: every store upload needs a higher
-# one), builds a fresh store artifact and uploads it, so an older one left
-# in $(DIST)/ is never sent by mistake. `make deploy` bumps once, so both
+# one) and builds a fresh store artifact, so an older one left in $(DIST)/
+# is never sent by mistake. iOS uploads it; Android shows the AAB in Finder
+# to be dragged into Play Console by hand. `make deploy` bumps once, so both
 # stores ship the same +N. NO_BUMP=1 skips the bump: to retry an upload
 # that failed after its bump, or to ship the other platform with the +N
-# the first one got. Once the upload went through, the new version in
-# pubspec.yaml is committed (not pushed); a failed upload leaves it
-# uncommitted for the NO_BUMP=1 retry. Deploys refuse uncommitted changes,
-# so what ships matches a commit; the version line in pubspec.yaml (an
-# earlier bump) is the one change allowed. ALLOW_DIRTY=1 skips that check.
+# the first one got. Once the upload went through (Android: once the AAB is
+# built), the new version in pubspec.yaml is committed (not pushed); a
+# failed one leaves it uncommitted for the NO_BUMP=1 retry. Deploys refuse
+# uncommitted changes, so what ships matches a commit; the version line in
+# pubspec.yaml (an earlier bump) is the one change allowed. ALLOW_DIRTY=1
+# skips that check.
 .PHONY: deploy-ios deploy-android deploy check-clean-tree deploy-bump \
   deploy-commit
 
@@ -461,12 +469,14 @@ deploy-ios: check-clean-tree
 
 deploy-android: check-clean-tree
 	$(MAKE) deploy-bump
-	$(MAKE) release-android
-	$(MAKE) upload-play-internal
+	$(MAKE) release-android-aab
+	@open -R $(ANDROID_AAB) 2>/dev/null || true
 	@echo
-	@echo "Android $$(awk '/^version:/ {print $$2}' pubspec.yaml) is a draft on Play internal testing."
-	@echo "To ship it: Play Console -> Testing -> Internal testing -> roll out"
-	@echo "the draft, then Promote release -> Production."
+	@echo "Android $$(awk '/^version:/ {print $$2}' pubspec.yaml) is built (release):"
+	@echo "  $(CURDIR)/$(ANDROID_AAB)"
+	@echo "Finder shows it: drag it to Play Console -> Production ->"
+	@echo "Create new release -> App bundles, then Next -> Save -> Send for review."
+	@echo "  $(PLAY_PRODUCTION_URL)"
 	@$(MAKE) --no-print-directory deploy-commit
 
 # Checked and bumped once, up front: both stores ship the same +N, and the

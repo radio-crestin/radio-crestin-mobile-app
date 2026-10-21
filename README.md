@@ -104,7 +104,8 @@ through `op`, never from disk.
 ```bash
 make deploy-ios             # build number +1, fresh app-store IPA, upload to TestFlight
                             # as the Apple ID signed in to Xcode (no 1Password/fastlane)
-make deploy-android         # build number +1, fresh AAB, upload to Play internal (draft)
+make deploy-android         # build number +1, fresh release AAB shown in Finder: drag it
+                            # into Play Console -> Production (the command prints the link)
 make deploy                 # build number +1 once, then both (same +N on both stores)
 
 make release-stores         # all of the below in one go: bumps the build number (+1),
@@ -131,10 +132,12 @@ pushed; `make deploy` commits once, after both uploads), and a failed upload
 leaves it uncommitted for the `NO_BUMP=1` retry. They refuse other uncommitted
 changes so every upload matches a commit; `ALLOW_DIRTY=1` skips that check. `deploy-ios`
 uploads through the Apple ID signed in to Xcode (Xcode → Settings →
-Accounts), with `ios/ExportOptionsUpload.plist`, so it needs no API key; only
-Android needs the 1Password + fastlane setup below. An upload is
-not a release: submit the TestFlight build for review in App Store Connect, and
-roll out the Play draft, then promote it to Production, in Play Console.
+Accounts), with `ios/ExportOptionsUpload.plist`, so it needs no API key.
+`deploy-android` uploads nothing: it builds only the AAB, shows it in Finder
+and commits the version once it is built; drag it into Play Console →
+Production → Create new release. Only `upload-play-internal` and
+`release-stores` need the 1Password + fastlane setup below. An upload is
+not a release: submit the TestFlight build for review in App Store Connect.
 
 **1Password items needed** (all in vault `radio-crestin-app`, secure note with
 the value pasted into the `notesPlain` field):
