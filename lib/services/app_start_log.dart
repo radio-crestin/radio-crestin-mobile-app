@@ -105,6 +105,16 @@ abstract final class AppStartLog {
         'is_physical_device': ios.isPhysicalDevice,
       };
     }
+    if (Platform.isMacOS) {
+      final mac = await info.macOsInfo;
+      return {
+        'os_version':
+            '${mac.majorVersion}.${mac.minorVersion}.${mac.patchVersion}',
+        // e.g. "Mac14,2". Never the computer or host name: they often
+        // carry the owner's name.
+        'device_model': mac.model,
+      };
+    }
     return {'os_version': Platform.operatingSystemVersion};
   }
 }

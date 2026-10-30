@@ -190,6 +190,9 @@ flutter_launcher_icons:
     generate: true
     image_path: "assets/icons/ic_logo_filled.png"
     icon_size: 48 # min:48, max:256, default: 48
+  # The macOS icon is drawn on the macOS grid (rounded body, transparent
+  # margins), which this tool cannot do; generating would replace it with a
+  # full-bleed square.
   macos:
-    generate: true
+    generate: false
     image_path: "assets/icons/ic_logo_filled.png"

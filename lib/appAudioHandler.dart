@@ -1171,9 +1171,106 @@ class AppAudioHandler extends BaseAudioHandler {
     log: AnalyticsService.instance.log,
   );
 
-  /// Applies [volume] (0..1) to every local engine that can be audible: the
-  /// just_audio radio player and media_kit (TV, video and playlist items).
-  Future<void> _setOutputVolume(double volume) async {
+  static const String _listenerVolumeKey = 'listener_volume';
+
+  /// The listener's volume (0..1), from the desktop's volume control, kept
+  /// across launches. The sleep timer fades out from it and back to it.
+  late final BehaviorSubject<double> listenerVolume =
+      BehaviorSubject<double>.seeded(_savedListenerVolume());
+
+  /// The sleep timer's fade (0..1): 1 unless a timer is fading the radio
+  /// out.
+  double _sleepFade = 1.0;
+
+  /// The volume [toggleListenerMute] muted, to go back to.
+  double? _volumeBeforeMute;
+
+  /// The volume unmuting goes to when nothing was muted from, as when the
+  /// slider was dragged to 0.
+  static const double _unmutedVolume = 0.5;
+
+  double _savedListenerVolume() {
+    final getIt = GetIt.instance;
+    if (!getIt.isRegistered<SharedPreferences>()) return 1.0;
+    final saved = getIt<SharedPreferences>().getDouble(_listenerVolumeKey);
+    return (saved ?? 1.0).clamp(0.0, 1.0).toDouble();
+  }
+
+  /// How long the listener's volume waits, once it stops changing, before
+  /// it is kept for the next launch.
+  ///
+  /// A drag of the slider changes it about 60 times a second, and a run of
+  /// wheel notches or key presses several times: it is kept once, when
+  /// they stop, not at every step.
+  static const Duration listenerVolumeSaveDelay = Duration(milliseconds: 400);
+
+  /// Keeps the listener's volume once [listenerVolumeSaveDelay] has passed
+  /// without a change; null when nothing waits to be kept.
+  Timer? _listenerVolumeSave;
+
+  /// Sets the listener's volume, and keeps it for the next launch.
+  ///
+  /// The radio follows each change at once, so the listener hears where
+  /// the slider is; keeping it waits for the changes to stop.
+  Future<void> setListenerVolume(double volume) async {
+    final value = volume.clamp(0.0, 1.0).toDouble();
+    if (value == listenerVolume.value) return;
+    // Heard again: what was muted from no longer counts.
+    if (value > 0) _volumeBeforeMute = null;
+    listenerVolume.add(value);
+    _listenerVolumeSave?.cancel();
+    _listenerVolumeSave = Timer(
+      listenerVolumeSaveDelay,
+      () => unawaited(saveListenerVolume()),
+    );
+    await _applyOutputVolume();
+  }
+
+  /// Mutes the listener's volume, or unmutes it back to where it was.
+  ///
+  /// One click, not a run of steps: kept at once.
+  Future<void> toggleListenerMute() async {
+    final volume = listenerVolume.value;
+    if (volume > 0) {
+      _volumeBeforeMute = volume;
+      await setListenerVolume(0);
+    } else {
+      await setListenerVolume(_volumeBeforeMute ?? _unmutedVolume);
+    }
+    await saveListenerVolume();
+  }
+
+  /// Keeps the listener's volume now, if a change still waits to be kept.
+  ///
+  /// [stop] calls it, since quitting the desktop app stops playback first
+  /// (`TvShell.didRequestAppExit`): a volume changed just before ⌘Q is
+  /// not lost.
+  Future<void> saveListenerVolume() async {
+    final pending = _listenerVolumeSave;
+    if (pending == null) return;
+    pending.cancel();
+    _listenerVolumeSave = null;
+    final volume = listenerVolume.value;
+    try {
+      // Dragged away and back: already kept.
+      if (_prefs.getDouble(_listenerVolumeKey) == volume) return;
+      await _prefs.setDouble(_listenerVolumeKey, volume);
+    } catch (e) {
+      _log('saveListenerVolume failed: ${_shortErr(e)}');
+    }
+  }
+
+  /// The sleep timer's fade, applied on top of the listener's volume.
+  Future<void> _setOutputVolume(double fade) async {
+    _sleepFade = fade;
+    await _applyOutputVolume();
+  }
+
+  /// Applies the listener's volume, faded by the sleep timer, to every local
+  /// engine that can be audible: the just_audio radio player and media_kit
+  /// (TV, video and playlist items).
+  Future<void> _applyOutputVolume() async {
+    final volume = _sleepFade * listenerVolume.value;
     await player.setVolume(volume);
     if (GetIt.instance.isRegistered<VideoPlaybackService>()) {
       await videoService.setVolume(volume);
@@ -1726,9 +1823,10 @@ class AppAudioHandler extends BaseAudioHandler {
   /// MediaSession queue. Android Auto shows this as a "Up next"-style
   /// page accessible from the queue button on the Now Playing screen.
   Future<void> _updateSongHistoryQueue() async {
-    // iOS ignores setQueue and nothing reads the queue there, so the
-    // history fetch would be wasted on every station and song change.
-    if (Platform.isIOS) return;
+    // iOS ignores setQueue, and no desktop UI reads the queue (the darwin
+    // audio_service plugin never even answers setQueueTitle on macOS), so
+    // the history fetch would be wasted on every station and song change.
+    if (Platform.isIOS || TvPlatform.isDesktop) return;
     final station = currentStation.valueOrNull;
     if (station == null) {
       queue.add([]);
@@ -1867,6 +1965,8 @@ class AppAudioHandler extends BaseAudioHandler {
     _initPlayer();
     _initUpdateCurrentStationMetadata();
     _initPlayCounting();
+    // A volume the listener turned down last time.
+    if (listenerVolume.value != 1.0) unawaited(_applyOutputVolume());
   }
 
   /// Feeds the play counter whether audio is going (locally, cast or
@@ -2797,6 +2897,7 @@ class AppAudioHandler extends BaseAudioHandler {
   /// 2. AirPlay (iOS audio routed to AirPlay device)
   /// 3. Android TV (leanback hardware)
   /// 4. Phone/tablet (default mobile)
+  /// 5. Desktop (`macos`, `windows` or `linux`)
   String _getPlaybackSource() {
     if (isCarConnected) {
       return Platform.isIOS ? 'carplay' : 'android-auto';
@@ -2807,7 +2908,9 @@ class AppAudioHandler extends BaseAudioHandler {
     if (TvPlatform.isAndroidTV) {
       return 'android-tv';
     }
-    return Platform.isIOS ? 'ios' : (Platform.isAndroid ? 'android' : 'unknown');
+    if (Platform.isIOS) return 'ios';
+    if (Platform.isAndroid) return 'android';
+    return Platform.operatingSystem;
   }
 
   String addTrackingParametersToUrl(String url) => withTrackingParameters(
@@ -5188,6 +5291,9 @@ class AppAudioHandler extends BaseAudioHandler {
   @override
   Future<void> stop() async {
     _trace("stop (isCasting=$isCasting)");
+    // Quitting the desktop app stops first: a volume still waiting to be
+    // kept is kept now.
+    unawaited(saveListenerVolume());
     // Cancels a station switch in flight, like pause().
     _stationSwitchId++;
     _isConnecting = false;
@@ -5552,6 +5658,7 @@ class AppAudioHandler extends BaseAudioHandler {
   // Method to completely stop and cleanup the audio service
   Future<void> dispose() async {
     _trace('dispose()');
+    await saveListenerVolume();
     _cancelInFlightPlay();
     _disconnectTimer?.cancel();
     _bufferingStallTimer?.cancel();
@@ -5922,6 +6029,9 @@ class AppAudioHandler extends BaseAudioHandler {
   /// Rebuilds [stationsMediaItems], the stations Android Auto's media
   /// browser lists, browses and searches.
   void _publishStationsMediaItems() {
+    // Read only by Android Auto and CarPlay's search, which a computer has
+    // neither of: not rebuilt there at every update of the stations.
+    if (TvPlatform.isDesktop) return;
     // Use the app's sort preference for the media browse tree so Android
     // Auto's built-in media browser matches the custom UI order.
     // Always use HTTPS artUri (not file:// cached paths) because Android

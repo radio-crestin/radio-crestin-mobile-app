@@ -164,6 +164,8 @@ void main() {
       // resume, 10-min window) must NOT reshuffle it. So refreshStations no
       // longer invalidates the cache or emits sortOrderChanged. Only an
       // explicit user sort-option change does (see test above).
+      // Made from the live numbers, as after the startup sync.
+      service.applyPublicStationsForTest(makeStations());
       service.filteredStations.add(makeStations());
       service.favoriteStationSlugs.add([]);
 
@@ -234,6 +236,26 @@ void main() {
           service.orderedStations.value.map((s) => s.slug).toList();
       expect(viaStream, viaGetter,
           reason: 'orderedStations and getSortedStations agree on the order');
+    });
+  });
+
+  group('Sort cache - made from the latest numbers', () {
+    test('a list one step behind the stations is sorted by the stations\' '
+        'counts', () async {
+      final prefs = GetIt.instance<SharedPreferences>();
+      await prefs.setString('station_sort_preference', 'listeners');
+      Station station(int id, String slug, int? listeners) =>
+          StationFactory.createStation(
+              id: id, slug: slug, title: slug, totalListeners: listeners);
+      // The counts just came; the filtered list hasn't caught up yet.
+      service.stations.add(
+          [station(1, 'alpha', 5), station(2, 'beta', 300), station(3, 'gamma', 40)]);
+      service.filteredStations.add(
+          [station(1, 'alpha', null), station(2, 'beta', null), station(3, 'gamma', null)]);
+      service.favoriteStationSlugs.add([]);
+
+      expect(service.getSortedStations().map((s) => s.slug).toList(),
+          ['beta', 'gamma', 'alpha']);
     });
   });
 

@@ -82,6 +82,92 @@ class TvHeaderBar {
   static const double height = 64.0;
 }
 
+/// Design tokens of the desktop (macOS, Windows, Linux) browse screen.
+///
+/// Desktop only: Android TV never reads them. The screen shares
+/// [TvColors] and [TvTypography] with TV and adds these on top for a
+/// mouse-and-keyboard layout read from up close.
+class DesktopTokens {
+  DesktopTokens._();
+
+  /// Space between the window's edges and the content.
+  static const double gutter = 24;
+
+  /// Height of the row of categories under the top bar.
+  static const double categoryBarHeight = 52;
+
+  /// Height of a section's header ("Favorite", "Toate stațiile").
+  static const double sectionHeaderHeight = 52;
+
+  /// Space between the cards of the station grid, both ways.
+  static const double gridSpacing = 16;
+
+  /// The widest a card of the station grid gets: the grid adds a column
+  /// rather than stretch its cards past it.
+  static const double cardMaxWidth = 220;
+
+  /// Padding inside a card, around its artwork and text.
+  static const double cardPadding = 8;
+
+  static const double cardRadius = 14;
+  static const double artworkRadius = 10;
+
+  /// The widest the search results get, centered in wider windows.
+  static const double resultsMaxWidth = 880;
+
+  /// Height of a search result row.
+  static const double resultRowHeight = 68;
+
+  /// Height of the mini player bar, its margins left out.
+  static const double miniPlayerHeight = 72;
+
+  /// Duration of hover, focus and selection changes.
+  static const Duration hoverDuration = Duration(milliseconds: 150);
+
+  /// Duration of content changes (song lines, artwork, sections).
+  static const Duration contentDuration = Duration(milliseconds: 250);
+
+  /// How long the pointer rests on a control before its tooltip shows: long
+  /// enough that tooltips don't flicker up while the pointer passes by.
+  static const Duration tooltipWait = Duration(seconds: 2);
+
+  /// The playing station's card or row: the brand pink at 12%.
+  static const Color playingFill = Color(0x1FE91E63);
+
+  /// The playing station's card outline: the brand pink at 45%.
+  static const Color playingOutline = Color(0x73E91E63);
+
+  /// Keyboard focus ring.
+  static const Color focusRing = Color(0xFFF48FB1);
+
+  /// Text on the playing station's card: pale pink, legible on the tint.
+  static const Color playingText = TvColors.primaryLight;
+
+  /// Fill of the search field, chips and small buttons at rest.
+  static const Color controlFill = Color(0x0FFFFFFF);
+
+  /// Fill of the search field, chips and small buttons under the pointer.
+  static const Color controlHoverFill = Color(0x1AFFFFFF);
+
+  /// Hairline around raised surfaces (menus, the mini player, chips).
+  static const Color hairline = Color(0x14FFFFFF);
+
+  /// Background of menus and the mini player.
+  static const Color raisedSurface = Color(0xFF1C1C1E);
+
+  /// A station's listeners dot while it is up.
+  static const Color online = Color(0xFF4ADE80);
+
+  /// The "possibly unavailable" line of a station that is down.
+  static const Color warning = Color(0xFFF87171);
+
+  /// The star of a station's rating, as on the phone.
+  static const Color rating = Color(0xFFED8A19);
+
+  /// The "Pentru tine" sort's icon, as on the phone.
+  static const Color recommended = Color(0xFFF59E0B);
+}
+
 /// TV-specific typography - larger sizes for 10ft viewing distance.
 /// Uses Roboto (Material default) for legibility on TV.
 class TvTypography {
@@ -168,5 +254,16 @@ final ThemeData tvTheme = ThemeData(
   iconTheme: const IconThemeData(
     color: Colors.white,
     size: 28,
+  ),
+);
+
+/// The desktop shells' theme: the TV theme without Material's touch
+/// ripples (a press shows as a quiet highlight, as on a Mac), and with
+/// tooltips that wait for the pointer to rest a while.
+final ThemeData desktopTheme = tvTheme.copyWith(
+  splashFactory: NoSplash.splashFactory,
+  highlightColor: const Color(0x14FFFFFF),
+  tooltipTheme: const TooltipThemeData(
+    waitDuration: DesktopTokens.tooltipWait,
   ),
 );

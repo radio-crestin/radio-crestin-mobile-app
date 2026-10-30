@@ -20,6 +20,13 @@ class TvPlatform {
   /// True for macOS, Linux, or Windows desktop.
   static bool get isDesktop => _isDesktop;
 
+  /// Sets the form factor in tests, whatever the host running them is.
+  @visibleForTesting
+  static void debugOverride({bool desktop = false, bool androidTv = false}) {
+    _isDesktop = desktop;
+    _isTV = androidTv;
+  }
+
   /// Initialize platform detection. Must be called before runApp.
   static Future<void> initialize() async {
     // Desktop detection — no async needed

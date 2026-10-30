@@ -116,6 +116,14 @@ class _FakeVideo extends VideoPlaybackService {
   Future<void> stop() async => playing.add(false);
 }
 
+/// media_kit stand-in that records every volume it is handed.
+class _VolumeRecordingVideo extends VideoPlaybackService {
+  final List<double> volumes = [];
+
+  @override
+  Future<void> setVolume(double volume) async => volumes.add(volume);
+}
+
 /// Records the hint of every `refreshMetadataNow` call before running it.
 class _HintRecordingService extends StationDataService {
   _HintRecordingService({
@@ -648,6 +656,86 @@ void main() {
         await pumpEventQueue();
         expect(json.decode(prefs.getString('favoriteStationSlugs')!),
             [station.slug]);
+      }, () => routing);
+    });
+  });
+
+  // The desktop's speaker button, M and the menu bar's "Fără sunet".
+  group('mute toggle', () {
+    test('mutes, then unmutes back to the volume before, kept across '
+        'launches', () async {
+      await http.runWithClient(() async {
+        await startHandler();
+        await handler.setListenerVolume(0.4);
+
+        await handler.toggleListenerMute();
+        expect(handler.listenerVolume.value, 0);
+        expect(prefs.getDouble('listener_volume'), 0);
+
+        await handler.toggleListenerMute();
+        expect(handler.listenerVolume.value, 0.4);
+        expect(prefs.getDouble('listener_volume'), 0.4);
+      }, () => routing);
+    });
+
+    test('unmutes to half when the volume was brought to 0 by hand',
+        () async {
+      await http.runWithClient(() async {
+        await startHandler();
+        await handler.toggleListenerMute();
+        // Turned up, then down to 0 again, as by the slider: what was
+        // muted from no longer counts.
+        await handler.setListenerVolume(0.2);
+        await handler.setListenerVolume(0);
+
+        await handler.toggleListenerMute();
+        expect(handler.listenerVolume.value, 0.5);
+      }, () => routing);
+    });
+  });
+
+  // The desktop's volume slider, mouse wheel and ⌘↑ ⌘↓.
+  group('listener volume', () {
+    test('the radio follows each step at once; the volume is kept once, '
+        'when the steps stop', () async {
+      await http.runWithClient(() async {
+        final video = _VolumeRecordingVideo();
+        GetIt.instance
+          ..unregister<VideoPlaybackService>()
+          ..registerSingleton<VideoPlaybackService>(video);
+        await startHandler();
+
+        // A drag of the slider: one step a frame.
+        const steps = [0.9, 0.8, 0.7, 0.6, 0.65];
+        for (final step in steps) {
+          await handler.setListenerVolume(step);
+          expect(handler.player.volume, step, reason: 'heard at once');
+          expect(video.volumes.last, step);
+          expect(prefs.getDouble('listener_volume'), isNull,
+              reason: 'not kept while it moves');
+        }
+        // A step that changes nothing reaches neither engine.
+        await handler.setListenerVolume(0.65);
+        expect(video.volumes, steps);
+
+        await until(() => prefs.getDouble('listener_volume') != null);
+        expect(prefs.getDouble('listener_volume'), 0.65);
+        // Kept once: nothing writes it again afterwards.
+        await prefs.setDouble('listener_volume', -1);
+        await Future<void>.delayed(AppAudioHandler.listenerVolumeSaveDelay * 2);
+        expect(prefs.getDouble('listener_volume'), -1);
+      }, () => routing);
+    });
+
+    test('a volume still waiting to be kept is kept when playback stops, '
+        'as when the desktop app quits', () async {
+      await http.runWithClient(() async {
+        await startHandler();
+        await handler.setListenerVolume(0.3);
+        expect(prefs.getDouble('listener_volume'), isNull);
+
+        await handler.stop();
+        expect(prefs.getDouble('listener_volume'), 0.3);
       }, () => routing);
     });
   });

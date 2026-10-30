@@ -315,10 +315,16 @@ class StationDataService {
   }
 
   /// Cached sort order (list of slugs) for the user-chosen (non-recommended)
-  /// sort options. Keeps the order stable during the session. Only
-  /// invalidated when the user picks a different sort option.
+  /// sort options. Keeps the order stable during the session. Invalidated
+  /// when the user picks a different sort option, and once when the live
+  /// numbers first arrive (see [_noteLiveNumbers]).
   List<String>? _cachedSortOrder;
   StationSortOption? _cachedSortOption;
+
+  /// Whether the stations carry the numbers the user-chosen orders are made
+  /// from, the listeners and the reviews: not while they come from the
+  /// startup cache, which keeps neither (see [_cacheStationsData]).
+  bool _hasLiveNumbers = false;
 
   /// Frozen recommended ("Pentru tine") order as a slug list, computed
   /// exactly once per session the first time a non-empty station set
@@ -741,7 +747,8 @@ class StationDataService {
     _log("full refresh: $reason$promoted");
     // NOTE: deliberately does NOT invalidate the sort cache. The recommended
     // order is frozen per-session (see [_frozenRecommendedOrder]); the other
-    // sort options stay stable within a session too. Only an explicit
+    // sort options stay stable within a session too, once made from the
+    // live numbers (see [_noteLiveNumbers]). Otherwise only an explicit
     // user-initiated sort-option change calls invalidateSortCache().
     try {
       final liveTs = _roundedNow();
@@ -782,6 +789,7 @@ class StationDataService {
             ? station
             : _mergeStationWithMetadata(station, live[station.id]!),
     ];
+    _noteLiveNumbers();
     if (!_publishMerged()) return;
     _log("merge: stations updated");
     if (SeekModeManager.isUnstableConnection) {
@@ -1524,6 +1532,7 @@ class StationDataService {
         for (final raw in parsedData.stations)
           _withLiveMetadata(_createStation(raw), liveMetadata),
       ];
+      _noteLiveNumbers();
       _publishMerged(force: true);
       stationGroups.add(parsedData.station_groups);
       _cacheStationsData(parsedData);
@@ -1649,6 +1658,7 @@ class StationDataService {
   @visibleForTesting
   void applyPublicStationsForTest(List<Station> publicStations) {
     _publicStations = List<Station>.of(publicStations);
+    _noteLiveNumbers();
     _publishMerged(force: true);
   }
 
@@ -1902,12 +1912,16 @@ class StationDataService {
       // outlives group changes and is shared with the unfiltered car lists,
       // so a group-only cache would leave every other station unsorted.
       // [publicOnly] is merged in because [filteredStations] can be one
-      // emission ahead of or behind [stations].
+      // emission ahead of or behind [stations]; a station both have is
+      // sorted by [stations]' copy, which [filteredStations] follows, so
+      // the order is made from the latest numbers.
       final fullPublic = <String, Station>{
         for (final s in stations.value)
           if (!privateIds.contains(s.id)) s.slug: s,
-        for (final s in publicOnly) s.slug: s,
-      }.values.toList();
+      };
+      for (final s in publicOnly) {
+        fullPublic.putIfAbsent(s.slug, () => s);
+      }
 
       // Refresh play counts from disk so the Android Auto engine (separate
       // isolate) sees counts written by the phone engine this session.
@@ -1916,7 +1930,7 @@ class StationDataService {
           : null;
       playCountService?.refresh();
       final sorted = StationSortService.sort(
-        stations: fullPublic,
+        stations: fullPublic.values.toList(),
         sortBy: sortOption,
         playCounts: playCountService?.playCounts ?? <String, int>{},
         favoriteSlugs: favoriteStationSlugs.value,
@@ -2018,9 +2032,23 @@ class StationDataService {
     return [...privatePinned, ...orderedPublic];
   }
 
+  /// Notes that the stations now carry the live listeners and reviews. The
+  /// first time, a user-chosen order made before them, from the startup
+  /// cache's stations, is made again from them on the next
+  /// [getSortedStations], and kept from then on: an order "by listeners"
+  /// made while no station had a count would stay wrong all session.
+  void _noteLiveNumbers() {
+    if (_hasLiveNumbers) return;
+    _hasLiveNumbers = true;
+    if (_cachedSortOrder == null) return;
+    _log('sort: made again from the live numbers');
+    invalidateSortCache();
+  }
+
   /// Invalidates the cached order for the user-chosen sort options, forcing a
   /// re-sort on the next [getSortedStations]. Call this only on an explicit
-  /// user sort-option change. Deliberately does NOT touch
+  /// user sort-option change (and, once, [_noteLiveNumbers]). Deliberately
+  /// does NOT touch
   /// [_frozenRecommendedOrder] — the recommended order stays frozen for the
   /// whole session even if the user toggles to another sort and back.
   void invalidateSortCache() {

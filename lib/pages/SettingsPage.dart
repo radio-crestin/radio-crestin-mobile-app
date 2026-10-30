@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_airplay/flutter_airplay.dart' as flutter_airplay;
 import 'package:radio_crestin/services/share_service.dart';
@@ -24,6 +26,11 @@ import 'LogsViewerPage.dart';
 import '../seek_mode_manager.dart';
 import '../theme.dart';
 import '../theme_manager.dart';
+import '../tv/desktop/desktop_smooth_scroll.dart';
+import '../tv/desktop/now_playing_share_menu.dart';
+import '../tv/desktop/settings_links.dart';
+import '../tv/desktop/settings_panel.dart';
+import '../tv/tv_platform.dart';
 import '../widgets/bottom_toast.dart';
 import '../widgets/pinned_title_sliver_header.dart';
 
@@ -36,7 +43,17 @@ class SettingsPage extends StatefulWidget {
   /// Pushes the page onto the navigation stack, with the platform's page
   /// transition: on iOS it slides in from the right, and a swipe from the
   /// left edge takes it back.
+  ///
+  /// On desktop it opens in a panel centered over the window instead
+  /// (see [showDesktopSettingsPanel]).
   static void show(BuildContext context, {ShareLinkData? shareLinkData}) {
+    if (TvPlatform.isDesktop) {
+      showDesktopSettingsPanel(
+        context,
+        home: (_) => SettingsPage(shareLinkData: shareLinkData),
+      );
+      return;
+    }
     Navigator.push(
       context,
       MaterialPageRoute<void>(
@@ -67,6 +84,24 @@ class _SettingsPageState extends State<SettingsPage> {
   // Developer mode: unlocked by tapping the version row 7 times.
   static const _devModeTapsNeeded = 7;
   bool _developerMode = false;
+
+  /// The desktop list's own controller, for a mouse wheel that glides. The
+  /// phone's list has none: it scrolls with the route's
+  /// [PrimaryScrollController], the one iOS scrolls to the top on a tap on
+  /// the status bar.
+  final DesktopScrollController? _desktopScroll =
+      TvPlatform.isDesktop ? DesktopScrollController() : null;
+
+  /// The controller the settings list scrolls with, scrolled to the
+  /// Developer section once the taps on the version unlock it.
+  ScrollController? get _listScroll =>
+      _desktopScroll ?? PrimaryScrollController.maybeOf(context);
+  final GlobalKey _developerSectionKey =
+      GlobalKey(debugLabel: 'developer section');
+
+  /// Room kept above the Developer section's title when it is scrolled to,
+  /// clear of the phone's pinned "Setări" bar.
+  static const double _revealMargin = 72;
   bool _uploadingLogs = false;
   int _versionTaps = 0;
   Timer? _versionTapReset;
@@ -82,6 +117,11 @@ class _SettingsPageState extends State<SettingsPage> {
   final StationDataService _stationDataService = getIt<StationDataService>();
   late int _hiddenCount = _stationDataService.hiddenStations.length;
   StreamSubscription<List<String>>? _hiddenSub;
+
+  /// Whether the page is the desktop app's (a Mac, Windows or Linux),
+  /// which leaves out what only a phone has: the theme picker (desktop is
+  /// dark only), push notifications and the car.
+  bool get _isDesktop => TvPlatform.isDesktop;
 
 
   @override
@@ -128,6 +168,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _diagnosticTicker?.cancel();
     _versionTapReset?.cancel();
     _hiddenSub?.cancel();
+    _desktopScroll?.dispose();
     super.dispose();
   }
 
@@ -159,16 +200,7 @@ class _SettingsPageState extends State<SettingsPage> {
       shareUrl: _shareLinkData?.generateShareUrl() ?? fallbackUrl,
       shareMessage: 'Instalează și tu aplicația Radio Creștin și ascultă peste 60 de stații de radio creștin:\n$fallbackUrl',
       initialData: _shareLinkData,
-      loader: _shareLinkData == null
-          ? () async {
-              final prefs = await SharedPreferences.getInstance();
-              final deviceId = prefs.getString('device_id');
-              if (deviceId == null) return null;
-              final audioHandler = getIt<AppAudioHandler>();
-              final shareService = ShareService(audioHandler.graphqlClient);
-              return shareService.getShareLink(deviceId);
-            }
-          : null,
+      loader: _shareLinkData == null ? _fetchShareLink : null,
     );
   }
 
@@ -257,6 +289,7 @@ class _SettingsPageState extends State<SettingsPage> {
     Widget? subtitleWidget,
     Widget? trailing,
     VoidCallback? onTap,
+    FocusNode? focusNode,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final subtitleContent = subtitleWidget ??
@@ -282,8 +315,51 @@ class _SettingsPageState extends State<SettingsPage> {
       subtitle: subtitleContent,
       trailing: trailing ?? Icon(Icons.chevron_right, size: 20, color: isDark ? const Color(0xff5a5a5c) : const Color(0xffc7c7cc)),
       onTap: onTap,
+      focusNode: focusNode,
     );
   }
+
+  /// How many friends opened the user's invitation, or what the row does
+  /// before anyone did.
+  Widget _buildShareAppSubtitle(bool isDark) {
+    final visitCount = _visitCount;
+    if (visitCount != null && visitCount > 0) {
+      return _InviteCountSubtitle(count: visitCount);
+    }
+    return Text(
+      'Trimite linkul tău prietenilor și familiei',
+      style: TextStyle(
+        fontSize: 12,
+        color: isDark ? const Color(0xff8a8a8a) : const Color(0xff6b6b6b),
+      ),
+    );
+  }
+
+  /// "Distribuie aplicația" on desktop: a menu opening at the row
+  /// (WhatsApp, Facebook, copy, the system share) rather than the phone's
+  /// sheet rising from the window's bottom.
+  Widget _buildDesktopShareAppTile(Widget subtitle) {
+    return DesktopShareMenu(
+      station: null,
+      initialLink: _shareLinkData,
+      loader: _fetchShareLink,
+      onOpened: () => AnalyticsService.instance
+          .capture('button_clicked', {'button_name': 'share_app'}),
+      builder: (context, toggle, focusNode) => _buildSettingsTile(
+        icon: Icons.share_rounded,
+        title: 'Distribuie aplicația',
+        subtitleWidget: subtitle,
+        onTap: toggle,
+        focusNode: focusNode,
+      ),
+    );
+  }
+
+  /// Fetches the user's personal share link, for the phone's share sheet
+  /// and the desktop's share menu.
+  Future<ShareLinkData?> _fetchShareLink() =>
+      ShareService(getIt<AppAudioHandler>().graphqlClient)
+          .getPersonalShareLink();
 
   bool get _isCasting {
     final h = getIt<AppAudioHandler>();
@@ -595,6 +671,32 @@ class _SettingsPageState extends State<SettingsPage> {
     _showDevSnack(enabled
         ? 'Mod dezvoltator activat'
         : 'Mod dezvoltator dezactivat');
+    if (enabled) _revealDeveloperSection();
+  }
+
+  /// Scrolls to the Developer section that just appeared at the end of the
+  /// list, so the taps on the version show what they unlocked: to the end,
+  /// or less if that would take the section's title out of view.
+  void _revealDeveloperSection() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final scroll = _listScroll;
+      if (scroll == null || !scroll.hasClients) return;
+      final position = scroll.position;
+      var target = position.maxScrollExtent;
+      final title = _developerSectionKey.currentContext?.findRenderObject();
+      if (title is RenderBox && title.attached) {
+        final titleAt =
+            RenderAbstractViewport.of(title).getOffsetToReveal(title, 0).offset;
+        target = math.min(target, titleAt - _revealMargin);
+      }
+      if (target <= position.pixels) return;
+      scroll.animateTo(
+        target,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
+      );
+    });
   }
 
   Future<void> _copyLogs() async {
@@ -638,10 +740,11 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Scaffold(
-      body: CustomScrollView(
+    final settings = CustomScrollView(
+        controller: _desktopScroll,
+        primary: _desktopScroll == null,
         slivers: [
-          const PinnedTitleSliverHeader(title: 'Setări'),
+          if (!_isDesktop) const PinnedTitleSliverHeader(title: 'Setări'),
           SliverSafeArea(
             top: false,
             sliver: SliverList.list(
@@ -649,7 +752,8 @@ class _SettingsPageState extends State<SettingsPage> {
               // General section
               _buildSectionHeader('Preferințe'),
               _buildSettingsCard(children: [
-                _buildSettingsTile(
+                // Desktop is dark only, so there is no theme to pick.
+                if (!_isDesktop) _buildSettingsTile(
                   icon: Icons.brightness_6,
                   title: 'Interfața temei',
                   trailing: DropdownButton<ThemeMode>(
@@ -750,6 +854,11 @@ class _SettingsPageState extends State<SettingsPage> {
                         value: (_carConnected || _unstableConnection) ? SeekMode.fiveMinutes : _seekMode,
                         underline: const SizedBox(),
                         borderRadius: BorderRadius.circular(12),
+                        // Room around the value, so the pointer's highlight
+                        // doesn't hug the text.
+                        padding: _isDesktop
+                            ? const EdgeInsets.symmetric(horizontal: 12)
+                            : null,
                         onChanged: (SeekMode? newValue) async {
                           if (newValue != null) {
                             AnalyticsService.instance.capture('button_clicked', {'button_name': 'buffer_size', 'seek_mode': newValue.name});
@@ -815,7 +924,8 @@ class _SettingsPageState extends State<SettingsPage> {
                     value: _autoStartStation,
                   ),
                 ),
-                _buildSettingsTile(
+                // Push notifications reach phones only.
+                if (!_isDesktop) _buildSettingsTile(
                   icon: Icons.notification_important_rounded,
                   title: 'Notificări personalizate',
                   subtitle: 'Primiți notificări când începe o melodie/emisiune preferată.',
@@ -853,25 +963,25 @@ class _SettingsPageState extends State<SettingsPage> {
 
               _buildSectionHeader('General'),
               _buildSettingsCard(children: [
-                _buildSettingsTile(
+                if (_isDesktop)
+                  _buildDesktopShareAppTile(_buildShareAppSubtitle(isDark))
+                else _buildSettingsTile(
                   icon: Icons.share_rounded,
                   title: 'Distribuie aplicația',
-                  subtitleWidget: _visitCount != null && _visitCount! > 0
-                      ? _InviteCountSubtitle(count: _visitCount!)
-                      : Text(
-                          'Trimite linkul tău prietenilor și familiei',
-                          style: TextStyle(fontSize: 12, color: isDark ? const Color(0xff8a8a8a) : const Color(0xff6b6b6b)),
-                        ),
+                  subtitleWidget: _buildShareAppSubtitle(isDark),
                   onTap: () {
                     AnalyticsService.instance.capture('button_clicked', {'button_name': 'share_app'});
                     _shareApp(context);
                   },
                 ),
-                _buildSettingsTile(
+                // Windows and Linux have no store page to review.
+                if (!_isDesktop || Platform.isMacOS) _buildSettingsTile(
                   icon: Icons.star_rounded,
                   title: 'Lasă-ne o recenzie',
                   onTap: () async {
                     AnalyticsService.instance.capture('button_clicked', {'button_name': 'leave_review'});
+                    // The Mac app is the iPhone's, in the Mac App Store.
+                    if (Platform.isMacOS) return openMacAppStoreReview();
                     final url = Platform.isIOS
                         ? 'https://apps.apple.com/app/6451270471?action=write-review'
                         : 'https://play.google.com/store/apps/details?id=com.radiocrestin.radio_crestin';
@@ -884,7 +994,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   onTap: () async {
                     AnalyticsService.instance.capture('whatsapp_contact');
 
-                    final platform = Platform.isAndroid ? "Android" : Platform.isIOS ? "iOS" : "";
+                    final platform = Platform.isAndroid ? "Android" : Platform.isIOS ? "iOS" : desktopPlatformLabel(Platform.operatingSystem);
                     final message = "[RadioCrestin/$platform/v${globals.appVersion}/${globals.deviceId}]\n\nBuna ziua,\n";
                     launchUrl(
                         Uri.parse(
@@ -903,7 +1013,7 @@ class _SettingsPageState extends State<SettingsPage> {
               if (kDebugMode) ...[
                 _buildSectionHeader('Debug'),
                 _buildSettingsCard(children: [
-                  _buildSettingsTile(
+                  if (!_isDesktop) _buildSettingsTile(
                     icon: Icons.directions_car,
                     title: 'CarPlay / Android Auto',
                     subtitle: _carConnected ? 'Conectat' : 'Deconectat',
@@ -1016,7 +1126,10 @@ class _SettingsPageState extends State<SettingsPage> {
               ]),
 
               if (_developerMode) ...[
-                _buildSectionHeader('Developer'),
+                KeyedSubtree(
+                  key: _developerSectionKey,
+                  child: _buildSectionHeader('Developer'),
+                ),
                 _buildSettingsCard(children: [
                   _buildSettingsTile(
                     icon: Icons.fingerprint,
@@ -1085,7 +1198,11 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
           ),
         ],
-      ),
+      );
+    return Scaffold(
+      body: _isDesktop
+          ? DesktopSettingsFrame(title: 'Setări', child: settings)
+          : settings,
     );
   }
 

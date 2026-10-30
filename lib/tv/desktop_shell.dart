@@ -1,37 +1,84 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_sticky_header/flutter_sticky_header.dart';
 import 'package:get_it/get_it.dart';
-import 'package:rxdart/rxdart.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../appAudioHandler.dart';
+import '../globals.dart' as globals;
 import '../pages/SettingsPage.dart';
 import '../queries/getStations.graphql.dart';
+import '../services/analytics_service.dart';
+import '../services/desktop_menu_service.dart';
+import '../services/mac_app_store_updates.dart';
 import '../services/station_data_service.dart';
+import '../services/station_group_categories.dart';
 import '../services/station_sort_service.dart';
-import '../services/play_count_service.dart';
 import '../types/Station.dart';
+import '../utils.dart';
+import '../utils/station_search.dart';
+import '../widgets/animated_play_button.dart';
+import 'desktop/desktop_browse_model.dart';
+import 'desktop/desktop_category_bar.dart';
+import 'desktop/desktop_mini_player.dart';
+import 'desktop/desktop_now_playing_route.dart';
+import 'desktop/desktop_play_history.dart';
+import 'desktop/desktop_recent_stations.dart';
+import 'desktop/desktop_search_field.dart';
+import 'desktop/desktop_search_results.dart';
+import 'desktop/desktop_sections.dart';
+import 'desktop/desktop_shortcuts.dart';
+import 'desktop/desktop_smooth_scroll.dart';
+import 'desktop/desktop_sort_menu.dart';
+import 'desktop/desktop_station_actions.dart';
+import 'desktop/desktop_station_card.dart';
+import 'desktop/desktop_station_menu.dart';
+import 'desktop/desktop_update_dialog.dart';
+import 'desktop/desktop_volume_control.dart';
+import 'desktop/desktop_window_drag_area.dart';
+import 'desktop/settings_links.dart';
+import 'desktop/settings_panel.dart';
+import 'desktop_now_playing_sheet.dart';
+import 'tv_lifecycle.dart';
 import 'tv_shell.dart';
 import 'tv_theme.dart';
 import 'tv_youtube_auto_advance.dart';
-import 'widgets/tv_station_card.dart';
-import 'desktop_now_playing_sheet.dart';
 
-/// Desktop shell: browse grid always visible, mini player pinned at bottom.
-/// Tapping the mini player opens a draggable now-playing sheet (~80% height).
+/// The desktop app (macOS, Windows, Linux): the stations to browse, with
+/// the search in the top bar, and the mini player at the bottom, which
+/// opens "Se redă acum" over the window.
+///
+/// It works like the phone's home page: a "Favorite" section above every
+/// station or the chosen category's, the same sort orders, the search that
+/// also finds stations by the song playing, and the hidden stations left
+/// out. For the mouse and keyboard it adds hover states, a context menu on
+/// every station, and the keyboard shortcuts of the macOS menu bar, whose
+/// commands it carries out ([DesktopMenuService]).
 class DesktopShell extends StatefulWidget {
-  final List<TvSongEntry> songHistory;
+  const DesktopShell({
+    super.key,
+    required this.youtubeCountdown,
+    this.updates,
+    this.now = DateTime.now,
+  });
 
   /// The YouTube auto-advance of the enclosing [TvShell], for the sheet.
   final ValueListenable<TvYoutubeCountdown?> youtubeCountdown;
 
-  const DesktopShell({
-    super.key,
-    required this.songHistory,
-    required this.youtubeCountdown,
-  });
+  /// Asks the Mac App Store for a newer version. Left out, a build that
+  /// asks (see `_checksForUpdates`) makes its own; a test gives one that
+  /// asks a stand-in store.
+  final MacAppStoreUpdates? updates;
+
+  /// The time, for how long the window was left; a test moves it on.
+  final DateTime Function() now;
 
   @override
   State<DesktopShell> createState() => _DesktopShellState();
@@ -39,1215 +86,1702 @@ class DesktopShell extends StatefulWidget {
 
 class _DesktopShellState extends State<DesktopShell> {
   late final AppAudioHandler _audioHandler;
-  late final StationDataService _stationDataService;
-  final List<StreamSubscription> _subscriptions = [];
+  late final StationDataService _data;
+  late final DesktopStationActions _actions;
+  final List<StreamSubscription<dynamic>> _subscriptions = [];
+
+  late final FocusScopeNode _scope = FocusScopeNode(
+    debugLabel: 'DesktopShell',
+    onKeyEvent: _onKey,
+  );
+  final TextEditingController _searchText = TextEditingController();
+  final FocusNode _searchFocus = FocusNode(debugLabel: 'DesktopSearch');
+  final ScrollController _scroll = DesktopScrollController();
+  final MenuController _sortMenu = MenuController();
+  final GlobalKey<DesktopStationMenuState> _menu = GlobalKey();
+  final GlobalKey<AnimatedPlayButtonState> _playButton = GlobalKey();
+
+  /// The search results as the songs change under them.
+  final LiveSearchResults _liveResults = LiveSearchResults();
+
+  /// The keys of the search results' rows, to bring the highlighted one
+  /// into view.
+  final Map<String, GlobalKey> _resultKeys = {};
+
+  ModalRoute<dynamic>? _route;
+  Route<void>? _nowPlayingRoute;
 
   Station? _currentStation;
-  List<Station> _allStations = [];
-  List<String> _favoriteSlugs = [];
-  List<Query$GetStations$station_groups> _groups = [];
-  bool _isPlaying = false;
-
-  StationSortOption _sortOption = StationSortOption.recommended;
+  bool _playing = false;
+  List<String> _favoriteSlugs = const [];
+  List<Query$GetStations$station_groups> _groups = const [];
   Query$GetStations$station_groups? _selectedGroup;
+
+  /// The category the grid lists. It follows [_selectedGroup] once the
+  /// service has filtered that category's stations, a moment later: the
+  /// chips answer a click at once, while the grid's title, count and cards
+  /// change together, never the new title over the old stations.
+  Query$GetStations$station_groups? _listedGroup;
+  StationSortOption _sortOption = StationSortOption.recommended;
+
+  /// Whether the catalog arrived: until then the screen says it loads.
+  bool _catalogLoaded = false;
+
+  /// How many stations the listener can see, the hidden ones aside.
+  int _visibleCount = 0;
+
+  DesktopBrowseContent _content = const DesktopBrowseContent();
+  StationGroupCategories _categories = const StationGroupCategories(
+    categories: [],
+    stationCount: 0,
+    listenerCount: 0,
+  );
+
+  /// The category whose hidden stations the grid shows in their places,
+  /// dimmed: one chosen with all its stations hidden. They stay while it
+  /// is chosen, as some are added back.
+  int? _hiddenShownInGroup;
+
+  String _query = '';
+  List<Station> _results = const [];
+  Set<String> _leaving = const {};
+  final Set<String> _arriving = {};
+  String? _highlightSlug;
+
+  /// Where the station list was scrolled when a search started, to go
+  /// back there once it ends.
+  double? _offsetBeforeSearch;
+
+  /// The station whose context menu is open, which its card shows.
+  String? _menuSlug;
+
+  /// What the menu bar was last told, so it isn't told twice; `recent`
+  /// is the offered stations' slugs and titles, joined.
+  ({
+    bool hasStation,
+    bool playing,
+    bool isFavorite,
+    bool muted,
+    String recent
+  })? _menuBarState;
+
+  /// The stations last listened to, for the Dock menu.
+  late final DesktopRecentStations _recent;
+
+  /// The stations played, for the mouse's back and forward buttons; back
+  /// reaches the ones listened to before the launch too.
+  late final DesktopPlayHistory _played;
+
+  /// The cards' keys, by station and section (a favorite has a card in
+  /// both), to tell where a card is and how many columns its grid has.
+  final Map<({String slug, bool inFavorites}), GlobalKey> _cardKeys = {};
+
+  /// The station list, whose bounds tell which cards are in view.
+  final GlobalKey _listKey = GlobalKey(debugLabel: 'DesktopList');
+
+  /// Whether an arrow asked for another station, whose card is then
+  /// brought into view as it plays: the arrows go through the grid. The
+  /// player bar's buttons and the menus leave the list where it is.
+  bool _revealSkippedTo = false;
+
+  /// When the Mac App Store is next asked for a newer version.
+  Timer? _updateCheck;
+
+  /// When the image cache on disk is next cleared of old song art, as the
+  /// phone's home page does at launch; again every
+  /// [_imageCachePruneInterval], as the app may stay open for days.
+  Timer? _imageCachePrune;
+  static const Duration _imageCachePruneInterval = Duration(hours: 12);
+
+  /// How often the Mac App Store is asked, as the app may stay open for
+  /// days.
+  static const Duration _updateCheckInterval = Duration(hours: 12);
+
+  /// Asks the Mac App Store, from the first check on.
+  late final MacAppStoreUpdates _updates = widget.updates ??
+      MacAppStoreUpdates(
+        prefs: GetIt.instance<SharedPreferences>(),
+        currentVersion: globals.appVersion,
+      );
+
+  /// A newer version found while a panel or a dialog covered the shell,
+  /// kept to offer once that closes rather than asking the store again.
+  MacAppStoreRelease? _pendingUpdate;
+
+  /// Whether the update dialog is up, so a check meanwhile doesn't offer
+  /// the same version again once it is answered.
+  bool _offeringUpdate = false;
+
+  /// Offers [_pendingUpdate] once what covered the shell has closed.
+  Timer? _updateOffer;
+
+  /// How long a closing panel or dialog takes to leave ("Se redă acum"
+  /// shrinks back for 300 ms), for the update dialog to open after it
+  /// rather than over it.
+  static const Duration _offerAfterClosing = Duration(milliseconds: 350);
+
+  /// Tells the window coming back into sight from a mere change of the
+  /// active window, as the [TvShell] does.
+  final TvLifecycleTracker _lifecycleTracker =
+      TvLifecycleTracker(hiddenIsBackground: true);
+  late final AppLifecycleListener _lifecycle;
+
+  /// Since when the listener has left the window: another app active, or
+  /// the window out of sight. Null while it is in use.
+  DateTime? _leftAt;
+
+  /// How long the window is left before, back in sight, the user-chosen
+  /// order is made again from the current numbers.
+  static const Duration _chosenOrderKeptFor = Duration(minutes: 30);
+
+  /// Whether the user-chosen order is to be made again, the window having
+  /// been left for [_chosenOrderKeptFor]: as it shows again if the numbers
+  /// are fresh, else with the numbers the sync it starts brings.
+  bool _remakeDue = false;
+
+  /// Whether nothing was pressed in the window since it came back into
+  /// sight: until then a new order moves no card from under a click.
+  bool _untouchedSinceReturn = false;
+
+  /// When the stations last changed: while the window is hidden and
+  /// nothing plays, no sync runs, and the numbers grow old.
+  DateTime? _stationsChangedAt;
+
+  /// How recent the numbers must be to make the order from them as the
+  /// window shows again.
+  static const Duration _freshNumbers = Duration(minutes: 2);
+
+  /// Whether this build asks the Mac App Store for updates: a release on a
+  /// Mac, or any build previewing the dialog (see
+  /// [MacAppStoreUpdates.previewVersion]).
+  static bool get _checksForUpdates =>
+      !kIsWeb &&
+      Platform.isMacOS &&
+      (kReleaseMode || MacAppStoreUpdates.previewVersion.isNotEmpty);
+
+  /// What the browser-style back closed, the latest last, for forward to
+  /// bring back. Opening something else forgets it, as a browser does.
+  final List<_BackStep> _forwardSteps = [];
+
+  /// Set while back or forward moves around, so that the moves they make
+  /// through the usual paths don't forget [_forwardSteps].
+  bool _steppingThroughHistory = false;
+
+  bool get _searching => _query.isNotEmpty;
+
+  /// Whether the search field shows in the top bar, in place of its search
+  /// button: from a click on the button (or ⌘F) until the field is left
+  /// with nothing typed.
+  bool _searchOpen = false;
 
   @override
   void initState() {
     super.initState();
     _audioHandler = GetIt.instance<AppAudioHandler>();
-    _stationDataService = GetIt.instance<StationDataService>();
+    _data = GetIt.instance<StationDataService>();
+    _actions = DesktopStationActions(_audioHandler);
+    _recent = DesktopRecentStations(GetIt.instance<SharedPreferences>());
+    _played = DesktopPlayHistory(earlier: _recent.slugs.reversed);
     _sortOption = StationSortService.loadSavedSort();
 
-    // Seed synchronously from the in-memory streams so the first frame shows
-    // the (frozen-ordered) stations instead of an empty/flashing list.
+    // Seeded from the streams' values, so the first frame shows the
+    // stations instead of an empty screen.
     _currentStation = _audioHandler.currentStation.valueOrNull;
-    _allStations = _stationDataService.orderedStations.value;
-    _favoriteSlugs = _stationDataService.favoriteStationSlugs.value;
-    _groups = _stationDataService.stationGroups.value;
-    _isPlaying = _audioHandler.playbackState.value.playing;
+    _playing = _audioHandler.playbackState.value.playing;
+    _favoriteSlugs = _data.favoriteStationSlugs.value;
+    _groups = _data.stationGroups.value;
+    _selectedGroup = _data.selectedStationGroup.value;
+    _listedGroup = _selectedGroup;
+    _recompute();
+    _syncMenuBar();
+    _searchFocus.addListener(_updateSearchOpen);
 
-    _subscriptions.add(
-      Rx.combineLatest4(
-        _audioHandler.currentStation.stream,
-        _stationDataService.orderedStations.stream,
-        _stationDataService.favoriteStationSlugs.stream,
-        _stationDataService.stationGroups.stream,
-        (Station? current, List<Station> all, List<String> favs,
-                List<Query$GetStations$station_groups> groups) =>
-            (current, all, favs, groups),
-      ).listen((data) {
-        if (mounted) {
-          setState(() {
-            _currentStation = data.$1;
-            _allStations = data.$2;
-            _favoriteSlugs = data.$3;
-            _groups = data.$4;
-          });
+    _subscriptions
+      // The list stays where the listener left it as another station
+      // comes on (a skip, the menus, the Dock, media keys): the player bar
+      // shows what plays.
+      ..add(_audioHandler.currentStation.stream.listen((station) {
+        if (!mounted) return;
+        if (station != null) {
+          _recent.add(station.slug);
+          _played.played(station.slug);
+          // Not as the station playing is sent again with its new song.
+          if (_revealSkippedTo && station.slug != _currentStation?.slug) {
+            _revealSkippedTo = false;
+            final String slug = station.slug;
+            // Once the grid shows it as playing.
+            WidgetsBinding.instance
+                .addPostFrameCallback((_) => _revealCard(slug));
+          }
         }
-      }),
-    );
+        setState(() => _currentStation = station);
+        _syncMenuBar();
+      }))
+      ..add(_audioHandler.playbackState.stream.listen((state) {
+        // The state is broadcast again on every position tick; the screen
+        // only shows whether it plays.
+        if (!mounted || state.playing == _playing) return;
+        setState(() => _playing = state.playing);
+        _syncMenuBar();
+      }))
+      // Follows the stations, the hidden ones and the chosen category.
+      ..add(_data.filteredStations.stream.listen((_) {
+        _stationsChangedAt = widget.now();
+        _listedGroup = _data.selectedStationGroup.value;
+        _remakeChosenOrderIfDue();
+        _refresh();
+      }))
+      ..add(_data.favoriteStationSlugs.stream.listen((slugs) {
+        _favoriteSlugs = slugs;
+        _refresh();
+        _syncMenuBar();
+      }))
+      ..add(_data.stationGroups.stream.listen((groups) {
+        _groups = groups;
+        _refresh();
+      }))
+      ..add(_data.selectedStationGroup.stream.listen((group) {
+        _selectedGroup = group;
+        _refresh();
+      }))
+      // For the menu bar's mute item, which only tells muted from not: not
+      // at every step of a dragged volume slider.
+      ..add(_audioHandler.listenerVolume.stream
+          .map((volume) => volume == 0)
+          .distinct()
+          .listen((_) => _syncMenuBar()))
+      ..add(DesktopMenuService.commands.listen(_onCommand))
+      ..add(DesktopMenuService.stationRequests.listen(_playRequested));
+    // Every press anywhere in the window, over dialogs too.
+    GestureBinding.instance.pointerRouter.addGlobalRoute(_onPointer);
+    _lifecycle = AppLifecycleListener(onStateChange: _onLifecycleChanged);
+    // Well after launch, once the stations and the first images are in.
+    _imageCachePrune =
+        Timer(const Duration(seconds: 30), _pruneImageDiskCache);
+    // A few seconds after launch, once the screen has settled.
+    if (widget.updates != null || _checksForUpdates) {
+      _updateCheck = Timer(const Duration(seconds: 4), _checkForUpdate);
+    }
+  }
 
-    _subscriptions.add(
-      _audioHandler.playbackState.stream.listen((state) {
-        // playbackState re-emits on every position tick (video mode, and
-        // media_kit audio on Windows/Linux); rebuilding the whole grid for
-        // each one would keep the GPU busy while nothing visible changes.
-        if (!mounted || state.playing == _isPlaying) return;
-        setState(() => _isPlaying = state.playing);
-      }),
-    );
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Also called as a panel or a dialog over the shell closes, as the
+    // route becomes current again.
+    _route = ModalRoute.of(context);
+    if (_pendingUpdate != null && _route?.isCurrent == true) {
+      _updateOffer?.cancel();
+      _updateOffer = Timer(_offerAfterClosing, _offerPendingUpdate);
+    }
   }
 
   @override
   void dispose() {
-    for (final sub in _subscriptions) {
-      sub.cancel();
+    GestureBinding.instance.pointerRouter.removeGlobalRoute(_onPointer);
+    _lifecycle.dispose();
+    _updateCheck?.cancel();
+    _imageCachePrune?.cancel();
+    _updateOffer?.cancel();
+    for (final subscription in _subscriptions) {
+      subscription.cancel();
     }
+    _scope.dispose();
+    _searchText.dispose();
+    _searchFocus
+      ..removeListener(_updateSearchOpen)
+      ..dispose();
+    _scroll.dispose();
     super.dispose();
   }
 
-  List<Station> get _sortedStations {
-    List<Station> base;
-    if (_selectedGroup != null) {
-      final ids = _selectedGroup!.station_to_station_groups
-          .map((e) => e.station_id)
-          .toSet();
-      base = _allStations.where((s) => ids.contains(s.id)).toList();
-    } else {
-      base = List<Station>.from(_allStations);
+  // ─── Data ───
+
+  void _refresh() {
+    if (mounted) setState(_recompute);
+  }
+
+  /// Works out the sections, the categories and the search results from
+  /// the station data, as the phone's home page does.
+  void _recompute() {
+    _catalogLoaded = _catalogLoaded || _data.stations.value.isNotEmpty;
+    final visible = _data.visibleStations;
+    _visibleCount = visible.length;
+    _categories = _withChosen(
+      desktopCategoryOffer(
+        StationGroupCategories.compute(groups: _groups, stations: visible),
+      ),
+      _selectedGroup,
+    );
+
+    final group = _listedGroup;
+    final listed = _data.getSortedStations();
+    // The service gives the hidden ones of the category just chosen.
+    final withHidden = group == null || group.id != _selectedGroup?.id
+        ? const <Station>[]
+        : _data.getSortedGroupStationsWithHidden();
+    if (group?.id != _hiddenShownInGroup) _hiddenShownInGroup = null;
+    if (group != null && listed.isEmpty && withHidden.isNotEmpty) {
+      _hiddenShownInGroup = group.id;
     }
-    // `_allStations` already arrives in the session-frozen recommended order
-    // (StationDataService.orderedStations), so the recommended view must NOT
-    // re-sort — re-sorting is what reshuffled positions as the user played.
-    // Other (user-picked) sorts still sort live.
-    final List<Station> sorted;
-    if (_sortOption == StationSortOption.recommended) {
-      sorted = base;
-    } else {
-      final playCounts = GetIt.instance<PlayCountService>().playCounts;
-      sorted = StationSortService.sort(
-        stations: base,
-        sortBy: _sortOption,
-        playCounts: playCounts,
-        favoriteSlugs: _favoriteSlugs,
-      ).sorted;
-    }
-
-    // Always surface favorites at the top, in the listener's order (as
-    // the phone's Favorite section). The "recommended" sort already weaves
-    // favorites in, but the explicit bubble keeps them visually anchored
-    // for any sort the user picks.
-    if (_favoriteSlugs.isEmpty) return sorted;
-    final favSet = _favoriteSlugs.toSet();
-    final bySlug = {for (final s in sorted) s.slug: s};
-    return [
-      for (final slug in _favoriteSlugs)
-        if (bySlug[slug] case final station?) station,
-      for (final s in sorted)
-        if (!favSet.contains(s.slug)) s,
-    ];
-  }
-
-  void _playStation(Station station) {
-    _audioHandler.playStation(station, fromFavorites: false);
-  }
-
-  void _openNowPlaying() {
-    if (_currentStation == null) return;
-    final size = MediaQuery.of(context).size;
-    final maxWidth = (size.width - 48).clamp(640.0, 1100.0);
-    showDialog(
-      context: context,
-      barrierColor: Colors.black87,
-      barrierDismissible: true,
-      builder: (_) => Dialog(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: maxWidth,
-            maxHeight: size.height - 48,
-          ),
-          child: DesktopNowPlayingSheet(
-            songHistory: widget.songHistory,
-            youtubeCountdown: widget.youtubeCountdown,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _openSearchDialog() async {
-    final picked = await showDialog<Station>(
-      context: context,
-      barrierDismissible: true,
-      barrierColor: Colors.black.withValues(alpha: 0.55),
-      builder: (_) => _DesktopSearchDialog(
-        stations: _allStations,
-        currentStationId: _currentStation?.id,
-        favoriteSlugs: _favoriteSlugs,
-      ),
-    );
-    if (picked != null) {
-      _playStation(picked);
-    }
-  }
-
-  // ─── Sort / Filter bottom sheets ───
-
-  void _showSortOptions() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: TvColors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _dragHandle(),
-              ...StationSortOption.values.map((opt) {
-                final sel = opt == _sortOption;
-                return ListTile(
-                  leading: Icon(
-                    StationSortLabels.icons[opt],
-                    size: 20,
-                    color: opt == StationSortOption.recommended
-                        ? const Color(0xFFF59E0B)
-                        : sel ? TvColors.primary : TvColors.textSecondary,
-                  ),
-                  title: Text(
-                    StationSortLabels.labels[opt] ?? '',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: sel ? FontWeight.w600 : FontWeight.w400,
-                      color: sel ? TvColors.primary : TvColors.textPrimary,
-                    ),
-                  ),
-                  trailing: sel
-                      ? const Icon(Icons.check_rounded, size: 20, color: TvColors.primary)
-                      : null,
-                  onTap: () {
-                    setState(() => _sortOption = opt);
-                    StationSortService.saveSortOption(opt);
-                    _stationDataService.invalidateSortCache();
-                    Navigator.pop(ctx);
-                  },
-                );
-              }),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showFilterOptions() {
-    final sorted = List<Query$GetStations$station_groups>.from(_groups)
-      ..sort((a, b) => a.order.compareTo(b.order));
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: TvColors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) => DraggableScrollableSheet(
-        initialChildSize: 0.6,
-        minChildSize: 0.3,
-        maxChildSize: 0.85,
-        expand: false,
-        builder: (_, sc) => Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(top: 10, bottom: 6),
-              child: _dragHandle(),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text('Filtrează stații',
-                    style: TvTypography.title.copyWith(fontWeight: FontWeight.w700, fontSize: 20)),
-              ),
-            ),
-            const Divider(height: 1, thickness: 0.5, color: TvColors.divider),
-            Expanded(
-              child: ListView(
-                controller: sc,
-                padding: const EdgeInsets.only(top: 4, bottom: 24),
-                children: [
-                  _filterTile(
-                    icon: Icons.radio_rounded,
-                    label: 'Toate stațiile radio',
-                    selected: _selectedGroup == null,
-                    onTap: () {
-                      setState(() => _selectedGroup = null);
-                      Navigator.pop(ctx);
-                    },
-                  ),
-                  ...sorted.map((g) => _filterTile(
-                        icon: Icons.folder_rounded,
-                        label: g.name,
-                        selected: _selectedGroup?.id == g.id,
-                        onTap: () {
-                          setState(() => _selectedGroup = g);
-                          Navigator.pop(ctx);
-                        },
-                      )),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _dragHandle() => Container(
-        width: 36,
-        height: 4,
-        margin: const EdgeInsets.only(bottom: 8),
-        decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)),
-      );
-
-  ListTile _filterTile({
-    required IconData icon,
-    required String label,
-    required bool selected,
-    required VoidCallback onTap,
-  }) {
-    return ListTile(
-      leading: Icon(icon, size: 20, color: selected ? TvColors.primary : TvColors.textSecondary),
-      title: Text(label,
-          style: TextStyle(
-              fontSize: 15,
-              fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-              color: selected ? TvColors.primary : TvColors.textPrimary)),
-      trailing:
-          selected ? const Icon(Icons.check_rounded, size: 20, color: TvColors.primary) : null,
-      onTap: onTap,
-    );
-  }
-
-  Widget _navBtn({
-    required IconData icon,
-    required VoidCallback onTap,
-    String? tooltip,
-    bool active = false,
-  }) {
-    return Tooltip(
-      message: tooltip ?? '',
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
-          onTap: onTap,
-          child: Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: active
-                  ? TvColors.primary.withValues(alpha: 0.12)
-                  : Colors.white.withValues(alpha: 0.06),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, size: 20,
-                color: active ? TvColors.primary : TvColors.textSecondary),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ─── Build ───
-
-  @override
-  Widget build(BuildContext context) {
-    final stations = _sortedStations;
-    final station = _currentStation;
-
-    return CallbackShortcuts(
-      bindings: {
-        const SingleActivator(LogicalKeyboardKey.keyK, control: true):
-            _openSearchDialog,
-        const SingleActivator(LogicalKeyboardKey.keyK, meta: true):
-            _openSearchDialog,
-        const SingleActivator(LogicalKeyboardKey.slash): _openSearchDialog,
-      },
-      child: Focus(
-        autofocus: true,
-        child: Scaffold(
-      backgroundColor: TvColors.background,
-      body: Column(
-        children: [
-          // ── Top navbar ──
-          Container(
-            height: 56,
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            decoration: const BoxDecoration(
-              color: TvColors.background,
-              border: Border(
-                bottom: BorderSide(color: TvColors.divider, width: 0.5),
-              ),
-            ),
-            child: Row(
-              children: [
-                // Logo + brand
-                Image.asset('assets/icons/ic_logo_filled.png', width: 32, height: 32),
-                const SizedBox(width: 10),
-                const Text(
-                  'Radio Crestin',
-                  style: TextStyle(
-                    color: TvColors.textPrimary,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: -0.3,
-                  ),
-                ),
-                const Spacer(),
-                // Search
-                _navBtn(
-                  icon: Icons.search_rounded,
-                  tooltip: 'Caută (Ctrl+K)',
-                  onTap: _openSearchDialog,
-                ),
-                const SizedBox(width: 8),
-                // Settings
-                _navBtn(
-                  icon: Icons.settings_outlined,
-                  tooltip: 'Setări',
-                  onTap: () => SettingsPage.show(context),
-                ),
-              ],
-            ),
-          ),
-
-          // ── Sort selector + filter ──
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 10, 24, 4),
-            child: SizedBox(
-              height: 40,
-              child: Row(
-                children: [
-                  // Sort dropdown
-                  Expanded(
-                    child: MouseRegion(
-                      cursor: SystemMouseCursors.click,
-                      child: GestureDetector(
-                        onTap: _showSortOptions,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(StationSortLabels.icons[_sortOption],
-                                size: 18,
-                                color: _sortOption == StationSortOption.recommended
-                                    ? const Color(0xFFF59E0B)
-                                    : TvColors.textPrimary),
-                            const SizedBox(width: 8),
-                            Flexible(
-                              child: Text(
-                                StationSortLabels.labels[_sortOption] ?? '',
-                                style: TvTypography.title
-                                    .copyWith(fontSize: 17, fontWeight: FontWeight.w600),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            const Icon(Icons.keyboard_arrow_down_rounded,
-                                size: 20, color: TvColors.textTertiary),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  // Filter button
-                  _navBtn(
-                    icon: _selectedGroup != null
-                        ? Icons.filter_alt_rounded
-                        : Icons.filter_alt_outlined,
-                    tooltip: _selectedGroup?.name ?? 'Filtrează',
-                    active: _selectedGroup != null,
-                    onTap: _showFilterOptions,
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // ── Station grid ──
-          Expanded(
-            child: stations.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.radio_rounded,
-                          size: 48,
-                          color: TvColors.textTertiary,
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'Nu sunt posturi disponibile',
-                          style: TvTypography.body,
-                        ),
-                      ],
-                    ),
-                  )
-                : Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: GridView.builder(
-                      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                        maxCrossAxisExtent: 200,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
-                        childAspectRatio: 160 / 216,
-                      ),
-                      itemCount: stations.length,
-                      itemBuilder: (_, i) {
-                        final s = stations[i];
-                        final isFav = _favoriteSlugs.contains(s.slug);
-                        return TvStationCard(
-                          station: s,
-                          isPlaying: _currentStation?.id == s.id,
-                          isFavorite: isFav,
-                          autofocus: i == 0,
-                          onSelect: () => _playStation(s),
-                          onFavoriteToggle: () =>
-                              _stationDataService.setStationIsFavorite(
-                                  s, !isFav),
-                        );
-                      },
-                    ),
-                  ),
-          ),
-
-          // ── Bottom mini player ──
-          if (station != null) _DesktopMiniPlayer(
-            station: station,
-            isPlaying: _isPlaying,
-            onTap: _openNowPlaying,
-            onPlayPause: () => _isPlaying ? _audioHandler.pause() : _audioHandler.play(),
-            onPrevious: () => _audioHandler.skipToPrevious(),
-            onNext: () => _audioHandler.skipToNext(),
-          ),
-        ],
-      ),
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────
-// Mini player bar pinned to the bottom — matches mobile style
-// ─────────────────────────────────────────────
-class _DesktopMiniPlayer extends StatelessWidget {
-  final Station station;
-  final bool isPlaying;
-  final VoidCallback onTap;
-  final VoidCallback onPlayPause;
-  final VoidCallback onPrevious;
-  final VoidCallback onNext;
-
-  const _DesktopMiniPlayer({
-    required this.station,
-    required this.isPlaying,
-    required this.onTap,
-    required this.onPlayPause,
-    required this.onPrevious,
-    required this.onNext,
-  });
-
-  Widget _controlBtn({
-    required IconData icon,
-    required VoidCallback onTap,
-    double size = 40,
-    double iconSize = 22,
-    Color? iconColor,
-    Color? bg,
-  }) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            color: bg ?? Colors.white.withValues(alpha: 0.08),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(icon, color: iconColor ?? Colors.white, size: iconSize),
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
-          onTap: onTap,
-          // Allow vertical drag to open the full player
-          onVerticalDragEnd: (details) {
-            if (details.primaryVelocity != null && details.primaryVelocity! < -100) {
-              onTap();
+    final showsHidden = _hiddenShownInGroup != null;
+    final hidden = _data.hiddenStationSlugs.value.toSet();
+    _content = DesktopBrowseContent.compute(
+      listed: showsHidden ? withHidden : listed,
+      favoriteSlugs: _favoriteSlugs,
+      categoryChosen: group != null,
+      shownHidden: showsHidden
+          ? {
+              for (final station in withHidden)
+                if (hidden.contains(station.slug)) station.slug as String,
             }
-          },
-          child: Container(
-            height: 80,
-            decoration: BoxDecoration(
-              color: TvColors.surface,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.4),
-                  blurRadius: 16,
-                  spreadRadius: 1,
-                  offset: const Offset(0, -2),
-                ),
-              ],
-            ),
-            child: Column(
-              children: [
-                // Drag handle
-                Container(
-                  width: 32,
-                  height: 4,
-                  margin: const EdgeInsets.only(top: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.white24,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                // Content row
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(14, 4, 14, 6),
-                    child: Row(
-                      children: [
-                        // Artwork
-                        ClipRRect(
-                          borderRadius:
-                              BorderRadius.circular(TvSpacing.radiusMd),
-                          child: SizedBox(
-                            width: 52,
-                            height: 52,
-                            child: AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 300),
-                              child: SizedBox(
-                                key: ValueKey('mp-${station.artUri}'),
-                                child: station.displayThumbnail(cacheWidth: 104),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        // Metadata: station name + song + artist
-                        Expanded(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // "Se redă acum" + station name
-                              Row(
-                                children: [
-                                  const Icon(Icons.equalizer_rounded,
-                                      color: TvColors.primary, size: 14),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    'Se redă acum',
-                                    style: TvTypography.caption.copyWith(
-                                      color: TvColors.primary,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 10,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Flexible(
-                                    child: Text(
-                                      station.title,
-                                      style: TvTypography.caption.copyWith(
-                                        fontSize: 11,
-                                        color: TvColors.textTertiary,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 3),
-                              // Song title
-                              AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 250),
-                                child: Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: Text(
-                                    station.songTitle.isNotEmpty
-                                        ? station.songTitle
-                                        : station.title,
-                                    key: ValueKey('mp-t-${station.songId}'),
-                                    style: TvTypography.label.copyWith(
-                                      fontSize: 14,
-                                      color: TvColors.textPrimary,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ),
-                              // Artist
-                              if (station.songArtist.isNotEmpty) ...[
-                                const SizedBox(height: 1),
-                                Text(
-                                  station.songArtist,
-                                  style: TvTypography.caption.copyWith(
-                                    fontSize: 12,
-                                    color: TvColors.textSecondary,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        // Transport controls: prev | play/pause | next
-                        _controlBtn(
-                          icon: Icons.skip_previous_rounded,
-                          iconColor: TvColors.textSecondary,
-                          iconSize: 22,
-                          size: 36,
-                          onTap: onPrevious,
-                        ),
-                        const SizedBox(width: 8),
-                        _controlBtn(
-                          icon: isPlaying
-                              ? Icons.pause_rounded
-                              : Icons.play_arrow_rounded,
-                          iconSize: 26,
-                          size: 42,
-                          bg: TvColors.primary,
-                          onTap: onPlayPause,
-                        ),
-                        const SizedBox(width: 8),
-                        _controlBtn(
-                          icon: Icons.skip_next_rounded,
-                          iconColor: TvColors.textSecondary,
-                          iconSize: 22,
-                          size: 36,
-                          onTap: onNext,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+          : const {},
+    );
+    if (_searching) _updateSearch();
+  }
+
+  /// [offer], with the chosen [group] among its categories even once all
+  /// its stations are hidden, so its chip stays the way back.
+  static StationGroupCategories _withChosen(
+    StationGroupCategories offer,
+    Query$GetStations$station_groups? group,
+  ) {
+    if (group == null || offer.offers(group.id)) return offer;
+    // In its place by order, after the others of the same order.
+    final at = offer.categories.indexWhere((c) => c.group.order > group.order);
+    final categories = [...offer.categories]..insert(
+        at < 0 ? offer.categories.length : at,
+        StationGroupCategory(group: group, stationCount: 0),
+      );
+    return StationGroupCategories(
+      categories: categories,
+      stationCount: offer.stationCount,
+      listenerCount: offer.listenerCount,
     );
   }
-}
 
-// ─────────────────────────────────────────────
-// Search dialog: focused text input + live filtered station list.
-// ─────────────────────────────────────────────
-class _DesktopSearchDialog extends StatefulWidget {
-  final List<Station> stations;
-  final int? currentStationId;
-  final List<String> favoriteSlugs;
+  /// The search results for [_query] among every visible station, in the
+  /// phone's order; a station whose song stops matching plays its row out.
+  void _updateSearch() {
+    final listed = _data.getSortedStations(applyGroupFilter: false);
+    final update = _liveResults.update(
+      _query,
+      desktopSearchResults(listed, _query),
+      {for (final station in listed) station.slug as String},
+    );
+    _results = update.shown;
+    _leaving = _liveResults.leaving;
+    if (update.arriving.isNotEmpty) {
+      _arriving.addAll(update.arriving);
+      // Only the rows built now grow in; one scrolled to later just shows.
+      WidgetsBinding.instance.addPostFrameCallback((_) => _arriving.clear());
+    }
+    _keepHighlightValid();
+    _resultKeys.removeWhere(
+      (slug, _) => !_results.any((station) => station.slug == slug),
+    );
+  }
 
-  const _DesktopSearchDialog({
-    required this.stations,
-    required this.currentStationId,
-    required this.favoriteSlugs,
-  });
+  void _keepHighlightValid() {
+    final current = _highlightSlug;
+    final valid = current != null &&
+        !_leaving.contains(current) &&
+        _results.any((station) => station.slug == current);
+    if (!valid) {
+      _highlightSlug =
+          movedHighlight(_results, null, down: true, skipped: _leaving);
+    }
+  }
 
-  @override
-  State<_DesktopSearchDialog> createState() => _DesktopSearchDialogState();
-}
+  /// Tells the menu bar and the Dock menu what plays.
+  void _syncMenuBar() {
+    final station = _currentStation;
+    final recent = [
+      for (final offered in DesktopRecentStations.offered(
+        _recent.slugs,
+        listed: _data.visibleStations,
+        currentSlug: station?.slug,
+      ))
+        (slug: offered.slug as String, title: offered.displayTitle),
+    ];
+    final state = (
+      hasStation: station != null,
+      playing: _playing,
+      isFavorite: station != null && _favoriteSlugs.contains(station.slug),
+      muted: _audioHandler.listenerVolume.value == 0,
+      recent: [for (final r in recent) '${r.slug}:${r.title}'].join('|'),
+    );
+    if (state == _menuBarState) return;
+    _menuBarState = state;
+    unawaited(DesktopMenuService.updateState(
+      hasStation: state.hasStation,
+      playing: state.playing,
+      isFavorite: state.isFavorite,
+      muted: state.muted,
+      recent: recent,
+    ));
+  }
 
-class _DesktopSearchDialogState extends State<_DesktopSearchDialog> {
-  final _controller = TextEditingController();
-  final _focus = FocusNode();
-  final _listController = ScrollController();
+  /// Asks the Mac App Store for a newer version and offers it; asks again
+  /// [_updateCheckInterval] later.
+  Future<void> _checkForUpdate() async {
+    final release = await _updates.check();
+    if (!mounted) return;
+    _updateCheck = Timer(_updateCheckInterval, _checkForUpdate);
+    if (release == null || _offeringUpdate) return;
+    _pendingUpdate = release;
+    await _offerPendingUpdate();
+  }
 
-  /// One key per result index so the highlighted row can be scrolled into
-  /// view (rows vary in height, so offsets can't be computed).
-  final Map<int, GlobalKey> _rowKeys = {};
-  String _query = '';
-  int _highlight = 0;
+  /// Offers [_pendingUpdate], unless a panel or a dialog the listener is
+  /// busy with covers the shell: then once it closes (see
+  /// [didChangeDependencies]), with the release already found.
+  Future<void> _offerPendingUpdate() async {
+    final release = _pendingUpdate;
+    if (release == null || !mounted || _route?.isCurrent != true) return;
+    _pendingUpdate = null;
+    _offeringUpdate = true;
+    try {
+      AnalyticsService.instance
+          .capture('update_prompt_shown', {'version': release.version});
+      final update = await showDesktopUpdateDialog(
+        context,
+        release: release,
+        currentVersion: globals.appVersion,
+      );
+      AnalyticsService.instance.capture(
+        update ? 'update_prompt_accepted' : 'update_prompt_postponed',
+        {'version': release.version},
+      );
+      if (update) {
+        await openMacAppStorePage();
+      } else {
+        await _updates.postpone(release);
+      }
+    } finally {
+      _offeringUpdate = false;
+    }
+  }
 
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _focus.requestFocus();
+  /// Deletes the song art cached on disk more than a week ago, keeping the
+  /// stations' logos; skipped while the station list, which tells the two
+  /// apart, isn't in yet.
+  void _pruneImageDiskCache() {
+    _imageCachePrune = Timer(_imageCachePruneInterval, _pruneImageDiskCache);
+    final stations = _data.stations.value;
+    if (stations.isEmpty) return;
+    unawaited(Utils.pruneImageDiskCache(
+      keepUrls: Utils.stationLogoUrls(stations.map((s) => s.rawStationData)),
+    ));
+  }
+
+  // ─── Lifecycle ───
+
+  /// Makes the user-chosen order again from the current numbers when the
+  /// window comes back into sight after being left for at least
+  /// [_chosenOrderKeptFor]: the order is kept meanwhile so that cards
+  /// never move under the pointer, but the Mac app stays open for days and
+  /// the ranking by listeners would go stale.
+  ///
+  /// Only as the window shows again, before it is clicked: a window left
+  /// in sight and clicked back into keeps its order, as the click lands on
+  /// a card. With numbers from before it went away, the order waits for
+  /// the fresh ones (see [_remakeChosenOrderIfDue]).
+  ///
+  /// As the window goes out of sight, the decoded art no card holds is let
+  /// go.
+  void _onLifecycleChanged(AppLifecycleState state) {
+    final now = widget.now();
+    final action = _lifecycleTracker.onTransition(state);
+    // Out of sight, maybe for hours as the radio plays: the decoded art no
+    // card holds goes; what the cards show stays, and is there again.
+    if (action == TvLifecycleAction.enteredBackground) {
+      PaintingBinding.instance.imageCache.clear();
+    }
+    final returned = action == TvLifecycleAction.returnedToForeground;
+    final leftAt = _leftAt;
+    if (returned) {
+      _untouchedSinceReturn = true;
+      if (leftAt != null && now.difference(leftAt) >= _chosenOrderKeptFor) {
+        _remakeDue = true;
+      }
+      final changedAt = _stationsChangedAt;
+      if (changedAt != null && now.difference(changedAt) < _freshNumbers) {
+        _remakeChosenOrderIfDue();
+      }
+    }
+    _leftAt = switch (state) {
+      AppLifecycleState.resumed => null,
+      // Back in sight but not yet clicked: left again from now on.
+      _ when returned => now,
+      _ => leftAt ?? now,
+    };
+  }
+
+  /// Makes the user-chosen order again from the stations' numbers now, if
+  /// it is due and nothing was pressed since the window came back. Not
+  /// while a station's menu is open, as its card would move away from it:
+  /// then, like after a press, at the window's next return. "Pentru tine"
+  /// stays as made once per session.
+  void _remakeChosenOrderIfDue() {
+    if (!_remakeDue || !_untouchedSinceReturn || _menuSlug != null) return;
+    _remakeDue = false;
+    if (_sortOption == StationSortOption.recommended) return;
+    _data.invalidateSortCache();
+    _refresh();
+  }
+
+  /// Plays the station chosen under "Ascultate recent" in the Dock menu.
+  void _playRequested(String slug) {
+    if (!mounted) return;
+    final station =
+        _data.visibleStations.where((s) => s.slug == slug).firstOrNull;
+    if (station != null) _actions.play(station, source: 'dock_recent');
+  }
+
+  // ─── Commands (menu bar, Dock menu, keyboard) ───
+
+  void _onCommand(DesktopCommand command) {
+    if (!mounted) return;
+    switch (command) {
+      case DesktopCommand.playPause:
+        _togglePlayback();
+      case DesktopCommand.next:
+        _skip(forward: true);
+      case DesktopCommand.previous:
+        _skip(forward: false);
+      case DesktopCommand.toggleFavorite:
+        final station = _currentStation;
+        if (station != null) {
+          _actions.toggleFavorite(station, source: 'desktop_command');
+        }
+      case DesktopCommand.search:
+        _focusSearch();
+      case DesktopCommand.settings:
+        _openSettings();
+      case DesktopCommand.nowPlaying:
+        _openNowPlaying();
+      case DesktopCommand.back:
+        _goBack();
+      case DesktopCommand.forward:
+        _goForward();
+      case DesktopCommand.volumeUp:
+        _stepVolume(up: true);
+      case DesktopCommand.volumeDown:
+        _stepVolume(up: false);
+      case DesktopCommand.toggleMute:
+        unawaited(_audioHandler.toggleListenerMute());
+    }
+  }
+
+  /// The volume a keyboard step up or down: two wheel notches.
+  void _stepVolume({required bool up}) {
+    const step = DesktopVolumeControl.step * 2;
+    final volume = _audioHandler.listenerVolume.value;
+    unawaited(_audioHandler.setListenerVolume(volume + (up ? step : -step)));
+  }
+
+  // ─── Back and forward ───
+
+  /// Every press in the window, which is then in use. It takes the keyboard
+  /// off the control the arrows left it on; the mouse's back and forward
+  /// side buttons go through the stations played.
+  void _onPointer(PointerEvent event) {
+    if (event is! PointerDownEvent) return;
+    // In use: the order stays as it is under the pointer.
+    _untouchedSinceReturn = false;
+    _revealSkippedTo = false;
+    _dropKeyboardFocus();
+    if (event.kind != PointerDeviceKind.mouse) return;
+    if (event.buttons & kBackMouseButton != 0) {
+      _onSideButton(back: true);
+    } else if (event.buttons & kForwardMouseButton != 0) {
+      _onSideButton(back: false);
+    }
+  }
+
+  /// Takes the keyboard off the card or the button the arrows or Tab left
+  /// it on, as a browser does on a click, so its ring doesn't stay behind
+  /// as the pointer is used; the arrows then go through the stations again
+  /// (see [_onKey]). A text field lets go by itself when clicked out of,
+  /// and an open menu keeps it.
+  void _dropKeyboardFocus() {
+    final focused = FocusManager.instance.primaryFocus;
+    if (focused == null || focused == _scope || !_scope.hasFocus) return;
+    final menuOpen = (_menu.currentState?.isOpen ?? false) || _sortMenu.isOpen;
+    if (menuOpen || DesktopShortcuts.isEditingText) return;
+    focused.unfocus();
+  }
+
+  /// The mouse's back and forward side buttons. Over the screen and "Se
+  /// redă acum" they go through the stations played, as a browser's go
+  /// through the pages visited: back plays the station played before,
+  /// forward the one back left. Over Settings or a dialog they step back
+  /// and forward there, as ⌘[ and ⌘] do.
+  void _onSideButton({required bool back}) {
+    final playerInFront = (_route?.isCurrent ?? false) ||
+        (_nowPlayingRoute?.isCurrent ?? false);
+    if (!playerInFront) {
+      DesktopMenuService.dispatch(
+          back ? DesktopCommand.back : DesktopCommand.forward);
+      return;
+    }
+    final listed = {
+      for (final station in _data.visibleStations)
+        station.slug as String: station,
+    };
+    final slug = back
+        ? _played.back(playable: listed.containsKey)
+        : _played.forward(playable: listed.containsKey);
+    final station = listed[slug];
+    if (station == null) return;
+    _playButton.currentState?.notifyWillPlay();
+    // Next and previous keep stepping through what they did.
+    _actions.play(
+      station,
+      fromFavorites: null,
+      source: back ? 'desktop_mouse_back' : 'desktop_mouse_forward',
+    );
+  }
+
+  /// Steps back one level, as Esc and a browser's back do: closes an open
+  /// menu, goes back in Settings, closes "Se redă acum" or a dialog over
+  /// it, ends the search, or leaves the chosen category.
+  void _goBack() {
+    if (_closeMenus()) return;
+    switch (DesktopSettingsPanel.goBack()) {
+      case true:
+        _forwardSteps.add(const _BackStep.settings());
+        return;
+      case false:
+        return;
+      case null:
+        break;
+    }
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      final closesNowPlaying = _nowPlayingRoute?.isCurrent ?? false;
+      navigator.pop();
+      if (closesNowPlaying) _forwardSteps.add(const _BackStep.nowPlaying());
+      return;
+    }
+    if (_searching) {
+      final query = _searchText.text;
+      _stepThroughHistory(_endSearch);
+      _forwardSteps.add(_BackStep.search(query));
+      return;
+    }
+    final group = _selectedGroup;
+    if (group != null) {
+      _stepThroughHistory(() => _onCategorySelected(null));
+      _forwardSteps.add(_BackStep.category(group));
+    }
+  }
+
+  /// Brings back what the last [_goBack] closed.
+  void _goForward() {
+    if (_forwardSteps.isEmpty) return;
+    final step = _forwardSteps.removeLast();
+    _stepThroughHistory(() {
+      switch (step) {
+        case _ReopenSettings():
+          _openSettings();
+        case _ReopenNowPlaying():
+          _openNowPlaying();
+        case _ResumeSearch(:final query):
+          _searchText.text = query;
+          _onQueryChanged(query);
+        case _ReselectCategory(:final group):
+          _onCategorySelected(group);
+      }
     });
   }
 
-  @override
-  void dispose() {
-    _controller.dispose();
-    _focus.dispose();
-    _listController.dispose();
-    super.dispose();
+  void _stepThroughHistory(VoidCallback move) {
+    _steppingThroughHistory = true;
+    try {
+      move();
+    } finally {
+      _steppingThroughHistory = false;
+    }
   }
 
-  /// Keeps the keyboard highlight on screen after an arrow key moved it.
-  ///
-  /// [down] is the arrow's direction. When the highlight [wrapped] around,
-  /// its row may not be built yet, so the list jumps to that end instead.
+  /// Forgets what forward would bring back, as the listener went somewhere
+  /// new.
+  void _forgetForward() {
+    if (!_steppingThroughHistory) _forwardSteps.clear();
+  }
+
+  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    if (event is KeyDownEvent &&
+        event.logicalKey == LogicalKeyboardKey.escape) {
+      if (_closeMenus()) return KeyEventResult.handled;
+      if (_searching) {
+        _endSearch();
+        return KeyEventResult.handled;
+      }
+      return KeyEventResult.ignored;
+    }
+    // With no card or button on the keyboard (Tab puts it on them), the
+    // arrows move the playing station through its grid: ← and → play the
+    // one before and after it, as in "Se redă acum", ↑ and ↓ the one above
+    // and below.
+    if (_isPlainArrow(event) && FocusManager.instance.primaryFocus == _scope) {
+      final key = event.logicalKey;
+      if (key == LogicalKeyboardKey.arrowLeft ||
+          key == LogicalKeyboardKey.arrowRight) {
+        _revealSkippedTo = true;
+        DesktopMenuService.dispatch(key == LogicalKeyboardKey.arrowRight
+            ? DesktopCommand.next
+            : DesktopCommand.previous);
+      } else {
+        _playRowAway(down: key == LogicalKeyboardKey.arrowDown);
+      }
+      return KeyEventResult.handled;
+    }
+    final command = DesktopShortcuts.commandFor(
+      event,
+      editingText: DesktopShortcuts.isEditingText,
+      focusActivates: DesktopShortcuts.focusActivates(ignoring: _scope),
+    );
+    if (command == null) return KeyEventResult.ignored;
+    DesktopMenuService.dispatch(command);
+    return KeyEventResult.handled;
+  }
+
+  static final Set<LogicalKeyboardKey> _arrows = {
+    LogicalKeyboardKey.arrowUp,
+    LogicalKeyboardKey.arrowDown,
+    LogicalKeyboardKey.arrowLeft,
+    LogicalKeyboardKey.arrowRight,
+  };
+
+  /// Whether [event] presses an arrow alone; with ⌘ it skips or sets the
+  /// volume.
+  static bool _isPlainArrow(KeyEvent event) {
+    final keyboard = HardwareKeyboard.instance;
+    return event is KeyDownEvent &&
+        _arrows.contains(event.logicalKey) &&
+        !keyboard.isMetaPressed &&
+        !keyboard.isControlPressed &&
+        !keyboard.isAltPressed &&
+        !keyboard.isShiftPressed;
+  }
+
+  /// Plays the station one row above or below the playing one in its
+  /// grid: in Favorite while next and previous step through the
+  /// favorites, else in the grid below. Going down into the last row's
+  /// gap plays its last station, as a grid moves; past the first or the
+  /// last row nothing changes.
+  void _playRowAway({required bool down}) {
+    final String? slug = _currentStation?.slug;
+    if (slug == null || _searching) return;
+    var inFavorites = _data.startedFromFavorites;
+    var stations = inFavorites ? _content.favorites : _content.stations;
+    if (!stations.any((station) => station.slug == slug)) {
+      inFavorites = !inFavorites;
+      stations = inFavorites ? _content.favorites : _content.stations;
+    }
+    final index = stations.indexWhere((station) => station.slug == slug);
+    // Both grids have as many columns.
+    final columns = (_builtCard(inFavorites: inFavorites) ??
+            _builtCard(inFavorites: !inFavorites))
+        ?.layout
+        .crossAxisCount;
+    if (index < 0 || columns == null) return;
+    var target = index + (down ? columns : -columns);
+    if (target < 0) return;
+    if (target >= stations.length) {
+      final lastRow = (stations.length - 1) ~/ columns;
+      if (index ~/ columns == lastRow) return;
+      target = stations.length - 1;
+    }
+    final station = stations[target];
+    if (_content.shownHidden.contains(station.slug)) return;
+    _revealSkippedTo = true;
+    _playButton.currentState?.notifyWillPlay();
+    _actions.play(
+      station,
+      fromFavorites: null,
+      source: down ? 'desktop_arrow_down' : 'desktop_arrow_up',
+    );
+  }
+
+  /// Scrolls the list just enough to show [slug]'s card whole, below the
+  /// pinned section title, if it is out of view: the card in Favorite
+  /// while next and previous step through the favorites, else the one
+  /// below.
+  void _revealCard(String slug) {
+    if (!mounted || _searching || !_scroll.hasClients) return;
+    final list = _listKey.currentContext?.findRenderObject();
+    if (list is! RenderBox || !list.hasSize) return;
+    final inFavorites = _data.startedFromFavorites;
+    final card = _cardRect(slug, inFavorites: inFavorites) ??
+        _cardRect(slug, inFavorites: !inFavorites);
+    if (card == null) return;
+    const margin = 12.0;
+    final view = list.localToGlobal(Offset.zero) & list.size;
+    final top = view.top + DesktopTokens.sectionHeaderHeight + margin;
+    final bottom = view.bottom - margin;
+    final double by;
+    if (card.top < top || card.height > bottom - top) {
+      by = card.top - top;
+    } else if (card.bottom > bottom) {
+      by = card.bottom - bottom;
+    } else {
+      return;
+    }
+    final position = _scroll.position;
+    _scroll.animateTo(
+      (position.pixels + by)
+          .clamp(position.minScrollExtent, position.maxScrollExtent),
+      duration: DesktopTokens.contentDuration,
+      curve: Curves.easeInOut,
+    );
+  }
+
+  /// The global bounds of [slug]'s card in Favorite ([inFavorites]) or in
+  /// the grid below, where it is laid out or, not built yet far from the
+  /// view, where it will be: the grid's rows are evenly spaced from any
+  /// card of it that is.
+  Rect? _cardRect(String slug, {required bool inFavorites}) {
+    final own = _cardBox(slug, inFavorites: inFavorites);
+    if (own != null) return _globalRect(own);
+    final stations = inFavorites ? _content.favorites : _content.stations;
+    final index = stations.indexWhere((station) => station.slug == slug);
+    final built = _builtCard(inFavorites: inFavorites);
+    if (index < 0 || built == null) return null;
+    final columns = built.layout.crossAxisCount;
+    final rows = index ~/ columns - built.index ~/ columns;
+    final rect = _globalRect(built.box);
+    return rect.translate(
+        0, rows * (rect.height + built.layout.mainAxisSpacing));
+  }
+
+  /// A card laid out in Favorite ([inFavorites]) or in the grid below,
+  /// with its place in it and the grid's layout; null while none is.
+  ({
+    int index,
+    RenderBox box,
+    SliverGridDelegateWithFixedCrossAxisCount layout,
+  })? _builtCard({required bool inFavorites}) {
+    final stations = inFavorites ? _content.favorites : _content.stations;
+    for (final (index, station) in stations.indexed) {
+      final box = _cardBox(station.slug as String, inFavorites: inFavorites);
+      if (box == null) continue;
+      final layout =
+          _cardKeys[(slug: station.slug as String, inFavorites: inFavorites)]
+              ?.currentContext
+              ?.findAncestorRenderObjectOfType<RenderSliverGrid>()
+              ?.gridDelegate;
+      if (layout is! SliverGridDelegateWithFixedCrossAxisCount) return null;
+      return (index: index, box: box, layout: layout);
+    }
+    return null;
+  }
+
+  /// [slug]'s card in Favorite ([inFavorites]) or in the grid below, if it
+  /// is laid out: one scrolled far out of view is let go.
+  RenderBox? _cardBox(String slug, {required bool inFavorites}) {
+    final box = _cardKeys[(slug: slug, inFavorites: inFavorites)]
+        ?.currentContext
+        ?.findRenderObject();
+    return box is RenderBox && box.hasSize ? box : null;
+  }
+
+  static Rect _globalRect(RenderBox box) =>
+      box.localToGlobal(Offset.zero) & box.size;
+
+  /// Closes the sort and station menus; returns whether one was open.
+  bool _closeMenus() {
+    final closedStationMenu = _menu.currentState?.close() ?? false;
+    final sortOpen = _sortMenu.isOpen;
+    if (sortOpen) _sortMenu.close();
+    return closedStationMenu || sortOpen;
+  }
+
+  /// Closes whatever covers the screen (a dialog, Settings) and its menus,
+  /// so a command from the menu bar acts on the screen itself. Returns
+  /// whether something covered it.
+  bool _bringToFront() {
+    _closeMenus();
+    final route = _route;
+    if (route == null || route.isCurrent) return false;
+    Navigator.of(context).popUntil((r) => r == route || r.isFirst);
+    return true;
+  }
+
+  void _togglePlayback() {
+    if (_currentStation == null) return;
+    if (_audioHandler.playbackState.value.playing) {
+      unawaited(_audioHandler.pause());
+    } else {
+      _playButton.currentState?.notifyWillPlay();
+      unawaited(_audioHandler.play());
+    }
+  }
+
+  void _skip({required bool forward}) {
+    if (_currentStation == null) return;
+    _playButton.currentState?.notifyWillPlay();
+    unawaited(
+        forward ? _audioHandler.skipToNext() : _audioHandler.skipToPrevious());
+  }
+
+  void _focusSearch() {
+    if (!_bringToFront()) {
+      _focusSearchField();
+      return;
+    }
+    // Once the routes above are gone and have handed the focus back; the
+    // frame is asked for, as the app may be idle.
+    WidgetsBinding.instance
+      ..addPostFrameCallback((_) => _focusSearchField())
+      ..ensureVisualUpdate();
+  }
+
+  /// Opens the search field and puts the keyboard in it, its text selected
+  /// to be typed over.
+  void _focusSearchField() {
+    if (!mounted) return;
+    if (!_searchOpen) {
+      setState(() => _searchOpen = true);
+      // The field takes the keyboard once it can, in the next frame.
+      WidgetsBinding.instance.addPostFrameCallback((_) => _focusSearchField());
+      return;
+    }
+    _searchFocus.requestFocus();
+    _searchText.selection = TextSelection(
+      baseOffset: 0,
+      extentOffset: _searchText.text.length,
+    );
+  }
+
+  void _openSettings() {
+    _forgetForward();
+    _closeMenus();
+    _closeNowPlaying();
+    AnalyticsService.instance.capture('button_clicked', {
+      'button_name': 'settings',
+      'source': 'desktop',
+    });
+    // Does nothing more while the Settings panel is up.
+    SettingsPage.show(context);
+  }
+
+  /// Opens "Se redă acum" over the window, unless it is open already.
+  Future<void> _openNowPlaying() async {
+    _forgetForward();
+    if (_currentStation == null || _nowPlayingRoute != null) return;
+    _bringToFront();
+    final navigator = Navigator.of(context);
+    final themes = InheritedTheme.capture(from: context, to: navigator.context);
+    // The player bar opens up into the panel.
+    final route = DesktopNowPlayingRoute(
+      settings: const RouteSettings(name: '/now-playing'),
+      builder: (context) => themes.wrap(
+        DesktopNowPlayingSheet(youtubeCountdown: widget.youtubeCountdown),
+      ),
+    );
+    _nowPlayingRoute = route;
+    try {
+      await navigator.push(route);
+    } finally {
+      _nowPlayingRoute = null;
+    }
+  }
+
+  /// Takes "Se redă acum" off the screen at once, with the dialogs opened
+  /// from it (its song history, for one), which would otherwise stay over
+  /// the grid without it.
+  void _closeNowPlaying() {
+    final route = _nowPlayingRoute;
+    if (route == null || !route.isActive) return;
+    Navigator.of(context)
+      ..popUntil((r) => r == route || r.isFirst)
+      ..removeRoute(route);
+  }
+
+  // ─── Browse ───
+
+  void _onSortSelected(StationSortOption option) {
+    AnalyticsService.instance.capture('button_clicked', {
+      'button_name': 'sort_option',
+      'sort_option': option.name,
+      'source': 'desktop',
+    });
+    unawaited(StationSortService.saveSortOption(option));
+    _data.invalidateSortCache();
+    setState(() {
+      _sortOption = option;
+      _recompute();
+    });
+  }
+
+  void _onCategorySelected(Query$GetStations$station_groups? group) {
+    _forgetForward();
+    AnalyticsService.instance.capture('button_clicked', {
+      'button_name': 'filter',
+      'filter_group': group?.name ?? 'all',
+      if (group != null) 'filter_group_id': group.id,
+      'source': 'desktop',
+    });
+    // The grid follows once the filtered stations arrive.
+    _data.selectedStationGroup.add(group);
+    if (_scroll.hasClients) {
+      _scroll.animateTo(
+        0,
+        duration: DesktopTokens.contentDuration,
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
+  void _openStationMenu(
+    Station station,
+    Offset position, {
+    bool fromFavorites = false,
+    bool fromPlayer = false,
+  }) {
+    _menu.currentState?.open(
+      station,
+      position,
+      fromFavorites: fromFavorites,
+      fromPlayer: fromPlayer,
+    );
+  }
+
+  void _onMenuOpenChanged(String? slug) {
+    // Called from the menu's own callbacks: rebuilt once they are done.
+    scheduleMicrotask(() {
+      if (mounted && slug != _menuSlug) setState(() => _menuSlug = slug);
+    });
+  }
+
+  // ─── Search ───
+
+  void _onQueryChanged(String text) {
+    if (text.trim().isNotEmpty) _forgetForward();
+    final query = text.trim().isEmpty ? '' : text;
+    if (query == _query) return;
+    final wasSearching = _searching;
+    if (!wasSearching && _scroll.hasClients) {
+      _offsetBeforeSearch = _scroll.offset;
+    }
+    setState(() {
+      _query = query;
+      _highlightSlug = null;
+      if (query.isEmpty) {
+        _liveResults.clear();
+        _results = const [];
+        _leaving = const {};
+        _arriving.clear();
+      } else {
+        _updateSearch();
+      }
+    });
+    // A new search starts at the top; the end of one goes back to where
+    // the list was.
+    final offset = query.isEmpty ? _offsetBeforeSearch : 0.0;
+    if (query.isEmpty) _offsetBeforeSearch = null;
+    _updateSearchOpen();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scroll.hasClients || offset == null) return;
+      final position = _scroll.position;
+      _scroll.jumpTo(
+        offset.clamp(position.minScrollExtent, position.maxScrollExtent),
+      );
+    });
+  }
+
+  void _endSearch() {
+    _searchText.clear();
+    _onQueryChanged('');
+    if (_searchFocus.hasFocus) _searchFocus.unfocus();
+  }
+
+  /// Shows the search field while it has the keyboard or a search is on;
+  /// left with nothing typed, it folds back into its button.
+  void _updateSearchOpen() {
+    final open = _searchFocus.hasFocus || _searching;
+    if (mounted && open != _searchOpen) setState(() => _searchOpen = open);
+  }
+
+  void _playFromSearch(Station station) {
+    AnalyticsService.instance.capture('button_clicked', {
+      'button_name': 'search_result_tap',
+      'station_id': station.id,
+      'station_slug': station.slug,
+      'matched_by': stationTitleMatch(station.displayTitle, _query) != null
+          ? 'name'
+          : 'song',
+      'source': 'desktop',
+    });
+    setState(() => _highlightSlug = station.slug);
+    _actions.play(station, source: 'desktop_search');
+  }
+
+  void _playHighlighted() {
+    final slug = _highlightSlug;
+    final station = _results
+            .where((s) => s.slug == slug && !_leaving.contains(s.slug))
+            .firstOrNull ??
+        _results.where((s) => !_leaving.contains(s.slug)).firstOrNull;
+    if (station != null) _playFromSearch(station);
+  }
+
+  void _moveHighlight({required bool down}) {
+    if (!_searching) return;
+    final before = _results.indexWhere((s) => s.slug == _highlightSlug);
+    final next =
+        movedHighlight(_results, _highlightSlug, down: down, skipped: _leaving);
+    if (next == null) return;
+    final after = _results.indexWhere((s) => s.slug == next);
+    setState(() => _highlightSlug = next);
+    final wrapped = before >= 0 && (down ? after < before : after > before);
+    _revealHighlight(down: down, wrapped: wrapped);
+  }
+
+  /// Keeps the highlighted row in view after an arrow key moved it; once
+  /// it wrapped around, its row may not be built yet, so the list jumps to
+  /// that end first.
   void _revealHighlight({required bool down, required bool wrapped}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_listController.hasClients) return;
+      if (!mounted || !_scroll.hasClients) return;
       if (!wrapped) {
         _ensureHighlightVisible(atEnd: down);
         return;
       }
-      final position = _listController.position;
-      if (down) {
-        _listController.jumpTo(position.minScrollExtent);
-        return;
+      final position = _scroll.position;
+      _scroll
+          .jumpTo(down ? position.minScrollExtent : position.maxScrollExtent);
+      if (!down) {
+        WidgetsBinding.instance
+            .addPostFrameCallback((_) => _ensureHighlightVisible(atEnd: true));
       }
-      _listController.jumpTo(position.maxScrollExtent);
-      // Rows vary in height, so that offset is an estimate until the last
-      // rows are built: settle the last row against the bottom edge.
-      WidgetsBinding.instance.addPostFrameCallback(
-          (_) => _ensureHighlightVisible(atEnd: true));
     });
   }
 
-  /// Scrolls just enough to show the highlighted row against the bottom
-  /// edge ([atEnd]) or the top edge; a row already visible stays put.
   void _ensureHighlightVisible({required bool atEnd}) {
-    if (!mounted) return;
-    final rowContext = _rowKeys[_highlight]?.currentContext;
-    if (rowContext == null) return;
+    final slug = _highlightSlug;
+    final row = slug == null ? null : _resultKeys[slug]?.currentContext;
+    if (!mounted || row == null) return;
     Scrollable.ensureVisible(
-      rowContext,
-      duration: const Duration(milliseconds: 150),
+      row,
+      duration: DesktopTokens.hoverDuration,
       alignmentPolicy: atEnd
           ? ScrollPositionAlignmentPolicy.keepVisibleAtEnd
           : ScrollPositionAlignmentPolicy.keepVisibleAtStart,
     );
   }
 
-  void _resetListScroll() {
-    if (_listController.hasClients) _listController.jumpTo(0);
-  }
-
-  void _hoverRow(int index) {
-    if (_highlight != index) setState(() => _highlight = index);
-  }
-
-  List<Station> get _results {
-    if (_query.isEmpty) {
-      // Show favorites + current station first when no query.
-      final bySlug = {for (final s in widget.stations) s.slug: s};
-      final favs = [
-        for (final slug in widget.favoriteSlugs)
-          if (bySlug[slug] case final station?) station,
+  void _onResultLeft(String slug) {
+    if (!_liveResults.left(slug) || !mounted) return;
+    setState(() {
+      _results = [
+        for (final station in _results)
+          if (station.slug != slug) station,
       ];
-      final rest =
-          widget.stations.where((s) => !favs.contains(s)).toList();
-      return [...favs, ...rest];
-    }
-    final q = _query.toLowerCase();
-    return widget.stations.where((s) {
-      return s.title.toLowerCase().contains(q) ||
-          s.songTitle.toLowerCase().contains(q) ||
-          s.songArtist.toLowerCase().contains(q);
-    }).toList();
+      _leaving = _liveResults.leaving;
+      _keepHighlightValid();
+    });
   }
 
-  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
-    if (event is! KeyDownEvent) return KeyEventResult.ignored;
-    final results = _results;
-    final k = event.logicalKey;
-    if (k == LogicalKeyboardKey.escape) {
-      Navigator.of(context).pop();
-      return KeyEventResult.handled;
-    }
-    if (k == LogicalKeyboardKey.arrowDown && results.isNotEmpty) {
-      setState(() => _highlight = (_highlight + 1) % results.length);
-      _revealHighlight(down: true, wrapped: _highlight == 0);
-      return KeyEventResult.handled;
-    }
-    if (k == LogicalKeyboardKey.arrowUp && results.isNotEmpty) {
-      setState(
-          () => _highlight = (_highlight - 1 + results.length) % results.length);
-      _revealHighlight(
-          down: false, wrapped: _highlight == results.length - 1);
-      return KeyEventResult.handled;
-    }
-    if (k == LogicalKeyboardKey.enter ||
-        k == LogicalKeyboardKey.numpadEnter) {
-      if (results.isNotEmpty &&
-          _highlight >= 0 &&
-          _highlight < results.length) {
-        Navigator.of(context).pop(results[_highlight]);
-        return KeyEventResult.handled;
-      }
-    }
-    return KeyEventResult.ignored;
-  }
+  // ─── Build ───
 
   @override
   Widget build(BuildContext context) {
-    final results = _results;
-    final size = MediaQuery.of(context).size;
-    final dialogWidth = size.width.clamp(420.0, 720.0);
-    final dialogMaxHeight = size.height * 0.7;
-
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 60),
-      child: Focus(
-        onKeyEvent: _onKey,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: dialogWidth,
-            maxHeight: dialogMaxHeight,
-          ),
-          child: Container(
-            decoration: BoxDecoration(
-              color: TvColors.surface,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.5),
-                  blurRadius: 30,
-                  spreadRadius: 4,
+    final station = _currentStation;
+    return FocusScope(
+      node: _scope,
+      autofocus: true,
+      child: DesktopStationMenu(
+        key: _menu,
+        actions: _actions,
+        currentSlug: station?.slug,
+        playing: _playing,
+        onTogglePlayback: _togglePlayback,
+        onOpenChanged: _onMenuOpenChanged,
+        child: Scaffold(
+          backgroundColor: TvColors.background,
+          body: Column(
+            children: [
+              _NavBar(
+                searchOpen: _searchOpen,
+                onSearch: _focusSearch,
+                searchField: DesktopSearchField(
+                  controller: _searchText,
+                  focusNode: _searchFocus,
+                  onChanged: _onQueryChanged,
+                  onSubmitted: _playHighlighted,
+                  onMoveHighlight: _moveHighlight,
+                  onCancel: _endSearch,
                 ),
-              ],
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.06),
+                onSettings: _openSettings,
               ),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Search input
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: TvColors.surfaceVariant,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.08),
-                      ),
-                    ),
-                    child: TextField(
-                      controller: _controller,
-                      focusNode: _focus,
-                      autofocus: true,
-                      onChanged: (v) {
-                        _resetListScroll();
-                        setState(() {
-                          _query = v;
-                          _highlight = 0;
-                        });
-                      },
-                      onSubmitted: (_) {
-                        if (results.isNotEmpty) {
-                          Navigator.of(context).pop(results[_highlight.clamp(0, results.length - 1)]);
-                        }
-                      },
-                      style: const TextStyle(
-                          color: TvColors.textPrimary, fontSize: 15),
-                      decoration: InputDecoration(
-                        hintText: 'Caută o stație, melodie sau artist...',
-                        hintStyle: TextStyle(
-                          color: TvColors.textTertiary.withValues(alpha: 0.85),
-                          fontSize: 15,
-                        ),
-                        prefixIcon: const Icon(
-                          Icons.search_rounded,
-                          color: TvColors.textTertiary,
-                          size: 22,
-                        ),
-                        suffixIcon: _query.isNotEmpty
-                            ? MouseRegion(
-                                cursor: SystemMouseCursors.click,
-                                child: GestureDetector(
-                                  onTap: () {
-                                    _controller.clear();
-                                    _resetListScroll();
-                                    setState(() {
-                                      _query = '';
-                                      _highlight = 0;
-                                    });
-                                    _focus.requestFocus();
-                                  },
-                                  child: const Padding(
-                                    padding: EdgeInsets.only(right: 8),
-                                    child: Icon(Icons.clear_rounded,
-                                        color: TvColors.textTertiary,
-                                        size: 20),
-                                  ),
-                                ),
-                              )
-                            : null,
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 14),
-                      ),
-                    ),
-                  ),
-                ),
-                const Divider(
-                    height: 1, thickness: 0.5, color: TvColors.divider),
-                // Results
-                Flexible(
-                  child: results.isEmpty
-                      ? Padding(
-                          padding: const EdgeInsets.symmetric(
-                              vertical: 40, horizontal: 24),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.search_off_rounded,
-                                  size: 36, color: TvColors.textTertiary),
-                              const SizedBox(height: 10),
-                              Text(
-                                _query.isEmpty
-                                    ? 'Nu sunt stații disponibile'
-                                    : 'Nicio stație găsită pentru „$_query"',
-                                style: TvTypography.body
-                                    .copyWith(color: TvColors.textSecondary),
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
-                          ),
-                        )
-                      : ListView.builder(
-                          controller: _listController,
-                          padding: const EdgeInsets.symmetric(vertical: 6),
-                          itemCount: results.length,
-                          itemBuilder: (_, i) {
-                            final s = results[i];
-                            return KeyedSubtree(
-                              key: _rowKeys.putIfAbsent(i, GlobalKey.new),
-                              child: _SearchResultRow(
-                                station: s,
-                                highlighted: i == _highlight,
-                                isCurrent: s.id == widget.currentStationId,
-                                isFavorite:
-                                    widget.favoriteSlugs.contains(s.slug),
-                                onTap: () => Navigator.of(context).pop(s),
-                                onHover: () => _hoverRow(i),
-                              ),
-                            );
-                          },
+              SizedBox(
+                height: DesktopTokens.categoryBarHeight,
+                child: AnimatedSwitcher(
+                  duration: DesktopTokens.contentDuration,
+                  child: _searching
+                      ? const _SearchScopeBar(key: ValueKey('scope'))
+                      : DesktopCategoryBar(
+                          key: const ValueKey('categories'),
+                          offer: _categories,
+                          selectedGroupId:
+                              _categories.offers(_selectedGroup?.id)
+                                  ? _selectedGroup?.id
+                                  : null,
+                          onSelected: _onCategorySelected,
                         ),
                 ),
-                // Footer with hints
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.18),
-                    borderRadius: const BorderRadius.vertical(
-                        bottom: Radius.circular(16)),
-                  ),
-                  child: Row(
-                    children: [
-                      _kbdHint('↑↓', 'navighează'),
-                      const SizedBox(width: 14),
-                      _kbdHint('↵', 'redă'),
-                      const Spacer(),
-                      _kbdHint('Esc', 'închide'),
-                    ],
-                  ),
+              ),
+              const Divider(
+                height: 1,
+                thickness: 1,
+                color: DesktopTokens.hairline,
+              ),
+              Expanded(
+                child: CustomScrollView(
+                  key: _listKey,
+                  controller: _scroll,
+                  slivers: [
+                    const SliverToBoxAdapter(child: SizedBox(height: 8)),
+                    if (_searching)
+                      ..._searchSlivers()
+                    else
+                      ..._browseSlivers(),
+                  ],
                 ),
-              ],
+              ),
+            ],
+          ),
+          bottomNavigationBar: station == null
+              ? null
+              : DesktopMiniPlayer(
+                  station: station,
+                  playing: _playing,
+                  isFavorite: _favoriteSlugs.contains(station.slug),
+                  playbackState: _audioHandler.playbackState,
+                  playButtonKey: _playButton,
+                  onOpen: _openNowPlaying,
+                  onPlay: () => unawaited(_audioHandler.play()),
+                  onPause: () => unawaited(_audioHandler.pause()),
+                  onPrevious: () => _skip(forward: false),
+                  onNext: () => _skip(forward: true),
+                  onToggleFavorite: () => _actions.toggleFavorite(
+                    station,
+                    source: 'desktop_mini_player',
+                  ),
+                  onMenu: (position) =>
+                      _openStationMenu(station, position, fromPlayer: true),
+                  volume: _audioHandler.listenerVolume,
+                  onVolumeChanged: (volume) =>
+                      unawaited(_audioHandler.setListenerVolume(volume)),
+                  onToggleMute: () =>
+                      unawaited(_audioHandler.toggleListenerMute()),
+                ),
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _browseSlivers() {
+    final group = _listedGroup;
+    final content = _content;
+    // Also while the catalog is known but not yet sorted and filtered.
+    if (!_catalogLoaded ||
+        (group == null && content.stations.isEmpty && _visibleCount > 0)) {
+      return const [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: DesktopMessage(
+            icon: Icons.radio_rounded,
+            title: 'Se încarcă stațiile…',
+            loading: true,
+          ),
+        ),
+      ];
+    }
+    if (group == null && _visibleCount == 0) {
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: DesktopMessage(
+            icon: Icons.visibility_off_outlined,
+            title: 'Ai ascuns toate stațiile',
+            body: 'Le poți readuce din Setări → Stații ascunse.',
+            actionLabel: 'Deschide Setările',
+            onAction: _openSettings,
+          ),
+        ),
+      ];
+    }
+    final shownCount = content.stations.length - content.shownHidden.length;
+    return [
+      // Always in place, empty without favorites, so the first favorite
+      // added doesn't shift the grid in view either.
+      DesktopScrollAnchor(
+        sliver: content.favorites.isEmpty
+            ? const SliverToBoxAdapter()
+            : SliverStickyHeader(
+                header: DesktopSectionHeader(
+                  title: 'Favorite',
+                  count: content.favorites.length,
+                ),
+                sliver: DesktopStationGrid(
+                  keyPrefix: 'favorite',
+                  stations: content.favorites,
+                  cardBuilder: (context, station, metrics) =>
+                      _card(context, station, metrics, inFavorites: true),
+                ),
+              ),
+      ),
+      SliverStickyHeader(
+        header: DesktopSectionHeader(
+          title: group?.name ?? DesktopCategoryBar.allLabel,
+          count: shownCount,
+          trailing: DesktopSortMenu(
+            value: _sortOption,
+            controller: _sortMenu,
+            onSelected: _onSortSelected,
+          ),
+        ),
+        sliver: SliverMainAxisGroup(
+          slivers: [
+            if (group != null && content.showsHidden)
+              SliverToBoxAdapter(
+                child: DesktopHiddenNote(
+                  text: hiddenInCategoryNote(
+                        group.name,
+                        hidden: content.shownHidden.length,
+                        total: content.stations.length,
+                      ) ??
+                      '',
+                ),
+              ),
+            if (content.stations.isEmpty)
+              SliverToBoxAdapter(
+                child: DesktopMessage(
+                  icon: Icons.radio_rounded,
+                  title: 'Nicio stație în această categorie',
+                  actionLabel: 'Arată toate stațiile',
+                  onAction: () => _onCategorySelected(null),
+                ),
+              )
+            else
+              DesktopStationGrid(
+                keyPrefix: 'all',
+                stations: content.stations,
+                cardBuilder: (context, station, metrics) =>
+                    _card(context, station, metrics, inFavorites: false),
+              ),
+          ],
+        ),
+      ),
+    ];
+  }
+
+  List<Widget> _searchSlivers() => [
+        DesktopSearchResults(
+          query: _query,
+          results: _results,
+          highlightedSlug: _highlightSlug,
+          currentSlug: _currentStation?.slug,
+          playing: _playing,
+          favoriteSlugs: _favoriteSlugs,
+          leaving: _leaving,
+          arriving: _arriving,
+          menuSlug: _menuSlug,
+          rowKey: (slug) => _resultKeys.putIfAbsent(slug, GlobalKey.new),
+          onPlay: _playFromSearch,
+          onHighlight: (slug) {
+            if (slug != _highlightSlug) {
+              setState(() => _highlightSlug = slug);
+            }
+          },
+          onContextMenu: (station, position) =>
+              _openStationMenu(station, position),
+          onLeft: _onResultLeft,
+        ),
+      ];
+
+  Widget _card(
+    BuildContext context,
+    Station station,
+    DesktopGridMetrics metrics, {
+    required bool inFavorites,
+  }) {
+    final String slug = station.slug;
+    final pixels = DesktopStationCard.artworkWidth(metrics.tileWidth) *
+        MediaQuery.devicePixelRatioOf(context);
+    // In steps, so resizing the window doesn't decode the artwork again
+    // at every width.
+    final cacheWidth = ((pixels / 64).ceil() * 64).clamp(128, 640);
+    final hidden = _content.shownHidden.contains(slug);
+    return DesktopStationCard(
+      key: _cardKeys.putIfAbsent(
+        (slug: slug, inFavorites: inFavorites),
+        GlobalKey.new,
+      ),
+      station: station,
+      isCurrent: _currentStation?.slug == slug,
+      isPlaying: _playing,
+      isFavorite: _favoriteSlugs.contains(slug),
+      artworkCacheWidth: cacheWidth,
+      // The API's artwork is 250 px wide: sharper copies for larger cards.
+      artworkSourceWidth: pixels > 250 ? cacheWidth : null,
+      menuOpen: _menuSlug == slug,
+      hidden: hidden,
+      onUnhide: hidden ? () => _actions.unhide(station) : null,
+      onPlay: () => _actions.play(
+        station,
+        fromFavorites: inFavorites,
+        source: inFavorites ? 'desktop_favorites' : 'desktop_grid',
+      ),
+      onTogglePlayback: _togglePlayback,
+      onToggleFavorite: () =>
+          _actions.toggleFavorite(station, source: 'desktop_card'),
+      onContextMenu: (position) => _openStationMenu(
+        station,
+        position,
+        fromFavorites: inFavorites,
+      ),
+    );
+  }
+}
+
+/// The top bar, under the window's transparent title bar, beside the
+/// window's buttons: search and Settings at its end. Its empty parts move
+/// the window, as a title bar does.
+class _NavBar extends StatelessWidget {
+  const _NavBar({
+    required this.searchOpen,
+    required this.searchField,
+    required this.onSearch,
+    required this.onSettings,
+  });
+
+  final bool searchOpen;
+  final Widget searchField;
+  final VoidCallback onSearch;
+  final VoidCallback onSettings;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<DesktopTitleBar>(
+      valueListenable: DesktopMenuService.titleBar,
+      builder: (context, titleBar, _) => SizedBox(
+        height: titleBar.height,
+        child: DesktopWindowDragArea(
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: Padding(
+              padding: const EdgeInsets.only(right: DesktopTokens.gutter - 4),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _SearchToggle(
+                    open: searchOpen,
+                    field: searchField,
+                    onOpen: onSearch,
+                  ),
+                  const SizedBox(width: 4),
+                  _BarIconButton(
+                    icon: CupertinoIcons.gear_alt,
+                    tooltip: 'Setări (${DesktopShortcuts.settingsHint})',
+                    onPressed: onSettings,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
       ),
     );
   }
+}
 
-  Widget _kbdHint(String key, String label) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
+/// The search button, which unfolds into the search field to its left.
+///
+/// The field stays built while folded, out of sight and out of the
+/// keyboard's reach, so the one field keeps its text and takes the keyboard
+/// at once when it opens.
+class _SearchToggle extends StatelessWidget {
+  const _SearchToggle({
+    required this.open,
+    required this.field,
+    required this.onOpen,
+  });
+
+  final bool open;
+  final Widget field;
+  final VoidCallback onOpen;
+
+  static const double fieldWidth = 340;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      alignment: Alignment.centerRight,
       children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.06),
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-          ),
-          child: Text(
-            key,
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: TvColors.textSecondary,
+        ExcludeFocus(
+          excluding: !open,
+          child: IgnorePointer(
+            ignoring: !open,
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(end: open ? 1 : 0),
+              duration: DesktopTokens.contentDuration,
+              curve: Curves.easeOutCubic,
+              child: SizedBox(width: fieldWidth, child: field),
+              builder: (context, unfolded, field) => ClipRect(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  widthFactor: unfolded,
+                  child: Opacity(opacity: unfolded, child: field),
+                ),
+              ),
             ),
           ),
         ),
-        const SizedBox(width: 6),
-        Text(
-          label,
-          style: TvTypography.caption
-              .copyWith(fontSize: 11, color: TvColors.textTertiary),
+        IgnorePointer(
+          ignoring: open,
+          child: AnimatedOpacity(
+            opacity: open ? 0 : 1,
+            duration: DesktopTokens.hoverDuration,
+            child: _BarIconButton(
+              icon: CupertinoIcons.search,
+              tooltip: 'Caută (${DesktopShortcuts.searchHint})',
+              onPressed: onOpen,
+            ),
+          ),
         ),
       ],
     );
   }
 }
 
-class _SearchResultRow extends StatelessWidget {
-  final Station station;
-  final bool highlighted;
-  final bool isCurrent;
-  final bool isFavorite;
-  final VoidCallback onTap;
-  final VoidCallback onHover;
-
-  const _SearchResultRow({
-    required this.station,
-    required this.highlighted,
-    required this.isCurrent,
-    required this.isFavorite,
-    required this.onTap,
-    required this.onHover,
+/// A light icon button of the top bar, as macOS draws a toolbar's.
+class _BarIconButton extends StatelessWidget {
+  const _BarIconButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
   });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      // onHover, not onEnter: onEnter also fires when the list scrolls under
-      // a still pointer, which would steal the keyboard highlight.
-      onHover: (_) => onHover(),
-      child: GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 120),
-          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          decoration: BoxDecoration(
-            color: highlighted
-                ? TvColors.primary.withValues(alpha: 0.16)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: highlighted
-                  ? TvColors.primary.withValues(alpha: 0.4)
-                  : Colors.transparent,
-              width: 1,
+    return IconButton(
+      tooltip: tooltip,
+      onPressed: onPressed,
+      style: IconButton.styleFrom(
+        foregroundColor: TvColors.textSecondary,
+        hoverColor: DesktopTokens.controlHoverFill,
+        minimumSize: const Size.square(36),
+        fixedSize: const Size.square(36),
+        padding: EdgeInsets.zero,
+      ),
+      icon: Icon(icon, size: 20),
+    );
+  }
+}
+
+/// Stands in for the categories while searching: what the search looks
+/// in, and how to end it.
+class _SearchScopeBar extends StatelessWidget {
+  const _SearchScopeBar({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.symmetric(horizontal: DesktopTokens.gutter),
+      child: Row(
+        children: [
+          Icon(
+            Icons.manage_search_rounded,
+            size: 18,
+            color: TvColors.textTertiary,
+          ),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'În toate stațiile, după nume sau după melodia de acum',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 13, color: TvColors.textSecondary),
             ),
           ),
-          child: Row(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: SizedBox(
-                  width: 44,
-                  height: 44,
-                  child: station.displayThumbnail(cacheWidth: 88),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            station.title,
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: highlighted
-                                  ? Colors.white
-                                  : TvColors.textPrimary,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        if (isFavorite) ...[
-                          const SizedBox(width: 6),
-                          const Icon(Icons.favorite_rounded,
-                              size: 14, color: TvColors.primary),
-                        ],
-                        if (isCurrent) ...[
-                          const SizedBox(width: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 1),
-                            decoration: BoxDecoration(
-                              color: TvColors.primary.withValues(alpha: 0.18),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: const Text(
-                              'SE REDĂ',
-                              style: TextStyle(
-                                fontSize: 9,
-                                fontWeight: FontWeight.w800,
-                                color: TvColors.primary,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    if (station.songTitle.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Text(
-                          station.songArtist.isNotEmpty
-                              ? '${station.songTitle}  ·  ${station.songArtist}'
-                              : station.songTitle,
-                          style: TvTypography.caption
-                              .copyWith(fontSize: 12),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 10),
-              Icon(
-                Icons.play_arrow_rounded,
-                size: 22,
-                color: highlighted
-                    ? TvColors.primary
-                    : TvColors.textTertiary.withValues(alpha: 0.6),
-              ),
-            ],
+          SizedBox(width: 12),
+          _Keycap(label: 'Esc'),
+          SizedBox(width: 6),
+          Text(
+            'închide căutarea',
+            style: TextStyle(fontSize: 12, color: TvColors.textTertiary),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A key, drawn as a keycap.
+class _Keycap extends StatelessWidget {
+  const _Keycap({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: DesktopTokens.controlFill,
+        borderRadius: BorderRadius.circular(5),
+        border: Border.all(color: DesktopTokens.hairline),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: TvColors.textSecondary,
         ),
       ),
     );
   }
+}
+
+/// Something the browser-style back closed, which forward brings back.
+sealed class _BackStep {
+  const _BackStep();
+
+  const factory _BackStep.settings() = _ReopenSettings;
+  const factory _BackStep.nowPlaying() = _ReopenNowPlaying;
+  const factory _BackStep.search(String query) = _ResumeSearch;
+  const factory _BackStep.category(Query$GetStations$station_groups group) =
+      _ReselectCategory;
+}
+
+class _ReopenSettings extends _BackStep {
+  const _ReopenSettings();
+}
+
+class _ReopenNowPlaying extends _BackStep {
+  const _ReopenNowPlaying();
+}
+
+class _ResumeSearch extends _BackStep {
+  const _ResumeSearch(this.query);
+
+  final String query;
+}
+
+class _ReselectCategory extends _BackStep {
+  const _ReselectCategory(this.group);
+
+  final Query$GetStations$station_groups group;
 }

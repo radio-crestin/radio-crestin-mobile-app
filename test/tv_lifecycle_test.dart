@@ -85,4 +85,100 @@ void main() {
           TvLifecycleAction.detached);
     });
   });
+
+  // The macOS engine reports only resumed, inactive and hidden: a window
+  // minimized, closed with ⌘W, covered or hidden with the app is `hidden`,
+  // and `paused` never comes.
+  group('TvLifecycleTracker on desktop', () {
+    TvLifecycleTracker desktop() =>
+        TvLifecycleTracker(hiddenIsBackground: true);
+
+    test('hiding the window is the background, once', () {
+      final tracker = desktop();
+      final away = replay(tracker, const [
+        AppLifecycleState.inactive,
+        AppLifecycleState.hidden,
+      ]);
+      expect(away, const [
+        TvLifecycleAction.none,
+        TvLifecycleAction.enteredBackground,
+      ]);
+      expect(tracker.onTransition(AppLifecycleState.hidden),
+          TvLifecycleAction.none);
+    });
+
+    test('showing it again is a return to the foreground, once', () {
+      final tracker = desktop();
+      final actions = replay(tracker, const [
+        AppLifecycleState.inactive,
+        AppLifecycleState.hidden,
+        AppLifecycleState.inactive,
+        AppLifecycleState.resumed,
+      ]);
+      expect(actions, const [
+        TvLifecycleAction.none,
+        TvLifecycleAction.enteredBackground,
+        TvLifecycleAction.returnedToForeground,
+        TvLifecycleAction.none,
+      ]);
+    });
+
+    test('a window back in sight behind another app is back', () {
+      // Uncovered while another app stays in front: the engine reports
+      // `inactive`, and `resumed` only once the window is clicked.
+      final tracker = desktop();
+      final actions = replay(tracker, const [
+        AppLifecycleState.inactive,
+        AppLifecycleState.hidden,
+        AppLifecycleState.inactive,
+      ]);
+      expect(actions.last, TvLifecycleAction.returnedToForeground);
+
+      // Clicking it later, or focus changes, start nothing more.
+      final later = replay(tracker, const [
+        AppLifecycleState.resumed,
+        AppLifecycleState.inactive,
+        AppLifecycleState.resumed,
+      ]);
+      expect(later, everyElement(TvLifecycleAction.none));
+
+      // Covered again: the background again.
+      expect(tracker.onTransition(AppLifecycleState.hidden),
+          TvLifecycleAction.enteredBackground);
+    });
+
+    test('every hide after a return is reported again', () {
+      final tracker = desktop();
+      replay(tracker, const [
+        AppLifecycleState.hidden,
+        AppLifecycleState.inactive,
+        AppLifecycleState.resumed,
+      ]);
+      final again = replay(tracker, const [
+        AppLifecycleState.inactive,
+        AppLifecycleState.hidden,
+      ]);
+      expect(again.last, TvLifecycleAction.enteredBackground);
+    });
+
+    test('focus changes still do nothing', () {
+      final tracker = desktop();
+      final actions = replay(tracker, const [
+        AppLifecycleState.inactive,
+        AppLifecycleState.resumed,
+        AppLifecycleState.inactive,
+        AppLifecycleState.resumed,
+      ]);
+      expect(actions, everyElement(TvLifecycleAction.none));
+    });
+
+    test('Android TV keeps waiting for paused', () {
+      // The default tracker, as TvShell builds it off desktop.
+      final actions = replay(TvLifecycleTracker(), const [
+        AppLifecycleState.inactive,
+        AppLifecycleState.hidden,
+      ]);
+      expect(actions, everyElement(TvLifecycleAction.none));
+    });
+  });
 }

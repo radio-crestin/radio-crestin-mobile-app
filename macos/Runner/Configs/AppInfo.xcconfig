@@ -8,7 +8,7 @@
 PRODUCT_NAME = Radio Crestin
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = com.radiocrestin.radioCrestin
+PRODUCT_BUNDLE_IDENTIFIER = com.radiocrestinsoftware.radioApp
 
 // The copyright displayed in application information
-PRODUCT_COPYRIGHT = Copyright © 2023 com.radiocrestin. All rights reserved.
+PRODUCT_COPYRIGHT = Copyright © 2023–2026 Radio Crestin. Toate drepturile rezervate.

@@ -4,6 +4,7 @@ import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:radio_crestin/services/station_sort_service.dart';
+import 'package:radio_crestin/tv/tv_platform.dart';
 import 'package:radio_crestin/types/Station.dart';
 
 import 'helpers/station_factory.dart';
@@ -101,6 +102,16 @@ void main() {
 
     test('falls back to recommended when SharedPreferences is not registered', () {
       GetIt.instance.unregister<SharedPreferences>();
+      expect(StationSortService.loadSavedSort(), StationSortOption.recommended);
+    });
+
+    test('on a computer, starts on the most listened to stations; the '
+        'order picked there still comes back', () async {
+      TvPlatform.debugOverride(desktop: true);
+      addTearDown(TvPlatform.debugOverride);
+      expect(StationSortService.loadSavedSort(), StationSortOption.listeners);
+
+      await StationSortService.saveSortOption(StationSortOption.recommended);
       expect(StationSortService.loadSavedSort(), StationSortOption.recommended);
     });
   });

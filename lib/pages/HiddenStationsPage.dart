@@ -10,6 +10,8 @@ import '../services/analytics_service.dart';
 import '../services/now_playing_sanitizer.dart';
 import '../services/station_data_service.dart';
 import '../theme.dart';
+import '../tv/desktop/settings_panel.dart';
+import '../tv/tv_platform.dart';
 import '../types/Station.dart';
 import '../utils/romanian_count.dart';
 import '../widgets/pinned_title_sliver_header.dart';
@@ -18,6 +20,10 @@ import '../widgets/re_add_station_button.dart';
 /// The stations the listener hid, last hidden first, each with a button
 /// that adds it back to the lists. Without any, it tells how to hide one.
 /// Over more than five, a search field narrows them down by name.
+///
+/// On desktop it is a page of the Settings panel, under its title bar
+/// (back and close), at most [desktopMaxWidth] wide, its rows lighting up
+/// under the pointer.
 class HiddenStationsPage extends StatefulWidget {
   const HiddenStationsPage({super.key});
 
@@ -32,6 +38,9 @@ class HiddenStationsPage extends StatefulWidget {
       ),
     );
   }
+
+  /// The widest the list gets on desktop, the Settings panel's width.
+  static const double desktopMaxWidth = DesktopSettingsPanel.maxWidth;
 
   /// "3 stații ascunse", for the settings row that opens this page.
   static String countText(int count) => count == 0
@@ -112,38 +121,51 @@ class _HiddenStationsPageState extends State<HiddenStationsPage> {
   @override
   Widget build(BuildContext context) {
     final stations = _stations;
-    return Scaffold(
-      body: CustomScrollView(
-        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-        slivers: [
-          const PinnedTitleSliverHeader(title: 'Stații ascunse'),
-          SliverSafeArea(
-            top: false,
-            sliver: SliverToBoxAdapter(
-              // Out, then in: the list fades away whole, its last station
-              // still on it, before the empty page fades in, both from the
-              // top, so nothing shows alone or jumps on the way.
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 300),
-                switchInCurve: const Interval(0.5, 1, curve: Curves.easeOut),
-                switchOutCurve: const Interval(0.5, 1, curve: Curves.easeIn),
-                layoutBuilder: _stackFromTop,
-                child: stations.isEmpty
-                    ? const _EmptyState()
-                    : _HiddenList(
-                        key: const ValueKey('list'),
-                        stations: _matching,
-                        // The last one leaves with the whole list instead.
-                        foldsAway: stations.length > 1,
-                        search: _searchable
-                            ? _SearchField(controller: _search)
-                            : null,
-                        onShow: _show,
-                      ),
-              ),
+    final isDesktop = TvPlatform.isDesktop;
+    final page = CustomScrollView(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      slivers: [
+        if (!isDesktop) const PinnedTitleSliverHeader(title: 'Stații ascunse'),
+        SliverSafeArea(
+          top: false,
+          sliver: SliverToBoxAdapter(
+            // Out, then in: the list fades away whole, its last station
+            // still on it, before the empty page fades in, both from the
+            // top, so nothing shows alone or jumps on the way.
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              switchInCurve: const Interval(0.5, 1, curve: Curves.easeOut),
+              switchOutCurve: const Interval(0.5, 1, curve: Curves.easeIn),
+              layoutBuilder: _stackFromTop,
+              child: stations.isEmpty
+                  ? const _EmptyState()
+                  : _HiddenList(
+                      key: const ValueKey('list'),
+                      stations: _matching,
+                      // The last one leaves with the whole list instead.
+                      foldsAway: stations.length > 1,
+                      search: _searchable
+                          ? _SearchField(controller: _search)
+                          : null,
+                      onShow: _show,
+                    ),
             ),
           ),
-        ],
+        ),
+      ],
+    );
+    if (!isDesktop) return Scaffold(body: page);
+    return Scaffold(
+      body: DesktopSettingsFrame(
+        title: 'Stații ascunse',
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: HiddenStationsPage.desktopMaxWidth,
+            ),
+            child: page,
+          ),
+        ),
       ),
     );
   }
@@ -173,7 +195,13 @@ class _Grouped {
 }
 
 /// Where a hidden station no longer shows, for the page's explanation.
+///
+/// A computer has no car to leave them out of.
 String _whereHidden(BuildContext context) {
+  if (TvPlatform.isDesktop) {
+    return 'Stațiile ascunse nu apar în lista de stații, la Favorite și '
+        'nici în căutare.';
+  }
   final car = switch (Theme.of(context).platform) {
     TargetPlatform.iOS || TargetPlatform.macOS => 'CarPlay',
     _ => 'Android Auto',
@@ -383,29 +411,31 @@ class _HiddenStationRowState extends State<_HiddenStationRow>
         opacity: _size,
         child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-              child: Row(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: SizedBox.square(
-                      dimension: _thumbnailSize,
-                      child: widget.station.logo,
+            _DesktopRowHover(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                child: Row(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: SizedBox.square(
+                        dimension: _thumbnailSize,
+                        child: widget.station.logo,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      widget.station.displayTitle,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 16, color: colors.text),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        widget.station.displayTitle,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 16, color: colors.text),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  ReAddStationButton(onPressed: _show),
-                ],
+                    const SizedBox(width: 8),
+                    ReAddStationButton(onPressed: _show),
+                  ],
+                ),
               ),
             ),
             if (widget.showDivider)
@@ -419,6 +449,47 @@ class _HiddenStationRowState extends State<_HiddenStationRow>
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// What the empty page says: how to hide a station (a long press on a
+/// phone, a right click on a computer), where hidden ones no longer show,
+/// and that they come back from here.
+String _emptyExplanation(BuildContext context) {
+  final howTo = TvPlatform.isDesktop
+      ? 'Fă clic dreapta pe o stație din listă și alege „Ascunde stația”. '
+      : 'Ține apăsat pe o stație din listă și alege „Ascunde stația”. ';
+  return '$howTo${_whereHidden(context)} Le poți readăuga oricând de aici.';
+}
+
+/// Lights a row up under the pointer on desktop; elsewhere just [child].
+class _DesktopRowHover extends StatefulWidget {
+  const _DesktopRowHover({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_DesktopRowHover> createState() => _DesktopRowHoverState();
+}
+
+class _DesktopRowHoverState extends State<_DesktopRowHover> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!TvPlatform.isDesktop) return widget.child;
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeInOut,
+        color: _hovered
+            ? Colors.white.withValues(alpha: 0.05)
+            : Colors.white.withValues(alpha: 0),
+        child: widget.child,
       ),
     );
   }
@@ -460,8 +531,7 @@ class _EmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Ține apăsat pe o stație din listă și alege „Ascunde stația”. '
-            '${_whereHidden(context)} Le poți readăuga oricând de aici.',
+            _emptyExplanation(context),
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 14, height: 1.45, color: colors.secondary),
           ),

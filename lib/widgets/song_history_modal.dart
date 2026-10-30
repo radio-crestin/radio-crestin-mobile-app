@@ -5,6 +5,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:radio_crestin/services/analytics_service.dart';
 import 'package:radio_crestin/services/song_history_service.dart';
 import 'package:radio_crestin/theme.dart';
+import 'package:radio_crestin/tv/tv_platform.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// Full-screen modal showing song history for a station.
@@ -287,18 +288,21 @@ class _SongHistoryModalState extends State<SongHistoryModal> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Drag handle
-        Padding(
-          padding: const EdgeInsets.only(top: 10, bottom: 6),
-          child: Container(
-            width: 36,
-            height: 4,
-            decoration: BoxDecoration(
-              color: isDark ? Colors.white24 : Colors.black12,
-              borderRadius: BorderRadius.circular(2),
+        // Drag handle; desktop shows the history in a dialog, not a sheet.
+        if (TvPlatform.isDesktop)
+          const SizedBox(height: 16)
+        else
+          Padding(
+            padding: const EdgeInsets.only(top: 10, bottom: 6),
+            child: Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white24 : Colors.black12,
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
           ),
-        ),
         // Title row
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 4, 8, 0),

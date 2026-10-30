@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
+import 'package:radio_crestin/tv/tv_platform.dart';
 import 'package:radio_crestin/types/Station.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -48,6 +49,14 @@ class StationSortResult {
 class StationSortService {
   static const _storageKey = 'station_sort_preference';
 
+  /// The order until the listener picks one: on a computer (the macOS
+  /// app), the stations most listened to right now first; on a phone, a
+  /// TV or in a car, "Pentru tine".
+  static StationSortOption get defaultSort => TvPlatform.isDesktop
+      ? StationSortOption.listeners
+      : StationSortOption.recommended;
+
+  /// The order the listener picked last, or [defaultSort].
   static StationSortOption loadSavedSort() {
     try {
       final prefs = GetIt.instance<SharedPreferences>();
@@ -55,11 +64,11 @@ class StationSortService {
       if (saved != null) {
         return StationSortOption.values.firstWhere(
           (e) => e.name == saved,
-          orElse: () => StationSortOption.recommended,
+          orElse: () => defaultSort,
         );
       }
     } catch (_) {}
-    return StationSortOption.recommended;
+    return defaultSort;
   }
 
   static Future<void> saveSortOption(StationSortOption option) async {

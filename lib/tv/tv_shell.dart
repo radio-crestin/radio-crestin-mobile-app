@@ -1,18 +1,22 @@
 import 'dart:async';
 import 'dart:developer' as developer;
+import 'dart:ui' show AppExitResponse;
 
 import 'package:app_links/app_links.dart';
 import 'package:dpad/dpad.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get_it/get_it.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../appAudioHandler.dart';
 import '../services/analytics_service.dart';
 import '../services/background_polling_policy.dart';
+import '../services/desktop_menu_service.dart';
 import '../services/network_service.dart';
 import '../services/playlist_controller.dart';
 import '../services/station_data_service.dart';
+import '../services/station_deep_link.dart';
 import '../types/Station.dart';
 import 'desktop_shell.dart';
 import 'tv_lifecycle.dart';
@@ -53,13 +57,31 @@ class _TvShellState extends State<TvShell> with WidgetsBindingObserver {
   late final AppAudioHandler _audioHandler;
   late final StationDataService _stationDataService;
   final List<StreamSubscription> _subscriptions = [];
-  final TvLifecycleTracker _lifecycle = TvLifecycleTracker();
+  final TvLifecycleTracker _lifecycle =
+      TvLifecycleTracker(hiddenIsBackground: TvPlatform.isDesktop);
   late final TvYoutubeAutoAdvance _youtubeAutoAdvance;
   Station? _currentStation;
 
   /// Song history persisted across page switches.
   /// Index 0 = current song, 1+ = previous songs.
   final List<TvSongEntry> songHistory = [];
+
+  /// Opens the station links on desktop (see [_initDesktopLinks]).
+  late final StationDeepLinks _desktopLinks =
+      StationDeepLinks(stations: _stationDataService.stations);
+
+  /// Taken by every launch autoplay as it starts and by every new link as
+  /// it arrives, before either awaits anything.
+  ///
+  /// An autoplay that finds it taken by someone else once its waits are
+  /// over leaves the station alone: the link plays its own (or, naming
+  /// none, starts the autoplay again), and a later autoplay is the one
+  /// that plays.
+  int _launchTurn = 0;
+
+  /// How long quitting the desktop app may wait for its cleanup: the system
+  /// holds the quit until [didRequestAppExit] answers.
+  static const _exitCleanupBudget = Duration(seconds: 2);
 
   @override
   void initState() {
@@ -90,13 +112,20 @@ class _TvShellState extends State<TvShell> with WidgetsBindingObserver {
 
     _browsing = _currentStation == null;
 
-    if (_currentStation != null && !_audioHandler.playbackState.value.playing) {
-      _audioHandler.play();
-      _autoPlayDone = true;
-    }
+    if (TvPlatform.isDesktop) {
+      // As on the phone: the station of the link that opened the app, or
+      // else the last station played, if the user wants it started.
+      _initDesktopLinks();
+    } else {
+      if (_currentStation != null &&
+          !_audioHandler.playbackState.value.playing) {
+        _audioHandler.play();
+        _autoPlayDone = true;
+      }
 
-    // Handle deep links (e.g. from TV home screen channel programs)
-    _initDeepLinks();
+      // Handle deep links (e.g. from TV home screen channel programs)
+      _initDeepLinks();
+    }
 
     // Track station changes
     _subscriptions.add(
@@ -123,8 +152,9 @@ class _TvShellState extends State<TvShell> with WidgetsBindingObserver {
       }),
     );
 
-    // Auto-play first station if none loaded
-    if (_currentStation == null) {
+    // Auto-play first station if none loaded (TV; desktop starts the last
+    // station played instead, see _autoPlayOnDesktop).
+    if (!TvPlatform.isDesktop && _currentStation == null) {
       _subscriptions.add(
         _stationDataService.stations.stream.listen((stations) {
           if (!_autoPlayDone && stations.isNotEmpty && mounted) {
@@ -189,12 +219,129 @@ class _TvShellState extends State<TvShell> with WidgetsBindingObserver {
   void _onDetached() {
     // On Android TV the audio service can outlive the activity and keep
     // playing, and onTaskRemoved already ends the session when the task is
-    // swiped away. On desktop, detaching means the app is exiting.
+    // swiped away. On desktop, detaching means the app is exiting (macOS
+    // never reports it: see didRequestAppExit).
     if (TvPlatform.isDesktop) {
       AnalyticsService.instance.endListening(reason: 'app_killed');
     }
     AnalyticsService.instance.flush();
   }
+
+  /// Quitting the desktop app (⌘Q, Quit from the Dock, logging out) asks
+  /// here first.
+  ///
+  /// The macOS engine never reports `detached`, and hiding, minimizing or
+  /// closing the window only reports `hidden`, which leaves the radio
+  /// playing. So this is where the listening session ends and playback
+  /// stops before the app quits. Android TV is never asked.
+  @override
+  Future<AppExitResponse> didRequestAppExit() async {
+    if (TvPlatform.isDesktop) await _cleanUpBeforeExit();
+    return AppExitResponse.exit;
+  }
+
+  Future<void> _cleanUpBeforeExit() async {
+    AnalyticsService.instance.endListening(reason: 'app_killed');
+    try {
+      await Future.wait([
+        AnalyticsService.instance.flush(),
+        _audioHandler.stop(),
+      ]).timeout(_exitCleanupBudget);
+    } catch (e) {
+      // Quit anyway: the process ends the playback with it.
+      developer.log('Cleanup before exit failed: $e', name: 'TvShell');
+    }
+  }
+
+  /// Listens for station links on desktop: `radiocrestin://<slug>` and the
+  /// share, NFC and radiocrestin.ro links, parsed as on the phone.
+  ///
+  /// The link that opened the app decides what plays; without one, the
+  /// launch starts the last station played ([_autoPlayOnDesktop]).
+  void _initDesktopLinks() {
+    final appLinks = AppLinks();
+    appLinks.getInitialLink().then(
+      (uri) => uri == null ? _autoPlayOnDesktop() : _openDesktopLink(uri),
+      onError: (Object e) {
+        developer.log('Initial link error: $e', name: 'TvShell');
+        _autoPlayOnDesktop();
+      },
+    );
+    _subscriptions.add(
+      appLinks.uriLinkStream.listen(
+        _openDesktopLink,
+        onError: (Object e) {
+          developer.log('Deep link error: $e', name: 'TvShell');
+        },
+      ),
+    );
+  }
+
+  /// Shows the window and plays the station [uri] names. A link that names
+  /// none, or a station that is gone, opens the app the way a plain launch
+  /// does.
+  Future<void> _openDesktopLink(Uri uri) async {
+    developer.log('Desktop deep link: $uri', name: 'TvShell');
+    // The launch link also comes through the stream: open it once.
+    if (_desktopLinks.isDuplicate(uri)) return;
+    // Now, not once the station is found: a launch autoplay waiting for the
+    // same station list would otherwise start the last station first.
+    _launchTurn++;
+    // The window may have been closed, with the radio left playing.
+    unawaited(DesktopMenuService.showWindow());
+    try {
+      final slug = StationDeepLinks.slugOf(uri);
+      final station = await _desktopLinks.stationFor(slug);
+      if (!mounted) return;
+      if (station == null) {
+        if (slug.isNotEmpty) {
+          developer.log('Station not found for slug: $slug', name: 'TvShell');
+        }
+        await _autoPlayOnDesktop();
+        return;
+      }
+      _autoPlayDone = true;
+      await _audioHandler.playStation(station, fromFavorites: false);
+    } catch (e) {
+      developer.log('Deep link failed: $e', name: 'TvShell');
+    }
+  }
+
+  /// Starts the last station played once the list has loaded, or only
+  /// shows it in the player when "Pornește automat ultima stație" is off,
+  /// as `HomePage.playerAutoplay` does on the phone. Runs once per launch,
+  /// and gives way to a link that arrives while it waits ([_launchTurn]).
+  Future<void> _autoPlayOnDesktop() async {
+    if (_autoPlayDone) return;
+    final turn = ++_launchTurn;
+    try {
+      await _desktopLinks.loadedStations();
+      if (_autoPlayOvertaken(turn)) return;
+      // A click or a media key picked a station meanwhile.
+      if (_audioHandler.currentStation.valueOrNull != null) {
+        _autoPlayDone = true;
+        return;
+      }
+      final station = await _audioHandler.getLastPlayedStation();
+      if (_autoPlayOvertaken(turn)) return;
+      _autoPlayDone = true;
+      if (station == null) return;
+      final prefs = GetIt.instance<SharedPreferences>();
+      if (prefs.getBool('_autoStartStation') ?? true) {
+        await _audioHandler.playStation(station);
+      } else {
+        await _audioHandler.selectStation(station);
+      }
+    } catch (e) {
+      developer.log('Launch autoplay failed: $e', name: 'TvShell');
+    }
+  }
+
+  /// Whether the autoplay that took [turn] must leave the station alone:
+  /// the shell is gone, a link chose a station, or a link or a later
+  /// autoplay has come since it started.
+  bool _autoPlayOvertaken(int turn) =>
+      !mounted || _autoPlayDone || turn != _launchTurn;
 
   void _initDeepLinks() {
     final appLinks = AppLinks();
@@ -267,10 +414,7 @@ class _TvShellState extends State<TvShell> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     // Desktop gets its own shell (browse + bottom mini player + drawer)
     if (TvPlatform.isDesktop) {
-      return DesktopShell(
-        songHistory: songHistory,
-        youtubeCountdown: _youtubeAutoAdvance.countdown,
-      );
+      return DesktopShell(youtubeCountdown: _youtubeAutoAdvance.countdown);
     }
 
     // TV: D-pad navigable two-page layout.

@@ -17,6 +17,7 @@ import 'constants.dart';
 import 'globals.dart';
 import 'seek_mode_manager.dart';
 import 'services/network_service.dart';
+import 'services/store_review_prompt.dart';
 import 'tv/tv_platform.dart';
 import 'widgets/retrying_network_image.dart';
 
@@ -71,6 +72,10 @@ class Utils {
   /// Widths asked of the image CDN are multiples of this, so artwork shown
   /// at close sizes shares one downloaded file.
   static const int _cdnWidthStep = 250;
+
+  /// Width of the API's own thumbnails, the smaller copy a sharper image
+  /// stands on while it loads.
+  static const int _apiThumbnailWidth = 250;
 
   /// Largest width asked of the image CDN, enough for the full player's
   /// artwork on a 3x phone or a 2x tablet.
@@ -207,11 +212,15 @@ class Utils {
             loadingImageUrl != url
         ? loadingImageUrl
         : null;
+    // Decoded at no more than its own width: wider only takes memory, with
+    // the same pixels, and one size lets every image of a station share it.
     Widget lowResImage() => _networkImage(
           lowRes!,
           fallbackImageUrl: fallbackImageUrl,
           cache: cache,
-          cacheWidth: cacheWidth,
+          cacheWidth: cacheWidth! < _apiThumbnailWidth
+              ? cacheWidth
+              : _apiThumbnailWidth,
           cacheMaxAge: cacheMaxAge,
         );
 
@@ -466,12 +475,28 @@ class Utils {
 
   static const Duration _reviewDialogDelay = Duration(seconds: 3);
 
+  /// Set by tests in place of the device's [StoreReviewPrompt].
+  @visibleForTesting
+  static StoreReviewPrompt? debugReviewPrompt;
+
+  static StoreReviewPrompt get _reviewPrompt =>
+      debugReviewPrompt ??
+      StoreReviewPrompt.resolve(
+        androidTv: TvPlatform.isAndroidTV,
+        desktop: TvPlatform.isDesktop,
+        macOS: !kIsWeb && Platform.isMacOS,
+      );
+
   // Set while a review dialog waits out [_reviewDialogDelay], so two actions
   // in a row cannot stack two dialogs.
   static bool _reviewDialogScheduled = false;
 
   static String _reviewDialogShownKey(int threshold) =>
       'rating_dialog_shown_at_$threshold';
+
+  /// The app version the system's rating prompt (macOS) was last asked in.
+  static const String _systemReviewVersionKey =
+      'system_review_requested_version';
 
   /// Thresholds [actionsMade] has reached whose dialog was not shown yet.
   static List<int> _pendingReviewThresholds(
@@ -495,8 +520,8 @@ class Utils {
   /// Counts one user action toward [reviewDialogThresholds] and schedules
   /// the review dialog when the count reaches one not shown yet.
   static Future<void> incrementActionsMade({GraphQLClient? graphQLClient, String? currentStationName}) async {
-    // TV and desktop have no store review flow for the dialog to open.
-    if (TvPlatform.isTV) return;
+    // Android TV, Windows and Linux have no store review flow to open.
+    if (_reviewPrompt == StoreReviewPrompt.none) return;
     try {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
       String? reviewStatusJson = prefs.getString('_reviewStatus');
@@ -523,12 +548,15 @@ class Utils {
     }
   }
 
-  /// Shows the review dialog after [_reviewDialogDelay] when the app's
-  /// home screen is free to show it.
+  /// Shows the review dialog, or on macOS asks for the system's prompt,
+  /// after [_reviewDialogDelay] when the app's home screen is free to
+  /// show it.
   ///
   /// Without a screen (Android Auto's headless engine) or with a route on
   /// top (a sheet, a dialog, a pushed page) the threshold stays pending,
-  /// so the next action shows the dialog instead of losing it.
+  /// so the next action shows the dialog instead of losing it. On macOS it
+  /// also stays pending while the window is not in front, since the system
+  /// prompt shows on the app's window.
   static void _scheduleReviewDialog(SharedPreferences prefs) {
     if (_reviewDialogScheduled) return;
     _reviewDialogScheduled = true;
@@ -538,6 +566,8 @@ class Utils {
       if (navigator == null || !navigator.mounted || navigator.canPop()) {
         return;
       }
+      final prompt = _reviewPrompt;
+      if (prompt == StoreReviewPrompt.system && !_appInFront) return;
       try {
         final reviewStatus =
             json.decode(prefs.getString('_reviewStatus') ?? '{}');
@@ -549,11 +579,36 @@ class Utils {
         for (final threshold in pending) {
           await prefs.setBool(_reviewDialogShownKey(threshold), true);
         }
-        unawaited(Utils.show5StarReviewDialog());
+        if (prompt != StoreReviewPrompt.system) {
+          unawaited(Utils.show5StarReviewDialog());
+          return;
+        }
+        // Apple asks apps to request its prompt at most once per version:
+        // a later threshold in the same version asks nothing.
+        if (prefs.getString(_systemReviewVersionKey) == appVersion) return;
+        await prefs.setString(_systemReviewVersionKey, appVersion);
+        unawaited(_requestSystemReview());
       } catch (e) {
         developer.log('Error showing the review dialog: $e');
       }
     });
+  }
+
+  static bool get _appInFront =>
+      WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
+
+  /// Asks the system for its rating prompt, which it shows or not as it
+  /// decides. The app can't tell whether the listener rated it, so the
+  /// review is never marked completed: the next threshold reached in a
+  /// later version asks again.
+  static Future<void> _requestSystemReview() async {
+    try {
+      await InAppReview.instance.requestReview();
+    } catch (e) {
+      // in_app_review needs a main window on macOS 13+, which the app
+      // loses if it is hidden during the delay.
+      developer.log('System review prompt failed: $e');
+    }
   }
 
   static Future<void> resetDialogTracking() async {
@@ -563,7 +618,8 @@ class Utils {
       for (final threshold in reviewDialogThresholds) {
         await prefs.remove(_reviewDialogShownKey(threshold));
       }
-      
+      await prefs.remove(_systemReviewVersionKey);
+
       // Share dialog intervals: 40, 150, 250, 600, 800, 1000
       List<int> shareIntervals = [40, 150, 250, 600, 800, 1000];
       for (int interval in shareIntervals) {

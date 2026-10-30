@@ -39,6 +39,7 @@ import 'services/tv_channel_service.dart';
 import 'package:flutter_airplay/flutter_airplay.dart' as flutter_airplay;
 import 'services/analytics_service.dart';
 import 'services/app_start_log.dart';
+import 'services/desktop_menu_service.dart';
 import 'services/device_registration_service.dart';
 import 'services/error_filter.dart';
 import 'services/hls_health_watchdog_flag.dart';
@@ -47,6 +48,7 @@ import 'services/hls_start_variant.dart';
 import 'services/hls_timeline.dart';
 import 'services/home_widget_service.dart';
 import 'services/image_cache_service.dart';
+import 'services/install_id.dart';
 import 'services/log_context.dart';
 import 'services/log_flush_guard.dart';
 import 'services/remote_debug_controller.dart';
@@ -60,6 +62,7 @@ import 'services/station_data_service.dart';
 import 'services/video_playback_service.dart';
 import 'services/playlist_sync_service.dart';
 import 'services/playlist_controller.dart';
+import 'tv/desktop/desktop_title_bar_inset.dart';
 import 'tv/tv_platform.dart';
 import 'tv/tv_shell.dart';
 import 'tv/tv_theme.dart';
@@ -112,6 +115,15 @@ Future<void> initializeFirebaseMessaging() async {
 // Windows/Linux desktop. Skip Firebase entirely on those platforms.
 final bool _firebaseSupported =
     kIsWeb || Platform.isAndroid || Platform.isIOS || Platform.isMacOS;
+
+/// Whether this platform gets push notifications from Firebase Cloud
+/// Messaging, the only Firebase feature the app uses.
+///
+/// Not macOS: FCM delivers through APNs there, which needs the push
+/// entitlement (`aps-environment`) the Mac app does not have, so asking
+/// for a token only fails (`apns-token-not-set`).
+final bool _messagingSupported =
+    kIsWeb || Platform.isAndroid || Platform.isIOS;
 
 void main() async {
   PerformanceMonitor.markAppStart();
@@ -200,6 +212,10 @@ void main() async {
       persistentDeviceId = (await deviceInfo.androidInfo).id;
     } else if (Platform.isIOS) {
       persistentDeviceId = (await deviceInfo.iosInfo).identifierForVendor;
+    } else if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
+      // No per-vendor id on desktop, and a hardware one would identify the
+      // computer to every app: a random id, kept in this app's preferences.
+      persistentDeviceId = newInstallId();
     }
     persistentDeviceId ??= DateTime.now().millisecondsSinceEpoch.toString();
     await prefs.setString('device_id', persistentDeviceId);
@@ -404,7 +420,7 @@ void main() async {
   }
 
   // Kept so the first device registration can wait for the FCM token.
-  final Future<void> fcmInitFuture = _firebaseSupported
+  final Future<void> fcmInitFuture = _messagingSupported
       ? PerformanceMonitor.trackAsync(
           'firebase_messaging_init', initializeFirebaseMessaging)
       : Future<void>.value();
@@ -433,6 +449,18 @@ void main() async {
 
   // Initialize theme synchronously using already-loaded prefs (no async overhead)
   ThemeManager.initializeFromPrefs(prefs);
+
+  // The macOS menu bar and Dock menu send their commands from the start;
+  // the desktop shell acts on them. A no-op on other platforms.
+  DesktopMenuService.initialize();
+
+  // On a computer the app stays open for hours and every station's artwork
+  // changes with each song: Flutter's default 100 MiB of decoded images
+  // fills with songs long gone. 64 MiB keeps a full screen of cards and
+  // "Se redă acum" decoded; older art is decoded again if it shows again.
+  if (TvPlatform.isDesktop) {
+    PaintingBinding.instance.imageCache.maximumSizeBytes = 64 << 20;
+  }
 
   PerformanceMonitor.markAppReady();
   PerformanceMonitor.startFrameMonitoring();
@@ -721,9 +749,13 @@ class RadioCrestinApp extends StatelessWidget {
         navigatorObservers: [PosthogScreenObserver()],
         title: 'Radio Crestin',
         debugShowCheckedModeBanner: false,
-        theme: tvTheme,
-        darkTheme: tvTheme,
+        theme: TvPlatform.isDesktop ? desktopTheme : tvTheme,
+        darkTheme: TvPlatform.isDesktop ? desktopTheme : tvTheme,
         themeMode: ThemeMode.dark,
+        // Dialogs and panels clear the macOS window buttons.
+        builder: TvPlatform.isDesktop
+            ? (context, child) => DesktopTitleBarInset(child: child!)
+            : null,
         home: const TvShell(),
       );
     }

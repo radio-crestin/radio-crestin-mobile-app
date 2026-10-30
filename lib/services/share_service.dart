@@ -42,6 +42,24 @@ class ShareService {
       return null;
     }
   }
+
+  /// The listener's personal link, the one that counts the friends who
+  /// open it, for the device id saved at startup.
+  ///
+  /// Null when the device has no id yet or the request fails, so every
+  /// share button can fall back to the plain link without its own error
+  /// handling.
+  Future<ShareLinkData?> getPersonalShareLink() async {
+    try {
+      final prefs =
+          ShareLinkCache._prefs ?? await SharedPreferences.getInstance();
+      final deviceId = prefs.getString('device_id');
+      if (deviceId == null) return null;
+      return await getShareLink(deviceId);
+    } catch (_) {
+      return null;
+    }
+  }
 }
 
 class ShareLinkData {

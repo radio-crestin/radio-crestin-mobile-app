@@ -104,6 +104,18 @@ class DeviceRegistrationService {
         'brand': 'Apple',
         'marketing_name': i.model, // "iPhone"
       });
+    } else if (Platform.isMacOS) {
+      final m = await info.macOsInfo;
+      osVersion = '${m.majorVersion}.${m.minorVersion}.${m.patchVersion}';
+      deviceModel = m.model; // e.g. "Mac14,2"
+      manufacturer = 'Apple';
+      // Not the computer or host name, which often carry the owner's name,
+      // nor the hardware id (systemGUID).
+      extra.addAll({
+        'brand': 'Apple',
+        'marketing_name': m.modelName, // e.g. "MacBook Air (M2, 2022)"
+        'arch': m.arch,
+      });
     } else {
       osVersion = Platform.operatingSystemVersion;
     }
