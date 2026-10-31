@@ -1,6 +1,7 @@
 import AVFoundation
 import Combine
 import Foundation
+import os
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -130,8 +131,9 @@ final class AudioPlayer: ObservableObject {
     /// irrelevant against 10 s timeouts.
     private static let supervisionTolerance: Duration = .milliseconds(250)
 
-    /// Forward buffer AVPlayer may hold for live radio/TV: enough for
-    /// everything between the playhead and the live edge.
+    /// Forward buffer AVPlayer may hold for a live item started at the live
+    /// playlist: enough for everything between the playhead and the live
+    /// edge. A start variant adds its offset (`liveForwardBuffer(for:)`).
     ///
     /// The HLS playlists start playback 18 s behind the live edge
     /// (`EXT-X-START:TIME-OFFSET=-18`) and the edge moves in 6 s segment
@@ -168,6 +170,33 @@ final class AudioPlayer: ObservableObject {
     /// Keeps the app running in the background through an outage, so the
     /// retries go on while the listener is on the Home screen.
     private let backgroundKeeper = BackgroundAudioKeeper()
+
+    /// How far behind live radio HLS starts: the "Încărcare în avans"
+    /// setting, applied by `setSeekMode(_:)`.
+    private(set) var seekMode: SeekMode = .default
+
+    /// Holds the origin's radio HLS requests through a network outage, so
+    /// AVPlayer plays it out from its forward buffer instead of giving up
+    /// on the stream (see `HlsHoldProxy`).
+    private let holdProxy = HlsHoldProxy(
+        allowedHosts: HlsStartVariant.hosts,
+        onEvent: { event in
+            AudioPlayer.holdProxyLog.notice("\(event.description, privacy: .public)")
+        }
+    )
+
+    /// Holds are rare (an outage), so each event is logged.
+    private nonisolated static let holdProxyLog = Logger(
+        subsystem: "ro.radiocrestin.tv", category: "HlsHoldProxy"
+    )
+
+    /// Streams whose start variant the origin does not publish: they start
+    /// at their own playlist for the rest of the app's run.
+    private var streamsWithoutVariant: Set<String> = []
+
+    /// The stream whose start variant the current live attempt loaded; nil
+    /// when it loaded the stream's own URL.
+    private var liveAttemptVariantOf: ResolvedStream?
 
     // MARK: Playlist state
 
@@ -283,7 +312,11 @@ final class AudioPlayer: ObservableObject {
                 return
             }
             state = .connecting(station.title)
-            apply(supervisor.start(streamCount: streams.count, at: Self.now))
+            apply(supervisor.start(
+                streamCount: streams.count,
+                joinOffset: station.kind == .radio ? seekMode.offset : 0,
+                at: Self.now
+            ))
             startSupervisionLoop()
 
         case .playlist:
@@ -330,6 +363,20 @@ final class AudioPlayer: ObservableObject {
         resetPlaylistState()
         isVideoContent = false
         state = .idle
+    }
+
+    /// Applies the "Încărcare în avans" setting. A live radio station the
+    /// listener wants is tuned in again, so the new offset is heard now
+    /// rather than from the next station on; one without HLS (MP3 only)
+    /// plays live whatever the setting, and is left alone.
+    func setSeekMode(_ mode: SeekMode) {
+        guard mode != seekMode else { return }
+        seekMode = mode
+        guard playbackMode == .stream, wantsToPlay,
+              let station = currentStation, station.kind == .radio,
+              streams.contains(where: { $0.source.type == "HLS" })
+        else { return }
+        play(station)
     }
 
     /// The current station's catalog entry changed (same station, e.g. new
@@ -663,9 +710,44 @@ final class AudioPlayer: ObservableObject {
         liveAttemptID = attempt
         liveAttemptError = nil
         lastAttemptedStreamUrl = stream.source.streamUrl
+        let variant = startVariant(of: stream)
+        liveAttemptVariantOf = variant == nil ? nil : stream
+        loadLiveItem(from: variant ?? stream.url, of: stream, attempt: attempt)
+    }
+
+    /// Loads `url` (`stream`'s, or its start variant) for live `attempt`,
+    /// through the hold proxy when it applies, directly otherwise.
+    private func loadLiveItem(
+        from url: URL, of stream: ResolvedStream, attempt: Int
+    ) {
         currentStreamType = stream.source.type
-        let item = AVPlayerItem(url: stream.url)
-        item.preferredForwardBufferDuration = Self.liveForwardBufferDuration
+        guard usesHoldProxy(stream) else {
+            attachLiveItem(url: url, attempt: attempt)
+            return
+        }
+        let proxy = holdProxy
+        Task { [weak self] in
+            // A loopback connection, well under a millisecond: tvOS may
+            // have reclaimed the listening socket of the app while it was
+            // suspended.
+            let isRunning = await proxy.ensureRunning()
+            // A pause, another station or the next stream came meanwhile.
+            guard let self, self.liveAttemptID == attempt,
+                  self.playbackMode == .stream
+            else { return }
+            // A new session per load: requests still held for the item it
+            // replaces are released.
+            let proxied = isRunning
+                ? proxy.wrap(url, session: proxy.beginSession()) : nil
+            self.attachLiveItem(url: proxied ?? url, attempt: attempt)
+        }
+    }
+
+    private func attachLiveItem(url: URL, attempt: Int) {
+        let item = AVPlayerItem(url: url)
+        item.preferredForwardBufferDuration = liveForwardBuffer(
+            startsBehindLive: liveAttemptVariantOf == nil ? 0 : seekMode.offset
+        )
         itemObserver = PlayerItemObserver(item: item) { [weak self] event in
             self?.handleLiveItemEvent(event, attempt: attempt)
         }
@@ -679,6 +761,66 @@ final class AudioPlayer: ObservableObject {
         player.play()
     }
 
+    /// The forward buffer for a live item that starts `offset` seconds
+    /// further behind live than the live playlist: all the audio between
+    /// its playhead and the live edge, so an outage that long is not heard.
+    private func liveForwardBuffer(
+        startsBehindLive offset: TimeInterval
+    ) -> TimeInterval {
+        offset + Self.liveForwardBufferDuration
+    }
+
+    /// The start variant to load for `stream`: radio HLS of the origin,
+    /// behind live per the setting, unless the origin lacks its variant.
+    private func startVariant(of stream: ResolvedStream) -> URL? {
+        guard currentStation?.kind == .radio,
+              stream.source.type == "HLS",
+              !streamsWithoutVariant.contains(stream.source.streamUrl)
+        else { return nil }
+        return HlsStartVariant.url(for: stream.url, mode: seekMode)
+    }
+
+    /// Whether `stream` loads through the hold proxy: radio HLS of the
+    /// origin, the remote kill switch on.
+    private func usesHoldProxy(_ stream: ResolvedStream) -> Bool {
+        currentStation?.kind == .radio
+            && stream.source.type == "HLS"
+            && HlsHoldProxyFlag.isEnabled
+            && stream.url.host.map {
+                HlsStartVariant.hosts.contains($0.lowercased())
+            } ?? false
+    }
+
+    /// The origin answered the attempt's start variant with "not found":
+    /// it does not publish one for this stream (not deployed there yet).
+    /// The stream's own playlist loads at once, in the same attempt: that
+    /// is no stream failure, the stream itself may well be fine. It skips
+    /// the variant from now on.
+    private func loadOwnPlaylist(
+        instead stream: ResolvedStream, attempt: Int
+    ) {
+        streamsWithoutVariant.insert(stream.source.streamUrl)
+        liveAttemptVariantOf = nil
+        detachCurrentItem()
+        loadLiveItem(from: stream.url, of: stream, attempt: attempt)
+    }
+
+    /// Whether an item failed with `error` because its playlist was not
+    /// found. AVFoundation reports a playlist's HTTP 404 as
+    /// `NSURLErrorFileDoesNotExist` over CoreMedia's -12938 ("HTTP 404:
+    /// File Not Found"), with nothing in the item's error log yet
+    /// (measured on tvOS 27, 2026-10-31). Internal for tests.
+    static func isNotFound(_ error: Error?) -> Bool {
+        guard let error = error as NSError? else { return false }
+        if error.domain == NSURLErrorDomain,
+           error.code == NSURLErrorFileDoesNotExist {
+            return true
+        }
+        let underlying = error.userInfo[NSUnderlyingErrorKey] as? NSError
+        return underlying?.domain == "CoreMediaErrorDomain"
+            && underlying?.code == -12938
+    }
+
     private func handleLiveItemEvent(
         _ event: PlayerItemObserver.Event, attempt: Int
     ) {
@@ -687,7 +829,14 @@ final class AudioPlayer: ObservableObject {
         case .readyToPlay:
             // A ready item can make a `.playing` reading count.
             sampleLivePlayback()
-        case .failed(let error), .failedToPlayToEnd(let error):
+        case .failed(let error):
+            if let stream = liveAttemptVariantOf, Self.isNotFound(error) {
+                loadOwnPlaylist(instead: stream, attempt: attempt)
+                return
+            }
+            liveAttemptError = error
+            apply(supervisor.attemptFailed(attempt, at: Self.now))
+        case .failedToPlayToEnd(let error):
             liveAttemptError = error
             apply(supervisor.attemptFailed(attempt, at: Self.now))
         case .playedToEnd:
@@ -743,6 +892,9 @@ final class AudioPlayer: ObservableObject {
     }
 
     private func networkRestored() {
+        // Requests held through the outage try again now, not at their
+        // next interval.
+        holdProxy.networkRestored()
         guard playbackMode == .stream else { return }
         apply(supervisor.networkBecameAvailable(at: Self.now))
     }

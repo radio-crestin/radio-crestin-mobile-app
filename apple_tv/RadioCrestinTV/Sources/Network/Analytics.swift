@@ -22,6 +22,7 @@ enum Analytics {
         config.debug = true
         #endif
         PostHogSDK.shared.setup(config)
+        HlsHoldProxyFlag.startObserving()
     }
 
     // MARK: - Event helpers — match the Flutter event names so dashboards

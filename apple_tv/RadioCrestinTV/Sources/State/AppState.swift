@@ -60,6 +60,12 @@ final class AppState: ObservableObject {
         }
     }
 
+    /// How far behind live radio plays ("Încărcare în avans"). The player
+    /// follows it through `PlaybackCoordinator`.
+    @Published var seekMode: SeekMode = .default {
+        didSet { defaults.set(seekMode.rawValue, forKey: Keys.seekMode) }
+    }
+
     @Published var currentStation: Station?
     let songHistory = SongHistoryStore()
 
@@ -161,10 +167,11 @@ final class AppState: ObservableObject {
     private static let audioEventSafetyNet: TimeInterval = 5 * 60
 
     /// How far behind live the HLS audio is assumed to be until its
-    /// playlist is parsed and its PROGRAM-DATE-TIME known. The join is 18 s
-    /// before the playlist's end, which trails real time by up to a 6 s
-    /// segment and its publication: 18–30 s. Taking the far end means a
-    /// live song is never shown before the listener can have reached it.
+    /// playlist is parsed and its PROGRAM-DATE-TIME known, on top of the
+    /// `seekMode` offset. The join is 18 s before the playlist's end, which
+    /// trails real time by up to a 6 s segment and its publication: 18–30 s.
+    /// Taking the far end means a live song is never shown before the
+    /// listener can have reached it.
     private static let assumedHlsLag: TimeInterval = 30
 
     /// Maximum gap (seconds) between consecutive offset-fetch timestamps
@@ -184,6 +191,10 @@ final class AppState: ObservableObject {
         if let saved = defaults.string(forKey: Keys.sort),
            let opt = StationSort(rawValue: saved) {
             self.sortOption = opt
+        }
+        if let saved = defaults.string(forKey: Keys.seekMode),
+           let mode = SeekMode(rawValue: saved) {
+            self.seekMode = mode
         }
         if let raw = defaults.dictionary(forKey: Keys.playCounts) as? [String: Int] {
             self.playCounts = raw
@@ -570,7 +581,9 @@ final class AppState: ObservableObject {
               isPlayingHlsProvider?() ?? station.primaryStreamIsHls
         else { return .live }
         let heardAt = hlsPlaybackDateProvider?()
-            ?? Date().addingTimeInterval(-Self.assumedHlsLag)
+            ?? Date().addingTimeInterval(
+                -(seekMode.offset + Self.assumedHlsLag)
+            )
         return .audio(heardAt: heardAt)
     }
 
@@ -820,6 +833,7 @@ final class AppState: ObservableObject {
         static let sort = "tv.sortOption"
         static let playCounts = "tv.playCounts"
         static let privateStations = "tv.privateStations"
+        static let seekMode = "tv.seekMode"
     }
 }
 

@@ -549,6 +549,41 @@ final class LiveStreamSupervisorTests: XCTestCase {
         XCTAssertEqual(supervisor.currentAttempt, hls)
     }
 
+    /// A 2-minute start variant begins 120–132 s behind live on purpose:
+    /// only lag beyond that offset tells a stale playlist.
+    func test_a_join_behind_live_by_its_start_offset_is_kept() {
+        var supervisor = Supervisor()
+        let hls = attempt(
+            loadedBy: supervisor.start(streamCount: 2, joinOffset: 120, at: 0),
+            stream: 0
+        )
+        for time in stride(from: 1.0, through: 40, by: 1) {
+            XCTAssertEqual(
+                supervisor.record(
+                    sample(.playing, playhead: time, liveLag: 175),
+                    attempt: hls, at: time
+                ),
+                .none
+            )
+        }
+        XCTAssertNil(supervisor.lastGiveUpReason)
+    }
+
+    func test_a_join_far_behind_its_start_offset_is_stale() {
+        var supervisor = Supervisor()
+        let hls = attempt(
+            loadedBy: supervisor.start(streamCount: 2, joinOffset: 120, at: 0),
+            stream: 0
+        )
+
+        let next = supervisor.record(
+            sample(.playing, playhead: 0, liveLag: 185), attempt: hls, at: 1
+        )
+
+        _ = attempt(loadedBy: next, stream: 1)
+        XCTAssertEqual(supervisor.lastGiveUpReason, .stale)
+    }
+
     func test_stale_joins_count_as_failures_for_the_backoff() {
         var supervisor = Supervisor()
         var hls = start(&supervisor)

@@ -36,6 +36,7 @@ final class PlaybackCoordinator: ObservableObject {
     private let nowPlaying = NowPlayingCenter()
     private var stationChange: AnyCancellable?
     private var stationUpdate: AnyCancellable?
+    private var seekModeChange: AnyCancellable?
     private var tuneInRefresh: Task<Void, Never>?
 
     /// Delay of the extra metadata poll after tuning in. The refresh run
@@ -67,6 +68,18 @@ final class PlaybackCoordinator: ObservableObject {
             }
             .sink { [weak self] station in
                 self?.player.stationDidUpdate(station)
+            }
+        // The first value only sets the engine's mode: nothing plays yet.
+        // A change re-tunes the station, so the song is fetched again for
+        // the audio's new position.
+        seekModeChange = appState.$seekMode
+            .removeDuplicates()
+            .sink { [weak self, weak appState] mode in
+                guard let self else { return }
+                let wasPlaying = self.player.wantsToPlay
+                self.player.setSeekMode(mode)
+                guard wasPlaying, let appState else { return }
+                self.refreshAfterTuneIn(appState)
             }
         nowPlaying.start(appState: appState, player: player, handler: self)
     }
@@ -123,6 +136,11 @@ final class PlaybackCoordinator: ObservableObject {
     private func tuneIn(to station: Station) {
         player.play(station)
         guard let appState else { return }
+        refreshAfterTuneIn(appState)
+    }
+
+    /// The extra metadata poll once the new audio has started.
+    private func refreshAfterTuneIn(_ appState: AppState) {
         tuneInRefresh?.cancel()
         tuneInRefresh = Task { [weak appState] in
             try? await Task.sleep(nanoseconds: Self.tuneInRefreshDelay)

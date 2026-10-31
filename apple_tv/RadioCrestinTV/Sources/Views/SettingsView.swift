@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// Settings tab — version info and a couple of legal documents shown via
-/// QR codes so users can read them on their phone (Apple TV has no
-/// browser to open URLs into).
+/// Settings tab — how far behind live radio plays, version info and a
+/// couple of legal documents shown via QR codes so users can read them on
+/// their phone (Apple TV has no browser to open URLs into).
 struct SettingsView: View {
     @ObservedObject var appState: AppState
 
@@ -23,6 +23,7 @@ struct SettingsView: View {
                     .foregroundStyle(Theme.textPrimary)
                     .padding(.bottom, Theme.Spacing.md)
 
+                seekModeSection
                 aboutSection
                 contactSection
                 legalSection
@@ -51,6 +52,21 @@ struct SettingsView: View {
     }
 
     // MARK: - Sections
+
+    /// "Încărcare în avans", as on the phone: one row per choice, the
+    /// chosen one checked. Each row says what the choice does, since the
+    /// TV has no room for the phone's toast after a change.
+    private var seekModeSection: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+            sectionHeader("Încărcare în avans")
+            ForEach(SeekMode.allCases) { mode in
+                Button { choose(mode) } label: {
+                    seekModeRow(mode, isChosen: mode == appState.seekMode)
+                }
+                .buttonStyle(.card)
+            }
+        }
+    }
 
     private var aboutSection: some View {
         section(title: "Despre aplicație", rows: [
@@ -105,10 +121,7 @@ struct SettingsView: View {
     @ViewBuilder
     private func section(title: String, rows: [Row]) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-            Text(title)
-                .font(.system(size: 28, weight: .bold))
-                .foregroundStyle(Theme.textSecondary)
-                .padding(.bottom, Theme.Spacing.xs)
+            sectionHeader(title)
             ForEach(rows) { row in
                 // Every row is a focusable Button so the D-pad can move
                 // through the whole page. Informational rows (no
@@ -121,6 +134,35 @@ struct SettingsView: View {
                 .buttonStyle(.card)
             }
         }
+    }
+
+    private func sectionHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.system(size: 28, weight: .bold))
+            .foregroundStyle(Theme.textSecondary)
+            .padding(.bottom, Theme.Spacing.xs)
+    }
+
+    private func seekModeRow(_ mode: SeekMode, isChosen: Bool) -> some View {
+        HStack(spacing: Theme.Spacing.md) {
+            Image(systemName: isChosen ? "checkmark.circle.fill" : "circle")
+                .font(.system(size: 30))
+                .foregroundStyle(isChosen ? Theme.primary : Theme.textTertiary)
+                .frame(width: 48)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(mode.label)
+                    .font(.system(size: 26, weight: .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                Text(mode.explanation)
+                    .font(.system(size: 20))
+                    .foregroundStyle(Theme.textTertiary)
+            }
+            Spacer()
+        }
+        .padding(Theme.Spacing.lg)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.surfaceVariant,
+                    in: RoundedRectangle(cornerRadius: Theme.Radius.lg))
     }
 
     private func rowContent(_ row: Row) -> some View {
@@ -151,6 +193,17 @@ struct SettingsView: View {
     }
 
     // MARK: - Actions
+
+    private func choose(_ mode: SeekMode) {
+        guard mode != appState.seekMode else { return }
+        // Same event the iPhone app fires (`SettingsPage.dart`).
+        Analytics.capture("button_clicked", properties: [
+            "button_name": "buffer_size",
+            "seek_mode": mode.rawValue,
+            "platform": "apple_tv"
+        ])
+        appState.seekMode = mode
+    }
 
     private func openContact() {
         // Same event name the iPhone app fires (`SettingsPage.dart`).

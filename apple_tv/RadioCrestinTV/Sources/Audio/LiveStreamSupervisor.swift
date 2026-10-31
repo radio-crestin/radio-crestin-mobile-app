@@ -130,13 +130,15 @@ struct LiveStreamSupervisor {
         /// that delivers new audio ends the outage.
         var recoveryPlayback: TimeInterval = 30
 
-        /// How far behind the wall clock an HLS join's audio may be. A live
-        /// join is 18–30 s behind: 18 s before the playlist's end, which
-        /// trails real time by up to one 6 s segment and its publication.
-        /// A playlist whose source stopped no longer advances, so each
-        /// rejoin lands further back and replays audio the listener already
-        /// heard. Twice the normal lag tells the two apart with room for a
-        /// slow packager; a working stream is never that far behind.
+        /// How far behind the wall clock an HLS join's audio may be, beyond
+        /// the offset it was asked to start at (`start`'s `joinOffset`). A
+        /// live join is 18–30 s behind: 18 s before the playlist's end,
+        /// which trails real time by up to one 6 s segment and its
+        /// publication; a 2- or 5-minute start variant adds its offset to
+        /// that. A playlist whose source stopped no longer advances, so
+        /// each rejoin lands further back and replays audio the listener
+        /// already heard. Twice the live lag tells the two apart with room
+        /// for a slow packager; a working stream is never that far behind.
         var maxJoinLag: TimeInterval = 60
 
         var backoff = RetryBackoff()
@@ -175,6 +177,8 @@ struct LiveStreamSupervisor {
 
     private var phase: Phase = .stopped
     private var streamCount = 0
+    /// How far behind live the play request asked HLS to start.
+    private var joinOffset: TimeInterval = 0
     /// Streams still to try before the current round counts as failed.
     private var remainingInRound = 0
     /// Rounds failed in a row since a stream last ended an outage or the
@@ -208,11 +212,17 @@ struct LiveStreamSupervisor {
     // MARK: - Inputs
 
     /// A new play request: forgets everything about the previous one and
-    /// loads the first stream.
-    mutating func start(streamCount: Int, at now: TimeInterval) -> Action {
+    /// loads the first stream. `joinOffset`: how far behind live its HLS
+    /// streams start on purpose (a start variant), which is not staleness.
+    mutating func start(
+        streamCount: Int,
+        joinOffset: TimeInterval = 0,
+        at now: TimeInterval
+    ) -> Action {
         stop()
         guard streamCount > 0 else { return .none }
         self.streamCount = streamCount
+        self.joinOffset = joinOffset
         failedRounds = 0
         hasReportedFailure = false
         lastGiveUpReason = nil
@@ -239,7 +249,7 @@ struct LiveStreamSupervisor {
             // Checked as the join starts to play, once AVPlayer has placed
             // the playhead: before that its date says nothing.
             if !attempt.hasStarted, let lag = sample.liveLag,
-               lag > timing.maxJoinLag {
+               lag > timing.maxJoinLag + joinOffset {
                 return giveUp(.stale, at: now)
             }
             display = .playing
