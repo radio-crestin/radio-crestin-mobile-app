@@ -131,14 +131,14 @@ struct LiveStreamSupervisor {
         var recoveryPlayback: TimeInterval = 30
 
         /// How far behind the wall clock an HLS join's audio may be, beyond
-        /// the offset it was asked to start at (`start`'s `joinOffset`). A
-        /// live join is 18–30 s behind: 18 s before the playlist's end,
-        /// which trails real time by up to one 6 s segment and its
-        /// publication; a 2- or 5-minute start variant adds its offset to
-        /// that. A playlist whose source stopped no longer advances, so
-        /// each rejoin lands further back and replays audio the listener
-        /// already heard. Twice the live lag tells the two apart with room
-        /// for a slow packager; a working stream is never that far behind.
+        /// the offset its item starts at (`setJoinOffset`). A live join is
+        /// 18–30 s behind: 18 s before the playlist's end, which trails
+        /// real time by up to one 6 s segment and its publication; a 2- or
+        /// 5-minute start variant adds its offset to that. A playlist whose
+        /// source stopped no longer advances, so each rejoin lands further
+        /// back and replays audio the listener already heard. Twice the
+        /// live lag tells the two apart with room for a slow packager; a
+        /// working stream is never that far behind.
         var maxJoinLag: TimeInterval = 60
 
         var backoff = RetryBackoff()
@@ -147,8 +147,11 @@ struct LiveStreamSupervisor {
     private struct Attempt: Equatable {
         let id: Int
         let stream: Int
-        let loadedAt: TimeInterval
+        var loadedAt: TimeInterval
         let connectTimeout: TimeInterval
+        /// How far behind live its item starts on purpose (see
+        /// `setJoinOffset`): 0 for a live join.
+        var joinOffset: TimeInterval = 0
         var hasStarted = false
         /// Seconds of audio it played: playhead progress between looks
         /// that both found AVPlayer playing.
@@ -159,6 +162,10 @@ struct LiveStreamSupervisor {
         /// looks, so a jump while loading (an HLS join placing the playhead
         /// 18 s behind the live edge) never counts as audio heard.
         var playheadWhilePlaying: Double?
+
+        func hasMissedConnectTimeout(at now: TimeInterval) -> Bool {
+            !hasStarted && now - loadedAt >= connectTimeout
+        }
     }
 
     private enum Phase: Equatable {
@@ -177,8 +184,6 @@ struct LiveStreamSupervisor {
 
     private var phase: Phase = .stopped
     private var streamCount = 0
-    /// How far behind live the play request asked HLS to start.
-    private var joinOffset: TimeInterval = 0
     /// Streams still to try before the current round counts as failed.
     private var remainingInRound = 0
     /// Rounds failed in a row since a stream last ended an outage or the
@@ -212,17 +217,11 @@ struct LiveStreamSupervisor {
     // MARK: - Inputs
 
     /// A new play request: forgets everything about the previous one and
-    /// loads the first stream. `joinOffset`: how far behind live its HLS
-    /// streams start on purpose (a start variant), which is not staleness.
-    mutating func start(
-        streamCount: Int,
-        joinOffset: TimeInterval = 0,
-        at now: TimeInterval
-    ) -> Action {
+    /// loads the first stream.
+    mutating func start(streamCount: Int, at now: TimeInterval) -> Action {
         stop()
         guard streamCount > 0 else { return .none }
         self.streamCount = streamCount
-        self.joinOffset = joinOffset
         failedRounds = 0
         hasReportedFailure = false
         lastGiveUpReason = nil
@@ -249,7 +248,7 @@ struct LiveStreamSupervisor {
             // Checked as the join starts to play, once AVPlayer has placed
             // the playhead: before that its date says nothing.
             if !attempt.hasStarted, let lag = sample.liveLag,
-               lag > timing.maxJoinLag + joinOffset {
+               lag > timing.maxJoinLag + attempt.joinOffset {
                 return giveUp(.stale, at: now)
             }
             display = .playing
@@ -275,6 +274,48 @@ struct LiveStreamSupervisor {
     mutating func attemptFailed(_ id: Int, at now: TimeInterval) -> Action {
         guard currentAttempt == id else { return .none }
         return giveUp(.failed, at: now)
+    }
+
+    /// `attempt`'s item starts `offset` seconds behind live on purpose (a
+    /// start variant), which its HLS join may lag on top of
+    /// `Timing.maxJoinLag` before it counts as stale; 0, the default,
+    /// for a live join. The engine says so for each item it loads, since
+    /// an attempt whose variant is missing loads its stream's own
+    /// playlist and joins live.
+    mutating func setJoinOffset(_ offset: TimeInterval, attempt id: Int) {
+        guard case .attempting(var attempt) = phase, attempt.id == id else {
+            return
+        }
+        attempt.joinOffset = offset
+        phase = .attempting(attempt)
+    }
+
+    /// Whether `attempt` has used up its connect timeout without starting:
+    /// the next look abandons it (`GiveUpReason.noStart`), unless the
+    /// engine loads it another way first (`restartAttempt`).
+    func hasMissedConnectTimeout(_ id: Int, at now: TimeInterval) -> Bool {
+        guard case .attempting(let attempt) = phase, attempt.id == id else {
+            return false
+        }
+        return attempt.hasMissedConnectTimeout(at: now)
+    }
+
+    /// The engine loads `attempt`'s stream again another way, the first
+    /// one having failed for its own sake rather than the stream's (the
+    /// hold proxy): the attempt starts over, with its connect timeout
+    /// counted from now. No failure is counted, as the stream may well
+    /// play.
+    mutating func restartAttempt(_ id: Int, at now: TimeInterval) {
+        guard case .attempting(var attempt) = phase, attempt.id == id else {
+            return
+        }
+        attempt.loadedAt = now
+        attempt.hasStarted = false
+        attempt.played = 0
+        attempt.lastProgressAt = now
+        attempt.playheadWhilePlaying = nil
+        phase = .attempting(attempt)
+        display = .connecting
     }
 
     /// The network path became usable again. During a retry wait the next
@@ -339,7 +380,7 @@ struct LiveStreamSupervisor {
                 return stillFor >= timing.stallTimeout
                     ? giveUp(.stalled, at: now) : .none
             }
-            return now - attempt.loadedAt >= attempt.connectTimeout
+            return attempt.hasMissedConnectTimeout(at: now)
                 ? giveUp(.noStart, at: now) : .none
         }
     }

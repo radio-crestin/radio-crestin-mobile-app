@@ -24,6 +24,9 @@ import UIKit
 ///     `getHlsPlaybackTimestamp` callback so the Apple TV app can fetch
 ///     `now_playing` aligned with the actual broadcast moment instead of
 ///     wall-clock — important because HLS has a 6–30s buffer.
+///   * `followsHlsAudio` / `hlsHeardDate` — whether the song shown follows
+///     the HLS audio, and where on the broadcast timeline the listener is,
+///     also while the station connects again or is paused.
 @MainActor
 final class AudioPlayer: ObservableObject {
     enum PlaybackState: Equatable {
@@ -101,6 +104,35 @@ final class AudioPlayer: ObservableObject {
         let url: URL
     }
 
+    /// What the current live attempt loads, and what its reloads found out.
+    private struct LiveLoad {
+        let stream: ResolvedStream
+        /// The stream's URL, or its start variant.
+        let url: URL
+        /// Whether `url` is the stream's start variant, which starts
+        /// `seekMode`'s offset behind live.
+        let isStartVariant: Bool
+        /// The hold proxy session the item loads through; nil when it
+        /// loads directly.
+        var proxySession: Int?
+        /// The origin did not find the start variant, and the stream's own
+        /// playlist loads instead. Once that loads, the stream skips its
+        /// variant from now on. Had it failed too, the network or the
+        /// stream would explain both (a pod restarting, a dropped signal),
+        /// and the next load tries the variant again, as the phone does.
+        var variantIsMissing = false
+        /// The load through the hold proxy failed for the proxy's own sake,
+        /// and the URL loads directly instead. Once that loads, the stream
+        /// skips the proxy until the network comes back or changes. Had it
+        /// failed too, the network or the origin would explain both.
+        var bypassesHoldProxy = false
+
+        /// How far behind live the item starts on purpose.
+        func joinOffset(in mode: SeekMode) -> TimeInterval {
+            isStartVariant ? mode.offset : 0
+        }
+    }
+
     /// The live station's streams that have a usable URL, in API order
     /// (HLS first, then the direct MP3/AAC stream).
     private var streams: [ResolvedStream] = []
@@ -111,6 +143,14 @@ final class AudioPlayer: ObservableObject {
     /// The supervisor's attempt whose item AVPlayer holds; nil while waiting
     /// to retry and whenever no live stream is wanted.
     private var liveAttemptID: Int?
+
+    /// What `liveAttemptID` loads; nil with it.
+    private var liveLoad: LiveLoad?
+
+    /// The live attempt whose audio start was announced
+    /// (`onLiveAudioStarted`), so that a stall the same item recovers from
+    /// is not announced again.
+    private var startedAttempt: Int?
 
     /// URL of the stream the last live attempt loaded, for analytics.
     private var lastAttemptedStreamUrl: String?
@@ -175,15 +215,17 @@ final class AudioPlayer: ObservableObject {
     /// setting, applied by `setSeekMode(_:)`.
     private(set) var seekMode: SeekMode = .default
 
+    /// The HLS origin's hosts (`HlsStartVariant.hosts`): only their radio
+    /// streams have start variants and load through the hold proxy.
+    private let originHosts: Set<String>
+
+    /// The remote kill switch of the hold proxy (`HlsHoldProxyFlag`).
+    private let isHoldProxyEnabled: () -> Bool
+
     /// Holds the origin's radio HLS requests through a network outage, so
     /// AVPlayer plays it out from its forward buffer instead of giving up
     /// on the stream (see `HlsHoldProxy`).
-    private let holdProxy = HlsHoldProxy(
-        allowedHosts: HlsStartVariant.hosts,
-        onEvent: { event in
-            AudioPlayer.holdProxyLog.notice("\(event.description, privacy: .public)")
-        }
-    )
+    private let holdProxy: HlsHoldProxy
 
     /// Holds are rare (an outage), so each event is logged.
     private nonisolated static let holdProxyLog = Logger(
@@ -194,9 +236,11 @@ final class AudioPlayer: ObservableObject {
     /// at their own playlist for the rest of the app's run.
     private var streamsWithoutVariant: Set<String> = []
 
-    /// The stream whose start variant the current live attempt loaded; nil
-    /// when it loaded the stream's own URL.
-    private var liveAttemptVariantOf: ResolvedStream?
+    /// Streams that played directly after their load through the hold
+    /// proxy failed for the proxy's own sake: they skip it until the
+    /// network comes back or changes. Mirrors the phone's
+    /// `_streamsWithoutHoldProxy`.
+    private var streamsWithoutHoldProxy: Set<String> = []
 
     // MARK: Playlist state
 
@@ -224,46 +268,105 @@ final class AudioPlayer: ObservableObject {
     /// when no item is loaded. Public for metadata sync.
     private(set) var currentStreamType: String?
 
-    /// Most recent DATERANGE `ID` seen on the active HLS playlist.
-    /// Compared (not counted) so the same group emitted across consecutive
-    /// playlist windows does not retrigger a refresh. Reset on item swap.
-    private var lastSeenDateRangeID: String?
+    /// The current station's radio HLS stream, as long as it is what the
+    /// listener hears or, paused or waiting to try again, hears next: a
+    /// resume or a reconnect loads the same URL, which starts at the same
+    /// offset behind live. Nil once a direct stream (MP3/AAC), heard live,
+    /// plays.
+    private var hlsListening: HlsListening?
+
+    /// A radio HLS stream the listener hears, and how far behind live.
+    private struct HlsListening {
+        /// The URL loaded: the stream's start variant or its own playlist.
+        /// Another URL starts at another offset.
+        let url: URL
+        /// Now minus the playhead's PROGRAM-DATE-TIME, the last time the
+        /// stream was looked at while it played; nil until it played.
+        var lag: TimeInterval?
+        /// Where on the broadcast timeline the listener paused, until the
+        /// stream plays again: the song shown stays the one heard, as in
+        /// Apple Music.
+        var pausedAt: Date?
+    }
+
+    /// Where the listener paused the current radio station's direct stream
+    /// (MP3/AAC). Heard live, the audio stopped at that moment, and the
+    /// song shown stays the one heard, as for HLS
+    /// (`HlsListening.pausedAt`). Kept until a stream of the station plays
+    /// (`publishLiveState`), another station plays or the player stops: a
+    /// resume or a retry still connecting has not been heard, and a pause
+    /// then keeps the first moment.
+    private(set) var directStreamPausedAt: Date?
+
+    /// Where the current station's audio stopped, while nothing has been
+    /// heard since: paused, or a resume or retry still connecting. Nil
+    /// while a stream plays, and before one has played.
+    var stoppedAt: Date? {
+        hlsListening?.pausedAt ?? directStreamPausedAt
+    }
+
+    /// The song changes the current radio HLS item's playlist announced
+    /// with `EXT-X-DATERANGE`. Reset on item swap.
+    private var songBoundaries = SongBoundaries()
 
     /// Bridge for `AVPlayerItemMetadataCollector` — the collector requires
     /// an `NSObjectProtocol` delegate, which `AudioPlayer` is not.
     private var dateRangeCollector: AVPlayerItemMetadataCollector?
     private var dateRangeBridge: DateRangeBridge?
 
-    /// Announced song changes the audio has not reached yet, by DATERANGE
-    /// `ID`. Cancelled with their item.
-    private var songChangeWaits: [String: Task<Void, Never>] = [:]
-
-    /// How often a song change wait looks at a playhead that has not yet
-    /// reached the change (it stalled meanwhile): once a second, like the
-    /// stream supervision. A change shown up to a second late is lost in
-    /// the 10 s rounding of the fetch anyway.
-    private static let songChangeRecheck: TimeInterval = 1
-
     /// Fired when the audio reaches a song change the HLS playlist
-    /// announced with `EXT-X-DATERANGE`, so an audio-aligned metadata fetch
-    /// now gets the new song. Wired by `PlaybackCoordinator`, additive to
-    /// the periodic `/stations-metadata` poll.
+    /// announced with `EXT-X-DATERANGE`, within a second of it, so an
+    /// audio-aligned metadata fetch (`hlsPlaybackTimestamp`) now gets the
+    /// new song. Wired by `PlaybackCoordinator`, additive to the periodic
+    /// `/stations-metadata` poll.
     var onAudioReachedSongChange: (() -> Void)?
 
+    /// Fired when the audio of a live item starts playing: a tune-in, a
+    /// resume, a seek-mode change, a recovery or the fallback to another
+    /// stream. From then on the song the listener hears is known (the
+    /// playhead's `EXT-X-PROGRAM-DATE-TIME`, or live for MP3/AAC), so it
+    /// is fetched at once. Not again when the same item recovers from a
+    /// stall: its audio goes on where it was, and a flapping connection
+    /// must not flood the API.
+    var onLiveAudioStarted: (() -> Void)?
+
+    /// `originHosts`: the hosts of the HLS origin, whose radio streams have
+    /// start variants and load through the hold proxy.
+    /// `isHoldProxyEnabled`: the hold proxy's remote kill switch.
     init(
         repository: StationRepository = StationRepository(),
         reportError: @escaping ErrorReporter = {
             Analytics.captureError($0, context: $1, extra: $2)
+        },
+        originHosts: Set<String> = HlsStartVariant.hosts,
+        isHoldProxyEnabled: @escaping () -> Bool = {
+            HlsHoldProxyFlag.isEnabled
         }
     ) {
         self.repository = repository
         self.reportError = reportError
+        self.originHosts = Set(originHosts.map { $0.lowercased() })
+        self.isHoldProxyEnabled = isHoldProxyEnabled
+        holdProxy = HlsHoldProxy(
+            allowedHosts: originHosts,
+            onEvent: { event in
+                AudioPlayer.holdProxyLog.notice(
+                    "\(event.description, privacy: .public)"
+                )
+            }
+        )
         // Active audio session so the player keeps running when the
         // user backgrounds the app via Home button on the Siri Remote.
         try? AVAudioSession.sharedInstance().setCategory(
             .playback, mode: .default, options: []
         )
-        try? AVAudioSession.sharedInstance().setActive(true)
+        // Off the main thread: activating waits on the system's audio
+        // server, which the runtime flagged at every launch as a hang risk
+        // for the UI. A play before it is done activates the session
+        // itself.
+        DispatchQueue.global(qos: .userInitiated).async {
+            try? AVAudioSession.sharedInstance().setActive(true)
+        }
         // Every item keeps AVPlayer's stall-minimising wait and starts with
         // a plain `play()`. The former live fast-start (waiting off +
         // `playImmediately(atRate:)`) left every HLS station silent on
@@ -276,6 +379,9 @@ final class AudioPlayer: ObservableObject {
         observePlayer()
         networkWatcher.onRestored = { [weak self] in
             self?.networkRestored()
+        }
+        networkWatcher.onChanged = { [weak self] in
+            self?.networkChanged()
         }
         systemEvents = SystemPlaybackEvents(player: player) {
             [weak self] event in
@@ -290,6 +396,12 @@ final class AudioPlayer: ObservableObject {
     // MARK: - Public API
 
     func play(_ station: Station) {
+        // Another station is heard at another distance behind live, and
+        // was not paused.
+        if station.id != currentStation?.id {
+            hlsListening = nil
+            directStreamPausedAt = nil
+        }
         currentStation = station
         resumesAfterInterruption = false
         // Whatever played before — another station, kind or a pending
@@ -307,16 +419,13 @@ final class AudioPlayer: ObservableObject {
             streams = Self.resolvedStreams(of: station)
             guard !streams.isEmpty else {
                 // No usable stream URL: retrying cannot fix that, so it is
-                // the one terminal failure for a live station.
-                state = .failed("Nu am putut conecta la flux")
+                // the one terminal failure for a live station. Worded as
+                // on the phone's CarPlay screen.
+                state = .failed("Nu s-a putut conecta la post")
                 return
             }
             state = .connecting(station.title)
-            apply(supervisor.start(
-                streamCount: streams.count,
-                joinOffset: station.kind == .radio ? seekMode.offset : 0,
-                at: Self.now
-            ))
+            apply(supervisor.start(streamCount: streams.count, at: Self.now))
             startSupervisionLoop()
 
         case .playlist:
@@ -361,6 +470,8 @@ final class AudioPlayer: ObservableObject {
         detachCurrentItem()
         stopPlaylistSync()
         resetPlaylistState()
+        hlsListening = nil
+        directStreamPausedAt = nil
         isVideoContent = false
         state = .idle
     }
@@ -372,6 +483,9 @@ final class AudioPlayer: ObservableObject {
     func setSeekMode(_ mode: SeekMode) {
         guard mode != seekMode else { return }
         seekMode = mode
+        // The next load starts at the new offset, paused or not: how far
+        // behind live the last one was heard says nothing about it.
+        hlsListening?.lag = nil
         guard playbackMode == .stream, wantsToPlay,
               let station = currentStation, station.kind == .radio,
               streams.contains(where: { $0.source.type == "HLS" })
@@ -403,6 +517,17 @@ final class AudioPlayer: ObservableObject {
             // now seconds-to-minutes behind the live edge. Drop the item
             // to close the connection and clear the buffer, and cancel
             // every timer so nothing restarts the audio later.
+            // Read first: the optional chain below starts changing
+            // `hlsListening` before its right side runs, and reading it
+            // then is an exclusivity violation.
+            let heardAt = hlsHeardDate
+            hlsListening?.pausedAt = heardAt
+            // Nothing was heard since a moment still kept: a pause while a
+            // resume connects stays where the audio stopped.
+            if hlsListening == nil, station.kind == .radio,
+               directStreamPausedAt == nil {
+                directStreamPausedAt = Date()
+            }
             stopLiveSupervision()
             detachCurrentItem()
         }
@@ -611,16 +736,53 @@ final class AudioPlayer: ObservableObject {
         return Self.playheadDate(of: item)
     }
 
+    /// Whether the current station's song follows its audio rather than the
+    /// live timeline: its live stream — playing, connecting, paused or
+    /// waiting to try again — is radio HLS, played behind live, and no
+    /// direct stream of a retry round has started to play instead.
+    var followsHlsAudio: Bool { hlsListening != nil }
+
+    /// The broadcast moment the listener hears on the current station's
+    /// radio HLS stream: the playhead's date while it plays; paused, the
+    /// moment it was paused at, until a stream plays again (a resumed item
+    /// whose playhead the engine has not taken as playing included); while
+    /// it connects again or waits to retry, as far behind live as it was
+    /// last heard, since a reconnect loads the same stream at the same
+    /// offset. Nil before the stream has played, and for a direct stream.
+    ///
+    /// A paused clock that moved on with live let a full refresh (back to
+    /// the app, the 10 minute one) put a song the listener never heard on
+    /// screen and in the system's Now Playing.
+    var hlsHeardDate: Date? {
+        if let pausedAt = hlsListening?.pausedAt { return pausedAt }
+        if let date = hlsPlaybackDate { return date }
+        guard let listening = hlsListening else { return nil }
+        return listening.lag.map { Date().addingTimeInterval(-$0) }
+    }
+
     /// 10s-aligned Unix timestamp of the audio currently being heard for
     /// the active HLS stream, suitable as the `?timestamp=` parameter on
     /// `/api/v1/stations-metadata`. Returns nil for non-HLS streams or
     /// before the playlist has been parsed.
     ///
+    /// Rounded down, except in the 10 s after a song change the audio has
+    /// reached: then it is the first rounded moment after the change. The
+    /// API answers with the song playing at the timestamp, to the second,
+    /// so the fetch the change triggers gets the song that just started
+    /// rather than the one that ended, without waiting up to 10 s for the
+    /// audio to reach the next rounded moment.
+    ///
     /// Gated to radio stations: TV video streams may also be HLS, but their
     /// now-playing song metadata isn't offset-synced, so they must not drive
     /// the audio-aligned metadata fetch.
     var hlsPlaybackTimestamp: Int? {
-        hlsPlaybackDate.map { roundedTimestamp(at: $0) }
+        guard let heard = hlsPlaybackDate else { return nil }
+        let timestamp = roundedTimestamp(at: heard)
+        guard let change = songBoundaries.latest(atOrBefore: heard) else {
+            return timestamp
+        }
+        let afterChange = roundedTimestamp(at: nextRoundedMoment(after: change))
+        return max(timestamp, afterChange)
     }
 
     /// True when the currently loaded item is a radio HLS stream — the only
@@ -663,6 +825,7 @@ final class AudioPlayer: ObservableObject {
             // The periodic look ends the wait when it is due.
             detachCurrentItem()
             liveAttemptID = nil
+            liveLoad = nil
             if report { reportStreamFailure() }
             adoptStreamsWhileWaiting()
         }
@@ -711,18 +874,22 @@ final class AudioPlayer: ObservableObject {
         liveAttemptError = nil
         lastAttemptedStreamUrl = stream.source.streamUrl
         let variant = startVariant(of: stream)
-        liveAttemptVariantOf = variant == nil ? nil : stream
-        loadLiveItem(from: variant ?? stream.url, of: stream, attempt: attempt)
+        liveLoad = LiveLoad(
+            stream: stream,
+            url: variant ?? stream.url,
+            isStartVariant: variant != nil
+        )
+        loadLiveItem(attempt: attempt)
     }
 
-    /// Loads `url` (`stream`'s, or its start variant) for live `attempt`,
-    /// through the hold proxy when it applies, directly otherwise.
-    private func loadLiveItem(
-        from url: URL, of stream: ResolvedStream, attempt: Int
-    ) {
-        currentStreamType = stream.source.type
-        guard usesHoldProxy(stream) else {
-            attachLiveItem(url: url, attempt: attempt)
+    /// Loads the URL of live `attempt` (`liveLoad`), through the hold proxy
+    /// when it applies, directly otherwise.
+    private func loadLiveItem(attempt: Int) {
+        guard let load = liveLoad else { return }
+        currentStreamType = load.stream.source.type
+        followListening(to: load)
+        guard usesHoldProxy(load) else {
+            attachLiveItem(url: load.url, attempt: attempt)
             return
         }
         let proxy = holdProxy
@@ -737,16 +904,46 @@ final class AudioPlayer: ObservableObject {
             else { return }
             // A new session per load: requests still held for the item it
             // replaces are released.
-            let proxied = isRunning
-                ? proxy.wrap(url, session: proxy.beginSession()) : nil
-            self.attachLiveItem(url: proxied ?? url, attempt: attempt)
+            let session = isRunning ? proxy.beginSession() : nil
+            let proxied = session.flatMap { proxy.wrap(load.url, session: $0) }
+            if proxied != nil { self.liveLoad?.proxySession = session }
+            self.attachLiveItem(url: proxied ?? load.url, attempt: attempt)
         }
     }
 
+    /// Points `hlsListening` at the stream `load` brings. How far behind live
+    /// the listener heard the same URL holds for it again (a resume, a
+    /// retry); another HLS URL starts elsewhere. A direct stream is heard
+    /// live only once it plays (`publishLiveState`): until then the
+    /// listener still hears, or waits to hear again, the HLS stream, which
+    /// the next attempt may well be. Dropping it at once let the title
+    /// jump to the live song during a retry round, then back.
+    ///
+    /// Resumed after a pause, on another URL (another offset, the stream's
+    /// own playlist) or after the MP3 fallback, the HLS attempt holds where
+    /// the audio stopped until it plays: the song and "Melodii recente"
+    /// went to its assumed offset at the press, a moment the listener
+    /// never heard.
+    private func followListening(to load: LiveLoad) {
+        guard currentStation?.kind == .radio,
+              load.stream.source.type == "HLS",
+              hlsListening?.url != load.url
+        else { return }
+        hlsListening = HlsListening(
+            url: load.url,
+            pausedAt: hlsListening?.pausedAt ?? directStreamPausedAt
+        )
+    }
+
     private func attachLiveItem(url: URL, attempt: Int) {
+        // The offset of the item loaded, not the setting's: a stream
+        // without its variant joins live, and its stale-playlist check
+        // must not allow for minutes it does not start behind.
+        let joinOffset = liveLoad?.joinOffset(in: seekMode) ?? 0
+        supervisor.setJoinOffset(joinOffset, attempt: attempt)
         let item = AVPlayerItem(url: url)
         item.preferredForwardBufferDuration = liveForwardBuffer(
-            startsBehindLive: liveAttemptVariantOf == nil ? 0 : seekMode.offset
+            startsBehindLive: joinOffset
         )
         itemObserver = PlayerItemObserver(item: item) { [weak self] event in
             self?.handleLiveItemEvent(event, attempt: attempt)
@@ -777,32 +974,70 @@ final class AudioPlayer: ObservableObject {
               stream.source.type == "HLS",
               !streamsWithoutVariant.contains(stream.source.streamUrl)
         else { return nil }
-        return HlsStartVariant.url(for: stream.url, mode: seekMode)
+        return HlsStartVariant.url(
+            for: stream.url, mode: seekMode, origin: originHosts
+        )
     }
 
-    /// Whether `stream` loads through the hold proxy: radio HLS of the
-    /// origin, the remote kill switch on.
-    private func usesHoldProxy(_ stream: ResolvedStream) -> Bool {
-        currentStation?.kind == .radio
+    /// Whether `load` goes through the hold proxy: radio HLS of the origin,
+    /// the remote kill switch on, unless the proxy failed for its stream.
+    private func usesHoldProxy(_ load: LiveLoad) -> Bool {
+        let stream = load.stream
+        return currentStation?.kind == .radio
             && stream.source.type == "HLS"
-            && HlsHoldProxyFlag.isEnabled
+            && !load.bypassesHoldProxy
+            && !streamsWithoutHoldProxy.contains(stream.source.streamUrl)
+            && isHoldProxyEnabled()
             && stream.url.host.map {
-                HlsStartVariant.hosts.contains($0.lowercased())
+                originHosts.contains($0.lowercased())
             } ?? false
     }
 
     /// The origin answered the attempt's start variant with "not found":
-    /// it does not publish one for this stream (not deployed there yet).
-    /// The stream's own playlist loads at once, in the same attempt: that
-    /// is no stream failure, the stream itself may well be fine. It skips
-    /// the variant from now on.
-    private func loadOwnPlaylist(
-        instead stream: ResolvedStream, attempt: Int
-    ) {
-        streamsWithoutVariant.insert(stream.source.streamUrl)
-        liveAttemptVariantOf = nil
+    /// it does not publish one for this stream (not deployed there yet),
+    /// or it briefly answers so for everything (a pod restarting). The
+    /// stream's own playlist loads at once, in the same attempt: that is no
+    /// stream failure, the stream itself may well be fine.
+    private func loadOwnPlaylist(attempt: Int) {
+        guard let load = liveLoad else { return }
+        var own = LiveLoad(
+            stream: load.stream, url: load.stream.url, isStartVariant: false
+        )
+        own.variantIsMissing = true
+        own.bypassesHoldProxy = load.bypassesHoldProxy
+        liveLoad = own
         detachCurrentItem()
-        loadLiveItem(from: stream.url, of: stream, attempt: attempt)
+        loadLiveItem(attempt: attempt)
+    }
+
+    /// Loads the attempt's URL again at once, directly: its load through
+    /// the hold proxy failed for the proxy's own sake. That is no stream
+    /// failure: without the proxy the stream may well play, and it gets a
+    /// full connect timeout to do so.
+    private func bypassHoldProxy(attempt: Int) {
+        guard var load = liveLoad else { return }
+        load.proxySession = nil
+        load.bypassesHoldProxy = true
+        liveLoad = load
+        detachCurrentItem()
+        supervisor.restartAttempt(attempt, at: Self.now)
+        loadLiveItem(attempt: attempt)
+    }
+
+    /// The hold proxy session the attempt's item loads through, unless the
+    /// device is known to be offline: no load works then, through the proxy
+    /// or not, so a failure says nothing about the proxy.
+    private var proxySessionWhileOnline: Int? {
+        networkWatcher.isSatisfied == false ? nil : liveLoad?.proxySession
+    }
+
+    /// The item loaded: what the attempt's reloads found out holds for its
+    /// stream from now on.
+    private func rememberWhatTheReloadsFoundOut() {
+        guard let load = liveLoad else { return }
+        let stream = load.stream.source.streamUrl
+        if load.variantIsMissing { streamsWithoutVariant.insert(stream) }
+        if load.bypassesHoldProxy { streamsWithoutHoldProxy.insert(stream) }
     }
 
     /// Whether an item failed with `error` because its playlist was not
@@ -827,11 +1062,21 @@ final class AudioPlayer: ObservableObject {
         guard playbackMode == .stream, attempt == liveAttemptID else { return }
         switch event {
         case .readyToPlay:
+            rememberWhatTheReloadsFoundOut()
             // A ready item can make a `.playing` reading count.
             sampleLivePlayback()
+            followSongBoundaries()
         case .failed(let error):
-            if let stream = liveAttemptVariantOf, Self.isNotFound(error) {
-                loadOwnPlaylist(instead: stream, attempt: attempt)
+            if liveLoad?.isStartVariant == true, Self.isNotFound(error) {
+                loadOwnPlaylist(attempt: attempt)
+                return
+            }
+            // Through the hold proxy, before the origin answered any of
+            // its requests (an HTTP status, an error one included, is an
+            // answer): the proxy's way failed, not the stream.
+            if let session = proxySessionWhileOnline,
+               !holdProxy.originAnswered(session: session) {
+                bypassHoldProxy(attempt: attempt)
                 return
             }
             liveAttemptError = error
@@ -853,8 +1098,20 @@ final class AudioPlayer: ObservableObject {
         guard playbackMode == .stream, let attempt = liveAttemptID else {
             return
         }
+        let now = Self.now
+        // A load through the hold proxy that has not started, and none of
+        // whose requests even went upstream: the proxy holds it up. One
+        // that did and still waits says the origin is slow or out of
+        // reach, which a direct load would meet as well.
+        if supervisor.hasMissedConnectTimeout(attempt, at: now),
+           let session = proxySessionWhileOnline,
+           !holdProxy.originRequested(session: session) {
+            bypassHoldProxy(attempt: attempt)
+            return
+        }
         let time = player.currentTime().seconds
         let audioDate = player.currentItem.flatMap(Self.playheadDate(of:))
+        let liveLag = audioDate.map { Date().timeIntervalSince($0) }
         let sample = LiveStreamSupervisor.Sample(
             status: .init(
                 timeControlStatus: player.timeControlStatus,
@@ -862,9 +1119,20 @@ final class AudioPlayer: ObservableObject {
                 itemIsReady: player.currentItem?.status == .readyToPlay
             ),
             playhead: time.isFinite ? time : nil,
-            liveLag: audioDate.map { Date().timeIntervalSince($0) }
+            liveLag: liveLag
         )
-        apply(supervisor.record(sample, attempt: attempt, at: Self.now))
+        apply(supervisor.record(sample, attempt: attempt, at: now))
+        // Only while it plays, as the supervisor takes it: a stall does not
+        // move the offset a reconnect or a resume rejoins the stream at,
+        // and a join it turns down as stale is not heard. Taken before its
+        // verdict, a stale join's lag moved the song shown minutes back
+        // and dropped the moment a pause had kept.
+        if isPlayingHls, liveAttemptID == attempt,
+           supervisor.display == .playing,
+           player.timeControlStatus == .playing, let liveLag {
+            hlsListening?.lag = liveLag
+            hlsListening?.pausedAt = nil
+        }
     }
 
     private func startSupervisionLoop() {
@@ -886,22 +1154,41 @@ final class AudioPlayer: ObservableObject {
         guard playbackMode == .stream else { return }
         if liveAttemptID != nil {
             sampleLivePlayback()
+            followSongBoundaries()
         } else {
             apply(supervisor.tick(at: Self.now))
         }
     }
 
-    private func networkRestored() {
+    /// The network path became usable again (`NetworkPathWatcher`).
+    /// Internal rather than private so tests can drive it.
+    func networkRestored() {
         // Requests held through the outage try again now, not at their
         // next interval.
         holdProxy.networkRestored()
+        // The proxy may work on the network that came back.
+        streamsWithoutHoldProxy.removeAll()
+        guard playbackMode == .stream else { return }
+        apply(supervisor.networkBecameAvailable(at: Self.now))
+    }
+
+    /// The device moved to another network interface and stayed online:
+    /// the proxy's requests in flight on the interface it left are cut and
+    /// tried again at once on the new one, and the proxy may work there for
+    /// the streams it failed. A wait to retry ends now, as when the network
+    /// comes back: the failures were most likely the network's. Internal
+    /// rather than private so tests can drive it.
+    func networkChanged() {
+        holdProxy.networkChanged()
+        streamsWithoutHoldProxy.removeAll()
         guard playbackMode == .stream else { return }
         apply(supervisor.networkBecameAvailable(at: Self.now))
     }
 
     /// Mirrors the supervisor's display into `state` / `isRetrying`,
     /// assigning only on change so the periodic look does not re-render
-    /// SwiftUI every second.
+    /// SwiftUI every second. Announces the start of each attempt's audio
+    /// (`onLiveAudioStarted`).
     private func publishLiveState() {
         guard playbackMode == .stream,
               let station = currentStation,
@@ -912,6 +1199,16 @@ final class AudioPlayer: ObservableObject {
         let retrying = display == .retrying
         if state != newState { state = newState }
         if isRetrying != retrying { isRetrying = retrying }
+        if display == .playing {
+            directStreamPausedAt = nil
+            // A direct stream plays: the listener hears live from now on.
+            if !isPlayingHls { hlsListening = nil }
+        }
+        if display == .playing, let attempt = liveAttemptID,
+           attempt != startedAttempt {
+            startedAttempt = attempt
+            onLiveAudioStarted?()
+        }
     }
 
     /// Cancels every live timer, pending retry and attempt. After this no
@@ -921,6 +1218,7 @@ final class AudioPlayer: ObservableObject {
         supervisionTask?.cancel()
         supervisionTask = nil
         liveAttemptID = nil
+        liveLoad = nil
         liveAttemptError = nil
         if isRetrying { isRetrying = false }
         backgroundKeeper.setRunning(false)
@@ -975,8 +1273,7 @@ final class AudioPlayer: ObservableObject {
         itemObserver = nil
         dateRangeCollector = nil
         dateRangeBridge = nil
-        songChangeWaits.values.forEach { $0.cancel() }
-        songChangeWaits = [:]
+        songBoundaries = SongBoundaries()
         player.pause()
         player.replaceCurrentItem(with: nil)
         currentStreamType = nil
@@ -1122,22 +1419,18 @@ final class AudioPlayer: ObservableObject {
     }
 
     /// Wire an `AVPlayerItemMetadataCollector` onto the new item so the
-    /// server's `EXT-X-DATERANGE` entries surface in-app. Additive to the
-    /// periodic metadata REST poll — early-trigger only, never replaces.
+    /// song changes its playlist announces with `EXT-X-DATERANGE` reach
+    /// `songBoundaries`. Additive to the periodic metadata REST poll.
     private func attachDateRangeCollector(to item: AVPlayerItem) {
-        // Reset so the first DATERANGE on the new stream registers as a
-        // change rather than colliding with the previous stream's ID.
-        lastSeenDateRangeID = nil
-        let bridge = DateRangeBridge { [weak self, weak item] newID, start in
+        let bridge = DateRangeBridge { [weak self, weak item] boundaries in
             Task { @MainActor in
                 // Announcements of a replaced item say nothing about the
                 // audio now playing.
                 guard let self, let item,
                       self.player.currentItem === item else { return }
-                guard newID != self.lastSeenDateRangeID else { return }
-                self.lastSeenDateRangeID = newID
-                self.notifyWhenAudioReaches(songStart: start, id: newID,
-                                            on: item)
+                self.songBoundaries.add(boundaries)
+                // One the audio already passed counts at once.
+                self.followSongBoundaries()
             }
         }
         let collector = AVPlayerItemMetadataCollector()
@@ -1147,49 +1440,19 @@ final class AudioPlayer: ObservableObject {
         dateRangeCollector = collector
     }
 
-    /// Fires `onAudioReachedSongChange` once the audio is past a song
-    /// change announced to start at `songStart`.
+    /// Fires `onAudioReachedSongChange` when the audio has reached a song
+    /// change since its start. Called on each look at the player, so within
+    /// a second of the change: the fetch it triggers then asks about the
+    /// moment right after it (`hlsPlaybackTimestamp`) and gets the new song.
     ///
     /// The collector reports a tag when it loads it, as the tag enters the
-    /// playlist at the live edge — 18–30 s before the listener hears that
-    /// moment. A fetch at the announcement asked for the moment the audio
-    /// was at, which was still the old song, and the title stayed one song
-    /// behind until the next announcement. The wait ends once the 10 s-
-    /// rounded timestamp the fetch sends (`hlsPlaybackTimestamp`) is past
-    /// the change, so the fetch returns the new song.
-    private func notifyWhenAudioReaches(
-        songStart: Date,
-        id: String,
-        on item: AVPlayerItem
-    ) {
-        let target = nextRoundedMoment(after: songStart)
-        songChangeWaits[id] = Task { [weak self, weak item] in
-            while true {
-                guard let wait = self?.secondsUntil(item, plays: target)
-                else { return }
-                if wait <= 0 { break }
-                try? await Task.sleep(
-                    for: .seconds(max(wait, Self.songChangeRecheck))
-                )
-                if Task.isCancelled { return }
-            }
-            self?.songChangeWaits[id] = nil
-            self?.onAudioReachedSongChange?()
-        }
-    }
-
-    /// Seconds until `item`'s playhead reaches `target` on the broadcast
-    /// timeline (zero or less once it has); nil once the item no longer
-    /// plays. A playhead without a date yet is looked at again later.
-    private func secondsUntil(
-        _ item: AVPlayerItem?,
-        plays target: Date
-    ) -> TimeInterval? {
-        guard let item, player.currentItem === item else { return nil }
-        guard let heard = Self.playheadDate(of: item) else {
-            return Self.songChangeRecheck
-        }
-        return target.timeIntervalSince(heard)
+    /// playlist at the live edge, and the origin writes it once the song
+    /// ended: its end date is still ahead of a listener 18 s to 5 minutes
+    /// behind live. A fetch at the announcement asked about the moment the
+    /// audio was at, still the old song.
+    private func followSongBoundaries() {
+        guard let heard = hlsPlaybackDate else { return }
+        if songBoundaries.reach(heard) { onAudioReachedSongChange?() }
     }
 
     /// The station's live streams that have a usable URL, in API order.
@@ -1295,16 +1558,19 @@ private enum LiveStreamFailure: LocalizedError {
 /// `NSObject`-conforming bridge for `AVPlayerItemMetadataCollector` —
 /// `AudioPlayer` itself is a plain `final class`, so it cannot adopt the
 /// `AVPlayerItemMetadataCollectorPushDelegate` protocol directly.
-/// Compares each new group's HLS `ID` attribute by suffix, not the full
-/// vendor-prefixed identifier (`com.apple.quicktime.HLS.id`), so the
-/// match stays stable across iOS releases.
+///
+/// Hands over the start and end dates of each group announced or changed,
+/// every one a song boundary (see `SongBoundaries`). The dates are all
+/// there is to go by: AVFoundation gives a group's `X-` attributes as its
+/// items (`lsdr/X-TITLE`, `lsdr/X-ARTIST`), never its `ID` (measured with
+/// macOS 27's AVFoundation on the origin's playlists, 2026-10-31).
 private final class DateRangeBridge: NSObject,
     AVPlayerItemMetadataCollectorPushDelegate {
-    /// Called with the newest announced group's `ID` and start date.
-    private let onNewID: (String, Date) -> Void
+    /// Called with the boundaries of the groups announced or changed.
+    private let onBoundaries: ([Date]) -> Void
 
-    init(onNewID: @escaping (String, Date) -> Void) {
-        self.onNewID = onNewID
+    init(onBoundaries: @escaping ([Date]) -> Void) {
+        self.onBoundaries = onBoundaries
         super.init()
     }
 
@@ -1314,39 +1580,14 @@ private final class DateRangeBridge: NSObject,
         indexesOfNewGroups: IndexSet,
         indexesOfModifiedGroups: IndexSet
     ) {
-        // The "current song" is the most recently announced DATERANGE —
-        // pick the new group with the latest startDate.
-        var latest: (date: Date, id: String)?
-        for index in indexesOfNewGroups {
-            guard index < metadataGroups.count else { continue }
+        var boundaries: [Date] = []
+        for index in indexesOfNewGroups.union(indexesOfModifiedGroups)
+        where index < metadataGroups.count {
             let group = metadataGroups[index]
-            guard let id = Self.dateRangeID(in: group.items) else { continue }
-            if latest == nil || group.startDate > latest!.date {
-                latest = (group.startDate, id)
-            }
+            boundaries.append(group.startDate)
+            if let end = group.endDate { boundaries.append(end) }
         }
-        guard let latest else { return }
-        onNewID(latest.id, latest.date)
-    }
-
-    /// Pulls the DATERANGE `ID` attribute out of an `AVMetadataItem` array.
-    /// AVFoundation maps DATERANGE attributes to identifiers shaped like
-    /// `com.apple.quicktime.HLS.id` / `…HLS.x-title` — match by suffix so
-    /// the lookup survives identifier-domain churn.
-    private static func dateRangeID(in items: [AVMetadataItem]) -> String? {
-        for item in items {
-            guard let identifier = item.identifier?.rawValue.lowercased() else {
-                continue
-            }
-            // Suffix `.id` (e.g. `com.apple.quicktime.HLS.id`) — a whole-string
-            // `id` check would also match unrelated identifiers, so anchor on
-            // the dot separator.
-            if identifier.hasSuffix(".id") || identifier == "id" {
-                if let str = item.stringValue, !str.isEmpty {
-                    return str
-                }
-            }
-        }
-        return nil
+        guard !boundaries.isEmpty else { return }
+        onBoundaries(boundaries)
     }
 }

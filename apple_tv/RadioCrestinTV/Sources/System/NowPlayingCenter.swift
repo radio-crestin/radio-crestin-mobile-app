@@ -26,6 +26,7 @@ struct NowPlayingSnapshot: Equatable {
     let artist: String?
     let album: String?
     /// Song art first, then the station logo: the first that loads shows.
+    /// Asked of the CDN at `artworkPixels`.
     let artworkURLs: [URL]
     let isLiveStream: Bool
     /// The listener wants audio: playing, or connecting to a station (a
@@ -33,6 +34,11 @@ struct NowPlayingSnapshot: Equatable {
     /// which cancels the connection, as the on-screen button does; with
     /// rate 0 it would offer Play, which has nothing to start.
     let isPlaying: Bool
+
+    /// The artwork's width in pixels: the system keeps it as a 768 × 768
+    /// picture (mediaremoted logs the size), to which it enlarged the
+    /// API's 250 px thumbnails.
+    static let artworkPixels: CGFloat = 768
 
     /// Nil when there is nothing to show: no station, or playback stopped.
     ///
@@ -59,7 +65,9 @@ struct NowPlayingSnapshot: Equatable {
             artist = station.songArtist.isEmpty ? nil : station.songArtist
             album = station.title
         }
-        artworkURLs = station.displayThumbnailURLs
+        artworkURLs = station.displayThumbnailURLs.map {
+            ArtworkURL.sized($0, pixels: Self.artworkPixels)
+        }
         // Radio and TV are live broadcasts; playlist items are on demand.
         isLiveStream = station.kind != .playlist
     }
@@ -90,14 +98,10 @@ final class NowPlayingCenter {
     private var artworkRequest: [URL] = []
     private var artworkTask: Task<Void, Never>?
 
-    /// Decoded covers by URL, loaded once each. A cover per song plus the
-    /// station logos a session of station hopping visits: 24 covers of the
-    /// API's 250 px thumbnails stay around 6 MB decoded.
-    private let artworkCache: NSCache<NSURL, UIImage> = {
-        let cache = NSCache<NSURL, UIImage>()
-        cache.countLimit = 24
-        return cache
-    }()
+    /// The artwork for `artworkRequest`, loaded through `ArtworkLoader`.
+    /// Kept here while the request stands: the loader's memory may let
+    /// the picture go, and the info for a pause would then lose it.
+    private var artwork: MPMediaItemArtwork?
 
     private var playbackCommands: [MPRemoteCommand] {
         let center = MPRemoteCommandCenter.shared()
@@ -135,13 +139,9 @@ final class NowPlayingCenter {
         for command in playbackCommands {
             command.isEnabled = snapshot != nil
         }
-        guard let snapshot else {
-            MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
-            loadArtwork(from: [])
-            return
-        }
-        MPNowPlayingInfoCenter.default().nowPlayingInfo = info(for: snapshot)
-        loadArtwork(from: snapshot.artworkURLs)
+        loadArtwork(from: snapshot?.artworkURLs ?? [])
+        MPNowPlayingInfoCenter.default().nowPlayingInfo =
+            snapshot.map(info(for:))
     }
 
     private func info(for snapshot: NowPlayingSnapshot) -> [String: Any] {
@@ -156,46 +156,32 @@ final class NowPlayingCenter {
         if let album = snapshot.album {
             info[MPMediaItemPropertyAlbumTitle] = album
         }
-        if let image = cachedArtwork(for: snapshot.artworkURLs) {
-            info[MPMediaItemPropertyArtwork] = Self.artwork(for: image)
+        if let artwork {
+            info[MPMediaItemPropertyArtwork] = artwork
         }
         return info
     }
 
-    /// The first candidate already in the cache — the song art when it
-    /// is there, otherwise the logo while the song art loads.
-    private func cachedArtwork(for urls: [URL]) -> UIImage? {
-        for url in urls {
-            if let image = artworkCache.object(forKey: url as NSURL) {
-                return image
-            }
-        }
-        return nil
-    }
-
+    /// Follows the artwork candidates of the snapshot being shown.
     private func loadArtwork(from urls: [URL]) {
         guard urls != artworkRequest else { return }
         artworkRequest = urls
         artworkTask?.cancel()
         artworkTask = nil
-        if let first = urls.first,
-           artworkCache.object(forKey: first as NSURL) != nil {
-            return
-        }
-        guard !urls.isEmpty else { return }
+        // The song art when it is in memory, otherwise the logo while the
+        // song art loads.
+        let inMemory = ArtworkLoader.shared.anyCachedImage(for: urls)
+        artwork = inMemory.map(Self.artwork(for:))
+        guard let preferred = urls.first,
+              ArtworkLoader.shared.anyCachedImage(for: [preferred]) == nil
+        else { return }
         artworkTask = Task { [weak self] in
-            for url in urls {
-                if self?.artworkCache.object(forKey: url as NSURL) != nil {
-                    return
-                }
-                guard let image = await Self.downloadImage(from: url) else {
-                    continue
-                }
-                guard !Task.isCancelled, let self else { return }
-                self.artworkCache.setObject(image, forKey: url as NSURL)
-                self.refreshShownInfo(for: urls)
-                return
-            }
+            let image = await ArtworkLoader.shared.image(for: urls)
+            guard !Task.isCancelled, let image, image !== inMemory,
+                  let self
+            else { return }
+            artwork = Self.artwork(for: image)
+            refreshShownInfo(for: urls)
         }
     }
 
@@ -204,13 +190,6 @@ final class NowPlayingCenter {
     private func refreshShownInfo(for urls: [URL]) {
         guard let shown, shown.artworkURLs == urls else { return }
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info(for: shown)
-    }
-
-    nonisolated private static func downloadImage(from url: URL) async -> UIImage? {
-        guard let (data, response) = try? await URLSession.shared.data(from: url),
-              (response as? HTTPURLResponse)?.statusCode == 200
-        else { return nil }
-        return UIImage(data: data)
     }
 
     /// Built outside the main actor: MediaPlayer may ask the artwork for

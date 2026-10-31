@@ -36,21 +36,18 @@ final class AppStateListOrderTests: XCTestCase {
     }
 
     /// An `AppState` on its own defaults and the stubbed API, sorted by
-    /// listeners so the expected order is plain to read.
+    /// listeners so the expected order is plain to read. It keeps no
+    /// catalog between launches: every test starts from the network.
     private func makeAppState() -> AppState {
         let suite = "AppStateListOrderTests.\(UUID().uuidString)"
         addTeardownBlock {
             UserDefaults().removePersistentDomain(forName: suite)
             StubAPIProtocol.reset()
         }
-        let configuration = URLSessionConfiguration.ephemeral
-        configuration.protocolClasses = [StubAPIProtocol.self]
-        let session = URLSession(configuration: configuration)
         let appState = AppState(
-            repository: StationRepository(
-                client: RestClient(session: session)
-            ),
-            defaults: UserDefaults(suiteName: suite) ?? .standard
+            repository: StubAPIProtocol.repository(),
+            defaults: UserDefaults(suiteName: suite) ?? .standard,
+            catalogCache: StationCatalogCache(fileURL: nil)
         )
         appState.sortOption = .listeners
         return appState
@@ -176,69 +173,5 @@ final class AppStateListOrderTests: XCTestCase {
         XCTAssertEqual(appState.previousStation(before: third)?.id, 2)
         XCTAssertEqual(appState.nextStation(after: last)?.id, 1)
         XCTAssertEqual(appState.previousStation(before: first)?.id, 4)
-    }
-}
-
-// MARK: - Stubbed API
-
-/// Answers the app's REST calls without the network: `/stations` with the
-/// catalog a test serves, the metadata and private-station endpoints with
-/// empty lists, anything else (song history) with 404.
-private final class StubAPIProtocol: URLProtocol {
-    private static let lock = NSLock()
-    private static var stationsBody = Data()
-
-    static func serve(_ catalog: [Station]) throws {
-        let stations = try JSONSerialization.jsonObject(
-            with: JSONEncoder().encode(catalog)
-        )
-        let body = try JSONSerialization.data(
-            withJSONObject: ["data": ["stations": stations]]
-        )
-        lock.withLock { stationsBody = body }
-    }
-
-    static func reset() {
-        lock.withLock { stationsBody = Data() }
-    }
-
-    override class func canInit(with request: URLRequest) -> Bool { true }
-
-    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
-        request
-    }
-
-    override func startLoading() {
-        guard let url = request.url else {
-            client?.urlProtocol(self, didFailWithError: URLError(.badURL))
-            return
-        }
-        let (status, body) = Self.response(for: url.path)
-        let response = HTTPURLResponse(
-            url: url, statusCode: status, httpVersion: "HTTP/1.1",
-            headerFields: ["Content-Type": "application/json"]
-        )
-        if let response {
-            client?.urlProtocol(
-                self, didReceive: response, cacheStoragePolicy: .notAllowed
-            )
-        }
-        client?.urlProtocol(self, didLoad: body)
-        client?.urlProtocolDidFinishLoading(self)
-    }
-
-    override func stopLoading() {}
-
-    private static func response(for path: String) -> (Int, Data) {
-        switch path {
-        case "/api/v1/stations":
-            return (200, lock.withLock { stationsBody })
-        case "/api/v1/stations-metadata":
-            return (200, Data(#"{"data":{"stations_metadata":[]}}"#.utf8))
-        case "/api/v1/private-stations":
-            return (200, Data(#"{"data":{"stations":[]}}"#.utf8))
-        default:
-            return (404, Data("{}".utf8))
-        }
     }
 }

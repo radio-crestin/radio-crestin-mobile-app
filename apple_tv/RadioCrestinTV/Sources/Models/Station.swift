@@ -97,6 +97,28 @@ struct Station: Codable, Identifiable, Hashable {
         orderedStreams.first?.type == "HLS"
     }
 
+    /// The station without its current song, for a copy saved across
+    /// launches: the song was current when the copy was made, and an old
+    /// session's song must never show as playing now. The next refresh
+    /// brings the song back.
+    var withoutSong: Station {
+        var copy = self
+        copy.nowPlaying = nil
+        return copy
+    }
+
+    /// The station without a song that started longer ago than any song
+    /// runs (`SongTimestamp.longestPlay`). Stations that report no songs
+    /// keep one fixed label dated when it was set: RVE Sibiu showed
+    /// "Durch die Bibel", 181 days old, as the song playing, picture
+    /// included, on its card, in Now Playing and in the system's.
+    var withoutStaleSong: Station {
+        guard let start = nowPlaying?.timestamp.flatMap(SongTimestamp.date(from:)),
+              SongTimestamp.songStart(start, seenAt: Date()) == nil
+        else { return self }
+        return withoutSong
+    }
+
     var songTitle: String { nowPlaying?.song?.name ?? "" }
     var songArtist: String { nowPlaying?.song?.artist?.name ?? "" }
     var songThumbnailUrl: String? {
@@ -269,6 +291,72 @@ struct Song: Codable, Hashable {
         case id, name, artist
         case thumbnailUrl = "thumbnail_url"
     }
+}
+
+extension Song {
+    /// Decodes the song with its name as the listener reads it
+    /// (`displayName(of:)`), wherever it comes from: the catalog, the
+    /// metadata, the history, so they keep naming the same song.
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            id: try container.decode(Int.self, forKey: .id),
+            name: Self.displayName(
+                of: try container.decode(String.self, forKey: .name)
+            ),
+            thumbnailUrl: try container.decodeIfPresent(
+                String.self, forKey: .thumbnailUrl
+            ),
+            artist: try container.decodeIfPresent(Artist.self, forKey: .artist)
+        )
+    }
+
+    /// `name` without what some stations' metadata leaves on it, shown on
+    /// the card, in Now Playing and in the system's: an audio file
+    /// extension (Calea Spre Cer Popular: "Lasa-L sa te-atinga.mp3"), a
+    /// lone % or # after the last word (Old Christian Radio: "My Very Best
+    /// Friend %"), and spaces around it. A % after a number, as in
+    /// "100 %", stays.
+    ///
+    /// Taken off until none is left, so a name read again, from the saved
+    /// catalog, comes out the same and keeps naming the same song.
+    static func displayName(of name: String) -> String {
+        var shown = name
+        while true {
+            let trimmed = shown.trimmingCharacters(in: .whitespacesAndNewlines)
+            let cleaned = withoutAudioExtension(withoutMarker(trimmed))
+            if cleaned == shown { return shown }
+            shown = cleaned
+        }
+    }
+
+    private static func withoutAudioExtension(_ name: String) -> String {
+        guard let dot = name.lastIndex(of: "."), dot > name.startIndex,
+              audioExtensions.contains(
+                  name[name.index(after: dot)...].lowercased()
+              )
+        else { return name }
+        return String(name[..<dot])
+    }
+
+    private static func withoutMarker(_ name: String) -> String {
+        guard let marker = name.last, marker == "%" || marker == "#" else {
+            return name
+        }
+        let words = name.dropLast()
+        guard words.last?.isWhitespace == true,
+              let lastWord = words.split(whereSeparator: \.isWhitespace).last
+        else { return name }
+        // A percentage, as in "100 %"; "mp3 %" is no number.
+        let isNumber = lastWord.contains(where: \.isNumber)
+            && lastWord.allSatisfy { $0.isNumber || $0 == "." || $0 == "," }
+        guard marker == "#" || !isNumber else { return name }
+        return String(words)
+    }
+
+    private static let audioExtensions: Set<String> = [
+        "mp3", "m4a", "aac", "wav", "flac", "ogg", "opus", "wma",
+    ]
 }
 
 struct Artist: Codable, Hashable {

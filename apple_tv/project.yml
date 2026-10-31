@@ -24,7 +24,9 @@ settings:
 packages:
   PostHog:
     url: https://github.com/PostHog/posthog-ios
-    from: "3.0.0"
+    # 3.56 renamed the config's `apiKey` to `projectToken`, which
+    # Analytics.swift uses.
+    from: "3.56.0"
 
 targets:
   RadioCrestinTV:
@@ -43,7 +45,19 @@ targets:
         CFBundleDisplayName: Radio Crestin
         CFBundleShortVersionString: "1.5.0"
         CFBundleVersion: "84"
-        UILaunchScreen: {}
+        # The app's UI is Romanian, as in the macOS app. Declaring it makes
+        # tvOS run the app in Romanian when the Apple TV's languages put
+        # Romanian before English, so the system's strings inside the app
+        # (VoiceOver names of SF Symbols, the tab bar, error descriptions)
+        # are Romanian too. Other Apple TVs keep the development language,
+        # English, as before.
+        CFBundleLocalizations:
+          - ro
+        # The app's own background (#0A0A0A, `Theme.background`) whatever
+        # the system appearance: an empty dictionary draws the system
+        # background, white in Light appearance, before the dark app.
+        UILaunchScreen:
+          UIColorName: LaunchBackground
         # Radio keeps playing on the Home screen and under the screensaver,
         # and the remote and Control Center can control it there. The
         # `.playback` session category alone does not keep a background
@@ -58,9 +72,8 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: ro.radiocrestin.radiocrestintv
+        # The App Icon brand assets also hold the static Top Shelf images.
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-        # tvOS Top Shelf placeholder; we'll fill the asset catalog later.
-        TVTopShelfImagePath: ""
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.music
       configs:
         # No physical Apple TV is registered on the team, so Apple can't

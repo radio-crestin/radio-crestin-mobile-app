@@ -54,6 +54,11 @@ final class FakeOrigin: @unchecked Sendable {
         /// Cuts the connection after this many body bytes: a body that
         /// fails part way.
         var cutAfter: Int?
+        /// Cuts the connection without an answer, as a network that is
+        /// gone would.
+        var dropsConnection = false
+
+        static var dropped: Response { Response(dropsConnection: true) }
     }
 
     private struct State {
@@ -220,7 +225,10 @@ final class FakeOrigin: @unchecked Sendable {
         case .respond(let response):
             send(response, for: request, on: connection)
         case .useHandler(let handler):
-            if let response = handler(request) {
+            guard let response = handler(request) else { return }
+            if response.dropsConnection {
+                connection.cancel()
+            } else {
                 send(response, for: request, on: connection)
             }
         }
@@ -328,6 +336,74 @@ final class FakeOrigin: @unchecked Sendable {
             query: target.count > 1 ? String(target[1]) : nil,
             headers: headers
         )
+    }
+}
+
+// MARK: A stream AVPlayer plays
+
+extension FakeOrigin {
+    /// An on-demand playlist of `segments` segments of silent MP3, ~1 s
+    /// each, named `seg-<n>.mp3`: what AVPlayer needs to get an item ready
+    /// and play it.
+    static func vodPlaylist(segments: Int) -> String {
+        var playlist = "#EXTM3U\n"
+            + "#EXT-X-VERSION:3\n"
+            + "#EXT-X-TARGETDURATION:1\n"
+            + "#EXT-X-MEDIA-SEQUENCE:0\n"
+            + "#EXT-X-PLAYLIST-TYPE:VOD\n"
+        for index in 0..<segments {
+            playlist += "#EXTINF:0.993,\nseg-\(index).mp3\n"
+        }
+        return playlist + "#EXT-X-ENDLIST\n"
+    }
+
+    /// The answer of a stream AVPlayer plays: `vodPlaylist` for any
+    /// playlist, its segments, and 404 for anything else.
+    static func playableStream(
+        _ request: Request,
+        segments: Int = 60
+    ) -> Response {
+        let name = request.path.split(separator: "/").last ?? ""
+        if name.hasSuffix(".m3u8") {
+            return Response(
+                headers: [("Content-Type", "application/vnd.apple.mpegurl")],
+                body: Data(vodPlaylist(segments: segments).utf8)
+            )
+        }
+        guard name.hasPrefix("seg-"), name.hasSuffix(".mp3"),
+              let index = UInt64(name.dropFirst(4).dropLast(4))
+        else { return Response(status: 404) }
+        return Response(
+            headers: [("Content-Type", "audio/mpeg")],
+            // 0.993 s a segment, in 90 kHz ticks.
+            body: silentMP3Segment(timestamp: index * 89_370)
+        )
+    }
+
+    /// ~1 s of silent MPEG-1 Layer III (44.1 kHz, 128 kb/s, stereo): 38
+    /// frames whose side information is all zeros, which decodes as
+    /// silence. HLS packed audio starts with an ID3 tag carrying the
+    /// segment's 90 kHz `timestamp`.
+    static func silentMP3Segment(timestamp: UInt64) -> Data {
+        var payload = Data("com.apple.streaming.transportStreamTimestamp".utf8)
+        payload.append(0)
+        withUnsafeBytes(of: timestamp.bigEndian) {
+            payload.append(contentsOf: $0)
+        }
+        func syncSafe(_ value: Int) -> [UInt8] {
+            [21, 14, 7, 0].map { UInt8((value >> $0) & 0x7F) }
+        }
+        var data = Data("ID3".utf8)
+        data.append(contentsOf: [4, 0, 0] + syncSafe(10 + payload.count))
+        data.append(contentsOf: Data("PRIV".utf8))
+        data.append(contentsOf: syncSafe(payload.count) + [0, 0])
+        data.append(payload)
+        // MPEG-1 Layer III, no CRC, 128 kb/s, 44.1 kHz, no padding, stereo:
+        // 144 * 128000 / 44100 = 417 bytes a frame.
+        var frame = Data([0xFF, 0xFB, 0x90, 0x00])
+        frame.append(Data(count: 417 - 4))
+        for _ in 0..<38 { data.append(frame) }
+        return data
     }
 }
 
@@ -481,6 +557,13 @@ final class EventLog: @unchecked Sendable {
     var failedFastSessions: [Int] {
         all.compactMap {
             if case .failedFast(_, let session, _) = $0 { return session }
+            return nil
+        }
+    }
+
+    var internalErrors: [Error] {
+        all.compactMap {
+            if case .internalError(let error) = $0 { return error }
             return nil
         }
     }

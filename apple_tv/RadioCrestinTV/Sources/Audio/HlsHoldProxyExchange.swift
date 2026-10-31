@@ -108,6 +108,7 @@ extension HlsHoldProxy {
             guard let proxy else { return fail() }
             let upstream = proxy.upstreamSession()
             let session = target.session
+            proxy.markRequested(session: session)
             let attempt = UpstreamAttempt(
                 request: request,
                 target: target,

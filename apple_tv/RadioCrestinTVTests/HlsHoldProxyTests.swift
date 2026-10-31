@@ -339,6 +339,66 @@ final class HlsHoldProxyTests: XCTestCase {
         XCTAssertTrue(rig.log.requestEvents.isEmpty, "\(rig.log.requestEvents)")
     }
 
+    /// An endless stream on an allowed host must not fill the memory.
+    func test_a_body_over_the_limit_fails_its_request_without_a_hold() async throws {
+        let rig = try await makeRig()
+        let huge = Data(count: HlsHoldProxy.maxBodyBytes + 1)
+        rig.origin.handler = { _ in
+            FakeOrigin.Response(
+                headers: [("Content-Type", "audio/mpeg")], body: huge
+            )
+        }
+        let client = try rawRequest(
+            try rig.wrapInNewSession("/hls/rve/live.mp3"), to: rig
+        )
+
+        await waitUntil("closed") { client.answer.isClosed }
+
+        XCTAssertEqual(client.answer.text, "", "closed without a response")
+        XCTAssertEqual(
+            rig.origin.requests.count, 2, "the first try and its retry"
+        )
+        await waitUntil("the proxy's error") { !rig.log.internalErrors.isEmpty }
+        let error = rig.log.internalErrors.first as? HlsHoldProxy.ProxyError
+        guard case .bodyTooLarge = error else {
+            return XCTFail(
+                "expected bodyTooLarge, got \(String(describing: error))"
+            )
+        }
+        XCTAssertTrue(rig.log.holdStarts.isEmpty)
+    }
+
+    // MARK: Malformed and idle clients
+
+    func test_a_malformed_request_head_gets_a_400() async throws {
+        let rig = try await makeRig()
+        let client = RawClient(port: try XCTUnwrap(rig.proxy.port))
+
+        client.send("HELLO\r\n\r\n")
+
+        await waitUntil("the proxy closes") { client.answer.isClosed }
+        let text = client.answer.text
+        XCTAssertTrue(text.hasPrefix("HTTP/1.1 400 Bad Request\r\n"), text)
+        XCTAssertTrue(rig.origin.requests.isEmpty)
+    }
+
+    func test_a_client_that_sends_no_whole_request_head_is_closed_after_the_head_timeout() async throws {
+        var timings = Self.fast
+        timings.requestHeadTimeout = 0.3
+        let rig = try await makeRig(timings: timings)
+        let client = RawClient(port: try XCTUnwrap(rig.proxy.port))
+
+        let startedAt = Date()
+        let target = "/1/http/127.0.0.1:\(rig.origin.port)/a.m3u8"
+        client.send("GET \(target) HTTP/1.1\r\n")
+
+        await waitUntil("the proxy closes") { client.answer.isClosed }
+        XCTAssertGreaterThan(secondsSince(startedAt), 0.25)
+        XCTAssertLessThan(secondsSince(startedAt), 2)
+        XCTAssertEqual(client.answer.text, "", "closed without a response")
+        XCTAssertTrue(rig.origin.requests.isEmpty)
+    }
+
     // MARK: HTTP errors
 
     func test_an_error_status_is_the_origin_answering_relayed_at_once_never_held() async throws {
@@ -577,6 +637,23 @@ final class HlsHoldProxyTests: XCTestCase {
         XCTAssertEqual(rig.origin.requests.count, tries, "no more retries")
     }
 
+    func test_a_client_that_leaves_during_its_first_try_ends_it_without_a_hold() async throws {
+        let rig = try await makeRig(timings: Self.hanging)
+        rig.origin.mode = .hanging
+        let client = try rawRequest(
+            try rig.wrapInNewSession("/hls/rve/index.m3u8"), to: rig
+        )
+        await waitUntil("the origin got it") { rig.origin.requests.count == 1 }
+
+        client.leave()
+
+        // Past the try's 1.5 s timeout: a request still under way would
+        // have been tried again by now.
+        try await Task.sleep(for: .seconds(2))
+        XCTAssertEqual(rig.origin.requests.count, 1, "abandoned, not retried")
+        XCTAssertTrue(rig.log.requestEvents.isEmpty, "\(rig.log.requestEvents)")
+    }
+
     func test_stopping_the_proxy_fails_the_held_requests() async throws {
         let rig = try await makeRig()
         let url = try await establishedPlaylist(rig)
@@ -721,6 +798,36 @@ final class HlsHoldProxyTests: XCTestCase {
         XCTAssertFalse(rig.proxy.originAnswered(session: next))
         XCTAssertFalse(
             rig.proxy.originAnswered(session: session),
+            "only the current session is followed"
+        )
+    }
+
+    /// A load through the proxy that waits with none of its requests gone
+    /// upstream is held up by the proxy itself.
+    func test_a_session_is_requested_once_one_of_its_requests_went_upstream() async throws {
+        let rig = try await makeRig()
+        let session = rig.proxy.beginSession()
+        let base = "http://127.0.0.1:\(try XCTUnwrap(rig.proxy.port))"
+        let otherHost = try XCTUnwrap(
+            URL(string: "\(base)/\(session)/https/example.com/index.m3u8")
+        )
+        let answeredByTheProxy = try await rig.player.get(otherHost)
+        XCTAssertEqual(answeredByTheProxy.status, 404)
+        XCTAssertFalse(rig.proxy.originRequested(session: session))
+
+        rig.origin.mode = .droppingConnections
+        let url = try rig.wrap("/hls/rve/index.m3u8", session: session)
+        await assertClosedWithoutResponse(rig.request(url))
+
+        XCTAssertTrue(
+            rig.proxy.originRequested(session: session),
+            "requested, though never answered"
+        )
+        XCTAssertFalse(rig.proxy.originAnswered(session: session))
+        let next = rig.proxy.beginSession()
+        XCTAssertFalse(rig.proxy.originRequested(session: next))
+        XCTAssertFalse(
+            rig.proxy.originRequested(session: session),
             "only the current session is followed"
         )
     }
@@ -1039,25 +1146,7 @@ final class HlsHoldProxyTests: XCTestCase {
     func test_avplayer_loads_an_hls_playlist_through_the_proxy() async throws {
         let rig = try await makeRig(timings: HlsHoldProxy.Timings())
         rig.origin.handler = { request in
-            switch request.path {
-            case "/vod/index.m3u8":
-                return FakeOrigin.Response(
-                    headers: [("Content-Type", "application/vnd.apple.mpegurl")],
-                    body: Data(Self.vodPlaylist.utf8)
-                )
-            case "/vod/seg-0.mp3":
-                return FakeOrigin.Response(
-                    headers: [("Content-Type", "audio/mpeg")],
-                    body: Self.silentMP3Segment(timestamp: 0)
-                )
-            case "/vod/seg-1.mp3":
-                return FakeOrigin.Response(
-                    headers: [("Content-Type", "audio/mpeg")],
-                    body: Self.silentMP3Segment(timestamp: 89_370)
-                )
-            default:
-                return FakeOrigin.Response(status: 404)
-            }
+            FakeOrigin.playableStream(request, segments: 2)
         }
         let url = try rig.wrapInNewSession("/vod/index.m3u8")
         let item = AVPlayerItem(url: url)
@@ -1079,45 +1168,5 @@ final class HlsHoldProxyTests: XCTestCase {
             "AVPlayer's own requests, through the proxy"
         )
         player.replaceCurrentItem(with: nil)
-    }
-
-    /// Two segments of packed MP3 audio, ~1 s each.
-    private nonisolated static let vodPlaylist = "#EXTM3U\n"
-        + "#EXT-X-VERSION:3\n"
-        + "#EXT-X-TARGETDURATION:1\n"
-        + "#EXT-X-MEDIA-SEQUENCE:0\n"
-        + "#EXT-X-PLAYLIST-TYPE:VOD\n"
-        + "#EXTINF:0.993,\n"
-        + "seg-0.mp3\n"
-        + "#EXTINF:0.993,\n"
-        + "seg-1.mp3\n"
-        + "#EXT-X-ENDLIST\n"
-
-    /// ~1 s of silent MPEG-1 Layer III (44.1 kHz, 128 kb/s, stereo): 38
-    /// frames whose side information is all zeros, which decodes as
-    /// silence. HLS packed audio starts with an ID3 tag carrying the
-    /// segment's 90 kHz `timestamp`.
-    private nonisolated static func silentMP3Segment(
-        timestamp: UInt64
-    ) -> Data {
-        var payload = Data("com.apple.streaming.transportStreamTimestamp".utf8)
-        payload.append(0)
-        withUnsafeBytes(of: timestamp.bigEndian) {
-            payload.append(contentsOf: $0)
-        }
-        func syncSafe(_ value: Int) -> [UInt8] {
-            [21, 14, 7, 0].map { UInt8((value >> $0) & 0x7F) }
-        }
-        var data = Data("ID3".utf8)
-        data.append(contentsOf: [4, 0, 0] + syncSafe(10 + payload.count))
-        data.append(contentsOf: Data("PRIV".utf8))
-        data.append(contentsOf: syncSafe(payload.count) + [0, 0])
-        data.append(payload)
-        // MPEG-1 Layer III, no CRC, 128 kb/s, 44.1 kHz, no padding, stereo:
-        // 144 * 128000 / 44100 = 417 bytes a frame.
-        var frame = Data([0xFF, 0xFB, 0x90, 0x00])
-        frame.append(Data(count: 417 - 4))
-        for _ in 0..<38 { data.append(frame) }
-        return data
     }
 }

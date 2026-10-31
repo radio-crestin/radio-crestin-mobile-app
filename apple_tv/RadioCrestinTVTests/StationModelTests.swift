@@ -430,4 +430,67 @@ final class StationModelTests: XCTestCase {
         XCTAssertNil(merged.uptime)
         XCTAssertTrue(merged.isUp)
     }
+
+    // MARK: - Song names
+
+    /// Calea Spre Cer Popular sent its song as a file name.
+    func test_a_song_name_drops_an_audio_file_extension() throws {
+        let json = #"{"id": 5, "name": "Fratii de la Toflea - Lasa-L sa te-atinga.mp3"}"#
+        let song = try JSONDecoder().decode(Song.self, from: Data(json.utf8))
+
+        XCTAssertEqual(song.name, "Fratii de la Toflea - Lasa-L sa te-atinga")
+        XCTAssertEqual(song.id, 5)
+        XCTAssertEqual(Song.displayName(of: "Psalm 23 .M4A"), "Psalm 23")
+    }
+
+    func test_a_song_name_keeps_dots_that_are_no_audio_extension() {
+        XCTAssertEqual(Song.displayName(of: "Vol. 2"), "Vol. 2")
+        XCTAssertEqual(Song.displayName(of: "Isaia 53.5"), "Isaia 53.5")
+        XCTAssertEqual(Song.displayName(of: ".mp3"), ".mp3")
+        XCTAssertEqual(Song.displayName(of: "Har"), "Har")
+    }
+
+    /// Check, round 7: Old Christian Radio's songs ended in a stray % or #,
+    /// on screen, in the system's Now Playing and in the like message.
+    func test_a_song_name_drops_a_marker_after_its_last_word() throws {
+        let json = #"{"id": 5, "name": "My Very Best Friend %"}"#
+        let song = try JSONDecoder().decode(Song.self, from: Data(json.utf8))
+
+        XCTAssertEqual(song.name, "My Very Best Friend")
+        XCTAssertEqual(
+            Song.displayName(of: "O Master Let Me Walk With Thee #"),
+            "O Master Let Me Walk With Thee"
+        )
+        XCTAssertEqual(
+            Song.displayName(of: "Trust in the Lord (Proverbs 3:5-6) %"),
+            "Trust in the Lord (Proverbs 3:5-6)"
+        )
+    }
+
+    func test_a_song_name_keeps_a_percent_or_hash_that_is_part_of_it() {
+        XCTAssertEqual(Song.displayName(of: "Credincios 100 %"), "Credincios 100 %")
+        XCTAssertEqual(Song.displayName(of: "Psalm 23 %"), "Psalm 23 %")
+        XCTAssertEqual(Song.displayName(of: "100%"), "100%")
+        XCTAssertEqual(Song.displayName(of: "C#"), "C#")
+        XCTAssertEqual(Song.displayName(of: "%"), "%")
+    }
+
+    /// Review, round 8: a marker after a space, after an extension or
+    /// twice stayed, and a name read again from the saved catalog lost one
+    /// more, so the two named the song differently.
+    func test_a_song_name_drops_every_leftover_and_reads_the_same_again() {
+        let names = [
+            "Arise! % ": "Arise!",
+            "Lasa-L sa te-atinga.mp3 %": "Lasa-L sa te-atinga",
+            "Har % %": "Har",
+            "Psalm 23 #": "Psalm 23",
+            "  Har  ": "Har",
+            "Har\n%": "Har",
+            "Har . %": "Har .",
+        ]
+        for (sent, shown) in names {
+            XCTAssertEqual(Song.displayName(of: sent), shown, sent)
+            XCTAssertEqual(Song.displayName(of: shown), shown, shown)
+        }
+    }
 }

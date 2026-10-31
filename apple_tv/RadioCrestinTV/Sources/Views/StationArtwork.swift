@@ -5,10 +5,10 @@ import SwiftUI
 /// branded placeholder if both fail. Mirrors the Flutter
 /// `Station.displayThumbnail` behavior.
 ///
-/// We pass a `targetSize` hint so `URLSession`-backed `AsyncImage` can
-/// fetch images sized for the slot (Hasura-served URLs accept query
-/// params; the radiocrestin CDN does too — but even when it doesn't,
-/// `targetSize` is forwarded as a request header for downstream caching).
+/// Pictures are asked of the CDN at the slot's size in pixels (see
+/// `ArtworkURL`) and come through `ArtworkLoader`, which keeps them in
+/// memory: a card scrolled back into view shows its picture on the first
+/// frame.
 struct StationArtwork: View {
     let station: Station
     let cornerRadius: CGFloat
@@ -16,8 +16,12 @@ struct StationArtwork: View {
     /// whatever frame its parent gives it (e.g. an .aspectRatio(1)
     /// modifier inside an adaptive grid cell).
     var targetSize: CGSize? = nil
+    /// How much larger than its slot the artwork is drawn when focused,
+    /// e.g. the lift of a `.card` button: the picture is asked for at that
+    /// size, so it stays sharp while focused.
+    var focusScale: CGFloat = 1
 
-    @State private var attemptIndex = 0
+    @Environment(\.displayScale) private var displayScale
 
     var body: some View {
         // The placeholder owns the slot's size: the fixed `targetSize`,
@@ -27,47 +31,35 @@ struct StationArtwork: View {
         // resize the slot, and one clip shape crops both layers.
         placeholder
             .frame(width: targetSize?.width, height: targetSize?.height)
-            .overlay { remoteImage }
-            .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
-            .onChange(of: candidateURLs) { _, _ in
-                attemptIndex = 0
-            }
-    }
-
-    @ViewBuilder
-    private var remoteImage: some View {
-        if let url = currentURL {
-            AsyncImage(url: url, transaction: Transaction(animation: .easeInOut)) { phase in
-                switch phase {
-                case .empty:
-                    Color.clear
-                case .success(let image):
-                    AspectFillImage(image: image)
-                case .failure:
-                    // Try the next URL on the next render pass; the
-                    // placeholder shows in the meantime.
-                    Color.clear
-                        .onAppear { advance() }
-                @unknown default:
-                    Color.clear
+            .overlay {
+                // The slot's laid-out width picks the size asked of the CDN.
+                GeometryReader { geometry in
+                    ArtworkImage(
+                        urls: Self.urls(
+                            for: station,
+                            width: geometry.size.width * focusScale,
+                            scale: displayScale
+                        )
+                    )
                 }
             }
-        }
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
     }
 
-    private var candidateURLs: [URL] { station.displayThumbnailURLs }
-
-    private var currentURL: URL? {
-        guard !candidateURLs.isEmpty,
-              attemptIndex < candidateURLs.count
-        else { return nil }
-        return candidateURLs[attemptIndex]
-    }
-
-    private func advance() {
-        if attemptIndex + 1 < candidateURLs.count {
-            attemptIndex += 1
-        }
+    /// The picture URLs, in order of preference, that the artwork of
+    /// `station` asks for in a slot `width` points wide. A view that wants
+    /// the same picture (Now Playing's backdrop) asks for these too and
+    /// gets it from memory.
+    static func urls(
+        for station: Station,
+        width: CGFloat,
+        scale: CGFloat
+    ) -> [URL] {
+        ArtworkURL.sized(
+            station.displayThumbnailURLs,
+            points: width,
+            scale: scale
+        )
     }
 
     private var placeholder: some View {
@@ -82,6 +74,9 @@ struct StationArtwork: View {
                 .font(.system(size: (targetSize?.width ?? 280) * 0.35))
                 .foregroundStyle(Theme.textTertiary)
         }
+        // Decorative, like the picture over it: VoiceOver read it as
+        // "Radio With Antenna, Filled" next to Now Playing's title.
+        .accessibilityHidden(true)
     }
 }
 

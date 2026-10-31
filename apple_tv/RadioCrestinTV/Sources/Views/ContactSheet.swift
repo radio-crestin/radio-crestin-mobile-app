@@ -7,8 +7,6 @@ import SwiftUI
 struct ContactSheet: View {
     let onDismiss: () -> Void
 
-    @FocusState private var closeFocused: Bool
-
     private static let whatsappNumber = "40766338046"
     private static let phoneDisplay = "+40 766 338 046"
     /// WhatsApp brand green (#25D366) — same accent the Flutter apps use.
@@ -28,6 +26,7 @@ struct ContactSheet: View {
                         .frame(width: 320, height: 320)
                         .padding(Theme.Spacing.lg)
                         .background(.white, in: RoundedRectangle(cornerRadius: 24))
+                        .accessibilityLabel("Cod QR pentru WhatsApp")
 
                     VStack(alignment: .leading, spacing: Theme.Spacing.md) {
                         HStack(spacing: Theme.Spacing.sm) {
@@ -61,23 +60,18 @@ struct ContactSheet: View {
                         .padding(.vertical, Theme.Spacing.sm)
                 }
                 .buttonStyle(.card)
-                .focused($closeFocused)
                 .padding(.top, Theme.Spacing.md)
             }
             .padding(Theme.Spacing.xxl)
             .background(Theme.surface, in: RoundedRectangle(cornerRadius: 28))
+            // One shadow for the whole sheet: applied to each child, it
+            // shaded the QR code's white plate grey (see `ShareSheet`).
+            .compositingGroup()
             .shadow(radius: 40)
         }
-        // The QR is the entire payload, so autofocus the only control —
-        // the dismiss button — mirroring `ShareSheet`. The explicit `.task`
-        // is needed because the sheet is inserted via the parent's
-        // `.overlay`; `.defaultFocus` alone doesn't reliably move focus, and
-        // without focus inside this scope `onExitCommand` won't fire.
-        .focusSection()
-        .task {
-            try? await Task.sleep(nanoseconds: 50_000_000)
-            closeFocused = true
-        }
+        // Settings presents it in a full-screen cover, where the dismiss
+        // button is the only focusable view: it takes focus on its own,
+        // and Menu closes the sheet.
         .onExitCommand(perform: onDismiss)
     }
 

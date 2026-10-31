@@ -156,11 +156,56 @@ final class StationMetadataMergeTests: XCTestCase {
         XCTAssertEqual(merged.songTitle, "A")
     }
 
-    func test_with_no_song_known_to_be_reached_the_shown_one_stays() {
+    /// Review C3: a tune-in 2 minutes behind live showed the catalog's
+    /// live song until the aligned payload came, and recorded it as heard.
+    func test_with_no_song_known_to_be_reached_none_is_shown() {
         let merged = StationMetadataMerge.merged(
             station(song: "B", start: startB, listeners: 10),
             shown: nowPlaying("B", start: startB),
             live: liveB, offset: nil, clock: audio(-20)
+        )
+        XCTAssertEqual(merged.songTitle, "")
+        XCTAssertNil(merged.nowPlaying)
+        XCTAssertEqual(merged.totalListeners, 30)
+    }
+
+    /// Nothing says it is ahead of the audio: it stays the best guess.
+    func test_a_song_without_a_start_stays_until_one_is_heard() {
+        let undated = NowPlaying(
+            id: 1, timestamp: nil,
+            song: Song(id: 3, name: "C", thumbnailUrl: nil, artist: nil)
+        )
+        var base = station(song: "B", start: startB, listeners: 10)
+        base.nowPlaying = undated
+        let merged = StationMetadataMerge.merged(
+            base, shown: undated, live: liveB, offset: nil, clock: audio(-20)
+        )
+        XCTAssertEqual(merged.songTitle, "C")
+    }
+
+    /// The history knows the play the audio is in before an aligned
+    /// payload says so.
+    func test_the_play_the_history_puts_the_audio_in_is_shown() {
+        let merged = StationMetadataMerge.merged(
+            station(song: "B", start: startB, listeners: 10),
+            shown: nowPlaying("B", start: startB),
+            live: liveB, offset: nil,
+            history: nowPlaying("A", start: startA),
+            clock: audio(-20)
+        )
+        XCTAssertEqual(merged.songTitle, "A")
+        XCTAssertEqual(merged.nowPlaying?.timestamp, stamp(startA))
+    }
+
+    /// The history can lag the payloads: a newer song they show the audio
+    /// has reached stays.
+    func test_an_older_history_play_does_not_take_back_a_reached_song() {
+        let merged = StationMetadataMerge.merged(
+            station(song: "B", start: startB, listeners: 10),
+            shown: nowPlaying("B", start: startB),
+            live: liveB, offset: nil,
+            history: nowPlaying("A", start: startA),
+            clock: audio(5)
         )
         XCTAssertEqual(merged.songTitle, "B")
     }

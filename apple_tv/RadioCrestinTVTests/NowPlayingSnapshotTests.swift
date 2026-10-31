@@ -61,7 +61,7 @@ final class NowPlayingSnapshotTests: XCTestCase {
             station: station(), state: .paused("Eldad")
         )
         let failed = NowPlayingSnapshot(
-            station: station(), state: .failed("Nu am putut conecta la flux")
+            station: station(), state: .failed("Nu s-a putut conecta la post")
         )
         XCTAssertEqual(paused?.isPlaying, false)
         XCTAssertEqual(failed?.isPlaying, false)

@@ -64,10 +64,15 @@ enum HlsStartVariant {
     private static let livePlaylist = "index.m3u8"
 
     /// The variant of `url` that starts `mode`'s offset behind live, with
-    /// its query kept; nil for live, another host or another playlist.
-    static func url(for url: URL, mode: SeekMode) -> URL? {
+    /// its query kept; nil for live, a host not in `origin` or another
+    /// playlist. `origin`: the hosts that publish the variants, lowercase.
+    static func url(
+        for url: URL,
+        mode: SeekMode,
+        origin: Set<String> = hosts
+    ) -> URL? {
         guard let playlist = playlist(for: mode),
-              let host = url.host?.lowercased(), hosts.contains(host),
+              let host = url.host?.lowercased(), origin.contains(host),
               url.lastPathComponent == livePlaylist,
               var components = URLComponents(
                   url: url, resolvingAgainstBaseURL: false

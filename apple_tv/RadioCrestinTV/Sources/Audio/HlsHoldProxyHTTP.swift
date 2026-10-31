@@ -90,14 +90,13 @@ extension HlsHoldProxy {
 
         private let connection: NWConnection
         private let queue: DispatchQueue
+        /// How long the client may take to send its request head
+        /// (`Timings.requestHeadTimeout`).
+        private let headTimeoutInterval: TimeInterval
         private var buffer = Data()
         private var headTimeout: DispatchWorkItem?
         private var hasResponded = false
         private var isClosed = false
-
-        /// How long a client may take to send its request head. AVPlayer
-        /// sends it at once; this only frees a connection left idle.
-        private static let headTimeoutInterval: TimeInterval = 10
 
         /// How long the client gets to read a response and close its side
         /// before the proxy cuts the connection.
@@ -106,10 +105,12 @@ extension HlsHoldProxy {
         init(
             connection: NWConnection,
             queue: DispatchQueue,
+            headTimeout: TimeInterval,
             acceptedAtStop: Int
         ) {
             self.connection = connection
             self.queue = queue
+            self.headTimeoutInterval = headTimeout
             self.acceptedAtStop = acceptedAtStop
         }
 
@@ -125,7 +126,7 @@ extension HlsHoldProxy {
             let timeout = DispatchWorkItem { [weak self] in self?.abort() }
             headTimeout = timeout
             queue.asyncAfter(
-                deadline: .now() + Self.headTimeoutInterval, execute: timeout
+                deadline: .now() + headTimeoutInterval, execute: timeout
             )
             receiveHead(onRequest)
         }

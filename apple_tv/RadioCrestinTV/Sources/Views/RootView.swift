@@ -19,6 +19,8 @@ import SwiftUI
 struct RootView: View {
     @StateObject private var appState = AppState()
     @StateObject private var playback = PlaybackCoordinator()
+    /// Kept, not observed: only Now Playing shows the ratings.
+    @State private var songRatings = SongRatings()
 
     @Environment(\.scenePhase) private var scenePhase
 
@@ -51,6 +53,7 @@ struct RootView: View {
                 appState: appState,
                 player: playback.player,
                 playback: playback,
+                songRatings: songRatings,
                 onBack: { isNowPlayingPresented = false }
             )
         }
@@ -90,7 +93,7 @@ struct RootView: View {
             stationTab(.stations, list: .all, title: appState.sortOption.label)
             stationTab(.favorites, list: .favorites, title: "Favorite")
             stationTab(.recents, list: .recents, title: "Recente")
-            SettingsView(appState: appState)
+            SettingsView(seekMode: $appState.seekMode, playback: playback)
                 .tabItem { Label("Setări", systemImage: "gearshape") }
                 .tag(Tab.settings)
         }
@@ -109,7 +112,10 @@ struct RootView: View {
         let stations = appState.displayedStations(in: list)
         return StationGrid(
             title: title,
-            subtitle: Self.stationCount(stations.count),
+            // No "0 posturi" over an empty list: its message says it.
+            subtitle: stations.isEmpty
+                ? nil
+                : Self.stationCount(stations.count),
             stations: stations,
             appState: appState,
             onSelect: { open($0, from: stations, in: tab) },
@@ -164,13 +170,9 @@ struct RootView: View {
         }
     }
 
-    /// "1 post", "12 posturi", "64 de posturi": Romanian puts "de" after
-    /// numbers from 20 up whose last two digits are not 01–19.
+    /// "1 post", "12 posturi", "64 de posturi".
     static func stationCount(_ count: Int) -> String {
-        if count == 1 { return "1 post" }
-        let lastTwo = count % 100
-        let takesDe = count >= 20 && (lastTwo == 0 || lastTwo >= 20)
-        return takesDe ? "\(count) de posturi" : "\(count) posturi"
+        RomanianCount.phrase(count, one: "post", many: "posturi")
     }
 }
 
@@ -216,7 +218,7 @@ private extension RootView.Tab {
     var emptyMessage: String {
         switch self {
         case .stations: return ""
-        case .favorites: return "Adaugă posturi la favorite din Acum Redă"
+        case .favorites: return "Ține apăsat pe un post și alege „Adaugă la favorite”"
         case .recents: return "Posturile redate apar aici"
         case .settings: return ""
         }
@@ -247,6 +249,7 @@ private struct NowPlayingScreen: View {
     @ObservedObject var appState: AppState
     @ObservedObject var player: AudioPlayer
     let playback: PlaybackCoordinator
+    let songRatings: SongRatings
     let onBack: () -> Void
 
     var body: some View {
@@ -255,8 +258,11 @@ private struct NowPlayingScreen: View {
                 NowPlayingView(
                     station: station,
                     isFavorite: appState.isFavorite(station),
+                    heardClock: appState.heardClock,
+                    isAwaitingSong: appState.isAwaitingSong,
                     player: player,
                     songHistory: appState.songHistory,
+                    songRatings: songRatings,
                     onBack: onBack,
                     onToggleFavorite: { appState.toggleFavorite(station) },
                     onPrev: { playback.skip(by: -1) },
@@ -308,12 +314,20 @@ private struct ErrorState: View {
                 .font(.system(size: 32, weight: .semibold))
                 .foregroundStyle(Theme.textPrimary)
             Text(message)
-                .font(.system(size: 22))
-                .foregroundStyle(Theme.textTertiary)
+                .font(.system(size: 24))
+                .foregroundStyle(Theme.textSecondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, Theme.Spacing.xxl)
-            Button("Reîncearcă", action: onRetry)
-                .buttonStyle(.card)
+            Button(action: onRetry) {
+                // Padded like the sheets' "Închide": the `.card` style
+                // adds none, so the bare title touched the platter's edges.
+                Text("Reîncearcă")
+                    .font(.system(size: 26, weight: .semibold))
+                    .padding(.horizontal, Theme.Spacing.xl)
+                    .padding(.vertical, Theme.Spacing.sm)
+            }
+            .buttonStyle(.card)
+            .padding(.top, Theme.Spacing.md)
         }
     }
 }

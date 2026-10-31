@@ -70,6 +70,11 @@ final class HlsHoldProxy: @unchecked Sendable {
 
         /// The longest the origin may pause while it sends a body.
         var bodyIdleTimeout: TimeInterval = 10
+
+        /// The longest a player may take to send its request head over a
+        /// connection it opened. AVPlayer sends it at once; this only frees
+        /// a connection left idle.
+        var requestHeadTimeout: TimeInterval = 10
     }
 
     /// Why a held request ended.
@@ -258,6 +263,7 @@ final class HlsHoldProxy: @unchecked Sendable {
 
     private var currentSession = 0
     private var sessionEstablished = false
+    private var sessionRequested = false
     private var sessionAnswered = false
 
     private var upstream: URLSession?
@@ -341,6 +347,7 @@ final class HlsHoldProxy: @unchecked Sendable {
         onQueue {
             currentSession += 1
             sessionEstablished = false
+            sessionRequested = false
             sessionAnswered = false
             for exchange in Array(exchanges.values)
             where exchange.isHeld && exchange.target.session != currentSession {
@@ -356,6 +363,14 @@ final class HlsHoldProxy: @unchecked Sendable {
     /// proxy's own sake.
     func originAnswered(session: Int) -> Bool {
         onQueue { session == currentSession && sessionAnswered }
+    }
+
+    /// Whether a request of `session`, the current one, went upstream to
+    /// the origin. A load through the proxy that is still waiting without
+    /// that never got past the proxy: the proxy holds it up, not the
+    /// origin.
+    func originRequested(session: Int) -> Bool {
+        onQueue { session == currentSession && sessionRequested }
     }
 
     /// The proxy's URL for `upstream` in `session`; nil when the proxy does
@@ -460,6 +475,10 @@ final class HlsHoldProxy: @unchecked Sendable {
         if session == currentSession { sessionEstablished = true }
     }
 
+    func markRequested(session: Int) {
+        if session == currentSession { sessionRequested = true }
+    }
+
     func markAnswered(session: Int) {
         if session == currentSession { sessionAnswered = true }
     }
@@ -501,7 +520,10 @@ final class HlsHoldProxy: @unchecked Sendable {
 
     private func accept(_ connection: NWConnection) {
         let client = ClientConnection(
-            connection: connection, queue: queue, acceptedAtStop: stops
+            connection: connection,
+            queue: queue,
+            headTimeout: timings.requestHeadTimeout,
+            acceptedAtStop: stops
         )
         client.start { [weak self, weak client] head in
             guard let self, let client else { return }

@@ -227,6 +227,66 @@ final class LiveStreamSupervisorTests: XCTestCase {
         _ = self.attempt(loadedBy: supervisor.tick(at: 23), stream: 1)
     }
 
+    // MARK: - Loading an attempt another way
+
+    /// The engine looks before the timeout abandons an attempt, so that a
+    /// load the hold proxy held up can go direct instead.
+    func test_it_tells_when_an_attempt_missed_its_connect_timeout() {
+        var supervisor = Supervisor()
+        let attempt = start(&supervisor)
+        XCTAssertFalse(supervisor.hasMissedConnectTimeout(attempt, at: 9.9))
+        XCTAssertTrue(supervisor.hasMissedConnectTimeout(attempt, at: 10))
+        XCTAssertFalse(
+            supervisor.hasMissedConnectTimeout(attempt + 1, at: 10),
+            "another attempt"
+        )
+
+        _ = supervisor.record(playing(0), attempt: attempt, at: 1)
+        _ = supervisor.record(playing(1), attempt: attempt, at: 2)
+
+        XCTAssertFalse(
+            supervisor.hasMissedConnectTimeout(attempt, at: 30), "it started"
+        )
+    }
+
+    func test_an_attempt_restarted_gets_a_full_connect_timeout_and_counts_no_failure() {
+        var supervisor = Supervisor()
+        let attempt = start(&supervisor)
+        _ = supervisor.record(playing(5), attempt: attempt, at: 1)
+        XCTAssertEqual(supervisor.display, .playing)
+
+        supervisor.restartAttempt(attempt, at: 10)
+
+        XCTAssertEqual(supervisor.currentAttempt, attempt, "the same attempt")
+        XCTAssertEqual(supervisor.display, .connecting)
+        XCTAssertNil(supervisor.lastGiveUpReason)
+        XCTAssertFalse(supervisor.hasMissedConnectTimeout(attempt, at: 19.9))
+        XCTAssertEqual(supervisor.tick(at: 19.9), .none)
+        XCTAssertEqual(
+            supervisor.record(buffering(), attempt: attempt, at: 19.9), .none
+        )
+        // Not started by 20: the next stream, in the same round.
+        _ = self.attempt(
+            loadedBy: supervisor.record(buffering(), attempt: attempt, at: 20),
+            stream: 1
+        )
+        XCTAssertEqual(supervisor.lastGiveUpReason, .noStart)
+    }
+
+    func test_restarting_another_attempt_changes_nothing() {
+        var supervisor = Supervisor()
+        let first = start(&supervisor)
+        let second = attempt(
+            loadedBy: supervisor.attemptFailed(first, at: 1), stream: 1
+        )
+
+        supervisor.restartAttempt(first, at: 5)
+
+        XCTAssertEqual(supervisor.currentAttempt, second)
+        _ = supervisor.record(buffering(), attempt: second, at: 10.9)
+        XCTAssertTrue(supervisor.hasMissedConnectTimeout(second, at: 11))
+    }
+
     // MARK: - Stall
 
     func test_a_started_stream_that_stands_still_for_10s_moves_on() {
@@ -553,10 +613,8 @@ final class LiveStreamSupervisorTests: XCTestCase {
     /// only lag beyond that offset tells a stale playlist.
     func test_a_join_behind_live_by_its_start_offset_is_kept() {
         var supervisor = Supervisor()
-        let hls = attempt(
-            loadedBy: supervisor.start(streamCount: 2, joinOffset: 120, at: 0),
-            stream: 0
-        )
+        let hls = start(&supervisor)
+        supervisor.setJoinOffset(120, attempt: hls)
         for time in stride(from: 1.0, through: 40, by: 1) {
             XCTAssertEqual(
                 supervisor.record(
@@ -571,16 +629,50 @@ final class LiveStreamSupervisorTests: XCTestCase {
 
     func test_a_join_far_behind_its_start_offset_is_stale() {
         var supervisor = Supervisor()
-        let hls = attempt(
-            loadedBy: supervisor.start(streamCount: 2, joinOffset: 120, at: 0),
-            stream: 0
-        )
+        let hls = start(&supervisor)
+        supervisor.setJoinOffset(120, attempt: hls)
 
         let next = supervisor.record(
             sample(.playing, playhead: 0, liveLag: 185), attempt: hls, at: 1
         )
 
         _ = attempt(loadedBy: next, stream: 1)
+        XCTAssertEqual(supervisor.lastGiveUpReason, .stale)
+    }
+
+    /// Review: a stream whose start variant is missing loads its own
+    /// playlist in the same attempt and joins live, while the listener
+    /// chose 2 minutes. Allowing it the 2 minutes too replayed up to that
+    /// much old audio of a stopped source before it counted as stale.
+    func test_a_live_join_after_a_start_offset_is_judged_as_live() {
+        var supervisor = Supervisor()
+        let hls = start(&supervisor)
+        supervisor.setJoinOffset(120, attempt: hls)
+
+        supervisor.setJoinOffset(0, attempt: hls)
+        let next = supervisor.record(
+            sample(.playing, playhead: 0, liveLag: 75), attempt: hls, at: 1
+        )
+
+        _ = attempt(loadedBy: next, stream: 1)
+        XCTAssertEqual(supervisor.lastGiveUpReason, .stale)
+    }
+
+    func test_each_attempt_joins_live_unless_told_its_offset() {
+        var supervisor = Supervisor()
+        let variant = start(&supervisor)
+        supervisor.setJoinOffset(300, attempt: variant)
+        let other = attempt(
+            loadedBy: supervisor.attemptFailed(variant, at: 1), stream: 1
+        )
+        // Late, for the attempt it replaced: ignored.
+        supervisor.setJoinOffset(300, attempt: variant)
+
+        let next = supervisor.record(
+            sample(.playing, playhead: 0, liveLag: 75), attempt: other, at: 2
+        )
+
+        XCTAssertEqual(next, .waitForRetry(delay: 2, report: true))
         XCTAssertEqual(supervisor.lastGiveUpReason, .stale)
     }
 

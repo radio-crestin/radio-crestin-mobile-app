@@ -10,7 +10,7 @@ enum Analytics {
     private static let host = "https://k.radiocrestin.ro"
 
     static func bootstrap() {
-        let config = PostHogConfig(apiKey: projectKey, host: host)
+        let config = PostHogConfig(projectToken: projectKey, host: host)
         config.captureApplicationLifecycleEvents = true
         config.captureScreenViews = false   // we'll capture our own screen events
         config.flushAt = 20
@@ -51,13 +51,30 @@ enum Analytics {
         context: String,
         extra: [String: Any] = [:]
     ) {
+        capture(
+            "exception_caught",
+            properties: errorProperties(error, context: context, extra: extra)
+        )
+    }
+
+    /// The properties of an `exception_caught` event. The description is
+    /// in the Apple TV's language, so the error's domain and code come
+    /// along: dashboards group by them whatever the language.
+    static func errorProperties(
+        _ error: Error,
+        context: String,
+        extra: [String: Any] = [:]
+    ) -> [String: Any] {
+        let nsError = error as NSError
         var props: [String: Any] = [
             "context": context,
             "error_description": error.localizedDescription,
-            "error_type": String(describing: type(of: error))
+            "error_type": String(describing: type(of: error)),
+            "error_domain": nsError.domain,
+            "error_code": nsError.code
         ]
         props.merge(extra) { current, _ in current }
-        capture("exception_caught", properties: props)
+        return props
     }
 
     // MARK: - Domain events

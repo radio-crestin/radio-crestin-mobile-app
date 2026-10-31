@@ -20,13 +20,14 @@ import UIKit
 ///
 /// While the app is frontmost, the press is a `UIPress` that travels the
 /// responder chain of the focused view: SwiftUI's `onPlayPauseCommand`
-/// on the tabs and on Now Playing handles it there. tvOS turns a press
-/// into a remote command (`togglePlayPauseCommand`) for the Now Playing
-/// app when the app is in the background — and may forward a frontmost
-/// press the app left unhandled. To make one press toggle exactly once,
-/// a `togglePlayPause` remote command is ignored while the app is
-/// active; the explicit play / pause commands (Control Center, Siri,
-/// another device) are idempotent and always honoured.
+/// on the tabs, on Now Playing and on the sheets Settings opens handles
+/// it there. tvOS turns a press into a remote command
+/// (`togglePlayPauseCommand`) for the Now Playing app when the app is in
+/// the background — and may forward a frontmost press the app left
+/// unhandled. To make one press toggle exactly once, a `togglePlayPause`
+/// remote command is ignored while the app is active; the explicit play /
+/// pause commands (Control Center, Siri, another device) are idempotent
+/// and always honoured.
 @MainActor
 final class PlaybackCoordinator: ObservableObject {
     /// The app's one audio engine.
@@ -37,15 +38,8 @@ final class PlaybackCoordinator: ObservableObject {
     private var stationChange: AnyCancellable?
     private var stationUpdate: AnyCancellable?
     private var seekModeChange: AnyCancellable?
-    private var tuneInRefresh: Task<Void, Never>?
-
-    /// Delay of the extra metadata poll after tuning in. The refresh run
-    /// on selection is at wall clock (the live song). About 5 s in, HLS
-    /// has buffered its first 6 s segment and AVPlayer exposes
-    /// `currentDate()` from EXT-X-PROGRAM-DATE-TIME, so this poll fetches
-    /// the song the listener actually hears instead of leaving the live
-    /// one up until the next DATERANGE or the 60 s tick.
-    private static let tuneInRefreshDelay: UInt64 = 5 * 1_000_000_000
+    private var pauseChange: AnyCancellable?
+    private var retryChange: AnyCancellable?
 
     /// Wires everything once; later calls do nothing.
     func start(appState: AppState) {
@@ -58,7 +52,7 @@ final class PlaybackCoordinator: ObservableObject {
         stationChange = appState.$currentStation
             .compactMap { $0 }
             .removeDuplicates { $0.id == $1.id }
-            .sink { [weak self] station in self?.tuneIn(to: station) }
+            .sink { [weak self] station in self?.player.play(station) }
         // New stream URLs for the same station reach the engine for its
         // next retry round.
         stationUpdate = appState.$currentStation
@@ -70,24 +64,49 @@ final class PlaybackCoordinator: ObservableObject {
                 self?.player.stationDidUpdate(station)
             }
         // The first value only sets the engine's mode: nothing plays yet.
-        // A change re-tunes the station, so the song is fetched again for
-        // the audio's new position.
+        // A change re-tunes the station, and the song is fetched again for
+        // the audio's new position once it plays.
         seekModeChange = appState.$seekMode
             .removeDuplicates()
-            .sink { [weak self, weak appState] mode in
-                guard let self else { return }
-                let wasPlaying = self.player.wantsToPlay
-                self.player.setSeekMode(mode)
-                guard wasPlaying, let appState else { return }
-                self.refreshAfterTuneIn(appState)
+            .sink { [weak self] mode in self?.player.setSeekMode(mode) }
+        // The engine publishes often during on-demand playback; the grids
+        // only need to know whether the current station is paused.
+        pauseChange = player.$state
+            .map { state in
+                if case .paused = state { return true }
+                return false
             }
+            .removeDuplicates()
+            .sink { [weak appState] paused in
+                appState?.isPlaybackPaused = paused
+            }
+        // A tune-in that falls into a retry, or fails, before its song
+        // came names the station from then on.
+        retryChange = player.$isRetrying
+            .combineLatest(player.$state)
+            .filter { retrying, state in
+                if case .failed = state { return true }
+                return retrying
+            }
+            .sink { [weak appState] _ in appState?.endAwaitingSong() }
         nowPlaying.start(appState: appState, player: player, handler: self)
     }
 
-    /// The Siri Remote Play/Pause press handled in the app (station grids
-    /// and the audio Now Playing screen): toggles the current station.
+    /// The Siri Remote Play/Pause press handled in the app (the tabs, the
+    /// audio Now Playing screen and the sheets Settings opens): toggles
+    /// the current station.
+    ///
+    /// After a relaunch no station is current: the press plays the one
+    /// played last, as Apple Music resumes its last item, without opening
+    /// Now Playing over the grid the listener is on.
     func togglePlayback() {
-        guard let station = appState?.currentStation else { return }
+        guard let appState else { return }
+        guard let station = appState.currentStation else {
+            if let last = lastPlayedStation(in: appState) {
+                appState.selectStation(last)
+            }
+            return
+        }
         if case .idle = player.state {
             player.play(station)
         } else {
@@ -118,35 +137,44 @@ final class PlaybackCoordinator: ObservableObject {
         appState.hlsPlaybackTimestampProvider = { [weak player] in
             player?.hlsPlaybackTimestamp
         }
-        appState.hlsPlaybackDateProvider = { [weak player] in
-            player?.hlsPlaybackDate
+        appState.hlsHeardDateProvider = { [weak player] in
+            player?.hlsHeardDate
+        }
+        appState.followsHlsAudioProvider = { [weak player] in
+            player?.followsHlsAudio ?? false
         }
         appState.isPlayingHlsProvider = { [weak player] in
             player?.isPlayingHls ?? false
         }
-        // Additive over the periodic poll: when the audio reaches a song
-        // change the HLS playlist announced, fetch the new song at once.
-        player.onAudioReachedSongChange = { [weak appState] in
+        appState.isPlayingProvider = { [weak player] in
+            player?.isPlaying ?? false
+        }
+        appState.directStreamPausedAtProvider = { [weak player] in
+            player?.directStreamPausedAt
+        }
+        appState.audioStoppedAtProvider = { [weak player] in
+            player?.stoppedAt
+        }
+        // Additive over the periodic poll, which follows the live song:
+        // the song the listener hears is fetched for the audio's position
+        // as soon as it is known, when a live item starts playing (a
+        // tune-in, a resume, a recovery, the fallback to another stream),
+        // and again whenever the audio reaches a song change the HLS
+        // playlist announced.
+        let refresh: () -> Void = { [weak appState] in
             Task { @MainActor in
                 await appState?.refreshMetadataNow()
             }
         }
+        player.onLiveAudioStarted = refresh
+        player.onAudioReachedSongChange = refresh
     }
 
-    private func tuneIn(to station: Station) {
-        player.play(station)
-        guard let appState else { return }
-        refreshAfterTuneIn(appState)
-    }
-
-    /// The extra metadata poll once the new audio has started.
-    private func refreshAfterTuneIn(_ appState: AppState) {
-        tuneInRefresh?.cancel()
-        tuneInRefresh = Task { [weak appState] in
-            try? await Task.sleep(nanoseconds: Self.tuneInRefreshDelay)
-            guard !Task.isCancelled else { return }
-            await appState?.refreshMetadataNow()
-        }
+    /// The station played last (`AppState.recentSlugs`), while the catalog
+    /// still lists it.
+    private func lastPlayedStation(in appState: AppState) -> Station? {
+        guard let slug = appState.recentSlugs.first else { return nil }
+        return appState.stations.first { $0.slug == slug }
     }
 
     /// Plays the current station unless it is already playing or tuning

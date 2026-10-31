@@ -15,18 +15,12 @@ import AVFoundation
 /// is no asset to ship, and the output runs for as long as the engine does.
 @MainActor
 final class BackgroundAudioKeeper {
-    private let engine = AVAudioEngine()
-    private let source = AVAudioPlayerNode()
-    private var silence: AVAudioPCMBuffer?
+    /// Built on the first start, not with the keeper: creating the engine
+    /// and its player node looks up the system's audio components, 15 to
+    /// 23 ms on the main thread, and the keeper is created inside the
+    /// app's first frame. Most sessions never start it.
+    private var output: SilentOutput?
     private var hasReportedFailure = false
-
-    /// Sample rate of the silent buffer; the mixer converts it to the
-    /// output's, so any common rate does.
-    private static let sampleRate: Double = 44_100
-
-    /// Length of the silent buffer. It loops, so its length only sets how
-    /// much memory it takes: a tenth of a second is 17 KB.
-    private static let bufferDuration: Double = 0.1
 
     /// Starts or stops the silence. Repeating a call does nothing, except
     /// that a wanted engine the system stopped (an output change, an
@@ -34,21 +28,24 @@ final class BackgroundAudioKeeper {
     func setRunning(_ running: Bool) {
         if running {
             start()
-        } else if engine.isRunning {
-            source.stop()
-            engine.stop()
+        } else if let output, output.engine.isRunning {
+            output.source.stop()
+            output.engine.stop()
         }
     }
 
     private func start() {
-        guard !engine.isRunning else { return }
         do {
-            let buffer = try silentBuffer()
-            try engine.start()
+            let output = try self.output ?? SilentOutput()
+            self.output = output
+            guard !output.engine.isRunning else { return }
+            try output.engine.start()
             // Clears a loop the system's stop left scheduled.
-            source.stop()
-            source.scheduleBuffer(buffer, at: nil, options: .loops)
-            source.play()
+            output.source.stop()
+            output.source.scheduleBuffer(
+                output.silence, at: nil, options: .loops
+            )
+            output.source.play()
         } catch {
             // The next look of the engine tries again; one report says
             // the keeper cannot run on this device.
@@ -58,24 +55,40 @@ final class BackgroundAudioKeeper {
         }
     }
 
-    /// The looped buffer, with the source wired to the mixer on first use.
-    private func silentBuffer() throws -> AVAudioPCMBuffer {
-        if let silence { return silence }
-        let frames = AVAudioFrameCount(Self.sampleRate * Self.bufferDuration)
-        guard let format = AVAudioFormat(
-                  standardFormatWithSampleRate: Self.sampleRate, channels: 1
-              ),
-              let buffer = AVAudioPCMBuffer(
-                  pcmFormat: format, frameCapacity: frames
-              ),
-              let samples = buffer.floatChannelData?[0]
-        else { throw KeeperError.noBuffer }
-        buffer.frameLength = frames
-        samples.update(repeating: 0, count: Int(frames))
-        engine.attach(source)
-        engine.connect(source, to: engine.mainMixerNode, format: format)
-        silence = buffer
-        return buffer
+    /// The engine, with a player node wired to its mixer, and the looped
+    /// buffer of silence the node plays.
+    private struct SilentOutput {
+        let engine = AVAudioEngine()
+        let source = AVAudioPlayerNode()
+        let silence: AVAudioPCMBuffer
+
+        /// Sample rate of the silent buffer; the mixer converts it to the
+        /// output's, so any common rate does.
+        private static let sampleRate: Double = 44_100
+
+        /// Length of the silent buffer. It loops, so its length only sets
+        /// how much memory it takes: a tenth of a second is 17 KB.
+        private static let bufferDuration: Double = 0.1
+
+        init() throws {
+            let frames = AVAudioFrameCount(
+                Self.sampleRate * Self.bufferDuration
+            )
+            guard let format = AVAudioFormat(
+                      standardFormatWithSampleRate: Self.sampleRate,
+                      channels: 1
+                  ),
+                  let buffer = AVAudioPCMBuffer(
+                      pcmFormat: format, frameCapacity: frames
+                  ),
+                  let samples = buffer.floatChannelData?[0]
+            else { throw KeeperError.noBuffer }
+            buffer.frameLength = frames
+            samples.update(repeating: 0, count: Int(frames))
+            engine.attach(source)
+            engine.connect(source, to: engine.mainMixerNode, format: format)
+            silence = buffer
+        }
     }
 
     private enum KeeperError: LocalizedError {

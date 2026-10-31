@@ -7,17 +7,21 @@ import SwiftUI
 struct NowPlayingView: View {
     let station: Station
     let isFavorite: Bool
+    /// Where the listener is on the station's broadcast timeline: where
+    /// its song clock puts the audio (`AppState.heardClock`).
+    let heardClock: HeardClock
+    /// The station's song is on its way (`AppState.isAwaitingSong`).
+    let isAwaitingSong: Bool
     @ObservedObject var player: AudioPlayer
     @ObservedObject var songHistory: SongHistoryStore
+    /// The listener's likes and dislikes, kept per song across launches.
+    @ObservedObject var songRatings: SongRatings
 
     let onBack: () -> Void
     let onToggleFavorite: () -> Void
     let onPrev: () -> Void
     let onNext: () -> Void
 
-    @State private var liked = false
-    @State private var disliked = false
-    @State private var lastTrackedSongId: String?
     @State private var isSharing = false
     @State private var focusedAction: String?
 
@@ -43,6 +47,10 @@ struct NowPlayingView: View {
     /// Drives the live playlist sync: poll only while this screen is
     /// visible AND the scene is active.
     @Environment(\.scenePhase) private var scenePhase
+
+    /// Sizes the backdrop's picture as the artwork's (see
+    /// `backgroundArtwork`).
+    @Environment(\.displayScale) private var displayScale
 
     var body: some View {
         ZStack {
@@ -81,15 +89,6 @@ struct NowPlayingView: View {
         }
         .onExitCommand {
             if isSharing { closeShareSheet() } else { onBack() }
-        }
-        .onChange(of: station.songTitle) { _, _ in
-            // Reset like/dislike on song change — they're per-song.
-            let key = "\(station.slug):\(station.songTitle)"
-            if key != lastTrackedSongId {
-                liked = false
-                disliked = false
-                lastTrackedSongId = key
-            }
         }
         // Live playlist sync lifecycle: poll every 5s while this screen
         // shows a playlist station and the scene is active; stop on
@@ -136,6 +135,15 @@ struct NowPlayingView: View {
                 artwork
                 metadataAndControls
             }
+            // Full-width focus sections, here and around the top bar: the
+            // focus engine only moves to what lies in the direction
+            // pressed, and the back button in the corner is above none of
+            // the controls, so Up never reached it. Down from it comes
+            // back to play/pause, where the screen opens, rather than to
+            // the leftmost control under the corner.
+            .frame(maxWidth: .infinity)
+            .focusSection()
+            .defaultFocus($controlFocus, .play, priority: .userInitiated)
             .padding(.horizontal, Theme.Spacing.xxl)
             .padding(.bottom, Theme.Spacing.xxl)
             .padding(.top, 100)   // leave room for the back button row
@@ -150,9 +158,13 @@ struct NowPlayingView: View {
                     Spacer()
                     BrandMark()
                 }
+                .focusSection()
                 Spacer()
             }
             .padding(Theme.Spacing.lg)
+            // The share sheet keeps focus: Up from its button would
+            // otherwise land on the back button behind it.
+            .disabled(isSharing)
 
             if isSharing, let url = shareURL {
                 ShareSheet(
@@ -245,9 +257,7 @@ struct NowPlayingView: View {
             .animation(.spring(response: 0.28, dampingFraction: 0.72),
                        value: backButtonFocused)
         }
-        .buttonStyle(.plain)
-        // Autofocus is set declaratively via `.defaultFocus` on the body
-        // so the back affordance reliably owns focus on entry.
+        .buttonStyle(OwnFocusButtonStyle())
         .focused($backButtonFocused)
     }
 
@@ -292,27 +302,30 @@ struct NowPlayingView: View {
         .shadow(color: .black.opacity(0.6), radius: 32, x: 0, y: 12)
     }
 
+    /// The artwork's picture, the song cover or else the logo, blurred
+    /// behind the screen as on Android TV. It asks for the artwork's own
+    /// URLs, so the picture comes from memory instead of a second download
+    /// and decoding at another size.
     private var backgroundArtwork: some View {
-        Group {
-            if let urlString = station.thumbnailUrl,
-               let url = URL(string: urlString) {
-                AsyncImage(url: url) { phase in
-                    if let image = phase.image {
-                        AspectFillImage(image: image)
-                    } else {
-                        Theme.background
-                    }
-                }
-            } else {
-                Theme.background
+        Theme.background
+            .overlay {
+                ArtworkImage(
+                    urls: StationArtwork.urls(
+                        for: station,
+                        width: Self.artworkSide,
+                        scale: displayScale
+                    )
+                )
             }
-        }
-        // Opaque because the picture is now cropped to the screen: a
-        // regular blur would fade every cropped edge into the dark
-        // background, ringing the backdrop with a vignette whose sides
-        // depend on the logo's proportions.
-        .blur(radius: 60, opaque: true)
-        .overlay(Color.black.opacity(0.65))
+            // Opaque because the picture is now cropped to the screen: a
+            // regular blur would fade every cropped edge into the dark
+            // background, ringing the backdrop with a vignette whose sides
+            // depend on the logo's proportions.
+            .blur(radius: 60, opaque: true)
+            // 0.65 left a white logo's backdrop at #595959, where the small
+            // captions measured 3.3:1; 0.78 keeps it near #383838.
+            .overlay(Color.black.opacity(0.78))
+            .accessibilityHidden(true)
     }
 
     // MARK: - Right column
@@ -328,21 +341,47 @@ struct NowPlayingView: View {
 
     private var radioMetadataAndControls: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
-            stationLine
-            VStack(alignment: .leading, spacing: 8) {
-                Text(displaySongTitle)
-                    .font(.system(size: 56, weight: .heavy))
-                    .foregroundStyle(Theme.textPrimary)
-                    .lineLimit(2)
-                if !station.songArtist.isEmpty {
-                    Text(station.songArtist)
-                        .font(.system(size: 28))
-                        .foregroundStyle(Theme.textSecondary)
-                }
+            // Room for the tallest song, two title lines and an artist,
+            // with the song at its top: the station line and the title's
+            // first line stay where they are whatever comes next, one
+            // title line or two, an artist or none, the station's name
+            // until its song arrives, and the controls under the room keep
+            // their place. With the song at the bottom of the room, the
+            // station line and the title jumped by up to 108 pt at such
+            // changes, as when a tune-in showed the station's name and its
+            // song a moment later.
+            ZStack(alignment: .topLeading) {
+                stationAndSong(title: "\n", artist: " ", namesStation: true)
+                    .hidden()
+                    .accessibilityHidden(true)
+                stationAndSong(
+                    title: displaySongTitle,
+                    artist: station.songArtist,
+                    namesStation: hasSong || isAwaitingSong
+                )
+                // Added to the last block rather than laid over it while
+                // the two cross (see `compositingGroup` below): what both
+                // show, as the station line between two songs of a
+                // station, stays as it is through the fade. Two layers at
+                // half opacity dimmed it by a quarter halfway, a blink.
+                .blendMode(.plusLighter)
+                // Another song or station fades in over the last as a
+                // whole and in place, as the artwork beside it does. One
+                // faded out before the next faded in blinked (60 fps
+                // recordings, 2026-10-31).
+                .id(shownSong)
+                .transition(.opacity)
             }
+            // The blocks add up among themselves, then show over the
+            // backdrop as usual: added to the backdrop, the grey text
+            // would have turned lighter.
+            .compositingGroup()
+            // The app's content-change fade.
+            .animation(.easeInOut(duration: 0.25), value: shownSong)
 
+            // 32 pt under the room, which only the longest songs fill.
             controls
-                .padding(.top, Theme.Spacing.md)
+                .padding(.top, Theme.Spacing.sm)
 
             statusLine
 
@@ -351,6 +390,32 @@ struct NowPlayingView: View {
         // Cap the column so giant station logos / song titles don't push
         // the controls off screen.
         .frame(maxWidth: 900, alignment: .leading)
+    }
+
+    /// The station line over the song title (two lines at most) and its
+    /// artist.
+    private func stationAndSong(
+        title: String,
+        artist: String,
+        namesStation: Bool
+    ) -> some View {
+        // The station line close over the title, one heading: 24 pt
+        // apart, the two read as separate blocks.
+        VStack(alignment: .leading, spacing: 12) {
+            stationLine(namesStation: namesStation)
+            VStack(alignment: .leading, spacing: 8) {
+                Text(title)
+                    .font(.system(size: 56, weight: .heavy))
+                    .foregroundStyle(Theme.textPrimary)
+                    .lineLimit(2)
+                if !artist.isEmpty {
+                    Text(artist)
+                        .font(.system(size: 28))
+                        .foregroundStyle(Theme.textSecondary)
+                        .lineLimit(1)
+                }
+            }
+        }
     }
 
     // MARK: - Playlist audio column
@@ -399,14 +464,14 @@ struct NowPlayingView: View {
                 CircleControl(
                     icon: "gobackward.10",
                     label: "Înapoi 10s",
-                    onFocusChange: setFocusedAction
+                    onFocusChange: controlFocusChanged
                 ) { player.seek(by: -10) }
             }
             labeled("Anterior") {
                 CircleControl(
                     icon: "backward.fill",
                     label: "Anterior",
-                    onFocusChange: setFocusedAction
+                    onFocusChange: controlFocusChanged
                 ) { player.previousItem() }
             }
             labeled(playPauseLabel) {
@@ -415,7 +480,7 @@ struct NowPlayingView: View {
                     isPrimary: true,
                     systemPause: player.wantsToPlay,
                     label: playPauseLabel,
-                    onFocusChange: setFocusedAction
+                    onFocusChange: controlFocusChanged
                 ) { player.togglePlayPause() }
                 .prefersDefaultFocus(true, in: focusScope)
                 .focused($controlFocus, equals: .play)
@@ -424,14 +489,14 @@ struct NowPlayingView: View {
                 CircleControl(
                     icon: "forward.fill",
                     label: "Următor",
-                    onFocusChange: setFocusedAction
+                    onFocusChange: controlFocusChanged
                 ) { player.nextItem() }
             }
             labeled("Înainte 10s") {
                 CircleControl(
                     icon: "goforward.10",
                     label: "Înainte 10s",
-                    onFocusChange: setFocusedAction
+                    onFocusChange: controlFocusChanged
                 ) { player.seek(by: 10) }
             }
             labeled(isFavorite ? "Elimină din favorite" : "Adaugă la favorite") {
@@ -439,34 +504,78 @@ struct NowPlayingView: View {
                     icon: isFavorite ? "heart.fill" : "heart",
                     tint: isFavorite ? Theme.primary : Theme.textPrimary,
                     label: isFavorite ? "Elimină din favorite" : "Adaugă la favorite",
-                    onFocusChange: setFocusedAction
+                    onFocusChange: controlFocusChanged
                 ) { onToggleFavorite() }
             }
         }
     }
 
-    private var stationLine: some View {
+    /// The station's name, listeners and rating. Without a song the title
+    /// under the line is the station's name, so the line leaves it out
+    /// rather than say it twice (`namesStation`); its height stays, so the
+    /// title does not move when a song arrives.
+    private func stationLine(namesStation: Bool) -> some View {
+        ZStack(alignment: .leading) {
+            // The height of the listener count, the line's tallest text,
+            // also when the line holds nothing: a station without
+            // listeners or reviews shows none before its song.
+            Text(" ")
+                .font(.system(size: 21))
+                .hidden()
+                .accessibilityHidden(true)
+            stationLineItems(namesStation: namesStation)
+                // One line at its natural width, far narrower than the
+                // column. Laid out in the song block's reserved space, the
+                // line could be offered a few points less and wrap the
+                // review count ("(1" over ")"). Fixed on the items, not
+                // around the stack: there the items were handed the line's
+                // width to share out, and Radio Gosen's "(244)" shrank to
+                // "(…".
+                .fixedSize(horizontal: true, vertical: false)
+        }
+    }
+
+    private func stationLineItems(namesStation: Bool) -> some View {
         HStack(spacing: Theme.Spacing.md) {
-            Text(station.title.uppercased())
-                .font(.system(size: 20, weight: .bold))
-                .tracking(2)
-                .foregroundStyle(Theme.textSecondary)
+            if namesStation {
+                Text(station.title.uppercased())
+                    .font(.system(size: 20, weight: .bold))
+                    .tracking(2)
+                    .foregroundStyle(Theme.textSecondary)
+            }
             if let listeners = station.totalListeners, listeners > 0 {
                 HStack(spacing: 6) {
                     Image(systemName: "headphones")
+                    // A new count rolls in place, as the rest of the screen
+                    // eases its changes. With proportional digits 74 to 73
+                    // was narrower, and the stars after it moved.
                     Text("\(listeners)")
+                        .monospacedDigit()
+                        .contentTransition(.numericText(value: Double(listeners)))
                 }
-                .font(.system(size: 18))
-                .foregroundStyle(Theme.textTertiary)
+                .font(.system(size: 21))
+                .foregroundStyle(Theme.textSecondary)
+                // One element: the icon alone read as "Audiobook".
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(
+                    RomanianCount.phrase(
+                        listeners, one: "ascultător", many: "ascultători"
+                    )
+                )
             }
             if station.averageRating > 0 {
                 RatingStars(
                     rating: station.averageRating,
                     count: station.reviewCount,
-                    size: 16
+                    size: 21
                 )
             }
         }
+        // Over the whole line: a count that gains or loses a digit (99 to
+        // 100) moves the stars, which then slide as it rolls. Eased with
+        // the count only, they jumped in one frame, and 100 to 99 drew its
+        // last 0 against the first star.
+        .animation(.easeInOut(duration: 0.25), value: station.totalListeners)
     }
 
     /// Fixed-height status line that surfaces the connection spinner (or
@@ -494,6 +603,7 @@ struct NowPlayingView: View {
                 // transitions to .connecting / .failed don't push the
                 // recent-songs list down.
                 Text(" ")
+                    .accessibilityHidden(true)
             }
         }
         .font(.system(size: 22, weight: .medium))
@@ -503,8 +613,19 @@ struct NowPlayingView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    private var hasSong: Bool { !station.songTitle.isEmpty }
+
+    /// The song title; without a song the station's name, or nothing while
+    /// the song is on its way, the station named in its line: the song
+    /// then only fades in.
     private var displaySongTitle: String {
-        station.songTitle.isEmpty ? station.title : station.songTitle
+        if hasSong { return station.songTitle }
+        return isAwaitingSong ? "" : station.title
+    }
+
+    /// What the song block shows, to fade from one to the next.
+    private var shownSong: [String] {
+        [station.slug, displaySongTitle, station.songArtist]
     }
 
     /// "Pauză" while the listener wants audio, connecting included, so the
@@ -516,25 +637,29 @@ struct NowPlayingView: View {
     // MARK: - Controls
 
     private var controls: some View {
+        // The shown song's like or dislike, as saved for it.
+        let rating = songRatings.rating(of: station)
+        let liked = rating == .liked
+        let disliked = rating == .disliked
         // Tighter spacing between the controls so the row reads as a
         // single playback cluster rather than seven isolated buttons.
-        HStack(alignment: .top, spacing: Theme.Spacing.sm) {
+        return HStack(alignment: .top, spacing: Theme.Spacing.sm) {
             labeled("Apreciază") {
                 CircleControl(
                     icon: liked ? "hand.thumbsup.fill" : "hand.thumbsup",
                     tint: liked ? Theme.primary : Theme.textPrimary,
+                    isSelected: liked,
                     label: "Apreciază",
-                    onFocusChange: setFocusedAction
+                    onFocusChange: controlFocusChanged
                 ) {
-                    liked.toggle()
-                    if liked { disliked = false }
+                    songRatings.press(.liked, for: station)
                 }
             }
             labeled("Postul anterior") {
                 CircleControl(
                     icon: "backward.fill",
                     label: "Postul anterior",
-                    onFocusChange: setFocusedAction,
+                    onFocusChange: controlFocusChanged,
                     action: onPrev
                 )
             }
@@ -544,7 +669,7 @@ struct NowPlayingView: View {
                     isPrimary: true,
                     systemPause: player.wantsToPlay,
                     label: playPauseLabel,
-                    onFocusChange: setFocusedAction
+                    onFocusChange: controlFocusChanged
                 ) {
                     player.togglePlayPause()
                 }
@@ -555,7 +680,7 @@ struct NowPlayingView: View {
                 CircleControl(
                     icon: "forward.fill",
                     label: "Postul următor",
-                    onFocusChange: setFocusedAction,
+                    onFocusChange: controlFocusChanged,
                     action: onNext
                 )
             }
@@ -563,11 +688,11 @@ struct NowPlayingView: View {
                 CircleControl(
                     icon: disliked ? "hand.thumbsdown.fill" : "hand.thumbsdown",
                     tint: disliked ? Theme.primary : Theme.textPrimary,
+                    isSelected: disliked,
                     label: "Nu îmi place",
-                    onFocusChange: setFocusedAction
+                    onFocusChange: controlFocusChanged
                 ) {
-                    disliked.toggle()
-                    if disliked { liked = false }
+                    songRatings.press(.disliked, for: station)
                 }
             }
             labeled(isFavorite ? "Elimină din favorite" : "Adaugă la favorite") {
@@ -575,7 +700,7 @@ struct NowPlayingView: View {
                     icon: isFavorite ? "heart.fill" : "heart",
                     tint: isFavorite ? Theme.primary : Theme.textPrimary,
                     label: isFavorite ? "Elimină din favorite" : "Adaugă la favorite",
-                    onFocusChange: setFocusedAction
+                    onFocusChange: controlFocusChanged
                 ) {
                     onToggleFavorite()
                 }
@@ -607,6 +732,8 @@ struct NowPlayingView: View {
                 .foregroundStyle(Theme.textPrimary)
                 .lineLimit(1)
                 .fixedSize(horizontal: true, vertical: false)
+                // The control above carries this name for VoiceOver.
+                .accessibilityHidden(true)
                 .opacity(focusedAction == label ? 1 : 0)
                 .animation(.easeInOut(duration: 0.18), value: focusedAction)
                 .frame(height: 24, alignment: .top)
@@ -614,26 +741,21 @@ struct NowPlayingView: View {
         .frame(width: 72)
     }
 
-    private func setFocusedAction(_ label: String?) {
-        // The focus engine fires onChange on both gain and loss; the
-        // last gain wins, so we only clear when our own label says so.
-        if let label {
+    /// Shows the label of the control that took focus, and hides it once
+    /// focus leaves the row (for the back button or the share sheet)
+    /// instead of leaving the last control's label up.
+    private func controlFocusChanged(_ label: String, isFocused: Bool) {
+        if isFocused {
             focusedAction = label
-        } else if focusedAction != nil {
-            // Defer to next tick so a sibling button's focus-gain (which
-            // arrives after this button's focus-loss) can take precedence.
+        } else {
+            // The focus engine reports the loss and the next control's
+            // gain together, in either order: look once both are in. Only
+            // when no control took over is the label still this one.
             DispatchQueue.main.async {
-                if focusedActionIsStale() { focusedAction = nil }
+                if focusedAction == label { focusedAction = nil }
             }
         }
     }
-
-    /// Checks whether the recorded focused action no longer matches any
-    /// currently-focused control. SwiftUI doesn't give us a single global
-    /// focus token, so we approximate by clearing if no button is focused
-    /// — `setFocusedAction(_:)` already clears when each button loses
-    /// focus, so by the time this fires the new focus has updated.
-    private func focusedActionIsStale() -> Bool { false }
 
     private var shareURL: URL? {
         URL(string: "https://www.radiocrestin.ro/radio/\(station.slug)")
@@ -645,7 +767,7 @@ struct NowPlayingView: View {
             CircleControl(
                 icon: "square.and.arrow.up",
                 label: "Distribuie",
-                onFocusChange: setFocusedAction
+                onFocusChange: controlFocusChanged
             ) {
                 isSharing = true
             }
@@ -665,7 +787,13 @@ struct NowPlayingView: View {
     /// mounts. Empty slots, and the header while there is nothing under
     /// it, are invisible but reserve their height.
     private var recentSongs: some View {
-        let entries = songHistory.entries(for: station.slug)
+        // The songs before the one shown above, which the history lists
+        // first once it has it.
+        let entries = SongTimeline.before(
+            shownTitle: station.songTitle,
+            artist: station.songArtist,
+            in: songHistory.entries(for: station.slug)
+        )
         let hasEntries = !entries.isEmpty
         return VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             Text("Melodii recente")
@@ -673,15 +801,37 @@ struct NowPlayingView: View {
                 .foregroundStyle(Theme.textSecondary)
                 .opacity(hasEntries ? 1 : 0)
                 .accessibilityHidden(!hasEntries)
-            ForEach(0..<3, id: \.self) { idx in
-                _SongHistoryRow(entry: entries.dropFirst(idx).first)
+            // Drawn again as the minutes pass, not only when a sync or a
+            // song changes the screen: the times ran up to a minute late.
+            TimelineView(.periodic(from: .now, by: Self.songAgeRefresh)) {
+                context in
+                // The times count back from what the listener hears, where
+                // the title's clock puts the audio: in the 2 and 5 minute
+                // modes a song they have just reached aired minutes ago, and
+                // read "acum 2 min" against the wall clock, connecting and
+                // paused included.
+                let heardNow = heardClock.heardNow(at: context.date)
+                VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+                    ForEach(0..<3, id: \.self) { idx in
+                        _SongHistoryRow(
+                            entry: entries.dropFirst(idx).first,
+                            heardNow: heardNow
+                        )
+                    }
+                }
             }
         }
         // The header and the first rows appear together when the history
-        // loads (or leave when the next station has none); 250 ms is the
-        // app's content-change fade, so they ease in instead of popping.
-        .animation(.easeInOut(duration: 0.25), value: hasEntries)
+        // loads (or leave when the next station has none), and each row
+        // fades to its new song as the title fades to the next; 250 ms is
+        // the app's content-change fade, so they ease in instead of
+        // popping.
+        .animation(.easeInOut(duration: 0.25), value: entries.map(\.id))
     }
+
+    /// How often "Melodii recente" works its times out again: at most this
+    /// late on the minute a time turns.
+    private static let songAgeRefresh: TimeInterval = 10
 }
 
 /// Single row in the "Melodii recente" list. Renders an empty (but
@@ -689,61 +839,86 @@ struct NowPlayingView: View {
 /// before the API call completes.
 private struct _SongHistoryRow: View {
     let entry: SongEntry?
+    /// The broadcast moment the listener hears; the time counts back
+    /// from it.
+    let heardNow: Date
 
+    @Environment(\.displayScale) private var displayScale
+
+    private static let thumbnailSide: CGFloat = 48
+
+    // The title at tvOS's smallest text style (Caption 2, 23 pt), artist
+    // and time just under it in the secondary colour: at 18/16/14 pt and
+    // half white they were hard to read from the couch over a light
+    // station's backdrop.
     var body: some View {
         HStack(spacing: Theme.Spacing.md) {
-            if let entry, let url = entry.thumbnailUrl.flatMap(URL.init(string:)) {
-                AsyncImage(url: url) { phase in
-                    if let image = phase.image {
-                        AspectFillImage(image: image)
-                    } else {
-                        placeholderArt
+            placeholderArt
+                .overlay {
+                    if let url = entry?.thumbnailUrl.flatMap(URL.init(string:)) {
+                        ArtworkImage(urls: [
+                            ArtworkURL.sized(
+                                url,
+                                pixels: Self.thumbnailSide * displayScale
+                            ),
+                        ])
                     }
                 }
-                .frame(width: 36, height: 36)
-                .clipShape(RoundedRectangle(cornerRadius: 6))
-            } else {
-                placeholderArt
-                    .frame(width: 36, height: 36)
-            }
+                .frame(width: Self.thumbnailSide, height: Self.thumbnailSide)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(entry?.title ?? " ")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.system(size: 23, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
                     .lineLimit(1)
                 Text(entry?.artist ?? " ")
-                    .font(.system(size: 16))
-                    .foregroundStyle(Theme.textTertiary)
+                    .font(.system(size: 21))
+                    .foregroundStyle(Theme.textSecondary)
                     .lineLimit(1)
             }
             Spacer()
-            Text(entry.map { Self.timeAgo($0.timestamp) } ?? " ")
-                .font(.system(size: 14))
-                .foregroundStyle(Theme.textTertiary)
+            Text(entry.map {
+                SongAge.phrase(startedAt: $0.timestamp, heardNow: heardNow)
+            } ?? " ")
+                .font(.system(size: 21))
+                .foregroundStyle(Theme.textSecondary)
         }
         .opacity(entry == nil ? 0 : 1)
-        .frame(height: 44)
+        .frame(height: 54)
+        // One element per song for VoiceOver: title, artist and time.
+        .accessibilityElement(children: .combine)
+        .accessibilityHidden(entry == nil)
     }
 
     private var placeholderArt: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 6)
+            RoundedRectangle(cornerRadius: 8)
                 .fill(Theme.surfaceVariant)
             Image(systemName: "music.note")
                 .foregroundStyle(Theme.textTertiary)
-                .font(.system(size: 16))
+                .font(.system(size: 20))
         }
     }
+}
 
-    private static func timeAgo(_ date: Date) -> String {
-        let seconds = Int(Date().timeIntervalSince(date))
-        if seconds < 60 { return "acum" }
-        let minutes = seconds / 60
+/// How long before the moment heard a song started, as "Melodii recente"
+/// says it: "acum", "acum 5 min", then hours and days spelled out as on
+/// Android TV — "acum 1 oră", "acum 3 ore", "acum 2 zile" — with "de"
+/// from 20 on ("acum 20 de ore"). They read "2h" and "3z", and "z" is no
+/// Romanian unit.
+enum SongAge {
+    static func phrase(startedAt start: Date, heardNow: Date) -> String {
+        let minutes = Int(heardNow.timeIntervalSince(start)) / 60
+        if minutes < 1 { return "acum" }
         if minutes < 60 { return "acum \(minutes) min" }
         let hours = minutes / 60
-        if hours < 24 { return "acum \(hours)h" }
-        let days = hours / 24
-        return "acum \(days)z"
+        if hours < 24 {
+            return "acum "
+                + RomanianCount.phrase(hours, one: "oră", many: "ore")
+        }
+        return "acum "
+            + RomanianCount.phrase(hours / 24, one: "zi", many: "zile")
     }
 }
 
@@ -756,15 +931,20 @@ private struct _SongHistoryRow: View {
 /// treatment: scale up + brand-pink glow that follows the circular shape.
 ///
 /// `onFocusChange` is fired with the supplied `label` on focus gain and
-/// `nil` on focus loss so the parent can render a tooltip-style status
-/// line below the row.
+/// loss so the parent can render a tooltip-style status line below the
+/// row.
 private struct CircleControl: View {
     let icon: String
     var isPrimary: Bool = false
     var systemPause: Bool = false
     var tint: Color = Theme.textPrimary
+    /// A toggle that is on (a liked song): VoiceOver says "selected", as
+    /// the filled pink icon shows it. Its name stays what it does.
+    var isSelected: Bool = false
+    /// What the control does, in Romanian: its tooltip and its VoiceOver
+    /// name.
     var label: String = ""
-    var onFocusChange: ((String?) -> Void)? = nil
+    var onFocusChange: ((_ label: String, _ isFocused: Bool) -> Void)? = nil
     let action: () -> Void
 
     @FocusState private var isFocused: Bool
@@ -806,8 +986,15 @@ private struct CircleControl: View {
         // Siri-Remote Select fires onTapGesture on tvOS when the view
         // is focused — same activation contract as a Button.
         .onTapGesture(perform: action)
+        // A button named like its tooltip for VoiceOver. Not being a
+        // `Button`, it read the symbol inside as an English image
+        // ("Back", "Pause", "Love").
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(label)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+        .accessibilityAction(.default, action)
         .onChange(of: isFocused) { _, focused in
-            onFocusChange?(focused ? label : nil)
+            onFocusChange?(label, focused)
         }
         // Play/pause and favorite swap their `label` string mid-focus
         // (Redă ↔ Pauză, Adaugă ↔ Elimină). Without this, the parent's
@@ -816,8 +1003,19 @@ private struct CircleControl: View {
         // flip. Re-publish on every label change while focused so the
         // descriptor follows the current action.
         .onChange(of: label) { _, newLabel in
-            if isFocused { onFocusChange?(newLabel) }
+            if isFocused { onFocusChange?(newLabel, true) }
         }
+    }
+}
+
+/// A button that is drawn only by its label, for a label that draws its
+/// own focus (the back button's pink capsule). `.plain` added tvOS's focus
+/// platter, a light rounded rectangle, around that capsule: a second,
+/// mismatched focus ring.
+private struct OwnFocusButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .opacity(configuration.isPressed ? 0.85 : 1)
     }
 }
 
@@ -1016,26 +1214,41 @@ private struct VideoNowPlaying: View {
         return station.title
     }
 
+    // Labels as in the audio layout, for VoiceOver: the overlay shows no
+    // tooltips.
     private var controls: some View {
         HStack(spacing: Theme.Spacing.md) {
             if isPlaylist {
-                iconControl("gobackward.10") { player.seek(by: -10) }
-                iconControl("backward.fill") { player.previousItem() }
+                iconControl("gobackward.10", label: "Înapoi 10s") {
+                    player.seek(by: -10)
+                }
+                iconControl("backward.fill", label: "Anterior") {
+                    player.previousItem()
+                }
             } else {
-                iconControl("backward.fill") { onPrevStation() }
+                iconControl("backward.fill", label: "Postul anterior") {
+                    onPrevStation()
+                }
             }
 
             playControl
 
             if isPlaylist {
-                iconControl("forward.fill") { player.nextItem() }
-                iconControl("goforward.10") { player.seek(by: 10) }
+                iconControl("forward.fill", label: "Următor") {
+                    player.nextItem()
+                }
+                iconControl("goforward.10", label: "Înainte 10s") {
+                    player.seek(by: 10)
+                }
             } else {
-                iconControl("forward.fill") { onNextStation() }
+                iconControl("forward.fill", label: "Postul următor") {
+                    onNextStation()
+                }
             }
 
             iconControl(
                 isFavorite ? "heart.fill" : "heart",
+                label: isFavorite ? "Elimină din favorite" : "Adaugă la favorite",
                 tint: isFavorite ? Theme.primary : Theme.textPrimary
             ) { onToggleFavorite() }
         }
@@ -1043,13 +1256,15 @@ private struct VideoNowPlaying: View {
 
     private func iconControl(
         _ icon: String,
+        label: String,
         tint: Color = Theme.textPrimary,
         action: @escaping () -> Void
     ) -> some View {
         CircleControl(
             icon: icon,
             tint: tint,
-            onFocusChange: { _ in scheduleHide() },
+            label: label,
+            onFocusChange: { _, _ in scheduleHide() },
             action: action
         )
     }
@@ -1059,7 +1274,8 @@ private struct VideoNowPlaying: View {
             icon: "play.fill",
             isPrimary: true,
             systemPause: player.wantsToPlay,
-            onFocusChange: { _ in scheduleHide() }
+            label: player.wantsToPlay ? "Pauză" : "Redă",
+            onFocusChange: { _, _ in scheduleHide() }
         ) {
             player.togglePlayPause()
             scheduleHide()

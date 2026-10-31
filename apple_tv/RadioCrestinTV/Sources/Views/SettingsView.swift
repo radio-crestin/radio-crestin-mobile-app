@@ -4,13 +4,25 @@ import SwiftUI
 /// couple of legal documents shown via QR codes so users can read them on
 /// their phone (Apple TV has no browser to open URLs into).
 struct SettingsView: View {
-    @ObservedObject var appState: AppState
+    /// How far behind live radio plays (`AppState.seekMode`). The page
+    /// shows nothing else of the app's state, so it takes this binding
+    /// instead of observing `AppState`: a metadata sync no longer redraws
+    /// it under the listener's focus.
+    @Binding var seekMode: SeekMode
+    /// Toggles playback on the Siri Remote's Play/Pause while a sheet is
+    /// up: the tabs' own handler does not reach into a full-screen cover.
+    /// The coordinator rather than a closure: the tabs would hand over a
+    /// new closure on every render, and SwiftUI then redraws the page.
+    let playback: PlaybackCoordinator
 
     @State private var openLink: LegalLink?
     @State private var showContact = false
 
+    /// A page opened as a QR code.
     private struct LegalLink: Identifiable {
         let id: String
+        /// The QR sheet's title: the name of the row that opened it, since
+        /// the sheet shows a page, not a station to share.
         let title: String
         let url: URL
     }
@@ -33,21 +45,26 @@ struct SettingsView: View {
             .padding(.bottom, Theme.Spacing.xxl)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .overlay {
-            if let link = openLink {
-                ShareSheet(
-                    stationTitle: link.title,
-                    url: link.url,
-                    onDismiss: { openLink = nil }
-                )
-                .transition(.opacity)
-            }
+        // Modal, like Now Playing. An overlay left the rows and the tab
+        // bar in the focus hierarchy: a swipe took focus behind the sheet
+        // or switched tabs under it, Menu could then leave the app with
+        // the sheet still open, and closing it sent focus to the first
+        // row. A cover takes them out while it is up and gives focus back
+        // to the row that opened it. The sheets dim the page themselves,
+        // so the cover stays see-through.
+        .fullScreenCover(item: $openLink) { link in
+            ShareSheet(
+                heading: link.title,
+                url: link.url,
+                onDismiss: { openLink = nil }
+            )
+            .presentationBackground(.clear)
+            .onPlayPauseCommand { playback.togglePlayback() }
         }
-        .overlay {
-            if showContact {
-                ContactSheet(onDismiss: { showContact = false })
-                    .transition(.opacity)
-            }
+        .fullScreenCover(isPresented: $showContact) {
+            ContactSheet(onDismiss: { showContact = false })
+                .presentationBackground(.clear)
+                .onPlayPauseCommand { playback.togglePlayback() }
         }
     }
 
@@ -61,7 +78,7 @@ struct SettingsView: View {
             sectionHeader("Încărcare în avans")
             ForEach(SeekMode.allCases) { mode in
                 Button { choose(mode) } label: {
-                    seekModeRow(mode, isChosen: mode == appState.seekMode)
+                    seekModeRow(mode, isChosen: mode == seekMode)
                 }
                 .buttonStyle(.card)
             }
@@ -111,7 +128,11 @@ struct SettingsView: View {
     // MARK: - Row plumbing
 
     private struct Row: Identifiable {
-        let id = UUID()
+        /// The title, unique on the page. It must stay the same across
+        /// renders: a fresh `UUID()` on each made `ForEach` replace every
+        /// row, and the focused one took focus with it to the top of the
+        /// page (the page was then redrawn on every metadata sync).
+        var id: String { title }
         let icon: String
         let title: String
         let subtitle: String
@@ -143,6 +164,11 @@ struct SettingsView: View {
             .padding(.bottom, Theme.Spacing.xs)
     }
 
+    /// A choice's mark, name and explanation.
+    ///
+    /// No fill of its own: the `.card` platter behind it is the focus cue,
+    /// lighter on the focused row. An opaque fill hid it, so the focused
+    /// row differed only by a slight lift.
     private func seekModeRow(_ mode: SeekMode, isChosen: Bool) -> some View {
         HStack(spacing: Theme.Spacing.md) {
             Image(systemName: isChosen ? "checkmark.circle.fill" : "circle")
@@ -153,18 +179,16 @@ struct SettingsView: View {
                 Text(mode.label)
                     .font(.system(size: 26, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
-                Text(mode.explanation)
-                    .font(.system(size: 20))
-                    .foregroundStyle(Theme.textTertiary)
+                SettingsRowSubtitle(text: mode.explanation)
             }
             Spacer()
         }
         .padding(Theme.Spacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.surfaceVariant,
-                    in: RoundedRectangle(cornerRadius: Theme.Radius.lg))
     }
 
+    /// A row's icon, title and subtitle, and a chevron when it opens
+    /// something. No fill of its own either, as `seekModeRow` explains.
     private func rowContent(_ row: Row) -> some View {
         HStack(spacing: Theme.Spacing.md) {
             Image(systemName: row.icon)
@@ -175,9 +199,7 @@ struct SettingsView: View {
                 Text(row.title)
                     .font(.system(size: 26, weight: .semibold))
                     .foregroundStyle(Theme.textPrimary)
-                Text(row.subtitle)
-                    .font(.system(size: 20))
-                    .foregroundStyle(Theme.textTertiary)
+                SettingsRowSubtitle(text: row.subtitle)
             }
             Spacer()
             if row.action != nil {
@@ -188,21 +210,19 @@ struct SettingsView: View {
         }
         .padding(Theme.Spacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.surfaceVariant,
-                    in: RoundedRectangle(cornerRadius: Theme.Radius.lg))
     }
 
     // MARK: - Actions
 
     private func choose(_ mode: SeekMode) {
-        guard mode != appState.seekMode else { return }
+        guard mode != seekMode else { return }
         // Same event the iPhone app fires (`SettingsPage.dart`).
         Analytics.capture("button_clicked", properties: [
             "button_name": "buffer_size",
             "seek_mode": mode.rawValue,
             "platform": "apple_tv"
         ])
-        appState.seekMode = mode
+        seekMode = mode
     }
 
     private func openContact() {
@@ -228,7 +248,7 @@ struct SettingsView: View {
     private func openWebsite() {
         guard let url = URL(string: "https://www.radiocrestin.ro") else { return }
         openLink = LegalLink(id: "site",
-                             title: "Radio Crestin",
+                             title: "Site web",
                              url: url)
     }
 
@@ -237,5 +257,26 @@ struct SettingsView: View {
         let v = bundle.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
         let b = bundle.infoDictionary?["CFBundleVersion"] as? String ?? "?"
         return "\(v) (\(b))"
+    }
+}
+
+/// A Settings row's second line.
+///
+/// A view of its own so it can read the row's focus: inside a `Button`'s
+/// label, `\.isFocused` describes that button. The focused `.card`
+/// platter is lighter than the unfocused one, so the line brightens with
+/// it to keep its contrast, as on the station cards (see
+/// `Theme.cardSubtitleFocused`).
+private struct SettingsRowSubtitle: View {
+    let text: String
+
+    @Environment(\.isFocused) private var isFocused
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: 20))
+            .foregroundStyle(
+                isFocused ? Theme.cardSubtitleFocused : Theme.cardSubtitle
+            )
     }
 }
