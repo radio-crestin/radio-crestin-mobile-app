@@ -43,8 +43,8 @@ targets:
       path: RadioCrestinTV/Info.plist
       properties:
         CFBundleDisplayName: Radio Crestin
-        CFBundleShortVersionString: "1.5.0"
-        CFBundleVersion: "84"
+        CFBundleShortVersionString: "1.5.1"
+        CFBundleVersion: "85"
         # The app's UI is Romanian, as in the macOS app. Declaring it makes
         # tvOS run the app in Romanian when the Apple TV's languages put
         # Romanian before English, so the system's strings inside the app

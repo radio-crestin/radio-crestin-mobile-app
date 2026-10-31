@@ -232,14 +232,14 @@ struct SettingsView: View {
     }
 
     private func openTerms() {
-        guard let url = URL(string: "https://www.radiocrestin.ro/terms") else { return }
+        guard let url = URL(string: "https://www.radiocrestin.ro/terms-of-service/") else { return }
         openLink = LegalLink(id: "terms",
                              title: "Termeni și condiții",
                              url: url)
     }
 
     private func openPrivacy() {
-        guard let url = URL(string: "https://www.radiocrestin.ro/privacy") else { return }
+        guard let url = URL(string: "https://www.radiocrestin.ro/privacy-policy/") else { return }
         openLink = LegalLink(id: "privacy",
                              title: "Politica de confidențialitate",
                              url: url)
