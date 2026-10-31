@@ -20,36 +20,38 @@ struct StationArtwork: View {
     @State private var attemptIndex = 0
 
     var body: some View {
-        ZStack {
-            placeholder
-                .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
-            if let url = currentURL {
-                AsyncImage(url: url, transaction: Transaction(animation: .easeInOut)) { phase in
-                    switch phase {
-                    case .empty:
-                        Color.clear
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                    case .failure:
-                        // Try the next URL on the next render pass; the
-                        // placeholder shows in the meantime.
-                        Color.clear
-                            .onAppear { advance() }
-                    @unknown default:
-                        Color.clear
-                    }
-                }
-                .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+        // The placeholder owns the slot's size: the fixed `targetSize`,
+        // or (when nil, both dimensions unspecified) whatever the parent
+        // proposes, e.g. an .aspectRatio(1) inside a grid cell. The remote
+        // picture hangs in an overlay, so its own aspect ratio can never
+        // resize the slot, and one clip shape crops both layers.
+        placeholder
+            .frame(width: targetSize?.width, height: targetSize?.height)
+            .overlay { remoteImage }
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+            .onChange(of: candidateURLs) { _, _ in
+                attemptIndex = 0
             }
-        }
-        // When targetSize is nil both dimensions are unspecified, so the
-        // ZStack stretches to whatever frame the parent provides (e.g.
-        // an .aspectRatio(1) inside a grid cell).
-        .frame(width: targetSize?.width, height: targetSize?.height)
-        .onChange(of: candidateURLs) { _, _ in
-            attemptIndex = 0
+    }
+
+    @ViewBuilder
+    private var remoteImage: some View {
+        if let url = currentURL {
+            AsyncImage(url: url, transaction: Transaction(animation: .easeInOut)) { phase in
+                switch phase {
+                case .empty:
+                    Color.clear
+                case .success(let image):
+                    AspectFillImage(image: image)
+                case .failure:
+                    // Try the next URL on the next render pass; the
+                    // placeholder shows in the meantime.
+                    Color.clear
+                        .onAppear { advance() }
+                @unknown default:
+                    Color.clear
+                }
+            }
         }
     }
 
@@ -80,5 +82,29 @@ struct StationArtwork: View {
                 .font(.system(size: (targetSize?.width ?? 280) * 0.35))
                 .foregroundStyle(Theme.textTertiary)
         }
+    }
+}
+
+/// A picture scaled to cover the slot its parent proposes and cropped to
+/// it, whatever the picture's own proportions.
+///
+/// `image.resizable().aspectRatio(contentMode: .fill)` on its own reports
+/// the *scaled* size: a 16:9 song cover proposed a 300×300 slot answers
+/// 533×300, so a `ZStack` or `.aspectRatio(1)` around it grows and a grid
+/// card widens into its neighbour. Here a `Color.clear` takes exactly the
+/// proposed size, the picture hangs in its overlay (which never changes
+/// the size of the view it decorates), and `clipped()` crops the overflow
+/// at the clear view's bounds.
+struct AspectFillImage: View {
+    let image: Image
+
+    var body: some View {
+        Color.clear
+            .overlay {
+                image
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            }
+            .clipped()
     }
 }

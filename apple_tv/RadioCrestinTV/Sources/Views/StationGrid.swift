@@ -17,6 +17,10 @@ struct StationGrid<TrailingHeader: View>: View {
     /// Optional view shown to the right of the title (e.g. a sort picker).
     let trailingHeader: () -> TrailingHeader
 
+    /// Moves focus to one card, e.g. the card Now Playing was opened from
+    /// once it closes.
+    let focusRequest: GridFocusRequest?
+
     init(
         title: String,
         subtitle: String?,
@@ -26,6 +30,7 @@ struct StationGrid<TrailingHeader: View>: View {
         emptyTitle: String,
         emptySystemImage: String,
         emptyMessage: String,
+        focusRequest: GridFocusRequest? = nil,
         @ViewBuilder trailingHeader: @escaping () -> TrailingHeader = { EmptyView() }
     ) {
         self.title = title
@@ -36,6 +41,7 @@ struct StationGrid<TrailingHeader: View>: View {
         self.emptyTitle = emptyTitle
         self.emptySystemImage = emptySystemImage
         self.emptyMessage = emptyMessage
+        self.focusRequest = focusRequest
         self.trailingHeader = trailingHeader
     }
 
@@ -88,6 +94,9 @@ struct StationGrid<TrailingHeader: View>: View {
                     isFavorite: appState.isFavorite(station),
                     onSelect: { onSelect(station) }
                 )
+                .modifier(
+                    FocusOnRequest(stationId: station.id, request: focusRequest)
+                )
             }
         }
     }
@@ -107,5 +116,39 @@ struct StationGrid<TrailingHeader: View>: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 120)
+    }
+}
+
+/// A request to move focus to one card of a `StationGrid`. Every request
+/// is distinct, even for the same card, so asking again moves focus again.
+struct GridFocusRequest: Equatable {
+    let stationId: Int
+    private let token = UUID()
+
+    init(stationId: Int) {
+        self.stationId = stationId
+    }
+}
+
+/// Gives a card focus when a request names it.
+///
+/// tvOS normally gives focus back to the card that was focused when a
+/// full-screen cover closes; this makes sure of it (and covers the card
+/// that took the place of one that left the list). Each card tracks only
+/// its own focus, so moving focus redraws two cards, not the whole grid.
+private struct FocusOnRequest: ViewModifier {
+    let stationId: Int
+    let request: GridFocusRequest?
+
+    @FocusState private var isFocused: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .focused($isFocused)
+            .onChange(of: request) { _, request in
+                if request?.stationId == stationId {
+                    isFocused = true
+                }
+            }
     }
 }

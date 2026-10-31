@@ -33,6 +33,10 @@ struct NowPlayingView: View {
     /// `FocusState` set in `.task` deterministically wins.
     enum ControlFocus: Hashable {
         case play
+        /// The Share button, which gets focus back when the share sheet
+        /// closes: left to itself, the focus engine picked the back button
+        /// in the top-left corner.
+        case share
     }
     @FocusState private var controlFocus: ControlFocus?
 
@@ -76,7 +80,7 @@ struct NowPlayingView: View {
             }
         }
         .onExitCommand {
-            if isSharing { isSharing = false } else { onBack() }
+            if isSharing { closeShareSheet() } else { onBack() }
         }
         .onChange(of: station.songTitle) { _, _ in
             // Reset like/dislike on song change — they're per-song.
@@ -154,7 +158,7 @@ struct NowPlayingView: View {
                 ShareSheet(
                     stationTitle: station.title,
                     url: url,
-                    onDismiss: { isSharing = false }
+                    onDismiss: closeShareSheet
                 )
                 .transition(.opacity)
             }
@@ -247,6 +251,11 @@ struct NowPlayingView: View {
         .focused($backButtonFocused)
     }
 
+    /// Square artwork slot shared by both branches of `artwork`, so a
+    /// playlist item's cover and a station logo occupy the same space.
+    private static let artworkSide: CGFloat = 460
+    private static let artworkCornerRadius: CGFloat = 28
+
     @ViewBuilder
     private var artwork: some View {
         Group {
@@ -257,18 +266,26 @@ struct NowPlayingView: View {
                 // cover) over the station logo.
                 AsyncImage(url: url, transaction: Transaction(animation: .easeInOut)) { phase in
                     if let image = phase.image {
-                        image.resizable().aspectRatio(contentMode: .fill)
+                        AspectFillImage(image: image)
                     } else {
-                        StationArtwork(station: station, cornerRadius: 28)
+                        StationArtwork(
+                            station: station,
+                            cornerRadius: Self.artworkCornerRadius
+                        )
                     }
                 }
-                .frame(width: 460, height: 460)
-                .clipShape(RoundedRectangle(cornerRadius: 28))
+                .frame(width: Self.artworkSide, height: Self.artworkSide)
+                .clipShape(
+                    RoundedRectangle(cornerRadius: Self.artworkCornerRadius)
+                )
             } else {
                 StationArtwork(
                     station: station,
-                    cornerRadius: 28,
-                    targetSize: CGSize(width: 460, height: 460)
+                    cornerRadius: Self.artworkCornerRadius,
+                    targetSize: CGSize(
+                        width: Self.artworkSide,
+                        height: Self.artworkSide
+                    )
                 )
             }
         }
@@ -281,7 +298,7 @@ struct NowPlayingView: View {
                let url = URL(string: urlString) {
                 AsyncImage(url: url) { phase in
                     if let image = phase.image {
-                        image.resizable().aspectRatio(contentMode: .fill)
+                        AspectFillImage(image: image)
                     } else {
                         Theme.background
                     }
@@ -290,7 +307,11 @@ struct NowPlayingView: View {
                 Theme.background
             }
         }
-        .blur(radius: 60)
+        // Opaque because the picture is now cropped to the screen: a
+        // regular blur would fade every cropped edge into the dark
+        // background, ringing the backdrop with a vignette whose sides
+        // depend on the logo's proportions.
+        .blur(radius: 60, opaque: true)
         .overlay(Color.black.opacity(0.65))
     }
 
@@ -388,12 +409,12 @@ struct NowPlayingView: View {
                     onFocusChange: setFocusedAction
                 ) { player.previousItem() }
             }
-            labeled(player.isPlaying ? "Pauză" : "Redă") {
+            labeled(playPauseLabel) {
                 CircleControl(
                     icon: "play.fill",
                     isPrimary: true,
-                    systemPause: player.isPlaying,
-                    label: player.isPlaying ? "Pauză" : "Redă",
+                    systemPause: player.wantsToPlay,
+                    label: playPauseLabel,
                     onFocusChange: setFocusedAction
                 ) { player.togglePlayPause() }
                 .prefersDefaultFocus(true, in: focusScope)
@@ -448,7 +469,8 @@ struct NowPlayingView: View {
         }
     }
 
-    /// Fixed-height status line that surfaces the connection spinner or
+    /// Fixed-height status line that surfaces the connection spinner (or
+    /// the wait before another try once every stream failed) or the
     /// stream error. Action labels are no longer rendered here — each
     /// button shows its own label directly below it (see `controls`),
     /// which puts the descriptor right under the user's focused target.
@@ -459,7 +481,7 @@ struct NowPlayingView: View {
                 ProgressView()
                     .controlSize(.small)
                     .tint(Theme.textSecondary)
-                Text("Se conectează…")
+                Text(player.connectingMessage)
                     .foregroundStyle(Theme.textSecondary)
             case .failed(let message):
                 Image(systemName: "exclamationmark.triangle.fill")
@@ -476,11 +498,19 @@ struct NowPlayingView: View {
         }
         .font(.system(size: 22, weight: .medium))
         .frame(height: 40, alignment: .center)
-        .frame(maxWidth: .infinity)
+        // Leading, like the song title, the controls and the history
+        // around it; centred, the spinner floated alone mid-column.
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var displaySongTitle: String {
         station.songTitle.isEmpty ? station.title : station.songTitle
+    }
+
+    /// "Pauză" while the listener wants audio, connecting included, so the
+    /// button can cancel a connection or a retry; "Redă" otherwise.
+    private var playPauseLabel: String {
+        player.wantsToPlay ? "Pauză" : "Redă"
     }
 
     // MARK: - Controls
@@ -508,12 +538,12 @@ struct NowPlayingView: View {
                     action: onPrev
                 )
             }
-            labeled(player.isPlaying ? "Pauză" : "Redă") {
+            labeled(playPauseLabel) {
                 CircleControl(
                     icon: "play.fill",
                     isPrimary: true,
-                    systemPause: player.isPlaying,
-                    label: player.isPlaying ? "Pauză" : "Redă",
+                    systemPause: player.wantsToPlay,
+                    label: playPauseLabel,
                     onFocusChange: setFocusedAction
                 ) {
                     player.togglePlayPause()
@@ -619,24 +649,38 @@ struct NowPlayingView: View {
             ) {
                 isSharing = true
             }
+            .focused($controlFocus, equals: .share)
         }
+    }
+
+    private func closeShareSheet() {
+        isSharing = false
+        controlFocus = .share
     }
 
     // MARK: - Recent songs
 
-    /// Always renders three rows so the layout doesn't shift when entries
-    /// arrive from the API a moment after the view mounts. Empty slots
-    /// are invisible but reserve their height.
+    /// Always renders the header and three rows so the layout doesn't
+    /// shift when entries arrive from the API a moment after the view
+    /// mounts. Empty slots, and the header while there is nothing under
+    /// it, are invisible but reserve their height.
     private var recentSongs: some View {
         let entries = songHistory.entries(for: station.slug)
+        let hasEntries = !entries.isEmpty
         return VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             Text("Melodii recente")
                 .font(.system(size: 22, weight: .bold))
                 .foregroundStyle(Theme.textSecondary)
+                .opacity(hasEntries ? 1 : 0)
+                .accessibilityHidden(!hasEntries)
             ForEach(0..<3, id: \.self) { idx in
                 _SongHistoryRow(entry: entries.dropFirst(idx).first)
             }
         }
+        // The header and the first rows appear together when the history
+        // loads (or leave when the next station has none); 250 ms is the
+        // app's content-change fade, so they ease in instead of popping.
+        .animation(.easeInOut(duration: 0.25), value: hasEntries)
     }
 }
 
@@ -651,7 +695,7 @@ private struct _SongHistoryRow: View {
             if let entry, let url = entry.thumbnailUrl.flatMap(URL.init(string:)) {
                 AsyncImage(url: url) { phase in
                     if let image = phase.image {
-                        image.resizable().aspectRatio(contentMode: .fill)
+                        AspectFillImage(image: image)
                     } else {
                         placeholderArt
                     }
@@ -774,6 +818,17 @@ private struct CircleControl: View {
         .onChange(of: label) { _, newLabel in
             if isFocused { onFocusChange?(newLabel) }
         }
+    }
+}
+
+// MARK: - Connection status
+
+private extension AudioPlayer {
+    /// What a `.connecting` state tells the listener. After every stream
+    /// failed, the engine waits before the next round (`isRetrying`):
+    /// saying so explains why the spinner lasts longer than a connection.
+    var connectingMessage: String {
+        isRetrying ? "Se reîncearcă…" : "Se conectează…"
     }
 }
 
@@ -1003,7 +1058,7 @@ private struct VideoNowPlaying: View {
         CircleControl(
             icon: "play.fill",
             isPrimary: true,
-            systemPause: player.isPlaying,
+            systemPause: player.wantsToPlay,
             onFocusChange: { _ in scheduleHide() }
         ) {
             player.togglePlayPause()
@@ -1054,7 +1109,7 @@ private struct VideoNowPlaying: View {
             ProgressView()
                 .controlSize(.large)
                 .tint(.white)
-            Text("Se conectează…")
+            Text(player.connectingMessage)
                 .font(.system(size: 22))
                 .foregroundStyle(.white)
         }

@@ -15,6 +15,15 @@ enum SyncReason: Int {
     case periodic = 5
 }
 
+/// The station lists the tabs show. Each keeps its own on-screen order
+/// (see `StationOrder`).
+enum StationList: Hashable, CaseIterable {
+    /// "Posturi": every station, ranked by the chosen sort.
+    case all
+    case favorites
+    case recents
+}
+
 /// App-wide state, scoped to the lifetime of the SwiftUI App. Holds the
 /// station list (loaded from the REST `/stations` endpoint), favorites
 /// (persisted in UserDefaults), recents (also persisted), and the
@@ -45,11 +54,30 @@ final class AppState: ObservableObject {
     @Published private(set) var recentSlugs: [String] = []
     @Published private(set) var playCounts: [String: Int] = [:]
     @Published var sortOption: StationSort = .recommended {
-        didSet { defaults.set(sortOption.rawValue, forKey: Keys.sort) }
+        didSet {
+            defaults.set(sortOption.rawValue, forKey: Keys.sort)
+            refreshOrder(of: .all)
+        }
     }
 
     @Published var currentStation: Station?
     let songHistory = SongHistoryStore()
+
+    // MARK: - On-screen order
+
+    /// The order each list was last ranked in. A list without an entry
+    /// (before the first catalog load) shows its live ranking.
+    @Published private(set) var listOrders: [StationList: StationOrder] = [:]
+
+    /// Station ids of the grid the current station was opened from, in
+    /// the order it showed. "Postul anterior / următor" and the remote's
+    /// previous / next track walk it, so stepping never chases a list
+    /// that re-ranks itself after each play.
+    private var browsingOrder: [Int] = []
+
+    /// Set by the first successful catalog load of the session — the
+    /// first boundary at which the list orders are fixed.
+    private var hasLoadedCatalog = false
 
     // MARK: - Private stations
 
@@ -78,6 +106,11 @@ final class AppState: ObservableObject {
     /// Returns the 10s-aligned PROGRAM-DATE-TIME of the audio currently
     /// being heard, or nil if not playing HLS / playlist not yet parsed.
     var hlsPlaybackTimestampProvider: (() -> Int?)?
+
+    /// Returns the PROGRAM-DATE-TIME of the audio currently being heard,
+    /// unrounded, or nil if not playing HLS / playlist not yet parsed.
+    /// Decides which songs the listener has reached.
+    var hlsPlaybackDateProvider: (() -> Date?)?
 
     /// True when the currently playing stream is HLS. Used as a fallback
     /// trigger to fetch an offset metadata payload even when the precise
@@ -127,11 +160,12 @@ final class AppState: ObservableObject {
     /// adds an offset fetch as a safety net.
     private static let audioEventSafetyNet: TimeInterval = 5 * 60
 
-    /// Settle delay between detecting an audio metadata change locally
-    /// (HLS DATERANGE / ICY tag) and querying the backend. Gives the
-    /// `/stations-metadata` ingestion path a moment to pick up the new
-    /// song before we ask for it.
-    private static let audioEventSettleDelay: TimeInterval = 2
+    /// How far behind live the HLS audio is assumed to be until its
+    /// playlist is parsed and its PROGRAM-DATE-TIME known. The join is 18 s
+    /// before the playlist's end, which trails real time by up to a 6 s
+    /// segment and its publication: 18–30 s. Taking the far end means a
+    /// live song is never shown before the listener can have reached it.
+    private static let assumedHlsLag: TimeInterval = 30
 
     /// Maximum gap (seconds) between consecutive offset-fetch timestamps
     /// before the differential is dropped. Guards against stale cursors after
@@ -283,16 +317,11 @@ final class AppState: ObservableObject {
             lastFullRefresh = Date()
             loadError = nil
 
-            if let current = currentStation,
-               let updated = stations.first(where: { $0.slug == current.slug }) {
-                currentStation = updated
-            }
-            if let cur = currentStation {
-                songHistory.record(
-                    songTitle: cur.songTitle,
-                    artist: cur.songArtist,
-                    for: cur.slug
-                )
+            refreshCurrentStation()
+            recordShownSong()
+            if !hasLoadedCatalog {
+                hasLoadedCatalog = true
+                refreshListOrders()
             }
             startPeriodicLoop()
         } catch {
@@ -305,28 +334,20 @@ final class AppState: ObservableObject {
     /// Audio-event diff: fetch metadata at the audio's timestamp so the
     /// playing station's now_playing matches what the user actually hears.
     /// Single request — no live fetch.
+    ///
+    /// No settle delay before it: the triggers come when the audio reaches
+    /// a song change (18–30 s after it happened live, long after the
+    /// backend ingested it) or seconds after a tune-in, never at the live
+    /// moment of a change.
     private func doAudioDiff() async {
         guard !stations.isEmpty else { return }
         lastAudioEventTime = Date()
 
-        // Brief settle so the backend ingestion has caught up with the
-        // song change the audio just announced.
-        logSync("audio diff: settling \(Int(Self.audioEventSettleDelay))s before fetch")
-        try? await Task.sleep(
-            nanoseconds: UInt64(Self.audioEventSettleDelay * 1_000_000_000)
-        )
-
-        let hlsActive = isPlayingHlsProvider?() ?? false
+        // Without the audio's PROGRAM-DATE-TIME (a direct/MP3 stream, or
+        // HLS before its playlist is parsed) the fetch is at wall clock,
+        // so its answer is a live payload, not an audio-aligned one.
         let hlsTs = hlsPlaybackTimestampProvider?()
-        let audioTs: Int
-        if let hlsTs {
-            audioTs = hlsTs
-        } else if hlsActive {
-            audioTs = roundedTimestamp()
-        } else {
-            // Direct/MP3 stream — audio is "live", so use wall-clock.
-            audioTs = roundedTimestamp()
-        }
+        let audioTs = hlsTs ?? roundedTimestamp()
 
         let canDiff = lastOffsetFetchTimestamp > 0 &&
             audioTs > lastOffsetFetchTimestamp &&
@@ -340,7 +361,11 @@ final class AppState: ObservableObject {
         lastOffsetFetchTimestamp = audioTs
 
         guard !result.isEmpty else { return }
-        applyMerge(live: nil, offset: result)
+        if hlsTs != nil {
+            applyMerge(live: nil, offset: result)
+        } else {
+            applyMerge(live: result, offset: nil)
+        }
     }
 
     /// 60s safety-net diff: refreshes the visible station list at the live
@@ -356,10 +381,9 @@ final class AppState: ObservableObject {
         } ?? true
         let wantOffsetSafetyNet = hlsActive && audioStale
 
-        var offsetTs = liveTs
-        if wantOffsetSafetyNet {
-            offsetTs = hlsPlaybackTimestampProvider?() ?? liveTs
-        }
+        let offsetTs = wantOffsetSafetyNet
+            ? hlsPlaybackTimestampProvider?() ?? liveTs
+            : liveTs
         let fetchOffset = wantOffsetSafetyNet && offsetTs != liveTs
 
         let canDiffLive = lastFetchTimestamp > 0
@@ -402,10 +426,9 @@ final class AppState: ObservableObject {
     }
 
     /// Merges fetched metadata into the in-memory station list. Either
-    /// map may be nil when only one source was fetched. Per-station,
-    /// picks the HLS-aligned (offset) source for the playing station and
-    /// the live source for everyone else, then publishes only if a
-    /// user-visible field actually changed.
+    /// map may be nil when only one source was fetched. Per station, the
+    /// `SongClock` decides which payload may set the song; the station
+    /// list is published only if a user-visible field actually changed.
     ///
     /// The catalog is first rebuilt against the current private-station
     /// cache: `/stations-metadata` never covers private stations, so
@@ -418,17 +441,40 @@ final class AppState: ObservableObject {
         let base = withPrivate(publicPart)
 
         let merged = mergeMetadata(into: base, live: live ?? [:], offset: offset)
-        guard hasMeaningfulChanges(old: stations, new: merged) else { return }
-        stations = merged
-        if let current = currentStation,
-           let updated = stations.first(where: { $0.slug == current.slug }) {
-            currentStation = updated
-            songHistory.record(
-                songTitle: updated.songTitle,
-                artist: updated.songArtist,
-                for: updated.slug
-            )
+        if hasMeaningfulChanges(old: stations, new: merged) {
+            stations = merged
+            refreshCurrentStation()
         }
+        recordShownSong()
+    }
+
+    /// Re-reads `currentStation` from the freshly merged list so Now
+    /// Playing and the system's Now Playing show its new values.
+    private func refreshCurrentStation() {
+        guard let current = currentStation,
+              let updated = stations.first(where: { $0.id == current.id })
+        else { return }
+        currentStation = updated
+    }
+
+    /// Adds the song the playing station shows to its history — never a
+    /// song from a payload the merge did not show. While its song follows
+    /// its HLS audio, later plays stay hidden until the audio gets there.
+    private func recordShownSong() {
+        guard let station = currentStation else { return }
+        let followsAudio: Bool
+        switch songClock(for: station) {
+        case .live: followsAudio = false
+        case .audio: followsAudio = true
+        }
+        songHistory.record(
+            songTitle: station.songTitle,
+            artist: station.songArtist,
+            startedAt: station.songStartDate,
+            thumbnailUrl: station.songThumbnailUrl,
+            isAudioAligned: followsAudio,
+            for: station.slug
+        )
     }
 
     private func logSync(_ message: String) {
@@ -486,36 +532,46 @@ final class AppState: ObservableObject {
         return publicStations + exclusives
     }
 
-    /// Picks the right metadata source per station and merges it in.
-    /// Mirrors `_mergeStationWithMetadata` in `station_data_service.dart`:
-    /// HLS-playing stations get the offset payload (so the song matches
-    /// the audio), every other station gets the live payload, and the
-    /// listener count always comes from the live payload.
+    /// Merges each station with its payloads under its `SongClock`:
+    /// the playing HLS station's song follows its audio, every other
+    /// station follows the live timeline, and listeners and uptime always
+    /// come from the live payload when there is one.
     private func mergeMetadata(
         into source: [Station],
         live: [Int: StationMetadata],
         offset: [Int: StationMetadata]?
     ) -> [Station] {
         source.map { station in
-            let useOffset = shouldUseOffsetMetadata(station)
-            let primary = useOffset ? offset : live
-            let fallback = useOffset ? live : offset
-            guard let metadata = primary?[station.id] ?? fallback?[station.id] else {
-                return station
+            let clock = songClock(for: station)
+            // Only the audio clock needs the song on screen: a full
+            // refresh rebuilds from the catalog, whose song is the live
+            // one, which the audio may not have reached.
+            let shown: NowPlaying?
+            switch clock {
+            case .live:
+                shown = nil
+            case .audio:
+                shown = stations.first { $0.id == station.id }?.nowPlaying
             }
-            let liveListeners = live[station.id]?.listeners
-            return station.merging(metadata, liveListeners: liveListeners)
+            return StationMetadataMerge.merged(
+                station,
+                shown: shown,
+                live: live[station.id],
+                offset: offset?[station.id],
+                clock: clock
+            )
         }
     }
 
-    /// True when the offset (HLS-aligned) metadata should be preferred
-    /// for this station. Currently only the actively-playing HLS stream
-    /// qualifies; everything else uses the live timestamp.
-    private func shouldUseOffsetMetadata(_ station: Station) -> Bool {
-        guard let current = currentStation, current.id == station.id else {
-            return false
-        }
-        return isPlayingHlsProvider?() ?? station.primaryStreamIsHls
+    /// Which timeline may set this station's song: the audio's for the
+    /// station whose HLS stream is playing, the live one for the rest.
+    private func songClock(for station: Station) -> SongClock {
+        guard station.id == currentStation?.id,
+              isPlayingHlsProvider?() ?? station.primaryStreamIsHls
+        else { return .live }
+        let heardAt = hlsPlaybackDateProvider?()
+            ?? Date().addingTimeInterval(-Self.assumedHlsLag)
+        return .audio(heardAt: heardAt)
     }
 
     /// Cheap diff that catches the fields the UI actually shows. Avoids
@@ -543,8 +599,15 @@ final class AppState: ObservableObject {
     /// Pick a station to play. The audio player observes `currentStation`
     /// and switches sources accordingly. Triggers a full refresh so the
     /// playing station's now-playing is fresh before audio starts.
-    func selectStation(_ station: Station) {
+    ///
+    /// - Parameter browsingOrder: ids of the grid the station was opened
+    ///   from, as shown; previous / next walk it. Nil when stepping
+    ///   (Now Playing, remote commands) keeps the current one.
+    func selectStation(_ station: Station, browsingOrder: [Int]? = nil) {
         let previous = currentStation
+        if let browsingOrder {
+            self.browsingOrder = browsingOrder
+        }
         currentStation = station
         recordRecent(slug: station.slug)
         incrementPlayCount(slug: station.slug)
@@ -582,10 +645,13 @@ final class AppState: ObservableObject {
         )
     }
 
-    /// Called when the SwiftUI scene phase becomes `.active` after a
-    /// `.background` or `.inactive` transition — triggers a full refresh
-    /// to pick up changes that happened while the app was away.
+    /// Called by `RootView` when the scene becomes `.active` after being
+    /// in the background. Coming back is a natural boundary, so the lists
+    /// are ranked again first, with the data at hand — reordering a second
+    /// later, when the refresh lands, would move cards under the listener
+    /// — then a full refresh picks up what changed while the app was away.
     func onAppResumed() async {
+        refreshListOrders()
         await enqueueSync(.appResumed)
     }
 
@@ -594,7 +660,7 @@ final class AppState: ObservableObject {
     /// to the same station is instant.
     func loadSongHistoryIfNeeded(for slug: String) async {
         guard !slug.isEmpty else { return }
-        if !songHistory.entries(for: slug).isEmpty { return }
+        if songHistory.hasHistory(for: slug) { return }
         guard let history = try? await repository.fetchSongHistory(stationSlug: slug)
         else { return }
         let entries: [SongEntry] = history.compactMap { item in
@@ -622,26 +688,82 @@ final class AppState: ObservableObject {
         )
     }
 
-    /// Returns the next station in the current sort order, wrapping
-    /// around at the end. Used by the prev/next controls in Now Playing.
+    /// The station after `station` in the grid it was opened from,
+    /// wrapping around at the end. Used by "Postul următor" in Now
+    /// Playing and by the remote's next-track command.
     func nextStation(after station: Station) -> Station? {
-        let list = sortedStations
-        guard !list.isEmpty else { return nil }
-        guard let idx = list.firstIndex(where: { $0.id == station.id }) else {
-            return list.first
-        }
-        return list[(idx + 1) % list.count]
+        adjacentStation(to: station, step: 1)
     }
 
-    /// Returns the previous station in the current sort order, wrapping
-    /// around at the beginning.
+    /// The station before `station` in the grid it was opened from,
+    /// wrapping around at the beginning.
     func previousStation(before station: Station) -> Station? {
-        let list = sortedStations
-        guard !list.isEmpty else { return nil }
-        guard let idx = list.firstIndex(where: { $0.id == station.id }) else {
-            return list.last
+        adjacentStation(to: station, step: -1)
+    }
+
+    /// Walks the browsing snapshot; a station outside it (e.g. reached
+    /// some other way), or alone in it, walks the "Posturi" list as shown
+    /// instead. Ids of stations that left the catalog are skipped.
+    private func adjacentStation(to station: Station, step: Int) -> Station? {
+        let byId = Dictionary(
+            stations.map { ($0.id, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        guard let id = StationOrder.neighbor(
+            of: station.id,
+            step: step,
+            in: browsingOrder.filter { byId[$0] != nil },
+            orElseIn: displayedStations(in: .all).map(\.id)
+        ) else { return nil }
+        return byId[id]
+    }
+
+    // MARK: - On-screen order
+
+    /// A list as the grid shows it: in its fixed order, with every
+    /// station's current values (song, listeners, uptime).
+    func displayedStations(in list: StationList) -> [Station] {
+        guard let order = listOrders[list] else { return ranked(list) }
+        return order.arrange(members(of: list))
+    }
+
+    /// Ranks one list again. Called at natural boundaries only: switching
+    /// to its tab and changing the sort.
+    func refreshOrder(of list: StationList) {
+        guard hasLoadedCatalog else { return }
+        let order = StationOrder(ranked(list))
+        guard listOrders[list] != order else { return }
+        listOrders[list] = order
+    }
+
+    /// Ranks every list again: the first catalog load and the app
+    /// returning to the foreground.
+    func refreshListOrders() {
+        guard hasLoadedCatalog else { return }
+        var orders: [StationList: StationOrder] = [:]
+        for list in StationList.allCases {
+            orders[list] = StationOrder(ranked(list))
         }
-        return list[idx == 0 ? list.count - 1 : idx - 1]
+        guard orders != listOrders else { return }
+        listOrders = orders
+    }
+
+    /// The list in its live ranking.
+    private func ranked(_ list: StationList) -> [Station] {
+        switch list {
+        case .all: return sortedStations
+        case .favorites: return favoriteStations
+        case .recents: return recentStations
+        }
+    }
+
+    /// The list's stations without ranking them — newcomers are appended
+    /// in this order. Only "Posturi" has a costly ranking to skip.
+    private func members(of list: StationList) -> [Station] {
+        switch list {
+        case .all: return stations
+        case .favorites, .recents: return ranked(list)
+        }
     }
 
     private func incrementPlayCount(slug: String) {
@@ -699,4 +821,130 @@ final class AppState: ObservableObject {
         static let playCounts = "tv.playCounts"
         static let privateStations = "tv.privateStations"
     }
+}
+
+// MARK: - Metadata merge policy
+
+/// Which payload may set the song a station shows.
+///
+/// `/stations-metadata` answers for one moment: the live timeline (wall
+/// clock) or the moment the HLS audio is at (its PROGRAM-DATE-TIME,
+/// ~18–30 s behind live). For that half minute after every song change
+/// the two disagree; letting both set the playing station's song made
+/// Now Playing flip between them and the history read A, B, A.
+enum SongClock: Equatable {
+    /// The song follows the live timeline: every station that is not
+    /// playing, and a playing direct (MP3/AAC) stream, which is live.
+    case live
+    /// The playing HLS station: its song follows the audio, which is at
+    /// `heardAt` on the broadcast timeline — the playhead's
+    /// PROGRAM-DATE-TIME, or an estimate until the playlist is parsed.
+    case audio(heardAt: Date)
+}
+
+/// Pure merge of one station with its metadata payloads.
+enum StationMetadataMerge {
+    /// - Parameters:
+    ///   - station: the station to update. After a full refresh its song
+    ///     is the catalog's, i.e. the live one.
+    ///   - shown: the song on screen; only the `.audio` clock uses it.
+    ///   - live: the station's entry in a live payload, if any.
+    ///   - offset: its entry in an audio-aligned payload, if any. Ignored
+    ///     on the `.live` clock: it describes the playing station's audio
+    ///     moment, which lags every other station's live song.
+    static func merged(
+        _ station: Station,
+        shown: NowPlaying? = nil,
+        live: StationMetadata?,
+        offset: StationMetadata?,
+        clock: SongClock
+    ) -> Station {
+        switch clock {
+        case .live:
+            guard let live else { return station }
+            return station.merging(live, liveListeners: live.listeners)
+        case .audio(let heardAt):
+            var copy = station
+            copy.nowPlaying = audibleSong(
+                shown: shown,
+                catalog: station.nowPlaying,
+                live: live?.now_playing,
+                offset: offset?.now_playing,
+                heardAt: heardAt
+            )
+            // Listeners and uptime describe now, not the audio's moment.
+            copy.totalListeners = live?.listeners ?? station.totalListeners
+            copy.uptime = live?.uptime ?? offset?.uptime ?? station.uptime
+            return copy
+        }
+    }
+
+    /// The song an HLS listener hears when the audio is at `heardAt`: the
+    /// newest song known to have started by then.
+    ///
+    /// Every source can know it. The audio-aligned payload was asked for
+    /// the audio's own moment, so its song is heard by definition; the
+    /// live payload, the catalog and the screen count once the audio has
+    /// reached their song's start. A song the audio has not reached is
+    /// never taken, whoever brought it: the title would run ahead of the
+    /// audio and flip back. Ignoring live payloads altogether instead left
+    /// the title a song behind whenever no aligned fetch followed a
+    /// change. The newest reached song wins, so an aligned payload rounded
+    /// down to its 10 s timestamp, from just before a change, cannot take
+    /// back a song the audio has reached; a tie goes to the fresher
+    /// source. When no song is known to be reached, the one on screen
+    /// stays: it is the best guess until an aligned payload arrives.
+    static func audibleSong(
+        shown: NowPlaying?,
+        catalog: NowPlaying?,
+        live: NowPlayingMetadata?,
+        offset: NowPlayingMetadata?,
+        heardAt: Date
+    ) -> NowPlaying? {
+        let candidates: [AudibleCandidate] = [
+            offset.map { AudibleCandidate($0, isAudioAligned: true) },
+            live.map { AudibleCandidate($0, isAudioAligned: false) },
+            catalog.map(AudibleCandidate.init),
+            shown.map(AudibleCandidate.init),
+        ].compactMap { $0 }
+        var best: (candidate: AudibleCandidate, start: Date)?
+        for candidate in candidates {
+            let start = candidate.start
+            let isReached = candidate.isAudioAligned
+                || start.map { $0 <= heardAt } == true
+            guard isReached else { continue }
+            let rank = start ?? .distantPast
+            if let best, best.start >= rank { continue }
+            best = (candidate, rank)
+        }
+        guard let winner = best?.candidate else { return shown ?? catalog }
+        return NowPlaying(
+            id: (shown ?? catalog)?.id ?? 0,
+            timestamp: winner.timestamp,
+            song: winner.song
+        )
+    }
+}
+
+/// One source's idea of the playing station's song.
+private struct AudibleCandidate {
+    let timestamp: String?
+    let song: Song?
+    /// Asked for at the audio's own moment, so heard by definition.
+    let isAudioAligned: Bool
+
+    init(_ payload: NowPlayingMetadata, isAudioAligned: Bool) {
+        timestamp = payload.timestamp
+        song = payload.song
+        self.isAudioAligned = isAudioAligned
+    }
+
+    init(_ nowPlaying: NowPlaying) {
+        timestamp = nowPlaying.timestamp
+        song = nowPlaying.song
+        isAudioAligned = false
+    }
+
+    /// When the song started on the broadcast timeline.
+    var start: Date? { timestamp.flatMap(SongTimestamp.date(from:)) }
 }

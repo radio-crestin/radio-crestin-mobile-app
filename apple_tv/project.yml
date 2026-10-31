@@ -44,6 +44,13 @@ targets:
         CFBundleShortVersionString: "1.5.0"
         CFBundleVersion: "84"
         UILaunchScreen: {}
+        # Radio keeps playing on the Home screen and under the screensaver,
+        # and the remote and Control Center can control it there. The
+        # `.playback` session category alone does not keep a background
+        # app running; without this mode tvOS suspends it and the audio
+        # stops. The iOS app declares the same mode.
+        UIBackgroundModes:
+          - audio
         NSAppTransportSecurity:
           # iOS app already ships with NSAllowsArbitraryLoads=true; tvOS
           # needs the same so http:// Icecast streams play without TLS.
@@ -77,6 +84,36 @@ targets:
           CODE_SIGN_IDENTITY: "Apple Distribution"
           PROVISIONING_PROFILE_SPECIFIER: "Radio Crestin TV App Store"
 
+  # Unit tests, run on the tvOS simulator only, through their own scheme
+  # below. They are deliberately NOT part of the RadioCrestinTV scheme:
+  # that scheme stays Release-only so archiving fetches nothing but the
+  # App Store profile (see 56d9dcc, which dropped the test target from it
+  # because its signing widened that fetch).
+  RadioCrestinTVTests:
+    type: bundle.unit-test
+    platform: tvOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: RadioCrestinTVTests
+    dependencies:
+      - target: RadioCrestinTV
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: ro.radiocrestin.radiocrestintv.tests
+        GENERATE_INFOPLIST_FILE: YES
+      configs:
+        # Ad-hoc identity in both configs, like the app's Debug: the bundle
+        # only ever runs on the simulator, so it must never ask Apple for a
+        # provisioning profile.
+        Debug:
+          CODE_SIGN_STYLE: Manual
+          CODE_SIGN_IDENTITY: "-"
+          PROVISIONING_PROFILE_SPECIFIER: ""
+        Release:
+          CODE_SIGN_STYLE: Manual
+          CODE_SIGN_IDENTITY: "-"
+          PROVISIONING_PROFILE_SPECIFIER: ""
+
 schemes:
   RadioCrestinTV:
     build:
@@ -97,3 +134,17 @@ schemes:
       config: Release
     archive:
       config: Release
+
+  # Test-only scheme, separate so the app scheme above stays Release-only.
+  # Tests run in Debug: `@testable import` needs testability, which Release
+  # turns off. Run with:
+  #   xcodebuild -project RadioCrestinTV.xcodeproj -scheme RadioCrestinTVTests
+  #     -destination 'platform=tvOS Simulator,name=<simulator>' test
+  RadioCrestinTVTests:
+    build:
+      targets:
+        RadioCrestinTVTests: [test]
+    test:
+      config: Debug
+      targets:
+        - RadioCrestinTVTests

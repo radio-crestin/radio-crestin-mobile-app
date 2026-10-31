@@ -37,21 +37,10 @@ struct StationCard: View {
                             .padding(8)
                     }
                 }
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(station.title)
-                        .font(.system(size: 22, weight: .semibold))
-                        .foregroundStyle(Theme.textPrimary)
-                        .lineLimit(1)
-                    // Radio: current song (blank when none). TV / playlist
-                    // carry no now-playing song, so they show a typed label
-                    // instead of an empty line.
-                    if !station.cardSubtitle.isEmpty {
-                        Text(station.cardSubtitle)
-                            .font(.system(size: 18))
-                            .foregroundStyle(Theme.textTertiary)
-                            .lineLimit(1)
-                    }
-                }
+                StationCardCaption(
+                    title: station.title,
+                    subtitle: station.cardSubtitle
+                )
                 // Uniform 16pt inset on every side so the labels feel
                 // framed inside the card rather than crowding the edge
                 // or the artwork above.
@@ -66,7 +55,9 @@ struct StationCard: View {
     }
 
     private var artwork: some View {
-        // Square artwork that follows the cell width.
+        // Square artwork that follows the cell width. `StationArtwork`
+        // crops the picture to this square, so a landscape song cover
+        // can't widen the card or spill into its neighbour.
         StationArtwork(
             station: station,
             cornerRadius: Theme.Radius.lg
@@ -125,6 +116,41 @@ struct StationCard: View {
                 .foregroundStyle(.white)
                 .padding(7)
                 .background(Theme.primary, in: Circle())
+        }
+    }
+}
+
+/// Station name and subtitle under the card's artwork.
+///
+/// A view of its own so it can read the card's focus: inside a `Button`'s
+/// label, `\.isFocused` describes that button, while `StationCard` itself
+/// sits outside it and would always read `false`. The focused `.card`
+/// platter is lighter than the unfocused one, so the subtitle brightens
+/// with it to keep its contrast (see `Theme.cardSubtitleFocused`).
+private struct StationCardCaption: View {
+    let title: String
+    /// Radio: the current song (blank when none). TV / playlist carry no
+    /// now-playing song, so they pass a typed label instead.
+    let subtitle: String
+
+    @Environment(\.isFocused) private var isFocused
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(Theme.textPrimary)
+                .lineLimit(1)
+            if !subtitle.isEmpty {
+                Text(subtitle)
+                    .font(.system(size: 18))
+                    .foregroundStyle(
+                        isFocused
+                            ? Theme.cardSubtitleFocused
+                            : Theme.cardSubtitle
+                    )
+                    .lineLimit(1)
+            }
         }
     }
 }

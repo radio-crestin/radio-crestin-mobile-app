@@ -217,3 +217,96 @@ enum StationSortService {
         return stable[index].slug
     }
 }
+
+// MARK: - Stable on-screen order
+
+/// The order of a station list as the listener saw it.
+///
+/// Rankings move by themselves: every play bumps a play count and every
+/// metadata tick changes the listener numbers behind the score. Sorting
+/// again on each change slid cards around under the focus, and made
+/// "Postul următor" walk a list that reordered itself after every step
+/// (Eldad → Gosen → Suceava → Gosen → Eldad). The UI keeps the order it
+/// showed and ranks again only at natural boundaries
+/// (`AppState.refreshOrder(of:)`); station values keep updating by id.
+struct StationOrder: Equatable {
+    /// Station ids, the first one shown first.
+    let ids: [Int]
+
+    init(ids: [Int]) {
+        self.ids = ids
+    }
+
+    init(_ stations: [Station]) {
+        self.ids = stations.map(\.id)
+    }
+
+    /// `members` laid out in this order. Ids no longer among `members`
+    /// are dropped; members this order has not seen yet (a new station,
+    /// a new favorite) go at the end in their own order, so no card
+    /// already on screen moves.
+    func arrange(_ members: [Station]) -> [Station] {
+        var byId: [Int: Station] = [:]
+        for station in members where byId[station.id] == nil {
+            byId[station.id] = station
+        }
+        var placed: Set<Int> = []
+        var result: [Station] = []
+        result.reserveCapacity(byId.count)
+        for id in ids {
+            guard let station = byId[id], placed.insert(id).inserted
+            else { continue }
+            result.append(station)
+        }
+        for station in members where placed.insert(station.id).inserted {
+            result.append(station)
+        }
+        return result
+    }
+
+    /// The id `step` places away from `currentId` in `ids`, wrapping
+    /// around both ends. A station that is not in `ids` enters the list
+    /// at its first id going forward and at its last going back. Nil
+    /// when there is no other station to go to.
+    static func neighbor(of currentId: Int, step: Int, in ids: [Int]) -> Int? {
+        guard !ids.isEmpty, step != 0 else { return nil }
+        guard let index = ids.firstIndex(of: currentId) else {
+            return step > 0 ? ids.first : ids.last
+        }
+        let count = ids.count
+        let target = ids[((index + step) % count + count) % count]
+        return target == currentId ? nil : target
+    }
+
+    /// Where previous / next go: the neighbour in `browsing` (the grid the
+    /// station was opened from) when it holds the station and another one
+    /// to go to, otherwise the neighbour in `fallback` ("Posturi" as
+    /// shown). A station opened from a one-card Favorite or Recente grid
+    /// thus still steps somewhere instead of leaving the buttons dead.
+    static func neighbor(
+        of currentId: Int,
+        step: Int,
+        in browsing: [Int],
+        orElseIn fallback: [Int]
+    ) -> Int? {
+        if browsing.contains(currentId),
+           let id = neighbor(of: currentId, step: step, in: browsing) {
+            return id
+        }
+        return neighbor(of: currentId, step: step, in: fallback)
+    }
+
+    /// The card that takes focus back when Now Playing closes: the one
+    /// that was opened, or — when it left the list meanwhile (e.g. it
+    /// was removed from Favorite) — the card now in its place. Nil for
+    /// an empty list.
+    static func focusTarget(
+        openedId: Int,
+        openedIndex: Int,
+        in ids: [Int]
+    ) -> Int? {
+        if ids.contains(openedId) { return openedId }
+        guard !ids.isEmpty else { return nil }
+        return ids[min(max(openedIndex, 0), ids.count - 1)]
+    }
+}

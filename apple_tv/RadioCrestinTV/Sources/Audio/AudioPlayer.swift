@@ -8,8 +8,12 @@ import UIKit
 /// AVPlayer-backed audio engine for the tvOS app.
 ///
 /// Mirrors the Android handler's contract: feed it a Station and it walks
-/// the API-ordered streams[] until one starts playing. Caller observes
-/// `state` to render play/pause/buffering.
+/// the API-ordered streams[] until one plays. For live radio/TV,
+/// `LiveStreamSupervisor` decides when a stream has failed the listener
+/// (it never started, it stalled, AVPlayer gave up on it) and when to start
+/// another round once every stream failed; this type owns AVPlayer and the
+/// timers and carries those decisions out. Callers observe `state` and
+/// `isRetrying` to render play/pause/buffering.
 ///
 /// In addition to playback, this type exposes:
 ///   * `currentStreamType` — "HLS" / "direct_stream" / nil. Used by the
@@ -30,6 +34,11 @@ final class AudioPlayer: ObservableObject {
     }
 
     @Published private(set) var state: PlaybackState = .idle
+
+    /// True while every stream of the live station failed and the engine
+    /// waits before trying them again; `state` is `.connecting` meanwhile.
+    /// Lets the UI say it is retrying rather than just connecting.
+    @Published private(set) var isRetrying: Bool = false
 
     /// True when the current source renders picture, not just audio:
     /// a TV station (always), or a playlist item of type `video`.
@@ -63,18 +72,104 @@ final class AudioPlayer: ObservableObject {
     /// tests can stub the network layer.
     private let repository: StationRepository
 
+    /// Sends a playback failure to analytics: the error, a context and
+    /// extra properties. Injected so tests do not report to the production
+    /// project.
+    typealias ErrorReporter = (Error, String, [String: Any]) -> Void
+    private let reportError: ErrorReporter
+
     private let player = AVPlayer()
     private var currentStation: Station?
-    private var streams: [StationStream] = []
-    private var attemptIndex = 0
-    private var statusObserver: NSKeyValueObservation?
-    private var playerItemObserver: AnyCancellable?
+
+    /// Observes the current item (live attempt or playlist entry). Replaced,
+    /// and the old one cancelled, whenever the item changes.
+    private var itemObserver: PlayerItemObserver?
 
     /// Distinguishes the two playback engines sharing the single AVPlayer:
     /// sequential *stream* fallback (radio/TV) versus sequential *playlist*
     /// item advance (playlist stations).
     private enum PlaybackMode { case stream, playlist }
     private var playbackMode: PlaybackMode = .stream
+
+    // MARK: Live stream state
+
+    /// A live stream with its tracked URL already built, so a fallback never
+    /// meets an unusable URL halfway through a round.
+    private struct ResolvedStream {
+        let source: StationStream
+        let url: URL
+    }
+
+    /// The live station's streams that have a usable URL, in API order
+    /// (HLS first, then the direct MP3/AAC stream).
+    private var streams: [ResolvedStream] = []
+
+    /// Decides when a live stream has failed and what to try next.
+    private var supervisor = LiveStreamSupervisor()
+
+    /// The supervisor's attempt whose item AVPlayer holds; nil while waiting
+    /// to retry and whenever no live stream is wanted.
+    private var liveAttemptID: Int?
+
+    /// URL of the stream the last live attempt loaded, for analytics.
+    private var lastAttemptedStreamUrl: String?
+
+    /// Error AVFoundation gave for the current live attempt. Analytics gets
+    /// it, or the supervisor's reason when AVPlayer reported none.
+    private var liveAttemptError: Error?
+
+    /// Periodic look at the player while the listener wants live audio.
+    private var supervisionTask: Task<Void, Never>?
+
+    /// How often the supervisor looks at the player. Its timeouts are 10 s,
+    /// so a look each second decides within a tenth of them, and one wake-up
+    /// a second (no per-frame work) costs nothing measurable.
+    private static let supervisionInterval: Duration = .seconds(1)
+
+    /// Lets tvOS batch that wake-up with others; a quarter of a second is
+    /// irrelevant against 10 s timeouts.
+    private static let supervisionTolerance: Duration = .milliseconds(250)
+
+    /// Forward buffer AVPlayer may hold for live radio/TV: enough for
+    /// everything between the playhead and the live edge.
+    ///
+    /// The HLS playlists start playback 18 s behind the live edge
+    /// (`EXT-X-START:TIME-OFFSET=-18`) and the edge moves in 6 s segment
+    /// steps, so up to ~24 s of audio already exists ahead of the playhead.
+    /// Thirty seconds lets AVPlayer keep all of it, which bridges a network
+    /// gap of that length without an audible break (the former 6 s cap made
+    /// every gap over ~6–12 s audible).
+    ///
+    /// It adds no latency: how far behind live the listener hears is fixed
+    /// by where playback starts, and a buffer can only hold audio that
+    /// already exists, so it never pushes the playhead back. Nor can it
+    /// misalign the song metadata: `hlsPlaybackTimestamp` reads the
+    /// playhead's own `EXT-X-PROGRAM-DATE-TIME`, not the end of the buffer.
+    /// Icecast MP3/AAC streams send a short burst and then real time, so
+    /// the cap changes nothing for them.
+    private static let liveForwardBufferDuration: TimeInterval = 30
+
+    /// KVO on the player's control status and waiting reason, so the
+    /// supervisor hears of a start or a stall at once rather than at its
+    /// next look. Event-driven: nothing runs while they stay the same.
+    private var playerObservations: [NSKeyValueObservation] = []
+
+    /// Lets a retry wait end at once when the network comes back.
+    private let networkWatcher = NetworkPathWatcher()
+
+    /// Interruptions, lost outputs and background pauses: the system
+    /// pausing the player must not look like a failed stream.
+    private var systemEvents: SystemPlaybackEvents?
+
+    /// Set when an audio interruption paused playback the listener wanted,
+    /// so it resumes when the interruption ends — and only then.
+    private var resumesAfterInterruption = false
+
+    /// Keeps the app running in the background through an outage, so the
+    /// retries go on while the listener is on the Home screen.
+    private let backgroundKeeper = BackgroundAudioKeeper()
+
+    // MARK: Playlist state
 
     /// Playable (non-YouTube) items for the active playlist station, in
     /// wire order — newest first, index 0 plays first.
@@ -84,10 +179,6 @@ final class AudioPlayer: ObservableObject {
     /// item start; when it reaches the item count we stop instead of
     /// spinning forever through a fully-broken playlist.
     private var consecutivePlaylistErrors = 0
-
-    /// NotificationCenter token for `AVPlayerItemDidPlayToEndTime` on the
-    /// current playlist item — drives auto-advance / loop.
-    private var itemEndObserver: NSObjectProtocol?
 
     /// 5s poll loop that keeps the playlist in sync with the backend while
     /// the player screen is open. Started/stopped by `NowPlayingView`
@@ -114,20 +205,53 @@ final class AudioPlayer: ObservableObject {
     private var dateRangeCollector: AVPlayerItemMetadataCollector?
     private var dateRangeBridge: DateRangeBridge?
 
-    /// Fired when a new DATERANGE `ID` appears on the active HLS playlist —
-    /// signal that a song change was just announced. Wired up by `RootView`
-    /// to trigger an out-of-cycle metadata poll, additive to the regular
-    /// 10s `/stations-metadata` cadence.
-    var onDateRangeMetadataChange: (() -> Void)?
+    /// Announced song changes the audio has not reached yet, by DATERANGE
+    /// `ID`. Cancelled with their item.
+    private var songChangeWaits: [String: Task<Void, Never>] = [:]
 
-    init(repository: StationRepository = StationRepository()) {
+    /// How often a song change wait looks at a playhead that has not yet
+    /// reached the change (it stalled meanwhile): once a second, like the
+    /// stream supervision. A change shown up to a second late is lost in
+    /// the 10 s rounding of the fetch anyway.
+    private static let songChangeRecheck: TimeInterval = 1
+
+    /// Fired when the audio reaches a song change the HLS playlist
+    /// announced with `EXT-X-DATERANGE`, so an audio-aligned metadata fetch
+    /// now gets the new song. Wired by `PlaybackCoordinator`, additive to
+    /// the periodic `/stations-metadata` poll.
+    var onAudioReachedSongChange: (() -> Void)?
+
+    init(
+        repository: StationRepository = StationRepository(),
+        reportError: @escaping ErrorReporter = {
+            Analytics.captureError($0, context: $1, extra: $2)
+        }
+    ) {
         self.repository = repository
+        self.reportError = reportError
         // Active audio session so the player keeps running when the
         // user backgrounds the app via Home button on the Siri Remote.
         try? AVAudioSession.sharedInstance().setCategory(
             .playback, mode: .default, options: []
         )
         try? AVAudioSession.sharedInstance().setActive(true)
+        // Every item keeps AVPlayer's stall-minimising wait and starts with
+        // a plain `play()`. The former live fast-start (waiting off +
+        // `playImmediately(atRate:)`) left every HLS station silent on
+        // tvOS 27 (2026-10-30): timeControlStatus went playing → paused
+        // within 20 ms and the item reached readyToPlay with 12 s buffered,
+        // but the playhead never moved while the UI said "playing". With
+        // the default wait the same streams play after 0.53 s (MP3 ~0.8 s),
+        // so the fast-start gained nothing.
+        player.automaticallyWaitsToMinimizeStalling = true
+        observePlayer()
+        networkWatcher.onRestored = { [weak self] in
+            self?.networkRestored()
+        }
+        systemEvents = SystemPlaybackEvents(player: player) {
+            [weak self] event in
+            self?.handleSystemEvent(event)
+        }
     }
 
     /// The shared AVPlayer, exposed so `VideoSurfaceView` can attach an
@@ -138,6 +262,11 @@ final class AudioPlayer: ObservableObject {
 
     func play(_ station: Station) {
         currentStation = station
+        resumesAfterInterruption = false
+        // Whatever played before — another station, kind or a pending
+        // retry — stops here, so nothing of it can act on the new station.
+        stopLiveSupervision()
+        detachCurrentItem()
         resetPlaylistState()
 
         switch station.kind {
@@ -146,12 +275,16 @@ final class AudioPlayer: ObservableObject {
             // stream fallback walk; TV just happens to carry picture.
             playbackMode = .stream
             isVideoContent = (station.kind == .tv)
-            streams = station.orderedStreams
-            attemptIndex = 0
+            streams = Self.resolvedStreams(of: station)
+            guard !streams.isEmpty else {
+                // No usable stream URL: retrying cannot fix that, so it is
+                // the one terminal failure for a live station.
+                state = .failed("Nu am putut conecta la flux")
+                return
+            }
             state = .connecting(station.title)
-            // `loadCurrentAttempt` starts playback itself (the live
-            // fast-start path), so there is no extra `player.play()` here.
-            loadCurrentAttempt()
+            apply(supervisor.start(streamCount: streams.count, at: Self.now))
+            startSupervisionLoop()
 
         case .playlist:
             playbackMode = .playlist
@@ -171,51 +304,76 @@ final class AudioPlayer: ObservableObject {
         }
     }
 
+    /// Pauses what the listener wants to hear, or resumes what they paused.
+    /// A connection in progress or a pending retry counts as wanted, so the
+    /// listener can always cancel it; `.idle` has nothing to toggle.
     func togglePlayPause() {
         guard let station = currentStation else { return }
+        resumesAfterInterruption = false
         switch state {
-        case .playing:
-            if playbackMode == .playlist {
-                // Playlist items are on-demand files — a soft pause keeps
-                // the buffered position so resume continues seamlessly.
-                player.pause()
-                state = .paused(station.title)
-            } else {
-                // Pause is a hard stop for live radio/TV. Holding the
-                // buffered segments would let "resume" replay stale content
-                // now seconds-to-minutes behind the live edge. Drop the
-                // item to close the connection and clear the buffer.
-                player.pause()
-                player.replaceCurrentItem(with: nil)
-                statusObserver?.invalidate()
-                statusObserver = nil
-                currentStreamType = nil
-                state = .paused(station.title)
-            }
+        case .playing, .connecting:
+            pausePlayback()
         case .paused:
-            if playbackMode == .playlist, player.currentItem != nil {
-                // Resume the same on-demand item where it left off.
-                player.play()
-                state = .playing(station.title)
-            } else {
-                // Resume live = re-tune at the live edge (fresh playlist).
-                play(station)
-            }
+            resumePlayback()
         case .failed:
             play(station)
-        case .connecting, .idle:
+        case .idle:
             break
         }
     }
 
     func stop() {
-        player.pause()
-        player.replaceCurrentItem(with: nil)
+        resumesAfterInterruption = false
+        stopLiveSupervision()
+        detachCurrentItem()
         stopPlaylistSync()
         resetPlaylistState()
-        currentStreamType = nil
         isVideoContent = false
         state = .idle
+    }
+
+    /// The current station's catalog entry changed (same station, e.g. new
+    /// stream URLs). Retries run until the listener gives up, so they must
+    /// not keep cycling through URLs the API no longer lists: new streams
+    /// take effect at the next retry round. A stream that plays, or a
+    /// round in progress, is never cut for them.
+    func stationDidUpdate(_ station: Station) {
+        guard currentStation?.id == station.id else { return }
+        currentStation = station
+        adoptStreamsWhileWaiting()
+    }
+
+    private func pausePlayback() {
+        guard let station = currentStation else { return }
+        if playbackMode == .playlist {
+            // Playlist items are on-demand files — a soft pause keeps
+            // the buffered position so resume continues seamlessly.
+            player.pause()
+        } else {
+            // Pause is a hard stop for live radio/TV, including a
+            // connection in progress or a pending retry. Holding the
+            // buffered segments would let "resume" replay stale content
+            // now seconds-to-minutes behind the live edge. Drop the item
+            // to close the connection and clear the buffer, and cancel
+            // every timer so nothing restarts the audio later.
+            stopLiveSupervision()
+            detachCurrentItem()
+        }
+        state = .paused(station.title)
+    }
+
+    private func resumePlayback() {
+        guard let station = currentStation else { return }
+        if playbackMode == .playlist, let item = player.currentItem {
+            // Resume the same on-demand item where it left off. One paused
+            // before it was ready shows "connecting" until it is.
+            player.play()
+            state = item.status == .readyToPlay
+                ? .playing(station.title) : .connecting(station.title)
+        } else {
+            // Resume live = re-tune at the live edge (fresh playlist).
+            play(station)
+        }
     }
 
     // MARK: - Live playlist sync
@@ -342,12 +500,8 @@ final class AudioPlayer: ObservableObject {
     /// down playback and flag the empty state. Keeps `playbackMode` and
     /// `currentStation` so a later sync can recover.
     private func depletePlaylist() {
-        removeEndObserver()
         removeTimeObserver()
-        statusObserver?.invalidate()
-        statusObserver = nil
-        player.pause()
-        player.replaceCurrentItem(with: nil)
+        detachCurrentItem()
         playlistItems = []
         playlistCount = 0
         playlistIndex = 0
@@ -402,10 +556,12 @@ final class AudioPlayer: ObservableObject {
     // MARK: - Stream-time accessors (for metadata sync)
 
     /// Wall-clock date of the audio currently being heard, derived from
-    /// `EXT-X-PROGRAM-DATE-TIME`. Only present for HLS streams that
-    /// embed the tag — radiocrestin.ro's HLS playlists do.
+    /// `EXT-X-PROGRAM-DATE-TIME` — radiocrestin.ro's HLS playlists carry
+    /// it. Nil unless a radio HLS stream plays (see `isPlayingHls`), and
+    /// until its item is ready.
     var hlsPlaybackDate: Date? {
-        player.currentItem?.currentDate()
+        guard isPlayingHls, let item = player.currentItem else { return nil }
+        return Self.playheadDate(of: item)
     }
 
     /// 10s-aligned Unix timestamp of the audio currently being heard for
@@ -417,12 +573,7 @@ final class AudioPlayer: ObservableObject {
     /// now-playing song metadata isn't offset-synced, so they must not drive
     /// the audio-aligned metadata fetch.
     var hlsPlaybackTimestamp: Int? {
-        guard currentStation?.kind == .radio,
-              currentStreamType == "HLS",
-              let date = hlsPlaybackDate else {
-            return nil
-        }
-        return roundedTimestamp(at: date)
+        hlsPlaybackDate.map { roundedTimestamp(at: $0) }
     }
 
     /// True when the currently loaded item is a radio HLS stream — the only
@@ -432,39 +583,92 @@ final class AudioPlayer: ObservableObject {
         currentStation?.kind == .radio && currentStreamType == "HLS"
     }
 
-    // MARK: - Internals
+    /// The broadcast date of the audio at `item`'s playhead
+    /// (`EXT-X-PROGRAM-DATE-TIME`), read only once the item is ready.
+    ///
+    /// Before that, `currentDate()` blocks the calling thread until the
+    /// stream's server answers, while AVFoundation works out what kind of
+    /// stream it is: on the main thread, the app froze for as long as the
+    /// server took — two minutes for one that never answered (measured on
+    /// the tvOS 27 simulator, 2026-10-31).
+    private static func playheadDate(of item: AVPlayerItem) -> Date? {
+        guard item.status == .readyToPlay else { return nil }
+        return item.currentDate()
+    }
 
-    private func loadCurrentAttempt() {
-        guard attemptIndex < streams.count,
-              let url = Self.trackedURL(for: streams[attemptIndex].streamUrl)
-        else {
-            // Out of streams. Keep the connecting state visible briefly so
-            // the user sees something happened, then surface failure.
-            state = .failed("Nu am putut conecta la flux")
-            currentStreamType = nil
-            return
+    // MARK: - Live stream supervision
+
+    /// Monotonic seconds for the supervisor: unlike the wall clock, it never
+    /// jumps when the Apple TV sets its time, so no timeout fires early.
+    private static var now: TimeInterval {
+        ProcessInfo.processInfo.systemUptime
+    }
+
+    /// Carries out a supervisor decision and publishes what the listener
+    /// should see.
+    private func apply(_ action: LiveStreamSupervisor.Action) {
+        switch action {
+        case .none:
+            break
+        case .load(let stream, let attempt):
+            loadLiveAttempt(stream: stream, attempt: attempt)
+        case .waitForRetry(_, let report):
+            // The periodic look ends the wait when it is due.
+            detachCurrentItem()
+            liveAttemptID = nil
+            if report { reportStreamFailure() }
+            adoptStreamsWhileWaiting()
         }
+        publishLiveState()
+        updateBackgroundKeeper()
+    }
 
-        currentStreamType = streams[attemptIndex].type
-        let isHls = currentStreamType == "HLS"
-        let item = AVPlayerItem(url: url)
-        // Cap the forward buffer at 6s so the audio the user hears stays
-        // close to the live broadcast moment. The HLS playlists ship 6s
-        // segments with EXT-X-PROGRAM-DATE-TIME, so one segment of buffer
-        // is enough to keep stalls rare while keeping the now-playing
-        // metadata visibly in sync with the audio.
-        item.preferredForwardBufferDuration = 6
-        // Feature B — live fast-start, HLS ONLY. For segmented HLS we drop
-        // AVPlayer's conservative anti-stall buffering and join the live
-        // edge the instant the first segment decodes (measured ~15% faster
-        // on the tvOS simulator). Direct Icecast MP3/AAC streams are
-        // deliberately excluded: with `automaticallyWaitsToMinimizeStalling
-        // = false` a continuous direct stream reaches `readyToPlay` but
-        // AVPlayer leaves it PAUSED (timeControlStatus == .paused) and it
-        // never advances — verified on the simulator — so they keep the
-        // default waiting behavior and a plain `play()`.
-        player.automaticallyWaitsToMinimizeStalling = isHls ? false : true
-        observe(item: item)
+    /// Switches to the station's current streams if they changed, while
+    /// waiting to retry: the only time no stream index is in use.
+    private func adoptStreamsWhileWaiting() {
+        guard playbackMode == .stream,
+              supervisor.isWaitingToRetry,
+              let station = currentStation
+        else { return }
+        let fresh = Self.resolvedStreams(of: station)
+        guard fresh.map(\.source) != streams.map(\.source),
+              supervisor.replaceStreams(count: fresh.count)
+        else { return }
+        streams = fresh
+    }
+
+    /// Runs the keeper while the app is in the background and the listener
+    /// wants a live station that does not play: connecting, stalled or
+    /// waiting to retry. In the foreground tvOS never suspends the app, so
+    /// it stays off there. Called on every look (once a second at least),
+    /// so a move to the background is caught within a second.
+    private func updateBackgroundKeeper() {
+        let silent = supervisor.display.map { $0 != .playing } ?? false
+        backgroundKeeper.setRunning(
+            playbackMode == .stream && silent && Self.isInBackground
+        )
+    }
+
+    private static var isInBackground: Bool {
+        #if canImport(UIKit)
+        UIApplication.shared.applicationState == .background
+        #else
+        false
+        #endif
+    }
+
+    private func loadLiveAttempt(stream index: Int, attempt: Int) {
+        detachCurrentItem()
+        let stream = streams[index]
+        liveAttemptID = attempt
+        liveAttemptError = nil
+        lastAttemptedStreamUrl = stream.source.streamUrl
+        currentStreamType = stream.source.type
+        let item = AVPlayerItem(url: stream.url)
+        item.preferredForwardBufferDuration = Self.liveForwardBufferDuration
+        itemObserver = PlayerItemObserver(item: item) { [weak self] event in
+            self?.handleLiveItemEvent(event, attempt: attempt)
+        }
         // Only radio streams carry EXT-X-DATERANGE song announcements that
         // should drive an out-of-cycle metadata poll. TV video streams may
         // be HLS too, but their now-playing isn't song-synced.
@@ -472,19 +676,183 @@ final class AudioPlayer: ObservableObject {
             attachDateRangeCollector(to: item)
         }
         player.replaceCurrentItem(with: item)
-        if isHls {
-            player.playImmediately(atRate: 1.0)
-        } else {
-            player.play()
+        player.play()
+    }
+
+    private func handleLiveItemEvent(
+        _ event: PlayerItemObserver.Event, attempt: Int
+    ) {
+        guard playbackMode == .stream, attempt == liveAttemptID else { return }
+        switch event {
+        case .readyToPlay:
+            // A ready item can make a `.playing` reading count.
+            sampleLivePlayback()
+        case .failed(let error), .failedToPlayToEnd(let error):
+            liveAttemptError = error
+            apply(supervisor.attemptFailed(attempt, at: Self.now))
+        case .playedToEnd:
+            // A live stream has no end: the server closed it.
+            liveAttemptError = LiveStreamFailure.ended
+            apply(supervisor.attemptFailed(attempt, at: Self.now))
         }
+    }
+
+    /// Gives the supervisor a fresh look at the player. It always reads
+    /// the current item on the main actor, so a KVO change queued for a
+    /// replaced item cannot speak for the new one.
+    private func sampleLivePlayback() {
+        guard playbackMode == .stream, let attempt = liveAttemptID else {
+            return
+        }
+        let time = player.currentTime().seconds
+        let audioDate = player.currentItem.flatMap(Self.playheadDate(of:))
+        let sample = LiveStreamSupervisor.Sample(
+            status: .init(
+                timeControlStatus: player.timeControlStatus,
+                waitingReason: player.reasonForWaitingToPlay,
+                itemIsReady: player.currentItem?.status == .readyToPlay
+            ),
+            playhead: time.isFinite ? time : nil,
+            liveLag: audioDate.map { Date().timeIntervalSince($0) }
+        )
+        apply(supervisor.record(sample, attempt: attempt, at: Self.now))
+    }
+
+    private func startSupervisionLoop() {
+        supervisionTask?.cancel()
+        supervisionTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(
+                    for: Self.supervisionInterval,
+                    tolerance: Self.supervisionTolerance
+                )
+                // Ends with its player too, not only when cancelled.
+                guard !Task.isCancelled, let self else { break }
+                self.superviseTick()
+            }
+        }
+    }
+
+    private func superviseTick() {
+        guard playbackMode == .stream else { return }
+        if liveAttemptID != nil {
+            sampleLivePlayback()
+        } else {
+            apply(supervisor.tick(at: Self.now))
+        }
+    }
+
+    private func networkRestored() {
+        guard playbackMode == .stream else { return }
+        apply(supervisor.networkBecameAvailable(at: Self.now))
+    }
+
+    /// Mirrors the supervisor's display into `state` / `isRetrying`,
+    /// assigning only on change so the periodic look does not re-render
+    /// SwiftUI every second.
+    private func publishLiveState() {
+        guard playbackMode == .stream,
+              let station = currentStation,
+              let display = supervisor.display
+        else { return }
+        let newState: PlaybackState = display == .playing
+            ? .playing(station.title) : .connecting(station.title)
+        let retrying = display == .retrying
+        if state != newState { state = newState }
+        if isRetrying != retrying { isRetrying = retrying }
+    }
+
+    /// Cancels every live timer, pending retry and attempt. After this no
+    /// callback, tick or network change can restart the audio.
+    private func stopLiveSupervision() {
+        supervisor.stop()
+        supervisionTask?.cancel()
+        supervisionTask = nil
+        liveAttemptID = nil
+        liveAttemptError = nil
+        if isRetrying { isRetrying = false }
+        backgroundKeeper.setRunning(false)
+    }
+
+    /// Reports the first round of a play request in which every stream
+    /// failed — once per request, not once per retry round.
+    private func reportStreamFailure() {
+        let error = liveAttemptError
+            ?? LiveStreamFailure(supervisor.lastGiveUpReason)
+        reportError(
+            error,
+            "avplayer_stream_failed",
+            [
+                "station_slug": currentStation?.slug ?? "?",
+                "stream_count": streams.count,
+                "last_attempted_url": lastAttemptedStreamUrl ?? "?"
+            ]
+        )
+    }
+
+    // MARK: - System pauses
+
+    /// Acts on the system pausing the audio (see `SystemPlaybackEvents`).
+    /// Internal rather than private so tests can drive it.
+    func handleSystemEvent(_ event: SystemPlaybackEvents.Event) {
+        switch event {
+        case .interruptionBegan:
+            guard wantsToPlay else { return }
+            pausePlayback()
+            resumesAfterInterruption = true
+        case .interruptionEnded(let shouldResume):
+            let resume = resumesAfterInterruption && shouldResume
+            resumesAfterInterruption = false
+            if resume, case .paused = state { resumePlayback() }
+        case .outputLost:
+            guard wantsToPlay else { return }
+            resumesAfterInterruption = false
+            pausePlayback()
+        case .pausedInBackground:
+            guard wantsToPlay, player.rate == 0 else { return }
+            pausePlayback()
+        }
+    }
+
+    // MARK: - Item plumbing
+
+    /// Drops the current item and everything observing it, closing its
+    /// connection.
+    private func detachCurrentItem() {
+        itemObserver?.cancel()
+        itemObserver = nil
+        dateRangeCollector = nil
+        dateRangeBridge = nil
+        songChangeWaits.values.forEach { $0.cancel() }
+        songChangeWaits = [:]
+        player.pause()
+        player.replaceCurrentItem(with: nil)
+        currentStreamType = nil
+    }
+
+    private func observePlayer() {
+        playerObservations = [
+            player.observe(\.timeControlStatus, options: [.new]) {
+                [weak self] _, _ in
+                Task { @MainActor in self?.sampleLivePlayback() }
+            },
+            player.observe(\.reasonForWaitingToPlay, options: [.new]) {
+                [weak self] _, _ in
+                Task { @MainActor in self?.sampleLivePlayback() }
+            },
+        ]
     }
 
     // MARK: - Playlist playback
 
     /// Load and observe the playlist item at `index`. Sets up the VOD time
-    /// observer and the end-of-item auto-advance hook.
+    /// observer; the item observer drives auto-advance at its end.
     private func loadPlaylistItem(at index: Int) {
         guard index >= 0, index < playlistItems.count else { return }
+        // Silence the previous item first, so a late failure of it cannot
+        // spend the error budget again.
+        itemObserver?.cancel()
+        itemObserver = nil
         playlistIndex = index
         let playlistItem = playlistItems[index]
         currentPlaylistItem = playlistItem
@@ -500,17 +868,45 @@ final class AudioPlayer: ObservableObject {
         if let title = currentStation?.title { state = .connecting(title) }
 
         let item = AVPlayerItem(url: url)
-        // VOD: let AVPlayer choose the buffer (0 = automatic). The 6s live
-        // cap used for radio/TV would starve on-demand playback.
+        // VOD: let AVPlayer choose the buffer (0 = automatic). The live cap
+        // is sized to the live window; an on-demand file has no live edge,
+        // and AVPlayer's own choice keeps it from stalling.
         item.preferredForwardBufferDuration = 0
-        // On-demand items keep AVPlayer's default anti-stall waiting — the
-        // live fast-start (instant-join) is only for live HLS streams, and
-        // a prior HLS join may have turned waiting off on the shared player.
-        player.automaticallyWaitsToMinimizeStalling = true
-        observe(item: item)
+        itemObserver = PlayerItemObserver(item: item) { [weak self] event in
+            self?.handlePlaylistItemEvent(event)
+        }
         player.replaceCurrentItem(with: item)
-        addEndObserver(for: item)
         addTimeObserver()
+    }
+
+    private func handlePlaylistItemEvent(_ event: PlayerItemObserver.Event) {
+        guard playbackMode == .playlist else { return }
+        switch event {
+        case .readyToPlay:
+            // Only a connecting item turns "playing": one the listener
+            // paused before it was ready stays paused.
+            if case .connecting(let title) = state {
+                state = .playing(title)
+            }
+            // A clean start clears the broken-playlist error budget.
+            consecutivePlaylistErrors = 0
+        case .failed(let error), .failedToPlayToEnd(let error):
+            // Both mean this item cannot play on; a file that breaks off
+            // mid-way reports only `failedToPlayToEnd`.
+            if let error {
+                reportError(
+                    error,
+                    "avplayer_playlist_item_failed",
+                    [
+                        "station_slug": currentStation?.slug ?? "?",
+                        "item_index": playlistIndex
+                    ]
+                )
+            }
+            advancePlaylistItem(dueToError: true)
+        case .playedToEnd:
+            advancePlaylistItem(dueToError: false)
+        }
     }
 
     /// Advance to the next item, looping at the end. When `dueToError` and
@@ -521,7 +917,8 @@ final class AudioPlayer: ObservableObject {
             consecutivePlaylistErrors += 1
             if consecutivePlaylistErrors >= playlistItems.count {
                 state = .failed("Nu am putut reda playlistul")
-                removeEndObserver()
+                itemObserver?.cancel()
+                itemObserver = nil
                 removeTimeObserver()
                 return
             }
@@ -529,27 +926,6 @@ final class AudioPlayer: ObservableObject {
         let next = playlistIndex + 1
         loadPlaylistItem(at: next < playlistItems.count ? next : 0)
         player.play()
-    }
-
-    /// Register the end-of-item notification that drives auto-advance/loop.
-    private func addEndObserver(for item: AVPlayerItem) {
-        removeEndObserver()
-        itemEndObserver = NotificationCenter.default.addObserver(
-            forName: .AVPlayerItemDidPlayToEndTime,
-            object: item,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor in
-                self?.advancePlaylistItem(dueToError: false)
-            }
-        }
-    }
-
-    private func removeEndObserver() {
-        if let itemEndObserver {
-            NotificationCenter.default.removeObserver(itemEndObserver)
-        }
-        itemEndObserver = nil
     }
 
     /// Periodic (0.5s) observer that publishes the current VOD position and
@@ -581,7 +957,6 @@ final class AudioPlayer: ObservableObject {
     /// Tear down all playlist bookkeeping. Called before every `play(_:)`
     /// and on `stop()` so a switch between station kinds starts clean.
     private func resetPlaylistState() {
-        removeEndObserver()
         removeTimeObserver()
         playlistItems = []
         playlistIndex = 0
@@ -596,17 +971,21 @@ final class AudioPlayer: ObservableObject {
 
     /// Wire an `AVPlayerItemMetadataCollector` onto the new item so the
     /// server's `EXT-X-DATERANGE` entries surface in-app. Additive to the
-    /// 10s metadata REST poll — early-trigger only, never replaces.
+    /// periodic metadata REST poll — early-trigger only, never replaces.
     private func attachDateRangeCollector(to item: AVPlayerItem) {
         // Reset so the first DATERANGE on the new stream registers as a
         // change rather than colliding with the previous stream's ID.
         lastSeenDateRangeID = nil
-        let bridge = DateRangeBridge { [weak self] newID in
+        let bridge = DateRangeBridge { [weak self, weak item] newID, start in
             Task { @MainActor in
-                guard let self else { return }
+                // Announcements of a replaced item say nothing about the
+                // audio now playing.
+                guard let self, let item,
+                      self.player.currentItem === item else { return }
                 guard newID != self.lastSeenDateRangeID else { return }
                 self.lastSeenDateRangeID = newID
-                self.onDateRangeMetadataChange?()
+                self.notifyWhenAudioReaches(songStart: start, id: newID,
+                                            on: item)
             }
         }
         let collector = AVPlayerItemMetadataCollector()
@@ -614,6 +993,62 @@ final class AudioPlayer: ObservableObject {
         item.add(collector)
         dateRangeBridge = bridge
         dateRangeCollector = collector
+    }
+
+    /// Fires `onAudioReachedSongChange` once the audio is past a song
+    /// change announced to start at `songStart`.
+    ///
+    /// The collector reports a tag when it loads it, as the tag enters the
+    /// playlist at the live edge — 18–30 s before the listener hears that
+    /// moment. A fetch at the announcement asked for the moment the audio
+    /// was at, which was still the old song, and the title stayed one song
+    /// behind until the next announcement. The wait ends once the 10 s-
+    /// rounded timestamp the fetch sends (`hlsPlaybackTimestamp`) is past
+    /// the change, so the fetch returns the new song.
+    private func notifyWhenAudioReaches(
+        songStart: Date,
+        id: String,
+        on item: AVPlayerItem
+    ) {
+        let target = nextRoundedMoment(after: songStart)
+        songChangeWaits[id] = Task { [weak self, weak item] in
+            while true {
+                guard let wait = self?.secondsUntil(item, plays: target)
+                else { return }
+                if wait <= 0 { break }
+                try? await Task.sleep(
+                    for: .seconds(max(wait, Self.songChangeRecheck))
+                )
+                if Task.isCancelled { return }
+            }
+            self?.songChangeWaits[id] = nil
+            self?.onAudioReachedSongChange?()
+        }
+    }
+
+    /// Seconds until `item`'s playhead reaches `target` on the broadcast
+    /// timeline (zero or less once it has); nil once the item no longer
+    /// plays. A playhead without a date yet is looked at again later.
+    private func secondsUntil(
+        _ item: AVPlayerItem?,
+        plays target: Date
+    ) -> TimeInterval? {
+        guard let item, player.currentItem === item else { return nil }
+        guard let heard = Self.playheadDate(of: item) else {
+            return Self.songChangeRecheck
+        }
+        return target.timeIntervalSince(heard)
+    }
+
+    /// The station's live streams that have a usable URL, in API order.
+    private static func resolvedStreams(
+        of station: Station
+    ) -> [ResolvedStream] {
+        station.orderedStreams.compactMap { stream in
+            trackedURL(for: stream.streamUrl).map {
+                ResolvedStream(source: stream, url: $0)
+            }
+        }
     }
 
     // MARK: - Stream URL tracking
@@ -639,75 +1074,6 @@ final class AudioPlayer: ObservableObject {
         components.queryItems = items
         return components.url ?? baseURL
     }
-
-    private func observe(item: AVPlayerItem) {
-        // Drop the previous observation. AVPlayerItem.status is KVO-only.
-        statusObserver?.invalidate()
-        statusObserver = item.observe(
-            \.status, options: [.new]
-        ) { [weak self] item, _ in
-            Task { @MainActor in
-                guard let self else { return }
-                switch item.status {
-                case .readyToPlay:
-                    if let station = self.currentStation {
-                        self.state = .playing(station.title)
-                    }
-                    // A clean start clears the broken-playlist error budget.
-                    if self.playbackMode == .playlist {
-                        self.consecutivePlaylistErrors = 0
-                    }
-                case .failed:
-                    switch self.playbackMode {
-                    case .stream:
-                        self.advanceOrFail(error: item.error)
-                    case .playlist:
-                        if let error = item.error {
-                            Analytics.captureError(
-                                error,
-                                context: "avplayer_playlist_item_failed",
-                                extra: [
-                                    "station_slug": self.currentStation?.slug ?? "?",
-                                    "item_index": self.playlistIndex
-                                ]
-                            )
-                        }
-                        self.advancePlaylistItem(dueToError: true)
-                    }
-                case .unknown:
-                    break
-                @unknown default:
-                    break
-                }
-            }
-        }
-    }
-
-    private func advanceOrFail(error: Error?) {
-        attemptIndex += 1
-        if attemptIndex < streams.count {
-            // Retry the next stream — same UX as the Android fallback.
-            loadCurrentAttempt()
-        } else {
-            state = .failed(
-                error?.localizedDescription ?? "Eroare flux audio"
-            )
-            currentStreamType = nil
-            if let error {
-                Analytics.captureError(
-                    error,
-                    context: "avplayer_stream_failed",
-                    extra: [
-                        "station_slug": currentStation?.slug ?? "?",
-                        "stream_count": streams.count,
-                        "last_attempted_url":
-                            attemptIndex - 1 >= 0 && attemptIndex - 1 < streams.count
-                                ? streams[attemptIndex - 1].streamUrl : "?"
-                    ]
-                )
-            }
-        }
-    }
 }
 
 // MARK: - Convenience accessors for the UI
@@ -721,6 +1087,55 @@ extension AudioPlayer {
         if case .connecting = state { return true }
         return false
     }
+
+    /// The listener's intent: true while connecting (a pending retry
+    /// included) or playing. Unlike `isPlaying`, it stays true while the
+    /// engine brings a station back, so the UI and remote commands can tell
+    /// it apart from one the listener paused.
+    var wantsToPlay: Bool {
+        switch state {
+        case .connecting, .playing:
+            return true
+        case .idle, .paused, .failed:
+            return false
+        }
+    }
+}
+
+// MARK: - Live stream failures
+
+/// Why the engine gave up on a live stream, reported to analytics in place
+/// of an AVFoundation error when AVPlayer supplied none.
+private enum LiveStreamFailure: LocalizedError {
+    case noStart
+    case stalled
+    case stale
+    case ended
+    case unknown
+
+    init(_ reason: LiveStreamSupervisor.GiveUpReason?) {
+        switch reason {
+        case .noStart: self = .noStart
+        case .stalled: self = .stalled
+        case .stale: self = .stale
+        case .failed, nil: self = .unknown
+        }
+    }
+
+    var errorDescription: String? {
+        switch self {
+        case .noStart:
+            return "The stream did not start within the connect timeout"
+        case .stalled:
+            return "The stream stopped advancing for the stall timeout"
+        case .stale:
+            return "The HLS playlist stopped advancing (its audio is old)"
+        case .ended:
+            return "The server ended the live stream"
+        case .unknown:
+            return "AVPlayer reported a failure without an error"
+        }
+    }
 }
 
 // MARK: - DATERANGE delegate bridge
@@ -733,9 +1148,10 @@ extension AudioPlayer {
 /// match stays stable across iOS releases.
 private final class DateRangeBridge: NSObject,
     AVPlayerItemMetadataCollectorPushDelegate {
-    private let onNewID: (String) -> Void
+    /// Called with the newest announced group's `ID` and start date.
+    private let onNewID: (String, Date) -> Void
 
-    init(onNewID: @escaping (String) -> Void) {
+    init(onNewID: @escaping (String, Date) -> Void) {
         self.onNewID = onNewID
         super.init()
     }
@@ -757,8 +1173,8 @@ private final class DateRangeBridge: NSObject,
                 latest = (group.startDate, id)
             }
         }
-        guard let id = latest?.id else { return }
-        onNewID(id)
+        guard let latest else { return }
+        onNewID(latest.id, latest.date)
     }
 
     /// Pulls the DATERANGE `ID` attribute out of an `AVMetadataItem` array.

@@ -43,6 +43,15 @@ func roundedTimestamp(
     return (epoch / step) * step
 }
 
+/// The first moment whose `roundedTimestamp` is after `date`. Rounding
+/// down puts a fetch sent up to `step` seconds after `date` on a timestamp
+/// before it; one sent from this moment on asks about a time past `date`.
+func nextRoundedMoment(after date: Date, step: Int = 10) -> Date {
+    Date(timeIntervalSince1970: TimeInterval(
+        roundedTimestamp(at: date, step: step) + step
+    ))
+}
+
 /// Thin REST wrapper that decodes a `Decodable` payload from a URL.
 /// Adds an 8s timeout so a slow API doesn't stall the metadata poller.
 struct RestClient {

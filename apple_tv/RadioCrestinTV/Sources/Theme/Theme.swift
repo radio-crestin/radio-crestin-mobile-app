@@ -18,6 +18,17 @@ enum Theme {
     static let textSecondary = Color.white.opacity(0.70)
     static let textTertiary = Color.white.opacity(0.50)
 
+    // Station card subtitle. White-alpha text takes its contrast from the
+    // `.card` platter behind it, which tvOS lightens on focus, so each
+    // state has its own colour. Ratios measured on the tvOS 27 simulator
+    // (dark scheme) against WCAG AA's 4.5:1 for normal text.
+
+    /// On the #232323 unfocused platter: renders #919191, 4.99:1.
+    static let cardSubtitle = textTertiary
+    /// On the #484848 focused platter: renders #C8C8C8, 5.47:1. The
+    /// unfocused colour there renders #A2A2A2, only 3.58:1.
+    static let cardSubtitleFocused = textSecondary
+
     // Spacing
     enum Spacing {
         static let xs: CGFloat = 4
