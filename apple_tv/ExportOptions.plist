@@ -12,7 +12,7 @@
     <string>Apple Distribution</string>
     <key>provisioningProfiles</key>
     <dict>
-        <key>ro.radiocrestin.radiocrestintv</key>
+        <key>com.radiocrestinsoftware.radioApp</key>
         <string>Radio Crestin TV App Store</string>
     </dict>
     <key>compileBitcode</key>

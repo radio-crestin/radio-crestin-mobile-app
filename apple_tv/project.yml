@@ -1,12 +1,13 @@
 # xcodegen spec for the Apple TV companion app.
 # Regenerate with: cd apple_tv && xcodegen generate
 #
-# Separate App Store Connect record from the iOS app (no Universal Purchase).
-# Apple bundle IDs forbid underscores; reverse-DNS uses the .ro country prefix.
+# Same bundle ID as the iOS and macOS apps, so App Store Connect puts its
+# builds on the tvOS platform of the one "Radio Crestin" app (Universal
+# Purchase), not on a separate TV app.
 
 name: RadioCrestinTV
 options:
-  bundleIdPrefix: ro.radiocrestin
+  bundleIdPrefix: com.radiocrestinsoftware
   deploymentTarget:
     tvOS: "17.0"
   createIntermediateGroups: true
@@ -44,7 +45,11 @@ targets:
       properties:
         CFBundleDisplayName: Radio Crestin
         CFBundleShortVersionString: "1.5.1"
-        CFBundleVersion: "85"
+        CFBundleVersion: "87"
+        # No encryption beyond the system's HTTPS, which is exempt, as the
+        # iOS app declares: App Store Connect then skips the export
+        # compliance question on every uploaded build.
+        ITSAppUsesNonExemptEncryption: false
         # The app's UI is Romanian, as in the macOS app. Declaring it makes
         # tvOS run the app in Romanian when the Apple TV's languages put
         # Romanian before English, so the system's strings inside the app
@@ -71,7 +76,7 @@ targets:
           NSAllowsArbitraryLoads: true
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: ro.radiocrestin.radiocrestintv
+        PRODUCT_BUNDLE_IDENTIFIER: com.radiocrestinsoftware.radioApp
         # The App Icon brand assets also hold the static Top Shelf images.
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.music
@@ -112,7 +117,7 @@ targets:
       - target: RadioCrestinTV
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: ro.radiocrestin.radiocrestintv.tests
+        PRODUCT_BUNDLE_IDENTIFIER: com.radiocrestinsoftware.radioApp.tests
         GENERATE_INFOPLIST_FILE: YES
       configs:
         # Ad-hoc identity in both configs, like the app's Debug: the bundle
