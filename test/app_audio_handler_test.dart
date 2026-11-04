@@ -459,11 +459,21 @@ void main() {
           equals(const Duration(seconds: 3)));
     });
 
-    test('Android lets ExoPlayer ride out a stall for 15 s first', () {
-      expect(ReconnectPolicy.bufferingStallTimeoutFor(android: true),
+    test('Android lets ExoPlayer ride out an HLS stall for 15 s first', () {
+      expect(
+          ReconnectPolicy.bufferingStallTimeoutFor(android: true, isHls: true),
           const Duration(seconds: 15));
-      expect(ReconnectPolicy.bufferingStallTimeoutFor(android: false),
-          ReconnectPolicy.bufferingStallTimeout);
+    });
+
+    test('a direct stream, or any stream off Android, reloads after 3 s', () {
+      for (final (android, isHls) in [(true, false), (false, true),
+          (false, false)]) {
+        expect(
+            ReconnectPolicy.bufferingStallTimeoutFor(
+                android: android, isHls: isHls),
+            ReconnectPolicy.bufferingStallTimeout,
+            reason: 'android=$android isHls=$isHls');
+      }
     });
 
     test('a stall moves to the next stream except on Android', () {

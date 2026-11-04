@@ -338,18 +338,28 @@ class ReconnectPolicy {
   /// shortens the silence window — it does not bypass any safety net.
   static const Duration bufferingStallTimeout = Duration(seconds: 3);
 
-  /// The same wait on Android. ExoPlayer, unlike AVPlayer, keeps retrying
-  /// its loads by itself while it buffers, and resumes as soon as the
-  /// network lets it. Reloading after 3 s threw its playlist and loads
+  /// The same wait for HLS on Android. ExoPlayer, unlike AVPlayer, keeps
+  /// retrying its loads by itself while it buffers, and resumes as soon as
+  /// the network lets it. Reloading after 3 s threw its playlist and loads
   /// away on every signal dip in a car, and the reload usually started the
   /// MP3 stream instead (see [stallCountsAsStreamFailure]). It still
   /// reloads after this long, in case the player itself is stuck.
-  static const Duration androidBufferingStallTimeout = Duration(seconds: 15);
+  static const Duration androidHlsBufferingStallTimeout =
+      Duration(seconds: 15);
 
-  /// The buffering-stall wait on this platform: [androidBufferingStallTimeout]
-  /// on Android, [bufferingStallTimeout] elsewhere.
-  static Duration bufferingStallTimeoutFor({required bool android}) =>
-      android ? androidBufferingStallTimeout : bufferingStallTimeout;
+  /// The buffering-stall wait: [androidHlsBufferingStallTimeout] for HLS on
+  /// Android, [bufferingStallTimeout] otherwise. A direct (MP3) stream has
+  /// nothing loaded ahead, so its stall is already heard: it reloads at
+  /// once, and on Android that reload is how a station gets back to its
+  /// HLS stream after falling back (the stall is not held against the MP3
+  /// stream, and HLS is tried first again once its failure is forgotten).
+  static Duration bufferingStallTimeoutFor({
+    required bool android,
+    required bool isHls,
+  }) =>
+      android && isHls
+          ? androidHlsBufferingStallTimeout
+          : bufferingStallTimeout;
 
   /// Whether a buffering stall counts as a failure of the stream, so the
   /// reload starts at the station's next stream (see `StreamFailover`).
@@ -973,8 +983,9 @@ class AppAudioHandler extends BaseAudioHandler {
   Timer? _bufferingStallTimer;
   // Read from ReconnectPolicy so the test suite can assert on a single
   // source of truth.
-  static final _bufferingStallTimeout = ReconnectPolicy.bufferingStallTimeoutFor(
-      android: Platform.isAndroid);
+  Duration get _bufferingStallTimeout =>
+      ReconnectPolicy.bufferingStallTimeoutFor(
+          android: Platform.isAndroid, isHls: _loadedStreamType == 'HLS');
   static final _stallCountsAsStreamFailure =
       ReconnectPolicy.stallCountsAsStreamFailure(android: Platform.isAndroid);
 
