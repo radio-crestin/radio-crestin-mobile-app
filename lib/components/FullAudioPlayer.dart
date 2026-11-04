@@ -566,7 +566,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
             skipSpacing: sizes.skipSpacing,
             alignStart: true,
           ),
-          _buildBottomActionRow(context, spreadToEdges: true),
+          _buildBottomActionRow(context, alignStart: true),
         ],
       ),
     );
@@ -861,11 +861,11 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   }
 
   /// Bottom action row: favorit | somn | trimite | istoric.
-  /// Portrait gives each action an equal share of the width;
-  /// [spreadToEdges] puts the first and last at the edges of the landscape
-  /// right-hand column, in line with the station name and the cast button.
+  /// Portrait gives each action an equal share of the width; [alignStart]
+  /// lines them up from the start of the landscape right-hand column, an
+  /// even gap apart.
   Widget _buildBottomActionRow(BuildContext context,
-      {bool spreadToEdges = false}) {
+      {bool alignStart = false}) {
     final actions = <Widget>[
       _buildFavoriteButton(context),
       SleepTimerButton(
@@ -897,15 +897,8 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
       key: _actionRowKey,
       child: MediaQuery.withClampedTextScaling(
         maxScaleFactor: _maxActionLabelTextScale,
-        child: spreadToEdges
-            // Flexible, so a narrow column squeezes the actions instead of
-            // overflowing.
-            ? Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  for (final action in actions) Flexible(child: action),
-                ],
-              )
+        child: alignStart
+            ? _StartAlignedActions(actions: actions)
             // On tablets the row spans no wider than the largest artwork and
             // its margins, so the actions stay close together.
             : ConstrainedBox(
@@ -1555,6 +1548,42 @@ class _RatingButton extends StatelessWidget {
 
 /// The small label under a player action's icon. Scales down rather than
 /// wrapping when its share of the action row is too narrow.
+/// The landscape action row: the actions an even gap apart from the start
+/// of the column, the first one's label in line with the text above.
+class _StartAlignedActions extends StatelessWidget {
+  const _StartAlignedActions({required this.actions});
+
+  final List<Widget> actions;
+
+  /// Gap between two actions' tap targets; with their padding, about 40
+  /// between the labels, so each is easy to hit on its own.
+  static const double _gap = 20.0;
+
+  /// The padding each action's tap target adds around its icon and label.
+  static const double _targetPadding = 10.0;
+
+  @override
+  Widget build(BuildContext context) {
+    return Transform.translate(
+      offset: const Offset(-_targetPadding, 0),
+      // Scales down rather than overflowing a narrow column.
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: AlignmentDirectional.centerStart,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final (i, action) in actions.indexed) ...[
+              if (i > 0) const SizedBox(width: _gap),
+              action,
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _ActionLabel extends StatelessWidget {
   const _ActionLabel(this.text);
 
