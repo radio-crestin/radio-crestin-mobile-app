@@ -7,7 +7,7 @@
  *
  * Output goes to dist/release-media/<tag>/ (override with --out <folder>).
  */
-import { copyFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { renderDeck } from "./deck.ts";
 import { githubNotes } from "./github.ts";
@@ -63,7 +63,7 @@ function allSlides(notes: string, repo: string): Slide[] {
 async function video(slides: Slide[], deck: string, out: string) {
   // Loaded only here: the voice model's runtime is heavy, and deck/notes don't need it.
   const { narrate } = await import("./narrate.ts");
-  const { buildVideo, screenshotSlide } = await import("./video.ts");
+  const { buildVideo, renderPoster, screenshotSlide } = await import("./video.ts");
   const scenes: Scene[] = [];
   for (const [index, slide] of slides.entries()) {
     const image = join(out, "slides", `${String(index + 1).padStart(2, "0")}.png`);
@@ -77,7 +77,7 @@ async function video(slides: Slide[], deck: string, out: string) {
   const seconds = await buildVideo(scenes, join(out, "build"), path);
   const minutes = `${Math.floor(seconds / 60)}:${String(Math.round(seconds % 60)).padStart(2, "0")}`;
   console.log(`video ${minutes} → ${path}`);
-  copyFileSync(join(out, "slides", "01.png"), join(out, "poster.png"));
+  await renderPoster(join(out, "slides", "01.png"), minutes, join(out, "poster.jpg"));
 }
 
 function fail(message: string): never {

@@ -90,6 +90,7 @@ RELEASE_MEDIA_TOOL  := scripts/release-media
 RELEASE_MEDIA_DIR   := $(DIST)/release-media/$(TAG)
 RELEASE_DECK        := $(DIST)/radio-crestin-whats-new.html
 RELEASE_VIDEO       := $(DIST)/radio-crestin-whats-new.mp4
+RELEASE_POSTER      := $(DIST)/radio-crestin-whats-new.jpg
 
 # Store-upload credentials are read from 1Password (never committed).
 # See docs/releasing.md "Store uploads" for setup.
@@ -303,7 +304,8 @@ release-media: check-release-notes release-media-deps | $(DIST)
 	bun $(RELEASE_MEDIA_TOOL)/src/main.ts video $(TAG) --repo $(GH_REPO) --out $(RELEASE_MEDIA_DIR)
 	cp $(RELEASE_MEDIA_DIR)/presentation.html $(RELEASE_DECK)
 	cp $(RELEASE_MEDIA_DIR)/video.mp4 $(RELEASE_VIDEO)
-	@ls -lh $(RELEASE_DECK) $(RELEASE_VIDEO)
+	cp $(RELEASE_MEDIA_DIR)/poster.jpg $(RELEASE_POSTER)
+	@ls -lh $(RELEASE_DECK) $(RELEASE_VIDEO) $(RELEASE_POSTER)
 
 # ----- Tag + push (idempotent) ----------------------------------------------
 .PHONY: tag-release
@@ -330,7 +332,7 @@ publish: release-notes
 	  echo "release $(TAG) already exists — refreshing its notes and uploading artifacts"; \
 	  gh release edit $(TAG) -R $(GH_REPO) --notes-file $(RELEASE_NOTES); \
 	fi
-	@for f in $(RELEASE_VIDEO) $(RELEASE_DECK) $(ANDROID_APK) $(ANDROID_AAB) $(IOS_IPA) $(MACOS_DMG) $(WINDOWS_ZIP) $(APPLE_TV_IPA); do \
+	@for f in $(RELEASE_VIDEO) $(RELEASE_POSTER) $(RELEASE_DECK) $(ANDROID_APK) $(ANDROID_AAB) $(IOS_IPA) $(MACOS_DMG) $(WINDOWS_ZIP) $(APPLE_TV_IPA); do \
 	  if [ -f "$$f" ]; then \
 	    echo "uploading $$f"; \
 	    gh release upload $(TAG) -R $(GH_REPO) "$$f" --clobber; \

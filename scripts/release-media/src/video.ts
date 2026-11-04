@@ -30,6 +30,42 @@ export async function screenshotSlide(deck: string, index: number, out: string):
   if (!existsSync(out)) throw new Error(`Chrome did not render slide ${index + 1}`);
 }
 
+/**
+ * The video's poster for the GitHub release, a 1280 px JPEG: the first slide, dimmed, under a play
+ * button and the video's length, so it reads as a video to click.
+ */
+export async function renderPoster(slide: string, length: string, out: string): Promise<void> {
+  const work = mkdtempSync(join(tmpdir(), "release-media-poster-"));
+  const page = join(work, "poster.html");
+  const png = join(work, "poster.png");
+  writeFileSync(page, posterHtml(pathToFileURL(slide).href, length));
+  try {
+    await run(CHROME, [
+      "--headless=new", "--disable-gpu", "--hide-scrollbars", "--no-first-run",
+      "--force-device-scale-factor=1", "--window-size=1920,1080", "--virtual-time-budget=1500",
+      "--allow-file-access-from-files", `--user-data-dir=${join(work, "profile")}`, `--screenshot=${png}`,
+      pathToFileURL(page).href,
+    ]);
+    await run("ffmpeg", ["-v", "error", "-y", "-i", png, "-vf", "scale=1280:-2", "-q:v", "3", out]);
+  } finally {
+    rmSync(work, { recursive: true, force: true });
+  }
+}
+
+function posterHtml(slide: string, length: string): string {
+  return `<!doctype html><meta charset="utf-8"><style>
+body { margin: 0; width: 1920px; height: 1080px; position: relative; font-family: -apple-system, sans-serif;
+  background: url("${slide}") center / cover; }
+.dim { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.55); }
+.play { position: absolute; left: 50%; top: 50%; width: 220px; height: 220px; margin: -110px 0 0 -110px;
+  border-radius: 50%; background: #E91E63; box-shadow: 0 16px 56px rgba(0, 0, 0, 0.5); }
+.play::after { content: ""; position: absolute; left: 84px; top: 55px; border-style: solid;
+  border-width: 55px 0 55px 92px; border-color: transparent transparent transparent #fff; }
+.label { position: absolute; left: 50%; top: calc(50% + 150px); transform: translateX(-50%); color: #fff;
+  font-size: 44px; font-weight: 600; padding: 14px 34px; border-radius: 999px; background: #141414; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5); }
+</style><div class="dim"></div><div class="play"></div><div class="label">What's new · ${length}</div>`;
+}
+
 /** Joins the scenes into one mp4 with a chapter per scene. Unchanged scenes are reused from `work`. */
 export async function buildVideo(scenes: Scene[], work: string, out: string): Promise<number> {
   mkdirSync(work, { recursive: true });
