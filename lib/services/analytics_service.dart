@@ -144,14 +144,26 @@ class AnalyticsService {
         if (_currentStreamTotal != null) 'total_streams': _currentStreamTotal!,
       };
 
+  // The config handed to setup when it installed session replay. The SDK
+  // keeps this same object, and `PostHogWidget` reads its `sessionReplay`
+  // when it mounts.
+  PostHogConfig? _replayConfig;
+
+  /// Called for every exception passed to [captureException], which starts
+  /// recording on `on-error` replay devices.
+  VoidCallback? onExceptionCaptured;
+
   /// Initialize PostHog with manual setup for error tracking support.
   ///
-  /// [onFeatureFlagsLoaded] is invoked once PostHog has loaded feature
-  /// flags, which is when their live values can first be read. [appVersion]
-  /// becomes the OTLP `service.version` on every log record. [prefs]
+  /// [sessionReplay] installs session replay; whether it records is up to
+  /// `SessionReplayController`. [onFeatureFlagsLoaded] is invoked once
+  /// PostHog has loaded feature flags, which is when their live values can
+  /// first be read. [appVersion] becomes the OTLP `service.version` on
+  /// every log record. [prefs]
   /// persists the open listening session and the person properties already
   /// sent; without it neither survives a restart.
   Future<void> initialize({
+    bool sessionReplay = false,
     VoidCallback? onFeatureFlagsLoaded,
     String? appVersion,
     SharedPreferences? prefs,
@@ -170,9 +182,21 @@ class AnalyticsService {
     // Lifecycle events
     config.captureApplicationLifecycleEvents = true;
 
-    // No session replay: the screen is never recorded. False is the SDK
-    // default; set here so the decision stays visible.
-    config.sessionReplay = false;
+    // Session replay is installed only on the devices the
+    // `mobile-session-replay` flag picked (see SessionReplayController), so
+    // every other device never loads it.
+    config.sessionReplay = sessionReplay;
+    // Station names, songs and artwork are not sensitive, so text and
+    // images stay visible to keep recordings useful. Wrap a sensitive
+    // widget in PostHogMaskWidget to hide it.
+    config.sessionReplayConfig.maskAllTexts = false;
+    config.sessionReplayConfig.maskAllImages = false;
+    // Fewer snapshots than the SDK's 1 s, so recording takes less from
+    // playback and the UI thread.
+    config.sessionReplayConfig.throttleDelay =
+        const Duration(milliseconds: 1500);
+    // The flag picks the devices; the SDK records every session it is told to.
+    config.sessionReplayConfig.sampleRate = 1.0;
 
     config.onFeatureFlags = onFeatureFlagsLoaded;
 
@@ -182,8 +206,7 @@ class AnalyticsService {
     // our volume (no per-second logs, heartbeats are events-only).
     config.logsConfig.serviceName = 'radio-crestin-mobile';
     if (appVersion != null) config.logsConfig.serviceVersion = appVersion;
-    config.logsConfig.environment =
-        kReleaseMode ? 'production' : 'development';
+    config.logsConfig.environment = kReleaseMode ? 'production' : 'development';
 
     // Person profiles
     config.personProfiles = PostHogPersonProfiles.identifiedOnly;
@@ -211,12 +234,25 @@ class AnalyticsService {
     ]);
 
     await Posthog().setup(config);
+    // After setup, which has already sent the config to native.
+    _replayConfig = sessionReplay ? config : null;
     // Lets dashboards and the test-account filter drop debug runs.
     await Posthog().register('build_mode', buildMode);
     _initialized = true;
     if (prefs != null) _attachStorage(prefs);
     _sessionId = await Posthog().getSessionId();
     developer.log('PostHog initialized, session: $_sessionId');
+  }
+
+  /// Arms or idles `PostHogWidget`'s capture timer before it mounts.
+  ///
+  /// The widget reads `config.sessionReplay` only when it mounts, and the
+  /// SDK leaves it true after `stopSessionRecording`, so a device that is
+  /// not recording would otherwise capture the screen tree every 1.5 s.
+  /// Once mounted, the widget follows start and stop on its own.
+  void setReplayCaptureArmed(bool armed) {
+    // Null when replay is not installed, where recording never starts.
+    _replayConfig?.sessionReplay = armed;
   }
 
   void _attachStorage(SharedPreferences prefs) {
@@ -279,6 +315,8 @@ class AnalyticsService {
         ...extra,
       },
     );
+
+    onExceptionCaptured?.call();
 
     // Guarantee upload: flush now, or owe a flush until connectivity returns
     // (LogFlushGuard persists the debt across restarts, and the SDK's queues
@@ -586,7 +624,8 @@ class AnalyticsService {
   }
 
   /// Call when the user starts playing a station.
-  void startListening(String stationSlug, String stationName, {int? stationId}) {
+  void startListening(String stationSlug, String stationName,
+      {int? stationId}) {
     // End any previous session first
     if (_isListening) {
       endListening(reason: 'station_switch');

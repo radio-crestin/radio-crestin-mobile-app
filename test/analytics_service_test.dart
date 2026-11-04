@@ -281,6 +281,17 @@ void main() {
   });
 
   group('captureException', () {
+    test('tells session replay an error happened', () async {
+      await analytics.initialize();
+      var notified = 0;
+      analytics.onExceptionCaptured = () => notified++;
+      addTearDown(() => analytics.onExceptionCaptured = null);
+
+      analytics.captureException(StateError('boom'), null);
+
+      expect(notified, 1);
+    });
+
     test('routes to the SDK exception capture with error, stack and context', () async {
       // Force initialized=true via initialize() — uses the fake under the hood.
       await analytics.initialize();
@@ -414,10 +425,37 @@ void main() {
       expect(analytics.sessionId, 'fresh-session-id');
     });
 
-    test('never turns on session replay', () async {
+    test('leaves session replay out unless asked', () async {
       await analytics.initialize();
 
       expect(fake.receivedConfig?.sessionReplay, isFalse);
+    });
+
+    test('installs unmasked session replay when asked', () async {
+      await analytics.initialize(sessionReplay: true);
+
+      final config = fake.receivedConfig!;
+      expect(config.sessionReplay, isTrue);
+      expect(config.sessionReplayConfig.maskAllTexts, isFalse);
+      expect(config.sessionReplayConfig.maskAllImages, isFalse);
+      expect(config.sessionReplayConfig.throttleDelay,
+          const Duration(milliseconds: 1500));
+    });
+
+    test('arming the capture switches the config the widget reads', () async {
+      await analytics.initialize(sessionReplay: true);
+
+      analytics.setReplayCaptureArmed(false);
+      expect(fake.receivedConfig!.sessionReplay, isFalse);
+      analytics.setReplayCaptureArmed(true);
+      expect(fake.receivedConfig!.sessionReplay, isTrue);
+    });
+
+    test('arming never turns on replay that was not installed', () async {
+      await analytics.initialize();
+
+      analytics.setReplayCaptureArmed(true);
+      expect(fake.receivedConfig!.sessionReplay, isFalse);
     });
   });
 

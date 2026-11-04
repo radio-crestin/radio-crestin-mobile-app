@@ -12,6 +12,7 @@ import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:get_it/get_it.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:posthog_flutter/posthog_flutter.dart' show PostHogWidget;
 import 'package:radio_crestin/graphql_rest_mappings.dart';
 import 'package:radio_crestin/performance_monitor.dart';
 import 'package:radio_crestin/resilient_hive_store.dart';
@@ -53,6 +54,7 @@ import 'services/install_reporter.dart';
 import 'services/log_context.dart';
 import 'services/log_flush_guard.dart';
 import 'services/remote_debug_controller.dart';
+import 'services/session_replay_controller.dart';
 import 'services/quick_actions_service.dart';
 import 'services/network_service.dart';
 import 'services/play_count_service.dart';
@@ -341,6 +343,7 @@ void main() async {
   // Load the flag decisions cached by the previous launch, so they apply
   // from startup. Does not block on the network.
   await RemoteDebugController.instance.loadCache(prefs);
+  SessionReplayController.instance.loadCache(prefs);
   await HlsHealthWatchdogFlag.instance.loadCache(prefs);
   await HlsHoldProxyFlag.instance.loadCache(prefs);
 
@@ -355,8 +358,12 @@ void main() async {
   // Initialize PostHog analytics (error tracking is handled by PostHog config).
   // The onFeatureFlags callback lets the controllers apply the live flags once
   // PostHog has loaded them.
+  final replay = SessionReplayController.instance;
+  final installReplay = replay.installAtSetup;
   await AnalyticsService.instance.initialize(
+    sessionReplay: installReplay,
     onFeatureFlagsLoaded: () {
+      unawaited(replay.onFlagsLoaded());
       unawaited(RemoteDebugController.instance.onFlagsLoaded());
       unawaited(HlsHealthWatchdogFlag.instance.onFlagsLoaded());
       unawaited(HlsHoldProxyFlag.instance.onFlagsLoaded());
@@ -365,6 +372,10 @@ void main() async {
     appVersion: packageInfo.version,
     prefs: prefs,
   );
+
+  // Before the app mounts, so PostHogWidget starts idle unless recording.
+  replay.start(installed: installReplay);
+  AnalyticsService.instance.onExceptionCaptured = replay.notifyErrorCaptured;
 
   // Apply the cached remote-debug config (verbose logs, auto log upload).
   RemoteDebugController.instance.start();
@@ -376,7 +387,7 @@ void main() async {
   // Suppress known-benign runtime/network/plugin errors so they neither crash
   // the app nor drown out real issues in PostHog. Must run AFTER PostHog setup —
   // it wraps the FlutterError/PlatformDispatcher handlers PostHog just installed.
-  ErrorFilter.install();
+  ErrorFilter.install(onReportableError: replay.notifyErrorCaptured);
 
   globals.appVersion = packageInfo.version;
   globals.buildNumber = packageInfo.buildNumber;
@@ -477,7 +488,7 @@ void main() async {
     });
   }
 
-  runApp(const RadioCrestinApp());
+  runApp(const _ReplayCapture(child: RadioCrestinApp()));
 
   // Remove native splash AFTER runApp + first frame layout to prevent
   // "Cannot hit test a render box that has never been laid out" errors
@@ -752,6 +763,20 @@ class _ThrottledUpgrader extends Upgrader {
 /// One app-lifetime instance: building it inside the theme builder leaked an
 /// observer and an HTTP client on every theme change.
 final Upgrader _upgrader = _ThrottledUpgrader();
+
+/// Wraps [child] in `PostHogWidget` when session replay was installed at
+/// launch, so the screen can be captured; otherwise adds nothing.
+class _ReplayCapture extends StatelessWidget {
+  const _ReplayCapture({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) =>
+      SessionReplayController.instance.installed
+          ? PostHogWidget(child: child)
+          : child;
+}
 
 class RadioCrestinApp extends StatelessWidget {
   const RadioCrestinApp({super.key});

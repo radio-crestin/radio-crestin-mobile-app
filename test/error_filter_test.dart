@@ -97,4 +97,31 @@ void main() {
       expect(ErrorFilter.isBenign(StateError('Failed to load data')), isFalse);
     });
   });
+
+  test('install reports only real errors to session replay', () {
+    final flutterHandler = FlutterError.onError;
+    final platformHandler = PlatformDispatcher.instance.onError;
+    addTearDown(() {
+      FlutterError.onError = flutterHandler;
+      PlatformDispatcher.instance.onError = platformHandler;
+    });
+    final forwarded = <Object>[];
+    FlutterError.onError = (details) => forwarded.add(details.exception);
+    PlatformDispatcher.instance.onError = (error, _) {
+      forwarded.add(error);
+      return true;
+    };
+    var reported = 0;
+    ErrorFilter.install(onReportableError: () => reported++);
+
+    final benign = StateError('Loading interrupted');
+    final real = StateError('boom');
+    FlutterError.onError!(FlutterErrorDetails(exception: benign));
+    FlutterError.onError!(FlutterErrorDetails(exception: real));
+    PlatformDispatcher.instance.onError!(benign, StackTrace.empty);
+    PlatformDispatcher.instance.onError!(real, StackTrace.empty);
+
+    expect(reported, 2);
+    expect(forwarded, [real, real]);
+  });
 }
