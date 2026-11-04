@@ -94,6 +94,10 @@ class MainActivity : AudioServiceActivity() {
                     "getLaunchSource" -> {
                         result.success(if (launchedFromHistory) "recents" else "launcher")
                     }
+                    "restartApp" -> {
+                        result.success(null)
+                        restartProcess()
+                    }
                     else -> result.notImplemented()
                 }
             }
@@ -139,6 +143,16 @@ class MainActivity : AudioServiceActivity() {
                     else -> result.notImplemented()
                 }
             }
+    }
+
+    // Opens the app again in a new process, so what applies only when the
+    // engine starts (the renderer, see MainApplication) takes effect. The
+    // process, not just this screen, has to go: it and its engine outlive
+    // the screen while the radio plays.
+    private fun restartProcess() {
+        val launcher = packageManager.getLaunchIntentForPackage(packageName)?.component ?: return
+        startActivity(Intent.makeRestartActivityTask(launcher))
+        Runtime.getRuntime().exit(0)
     }
 
     override fun onDestroy() {
