@@ -49,6 +49,10 @@ make release-media TAG=v1.6.0   # slides + narrated video → dist/radio-crestin
 **F** goes fullscreen, and printing saves every slide as a PDF page. The video has a chapter per slide.
 Lines that didn't change are not spoken again, so rebuilding after an edit takes seconds per changed slide.
 
+The GitHub release opens with the video: its poster (the first slide under a play button, attached as
+`radio-crestin-whats-new.jpg`) links to the mp4. GitHub plays inline only videos uploaded through its web
+editor, so the release links to the attached file instead.
+
 ## Releasing
 
 The release steps are in [CLAUDE.md → Releases](../CLAUDE.md#releases).
