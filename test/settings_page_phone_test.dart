@@ -7,6 +7,7 @@ import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:radio_crestin/appAudioHandler.dart';
 import 'package:radio_crestin/pages/SettingsPage.dart';
 import 'package:radio_crestin/seek_mode_manager.dart';
+import 'package:radio_crestin/services/android_renderer.dart';
 import 'package:radio_crestin/services/default_settings.dart';
 import 'package:radio_crestin/services/play_count_service.dart';
 import 'package:radio_crestin/services/playback_preferences.dart';
@@ -38,6 +39,10 @@ class _FakeAudioHandler extends BaseAudioHandler implements AppAudioHandler {
 
   @override
   void refreshCurrentMetadata() {}
+
+  /// Base's waits for a playback state no player sends here.
+  @override
+  Future<void> stop() async {}
 
   @override
   noSuchMethod(Invocation invocation) => null;
@@ -255,6 +260,109 @@ void main() {
     // Lets the taps' reset timer and the toasts run out.
     await tester.pump(const Duration(seconds: 10));
     await tester.pumpAndSettle();
+  });
+
+  group('the renderer picker', () {
+    Future<void> openDeveloperSettings(WidgetTester tester) async {
+      await tester.binding.setSurfaceSize(const Size(400, 3000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+        const MethodChannel('posthog_flutter'),
+        (_) async => null,
+      );
+      await GetIt.instance<SharedPreferences>()
+          .setBool('developer_mode_enabled', true);
+      await tester.pumpWidget(
+          MaterialApp(theme: lightTheme, home: const SettingsPage()));
+      await tester.pumpAndSettle();
+      expect(find.text('Developer'), findsOneWidget);
+    }
+
+    /// Settings as on Android; returns the app channel's calls.
+    Future<List<String>> onAndroid() async {
+      final renderer =
+          AndroidRenderer(supported: true, readFlag: () async => null);
+      await renderer.loadCache(GetIt.instance<SharedPreferences>());
+      AndroidRenderer.debugInstance = renderer;
+      addTearDown(() => AndroidRenderer.debugInstance = AndroidRenderer());
+      const appChannel = MethodChannel('com.radiocrestin.app');
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      final calls = <String>[];
+      messenger.setMockMethodCallHandler(
+          appChannel, (call) async => calls.add(call.method));
+      addTearDown(() => messenger.setMockMethodCallHandler(appChannel, null));
+      return calls;
+    }
+
+    Future<void> pick(WidgetTester tester, String label) async {
+      await tester.tap(find.text('Automat'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(label).last);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('is left out where Impeller is the only renderer',
+        (tester) async {
+      AndroidRenderer.debugInstance = AndroidRenderer(supported: false);
+      addTearDown(() => AndroidRenderer.debugInstance = AndroidRenderer());
+
+      await openDeveloperSettings(tester);
+
+      expect(find.text('Motor grafic'), findsNothing);
+    });
+
+    testWidgets('on Android saves the choice for the next launch',
+        (tester) async {
+      final calls = await onAndroid();
+      await openDeveloperSettings(tester);
+      expect(find.text('Motor grafic'), findsOneWidget);
+      expect(find.textContaining('la următoarea pornire'), findsOneWidget);
+
+      await pick(tester, 'Skia (stabil)');
+
+      expect(
+        GetIt.instance<SharedPreferences>()
+            .getBool(AndroidRenderer.useSkiaKey),
+        isTrue,
+      );
+      expect(find.text('Repornești aplicația?'), findsOneWidget);
+      await tester.tap(find.text('Mai târziu'));
+      await tester.pumpAndSettle();
+      expect(calls, isEmpty, reason: 'it applies at the next launch');
+      expect(find.text('Skia (stabil)'), findsOneWidget);
+      // Lets the setting-change log's flush timer run out.
+      await tester.pump(const Duration(seconds: 10));
+    });
+
+    testWidgets('restarts the app when asked to', (tester) async {
+      final calls = await onAndroid();
+      await openDeveloperSettings(tester);
+
+      await pick(tester, 'Skia (stabil)');
+      await tester.tap(find.text('Repornește'));
+      await tester.pumpAndSettle();
+
+      expect(calls, ['restartApp']);
+      await tester.pump(const Duration(seconds: 10));
+    });
+
+    testWidgets('asks nothing when the next launch renders like this one',
+        (tester) async {
+      await onAndroid();
+      await openDeveloperSettings(tester);
+
+      await pick(tester, 'Impeller');
+
+      expect(find.text('Repornești aplicația?'), findsNothing);
+      expect(
+        GetIt.instance<SharedPreferences>()
+            .getBool(AndroidRenderer.useSkiaKey),
+        isFalse,
+      );
+      await tester.pump(const Duration(seconds: 10));
+    });
   });
 
   testWidgets('on iOS a tap on the status bar scrolls Settings to the top',

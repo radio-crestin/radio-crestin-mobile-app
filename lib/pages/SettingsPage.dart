@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -17,6 +18,7 @@ import '../appAudioHandler.dart';
 import '../globals.dart' as globals;
 import '../main.dart' show getIt;
 import '../services/analytics_service.dart';
+import '../services/android_renderer.dart';
 import '../services/default_settings.dart';
 import '../services/local_log_store.dart';
 import '../services/log_upload_service.dart';
@@ -105,6 +107,8 @@ class _SettingsPageState extends State<SettingsPage> {
   /// clear of the phone's pinned "Setări" bar.
   static const double _revealMargin = 72;
   bool _uploadingLogs = false;
+  final AndroidRenderer _renderer = AndroidRenderer.instance;
+  late RendererChoice _rendererChoice = _renderer.choice;
   int _versionTaps = 0;
   Timer? _versionTapReset;
 
@@ -733,6 +737,45 @@ class _SettingsPageState extends State<SettingsPage> {
     });
   }
 
+  /// Saves the renderer for the next launch and, when it differs from the
+  /// one this launch asked for, offers to restart the app right away.
+  Future<void> _changeRenderer(RendererChoice? choice) async {
+    if (choice == null || choice == _rendererChoice) return;
+    AnalyticsService.instance.capture('button_clicked',
+        {'button_name': 'renderer', 'renderer': choice.name});
+    _logSettingChanged('renderer', choice.name);
+    setState(() => _rendererChoice = choice);
+    await _renderer.setChoice(choice);
+    if (!mounted) return;
+    if (_renderer.nextLaunchUsesSkia == _renderer.launchUsesSkia) return;
+    final restart = await showDialog<bool>(
+      context: context,
+      builder: (_) => const _RestartForRendererDialog(),
+    );
+    if (restart == true) await _restartForRenderer();
+  }
+
+  /// Stops the radio, sends what is pending to PostHog, then restarts the
+  /// app's process. Without a restart, the user is told how to apply it.
+  Future<void> _restartForRenderer() async {
+    try {
+      await getIt<AppAudioHandler>()
+          .stop()
+          .timeout(const Duration(seconds: 2));
+      await AnalyticsService.instance
+          .flush()
+          .timeout(const Duration(seconds: 2));
+    } catch (_) {
+      // The restart matters more than a clean stop.
+    }
+    try {
+      await _renderer.restartApp();
+    } catch (_) {
+      _showDevSnack(
+          'Închide aplicația și redeschide-o pentru a aplica schimbarea.');
+    }
+  }
+
   Future<void> _copyLogs() async {
     AnalyticsService.instance
         .capture('button_clicked', {'button_name': 'copy_logs'});
@@ -1226,6 +1269,19 @@ class _SettingsPageState extends State<SettingsPage> {
                         : null,
                     onTap: _uploadingLogs ? null : _sendLogs,
                   ),
+                  // iOS and macOS have Impeller only.
+                  if (_renderer.supported)
+                    _buildSettingsTile(
+                      icon: Icons.layers_outlined,
+                      title: 'Motor grafic',
+                      subtitle: 'Acum: ${_activeRendererName()}. '
+                          'Schimbarea se aplică la următoarea pornire '
+                          'a aplicației',
+                      trailing: _RendererDropdown(
+                        value: _rendererChoice,
+                        onChanged: _changeRenderer,
+                      ),
+                    ),
                   _buildSettingsTile(
                     icon: Icons.developer_mode,
                     title: 'Mod dezvoltator',
@@ -1277,6 +1333,68 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   OverlayEntry? _activeToast;
+}
+
+/// The renderer Flutter draws with in this launch: shader image filters
+/// exist under Impeller only.
+String _activeRendererName() =>
+    ui.ImageFilter.isShaderFilterSupported ? 'Impeller' : 'Skia';
+
+/// The renderer picker of the Developer section.
+class _RendererDropdown extends StatelessWidget {
+  const _RendererDropdown({required this.value, required this.onChanged});
+
+  final RendererChoice value;
+  final ValueChanged<RendererChoice?> onChanged;
+
+  static const _labels = {
+    RendererChoice.automatic: 'Automat',
+    RendererChoice.skia: 'Skia (stabil)',
+    RendererChoice.impeller: 'Impeller',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return DropdownButton<RendererChoice>(
+      value: value,
+      underline: const SizedBox(),
+      borderRadius: BorderRadius.circular(12),
+      onChanged: onChanged,
+      items: [
+        for (final MapEntry(key: choice, value: label) in _labels.entries)
+          DropdownMenuItem(
+            value: choice,
+            child: Text(label, style: const TextStyle(fontSize: 14)),
+          ),
+      ],
+    );
+  }
+}
+
+/// Asks whether to restart now, so the new renderer applies at once.
+class _RestartForRendererDialog extends StatelessWidget {
+  const _RestartForRendererDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Repornești aplicația?'),
+      content: const Text(
+        'Noul motor grafic va fi folosit de la următoarea pornire. '
+        'Aplicația se închide și se redeschide, iar radioul se oprește.',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Mai târziu'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text('Repornește'),
+        ),
+      ],
+    );
+  }
 }
 
 /// How many friends opened the user's invitation, with them highlighted in
