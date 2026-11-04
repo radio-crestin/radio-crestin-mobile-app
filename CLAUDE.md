@@ -430,6 +430,8 @@ video, plus the builds.
      the deck, video and builds attached), or `make release-media publish` for builds already in `dist/`.
      `make promote` once it is verified.
 - Publishing and promoting are public: confirm with the user before running them.
+- **Upload to Play's internal testing track in Chrome**, through Play Console, never with
+  `make upload-play-internal`: [`docs/releasing.md`](docs/releasing.md#play-internal-testing-upload-in-chrome).
 
 ---
 

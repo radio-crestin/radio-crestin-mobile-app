@@ -74,9 +74,10 @@ The release artifacts use stable filenames so the GitHub
 
 ## Store uploads (TestFlight + Play internal)
 Once a release is built and verified, push the dev versions to TestFlight and
-Play Store's internal testing track via fastlane. Credentials stay in
-1Password (`radio-crestin-app` vault) — fastlane reads them at upload time
-through `op`, never from disk.
+Play Store's internal testing track. Play's internal track is uploaded in
+Chrome ([below](#play-internal-testing-upload-in-chrome)). The fastlane
+targets read their credentials from 1Password (`radio-crestin-app` vault)
+through `op` at upload time, never from disk.
 
 ```bash
 make deploy-ios             # build number +1, fresh app-store IPA, upload to TestFlight
@@ -115,6 +116,21 @@ and commits the version once it is built; drag it into Play Console →
 Production → Create new release. Only `upload-play-internal` and
 `release-stores` need the 1Password + fastlane setup below. An upload is
 not a release: submit the TestFlight build for review in App Store Connect.
+
+### Play internal testing: upload in Chrome
+
+Always upload to Play's internal testing track through Play Console in Chrome
+(Claude drives it with Claude in Chrome), not with `upload-play-internal`:
+
+1. `make release-android-aab` builds `dist/radio-crestin-android.aab` from the
+   committed version.
+2. Open the internal testing track in Chrome:
+   https://play.google.com/console/u/0/developers/8868187498740609824/app/4976094058297658387/tracks/internal-testing
+3. **Create new release**, upload the AAB under **App bundles**, and check the
+   version it shows matches `pubspec.yaml`.
+4. Paste the release notes (en-US, from `release-notes/vX.Y.Z.md`, short), then
+   **Next** → **Save and publish**. Internal testing reaches only the testers'
+   list, so it needs no review.
 
 **1Password items needed** (all in vault `radio-crestin-app`, secure note with
 the value pasted into the `notesPlain` field):
