@@ -51,17 +51,37 @@ Setup for every device: [`release-notes/SETUP.md`](release-notes/SETUP.md).
 
 ```mermaid
 flowchart LR
-    S["Radio stations"] --> B["radio-crestin-backend<br/>now playing · HLS re-streaming"]
-    B --> API["api.radiocrestin.ro"]
-    API --> APP["This app"]
-    APP --> OUT["Lock screen · CarPlay · Android Auto<br/>widgets · Siri · Chromecast · AirPlay"]
+    S("📻 <b>Radio stations</b><br/>60+ live streams")
+    B("🎙️ <b>Backend</b><br/>song on air · listeners<br/>HLS re-streaming")
+    API("🌐 <b>API</b><br/>api.radiocrestin.ro")
+    APP("📱 <b>Radio Crestin app</b><br/>Flutter<br/>+ SwiftUI on Apple TV")
+    O1("🔒 Lock screen<br/>& notification")
+    O2("🚗 CarPlay<br/>& Android Auto")
+    O3("📲 Widgets<br/>& Siri")
+    O4("🔊 Chromecast<br/>& AirPlay")
+
+    S --> B --> API --> APP
+    APP --> O1 & O2 & O3 & O4
+
+    classDef source fill:#2B2B2B,stroke:#555555,color:#FFFFFF
+    classDef backend fill:#8F0133,stroke:#8F0133,color:#FFFFFF
+    classDef api fill:#C2185B,stroke:#C2185B,color:#FFFFFF
+    classDef app fill:#E91E63,stroke:#E91E63,color:#FFFFFF
+    classDef out fill:#FCE4EC,stroke:#E91E63,color:#5A0A26
+    class S source
+    class B backend
+    class API api
+    class APP app
+    class O1,O2,O3,O4 out
 ```
 
-[radio-crestin-backend](https://github.com/radio-crestin/radio-crestin-backend) keeps the station list,
-reads the song each station plays and re-streams it as HLS. The app (Flutter, plus a native SwiftUI Apple
-TV app in `apple_tv/`) reads that API and plays each station's streams in order, HLS first, then MP3, moving
-on when one fails. The same API feeds the [radiocrestin.ro](https://github.com/radio-crestin/radiocrestin.ro)
-website.
+- 🎙️ **The backend** ([radio-crestin-backend](https://github.com/radio-crestin/radio-crestin-backend))
+  keeps the station list, reads the song each station plays, counts listeners and re-streams every
+  station as HLS.
+- 🌐 **The API** serves that to this app and to the
+  [radiocrestin.ro](https://github.com/radio-crestin/radiocrestin.ro) website.
+- 🔁 **The app** plays a station's streams in order, HLS first, then MP3, and switches on its own when one
+  fails. The lock screen, the car, the widgets and Siri all drive this same player.
 
 ## 🛠️ Quick start for developers
 
