@@ -341,42 +341,20 @@ lib/
 
 ## Testing
 
-### Test Location
-- Unit tests: `test/` directory.
-- Test helpers: `test/helpers/station_factory.dart` for mock station creation.
-
-### Test Patterns
-```dart
-// Mock SharedPreferences
-SharedPreferences.setMockInitialValues({'key': 'value'});
-
-// Use BehaviorSubject for testable state
-final subject = BehaviorSubject<Station?>.seeded(null);
-
-// Verify stream emissions
-expect(subject.stream, emitsInOrder([null, station]));
-```
-
-### Test Methodology
-- Follow the **Arrange-Act-Assert** (Given-When-Then) pattern.
-- Prefer **fakes or stubs** over mocks. Use `mockito` or `mocktail` only when necessary.
-- Write **unit tests** for domain logic, data layer, and state management.
-- Write **widget tests** for UI components.
-- Use `package:integration_test` for end-to-end user flow validation.
-- Use `package:checks` for more expressive and readable assertions where possible.
-
-### What to Test
-- State transitions in `AppAudioHandler` (favorites, navigation, filtering).
-- Model serialization/deserialization (`Station.dart`).
-- Utility functions (`utils.dart`).
-- Service logic in isolation (mock HTTP/GraphQL).
-
-### Running Tests
-```bash
-flutter test                    # All tests
-flutter test test/favorites_test.dart  # Single file
-flutter analyze                 # Static analysis
-```
+- **No unit or widget tests.** Don't add files to `test/` or test a class
+  in isolation with mocks. Every test is end-to-end, in `integration_test/`.
+- **Test what a listener does, on the network a listener has.** An e2e test
+  launches the real app with its real native audio on a simulator or
+  emulator, taps through its screens, and checks that the audio really
+  plays (its position moves and its stream was fetched). The fake radio server
+  stands in for the API and the stream hosts, and the test sets the
+  network: latency, low bandwidth, stalls, dropped connections, server errors
+  and a full outage.
+- **Cover every change to a core flow** (playing, pausing, switching
+  stations, recovering from a bad network) with an e2e test, and run the
+  suite before committing such a change.
+- How to run the suite, how the harness works, and how to add a test:
+  [`integration_test/README.md`](integration_test/README.md).
 
 ---
 
@@ -471,4 +449,3 @@ video, plus the builds.
 3. **Multi-engine conflicts** - CarPlay/Android Auto spawn separate Flutter engines. `ResilientHiveStore` handles concurrent Hive access.
 4. **BehaviorSubject disposal** - Always cancel stream subscriptions. Leaks cause stale `setState()` calls on disposed widgets.
 5. **Image cache paths** - `Station.artUri` returns `file://` URIs when cached. Native code (`FAAHelpers.kt`) must detect and handle both URL schemes.
-6. **Pre-existing test issue** - `packages/flutter_carplay/example/test/widget_test.dart` has a missing import error. This is not related to the main app.

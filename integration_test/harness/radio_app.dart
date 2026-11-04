@@ -1,0 +1,333 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:get_it/get_it.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:radio_crestin/appAudioHandler.dart';
+import 'package:radio_crestin/app_launch_options.dart';
+import 'package:radio_crestin/components/MiniAudioPlayer.dart';
+import 'package:radio_crestin/main.dart';
+import 'package:radio_crestin/services/network_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'fake_radio_server.dart';
+import 'station_catalog.dart';
+
+/// The app under test, launched once per run against [server] and driven
+/// like a listener would, through its screens.
+///
+/// Every test of a run shares the one app process, as its services are
+/// app-wide singletons; [e2eTest] gives each test the app back on its home
+/// screen, silent, on a healthy network.
+class RadioApp {
+  RadioApp._(this.server);
+
+  static RadioApp? _current;
+  static FlutterExceptionHandler? _appErrorHandler;
+
+  /// Where Settings keeps "start the last station on launch".
+  static const autoStartPrefsKey = '_autoStartStation';
+
+  final FakeRadioServer server;
+  late WidgetTester tester;
+
+  AppAudioHandler get audio => GetIt.instance<AppAudioHandler>();
+  NetworkService get network => GetIt.instance<NetworkService>();
+
+  /// Launches the app on a fresh install, or puts the running one back on
+  /// its home screen.
+  static Future<RadioApp> open(
+    WidgetTester tester,
+    FakeRadioServer server,
+  ) async {
+    var app = _current;
+    if (app == null) {
+      app = _current = RadioApp._(server)..tester = tester;
+      await app._launch();
+    } else {
+      app.tester = tester;
+      FlutterError.onError = _appErrorHandler;
+      await app.relaunch();
+    }
+    await app._waitForStationList();
+    return app;
+  }
+
+  /// Opens the app's screens anew, as a launch does: the home page mounts
+  /// and runs its launch logic (auto-start among it) again.
+  Future<void> relaunch() async {
+    runApp(const RadioCrestinApp(promptsForUpdates: false));
+    await tester.pump();
+    await _waitForStationList();
+  }
+
+  Future<void> _waitForStationList() => waitFor(
+        () => find.byKey(_rowKey(Stations.alpha)).evaluate().isNotEmpty,
+        reason: 'the station list to show',
+        timeout: const Duration(seconds: 30),
+      );
+
+  Future<void> _launch() async {
+    await _wipeAppData();
+    await runRadioCrestin(AppLaunchOptions(
+      apiBaseUrl: server.apiBaseUrl,
+      internetProbes: [
+        InternetProbe(server.internetProbeUrl, (r) => r.statusCode == 204),
+      ],
+      reportsAnalytics: false,
+      registersForPush: false,
+      promptsForUpdates: false,
+    ));
+    // The app chains its error handlers onto the test's: an error it
+    // filters as benign passes, any other still fails the test.
+    _appErrorHandler = FlutterError.onError;
+  }
+
+  /// What a fresh install has: no settings, cache, favorites or history.
+  ///
+  /// Auto-start is off, so every test starts silent; the auto-start test
+  /// turns it on, as Settings does.
+  static Future<void> _wipeAppData() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+    await prefs.setBool(autoStartPrefsKey, false);
+    final directories = [
+      await getApplicationDocumentsDirectory(),
+      await getApplicationSupportDirectory(),
+      await getTemporaryDirectory(),
+    ];
+    for (final directory in directories) {
+      if (!directory.existsSync()) continue;
+      for (final entry in directory.listSync()) {
+        try {
+          entry.deleteSync(recursive: true);
+        } on FileSystemException {
+          // The OS holds a few of its own files; they carry no app state.
+        }
+      }
+    }
+  }
+
+  /// Back to silence and a healthy network, after a test.
+  Future<void> reset() async {
+    server.reset();
+    await audio.stop();
+    // The test framework checks its handler is back when a test ends.
+    FlutterError.onError = _bindingErrorHandler;
+  }
+
+  static FlutterExceptionHandler? _bindingErrorHandler;
+
+  /// Remembers the test's own error handler, before the app's takes over.
+  static void captureBindingErrorHandler() =>
+      _bindingErrorHandler = FlutterError.onError;
+
+  // ── Actions, as the listener does them ─────────────────────────────────
+
+  static Key _rowKey(FakeStation station) =>
+      ValueKey('station-${station.slug}');
+
+  /// Scrolls the station list to [station]'s row; the list sorts by
+  /// recommendation, so a row can be anywhere in it.
+  Future<Finder> showStation(FakeStation station) async {
+    final row = find.byKey(_rowKey(station));
+    final list = find
+        .ancestor(
+            of: find.byKey(_rowKey(Stations.alpha)),
+            matching: find.byType(Scrollable))
+        .first;
+    for (final delta in [300.0, -300.0]) {
+      if (row.evaluate().isNotEmpty) break;
+      await tester
+          .scrollUntilVisible(row, delta,
+              scrollable: list, maxScrolls: 40, continuous: true)
+          .catchError((Object _) {});
+    }
+    if (row.evaluate().isEmpty) {
+      fail('${station.title} is not in the station list; ${describe()}');
+    }
+    await tester.ensureVisible(row);
+    await tester.pump();
+    return row;
+  }
+
+  /// Taps [station] in the station list.
+  Future<DateTime> tapStation(FakeStation station) async {
+    final row = await showStation(station);
+    final at = DateTime.now();
+    await tester.tap(row);
+    await tester.pump();
+    return at;
+  }
+
+  Finder get _miniPlayer => find.byType(MiniAudioPlayer);
+
+  /// Taps the mini player's play/pause button.
+  Future<void> tapMiniPlayerButton() async {
+    final button = find.descendant(
+      of: _miniPlayer,
+      matching: find.byWidgetPredicate((widget) =>
+          widget is Icon &&
+          (widget.icon == Icons.pause_rounded ||
+              widget.icon == Icons.play_arrow_rounded)),
+    );
+    await tester.tap(button.first);
+    await tester.pump();
+  }
+
+  /// Opens the full player from the mini player.
+  Future<void> openFullPlayer() async {
+    await tester.tap(find.descendant(
+      of: _miniPlayer,
+      matching: find.text(audio.currentStation.value!.title),
+    ));
+    await pumpFor(const Duration(seconds: 1));
+  }
+
+  /// Taps the full player's button with [tooltip].
+  Future<DateTime> tapTooltip(String tooltip) async {
+    final at = DateTime.now();
+    await tester.tap(find.byTooltip(tooltip).hitTestable());
+    await tester.pump();
+    return at;
+  }
+
+  // ── What the listener hears and sees ───────────────────────────────────
+
+  /// The station the player has, as the fake server knows it.
+  FakeStation get currentStation =>
+      Stations.bySlug(audio.currentStation.value!.slug);
+
+  /// Expects [station] to play within [within]: the player renders its
+  /// audio (its position moves for [listenFor]), its stream was fetched
+  /// from the server, and the mini player shows it playing.
+  Future<void> expectPlaying(
+    FakeStation station, {
+    required DateTime since,
+    Duration within = const Duration(seconds: 20),
+    Duration listenFor = const Duration(seconds: 5),
+  }) async {
+    await waitFor(
+      () => _isPlaying(station),
+      reason: '${station.title} to play',
+      timeout: within,
+    );
+    await expectAudioAdvances(listenFor);
+    expect(server.mediaBytesSent(station, since: since), greaterThan(0),
+        reason: 'the audio of ${station.title} came from its stream');
+    expect(
+      find.descendant(of: _miniPlayer, matching: find.text(station.title)),
+      findsWidgets,
+      reason: 'the mini player shows ${station.title}',
+    );
+    expect(
+      find.descendant(
+          of: _miniPlayer, matching: find.byIcon(Icons.pause_rounded)),
+      findsOneWidget,
+      reason: 'the mini player offers to pause',
+    );
+  }
+
+  bool _isPlaying(FakeStation station) {
+    final state = audio.playbackState.value;
+    return audio.currentStation.value?.slug == station.slug &&
+        state.playing &&
+        state.processingState.name == 'ready';
+  }
+
+  /// Expects the player's position to move by most of [duration], live,
+  /// over [duration]: the audio really plays, without stalls.
+  Future<void> expectAudioAdvances(Duration duration) async {
+    final from = audio.player.position;
+    await pumpFor(duration);
+    final advanced = audio.player.position - from;
+    expect(advanced, greaterThanOrEqualTo(duration * 0.7),
+        reason: 'audio played for ${duration.inSeconds}s '
+            '(advanced ${advanced.inMilliseconds} ms); ${describe()}');
+  }
+
+  /// Expects silence: no audio rendered for [duration].
+  Future<void> expectSilent({
+    Duration duration = const Duration(seconds: 3),
+  }) async {
+    final from = audio.player.position;
+    await pumpFor(duration);
+    final advanced = audio.player.position - from;
+    expect(advanced, lessThan(const Duration(milliseconds: 500)),
+        reason: 'no audio plays; ${describe()}');
+    expect(
+      find.descendant(
+          of: _miniPlayer, matching: find.byIcon(Icons.play_arrow_rounded)),
+      findsOneWidget,
+      reason: 'the mini player offers to play',
+    );
+  }
+
+  // ── Time ───────────────────────────────────────────────────────────────
+
+  /// Lets [duration] of real time pass, drawing frames.
+  Future<void> pumpFor(Duration duration) async {
+    final end = DateTime.now().add(duration);
+    while (DateTime.now().isBefore(end)) {
+      await tester.pump(const Duration(milliseconds: 200));
+    }
+  }
+
+  /// Draws frames until [condition] holds, failing after [timeout].
+  Future<void> waitFor(
+    bool Function() condition, {
+    required String reason,
+    Duration timeout = const Duration(seconds: 20),
+  }) async {
+    final end = DateTime.now().add(timeout);
+    while (!condition()) {
+      if (DateTime.now().isAfter(end)) {
+        fail('Timed out after ${timeout.inSeconds}s waiting for $reason; '
+            '${describe()}');
+      }
+      await tester.pump(const Duration(milliseconds: 200));
+    }
+  }
+
+  /// The player's state, for failure messages.
+  String describe() {
+    final state = audio.playbackState.value;
+    final recent = server.requests.reversed
+        .take(6)
+        .map((r) => '${r.path} (${r.bytesSent} B)')
+        .join(', ');
+    final rows = find
+        .byWidgetPredicate((w) =>
+            w.key is ValueKey<String> &&
+            (w.key! as ValueKey<String>).value.startsWith('station-'))
+        .evaluate()
+        .map((e) => (e.widget.key! as ValueKey<String>).value)
+        .join(',');
+    return 'rows on screen: [$rows] '
+        'station=${audio.currentStation.value?.slug} '
+        'playing=${state.playing} state=${state.processingState.name} '
+        'position=${audio.player.position} '
+        'network=${network.status.value.name} recent requests: $recent';
+  }
+}
+
+/// A test that drives the app: it opens it, runs [body] and leaves it
+/// silent on a healthy network for the next test.
+void e2eTest(
+  String description,
+  Future<void> Function(RadioApp app) body, {
+  required FakeRadioServer Function() server,
+  Timeout timeout = const Timeout(Duration(minutes: 3)),
+}) {
+  testWidgets(description, (tester) async {
+    RadioApp.captureBindingErrorHandler();
+    final app = await RadioApp.open(tester, server());
+    try {
+      await body(app);
+    } finally {
+      await app.reset();
+    }
+  }, timeout: timeout);
+}
