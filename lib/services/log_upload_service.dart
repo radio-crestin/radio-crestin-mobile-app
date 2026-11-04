@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:posthog_flutter/posthog_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'analytics_service.dart';
 import 'local_log_store.dart';
 
 /// Outcome of a [LogUploadService.upload] call.
@@ -63,13 +64,13 @@ class LogUploadService {
         for (var i = 0; i < chunks.length; i++) {
           await Posthog().captureLog(
             body: chunks[i],
-            attributes: {
+            attributes: AnalyticsService.instance.withDeviceId({
               'upload_id': uploadId,
               'file': name,
               'part': i + 1,
               'total_parts': chunks.length,
               'trigger': trigger,
-            },
+            }),
           );
           parts++;
         }

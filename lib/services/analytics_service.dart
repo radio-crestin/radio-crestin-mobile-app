@@ -67,6 +67,16 @@ class AnalyticsService {
   void setLogContextProvider(Map<String, Object> Function()? provider) =>
       _contextProvider = provider;
 
+  String? _deviceId;
+
+  /// The device ID shown in Settings and kept by the backend, sent as
+  /// `device_id` on every PostHog Logs record so the logs of one device can
+  /// be filtered, including those sent before PostHog identified it.
+  String? get deviceId => _deviceId;
+
+  /// Sets [deviceId]. Called once the device ID is known, at startup.
+  void setDeviceId(String? id) => _deviceId = id;
+
   /// Whether a record at [level] ships to PostHog given [minLevel].
   /// Pure — unit tested directly.
   @visibleForTesting
@@ -432,9 +442,19 @@ class AnalyticsService {
     if (!_initialized || !shouldShip(level, minShipLevel)) return;
     unawaited(
       Posthog()
-          .captureLog(body: body, level: level, attributes: record)
+          .captureLog(
+              body: body, level: level, attributes: withDeviceId(record))
           .catchError((Object _) {}),
     );
+  }
+
+  /// [attributes] with `device_id` (see [deviceId]), which the record's own
+  /// attributes never override. The local log file leaves it out: it only
+  /// ever holds one device.
+  Map<String, Object>? withDeviceId(Map<String, Object>? attributes) {
+    final id = _deviceId;
+    if (id == null) return attributes;
+    return {...?attributes, 'device_id': id};
   }
 
   /// [attributes] over the registered device state. A provider that throws

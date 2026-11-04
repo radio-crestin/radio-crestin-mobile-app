@@ -221,6 +221,7 @@ void main() async {
     await prefs.setString('device_id', persistentDeviceId);
   }
   globals.deviceId = persistentDeviceId;
+  AnalyticsService.instance.setDeviceId(persistentDeviceId);
 
   // Detect TV/desktop platform (Android TV, macOS, Windows, Linux)
   await tvPlatformFuture;

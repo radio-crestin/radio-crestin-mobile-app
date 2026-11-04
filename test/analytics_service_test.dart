@@ -844,6 +844,40 @@ void main() {
     });
   });
 
+  group('log device id', () {
+    tearDown(() {
+      analytics.setDeviceId(null);
+      analytics.setDeveloperVerbose(false);
+    });
+
+    test('every shipped record carries device_id, debug ones too', () async {
+      await analytics.initialize();
+      analytics.setDeveloperVerbose(true);
+      analytics.setDeviceId('device-42');
+      fake.capturedLogs.clear();
+
+      analytics.log('started', {'k': 'v'});
+      analytics.logDebug('detail');
+
+      final info = fake.capturedLogs.singleWhere((l) => l.body == 'started');
+      expect(info.attributes?['device_id'], 'device-42');
+      expect(info.attributes?['k'], 'v');
+      final debug = fake.capturedLogs.singleWhere((l) => l.body == 'detail');
+      expect(debug.attributes, {'device_id': 'device-42'});
+    });
+
+    test('a record cannot pass another device_id', () {
+      analytics.setDeviceId('device-42');
+      expect(analytics.withDeviceId({'device_id': 'spoof'}),
+          {'device_id': 'device-42'});
+    });
+
+    test('without a device id the record is unchanged', () {
+      expect(analytics.withDeviceId({'k': 1}), {'k': 1});
+      expect(analytics.withDeviceId(null), isNull);
+    });
+  });
+
   group('log context', () {
     tearDown(() {
       analytics.setLogContextProvider(null);
