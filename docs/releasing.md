@@ -14,6 +14,11 @@ and a narrated video (`make release-media`).
 - `android/key.properties` and `android/app/radio-crestin-app-keystore.jks`
   pulled from 1Password (gitignored).
 - `gh` CLI authenticated (`gh auth login`).
+- A JDK Gradle 8.14 runs on (17 or 21) for Flutter's Android builds:
+  `flutter config --jdk-dir <path>`. Android Studio's bundled JDK is Java 25 since its August 2026 update,
+  which Gradle 8.14 cannot run on.
+- `posthog-cli`, signed in once, for the iOS dSYM upload:
+  `brew install posthog/tap/posthog-cli && posthog-cli --host https://eu.posthog.com login`.
 - Optional: a Windows host with Flutter desktop enabled to produce the EXE.
 
 ## Two-stage flow: prerelease → promote
