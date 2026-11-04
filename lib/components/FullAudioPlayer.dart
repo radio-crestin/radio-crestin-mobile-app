@@ -168,7 +168,7 @@ const double _landscapeTextHeight = 94.0;
 const double _playTargetPadding = 16.0;
 
 /// Sizes the landscape transport so the play button grows into the height
-/// the rest of the right-hand column leaves, between 56 and 72.
+/// the rest of the right-hand column leaves, between 48 and 60.
 ///
 /// The skip glyphs and their gaps follow the play button, so the cluster
 /// keeps its proportions on every phone and tablet.
@@ -181,7 +181,7 @@ LandscapeTransportSizes computeLandscapeTransportSizes({
       _landscapeChromeHeight -
       _landscapeTextHeight * scale -
       _playTargetPadding;
-  final play = free.clamp(56.0, 72.0).toDouble();
+  final play = free.clamp(48.0, 60.0).toDouble();
   return (
     playIconSize: play,
     // The rewind / fast-forward glyphs fill less of their box than play's.
@@ -551,7 +551,6 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                     child: _buildStationTitle(
                       context,
                       textAlign: TextAlign.start,
-                      fontSize: _landscapeStationTitleFontSize,
                     ),
                   ),
                   _buildCastButton(context),
@@ -662,16 +661,12 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   /// that the name ends in an ellipsis.
   static const double _stationTitleMinFontSize = 16;
 
-  /// Size of the station name in landscape, where it heads a wide column.
-  static const double _landscapeStationTitleFontSize = 22;
-
   /// The station name, crossfading between stations. A name too long for
-  /// [fontSize] shrinks to fit one line, so the header keeps its height and
-  /// the artwork below never moves between stations.
+  /// 18px shrinks to fit one line, so the header keeps its height and the
+  /// artwork below never moves between stations.
   Widget _buildStationTitle(
     BuildContext context, {
     TextAlign textAlign = TextAlign.center,
-    double fontSize = 18,
   }) {
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 250),
@@ -681,9 +676,9 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
       child: ShrinkToFitText(
         currentStation?.displayTitle ?? "",
         key: ValueKey('title-${currentStation?.id}'),
-        style: TextStyle(
+        style: const TextStyle(
           fontWeight: FontWeight.bold,
-          fontSize: fontSize,
+          fontSize: 18,
         ),
         minFontSize: _stationTitleMinFontSize,
         textAlign: textAlign,
