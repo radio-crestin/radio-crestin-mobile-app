@@ -431,6 +431,30 @@ When modifying the iOS Home Screen widgets ("Acum ascult" small/medium, "Favorit
 
 ---
 
+## Releases
+
+Every version has listener-facing notes in `release-notes/vX.Y.Z.md` (format and tools:
+`release-notes/README.md`). Its GitHub Release carries the same notes, a slide presentation and a narrated
+video, plus the builds.
+
+- **Record changes as you ship them.** A commit a listener would notice (a feature, a visible fix, a new
+  setting or platform) adds its line to the unreleased notes file (status "not released yet") in the same
+  commit; create the file for the next version if there is none. Developer-only changes go under
+  "Under the hood".
+- **Keep `release-notes/SETUP.md` true.** When an install path, minimum OS, store listing or setup step
+  changes, update it in the same commit: every release presents it.
+- **Every version that ships to a store is also released on GitHub:**
+  1. Finish the notes: the **Released:** date, a `<!-- say: -->` line under each heading, and simulator
+     screenshots of new screens in `release-notes/media/vX.Y.Z/`.
+  2. `make release-deck` and review every slide in a browser; then `make release-media` (Kokoro narrates on
+     this machine, in English) and watch the video, or check it with `whisper-cli`, before publishing.
+  3. `make release` (builds, tags, makes the media, publishes a prerelease whose body is the notes file, with
+     the deck, video and builds attached), or `make release-media publish` for builds already in `dist/`.
+     `make promote` once it is verified.
+- Publishing and promoting are public: confirm with the user before running them.
+
+---
+
 ## Security
 
 - **NEVER commit API keys, tokens, or credentials.** Scan staged files before every commit.

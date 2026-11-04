@@ -35,7 +35,9 @@ brew install --cask flutter
 
 All builds happen **locally** on the developer machine — no CI, no signing
 secrets stored in GitHub Actions. Artifacts are uploaded to a GitHub Release
-via the `gh` CLI.
+via the `gh` CLI. The release body is the version's hand-written notes from
+[`release-notes/`](release-notes/README.md), published with a slide presentation
+and a narrated video (`make release-media`).
 
 ### Prerequisites
 - macOS host with Xcode + valid Apple Developer signing for iOS / macOS / tvOS.

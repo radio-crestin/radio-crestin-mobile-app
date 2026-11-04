@@ -1,0 +1,17 @@
+{
+  "name": "release-media",
+  "private": true,
+  "type": "module",
+  "description": "Turns release-notes/<version>.md into a slide deck and a narrated video.",
+  "scripts": {
+    "build": "bun src/main.ts"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "3.8.1",
+    "kokoro-js": "1.2.1"
+  },
+  "devDependencies": {
+    "@types/bun": "1.2.0",
+    "typescript": "5.8.3"
+  }
+}

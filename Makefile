@@ -84,6 +84,12 @@ MACOS_DMG           := $(DIST)/radio-crestin-macos.dmg
 WINDOWS_ZIP         := $(DIST)/radio-crestin-windows.zip
 APPLE_TV_IPA        := $(DIST)/radio-crestin-tvos.ipa
 RELEASE_NOTES       := $(DIST)/RELEASE_NOTES.md
+# Hand-written notes, presentation and narrated video: release-notes/README.md
+RELEASE_NOTES_SRC   := release-notes/$(TAG).md
+RELEASE_MEDIA_TOOL  := scripts/release-media
+RELEASE_MEDIA_DIR   := $(DIST)/release-media/$(TAG)
+RELEASE_DECK        := $(DIST)/radio-crestin-whats-new.html
+RELEASE_VIDEO       := $(DIST)/radio-crestin-whats-new.mp4
 
 # Store-upload credentials are read from 1Password (never committed).
 # See README "Store uploads" for setup.
@@ -117,9 +123,12 @@ release-help:
 	@echo
 	@echo "  make release-ios-appstore  app-store IPA (for TestFlight) -> $(DIST)/"
 	@echo "  make release-mac-platforms android + ios + macos + apple-tv"
-	@echo "  make publish               create GH PRERELEASE for $(TAG), upload $(DIST)/*"
+	@echo "  make release-deck          slides for $(TAG) from $(RELEASE_NOTES_SRC) -> $(DIST)/"
+	@echo "  make release-media         slides + narrated video (Kokoro, local) -> $(DIST)/"
+	@echo "  make publish               create GH PRERELEASE for $(TAG) with $(RELEASE_NOTES_SRC),"
+	@echo "                             upload $(DIST)/* (refreshes the notes of an existing one)"
 	@echo "  make promote               flip $(TAG) from prerelease -> latest (public)"
-	@echo "  make release               bump + commit + build + tag + publish (prerelease)"
+	@echo "  make release               bump + commit + build + tag + media + publish (prerelease)"
 	@echo
 	@echo "  make upload-testflight     send app-store IPA to TestFlight (API key: 1Password + fastlane)"
 	@echo "  make upload-testflight-xcode  send the iOS archive to TestFlight as the Xcode account"
@@ -251,30 +260,49 @@ release-apple-tv: | $(DIST)
 release-mac-platforms: release-android release-ios release-macos release-apple-tv
 	@ls -la $(DIST)
 
-# ----- Release notes ---------------------------------------------------------
-$(RELEASE_NOTES): | $(DIST)
-	@last=$$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || true); \
-	  { \
-	    if [ -n "$$last" ] && [ "$$last" != "$(TAG)" ]; then \
-	      printf "## Changes since %s\n\n" "$$last"; \
-	      git log --pretty='- %s' "$$last"..HEAD; \
-	    else \
-	      printf "## Changes\n\n"; \
-	      git log --pretty='- %s' -50; \
-	    fi; \
-	    printf "\n\n## Downloads\n\n"; \
-	    base="https://github.com/$(GH_REPO)/releases/download/$(TAG)"; \
-	    printf -- "- Android APK: %s/%s\n"   "$$base" "$$(basename $(ANDROID_APK))"; \
-	    printf -- "- Android AAB: %s/%s\n"   "$$base" "$$(basename $(ANDROID_AAB))"; \
-	    printf -- "- iOS IPA: %s/%s\n"       "$$base" "$$(basename $(IOS_IPA))"; \
-	    printf -- "- macOS DMG: %s/%s\n"     "$$base" "$$(basename $(MACOS_DMG))"; \
-	    printf -- "- Windows zip: %s/%s\n"   "$$base" "$$(basename $(WINDOWS_ZIP))"; \
-	    printf -- "- Apple TV IPA: %s/%s\n"  "$$base" "$$(basename $(APPLE_TV_IPA))"; \
-	  } > $(RELEASE_NOTES)
+# ----- Release notes, presentation and video --------------------------------
+# The GitHub release body is release-notes/$(TAG).md (narration comments
+# removed, links pointing at the tag) plus the download links below.
+.PHONY: release-notes release-deck release-media release-media-deps check-release-notes
+check-release-notes:
+	@[ -f $(RELEASE_NOTES_SRC) ] || { \
+	  echo "ERROR: $(RELEASE_NOTES_SRC) is missing: write it first (see release-notes/README.md)"; \
+	  exit 1; }
+
+release-media-deps:
+	@command -v bun >/dev/null || { echo "ERROR: bun required (brew install oven-sh/bun/bun)"; exit 1; }
+	@cd $(RELEASE_MEDIA_TOOL) && bun install --frozen-lockfile --silent
+
+release-notes: check-release-notes release-media-deps | $(DIST)
+	@{ \
+	  bun $(RELEASE_MEDIA_TOOL)/src/main.ts notes $(TAG) --repo $(GH_REPO); \
+	  base="https://github.com/$(GH_REPO)/releases/download/$(TAG)"; \
+	  printf "\n## Downloads\n\n"; \
+	  printf -- "- What's new, narrated video: %s/%s\n" "$$base" "$$(basename $(RELEASE_VIDEO))"; \
+	  printf -- "- What's new, slides (download, then open in a browser): %s/%s\n" "$$base" "$$(basename $(RELEASE_DECK))"; \
+	  printf -- "- Android APK: %s/%s\n"   "$$base" "$$(basename $(ANDROID_APK))"; \
+	  printf -- "- Android AAB: %s/%s\n"   "$$base" "$$(basename $(ANDROID_AAB))"; \
+	  printf -- "- iOS IPA: %s/%s\n"       "$$base" "$$(basename $(IOS_IPA))"; \
+	  printf -- "- macOS DMG: %s/%s\n"     "$$base" "$$(basename $(MACOS_DMG))"; \
+	  printf -- "- Windows zip: %s/%s\n"   "$$base" "$$(basename $(WINDOWS_ZIP))"; \
+	  printf -- "- Apple TV IPA: %s/%s\n"  "$$base" "$$(basename $(APPLE_TV_IPA))"; \
+	} > $(RELEASE_NOTES)
 	@cat $(RELEASE_NOTES)
 
-.PHONY: release-notes
-release-notes: $(RELEASE_NOTES)
+# Slides only: quick to check the notes read well before narrating them.
+release-deck: check-release-notes release-media-deps | $(DIST)
+	bun $(RELEASE_MEDIA_TOOL)/src/main.ts deck $(TAG) --repo $(GH_REPO) --out $(RELEASE_MEDIA_DIR)
+	cp $(RELEASE_MEDIA_DIR)/presentation.html $(RELEASE_DECK)
+	@echo "open $(RELEASE_DECK)"
+
+# Slides + video narrated by Kokoro on this machine (first run downloads
+# its ~90 MB model; unchanged lines are reused from $(RELEASE_MEDIA_DIR)).
+release-media: check-release-notes release-media-deps | $(DIST)
+	@command -v ffmpeg >/dev/null || { echo "ERROR: ffmpeg required (brew install ffmpeg)"; exit 1; }
+	bun $(RELEASE_MEDIA_TOOL)/src/main.ts video $(TAG) --repo $(GH_REPO) --out $(RELEASE_MEDIA_DIR)
+	cp $(RELEASE_MEDIA_DIR)/presentation.html $(RELEASE_DECK)
+	cp $(RELEASE_MEDIA_DIR)/video.mp4 $(RELEASE_VIDEO)
+	@ls -lh $(RELEASE_DECK) $(RELEASE_VIDEO)
 
 # ----- Tag + push (idempotent) ----------------------------------------------
 .PHONY: tag-release
@@ -298,9 +326,10 @@ publish: release-notes
 	    --notes-file $(RELEASE_NOTES) \
 	    --prerelease; \
 	else \
-	  echo "release $(TAG) already exists — uploading artifacts"; \
+	  echo "release $(TAG) already exists — refreshing its notes and uploading artifacts"; \
+	  gh release edit $(TAG) -R $(GH_REPO) --notes-file $(RELEASE_NOTES); \
 	fi
-	@for f in $(ANDROID_APK) $(ANDROID_AAB) $(IOS_IPA) $(MACOS_DMG) $(WINDOWS_ZIP) $(APPLE_TV_IPA); do \
+	@for f in $(RELEASE_VIDEO) $(RELEASE_DECK) $(ANDROID_APK) $(ANDROID_AAB) $(IOS_IPA) $(MACOS_DMG) $(WINDOWS_ZIP) $(APPLE_TV_IPA); do \
 	  if [ -f "$$f" ]; then \
 	    echo "uploading $$f"; \
 	    gh release upload $(TAG) -R $(GH_REPO) "$$f" --clobber; \
@@ -332,6 +361,7 @@ release:
 	$(MAKE) commit-version
 	$(MAKE) release-mac-platforms
 	$(MAKE) tag-release
+	$(MAKE) release-media
 	$(MAKE) publish
 	@echo "Release done"
 
@@ -544,6 +574,7 @@ latest-links:
 	  echo "macOS DMG:     $$base/$$(basename $(MACOS_DMG))"; \
 	  echo "Windows zip:   $$base/$$(basename $(WINDOWS_ZIP))"; \
 	  echo "Apple TV IPA:  $$base/$$(basename $(APPLE_TV_IPA))"; \
+	  echo "What's new:    $$base/$$(basename $(RELEASE_VIDEO))"; \
 	  echo "Release page:  https://github.com/$(GH_REPO)/releases/latest"
 
 # ----- Version bumps ---------------------------------------------------------
