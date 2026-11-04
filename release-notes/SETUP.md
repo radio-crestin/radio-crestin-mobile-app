@@ -127,4 +127,4 @@ Needs 64-bit Windows 10 or 11.
 <!-- slides: skip -->
 
 There is no ready-made Linux package yet. Developers can build it from source with
-`fvm flutter build linux --release` (see the [README](../README.md)).
+`fvm flutter build linux --release` (see the [README](../README.md#quick-start-for-developers)).

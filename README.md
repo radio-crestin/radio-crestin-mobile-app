@@ -1,199 +1,213 @@
 <p align="center">
-  <a href="https://github.com/iosifnicolae2/radio-crestin-app">
-    <img src="https://github.com/iosifnicolae2/radio-crestin-app/blob/main/assets/icons/ic_logo_filled.png" alt="Radio Crestin logo" width="200" />
-  </a>
+  <img src="assets/icons/ic_logo_filled.png" alt="Radio Crestin logo" width="120" />
 </p>
-<h1 align="center">Radio Crestin App 🎧</h1>
-<br>
+
+<h1 align="center">Radio Crestin</h1>
+
 <p align="center">
-  <a href="https://play.google.com/store/apps/details?id=com.radiocrestin.radio_crestin&hl=en_US" target="_blank">
-    <img alt="playstore image" src="https://radiocrestin.ro/images/playstore.svg" width="150" height="46"/>
-  </a>
-  <a href="https://apps.apple.com/app/6451270471" target="_blank">
-    <img alt="appstore image" src="https://radiocrestin.ro/images/appstore.svg" width="150" height="46"/>
-  </a>
-  <a href="https://appgallery.huawei.com/app/C109055331" target="_blank">
-    <img alt="huawei image" src="https://radiocrestin.ro/images/appgallery.svg" width="150" height="46"/>
-  </a>
+  Romanian Christian radio in one app: 60+ stations, the song playing now, and playback that keeps going
+  through a weak signal, on your phone, in the car, on the TV and on the desktop.
 </p>
 
-Feel free to contribute to this project or get in touch with us at: contact@radio-crestin.com
+<p align="center">
+  <a href="https://apps.apple.com/app/6451270471"><img src="docs/readme/badges/app-store.svg" alt="Download on the App Store" height="50" /></a>
+  &nbsp;
+  <a href="https://play.google.com/store/apps/details?id=com.radiocrestin.radio_crestin"><img src="docs/readme/badges/google-play.png" alt="Get it on Google Play" height="50" /></a>
+</p>
 
-Obs. This project can be used only by Christian organizations for non-commercial purposes.
+<p align="center">
+  <a href="https://github.com/radio-crestin/radio-crestin-mobile-app/releases/latest"><img src="https://img.shields.io/github/v/release/radio-crestin/radio-crestin-mobile-app?include_prereleases&label=download&color=E91E63" alt="Latest release" /></a>
+  <img src="https://img.shields.io/badge/iOS%20·%20Android%20·%20tvOS%20·%20macOS%20·%20Windows-555" alt="Platforms" />
+  <img src="https://img.shields.io/badge/Flutter-3.47.7-02569B?logo=flutter" alt="Flutter 3.47.7" />
+</p>
 
-![Group 18](https://github.com/iosifnicolae2/radio-crestin-app/assets/43387542/2d89a06e-f8fb-40a9-9f20-c1e04568a208)
+<p align="center">
+  <img src="docs/readme/screenshots/home-dark.jpg" alt="Home: stations with the song playing now" width="200" />
+  <img src="docs/readme/screenshots/player-dark.jpg" alt="Full player" width="200" />
+  <img src="docs/readme/screenshots/home-light.jpg" alt="Home in the light theme" width="200" />
+  <img src="docs/readme/screenshots/player-light.jpg" alt="Full player in the light theme" width="200" />
+</p>
 
+---
 
-## Setup development environment
-- install brew
-```bash
-brew install --cask flutter
+## Contents
 
+- [Features](#features)
+- [Get the app](#get-the-app)
+- [How it works](#how-it-works)
+- [Quick start for developers](#quick-start-for-developers)
+- [Contributing](#contributing)
+
+## Features
+
+### Tap a station, and it plays
+
+Every station shows the song on air and how many people are listening. Tap one and it starts at once, and
+keeps playing with the screen locked or in another app. Heart your favorites and drag them into your own
+order; CarPlay, Android Auto, the widgets and the TV follow it.
+
+### Find the song you hear
+
+Search matches station names **and** the song playing now, by title or singer, with the matching words in
+bold. Case and diacritics don't matter. Categories (Muzică, Predici, Worship, Copii…) show as picture cards.
+
+<p>
+  <img src="docs/readme/screenshots/search.jpg" alt="Search by song" width="200" />
+  <img src="docs/readme/screenshots/categories.jpg" alt="Categories" width="200" />
+  <img src="docs/readme/screenshots/hide-station.jpg" alt="Hold a station to favorite, share or hide it" width="200" />
+</p>
+
+### A player built for listening
+
+Like or dislike the song, see what played before, set a sleep timer that fades the volume out, and invite a
+friend over WhatsApp or Facebook. Tap the title to find the song on YouTube. Phones and tablets get a
+landscape layout too.
+
+<p>
+  <img src="docs/readme/screenshots/sleep-timer.jpg" alt="Sleep timer" width="200" />
+  <img src="docs/readme/screenshots/share.jpg" alt="Invite a friend" width="200" />
+  <img src="docs/readme/screenshots/cast.jpg" alt="Listen on another device" width="200" />
+</p>
+<p>
+  <img src="docs/readme/screenshots/player-landscape.jpg" alt="The full player in landscape" width="612" />
+</p>
+
+### Keeps playing through a weak signal
+
+With **Încărcare în avans** (preload) set to 2 or 5 minutes, the app plays that far behind live and keeps
+that much audio loaded, so a tunnel or a dead zone goes unheard. Each station has several streams, and the
+app moves to the next one on its own when a stream fails. **Folosește MP3 cu prioritate** helps on networks
+where a station won't start.
+
+<p>
+  <img src="docs/readme/screenshots/settings.jpg" alt="Settings: preload, unstable connection, MP3 first" width="200" />
+</p>
+
+### Everywhere you listen
+
+| Where | What you get |
+|-------|--------------|
+| **iPhone Home Screen** | **Acum ascult** (the song playing, with play/pause) and **Favorite** (one tap starts a station) widgets. Buttons work without opening the app on iOS 17+. |
+| **Siri** | "Hey Siri, play *RVE Constanța* on Radio Creștin", also with the app closed or from the car's voice button. |
+| **CarPlay and Android Auto** | Favorite and Categorii tabs, station logos, 👍 ♡ 👎 on Now Playing (Android Auto), a clear message when offline. |
+| **Apple TV and Android TV** | A station grid made for the remote; favorites on the Android TV home screen. |
+| **Mac and Windows** | A desktop app with a station grid, a player bar with volume, menus and keyboard shortcuts. |
+| **Chromecast, Google speakers, AirPlay** | The cast button lists every device on your Wi-Fi in one sheet. |
+
+<p>
+  <img src="docs/readme/screenshots/widget-favorites.jpg" alt="Favorite widget" width="400" />
+  <img src="docs/readme/screenshots/widget-now-playing.jpg" alt="Now playing widget" width="200" />
+</p>
+<p>
+  <img src="docs/readme/screenshots/apple-tv.jpg" alt="Radio Crestin on Apple TV" width="612" />
+</p>
+
+What changed in each version: [`release-notes/`](release-notes/README.md).
+
+## Get the app
+
+| Device | Install |
+|--------|---------|
+| iPhone, iPad, Apple TV, Mac | [App Store](https://apps.apple.com/app/6451270471) |
+| Android phone, tablet, Android TV | [Google Play](https://play.google.com/store/apps/details?id=com.radiocrestin.radio_crestin), or the [APK](https://github.com/radio-crestin/radio-crestin-mobile-app/releases/latest/download/radio-crestin-android.apk) |
+| Mac (without the App Store) | [DMG](https://github.com/radio-crestin/radio-crestin-mobile-app/releases/latest/download/radio-crestin-macos.dmg) |
+| Windows 10/11 | [ZIP](https://github.com/radio-crestin/radio-crestin-mobile-app/releases/latest/download/radio-crestin-windows.zip) |
+| CarPlay, Android Auto | Comes with the phone app |
+
+Step-by-step setup for every device, including widgets, Siri, CarPlay, Android Auto and casting:
+[`release-notes/SETUP.md`](release-notes/SETUP.md).
+
+## How it works
+
+```mermaid
+flowchart LR
+    S["Radio stations<br/>(live audio streams)"] --> B
+    subgraph B["radio-crestin-backend"]
+        direction TB
+        M["Now-playing scraper<br/>+ listener counts"]
+        H["HLS re-streaming<br/>(NGINX + FFmpeg)"]
+    end
+    B --> API["api.radiocrestin.ro<br/>stations + metadata"]
+    API --> APP["This app<br/>Flutter · native Apple TV"]
+    API --> WEB["radiocrestin.ro<br/>website"]
+    H -. audio .-> APP
+    S -. direct MP3 fallback .-> APP
+    APP --> OUT["Lock screen · CarPlay · Android Auto<br/>widgets · Siri · Chromecast · AirPlay"]
 ```
 
-## Releases
+1. **The directory.** [radio-crestin-backend](https://github.com/radio-crestin/radio-crestin-backend)
+   keeps the list of stations, reads the song each one is playing, counts listeners, and re-streams the
+   stations as HLS so players can start behind live and buffer ahead. The same API also feeds the
+   [radiocrestin.ro](https://github.com/radio-crestin/radiocrestin.ro) website and the
+   [command-line player](https://github.com/radio-crestin/radiocrestin-cli).
+2. **The app reads the API.** It loads the stations and keeps the song on air fresh while you look at the
+   list. The last answer is cached, and a bundled list (`assets/fallback-stations.json`) covers the very
+   first launch without internet, so the screen is never empty.
+3. **One player, many screens.** `AppAudioHandler` (built on `audio_service` and `just_audio`) owns
+   playback and app state. It tries a station's streams in order (HLS first, then MP3) and moves on when
+   one fails; the lock screen, CarPlay, Android Auto, the widgets and Siri all drive this same player.
+4. **Apple TV is native.** `apple_tv/` is a SwiftUI app that talks to the same API.
 
-All builds happen **locally** on the developer machine — no CI, no signing
-secrets stored in GitHub Actions. Artifacts are uploaded to a GitHub Release
-via the `gh` CLI. The release body is the version's hand-written notes from
-[`release-notes/`](release-notes/README.md), published with a slide presentation
-and a narrated video (`make release-media`).
+## Quick start for developers
 
 ### Prerequisites
-- macOS host with Xcode + valid Apple Developer signing for iOS / macOS / tvOS.
-- `android/key.properties` and `android/app/radio-crestin-app-keystore.jks`
-  pulled from 1Password (gitignored).
-- `gh` CLI authenticated (`gh auth login`).
-- Optional: a Windows host with Flutter desktop enabled to produce the EXE.
 
-### Two-stage flow: prerelease → promote
-Releases are created as **prereleases first** so the dev team can test before
-the build is exposed at `/releases/latest`. Once a prerelease has been
-verified, run `make promote` to flip it to public.
+- [FVM](https://fvm.app) (the project pins Flutter **3.47.7** in `.fvmrc`), or that Flutter version on your `PATH`.
+- **iOS / macOS / tvOS:** macOS with Xcode and CocoaPods (`brew install cocoapods`).
+- **Android:** Android Studio with an SDK for API 36, and an emulator or a device.
+
+### Run it
 
 ```bash
-make release            # bump + commit pubspec, build android+ios+macos+apple-tv,
-                        # tag v<version>, push tag, create GH prerelease, upload artifacts
-                        # (devs can pull via tag URL; not yet at /releases/latest)
-
-make promote            # once verified, flips prerelease=false on the current
-                        # tag so /releases/latest serves it to end users
+git clone https://github.com/radio-crestin/radio-crestin-mobile-app.git
+cd radio-crestin-mobile-app
+fvm install                 # installs the pinned Flutter
+fvm flutter pub get
+fvm flutter run             # pick a simulator, emulator, device or desktop
 ```
 
-### Step-by-step
-```bash
-make release-help       # list every release target
+Android builds also need `android/app/google-services.json` (Firebase, used for push notifications). It is
+not in git: ask the maintainers for it, or create a Firebase project for the package
+`com.radiocrestin.radio_crestin` and download its file. iOS and macOS already include theirs.
 
-make bump-build         # 1.5.0+77 → 1.5.0+78  (or bump-patch / bump-minor)
-make commit-version     # commits pubspec bump and pushes
-make release-android    # APK + AAB to dist/
-make release-ios        # ad-hoc IPA to dist/
-make release-macos      # unsigned DMG to dist/
-make release-apple-tv   # tvOS IPA to dist/
-make tag-release        # creates v<version> tag and pushes it
-make publish            # creates GH prerelease, uploads everything in dist/
-make promote            # flips prerelease → latest
-```
+Desktop targets run the same way: `fvm flutter run -d macos`, `-d windows` or `-d linux`.
 
-### Windows EXE (separate machine)
-On a Windows host with Flutter desktop support enabled:
-```bash
-make release-windows    # produces dist/radio-crestin-windows.zip
-make publish            # uploads to the same release tag from earlier
-```
-
-### Latest-release download links (stable URLs)
-The release artifacts use stable filenames so the GitHub
-`/releases/latest/download/<file>` redirect works:
-
-| Platform | Download |
-|----------|----------|
-| Android APK | https://github.com/radio-crestin/radio-crestin-mobile-app/releases/latest/download/radio-crestin-android.apk |
-| Android AAB (Play upload) | https://github.com/radio-crestin/radio-crestin-mobile-app/releases/latest/download/radio-crestin-android.aab |
-| iOS IPA (ad-hoc) | https://github.com/radio-crestin/radio-crestin-mobile-app/releases/latest/download/radio-crestin-ios.ipa |
-| macOS DMG | https://github.com/radio-crestin/radio-crestin-mobile-app/releases/latest/download/radio-crestin-macos.dmg |
-| Windows zip | https://github.com/radio-crestin/radio-crestin-mobile-app/releases/latest/download/radio-crestin-windows.zip |
-| Apple TV IPA | https://github.com/radio-crestin/radio-crestin-mobile-app/releases/latest/download/radio-crestin-tvos.ipa |
-
-`make latest-links` reprints these on demand.
-
-### Store uploads (TestFlight + Play internal)
-Once a release is built and verified, push the dev versions to TestFlight and
-Play Store's internal testing track via fastlane. Credentials stay in
-1Password (`radio-crestin-app` vault) — fastlane reads them at upload time
-through `op`, never from disk.
+### Check your work
 
 ```bash
-make deploy-ios             # build number +1, fresh app-store IPA, upload to TestFlight
-                            # as the Apple ID signed in to Xcode (no 1Password/fastlane)
-make deploy-android         # build number +1, fresh release AAB shown in Finder: drag it
-                            # into Play Console -> Production (the command prints the link)
-make deploy                 # build number +1 once, then both (same +N on both stores)
-
-make release-stores         # all of the below in one go: bumps the build number (+1),
-                            # commits it (no push), builds the app-store IPA + AAB, uploads both
-
-make release-ios-appstore   # builds an app-store IPA (TestFlight requires this, not ad-hoc)
-make upload-testflight      # uploads dist/radio-crestin-ios-appstore.ipa to TestFlight
-                            # with the App Store Connect API key (1Password + fastlane)
-make upload-testflight-xcode # uploads the iOS archive as the Xcode account instead
-make upload-play-internal   # uploads dist/radio-crestin-android.aab to Play internal track
-make upload-stores          # upload-testflight + upload-play-internal
+fvm flutter analyze
+fvm flutter test                                             # the test suite
+dart run build_runner build --delete-conflicting-outputs     # after editing a .graphql file
 ```
 
-Each store upload needs a higher build number than the previous one, so the
-individual targets above need a `make bump-build` first; `release-stores` does
-it for you. If an upload fails after its bump, retry with `make upload-stores`.
+### Car and TV
 
-The `deploy-*` targets bump the build number by one and always rebuild before
-uploading, so a stale artifact in `dist/` is never sent. `NO_BUMP=1` keeps the
-build number: use it to retry an upload that failed after its bump, or to ship
-the other platform with the same +N. Once the upload went through they commit
-the new version in `pubspec.yaml` (`[<branch>] - bumped build number to X`, not
-pushed; `make deploy` commits once, after both uploads), and a failed upload
-leaves it uncommitted for the `NO_BUMP=1` retry. They refuse other uncommitted
-changes so every upload matches a commit; `ALLOW_DIRTY=1` skips that check. `deploy-ios`
-uploads through the Apple ID signed in to Xcode (Xcode → Settings →
-Accounts), with `ios/ExportOptionsUpload.plist`, so it needs no API key.
-`deploy-android` uploads nothing: it builds only the AAB, shows it in Finder
-and commits the version once it is built; drag it into Play Console →
-Production → Create new release. Only `upload-play-internal` and
-`release-stores` need the 1Password + fastlane setup below. An upload is
-not a release: submit the TestFlight build for review in App Store Connect.
+| Target | How |
+|--------|-----|
+| CarPlay | Run on an iOS simulator, then in Simulator: **I/O → External Displays → CarPlay**. |
+| Android Auto | `make install-android-auto-emulator`, then `make start-android-auto` (Desktop Head Unit). |
+| Android TV | Run on an Android TV emulator; the D-pad drives the TV layout. |
+| Apple TV | Open `apple_tv/RadioCrestinTV.xcodeproj` and run the `RadioCrestinTV` scheme (Debug). After editing `apple_tv/project.yml`, run `xcodegen generate` there. |
 
-**1Password items needed** (all in vault `radio-crestin-app`, secure note with
-the value pasted into the `notesPlain` field):
+### Find your way around
 
-| Item name | Source | Purpose |
-|---|---|---|
-| `appstore_connect_api_key.p8` | App Store Connect → Users and Access → Integrations → App Store Connect API → Generate API Key (download once) | TestFlight auth |
-| `appstore_connect_key_id` | Same page, the 10-char Key ID | TestFlight auth |
-| `appstore_connect_issuer_id` | Same page, the UUID at the top | TestFlight auth |
-| `play_service_account.json` | Play Console → Setup → API access → Create service account → Download JSON, then grant it "Release manager" or "Admin" on this app | Play upload |
+| Path | What's there |
+|------|--------------|
+| `lib/appAudioHandler.dart` | Playback and the app-wide state (RxDart streams) |
+| `lib/services/` | Station data, CarPlay/Android Auto, casting, widgets, Siri, sleep timer, analytics |
+| `lib/components/`, `lib/pages/`, `lib/widgets/` | The UI |
+| `lib/queries/` | GraphQL documents and their generated code (don't edit the `.graphql.dart` files) |
+| `packages/` | Forked plugins: CarPlay/Android Auto, audio_service, Chromecast, AirPlay, D-pad |
+| `apple_tv/` | The native tvOS app |
+| `ios/RadioCrestinWidgets/` | The iOS Home Screen widgets |
+| `cast_receiver/` | The Chromecast receiver page (Cloudflare Worker) |
 
-**One-time setup**:
-```bash
-brew install 1password-cli      # if you don't already have op
-cd ios     && bundle install    # installs fastlane gem
-cd android && bundle install    # installs fastlane gem
-```
+Code conventions, architecture notes and pitfalls are in [`CLAUDE.md`](CLAUDE.md). Building and publishing
+releases is in [`docs/releasing.md`](docs/releasing.md).
 
-The Play service account also needs to be invited to the Play Console as a
-user with permission on the `com.radiocrestin.radio_crestin` app — Play
-Console → Users and permissions → Invite new users → paste the service
-account email from the JSON.
+## Contributing
 
-### Crash symbols (PostHog dSYMs)
-`make release-ios` and `make release-ios-appstore` upload the archive's
-dSYMs to PostHog Error Tracking (project `radio-crestin-mobile-app`, EU), so
-native iOS crashes show function names and lines instead of addresses. A
-failed upload only prints a warning — retry with `make upload-dsyms-ios`.
-Dart errors need no symbols (builds are not obfuscated).
+Issues and pull requests are welcome. Listener-visible changes get a line in the unreleased
+[release notes](release-notes/README.md) in the same commit. Questions: **contact@radio-crestin.com**.
 
-**One-time setup** (per machine):
-```bash
-brew install posthog/tap/posthog-cli
-posthog-cli --host https://eu.posthog.com login   # pick project radio-crestin-mobile-app
-```
-In CI, set `POSTHOG_CLI_API_KEY` (personal API key with `error tracking
-write` + `organization read`) and `POSTHOG_CLI_PROJECT_ID=222020` instead.
-
-### Apple TV (`apple_tv/`)
-The tvOS app is a separate native SwiftUI Xcode project, not a Flutter target.
-`apple_tv/ExportOptions.plist` is committed with team `2KNY2RZVGC` and
-`method=development` — adjust to `ad-hoc` or `app-store` when ready to
-distribute beyond registered dev devices. `make release-apple-tv` is included
-in `make release-mac-platforms` and `make release`.
-
-### Disabling Xcode Cloud
-This repo does **not** use Xcode Cloud (no `ci_scripts/` or `.xcode-cloud/`).
-If Xcode Cloud is enabled in App Store Connect for this app, disable it from
-the App Store Connect web UI — that setting lives outside the repo.
-
-### Phone-only details — legacy notes
-- Android signing config: `android/key.properties` (1Password →
-  `radio_crestin_key.properties`) plus the keystore at
-  `android/app/radio-crestin-app-keystore.jks`.
-- iOS signing: open `ios/Runner.xcworkspace`, select target `Runner`,
-  pick your team under **Signing & Capabilities** with **Automatically
-  manage signing** enabled. See https://docs.flutter.dev/deployment/ios.
+This project may be used only by Christian organizations, for non-commercial purposes.

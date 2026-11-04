@@ -92,7 +92,7 @@ RELEASE_DECK        := $(DIST)/radio-crestin-whats-new.html
 RELEASE_VIDEO       := $(DIST)/radio-crestin-whats-new.mp4
 
 # Store-upload credentials are read from 1Password (never committed).
-# See README "Store uploads" for setup.
+# See docs/releasing.md "Store uploads" for setup.
 OP_VAULT            := radio-crestin-app
 APPSTORE_KEY_FILE   := /tmp/radio-crestin-appstore-key.p8
 PLAY_JSON_FILE      := /tmp/radio-crestin-play-key.json
@@ -100,7 +100,7 @@ PLAY_PRODUCTION_URL := https://play.google.com/console/u/0/developers/8868187498
 
 # PostHog Error Tracking: iOS dSYMs, so native crashes symbolicate.
 # Auth once per machine: posthog-cli --host $(POSTHOG_HOST) login
-# (or export POSTHOG_CLI_API_KEY + POSTHOG_CLI_PROJECT_ID). See README.
+# (or export POSTHOG_CLI_API_KEY + POSTHOG_CLI_PROJECT_ID). See docs/releasing.md.
 POSTHOG_HOST        := https://eu.posthog.com
 IOS_BUNDLE_ID       := com.radiocrestinsoftware.radioApp
 IOS_DSYMS_DIR       := build/ios/archive/Runner.xcarchive/dSYMs
@@ -233,11 +233,11 @@ release-windows: | $(DIST)
 	@ls -lh $(WINDOWS_ZIP)
 
 # ----- Apple TV (native SwiftUI, separate Xcode project) --------------------
-# Requires apple_tv/ExportOptions.plist (see README).
+# Requires apple_tv/ExportOptions.plist (see docs/releasing.md).
 .PHONY: release-apple-tv
 release-apple-tv: | $(DIST)
 	@[ -f apple_tv/ExportOptions.plist ] || { \
-	  echo "ERROR: apple_tv/ExportOptions.plist missing. See README — Apple TV release."; \
+	  echo "ERROR: apple_tv/ExportOptions.plist missing. See docs/releasing.md — Apple TV."; \
 	  exit 1; }
 	xcodebuild -project apple_tv/RadioCrestinTV.xcodeproj \
 	  -scheme RadioCrestinTV -configuration Release \
@@ -408,7 +408,7 @@ commit-build-number:
 #   - appstore_connect_issuer_id       (secure note: UUID Issuer ID)
 #   - play_service_account.json        (secure note: paste the JSON)
 #
-# See README "Store uploads" for how to generate these.
+# See docs/releasing.md "Store uploads" for how to generate these.
 .PHONY: upload-testflight upload-play-internal upload-stores
 
 upload-testflight: $(IOS_APPSTORE_IPA)
