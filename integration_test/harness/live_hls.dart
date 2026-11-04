@@ -41,8 +41,9 @@ class LiveHlsStream {
         elapsed.inMicroseconds ~/ segmentDuration.inMicroseconds;
   }
 
-  /// The media playlist at [now].
-  String playlist({DateTime? now}) {
+  /// The media playlist at [now], starting the player [start] behind live.
+  String playlist(
+      {DateTime? now, Duration start = const Duration(seconds: 18)}) {
     final last = _frozenAt ?? liveSequence(now);
     final first = last - windowSegments + 1;
     final seconds = segmentDuration.inMicroseconds / 1e6;
@@ -51,7 +52,7 @@ class LiveHlsStream {
       '#EXT-X-VERSION:6',
       '#EXT-X-TARGETDURATION:6',
       '#EXT-X-MEDIA-SEQUENCE:$first',
-      '#EXT-X-START:TIME-OFFSET=-18',
+      '#EXT-X-START:TIME-OFFSET=-${start.inSeconds}',
       for (var sequence = first; sequence <= last; sequence++) ...[
         '#EXTINF:${seconds.toStringAsFixed(3)},',
         '#EXT-X-PROGRAM-DATE-TIME:${_programDate(sequence)}',
@@ -79,10 +80,21 @@ class LiveHlsStream {
     final owner = ascii.encode('com.apple.streaming.transportStreamTimestamp');
     final timestamp = ByteData(8)..setUint64(0, pts & 0x1FFFFFFFF);
     final frameBody = [...owner, 0, ...timestamp.buffer.asUint8List()];
-    final frame = [...ascii.encode('PRIV'), ..._syncSafe(frameBody.length), 0, 0,
-      ...frameBody];
-    return [...ascii.encode('ID3'), 4, 0, 0, ..._syncSafe(frame.length),
-      ...frame];
+    final frame = [
+      ...ascii.encode('PRIV'),
+      ..._syncSafe(frameBody.length),
+      0,
+      0,
+      ...frameBody
+    ];
+    return [
+      ...ascii.encode('ID3'),
+      4,
+      0,
+      0,
+      ..._syncSafe(frame.length),
+      ...frame
+    ];
   }
 
   static List<int> _syncSafe(int size) => [

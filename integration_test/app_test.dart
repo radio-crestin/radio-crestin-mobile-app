@@ -1,7 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:get_it/get_it.dart';
 import 'package:integration_test/integration_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'harness/fake_radio_server.dart';
 import 'harness/network_conditions.dart';
@@ -35,21 +33,6 @@ void main() {
         expect(row, findsOneWidget, reason: app.describe());
       }
       await app.expectSilent();
-    });
-
-    test('a launch resumes the last station when auto-start is on',
-        (app) async {
-      await app.expectPlaying(Stations.beta,
-          since: await app.tapStation(Stations.beta));
-      await app.audio.stop();
-      await app.expectSilent();
-
-      final prefs = GetIt.instance<SharedPreferences>();
-      await prefs.setBool(RadioApp.autoStartPrefsKey, true);
-      addTearDown(() => prefs.setBool(RadioApp.autoStartPrefsKey, false));
-      final relaunchedAt = DateTime.now();
-      await app.relaunch();
-      await app.expectPlaying(Stations.beta, since: relaunchedAt);
     });
   });
 

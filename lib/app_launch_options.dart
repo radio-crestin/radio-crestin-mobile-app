@@ -9,6 +9,7 @@ class AppLaunchOptions {
   const AppLaunchOptions({
     this.apiBaseUrl,
     this.internetProbes,
+    this.liveOriginHosts,
     this.reportsAnalytics = true,
     this.registersForPush = true,
     this.promptsForUpdates = true,
@@ -19,6 +20,10 @@ class AppLaunchOptions {
 
   /// Replaces the endpoints that tell whether the internet answers.
   final List<InternetProbe>? internetProbes;
+
+  /// Replaces the hosts of the live HLS origin, whose streams start from
+  /// their 2- and 5-minute variants and play through iOS's hold proxy.
+  final Set<String>? liveOriginHosts;
 
   /// Whether PostHog receives events, logs and errors.
   final bool reportsAnalytics;

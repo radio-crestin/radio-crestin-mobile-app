@@ -4,8 +4,9 @@
 #
 # - A 6.016 s AAC-LC chunk (16 kHz mono, 24 kb/s, 94 frames of 64 ms once
 #   the encoder's flush frame is dropped): every HLS segment carries it.
-# - A 6 s MP3 chunk (22.05 kHz mono, 32 kb/s, no ID3/Xing header): the
-#   direct stream loops it, as an Icecast server sends frames.
+# - A 6 s MP3 chunk (44.1 kHz stereo, 128 kb/s, no ID3/Xing header), the
+#   format most stations stream: the direct stream loops it, as an Icecast
+#   server sends frames.
 # - A 64 px pink PNG: every station thumbnail and song cover.
 #
 # The tones are 34 dB down, so a test run is barely audible.
@@ -19,8 +20,8 @@ ffmpeg -v error -y \
   -f lavfi -i "sine=frequency=440:sample_rate=16000:duration=7,volume=0.02" \
   -ac 1 -c:a aac -b:a 24k -frames:a 94 -f adts "$work/segment.aac"
 ffmpeg -v error -y \
-  -f lavfi -i "sine=frequency=330:sample_rate=22050:duration=6,volume=0.02" \
-  -ac 1 -c:a libmp3lame -b:a 32k -write_xing 0 -id3v2_version 0 \
+  -f lavfi -i "sine=frequency=330:sample_rate=44100:duration=6,volume=0.02" \
+  -ac 2 -c:a libmp3lame -b:a 128k -write_xing 0 -id3v2_version 0 \
   -f mp3 "$work/loop.mp3"
 ffmpeg -v error -y -f lavfi -i "color=c=0xE91E63:s=64x64" -frames:v 1 \
   "$work/thumbnail.png"

@@ -140,6 +140,8 @@ Future<void> runRadioCrestin([
   PerformanceMonitor.markAppStart();
   final apiBaseUrl = options.apiBaseUrl;
   if (apiBaseUrl != null) CONSTANTS.API_BASE_URL = apiBaseUrl;
+  final liveOriginHosts = options.liveOriginHosts;
+  if (liveOriginHosts != null) HlsStartVariant.hosts = liveOriginHosts;
 
   WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);

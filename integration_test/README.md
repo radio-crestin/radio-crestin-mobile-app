@@ -42,6 +42,13 @@ app back on its home screen, silent, on a healthy network.
 - **`harness/media.g.dart`** holds the audio: tiny, nearly silent AAC and MP3 clips. Regenerate it with
   `tool/generate_media.sh` (needs ffmpeg).
 
+## Not covered yet
+
+- **What a launch does** (auto-start of the last station, a link or widget that opened the app). The app's
+  launch logic runs once per process, and every test shares one, so it needs its own test file, launched
+  with a seeded station cache: a fresh install starts a station from the app's bundled list, which streams
+  from the real internet.
+
 ## Add a test
 
 1. Write it in `app_test.dart` with `e2eTest`, in the group of its flow.

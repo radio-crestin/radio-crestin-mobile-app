@@ -48,6 +48,7 @@ class FakeRadioServer {
   };
 
   String get baseUrl => catalog.baseUrl;
+  String get host => InternetAddress.loopbackIPv4.address;
   String get apiBaseUrl => '$baseUrl/api/v1';
   Uri get internetProbeUrl => Uri.parse('$baseUrl/probe/generate_204');
 
@@ -175,8 +176,10 @@ class FakeRadioServer {
     final file = uri.pathSegments.last;
     if (stream == null) return connection.status(HttpStatus.notFound);
     if (file.endsWith('.m3u8')) {
-      return connection.send(
-          utf8.encode(stream.playlist()), 'application/vnd.apple.mpegurl');
+      final start = _startVariants[file];
+      if (start == null) return connection.status(HttpStatus.notFound);
+      return connection.send(utf8.encode(stream.playlist(start: start)),
+          'application/vnd.apple.mpegurl');
     }
     final sequence = int.tryParse(file.replaceAll('.aac', ''));
     if (sequence == null || sequence > stream.liveSequence()) {
@@ -185,11 +188,21 @@ class FakeRadioServer {
     return connection.send(stream.segment(sequence), 'audio/aac');
   }
 
-  /// An endless MP3 stream at its bitrate, after a 4 s burst, as Icecast
-  /// sends it: no length, the body ends when the connection does.
+  /// The playlists the origin publishes, by where they start the player:
+  /// the live one 18 s behind live, and the app's 2- and 5-minute starts.
+  static const _startVariants = {
+    'index.m3u8': Duration(seconds: 18),
+    'index-2m.m3u8': Duration(minutes: 2),
+    'index-5m.m3u8': Duration(minutes: 5),
+  };
+
+  /// An endless 128 kb/s MP3 stream at its bitrate, after Icecast's
+  /// default 64 KB burst on connect: no length, the body ends when the
+  /// connection does.
   Future<void> _mp3Stream(_Connection connection) async {
     final audio = base64Decode(mp3LoopBase64);
-    const bytesPerSecond = 32000 ~/ 8;
+    const bytesPerSecond = 128000 ~/ 8;
+    const burst = 65536;
     var offset = 0;
     List<int> next(int length) {
       final chunk = BytesBuilder(copy: false);
@@ -203,10 +216,10 @@ class FakeRadioServer {
 
     connection.head(HttpStatus.ok, {
       'Content-Type': 'audio/mpeg',
-      'icy-br': '32',
+      'icy-br': '128',
       'Cache-Control': 'no-cache',
     });
-    await connection.write(next(bytesPerSecond * 4));
+    await connection.write(next(burst));
     while (connection.isOpen) {
       await Future<void>.delayed(const Duration(milliseconds: 250));
       await connection.write(next(bytesPerSecond ~/ 4));

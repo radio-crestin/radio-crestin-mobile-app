@@ -28,7 +28,7 @@ class RadioApp {
   static FlutterExceptionHandler? _appErrorHandler;
 
   /// Where Settings keeps "start the last station on launch".
-  static const autoStartPrefsKey = '_autoStartStation';
+  static const _autoStartPrefsKey = '_autoStartStation';
 
   final FakeRadioServer server;
   late WidgetTester tester;
@@ -49,18 +49,11 @@ class RadioApp {
     } else {
       app.tester = tester;
       FlutterError.onError = _appErrorHandler;
-      await app.relaunch();
+      // The test framework emptied the screen after the last test.
+      runApp(const RadioCrestinApp(promptsForUpdates: false));
     }
     await app._waitForStationList();
     return app;
-  }
-
-  /// Opens the app's screens anew, as a launch does: the home page mounts
-  /// and runs its launch logic (auto-start among it) again.
-  Future<void> relaunch() async {
-    runApp(const RadioCrestinApp(promptsForUpdates: false));
-    await tester.pump();
-    await _waitForStationList();
   }
 
   Future<void> _waitForStationList() => waitFor(
@@ -76,6 +69,9 @@ class RadioApp {
       internetProbes: [
         InternetProbe(server.internetProbeUrl, (r) => r.statusCode == 204),
       ],
+      // Its HLS takes the production path: start variants, and on iOS the
+      // hold proxy.
+      liveOriginHosts: {server.host},
       reportsAnalytics: false,
       registersForPush: false,
       promptsForUpdates: false,
@@ -87,12 +83,13 @@ class RadioApp {
 
   /// What a fresh install has: no settings, cache, favorites or history.
   ///
-  /// Auto-start is off, so every test starts silent; the auto-start test
-  /// turns it on, as Settings does.
+  /// Auto-start is off, so every test starts silent. With it on, a fresh
+  /// install would start a station from the app's bundled list, a real one
+  /// streamed over the internet, before the fake catalog arrives.
   static Future<void> _wipeAppData() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
-    await prefs.setBool(autoStartPrefsKey, false);
+    await prefs.setBool(_autoStartPrefsKey, false);
     final directories = [
       await getApplicationDocumentsDirectory(),
       await getApplicationSupportDirectory(),
@@ -129,28 +126,42 @@ class RadioApp {
   static Key _rowKey(FakeStation station) =>
       ValueKey('station-${station.slug}');
 
-  /// Scrolls the station list to [station]'s row; the list sorts by
-  /// recommendation, so a row can be anywhere in it.
+  static final _anyRow = find.byWidgetPredicate((widget) =>
+      widget.key is ValueKey<String> &&
+      (widget.key! as ValueKey<String>).value.startsWith('station-'));
+
+  /// Drags the station list, as a listener does, until [station]'s row can
+  /// be tapped: from the top down, as the list sorts by recommendation, so
+  /// a row can be anywhere in it.
+  ///
+  /// Not `ensureVisible`/`scrollUntilVisible`: the home list's viewport
+  /// reports an infinite offset to reveal a row (inside its sticky
+  /// header's group), so those jump to the end of the list.
   Future<Finder> showStation(FakeStation station) async {
-    final row = find.byKey(_rowKey(station));
-    final list = find
-        .ancestor(
-            of: find.byKey(_rowKey(Stations.alpha)),
-            matching: find.byType(Scrollable))
-        .first;
-    for (final delta in [300.0, -300.0]) {
-      if (row.evaluate().isNotEmpty) break;
-      await tester
-          .scrollUntilVisible(row, delta,
-              scrollable: list, maxScrolls: 40, continuous: true)
-          .catchError((Object _) {});
+    final row = find.byKey(_rowKey(station)).hitTestable();
+    final position = Scrollable.of(_anyRow.evaluate().first).position;
+    for (var step = 0; step < 40; step++) {
+      if (position.pixels <= position.minScrollExtent) break;
+      await _dragList(up: true);
+    }
+    for (var step = 0; step < 40 && row.evaluate().isEmpty; step++) {
+      if (position.pixels >= position.maxScrollExtent) break;
+      await _dragList(up: false);
     }
     if (row.evaluate().isEmpty) {
       fail('${station.title} is not in the station list; ${describe()}');
     }
-    await tester.ensureVisible(row);
-    await tester.pump();
     return row;
+  }
+
+  /// Drags the station list by a third of a screen, then lets it settle.
+  Future<void> _dragList({required bool up}) async {
+    final distance = tester.view.physicalSize.height /
+        tester.view.devicePixelRatio /
+        3;
+    await tester.drag(_anyRow.hitTestable().first,
+        Offset(0, up ? distance : -distance));
+    await pumpFor(const Duration(milliseconds: 600));
   }
 
   /// Taps [station] in the station list.
@@ -237,12 +248,26 @@ class RadioApp {
         state.processingState.name == 'ready';
   }
 
+  /// How far the player has played its source: the native player's last
+  /// position, moved on by the time since while it plays and is ready, as
+  /// just_audio computes it. Unlike `AudioPlayer.position` it is not
+  /// clamped to the duration, which iOS gives as zero for an endless MP3
+  /// stream; a stall still stops it, as the player then reports buffering.
+  Duration get _renderedPosition {
+    final player = audio.player;
+    final event = player.playbackEvent;
+    final ready = player.processingState.name == 'ready';
+    if (!player.playing || !ready) return event.updatePosition;
+    return event.updatePosition +
+        DateTime.now().difference(event.updateTime) * player.speed;
+  }
+
   /// Expects the player's position to move by most of [duration], live,
   /// over [duration]: the audio really plays, without stalls.
   Future<void> expectAudioAdvances(Duration duration) async {
-    final from = audio.player.position;
+    final from = _renderedPosition;
     await pumpFor(duration);
-    final advanced = audio.player.position - from;
+    final advanced = _renderedPosition - from;
     expect(advanced, greaterThanOrEqualTo(duration * 0.7),
         reason: 'audio played for ${duration.inSeconds}s '
             '(advanced ${advanced.inMilliseconds} ms); ${describe()}');
@@ -252,9 +277,9 @@ class RadioApp {
   Future<void> expectSilent({
     Duration duration = const Duration(seconds: 3),
   }) async {
-    final from = audio.player.position;
+    final from = _renderedPosition;
     await pumpFor(duration);
-    final advanced = audio.player.position - from;
+    final advanced = _renderedPosition - from;
     expect(advanced, lessThan(const Duration(milliseconds: 500)),
         reason: 'no audio plays; ${describe()}');
     expect(
@@ -308,7 +333,11 @@ class RadioApp {
     return 'rows on screen: [$rows] '
         'station=${audio.currentStation.value?.slug} '
         'playing=${state.playing} state=${state.processingState.name} '
-        'position=${audio.player.position} '
+        'position=$_renderedPosition '
+        'duration=${audio.player.playbackEvent.duration} '
+        'player=${audio.player.processingState.name}/'
+        '${audio.player.playing ? 'playing' : 'paused'} '
+        'buffered=${audio.player.bufferedPosition} '
         'network=${network.status.value.name} recent requests: $recent';
   }
 }

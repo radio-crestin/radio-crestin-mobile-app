@@ -18,8 +18,12 @@ import 'package:just_audio/just_audio.dart' show PlayerException;
 class HlsStartVariant {
   const HlsStartVariant._();
 
-  /// The origin's hosts, the only ones that publish the variants.
-  static const Set<String> hosts = {
+  /// The origin's hosts, the only ones that publish the variants; iOS
+  /// also loads their streams through its hold proxy. A launch may replace
+  /// them (`AppLaunchOptions.liveOriginHosts`), as the e2e tests do.
+  static Set<String> hosts = defaultHosts;
+
+  static const Set<String> defaultHosts = {
     'hls.radiocrestin.ro',
     'live.radiocrestin.ro',
   };
