@@ -640,14 +640,15 @@ class _SettingsPageState extends State<SettingsPage> {
 
   /// Writes a settings change to the log, so a listener's log file shows
   /// the mode playback ran in from then on.
-  /// Applies "use MP3 streams first" from the next stream load: the playing
-  /// stream keeps playing.
+  /// Applies "use MP3 streams first" at once: the station on air switches
+  /// to its MP3 stream, or back to HLS.
   Future<void> _changePreferDirectStreams(bool value) async {
     AnalyticsService.instance.capture('button_clicked',
         {'button_name': 'prefer_direct_streams', 'enabled': value});
     _logSettingChanged('prefer_direct_streams', value);
     setState(() => _preferDirectStreams = value);
     PlaybackPreferences.changePreferDirectStreams(value);
+    unawaited(getIt<AppAudioHandler>().reapplyStreamPreference());
     await PlaybackPreferences.savePreferDirectStreams(value);
   }
 

@@ -4015,6 +4015,45 @@ class AppAudioHandler extends BaseAudioHandler {
     await play();
   }
 
+  /// Applies a changed "use MP3 streams first" setting to the station on
+  /// air, so it switches to MP3, or back to HLS, right away.
+  ///
+  /// A playing station reloads on the stream type the setting now prefers,
+  /// a station still connecting starts its load over, and a paused one
+  /// loads it when it resumes. A station already on that type, or without
+  /// it, keeps its stream.
+  Future<void> reapplyStreamPreference() async {
+    if (_videoMode || _playlistMode || isCasting) return;
+    if (_isConnecting) {
+      _trace('reapplyStreamPreference: restarting the load');
+      _cancelInFlightPlay();
+      return play();
+    }
+    final loadedType = _loadedStreamType;
+    final prefersHls = _firstStreamIsHls(mediaItem.valueOrNull);
+    if (loadedType == null || prefersHls == null) return;
+    if ((loadedType == 'HLS') == prefersHls) return;
+    _loadedStreamUrl = null;
+    _loadedStreamType = null;
+    if (!player.playing) {
+      _trace('reapplyStreamPreference: the resume loads the other stream');
+      return;
+    }
+    _trace('reapplyStreamPreference: switching to the '
+        '${prefersHls ? 'HLS' : 'MP3'} stream');
+    await play();
+  }
+
+  /// Whether a load of [item] tries an HLS stream first; null when [item]
+  /// has no streams.
+  bool? _firstStreamIsHls(MediaItem? item) {
+    final streams = item?.extras?['station_streams'] as List<dynamic>?;
+    if (streams == null || streams.isEmpty) return null;
+    final ordered = orderStreams(streams,
+        directFirst: PlaybackPreferences.directStreamsFirst);
+    return isHlsStream(ordered.first);
+  }
+
   /// Re-emits the current media item so that thumbnail and metadata reflect
   /// the latest data-saving settings (unstable connection, mobile data, etc.).
   void refreshCurrentMetadata() {

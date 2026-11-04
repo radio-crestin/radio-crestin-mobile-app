@@ -67,6 +67,20 @@ void main() {
           reason: 'the previous station stopped streaming');
     });
 
+    test('"Folosește MP3 cu prioritate" moves the station to MP3 and back',
+        (app) async {
+      await app.expectPlaying(Stations.alpha,
+          since: await app.tapStation(Stations.alpha));
+      await app.openSettings();
+      await app.toggleSetting('Mod dezvoltator');
+
+      final mp3At = await app.toggleSetting('Folosește MP3 cu prioritate');
+      await app.expectPlayingFrom(Stations.alpha, Origin.mp3, since: mp3At);
+
+      final hlsAt = await app.toggleSetting('Folosește MP3 cu prioritate');
+      await app.expectPlayingFrom(Stations.alpha, Origin.hls, since: hlsAt);
+    });
+
     test('a station with only an MP3 stream plays it', (app) async {
       final tappedAt = await app.tapStation(Stations.gamma);
       await app.expectPlaying(Stations.gamma, since: tappedAt);

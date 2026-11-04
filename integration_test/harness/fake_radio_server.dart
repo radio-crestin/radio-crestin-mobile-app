@@ -55,11 +55,19 @@ class FakeRadioServer {
   /// The live HLS stream of [station].
   LiveHlsStream hls(FakeStation station) => _hls[station.slug]!;
 
-  /// Media bytes sent for [station] since [since].
-  int mediaBytesSent(FakeStation station, {required DateTime since}) =>
+  /// Media bytes sent for [station] since [since], from [origin] only when
+  /// given.
+  int mediaBytesSent(
+    FakeStation station, {
+    required DateTime since,
+    Origin? origin,
+  }) =>
       requests
           .where((r) =>
-              r.isMedia && r.station == station.slug && !r.at.isBefore(since))
+              r.isMedia &&
+              (origin == null || r.origin == origin) &&
+              r.station == station.slug &&
+              !r.at.isBefore(since))
           .fold(0, (sum, r) => sum + r.bytesSent);
 
   /// Back to a healthy network and live streams, between tests.

@@ -15,8 +15,9 @@ class PlaybackPreferences {
   /// The "use MP3 streams first" setting: a station loads its direct (MP3)
   /// streams before its HLS ones.
   ///
-  /// Read at each stream load (a station switch, a reconnect), so a change
-  /// applies from the next one; the playing stream is not reloaded.
+  /// Read at each stream load (a station switch, a reconnect). Settings
+  /// also reloads the station on air when it changes (see
+  /// `AppAudioHandler.reapplyStreamPreference`).
   static ValueNotifier<bool> get preferDirectStreams => _preferDirectStreams;
 
   /// Whether stream loads try direct streams before HLS: the setting is on,
@@ -53,7 +54,7 @@ class PlaybackPreferences {
     await prefs.setBool(_userSetKey, true);
   }
 
-  /// Applies [enabled] from the next stream load.
+  /// Applies [enabled] to the stream loads from now on.
   static void changePreferDirectStreams(bool enabled) {
     _preferDirectStreams.value = enabled;
   }

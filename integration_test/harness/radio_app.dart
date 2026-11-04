@@ -9,10 +9,13 @@ import 'package:radio_crestin/appAudioHandler.dart';
 import 'package:radio_crestin/app_launch_options.dart';
 import 'package:radio_crestin/components/MiniAudioPlayer.dart';
 import 'package:radio_crestin/main.dart';
+import 'package:radio_crestin/pages/SettingsPage.dart';
 import 'package:radio_crestin/services/network_service.dart';
+import 'package:radio_crestin/services/playback_preferences.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'fake_radio_server.dart';
+import 'network_conditions.dart';
 import 'station_catalog.dart';
 
 /// The app under test, launched once per run against [server] and driven
@@ -29,6 +32,9 @@ class RadioApp {
 
   /// Where Settings keeps "start the last station on launch".
   static const _autoStartPrefsKey = '_autoStartStation';
+
+  /// Where Settings keeps "Mod dezvoltator".
+  static const _developerModePrefsKey = 'developer_mode_enabled';
 
   final FakeRadioServer server;
   late WidgetTester tester;
@@ -107,10 +113,14 @@ class RadioApp {
     }
   }
 
-  /// Back to silence and a healthy network, after a test.
+  /// Back to silence, a healthy network and default settings, after a test.
   Future<void> reset() async {
     server.reset();
     await audio.stop();
+    PlaybackPreferences.changePreferDirectStreams(false);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(PlaybackPreferences.preferDirectStreamsKey);
+    await prefs.remove(_developerModePrefsKey);
     // The test framework checks its handler is back when a test ends.
     FlutterError.onError = _bindingErrorHandler;
   }
@@ -197,11 +207,38 @@ class RadioApp {
     await pumpFor(const Duration(seconds: 1));
   }
 
-  /// Taps the full player's button with [tooltip].
+  /// Taps the button with [tooltip].
   Future<DateTime> tapTooltip(String tooltip) async {
     final at = DateTime.now();
     await tester.tap(find.byTooltip(tooltip).hitTestable());
     await tester.pump();
+    return at;
+  }
+
+  /// Opens Settings from the home screen's app bar.
+  Future<void> openSettings() async {
+    await tapTooltip('Setări aplicație');
+    await pumpFor(const Duration(seconds: 1));
+  }
+
+  /// Scrolls Settings to the switch of the row titled [title] and flips it.
+  Future<DateTime> toggleSetting(String title) async {
+    final row = find.ancestor(
+        of: find.text(title), matching: find.byType(ListTile));
+    final scrollable = find
+        .descendant(
+            of: find.byType(SettingsPage), matching: find.byType(Scrollable))
+        .first;
+    await tester.scrollUntilVisible(row, 200, scrollable: scrollable);
+    final toggle = find
+        .descendant(of: row, matching: find.byType(Switch))
+        .hitTestable();
+    if (toggle.evaluate().isEmpty) {
+      fail('The "$title" switch cannot be tapped; ${describe()}');
+    }
+    final at = DateTime.now();
+    await tester.tap(toggle);
+    await pumpFor(const Duration(seconds: 1));
     return at;
   }
 
@@ -239,6 +276,38 @@ class RadioApp {
       findsOneWidget,
       reason: 'the mini player offers to pause',
     );
+  }
+
+  /// Expects [station] to play from its [origin] stream (HLS or MP3) within
+  /// [within] of [since], and its other stream to stop sending.
+  ///
+  /// The mini player is not checked: Settings may cover it.
+  Future<void> expectPlayingFrom(
+    FakeStation station,
+    Origin origin, {
+    required DateTime since,
+    Duration within = const Duration(seconds: 20),
+  }) async {
+    final wantsHls = origin == Origin.hls;
+    await waitFor(
+      () =>
+          _isPlaying(station) && (audio.loadedStreamType == 'HLS') == wantsHls,
+      reason: '${station.title} to play its ${origin.name} stream',
+      timeout: within,
+    );
+    await expectAudioAdvances(const Duration(seconds: 5));
+    expect(server.mediaBytesSent(station, since: since, origin: origin),
+        greaterThan(0),
+        reason: 'the audio came from the ${origin.name} stream');
+
+    final other = wantsHls ? Origin.mp3 : Origin.hls;
+    int otherBytes() =>
+        server.mediaBytesSent(station, since: since, origin: other);
+    await pumpFor(const Duration(seconds: 2));
+    final settledBytes = otherBytes();
+    await pumpFor(const Duration(seconds: 6));
+    expect(otherBytes(), settledBytes,
+        reason: 'the ${other.name} stream stopped sending');
   }
 
   bool _isPlaying(FakeStation station) {
