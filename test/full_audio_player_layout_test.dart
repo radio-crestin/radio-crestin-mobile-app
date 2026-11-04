@@ -139,11 +139,11 @@ void main() {
   group('computeLandscapeTransportSizes', () {
     test('play grows into the height the column leaves, up to 72', () {
       final phone = computeLandscapeTransportSizes(
-          columnHeight: 310, textScale: 1.0);
+          columnHeight: 300, textScale: 1.0);
       final tablet = computeLandscapeTransportSizes(
           columnHeight: 460, textScale: 1.0);
 
-      expect(phone.playIconSize, 60.0);
+      expect(phone.playIconSize, 62.0);
       expect(tablet.playIconSize, 72.0);
     });
 

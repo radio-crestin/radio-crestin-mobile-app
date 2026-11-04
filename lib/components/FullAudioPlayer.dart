@@ -156,13 +156,13 @@ typedef LandscapeTransportSizes = ({
 
 /// Height of the landscape right-hand column besides its text and the play
 /// button: the station row (56), the action icons with their padding (44)
-/// and the least gaps between the four groups (3 × 14).
-const double _landscapeChromeHeight = 142.0;
+/// and the least gaps between its three groups (2 × 14).
+const double _landscapeChromeHeight = 128.0;
 
 /// Height of the landscape right-hand column text, which grows with the
 /// system text size: the song title slot, the artist line and the action
 /// labels.
-const double _landscapeTextHeight = 92.0;
+const double _landscapeTextHeight = 94.0;
 
 /// Room the play button's round tap target adds around its glyph.
 const double _playTargetPadding = 16.0;
@@ -522,7 +522,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     );
   }
 
-  /// Station, song, transport and actions, spread over [height].
+  /// Station and song, transport, and actions, spread over [height].
   Widget _buildLandscapeInfoColumn(
     BuildContext context, {
     required double height,
@@ -539,24 +539,31 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          // The song stays right under the station it plays on.
+          Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Expanded(
-                child: _buildStationTitle(
-                  context,
-                  textAlign: TextAlign.start,
-                  fontSize: _landscapeStationTitleFontSize,
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildStationTitle(
+                      context,
+                      textAlign: TextAlign.start,
+                      fontSize: _landscapeStationTitleFontSize,
+                    ),
+                  ),
+                  _buildCastButton(context),
+                ],
               ),
-              _buildCastButton(context),
+              _buildSongInfo(context, textSizes: _landscapeSongTextSizes),
             ],
           ),
-          _buildSongInfo(context),
           _buildTransportControls(
             context,
             playIconSize: sizes.playIconSize,
             skipIconSize: sizes.skipIconSize,
             skipSpacing: sizes.skipSpacing,
+            alignStart: true,
           ),
           _buildBottomActionRow(context, spreadToEdges: true),
         ],
@@ -690,10 +697,17 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   /// Smallest size of a song title wrapped to two lines.
   static const double _songTitleTwoLineMinFontSize = 15;
 
+  /// Song title and artist sizes under the portrait artwork.
+  static const _portraitSongTextSizes = (title: 22.0, artist: 15.0);
+
+  /// Song title and artist sizes in landscape, where the song heads a wide
+  /// column.
+  static const _landscapeSongTextSizes = (title: 26.0, artist: 17.0);
+
   /// The primary song line, crossfading on change. Its height is fixed: a
-  /// title too long for 22px shrinks a little, then wraps to two lines, so
-  /// the controls below never shift when the song changes.
-  Widget _buildSongTitle(BuildContext context) {
+  /// title too long for [fontSize] shrinks a little, then wraps to two
+  /// lines, so the controls below never shift when the song changes.
+  Widget _buildSongTitle(BuildContext context, {required double fontSize}) {
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 250),
       transitionBuilder: (Widget child, Animation<double> animation) {
@@ -705,8 +719,8 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
         textAlign: TextAlign.start,
         minFontSize: _songTitleMinFontSize,
         twoLineMinFontSize: _songTitleTwoLineMinFontSize,
-        style: const TextStyle(
-          fontSize: 22,
+        style: TextStyle(
+          fontSize: fontSize,
           fontWeight: FontWeight.bold,
         ),
       ),
@@ -714,7 +728,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   }
 
   /// The song artist line, crossfading on change.
-  Widget _buildArtist(BuildContext context) {
+  Widget _buildArtist(BuildContext context, {required double fontSize}) {
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 250),
       transitionBuilder: (Widget child, Animation<double> animation) {
@@ -730,7 +744,7 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
-            fontSize: 15,
+            fontSize: fontSize,
             color: Theme.of(context).textSecondary,
           ),
         ),
@@ -742,7 +756,10 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   /// right. A tap on the song searches YouTube for it and a long press
   /// opens a menu to copy it or search for it; with no song named ("Live")
   /// the text is not a button.
-  Widget _buildSongInfo(BuildContext context) {
+  Widget _buildSongInfo(
+    BuildContext context, {
+    ({double title, double artist}) textSizes = _portraitSongTextSizes,
+  }) {
     final songId = currentStation?.songId ?? -1;
     return Row(
       children: [
@@ -761,9 +778,9 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _buildSongTitle(context),
+                    _buildSongTitle(context, fontSize: textSizes.title),
                     const SizedBox(height: 4),
-                    _buildArtist(context),
+                    _buildArtist(context, fontSize: textSizes.artist),
                   ],
                 ),
               ),
@@ -787,17 +804,20 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   }
 
   /// Transport controls: prev | play/pause | next, as bare glyphs in the
-  /// text color, the way Apple Music shows them. Skipping leaves the song
-  /// search tip up, for the next station's song.
+  /// text color, the way Apple Music shows them. [alignStart] lines the
+  /// cluster up with the text of the landscape right-hand column. Skipping
+  /// leaves the song search tip up, for the next station's song.
   Widget _buildTransportControls(
     BuildContext context, {
     required double playIconSize,
     required double skipIconSize,
     required double skipSpacing,
+    bool alignStart = false,
   }) {
     final glyphColor = Theme.of(context).colorScheme.onSurface;
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
+    final row = Row(
+      mainAxisAlignment:
+          alignStart ? MainAxisAlignment.start : MainAxisAlignment.center,
       children: <Widget>[
         SongSearchTipTapRegion(
           child: IconButton(
@@ -835,6 +855,12 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
         ),
       ],
     );
+    if (!alignStart) return row;
+    // The rewind button pads its icon by 8, and the glyph starts 2.5/24 into
+    // the icon, so the row moves left by as much for the glyph, not its tap
+    // target, to line up with the text.
+    final glyphInset = 8 + skipIconSize * 2.5 / 24;
+    return Transform.translate(offset: Offset(-glyphInset, 0), child: row);
   }
 
   /// Bottom action row: favorit | somn | trimite | istoric.
