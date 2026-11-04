@@ -200,7 +200,8 @@ upload-dsyms-ios:
 	@command -v posthog-cli >/dev/null || { echo "ERROR: posthog-cli required: brew install posthog/tap/posthog-cli, then: posthog-cli --host $(POSTHOG_HOST) login"; exit 1; }
 	@[ -d "$(IOS_DSYMS_DIR)" ] || { echo "ERROR: no dSYMs in $(IOS_DSYMS_DIR) — run make release-ios-appstore first"; exit 1; }
 	@scripts/stage_unique_dsyms.sh "$(IOS_DSYMS_DIR)" "$(IOS_DSYMS_STAGE)"
-	posthog-cli --host $(POSTHOG_HOST) dsym upload \
+	@# Apple's dwarfdump first: Homebrew's libdwarf one can shadow it.
+	PATH="/usr/bin:$$PATH" posthog-cli --host $(POSTHOG_HOST) dsym upload \
 	  --directory "$(IOS_DSYMS_STAGE)" \
 	  --main-dsym Runner.app.dSYM \
 	  --release-name $(IOS_BUNDLE_ID) \

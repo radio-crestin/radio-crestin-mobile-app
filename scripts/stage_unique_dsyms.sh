@@ -27,7 +27,9 @@ seen=" "
 kept=0
 skipped=0
 for d in "${ordered[@]}"; do
-  uuids="$(dwarfdump --uuid "$d" 2>/dev/null | awk '{print $2}' | sort | tr '\n' ',')"
+  # Apple's dwarfdump: Homebrew's libdwarf installs another one, without
+  # --uuid, that can come first on the PATH.
+  uuids="$(xcrun dwarfdump --uuid "$d" 2>/dev/null | awk '{print $2}' | sort | tr '\n' ',')"
   if [ -n "$uuids" ]; then
     if [[ "$seen" == *" $uuids "* ]]; then
       skipped=$((skipped + 1))
