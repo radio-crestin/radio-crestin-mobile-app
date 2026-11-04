@@ -1225,18 +1225,9 @@ class _SettingsPageState extends State<SettingsPage> {
                   key: _developerSectionKey,
                   child: _buildSectionHeader('Developer'),
                 ),
+                // The device ID is not repeated here: "Despre aplicație"
+                // above shows it, with a copy button.
                 _buildSettingsCard(children: [
-                  _buildSettingsTile(
-                    icon: Icons.fingerprint,
-                    title: 'ID dispozitiv',
-                    subtitle: _deviceId,
-                    trailing: _buildCopyIcon(isDark),
-                    onTap: () => _copyAppInfoValue(
-                      buttonName: 'copy_device_id_dev',
-                      value: _deviceId,
-                      confirmation: 'ID dispozitiv copiat',
-                    ),
-                  ),
                   _buildSettingsTile(
                     icon: Icons.article_outlined,
                     title: 'Vezi logurile',
