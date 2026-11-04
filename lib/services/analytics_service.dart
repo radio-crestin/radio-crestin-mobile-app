@@ -320,6 +320,20 @@ class AnalyticsService {
     await Posthog().register('build_mode', buildMode);
   }
 
+  /// Reports an installation of the app that happened at [installTime].
+  ///
+  /// The person keeps `first_installed_at` from their first install, so a
+  /// reinstall shows as a returning person (see `InstallReporter`).
+  void captureInstall(DateTime installTime) {
+    final at = installTime.toUtc().toIso8601String();
+    Posthog().capture(
+      eventName: 'app_installed',
+      properties: {'install_time': at},
+      userProperties: {'last_installed_at': at},
+      userPropertiesSetOnce: {'first_installed_at': at},
+    );
+  }
+
   /// Capture a custom event.
   void capture(String eventName, [Map<String, Object?>? properties]) {
     Posthog().capture(

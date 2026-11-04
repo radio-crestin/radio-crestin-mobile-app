@@ -12,7 +12,6 @@ import 'package:radio_crestin/utils/share_utils.dart';
 import 'package:radio_crestin/widgets/share_sheet.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:device_info_plus/device_info_plus.dart';
 
 import '../appAudioHandler.dart';
 import '../globals.dart' as globals;
@@ -1261,28 +1260,9 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _loadShareData() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      String? deviceId = prefs.getString('device_id');
-
-      if (deviceId == null) {
-        final DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
-        if (Platform.isAndroid) {
-          final androidInfo = await deviceInfo.androidInfo;
-          deviceId = androidInfo.id;
-        } else if (Platform.isIOS) {
-          final iosInfo = await deviceInfo.iosInfo;
-          deviceId = iosInfo.identifierForVendor;
-        } else {
-          deviceId = DateTime.now().millisecondsSinceEpoch.toString();
-        }
-        if (deviceId != null) {
-          await prefs.setString('device_id', deviceId);
-        }
-      }
-
       final audioHandler = getIt<AppAudioHandler>();
       final shareService = ShareService(audioHandler.graphqlClient);
-      final data = await shareService.getShareLink(deviceId!);
+      final data = await shareService.getShareLink(globals.deviceId);
 
       if (mounted && data != null) {
         setState(() {

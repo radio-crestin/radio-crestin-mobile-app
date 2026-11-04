@@ -12,7 +12,7 @@ import 'package:radio_crestin/appAudioHandler.dart';
 import 'package:radio_crestin/components/FullAudioPlayer.dart';
 import 'package:radio_crestin/widgets/share_promotion_card.dart';
 import 'package:radio_crestin/services/share_service.dart';
-import 'package:device_info_plus/device_info_plus.dart';
+import 'package:radio_crestin/globals.dart' as globals;
 import 'package:rxdart/rxdart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sliding_up_panel2/sliding_up_panel2.dart';
@@ -510,28 +510,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   Future<void> _loadShareLinkData() async {
     try {
-      final prefs = getIt<SharedPreferences>();
-      String? deviceId = prefs.getString('device_id');
-      
-      if (deviceId == null) {
-        final DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
-        if (Platform.isAndroid) {
-          final androidInfo = await deviceInfo.androidInfo;
-          deviceId = androidInfo.id;
-        } else if (Platform.isIOS) {
-          final iosInfo = await deviceInfo.iosInfo;
-          deviceId = iosInfo.identifierForVendor;
-        } else {
-          deviceId = DateTime.now().millisecondsSinceEpoch.toString();
-        }
-        
-        if (deviceId != null) {
-          await prefs.setString('device_id', deviceId);
-        }
-      }
-
       final shareService = ShareService(_audioHandler.graphqlClient);
-      final data = await shareService.getShareLink(deviceId!);
+      final data = await shareService.getShareLink(globals.deviceId);
       
       if (mounted) {
         setState(() {

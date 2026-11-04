@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'dart:developer' as developer;
 import 'dart:io' show Platform;
 
-import 'package:device_info_plus/device_info_plus.dart';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -49,7 +48,8 @@ import 'services/hls_start_variant.dart';
 import 'services/hls_timeline.dart';
 import 'services/home_widget_service.dart';
 import 'services/image_cache_service.dart';
-import 'services/install_id.dart';
+import 'services/device_id_service.dart';
+import 'services/install_reporter.dart';
 import 'services/log_context.dart';
 import 'services/log_flush_guard.dart';
 import 'services/remote_debug_controller.dart';
@@ -205,23 +205,12 @@ void main() async {
   // Also ensure image cache and network are ready (should already be done)
   await Future.wait([imageCacheInitFuture, networkInitFuture]);
 
-  // Set persistent device ID (survives reinstalls) — used for ?s= tracking,
-  // reviews, share links, and the PostHog user identifier.
-  String? persistentDeviceId = prefs.getString('device_id');
-  if (persistentDeviceId == null) {
-    final deviceInfo = DeviceInfoPlugin();
-    if (Platform.isAndroid) {
-      persistentDeviceId = (await deviceInfo.androidInfo).id;
-    } else if (Platform.isIOS) {
-      persistentDeviceId = (await deviceInfo.iosInfo).identifierForVendor;
-    } else if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
-      // No per-vendor id on desktop, and a hardware one would identify the
-      // computer to every app: a random id, kept in this app's preferences.
-      persistentDeviceId = newInstallId();
-    }
-    persistentDeviceId ??= DateTime.now().millisecondsSinceEpoch.toString();
-    await prefs.setString('device_id', persistentDeviceId);
-  }
+  // The device's persistent ID (kept across reinstalls where the platform
+  // allows): used for ?s= tracking, reviews, share links, and the PostHog
+  // user identifier. Whether one was stored before tells an update from a
+  // fresh install.
+  final knownDevice = prefs.containsKey(DeviceIdService.prefsKey);
+  final persistentDeviceId = await DeviceIdService(prefs).resolve();
   globals.deviceId = persistentDeviceId;
   AnalyticsService.instance.setDeviceId(persistentDeviceId);
 
@@ -400,6 +389,14 @@ void main() async {
     buildNumber: packageInfo.buildNumber,
     platform: Platform.isAndroid ? 'android' : Platform.isIOS ? 'ios' : Platform.isMacOS ? 'macos' : Platform.isWindows ? 'windows' : Platform.isLinux ? 'linux' : 'other',
   );
+
+  // After identify, so the install reaches the device's person.
+  unawaited(InstallReporter.reportOnce(
+    prefs: prefs,
+    installTime: packageInfo.installTime,
+    knownDevice: knownDevice,
+    report: AnalyticsService.instance.captureInstall,
+  ));
 
   // From here on every info+ log record carries the device's state, and
   // the launch is marked in the log with what wrote it. After setup, so a

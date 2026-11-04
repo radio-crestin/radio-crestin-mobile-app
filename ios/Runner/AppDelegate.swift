@@ -27,6 +27,9 @@ let flutterEngine = FlutterEngine(name: "SharedEngine", project: nil, allowHeadl
             }
         }
 
+        // Before main() reads the device ID, which a reinstall must keep.
+        DeviceIdKeychain.register(with: flutterEngine.binaryMessenger)
+
         // Lets the device sheet tell a blocked Local Network permission
         // apart from a network with no Chromecast.
         LocalNetworkAccessHandler.register(with: flutterEngine.binaryMessenger)

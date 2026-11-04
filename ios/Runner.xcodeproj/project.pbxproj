@@ -16,6 +16,7 @@
 		331C808B294A63AB00263BE5 /* RunnerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 331C807B294A618700263BE5 /* RunnerTests.swift */; };
 		3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */ = {isa = PBXBuildFile; fileRef = 3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */; };
 		5AB1B16FCA2C360793F96992 /* RadioCrestinWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8F136B86A55D5A5314C64B8 /* RadioCrestinWidgets.swift */; };
+		D1E5A0C7B3F24E9A8C6D2B01 /* DeviceIdKeychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E5A0C7B3F24E9A8C6D2B02 /* DeviceIdKeychain.swift */; };
 		5C2A7E1D3F8B4A6E9D0C1B2A /* LocalNetworkAccessHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C2A7E1D3F8B4A6E9D0C1B2B /* LocalNetworkAccessHandler.swift */; };
 		8B3F2C1A6D4E4F7A9C0B1D2E /* BackgroundTaskHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B3F2C1A6D4E4F7A9C0B1D2F /* BackgroundTaskHandler.swift */; };
 		74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74858FAE1ED2DC5600515810 /* AppDelegate.swift */; };
@@ -95,6 +96,7 @@
 		49A1A3FACE14F2A9866D15FA /* Pods-RunnerTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.debug.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.debug.xcconfig"; sourceTree = "<group>"; };
 		4A9F0CC27806349F9562BC1D /* Assets.xcassets */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		5978377090C02EB2FF9F9F5A /* RadioCrestinWidgetsExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = RadioCrestinWidgetsExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		D1E5A0C7B3F24E9A8C6D2B02 /* DeviceIdKeychain.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DeviceIdKeychain.swift; sourceTree = "<group>"; };
 		5C2A7E1D3F8B4A6E9D0C1B2B /* LocalNetworkAccessHandler.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LocalNetworkAccessHandler.swift; sourceTree = "<group>"; };
 		8B3F2C1A6D4E4F7A9C0B1D2F /* BackgroundTaskHandler.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = BackgroundTaskHandler.swift; sourceTree = "<group>"; };
 		6402BB615CAFCB14CFD15855 /* Pods-RunnerTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.release.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.release.xcconfig"; sourceTree = "<group>"; };
@@ -235,6 +237,7 @@
 				1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */,
 				74858FAE1ED2DC5600515810 /* AppDelegate.swift */,
 				74858FB01ED2DC5600515810 /* SceneDelegate.swift */,
+				D1E5A0C7B3F24E9A8C6D2B02 /* DeviceIdKeychain.swift */,
 				5C2A7E1D3F8B4A6E9D0C1B2B /* LocalNetworkAccessHandler.swift */,
 				8B3F2C1A6D4E4F7A9C0B1D2F /* BackgroundTaskHandler.swift */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
@@ -565,6 +568,7 @@
 			files = (
 				74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */,
 				74858FB11ED2DC5600515810 /* SceneDelegate.swift in Sources */,
+				D1E5A0C7B3F24E9A8C6D2B01 /* DeviceIdKeychain.swift in Sources */,
 				5C2A7E1D3F8B4A6E9D0C1B2A /* LocalNetworkAccessHandler.swift in Sources */,
 				8B3F2C1A6D4E4F7A9C0B1D2E /* BackgroundTaskHandler.swift in Sources */,
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,

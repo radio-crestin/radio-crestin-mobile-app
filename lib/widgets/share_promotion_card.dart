@@ -1,4 +1,3 @@
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
@@ -6,8 +5,7 @@ import 'package:radio_crestin/services/share_service.dart';
 import 'package:radio_crestin/theme.dart';
 import 'package:radio_crestin/widgets/share_handler.dart';
 import 'package:radio_crestin/utils/share_utils.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:device_info_plus/device_info_plus.dart';
+import 'package:radio_crestin/globals.dart' as globals;
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:radio_crestin/services/analytics_service.dart';
 
@@ -38,7 +36,6 @@ class SharePromotionCard extends StatefulWidget {
 
 class SharePromotionCardState extends State<SharePromotionCard> {
   ShareLinkData? _shareLinkData;
-  String? _anonymousId;
 
   @override
   void initState() {
@@ -55,32 +52,9 @@ class SharePromotionCardState extends State<SharePromotionCard> {
 
   Future<void> _loadShareLink() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      _anonymousId = prefs.getString('device_id');
-
-      if (_anonymousId == null) {
-        // Get device-specific ID
-        final DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
-        if (Platform.isAndroid) {
-          final androidInfo = await deviceInfo.androidInfo;
-          _anonymousId = androidInfo.id; // Use Android ID
-        } else if (Platform.isIOS) {
-          final iosInfo = await deviceInfo.iosInfo;
-          _anonymousId = iosInfo.identifierForVendor; // Use Vendor ID for iOS
-        } else {
-          // Fallback for other platforms
-          _anonymousId = DateTime.now().millisecondsSinceEpoch.toString();
-        }
-
-        // Save the device ID for future use
-        if (_anonymousId != null) {
-          await prefs.setString('device_id', _anonymousId!);
-        }
-      }
-
       // getShareLink also saves the link to ShareLinkCache.
       final shareService = ShareService(widget.client);
-      final data = await shareService.getShareLink(_anonymousId!);
+      final data = await shareService.getShareLink(globals.deviceId);
 
       if (mounted && data != null) {
         setState(() {
