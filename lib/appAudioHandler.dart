@@ -349,6 +349,15 @@ class ReconnectPolicy {
   static const Duration androidHlsBufferingStallTimeout =
       Duration(seconds: 15);
 
+  /// How long iOS waits out buffering while its HLS loads still arrive
+  /// (see `AppAudioHandler._bufferingStillLoading`). After a seek behind
+  /// live, AVPlayer loads a few segments before it plays: on a slow link
+  /// (128 kb/s, 600 ms round trips) that took over 3 s, and reloading at
+  /// [bufferingStallTimeout] started the same loads again, forever, so the
+  /// station never played. Past this, it reloads anyway, in case the
+  /// player itself is stuck.
+  static const Duration darwinLoadingBufferingCap = Duration(seconds: 30);
+
   /// The buffering-stall wait: [androidHlsBufferingStallTimeout] for HLS on
   /// Android, [bufferingStallTimeout] otherwise. A direct (MP3) stream has
   /// nothing loaded ahead, so its stall is already heard: it reloads at
@@ -715,7 +724,7 @@ enum StreamEventKind {
   failed,             // setAudioSource raised
   switched,           // loaded URL differs from previous loaded URL
   hlsCompleted,       // HLS reported processingState == completed
-  nonHlsCompleted,    // direct MP3 completed (treated as error)
+  nonHlsCompleted,    // direct MP3 completed (its connection ended)
   lostIdle,           // processingState == idle while playing
   bufferingStall,     // buffering exceeded long-stall threshold (15s)
   bufferingDrop,      // brief rebuffer (>=100ms): the audible-glitch case
@@ -2162,11 +2171,16 @@ class AppAudioHandler extends BaseAudioHandler {
           _loadedStreamType = null;
           play();
         } else {
-          _log("processingStateStream: non-HLS stream completed unexpectedly");
+          // A live MP3 stream ends only when its connection does: the
+          // server restarted, or the network dropped it. Stopping here
+          // left the listener in silence for good (21 times in a week, on
+          // 8 stations); the reconnect goes through play()'s retry chain,
+          // which backs off should the server keep closing at once.
+          _log("processingStateStream: non-HLS stream completed unexpectedly, reconnecting");
           final lastInfo = currentStreamInfo.valueOrNull;
           _recordStreamEvent(
             StreamEventKind.nonHlsCompleted,
-            'Non-HLS stream completed — stopping',
+            'Non-HLS stream completed — reconnecting',
           );
           final completionProps = <String, Object?>{
             'station_slug': lastInfo?.stationSlug ?? currentStation.valueOrNull?.slug ?? '',
@@ -2181,16 +2195,12 @@ class AppAudioHandler extends BaseAudioHandler {
           };
           AnalyticsService.instance
               .logWarning('stream unexpected completion', completionProps);
-          PlaybackFailure.report(
-            PlaybackFailureKind.streamEnded,
-            properties: completionProps,
-          );
-          final stationName = currentStation.valueOrNull?.title ?? '';
-          connectionError.add(ConnectionError(
-            stationName: stationName,
-            reason: ConnectionErrorReason.unknown,
-          ));
-          _stopDueToError();
+          if (_loadedStreamUrl != null) {
+            _recordStreamFailure(_loadedStreamUrl!, DateTime.now());
+          }
+          _loadedStreamUrl = null;
+          _loadedStreamType = null;
+          play();
         }
       } else if (state == ProcessingState.idle && player.playing) {
         _bufferingStallTimer?.cancel();
@@ -2254,41 +2264,7 @@ class AppAudioHandler extends BaseAudioHandler {
         // (skipping recently-failed ones) and surfaces a connectionError
         // only after a full cycle fails. Goal: the stream auto-recovers
         // without the user noticing — never stop on a transient blip.
-        _bufferingStallTimer?.cancel();
-        _bufferingStallTimer = Timer(_bufferingStallTimeout, () {
-          if (player.processingState == ProcessingState.buffering && player.playing) {
-            _log("processingStateStream: buffering stalled for ${_bufferingStallTimeout.inSeconds}s, reattempting play()");
-            final lastInfo = currentStreamInfo.valueOrNull;
-            _recordStreamEvent(
-              StreamEventKind.bufferingStall,
-              'Buffering stalled ${_bufferingStallTimeout.inSeconds}s — reattempting',
-            );
-            final stallProps = <String, Object?>{
-              'station_slug': lastInfo?.stationSlug ?? currentStation.valueOrNull?.slug ?? '',
-              'station_id': currentStation.valueOrNull?.id,
-              'stream_url': lastInfo?.url,
-              'stream_type': lastInfo?.type,
-              'stream_index': lastInfo?.attemptIndex,
-              'total_streams': lastInfo?.totalStreams,
-              'stall_seconds': _bufferingStallTimeout.inSeconds,
-              'action': 'reattempt',
-            };
-            AnalyticsService.instance
-                .logWarning('stream buffering stall', stallProps);
-            _recordStreamTrouble('buffering_stall');
-            // A stalled stream counts as a failed one, except on Android
-            // (see ReconnectPolicy.stallCountsAsStreamFailure): remember it
-            // so the reconnect starts at the next stream.
-            if (_stallCountsAsStreamFailure && _loadedStreamUrl != null) {
-              _recordStreamFailure(_loadedStreamUrl!, DateTime.now());
-            }
-            // Force play() to re-issue setAudioSource (rather than skip
-            // because the URL is "already loaded").
-            _loadedStreamUrl = null;
-            _loadedStreamType = null;
-            play();
-          }
-        });
+        _armBufferingStallTimer();
       } else if (state == ProcessingState.ready) {
         _bufferingStallTimer?.cancel();
         // A loaded stream is ready before play() starts it: the keeper
@@ -2303,6 +2279,96 @@ class AppAudioHandler extends BaseAudioHandler {
 
     await player.setLoopMode(LoopMode.off);
     _attachAudioSessionHandlers();
+  }
+
+  /// Waits [_bufferingStallTimeout] for buffering to end, longer while the
+  /// stream's loads still arrive (see [_bufferingStillLoading]); then a
+  /// fresh play() reloads it.
+  void _armBufferingStallTimer() {
+    _bufferingStallTimer?.cancel();
+    _bufferingStallTimer = Timer(_bufferingStallTimeout, () {
+      if (player.processingState == ProcessingState.buffering && player.playing) {
+        if (_bufferingStillLoading) {
+          _trace('buffering: HLS loads still arrive, waiting on');
+          _armBufferingStallTimer();
+          return;
+        }
+        _log("processingStateStream: buffering stalled for ${_bufferingStallTimeout.inSeconds}s, reattempting play()");
+        final lastInfo = currentStreamInfo.valueOrNull;
+        _recordStreamEvent(
+          StreamEventKind.bufferingStall,
+          'Buffering stalled ${_bufferingStallTimeout.inSeconds}s — reattempting',
+        );
+        final stallProps = <String, Object?>{
+          'station_slug': lastInfo?.stationSlug ?? currentStation.valueOrNull?.slug ?? '',
+          'station_id': currentStation.valueOrNull?.id,
+          'stream_url': lastInfo?.url,
+          'stream_type': lastInfo?.type,
+          'stream_index': lastInfo?.attemptIndex,
+          'total_streams': lastInfo?.totalStreams,
+          'stall_seconds': _bufferingStallTimeout.inSeconds,
+          'action': 'reattempt',
+        };
+        AnalyticsService.instance
+            .logWarning('stream buffering stall', stallProps);
+        _recordStreamTrouble('buffering_stall');
+        // A stalled stream counts as a failed one, except on Android
+        // (see ReconnectPolicy.stallCountsAsStreamFailure): remember it
+        // so the reconnect starts at the next stream.
+        if (_stallCountsAsStreamFailure && _loadedStreamUrl != null) {
+          _recordStreamFailure(_loadedStreamUrl!, DateTime.now());
+        }
+        // Force play() to re-issue setAudioSource (rather than skip
+        // because the URL is "already loaded").
+        _loadedStreamUrl = null;
+        _loadedStreamType = null;
+        play();
+      }
+    });
+  }
+
+  /// Waits for [loading] through [proxy] [window] at a time, as long as
+  /// the proxy delivered a response for it within the last window, up to
+  /// [StreamFailover.hlsLoadTimeoutWhileDelivering]. A load that gets
+  /// nothing for [window] times out as before, so a hanging origin still
+  /// fails over fast; a slow link that delivers gets the time it needs.
+  Future<void> _awaitLoadWhileDelivering(
+    Future<void> loading,
+    HlsHoldProxy proxy,
+    Duration window,
+  ) async {
+    final startedAt = DateTime.now();
+    while (true) {
+      try {
+        return await loading.timeout(window);
+      } on TimeoutException {
+        final deliveredAt = proxy.lastDeliveredAt;
+        final now = DateTime.now();
+        final delivering = deliveredAt != null &&
+            deliveredAt.isAfter(startedAt) &&
+            now.difference(deliveredAt) < window;
+        final capped = now.difference(startedAt) >=
+            StreamFailover.hlsLoadTimeoutWhileDelivering;
+        if (!delivering || capped) rethrow;
+        _trace('play: HLS load still receiving, waiting on');
+      }
+    }
+  }
+
+  /// Whether AVPlayer is still loading the HLS stream it buffers: the hold
+  /// proxy delivered a response within the last stall wait, and buffering
+  /// began less than [ReconnectPolicy.darwinLoadingBufferingCap] ago. A
+  /// reload would start those loads over (see that cap).
+  bool get _bufferingStillLoading {
+    final startedAt = _bufferingStartedAt;
+    final deliveredAt = _holdProxy?.lastDeliveredAt;
+    if (_loadedProxyUrl == null || startedAt == null || deliveredAt == null) {
+      return false;
+    }
+    final now = DateTime.now();
+    return now.difference(startedAt) <
+            ReconnectPolicy.darwinLoadingBufferingCap &&
+        now.difference(deliveredAt) < _bufferingStallTimeout;
   }
 
   /// Subscribes to AudioSession interruption + becomingNoisy events: pauses
@@ -3549,7 +3615,7 @@ class AppAudioHandler extends BaseAudioHandler {
     // the values so they are asserted in tests).
     final timeout =
         StreamFailover.loadTimeout(isHls: isHls, android: Platform.isAndroid);
-    Future<void> loadPlayer(String uri) async {
+    Future<void> loadPlayer(String uri, {HlsHoldProxy? via}) async {
       // Race setAudioSource against the canceller so playStation() can
       // break this await immediately instead of waiting for the timeout.
       final loadFuture = player.setAudioSource(
@@ -3558,7 +3624,9 @@ class AppAudioHandler extends BaseAudioHandler {
       );
       // Prevent unhandled error if abandoned by Future.any
       loadFuture.ignore();
-      await Future.any([loadFuture, canceller]).timeout(timeout);
+      final loading = Future.any([loadFuture, canceller]);
+      if (via == null) return loading.timeout(timeout);
+      await _awaitLoadWhileDelivering(loading, via, timeout);
     }
 
     // Listeners are counted from the tracking parameters, so the variant
@@ -3582,7 +3650,7 @@ class AppAudioHandler extends BaseAudioHandler {
         return (url: trackedUrl, proxyUrl: null);
       }
       try {
-        await loadPlayer(proxied.url);
+        await loadPlayer(proxied.url, via: proxy);
         return (url: trackedUrl, proxyUrl: proxied.url);
       } catch (e) {
         if (!_mayBypassHoldProxy(e, proxy, proxied.session, opId)) rethrow;

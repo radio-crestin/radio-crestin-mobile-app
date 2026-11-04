@@ -354,6 +354,11 @@ class HlsHoldProxy {
   /// a network that requires an HTTP proxy).
   bool originAnswered(int session) => session == _session && _sessionAnswered;
 
+  /// When the player last got a successful (2xx) response through the
+  /// proxy: while it buffers, whether its loads still arrive.
+  DateTime? get lastDeliveredAt => _lastDeliveredAt;
+  DateTime? _lastDeliveredAt;
+
   /// The proxy's URL for [upstreamUrl] in [session]; null when the proxy
   /// does not listen or [upstreamUrl] is not one it fetches (see [allows]).
   String? wrap(String upstreamUrl, int session) {
@@ -1003,6 +1008,9 @@ class _Exchange {
           response.status, response.reason, response.headers, response.body);
     } else {
       await client.respondStreaming(response, rest);
+    }
+    if (response.status >= 200 && response.status < 300) {
+      proxy._lastDeliveredAt = DateTime.now();
     }
     if (proxy._traceResponses) {
       proxy._emit(HlsHoldProxyEvent(HlsHoldProxyEventKind.responded,

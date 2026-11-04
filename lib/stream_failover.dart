@@ -30,6 +30,15 @@ class StreamFailover {
   /// (an HTTP error, no DNS), not by this timeout.
   static const Duration hlsLoadTimeoutAndroid = Duration(seconds: 10);
 
+  /// Cap on an HLS load through iOS's hold proxy while the proxy keeps
+  /// delivering its responses: past [hlsLoadTimeout], AVPlayer on a slow
+  /// link (128 kb/s, 600 ms round trips) was still loading the playlist
+  /// and its first segments, and the station fell back to an MP3 stream
+  /// the link could not carry. The same 10 s as [hlsLoadTimeoutAndroid],
+  /// for the same reason; a load that receives nothing still fails at
+  /// [hlsLoadTimeout].
+  static const Duration hlsLoadTimeoutWhileDelivering = Duration(seconds: 10);
+
   /// Hard cap on a direct/MP3 source load. Was 10s — halved because 10s of
   /// silence before advancing to the next stream reads as "stuck" to the
   /// user, and a direct stream that can't produce its first bytes in 5s

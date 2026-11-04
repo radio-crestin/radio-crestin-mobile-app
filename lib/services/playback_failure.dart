@@ -7,9 +7,6 @@ enum PlaybackFailureKind {
   /// connection error while playback keeps retrying.
   allStreamsFailed('all streams failed'),
 
-  /// A non-HLS stream ended on its own, which stops playback.
-  streamEnded('stream ended unexpectedly'),
-
   /// Every item of a playlist failed in a row, which stops playback.
   playlistFailed('every playlist item failed');
 
