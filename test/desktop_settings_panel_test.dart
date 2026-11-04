@@ -168,6 +168,13 @@ void main() {
     Finder inPanel(Finder finder) => find.descendant(
         of: find.byType(DesktopSettingsPanel), matching: finder);
 
+    /// Scrolls the panel's list until [finder] shows.
+    Future<void> scrollTo(WidgetTester tester, Finder finder) async {
+      await tester.scrollUntilVisible(finder, 200,
+          scrollable: inPanel(find.byType(Scrollable)).first);
+      await tester.pumpAndSettle();
+    }
+
     for (final window in const [Size(760, 560), Size(2560, 1440)]) {
       testWidgets(
           'opens in a centered panel in a '
@@ -194,6 +201,10 @@ void main() {
       expect(find.text('Nicio stație ascunsă'), findsOneWidget);
       expect(find.text('Pornește automat ultima stație'), findsOneWidget);
       expect(find.text('Conexiune instabilă'), findsOneWidget);
+      expect(find.text('Folosește MP3 cu prioritate'),
+          Platform.isMacOS ? findsOneWidget : findsNothing,
+          reason: 'Windows and Linux always load MP3 streams first');
+      await scrollTo(tester, find.text('Distribuie aplicația'));
       expect(find.text('Distribuie aplicația'), findsOneWidget);
       expect(find.text('Lasă-ne o recenzie'),
           Platform.isMacOS ? findsOneWidget : findsNothing);
@@ -226,6 +237,7 @@ void main() {
     testWidgets('the share row opens a menu, which Esc closes alone',
         (tester) async {
       await openSettings(tester);
+      await scrollTo(tester, find.text('Distribuie aplicația'));
       await tester.tap(find.text('Distribuie aplicația'));
       await tester.pumpAndSettle();
       expect(find.text(DesktopShareMenu.whatsAppLabel), findsOneWidget);

@@ -55,6 +55,7 @@ import 'services/remote_debug_controller.dart';
 import 'services/quick_actions_service.dart';
 import 'services/network_service.dart';
 import 'services/play_count_service.dart';
+import 'services/playback_preferences.dart';
 import 'services/posthog_screen_observer.dart';
 import 'services/siri_media_service.dart';
 import 'services/song_like_service.dart';
@@ -303,6 +304,7 @@ void main() async {
   // The seek offset sets the listening delay the station list follows, so
   // it is known before the first sync and tracked from then on.
   SeekModeManager.initializeFromPrefs(prefs);
+  PlaybackPreferences.initializeFromPrefs(prefs);
   final stationDataService = StationDataService(
     graphqlClient: graphqlClient,
     httpClient: apiHttpClient,

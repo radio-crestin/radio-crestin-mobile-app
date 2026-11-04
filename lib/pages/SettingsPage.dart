@@ -20,6 +20,7 @@ import '../main.dart' show getIt;
 import '../services/analytics_service.dart';
 import '../services/local_log_store.dart';
 import '../services/log_upload_service.dart';
+import '../services/playback_preferences.dart';
 import '../services/station_data_service.dart';
 import 'HiddenStationsPage.dart';
 import 'LogsViewerPage.dart';
@@ -75,6 +76,7 @@ class _SettingsPageState extends State<SettingsPage> {
   SeekMode _seekMode = SeekModeManager.seekMode.value;
   bool _unstableConnection = SeekModeManager.isUnstableConnection;
   bool _carConnected = SeekModeManager.isCarConnected;
+  bool _preferDirectStreams = PlaybackPreferences.preferDirectStreams.value;
   final String _version = globals.appVersion;
   final String _buildNumber = globals.buildNumber;
   final String _deviceId = globals.deviceId;
@@ -618,6 +620,17 @@ class _SettingsPageState extends State<SettingsPage> {
 
   /// Writes a settings change to the log, so a listener's log file shows
   /// the mode playback ran in from then on.
+  /// Applies "use MP3 streams first" from the next stream load: the playing
+  /// stream keeps playing.
+  Future<void> _changePreferDirectStreams(bool value) async {
+    AnalyticsService.instance.capture('button_clicked',
+        {'button_name': 'prefer_direct_streams', 'enabled': value});
+    _logSettingChanged('prefer_direct_streams', value);
+    setState(() => _preferDirectStreams = value);
+    PlaybackPreferences.changePreferDirectStreams(value);
+    await PlaybackPreferences.savePreferDirectStreams(value);
+  }
+
   void _logSettingChanged(String setting, Object value) => AnalyticsService
       .instance
       .log('setting changed', {'setting': setting, 'value': value});
@@ -902,6 +915,18 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                   ),
                 ),
+                // Windows and Linux always load MP3 streams first.
+                if (!PlaybackPreferences.platformPrefersDirectStreams)
+                  _buildSettingsTile(
+                    icon: Icons.audiotrack_rounded,
+                    title: 'Folosește MP3 cu prioritate',
+                    subtitle: 'Activează dacă radioul se oprește sau nu '
+                        'pornește; ascultă live, fără preîncărcare.',
+                    trailing: _SettingsSwitch(
+                      value: _preferDirectStreams,
+                      onChanged: _changePreferDirectStreams,
+                    ),
+                  ),
                 _buildSettingsTile(
                   icon: Icons.radio,
                   title: 'Pornește automat ultima stație',
@@ -1296,6 +1321,29 @@ class _InviteCountSubtitle extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// The on/off switch of a settings row, in the colors of the rows above.
+class _SettingsSwitch extends StatelessWidget {
+  const _SettingsSwitch({required this.value, required this.onChanged});
+
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Switch.adaptive(
+      activeThumbColor: Colors.white,
+      activeTrackColor:
+          isDark ? const Color(0xff48a868) : const Color(0xff34c759),
+      inactiveThumbColor: Colors.white,
+      inactiveTrackColor:
+          isDark ? const Color(0xff39393d) : const Color(0xffe9e9ea),
+      value: value,
+      onChanged: onChanged,
     );
   }
 }

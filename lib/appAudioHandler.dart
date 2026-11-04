@@ -26,6 +26,7 @@ import 'package:flutter_chrome_cast/flutter_chrome_cast.dart' show CastMediaPlay
 import 'package:radio_crestin/tv/tv_platform.dart';
 import 'package:radio_crestin/services/play_count_service.dart';
 import 'package:radio_crestin/services/playback_failure.dart';
+import 'package:radio_crestin/services/playback_preferences.dart';
 import 'package:radio_crestin/services/network_service.dart';
 import 'package:radio_crestin/services/retry_log_throttle.dart';
 import 'package:radio_crestin/services/review_service.dart';
@@ -40,6 +41,7 @@ import 'package:radio_crestin/services/hls_timeline.dart';
 import 'package:radio_crestin/services/ios_background_task.dart';
 import 'package:radio_crestin/services/song_like_service.dart';
 import 'package:radio_crestin/services/station_data_service.dart';
+import 'package:radio_crestin/services/stream_order.dart';
 import 'package:radio_crestin/stream_failover.dart';
 import 'package:radio_crestin/services/video_playback_service.dart';
 import 'package:radio_crestin/services/video_mode_decision.dart';
@@ -3146,16 +3148,11 @@ class AppAudioHandler extends BaseAudioHandler {
         cycleStart = null;
       }
       var streams = item.extras?["station_streams"] as List<dynamic>?;
-      // Desktop (Linux/Windows) uses just_audio_media_kit (libmpv ~2023-09) which
-      // has flaky support for HLS v9 with query params. Prefer direct streams there.
-      if (streams != null && (Platform.isWindows || Platform.isLinux)) {
-        final reordered = List<dynamic>.from(streams);
-        reordered.sort((a, b) {
-          final aHls = (a is Map && a["type"]?.toString() == 'HLS') ? 1 : 0;
-          final bHls = (b is Map && b["type"]?.toString() == 'HLS') ? 1 : 0;
-          return aHls - bHls;
-        });
-        streams = reordered;
+      // Direct (MP3) streams first when the user asked for them, and on
+      // Windows/Linux (see PlaybackPreferences.directStreamsFirst).
+      if (streams != null) {
+        streams = orderStreams(streams,
+            directFirst: PlaybackPreferences.directStreamsFirst);
       }
       final totalStreams = streams?.length ?? 0;
       final stationSlug = item.extras?["station_slug"]?.toString() ?? '';

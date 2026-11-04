@@ -7,6 +7,7 @@ import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:radio_crestin/appAudioHandler.dart';
 import 'package:radio_crestin/pages/SettingsPage.dart';
 import 'package:radio_crestin/services/play_count_service.dart';
+import 'package:radio_crestin/services/playback_preferences.dart';
 import 'package:radio_crestin/services/station_data_service.dart';
 import 'package:radio_crestin/theme.dart';
 import 'package:radio_crestin/tv/desktop/settings_panel.dart';
@@ -95,6 +96,7 @@ void main() {
       'Interfața temei',
       'Conexiune instabilă',
       'Încărcare în avans',
+      'Folosește MP3 cu prioritate',
       'Pornește automat ultima stație',
       'Notificări personalizate',
       'Stații ascunse',
@@ -106,6 +108,39 @@ void main() {
       expect(find.text(title), findsOneWidget, reason: title);
     }
     expect(find.text('Nicio stație ascunsă'), findsOneWidget);
+  });
+
+  testWidgets('the MP3 switch applies and saves the setting',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(400, 2400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    addTearDown(() => PlaybackPreferences.changePreferDirectStreams(false));
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+      const MethodChannel('posthog_flutter'),
+      (_) async => null,
+    );
+    await tester.pumpWidget(
+        MaterialApp(theme: lightTheme, home: const SettingsPage()));
+    await tester.pumpAndSettle();
+    final mp3Switch = find.descendant(
+      of: find.widgetWithText(ListTile, 'Folosește MP3 cu prioritate'),
+      matching: find.byType(Switch),
+    );
+    expect(tester.widget<Switch>(mp3Switch).value, isFalse);
+
+    await tester.tap(mp3Switch);
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<Switch>(mp3Switch).value, isTrue);
+    expect(PlaybackPreferences.preferDirectStreams.value, isTrue);
+    expect(
+      GetIt.instance<SharedPreferences>()
+          .getBool(PlaybackPreferences.preferDirectStreamsKey),
+      isTrue,
+    );
+    // Lets the setting-change log's flush timer run out.
+    await tester.pump(const Duration(seconds: 10));
   });
 
   testWidgets('unlocking developer mode scrolls to its section',
