@@ -6,6 +6,8 @@ import 'package:get_it/get_it.dart';
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:radio_crestin/appAudioHandler.dart';
 import 'package:radio_crestin/pages/SettingsPage.dart';
+import 'package:radio_crestin/seek_mode_manager.dart';
+import 'package:radio_crestin/services/default_settings.dart';
 import 'package:radio_crestin/services/play_count_service.dart';
 import 'package:radio_crestin/services/playback_preferences.dart';
 import 'package:radio_crestin/services/station_data_service.dart';
@@ -30,6 +32,12 @@ class _FakeAudioHandler extends BaseAudioHandler implements AppAudioHandler {
 
   @override
   bool get isCasting => false;
+
+  @override
+  Future<void> reapplySeekOffset() async {}
+
+  @override
+  void refreshCurrentMetadata() {}
 
   @override
   noSuchMethod(Invocation invocation) => null;
@@ -139,8 +147,73 @@ void main() {
           .getBool(PlaybackPreferences.preferDirectStreamsKey),
       isTrue,
     );
+    expect(
+      DefaultSettings.isUserSet(GetIt.instance<SharedPreferences>(),
+          AppDefaultSettings.preferDirectStreams),
+      isTrue,
+      reason: "PostHog's default no longer applies to it",
+    );
     // Lets the setting-change log's flush timer run out.
     await tester.pump(const Duration(seconds: 10));
+  });
+
+  testWidgets('a default PostHog changes shows on the open page',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(400, 2400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    addTearDown(() => PlaybackPreferences.changePreferDirectStreams(false));
+    await tester.pumpWidget(
+        MaterialApp(theme: lightTheme, home: const SettingsPage()));
+    await tester.pumpAndSettle();
+
+    PlaybackPreferences.changePreferDirectStreams(true);
+    await tester.pumpAndSettle();
+
+    final mp3Switch = find.descendant(
+      of: find.widgetWithText(ListTile, 'Folosește MP3 cu prioritate'),
+      matching: find.byType(Switch),
+    );
+    expect(tester.widget<Switch>(mp3Switch).value, isTrue);
+  });
+
+  testWidgets('the unstable-connection switch leaves the seek mode as it was',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(400, 2400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    SeekModeManager.changeSeekMode(SeekMode.instant);
+    addTearDown(() {
+      SeekModeManager.changeSeekMode(SeekMode.twoMinutes);
+      SeekModeManager.changeUnstableConnection(false);
+    });
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+      const MethodChannel('posthog_flutter'),
+      (_) async => null,
+    );
+    await tester.pumpWidget(
+        MaterialApp(theme: lightTheme, home: const SettingsPage()));
+    await tester.pumpAndSettle();
+    final unstableSwitch = find.descendant(
+      of: find.widgetWithText(ListTile, 'Conexiune instabilă'),
+      matching: find.byType(Switch),
+    );
+
+    await tester.tap(unstableSwitch);
+    await tester.pumpAndSettle();
+    expect(SeekModeManager.currentOffset, const Duration(minutes: 5));
+    await tester.tap(unstableSwitch);
+    await tester.pumpAndSettle();
+
+    expect(SeekModeManager.seekMode.value, SeekMode.instant);
+    expect(SeekModeManager.currentOffset, Duration.zero);
+    final prefs = GetIt.instance<SharedPreferences>();
+    expect(DefaultSettings.isUserSet(
+        prefs, AppDefaultSettings.unstableConnection), isTrue);
+    expect(DefaultSettings.isUserSet(prefs, AppDefaultSettings.seekMode),
+        isFalse);
+    // Lets the toasts and the log's flush timer run out.
+    await tester.pump(const Duration(seconds: 10));
+    await tester.pumpAndSettle();
   });
 
   testWidgets('unlocking developer mode scrolls to its section',

@@ -4,8 +4,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 enum SeekMode { instant, twoMinutes, fiveMinutes }
 
 class SeekModeManager {
-  static const String _seekModeKey = 'seek_mode';
-  static const String _unstableConnectionKey = 'unstable_connection';
+  /// Where the "Încărcare în avans" mode is stored.
+  static const String seekModeKey = 'seek_mode';
+
+  /// Where the "Conexiune instabilă" toggle is stored.
+  static const String unstableConnectionKey = 'unstable_connection';
   static final _seekModeNotifier = ValueNotifier<SeekMode>(SeekMode.twoMinutes);
   static final _unstableConnectionNotifier = ValueNotifier<bool>(false);
   static final _carConnectedNotifier = ValueNotifier<bool>(false);
@@ -71,7 +74,7 @@ class SeekModeManager {
 
   static Future<void> saveSeekMode(SeekMode mode) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_seekModeKey, mode.toString());
+    await prefs.setString(seekModeKey, mode.toString());
   }
 
   static void changeSeekMode(SeekMode mode) {
@@ -80,7 +83,7 @@ class SeekModeManager {
 
   static Future<void> saveUnstableConnection(bool enabled) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_unstableConnectionKey, enabled);
+    await prefs.setBool(unstableConnectionKey, enabled);
   }
 
   static void changeUnstableConnection(bool enabled) {
@@ -97,14 +100,14 @@ class SeekModeManager {
     // case. v2 wipes both back to the documented default (2 minutes,
     // unstable=false) for every existing install, exactly once.
     if (!(prefs.getBool(_migratedKeyV2) ?? false)) {
-      prefs.setString(_seekModeKey, 'SeekMode.twoMinutes');
-      prefs.setBool(_unstableConnectionKey, false);
+      prefs.setString(seekModeKey, 'SeekMode.twoMinutes');
+      prefs.setBool(unstableConnectionKey, false);
       prefs.setBool(_migratedKeyV2, true);
     }
 
-    final seekModeString = prefs.getString(_seekModeKey);
+    final seekModeString = prefs.getString(seekModeKey);
     _seekModeNotifier.value = _parseSeekMode(seekModeString);
-    _unstableConnectionNotifier.value = prefs.getBool(_unstableConnectionKey) ?? false;
+    _unstableConnectionNotifier.value = prefs.getBool(unstableConnectionKey) ?? false;
   }
 
   static SeekMode _parseSeekMode(String? seekModeString) {

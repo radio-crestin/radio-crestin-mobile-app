@@ -18,6 +18,7 @@ import '../appAudioHandler.dart';
 import '../globals.dart' as globals;
 import '../main.dart' show getIt;
 import '../services/analytics_service.dart';
+import '../services/default_settings.dart';
 import '../services/local_log_store.dart';
 import '../services/log_upload_service.dart';
 import '../services/playback_preferences.dart';
@@ -131,6 +132,7 @@ class _SettingsPageState extends State<SettingsPage> {
     super.initState();
     _readStoredPreferences();
     SeekModeManager.carConnected.addListener(_onCarConnectionChanged);
+    _liveSettings.addListener(_onLiveSettingsChanged);
     // The last known link shows its count at once; _loadShareData
     // refreshes it.
     final shareLinkData = widget.shareLinkData ?? ShareLinkCache.read();
@@ -165,6 +167,7 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   void dispose() {
     SeekModeManager.carConnected.removeListener(_onCarConnectionChanged);
+    _liveSettings.removeListener(_onLiveSettingsChanged);
     _streamInfoSub?.cancel();
     _streamEventsSub?.cancel();
     _diagnosticTicker?.cancel();
@@ -180,6 +183,24 @@ class _SettingsPageState extends State<SettingsPage> {
         _carConnected = SeekModeManager.isCarConnected;
       });
     }
+  }
+
+  /// The settings PostHog's defaults may change while the page is open.
+  static final Listenable _liveSettings = Listenable.merge([
+    ThemeManager.themeMode,
+    SeekModeManager.seekMode,
+    SeekModeManager.unstableConnection,
+    PlaybackPreferences.preferDirectStreams,
+  ]);
+
+  void _onLiveSettingsChanged() {
+    if (!mounted) return;
+    setState(() {
+      _themeMode = ThemeManager.themeMode.value;
+      _seekMode = SeekModeManager.seekMode.value;
+      _unstableConnection = SeekModeManager.isUnstableConnection;
+      _preferDirectStreams = PlaybackPreferences.preferDirectStreams.value;
+    });
   }
 
   /// Reads the saved toggles from the instance loaded at startup.
@@ -629,6 +650,7 @@ class _SettingsPageState extends State<SettingsPage> {
     setState(() => _preferDirectStreams = value);
     PlaybackPreferences.changePreferDirectStreams(value);
     await PlaybackPreferences.savePreferDirectStreams(value);
+    await DefaultSettings.markUserSet(AppDefaultSettings.preferDirectStreams);
   }
 
   void _logSettingChanged(String setting, Object value) => AnalyticsService
@@ -782,6 +804,8 @@ class _SettingsPageState extends State<SettingsPage> {
                         });
                         await ThemeManager.saveThemeMode(newValue);
                         ThemeManager.changeThemeMode(newValue);
+                        await DefaultSettings.markUserSet(
+                            AppDefaultSettings.themeMode);
                       }
                     },
                     items: const [
@@ -822,16 +846,14 @@ class _SettingsPageState extends State<SettingsPage> {
                           _logSettingChanged('unstable_connection', value);
                           setState(() {
                             _unstableConnection = value;
-                            _seekMode = value ? SeekMode.fiveMinutes : SeekMode.twoMinutes;
                           });
                           await SeekModeManager.saveUnstableConnection(value);
                           SeekModeManager.changeUnstableConnection(value);
-                          // Always sync the saved seek mode with the toggle: ON forces 5,
-                          // OFF resets to 2 (the default). Without the OFF branch the
-                          // saved 5 sticks forever, so users see "5 minute" as default.
-                          final newMode = value ? SeekMode.fiveMinutes : SeekMode.twoMinutes;
-                          await SeekModeManager.saveSeekMode(newMode);
-                          SeekModeManager.changeSeekMode(newMode);
+                          await DefaultSettings.markUserSet(
+                              AppDefaultSettings.unstableConnection);
+                          // The seek mode is left as it was: ON already forces
+                          // 5 minutes (see SeekModeManager.currentOffset), and
+                          // OFF gives back the user's mode, or the default one.
                           getIt<AppAudioHandler>().reapplySeekOffset();
                           getIt<AppAudioHandler>().refreshCurrentMetadata();
                           if (context.mounted) {
@@ -881,6 +903,8 @@ class _SettingsPageState extends State<SettingsPage> {
                             });
                             await SeekModeManager.saveSeekMode(newValue);
                             SeekModeManager.changeSeekMode(newValue);
+                            await DefaultSettings.markUserSet(
+                                AppDefaultSettings.seekMode);
                             getIt<AppAudioHandler>().reapplySeekOffset();
                             getIt<AppAudioHandler>().refreshCurrentMetadata();
                             if (context.mounted) {
@@ -941,6 +965,8 @@ class _SettingsPageState extends State<SettingsPage> {
                       _logSettingChanged('auto_start', value);
                       final prefs = await SharedPreferences.getInstance();
                       await prefs.setBool('_autoStartStation', value);
+                      await DefaultSettings.markUserSet(
+                          AppDefaultSettings.autoStartStation);
                       if (!mounted) return;
                       setState(() {
                         _autoStartStation = value;
@@ -964,6 +990,8 @@ class _SettingsPageState extends State<SettingsPage> {
                       _logSettingChanged('notifications', value);
                       final prefs = await SharedPreferences.getInstance();
                       await prefs.setBool('_notificationsEnabled', value);
+                      await DefaultSettings.markUserSet(
+                          AppDefaultSettings.notificationsEnabled);
                       if (mounted) {
                         setState(() {
                           _notificationsEnabled = value;

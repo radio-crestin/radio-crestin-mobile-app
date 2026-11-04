@@ -40,6 +40,7 @@ import 'package:flutter_airplay/flutter_airplay.dart' as flutter_airplay;
 import 'services/analytics_service.dart';
 import 'services/app_start_log.dart';
 import 'services/desktop_menu_service.dart';
+import 'services/default_settings.dart';
 import 'services/device_registration_service.dart';
 import 'services/error_filter.dart';
 import 'services/hls_health_watchdog_flag.dart';
@@ -305,6 +306,9 @@ void main() async {
   // it is known before the first sync and tracked from then on.
   SeekModeManager.initializeFromPrefs(prefs);
   PlaybackPreferences.initializeFromPrefs(prefs);
+  // Settings the user has not changed follow PostHog's defaults (the last
+  // ones seen until flags load).
+  DefaultSettings.instance.initialize(prefs);
   final stationDataService = StationDataService(
     graphqlClient: graphqlClient,
     httpClient: apiHttpClient,
@@ -367,6 +371,7 @@ void main() async {
       unawaited(RemoteDebugController.instance.onFlagsLoaded());
       unawaited(HlsHealthWatchdogFlag.instance.onFlagsLoaded());
       unawaited(HlsHoldProxyFlag.instance.onFlagsLoaded());
+      unawaited(_applyDefaultSettings());
     },
     appVersion: packageInfo.version,
     prefs: prefs,
@@ -678,6 +683,18 @@ void main() async {
       }
     });
   }
+}
+
+/// Applies PostHog's default settings once flags load. A new seek offset
+/// reaches the playing station at once, as when the user changes it.
+Future<void> _applyDefaultSettings() async {
+  final changed = await DefaultSettings.instance.onFlagsLoaded();
+  final offsetChanged = changed.contains(AppDefaultSettings.seekMode) ||
+      changed.contains(AppDefaultSettings.unstableConnection);
+  if (!offsetChanged || !getIt.isRegistered<AppAudioHandler>()) return;
+  final audioHandler = getIt<AppAudioHandler>();
+  unawaited(audioHandler.reapplySeekOffset());
+  audioHandler.refreshCurrentMetadata();
 }
 
 /// How far behind live a station tapped now is heard: local time-shifted

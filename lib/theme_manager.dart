@@ -2,14 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ThemeManager {
-  static const String _themeModeKey = 'theme_mode';
+  /// Where the theme the user picked is stored.
+  static const String themeModeKey = 'theme_mode';
   static final _themeModeNotifier = ValueNotifier<ThemeMode>(ThemeMode.system);
 
   static ValueNotifier<ThemeMode> get themeMode => _themeModeNotifier;
 
   static Future<void> saveThemeMode(ThemeMode mode) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_themeModeKey, mode.toString());
+    await prefs.setString(themeModeKey, mode.toString());
   }
 
   static void changeThemeMode(ThemeMode mode) {
@@ -19,7 +20,7 @@ class ThemeManager {
   /// Synchronous initialization using an already-loaded SharedPreferences instance.
   /// Avoids redundant async SharedPreferences.getInstance() call during startup.
   static void initializeFromPrefs(SharedPreferences prefs) {
-    final themeModeString = prefs.getString(_themeModeKey);
+    final themeModeString = prefs.getString(themeModeKey);
     if (themeModeString == null) {
       _themeModeNotifier.value = ThemeMode.dark;
       return;

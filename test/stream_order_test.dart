@@ -34,8 +34,7 @@ void main() {
     test('an entry without a type counts as a direct stream', () {
       final bare = {'url': 'https://e/stream'};
 
-      expect(orderStreams<Object>([hls, bare], directFirst: true),
-          [bare, hls]);
+      expect(orderStreams<Object>([hls, bare], directFirst: true), [bare, hls]);
     });
   });
 
@@ -69,8 +68,7 @@ void main() {
       await PlaybackPreferences.savePreferDirectStreams(true);
 
       final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getBool(PlaybackPreferences.preferDirectStreamsKey),
-          isTrue);
+      expect(prefs.getBool(PlaybackPreferences.preferDirectStreamsKey), isTrue);
     });
   });
 }

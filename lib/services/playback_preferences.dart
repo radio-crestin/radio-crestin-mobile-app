@@ -32,8 +32,7 @@ class PlaybackPreferences {
 
   /// Reads the stored setting. Call once at startup.
   static void initializeFromPrefs(SharedPreferences prefs) {
-    _preferDirectStreams.value =
-        prefs.getBool(preferDirectStreamsKey) ?? false;
+    _preferDirectStreams.value = prefs.getBool(preferDirectStreamsKey) ?? false;
   }
 
   /// Stores [enabled] for the next launches.
