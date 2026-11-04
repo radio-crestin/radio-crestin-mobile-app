@@ -22,6 +22,7 @@ import '../components/StationsList.dart';
 import '../main.dart';
 import '../queries/getStations.graphql.dart';
 import '../services/home_widget_service.dart';
+import '../services/station_search_tracker.dart';
 import '../services/launch_source_service.dart';
 import '../services/network_service.dart';
 import '../services/playlist_controller.dart';
@@ -216,6 +217,18 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   /// The search results as the songs on the stations change.
   final LiveSearchResults _liveResults = LiveSearchResults();
+
+  /// Records what the listener searches for, and finds nothing for.
+  late final StationSearchTracker _searchTracker = StationSearchTracker(
+    source: 'mobile',
+    countsFor: (query) {
+      final found = searchStations(
+        _stationDataService.getSortedStations(applyGroupFilter: false),
+        query,
+      );
+      return (byName: found.byName.length, bySong: found.bySong.length);
+    },
+  );
 
   @override
   void initState() {
@@ -569,6 +582,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _rowTransitions.dispose();
     _favoriteReorder.dispose();
     _panelSlide.dispose();
+    _searchTracker.dispose();
     super.dispose();
   }
 
@@ -591,6 +605,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   void _search(String text) {
     final query = text.trim();
     if (query == _query) return;
+    _searchTracker.queryChanged(query);
     // A row on its way out of the old results may be among the new ones,
     // or in the whole list.
     for (final slug in _liveResults.leaving) {
@@ -626,8 +641,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   void _onSearchResultTap(Station station) {
     _closeKeyboard();
     if (_query.isEmpty) return;
+    _searchTracker.flush();
     AnalyticsService.instance.capture('button_clicked', {
       'button_name': 'search_result_tap',
+      'search_query': _query,
       'station_id': station.id,
       'station_slug': station.slug,
       'matched_by': stationTitleMatch(station.displayTitle, _query) != null

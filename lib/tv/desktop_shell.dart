@@ -18,6 +18,7 @@ import '../queries/getStations.graphql.dart';
 import '../services/analytics_service.dart';
 import '../services/desktop_menu_service.dart';
 import '../services/mac_app_store_updates.dart';
+import '../services/station_search_tracker.dart';
 import '../services/station_data_service.dart';
 import '../services/station_group_categories.dart';
 import '../services/station_sort_service.dart';
@@ -144,6 +145,18 @@ class _DesktopShellState extends State<DesktopShell> {
 
   String _query = '';
   List<Station> _results = const [];
+
+  /// Records what the listener searches for, and finds nothing for.
+  late final StationSearchTracker _searchTracker = StationSearchTracker(
+    source: 'desktop',
+    countsFor: (query) {
+      final found = searchStations(
+        _data.getSortedStations(applyGroupFilter: false),
+        query,
+      );
+      return (byName: found.byName.length, bySong: found.bySong.length);
+    },
+  );
   Set<String> _leaving = const {};
   final Set<String> _arriving = {};
   String? _highlightSlug;
@@ -392,6 +405,7 @@ class _DesktopShellState extends State<DesktopShell> {
       ..removeListener(_updateSearchOpen)
       ..dispose();
     _scroll.dispose();
+    _searchTracker.dispose();
     super.dispose();
   }
 
@@ -1164,6 +1178,7 @@ class _DesktopShellState extends State<DesktopShell> {
     if (text.trim().isNotEmpty) _forgetForward();
     final query = text.trim().isEmpty ? '' : text;
     if (query == _query) return;
+    _searchTracker.queryChanged(query);
     final wasSearching = _searching;
     if (!wasSearching && _scroll.hasClients) {
       _offsetBeforeSearch = _scroll.offset;
@@ -1208,8 +1223,10 @@ class _DesktopShellState extends State<DesktopShell> {
   }
 
   void _playFromSearch(Station station) {
+    _searchTracker.flush();
     AnalyticsService.instance.capture('button_clicked', {
       'button_name': 'search_result_tap',
+      'search_query': _query.trim(),
       'station_id': station.id,
       'station_slug': station.slug,
       'matched_by': stationTitleMatch(station.displayTitle, _query) != null
