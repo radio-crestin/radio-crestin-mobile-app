@@ -107,4 +107,12 @@ dependencies {
 
     // Android TV home screen channels (PreviewChannel / PreviewProgram)
     implementation "androidx.tvprovider:tvprovider:1.0.0"
+
+    // DataStore 1.2.0 (from shared_preferences_android and Firebase) ships
+    // libdatastore_shared_counter.so built with NDK r20, which Play flags as
+    // a crash risk on 16 KB page devices; 1.3.0 rebuilds it with a current NDK.
+    constraints {
+        implementation("androidx.datastore:datastore-preferences:1.3.0")
+        implementation("androidx.datastore:datastore-core:1.3.0")
+    }
 }
