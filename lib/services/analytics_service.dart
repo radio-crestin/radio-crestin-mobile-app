@@ -161,15 +161,18 @@ class AnalyticsService {
   /// first be read. [appVersion] becomes the OTLP `service.version` on
   /// every log record. [prefs]
   /// persists the open listening session and the person properties already
-  /// sent; without it neither survives a restart.
+  /// sent; without it neither survives a restart. Without [sendsData] the
+  /// SDK runs as usual but sends nothing (the e2e tests).
   Future<void> initialize({
     bool sessionReplay = false,
     VoidCallback? onFeatureFlagsLoaded,
     String? appVersion,
     SharedPreferences? prefs,
+    bool sendsData = true,
   }) async {
     _appVersion = appVersion ?? _appVersion;
     final config = PostHogConfig(_projectApiKey);
+    config.optOut = !sendsData;
     config.host = 'https://k.radiocrestin.ro';
     config.debug = kDebugMode;
 

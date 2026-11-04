@@ -27,6 +27,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'appAudioHandler.dart';
+import 'app_launch_options.dart';
 import 'constants.dart';
 import 'firebase_options.dart';
 import 'globals.dart' as globals;
@@ -130,8 +131,15 @@ final bool _firebaseSupported =
 final bool _messagingSupported =
     kIsWeb || Platform.isAndroid || Platform.isIOS;
 
-void main() async {
+void main() => runRadioCrestin();
+
+/// Starts the app, wired to the outside world as [options] says.
+Future<void> runRadioCrestin([
+  AppLaunchOptions options = const AppLaunchOptions(),
+]) async {
   PerformanceMonitor.markAppStart();
+  final apiBaseUrl = options.apiBaseUrl;
+  if (apiBaseUrl != null) CONSTANTS.API_BASE_URL = apiBaseUrl;
 
   WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
@@ -192,7 +200,7 @@ void main() async {
 
   // Construct services early (sync constructors) and start their async init
   // in parallel with hive — they only need path_provider / connectivity, not hive.
-  final networkService = NetworkService();
+  final networkService = NetworkService(probes: options.internetProbes);
   final imageCacheService = ImageCacheService();
 
   final networkInitFuture = networkService.initialize();
@@ -374,6 +382,7 @@ void main() async {
     },
     appVersion: packageInfo.version,
     prefs: prefs,
+    sendsData: options.reportsAnalytics,
   );
 
   // Before the app mounts, so PostHogWidget starts idle unless recording.
@@ -439,7 +448,8 @@ void main() async {
   }
 
   // Kept so the first device registration can wait for the FCM token.
-  final Future<void> fcmInitFuture = _messagingSupported
+  final Future<void> fcmInitFuture =
+      _messagingSupported && options.registersForPush
       ? PerformanceMonitor.trackAsync(
           'firebase_messaging_init', initializeFirebaseMessaging)
       : Future<void>.value();
@@ -491,7 +501,9 @@ void main() async {
     });
   }
 
-  runApp(const _ReplayCapture(child: RadioCrestinApp()));
+  runApp(_ReplayCapture(
+    child: RadioCrestinApp(promptsForUpdates: options.promptsForUpdates),
+  ));
 
   // Remove native splash AFTER runApp + first frame layout to prevent
   // "Cannot hit test a render box that has never been laid out" errors
@@ -782,7 +794,10 @@ class _ReplayCapture extends StatelessWidget {
 }
 
 class RadioCrestinApp extends StatelessWidget {
-  const RadioCrestinApp({super.key});
+  const RadioCrestinApp({super.key, this.promptsForUpdates = true});
+
+  /// Whether a newer version in the store is offered over the home page.
+  final bool promptsForUpdates;
 
   // This widget is the root of your application.
   @override
@@ -817,13 +832,15 @@ class RadioCrestinApp extends StatelessWidget {
           darkTheme: darkTheme,
           themeMode: themeMode,
           builder: (context, child) => EdgeToEdgeNavigationBar(child: child!),
-          home: UpgradeAlert(
-            dialogStyle: Platform.isIOS
-                ? UpgradeDialogStyle.cupertino
-                : UpgradeDialogStyle.material,
-            upgrader: _upgrader,
-            child: const HomePage(),
-          ),
+          home: promptsForUpdates
+              ? UpgradeAlert(
+                  dialogStyle: Platform.isIOS
+                      ? UpgradeDialogStyle.cupertino
+                      : UpgradeDialogStyle.material,
+                  upgrader: _upgrader,
+                  child: const HomePage(),
+                )
+              : const HomePage(),
         );
       },
     );
