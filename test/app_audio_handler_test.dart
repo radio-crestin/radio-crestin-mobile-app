@@ -458,6 +458,20 @@ void main() {
       expect(ReconnectPolicy.bufferingStallTimeout,
           equals(const Duration(seconds: 3)));
     });
+
+    test('Android lets ExoPlayer ride out a stall for 15 s first', () {
+      expect(ReconnectPolicy.bufferingStallTimeoutFor(android: true),
+          const Duration(seconds: 15));
+      expect(ReconnectPolicy.bufferingStallTimeoutFor(android: false),
+          ReconnectPolicy.bufferingStallTimeout);
+    });
+
+    test('a stall moves to the next stream except on Android', () {
+      expect(ReconnectPolicy.stallCountsAsStreamFailure(android: false),
+          isTrue);
+      expect(ReconnectPolicy.stallCountsAsStreamFailure(android: true),
+          isFalse);
+    });
   });
 
   group('Stream retry logic', () {

@@ -338,6 +338,27 @@ class ReconnectPolicy {
   /// shortens the silence window — it does not bypass any safety net.
   static const Duration bufferingStallTimeout = Duration(seconds: 3);
 
+  /// The same wait on Android. ExoPlayer, unlike AVPlayer, keeps retrying
+  /// its loads by itself while it buffers, and resumes as soon as the
+  /// network lets it. Reloading after 3 s threw its playlist and loads
+  /// away on every signal dip in a car, and the reload usually started the
+  /// MP3 stream instead (see [stallCountsAsStreamFailure]). It still
+  /// reloads after this long, in case the player itself is stuck.
+  static const Duration androidBufferingStallTimeout = Duration(seconds: 15);
+
+  /// The buffering-stall wait on this platform: [androidBufferingStallTimeout]
+  /// on Android, [bufferingStallTimeout] elsewhere.
+  static Duration bufferingStallTimeoutFor({required bool android}) =>
+      android ? androidBufferingStallTimeout : bufferingStallTimeout;
+
+  /// Whether a buffering stall counts as a failure of the stream, so the
+  /// reload starts at the station's next stream (see `StreamFailover`).
+  /// Not on Android: there a stall is the network, which ExoPlayer rides
+  /// out, and moving on would trade HLS, with its minutes of audio loaded
+  /// ahead, for an MP3 stream with none. A stream that is really broken
+  /// fails there as a player error, which still counts.
+  static bool stallCountsAsStreamFailure({required bool android}) => !android;
+
   /// How often the live-HLS liveness rules ([liveHlsStall]) are evaluated.
   static const Duration liveHlsWatchdogInterval = Duration(seconds: 5);
 
@@ -950,9 +971,12 @@ class AppAudioHandler extends BaseAudioHandler {
   // duplicate metadata refreshes mid-song.
   String? _lastIcyTitle;
   Timer? _bufferingStallTimer;
-  // Aliased to the canonical value in ReconnectPolicy so the test suite
-  // can assert on a single source of truth.
-  static const _bufferingStallTimeout = ReconnectPolicy.bufferingStallTimeout;
+  // Read from ReconnectPolicy so the test suite can assert on a single
+  // source of truth.
+  static final _bufferingStallTimeout = ReconnectPolicy.bufferingStallTimeoutFor(
+      android: Platform.isAndroid);
+  static final _stallCountsAsStreamFailure =
+      ReconnectPolicy.stallCountsAsStreamFailure(android: Platform.isAndroid);
 
   // ── Live-HLS liveness watchdog (silent-stall safety net) ──────────────
   // AVPlayer can go silent while just_audio keeps reporting ready+playing
@@ -2239,9 +2263,10 @@ class AppAudioHandler extends BaseAudioHandler {
             AnalyticsService.instance
                 .logWarning('stream buffering stall', stallProps);
             _recordStreamTrouble('buffering_stall');
-            // A stalled stream counts as a failed one: remember it so the
-            // reconnect starts at the next stream if it stalls repeatedly.
-            if (_loadedStreamUrl != null) {
+            // A stalled stream counts as a failed one, except on Android
+            // (see ReconnectPolicy.stallCountsAsStreamFailure): remember it
+            // so the reconnect starts at the next stream.
+            if (_stallCountsAsStreamFailure && _loadedStreamUrl != null) {
               _recordStreamFailure(_loadedStreamUrl!, DateTime.now());
             }
             // Force play() to re-issue setAudioSource (rather than skip
