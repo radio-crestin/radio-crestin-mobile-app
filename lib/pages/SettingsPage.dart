@@ -85,8 +85,7 @@ class _SettingsPageState extends State<SettingsPage> {
   ShareLinkData? _shareLinkData;
   int? _visitCount;
 
-  // Developer mode: unlocked by tapping the version row 7 times.
-  static const _devModeTapsNeeded = 7;
+  /// Developer mode, turned on with the "Mod dezvoltator" switch.
   bool _developerMode = false;
 
   /// The desktop list's own controller, for a mouse wheel that glides. The
@@ -97,7 +96,7 @@ class _SettingsPageState extends State<SettingsPage> {
       TvPlatform.isDesktop ? DesktopScrollController() : null;
 
   /// The controller the settings list scrolls with, scrolled to the
-  /// Developer section once the taps on the version unlock it.
+  /// developer tools once the switch shows them.
   ScrollController? get _listScroll =>
       _desktopScroll ?? PrimaryScrollController.maybeOf(context);
   final GlobalKey _developerSectionKey =
@@ -109,8 +108,6 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _uploadingLogs = false;
   final AndroidRenderer _renderer = AndroidRenderer.instance;
   late RendererChoice _rendererChoice = _renderer.choice;
-  int _versionTaps = 0;
-  Timer? _versionTapReset;
 
   // Stream diagnostics — re-rendered live so the user can watch fallbacks
   // happen while listening.
@@ -174,7 +171,6 @@ class _SettingsPageState extends State<SettingsPage> {
     _streamInfoSub?.cancel();
     _streamEventsSub?.cancel();
     _diagnosticTicker?.cancel();
-    _versionTapReset?.cancel();
     _hiddenSub?.cancel();
     _desktopScroll?.dispose();
     super.dispose();
@@ -653,7 +649,6 @@ class _SettingsPageState extends State<SettingsPage> {
     setState(() => _preferDirectStreams = value);
     PlaybackPreferences.changePreferDirectStreams(value);
     await PlaybackPreferences.savePreferDirectStreams(value);
-    await DefaultSettings.markUserSet(AppDefaultSettings.preferDirectStreams);
   }
 
   void _logSettingChanged(String setting, Object value) => AnalyticsService
@@ -661,40 +656,6 @@ class _SettingsPageState extends State<SettingsPage> {
       .log('setting changed', {'setting': setting, 'value': value});
 
   // ── Developer mode ──
-
-  /// Hidden gesture on the version row: 7 taps within a 2s-per-tap window
-  /// enable developer mode. Casual taps keep the copy-version behavior; from
-  /// tap 4 a countdown snackbar appears instead.
-  void _onVersionTap() {
-    _versionTapReset?.cancel();
-    _versionTapReset = Timer(const Duration(seconds: 2), () {
-      _versionTaps = 0;
-    });
-    if (_developerMode) {
-      _copyAppInfoValue(
-        buttonName: 'copy_app_version',
-        value: '$_version ($_buildNumber)',
-        confirmation: 'Versiune copiată',
-      );
-      return;
-    }
-    _versionTaps++;
-    final remaining = _devModeTapsNeeded - _versionTaps;
-    if (remaining <= 0) {
-      _versionTaps = 0;
-      _setDeveloperMode(true);
-    } else if (_versionTaps >= 4) {
-      _showDevSnack(
-        remaining == 1 ? 'Încă o apăsare…' : 'Încă $remaining apăsări…',
-      );
-    } else if (_versionTaps == 1) {
-      _copyAppInfoValue(
-        buttonName: 'copy_app_version',
-        value: '$_version ($_buildNumber)',
-        confirmation: 'Versiune copiată',
-      );
-    }
-  }
 
   Future<void> _setDeveloperMode(bool enabled) async {
     final prefs = await SharedPreferences.getInstance();
@@ -712,9 +673,9 @@ class _SettingsPageState extends State<SettingsPage> {
     if (enabled) _revealDeveloperSection();
   }
 
-  /// Scrolls to the Developer section that just appeared at the end of the
-  /// list, so the taps on the version show what they unlocked: to the end,
-  /// or less if that would take the section's title out of view.
+  /// Scrolls to the developer tools that just appeared at the end of the
+  /// list, so the switch shows what it turned on: to the end, or less if
+  /// that would take the section's title out of view.
   void _revealDeveloperSection() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -981,18 +942,6 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                   ),
                 ),
-                // Windows and Linux always load MP3 streams first.
-                if (!PlaybackPreferences.platformPrefersDirectStreams)
-                  _buildSettingsTile(
-                    icon: Icons.audiotrack_rounded,
-                    title: 'Folosește MP3 cu prioritate',
-                    subtitle: 'Activează dacă radioul se oprește sau nu '
-                        'pornește; ascultă live, fără preîncărcare.',
-                    trailing: _SettingsSwitch(
-                      value: _preferDirectStreams,
-                      onChanged: _changePreferDirectStreams,
-                    ),
-                  ),
                 _buildSettingsTile(
                   icon: Icons.radio,
                   title: 'Pornește automat ultima stație',
@@ -1190,8 +1139,11 @@ class _SettingsPageState extends State<SettingsPage> {
                   title: 'Versiune',
                   subtitle: '$_version ($_buildNumber)',
                   trailing: _buildCopyIcon(isDark),
-                  // Also the hidden developer-mode gesture (7 taps).
-                  onTap: _onVersionTap,
+                  onTap: () => _copyAppInfoValue(
+                    buttonName: 'copy_app_version',
+                    value: '$_version ($_buildNumber)',
+                    confirmation: 'Versiune copiată',
+                  ),
                 ),
                 _buildSettingsTile(
                   icon: Icons.fingerprint,
@@ -1220,78 +1172,37 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
               ]),
 
-              if (_developerMode) ...[
-                KeyedSubtree(
-                  key: _developerSectionKey,
-                  child: _buildSectionHeader('Developer'),
+              KeyedSubtree(
+                key: _developerSectionKey,
+                child: _buildSectionHeader('Developer'),
+              ),
+              _buildSettingsCard(children: [
+                _buildSettingsTile(
+                  icon: Icons.developer_mode,
+                  title: 'Mod dezvoltator',
+                  subtitle: _developerMode ? 'Loguri detaliate activate' : null,
+                  trailing: Switch.adaptive(
+                    activeThumbColor: Colors.white,
+                    activeTrackColor: isDark
+                        ? const Color(0xff48a868)
+                        : const Color(0xff34c759),
+                    inactiveThumbColor: Colors.white,
+                    inactiveTrackColor: isDark
+                        ? const Color(0xff39393d)
+                        : const Color(0xffe9e9ea),
+                    value: _developerMode,
+                    onChanged: _setDeveloperMode,
+                  ),
                 ),
-                // The device ID is not repeated here: "Despre aplicație"
-                // above shows it, with a copy button.
-                _buildSettingsCard(children: [
-                  _buildSettingsTile(
-                    icon: Icons.article_outlined,
-                    title: 'Vezi logurile',
-                    subtitle: 'Logurile locale ale aplicației',
-                    onTap: () {
-                      AnalyticsService.instance.capture('button_clicked',
-                          {'button_name': 'view_logs'});
-                      LogsViewerPage.show(context);
-                    },
-                  ),
-                  _buildSettingsTile(
-                    icon: Icons.copy_all_outlined,
-                    title: 'Copiază logurile',
-                    subtitle: 'Cele mai recente (max. 200KB)',
-                    onTap: _copyLogs,
-                  ),
-                  _buildSettingsTile(
-                    icon: Icons.cloud_upload_outlined,
-                    title: 'Trimite logurile către noi',
-                    subtitle: 'Încarcă logurile pentru diagnosticare',
-                    trailing: _uploadingLogs
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.5,
-                              color: AppColors.primary,
-                            ),
-                          )
-                        : null,
-                    onTap: _uploadingLogs ? null : _sendLogs,
-                  ),
-                  // iOS and macOS have Impeller only.
-                  if (_renderer.supported)
-                    _buildSettingsTile(
-                      icon: Icons.layers_outlined,
-                      title: 'Motor grafic',
-                      subtitle: 'Acum: ${_activeRendererName()}. '
-                          'Schimbarea se aplică la următoarea pornire '
-                          'a aplicației',
-                      trailing: _RendererDropdown(
-                        value: _rendererChoice,
-                        onChanged: _changeRenderer,
-                      ),
-                    ),
-                  _buildSettingsTile(
-                    icon: Icons.developer_mode,
-                    title: 'Mod dezvoltator',
-                    subtitle: 'Loguri detaliate activate',
-                    trailing: Switch.adaptive(
-                      activeThumbColor: Colors.white,
-                      activeTrackColor: isDark
-                          ? const Color(0xff48a868)
-                          : const Color(0xff34c759),
-                      inactiveThumbColor: Colors.white,
-                      inactiveTrackColor: isDark
-                          ? const Color(0xff39393d)
-                          : const Color(0xffe9e9ea),
-                      value: _developerMode,
-                      onChanged: (value) => _setDeveloperMode(value),
-                    ),
-                  ),
-                ]),
-              ],
+              ]),
+              // The tools fade in under the switch; at the end of the list,
+              // nothing below them moves.
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 250),
+                child: !_developerMode
+                    ? const SizedBox(key: ValueKey('developer-off'))
+                    : _buildDeveloperTools(),
+              ),
               const SizedBox(height: 40),
               ],
             ),
@@ -1302,6 +1213,74 @@ class _SettingsPageState extends State<SettingsPage> {
       body: _isDesktop
           ? DesktopSettingsFrame(title: 'Setări', child: settings)
           : settings,
+    );
+  }
+
+  /// The developer tools shown while "Mod dezvoltator" is on. The device ID
+  /// is not repeated here: "Despre aplicație" shows it, with a copy button.
+  Widget _buildDeveloperTools() {
+    return Padding(
+      key: const ValueKey('developer-on'),
+      padding: const EdgeInsets.only(top: 12),
+      child: _buildSettingsCard(children: [
+        // Windows and Linux always load MP3 streams first.
+        if (!PlaybackPreferences.platformPrefersDirectStreams)
+          _buildSettingsTile(
+            icon: Icons.audiotrack_rounded,
+            title: 'Folosește MP3 cu prioritate',
+            subtitle: 'Activează dacă radioul se oprește sau nu '
+                'pornește; ascultă live, fără preîncărcare.',
+            trailing: _SettingsSwitch(
+              value: _preferDirectStreams,
+              onChanged: _changePreferDirectStreams,
+            ),
+          ),
+        _buildSettingsTile(
+          icon: Icons.article_outlined,
+          title: 'Vezi logurile',
+          subtitle: 'Logurile locale ale aplicației',
+          onTap: () {
+            AnalyticsService.instance.capture('button_clicked',
+                {'button_name': 'view_logs'});
+            LogsViewerPage.show(context);
+          },
+        ),
+        _buildSettingsTile(
+          icon: Icons.copy_all_outlined,
+          title: 'Copiază logurile',
+          subtitle: 'Cele mai recente (max. 200KB)',
+          onTap: _copyLogs,
+        ),
+        _buildSettingsTile(
+          icon: Icons.cloud_upload_outlined,
+          title: 'Trimite logurile către noi',
+          subtitle: 'Încarcă logurile pentru diagnosticare',
+          trailing: _uploadingLogs
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: AppColors.primary,
+                  ),
+                )
+              : null,
+          onTap: _uploadingLogs ? null : _sendLogs,
+        ),
+        // iOS and macOS have Impeller only.
+        if (_renderer.supported)
+          _buildSettingsTile(
+            icon: Icons.layers_outlined,
+            title: 'Motor grafic',
+            subtitle: 'Acum: ${_activeRendererName()}. '
+                'Schimbarea se aplică la următoarea pornire '
+                'a aplicației',
+            trailing: _RendererDropdown(
+              value: _rendererChoice,
+              onChanged: _changeRenderer,
+            ),
+          ),
+      ]),
     );
   }
 

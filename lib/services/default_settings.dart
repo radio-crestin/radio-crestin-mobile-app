@@ -7,7 +7,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../seek_mode_manager.dart';
 import '../theme_manager.dart';
-import 'playback_preferences.dart';
 
 /// A setting whose default comes from its own PostHog flag until the user
 /// changes it.
@@ -196,14 +195,8 @@ abstract final class AppDefaultSettings {
     builtInDefault: true,
   );
 
-  /// "Folosește MP3 cu prioritate". Followed from the next stream load.
-  static final preferDirectStreams = BoolDefaultSetting(
-    id: 'preferDirectStreams',
-    flagKey: 'default-prefer-direct-streams',
-    prefsKey: PlaybackPreferences.preferDirectStreamsKey,
-    builtInDefault: false,
-    live: PlaybackPreferences.preferDirectStreams,
-  );
+  // "Folosește MP3 cu prioritate" is not here: a developer-mode setting,
+  // off unless the user turns it on (see `PlaybackPreferences`).
 
   /// Every one of them.
   static final List<DefaultSetting> all = [
@@ -212,7 +205,6 @@ abstract final class AppDefaultSettings {
     unstableConnection,
     autoStartStation,
     notificationsEnabled,
-    preferDirectStreams,
   ];
 }
 

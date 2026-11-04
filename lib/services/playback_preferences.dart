@@ -30,15 +30,27 @@ class PlaybackPreferences {
   static bool get platformPrefersDirectStreams =>
       Platform.isWindows || Platform.isLinux;
 
+  /// Where "the user turned it on or off" is stored. The key the PostHog
+  /// default settings marked a user's choice with, so earlier choices count.
+  static const _userSetKey = 'setting_user_set_preferDirectStreams';
+
   /// Reads the stored setting. Call once at startup.
+  ///
+  /// Off unless the user chose it: a developer-mode setting, so a value a
+  /// PostHog default once stored for someone who never saw the switch is
+  /// reset.
   static void initializeFromPrefs(SharedPreferences prefs) {
-    _preferDirectStreams.value = prefs.getBool(preferDirectStreamsKey) ?? false;
+    final userSet = prefs.getBool(_userSetKey) ?? false;
+    final stored = prefs.getBool(preferDirectStreamsKey) ?? false;
+    if (!userSet && stored) prefs.setBool(preferDirectStreamsKey, false);
+    _preferDirectStreams.value = userSet && stored;
   }
 
-  /// Stores [enabled] for the next launches.
+  /// Stores the user's choice, [enabled], for the next launches.
   static Future<void> savePreferDirectStreams(bool enabled) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(preferDirectStreamsKey, enabled);
+    await prefs.setBool(_userSetKey, true);
   }
 
   /// Applies [enabled] from the next stream load.
