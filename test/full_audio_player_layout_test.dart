@@ -165,7 +165,7 @@ void main() {
           columnHeight: 460, textScale: 1.0);
 
       expect(sizes.skipIconSize, closeTo(72.0 * 0.7, 0.001));
-      expect(sizes.skipSpacing, closeTo(72.0 * 0.65, 0.001));
+      expect(sizes.skipSpacing, closeTo(72.0 * 0.35, 0.001));
     });
   });
 }

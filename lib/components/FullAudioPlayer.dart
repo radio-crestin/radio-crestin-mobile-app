@@ -186,7 +186,9 @@ LandscapeTransportSizes computeLandscapeTransportSizes({
     playIconSize: play,
     // The rewind / fast-forward glyphs fill less of their box than play's.
     skipIconSize: play * 0.7,
-    skipSpacing: play * 0.65,
+    // Close, so the three read as one cluster at the column's start; each
+    // tap target still pads its glyph by 8.
+    skipSpacing: play * 0.35,
   );
 }
 
