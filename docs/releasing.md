@@ -141,6 +141,24 @@ Always upload to Play's internal testing track through Play Console in Chrome
    support, then **Save and publish** and confirm. Internal testing reaches
    only the testers' list, so it needs no review.
 
+### Store review, released by hand
+
+Send a tested build to App Review and Play review in Chrome, held so nothing reaches
+listeners until you release it:
+
+- **App Store Connect** → Distribution → **+** next to iOS App → the version; paste
+  the Romanian notes into **What's New**, **Add Build** (the TestFlight build),
+  choose **Manually release this version**, **Save**, **Add for Review**, **Submit
+  for Review**. Once approved, release it from the version page.
+- **Play Console** → Publishing overview: keep **Managed publishing on**. Production
+  → **Edit release** (or Create new release) → the AAB, the `<ro>` notes, **Next**,
+  check "Ready to release" and no devices lost, **Save** → Publishing overview →
+  **Submit for review**. Once approved, it waits under "Changes ready to publish"
+  for **Publish**. A versionCode already uploaded to another track can't be uploaded
+  again, so a new AAB needs `make bump-build` first.
+- Before submitting, read Play's Production → Release dashboard: an issue that
+  "needs attention" (for example a 16 KB page-size library) is fixed first.
+
 **1Password items needed** (all in vault `radio-crestin-app`, secure note with
 the value pasted into the `notesPlain` field):
 
