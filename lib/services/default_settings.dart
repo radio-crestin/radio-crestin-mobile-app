@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:developer' as developer;
 
 import 'package:flutter/material.dart' show ThemeMode, ValueNotifier;
@@ -10,21 +9,28 @@ import '../seek_mode_manager.dart';
 import '../theme_manager.dart';
 import 'playback_preferences.dart';
 
-/// A setting whose default comes from PostHog until the user changes it.
+/// A setting whose default comes from its own PostHog flag until the user
+/// changes it.
 ///
-/// Its value stays stored under [prefsKey], where the code that reads the
-/// setting finds it: while the user has not changed it, that is the
-/// default in force, rewritten whenever the default changes.
+/// The flag is multivariate, each variant named after the value it gives
+/// (see [fromVariant]). Its value stays stored under [prefsKey], where the
+/// code that reads the setting finds it: while the user has not changed
+/// it, that is the default in force, rewritten whenever the default
+/// changes.
 abstract class DefaultSetting<T extends Object> {
   DefaultSetting({
-    required this.payloadKey,
+    required this.id,
+    required this.flagKey,
     required this.prefsKey,
     required this.builtInDefault,
     this.live,
   });
 
-  /// Its key in the `mobile-default-settings` flag payload.
-  final String payloadKey;
+  /// Names the setting in the keys stored for it.
+  final String id;
+
+  /// The PostHog flag that gives its default.
+  final String flagKey;
 
   /// Where its value is stored.
   final String prefsKey;
@@ -36,10 +42,13 @@ abstract class DefaultSetting<T extends Object> {
   final ValueNotifier<T>? live;
 
   /// Where "the user changed it in Settings" is stored.
-  String get userSetKey => 'setting_user_set_$payloadKey';
+  String get userSetKey => 'setting_user_set_$id';
 
-  /// [json] as a value of this setting, or null when it is not one.
-  T? fromPayload(Object? json);
+  /// Where the last variant of [flagKey] is cached.
+  String get cachedVariantKey => 'default_setting_variant_$id';
+
+  /// The value a flag [variant] gives, or null when it names none.
+  T? fromVariant(String? variant);
 
   /// The stored value, or null when none or not a value of this setting.
   T? readStored(SharedPreferences prefs);
@@ -54,7 +63,7 @@ abstract class DefaultSetting<T extends Object> {
     T? stored,
     required Map<String, Object> remoteDefaults,
   }) {
-    final remote = remoteDefaults[payloadKey];
+    final remote = remoteDefaults[id];
     return DefaultSettings.effectiveValue(
       userValue: userSet ? stored : null,
       remoteDefault: remote is T ? remote : null,
@@ -76,17 +85,22 @@ abstract class DefaultSetting<T extends Object> {
   }
 }
 
-/// An on/off setting, `true` or `false` in the payload.
+/// An on/off setting, whose flag variants are `on` and `off`.
 class BoolDefaultSetting extends DefaultSetting<bool> {
   BoolDefaultSetting({
-    required super.payloadKey,
+    required super.id,
+    required super.flagKey,
     required super.prefsKey,
     required super.builtInDefault,
     super.live,
   });
 
   @override
-  bool? fromPayload(Object? json) => json is bool ? json : null;
+  bool? fromVariant(String? variant) => switch (variant) {
+        'on' => true,
+        'off' => false,
+        _ => null,
+      };
 
   @override
   bool? readStored(SharedPreferences prefs) {
@@ -99,11 +113,13 @@ class BoolDefaultSetting extends DefaultSetting<bool> {
       prefs.setBool(prefsKey, value);
 }
 
-/// A choice among [values], named in the payload (`"dark"`) and stored as
-/// the enum's `toString()` (`"ThemeMode.dark"`), as the app always did.
+/// A choice among [values], whose flag variants are their names (`dark`),
+/// stored as the enum's `toString()` (`ThemeMode.dark`), as the app always
+/// did.
 class EnumDefaultSetting<E extends Enum> extends DefaultSetting<E> {
   EnumDefaultSetting({
-    required super.payloadKey,
+    required super.id,
+    required super.flagKey,
     required super.prefsKey,
     required super.builtInDefault,
     required this.values,
@@ -114,8 +130,7 @@ class EnumDefaultSetting<E extends Enum> extends DefaultSetting<E> {
   final List<E> values;
 
   @override
-  E? fromPayload(Object? json) =>
-      json is String ? values.asNameMap()[json] : null;
+  E? fromVariant(String? variant) => values.asNameMap()[variant];
 
   @override
   E? readStored(SharedPreferences prefs) {
@@ -132,11 +147,12 @@ class EnumDefaultSetting<E extends Enum> extends DefaultSetting<E> {
 }
 
 /// The settings whose defaults come from PostHog, with today's defaults
-/// built in.
+/// built in. Their flags carry the PostHog tag `default-settings`.
 abstract final class AppDefaultSettings {
   /// "Interfața temei". Dark when nothing says otherwise.
   static final themeMode = EnumDefaultSetting<ThemeMode>(
-    payloadKey: 'themeMode',
+    id: 'themeMode',
+    flagKey: 'default-theme-mode',
     prefsKey: ThemeManager.themeModeKey,
     builtInDefault: ThemeMode.dark,
     values: ThemeMode.values,
@@ -145,7 +161,8 @@ abstract final class AppDefaultSettings {
 
   /// "Încărcare în avans".
   static final seekMode = EnumDefaultSetting<SeekMode>(
-    payloadKey: 'seekMode',
+    id: 'seekMode',
+    flagKey: 'default-seek-mode',
     prefsKey: SeekModeManager.seekModeKey,
     builtInDefault: SeekMode.twoMinutes,
     values: SeekMode.values,
@@ -154,7 +171,8 @@ abstract final class AppDefaultSettings {
 
   /// "Conexiune instabilă".
   static final unstableConnection = BoolDefaultSetting(
-    payloadKey: 'unstableConnection',
+    id: 'unstableConnection',
+    flagKey: 'default-unstable-connection',
     prefsKey: SeekModeManager.unstableConnectionKey,
     builtInDefault: false,
     live: SeekModeManager.unstableConnection,
@@ -163,7 +181,8 @@ abstract final class AppDefaultSettings {
   /// "Pornește automat ultima stație". Read at launch only, so a new
   /// default applies from the next launch.
   static final autoStartStation = BoolDefaultSetting(
-    payloadKey: 'autoStartStation',
+    id: 'autoStartStation',
+    flagKey: 'default-auto-start-station',
     prefsKey: '_autoStartStation',
     builtInDefault: true,
   );
@@ -171,14 +190,16 @@ abstract final class AppDefaultSettings {
   /// "Notificări personalizate". Read once at launch (the `personalized_n`
   /// user property), so a new default applies from the next launch.
   static final notificationsEnabled = BoolDefaultSetting(
-    payloadKey: 'notificationsEnabled',
+    id: 'notificationsEnabled',
+    flagKey: 'default-notifications-enabled',
     prefsKey: '_notificationsEnabled',
     builtInDefault: true,
   );
 
   /// "Folosește MP3 cu prioritate". Followed from the next stream load.
   static final preferDirectStreams = BoolDefaultSetting(
-    payloadKey: 'preferDirectStreams',
+    id: 'preferDirectStreams',
+    flagKey: 'default-prefer-direct-streams',
     prefsKey: PlaybackPreferences.preferDirectStreamsKey,
     builtInDefault: false,
     live: PlaybackPreferences.preferDirectStreams,
@@ -195,29 +216,30 @@ abstract final class AppDefaultSettings {
   ];
 }
 
-/// Takes the settings' defaults from the PostHog remote-config flag
-/// `mobile-default-settings`, whose JSON payload holds them, e.g.
-/// `{"themeMode":"dark","seekMode":"twoMinutes"}`.
+/// Takes the settings' defaults from their PostHog flags, one per setting
+/// (see [DefaultSetting.flagKey]).
 ///
-/// While the user has not changed a setting in Settings, it follows the
-/// payload's default, also when that changes later; once they changed it,
-/// their choice wins for good. A missing flag, invalid JSON, an unknown key
-/// or an invalid value leaves that setting at its built-in default.
+/// While the user has not changed a setting in Settings, it follows its
+/// flag's default, also when that changes later; once they changed it,
+/// their choice wins for good. A flag that is missing, off, or on a variant
+/// that names no value leaves that setting at its built-in default.
 ///
-/// The last payload is cached in [SharedPreferences], so it applies from
-/// startup, before flags load.
+/// Each flag's last variant is cached in [SharedPreferences], so it applies
+/// from startup, before flags load.
 class DefaultSettings {
-  /// Defaults for [settings].
-  DefaultSettings(this.settings);
+  /// Defaults for [settings]. [readVariant] gives a flag's variant (null
+  /// when the flag is off or missing); it exists for tests.
+  DefaultSettings(this.settings,
+      {Future<String?> Function(String)? readVariant})
+      : _readVariant = readVariant ?? _readLiveVariant;
 
   /// The app-wide instance, for [AppDefaultSettings.all].
   static final DefaultSettings instance =
       DefaultSettings(AppDefaultSettings.all);
 
-  /// PostHog feature flag key.
-  static const flagKey = 'mobile-default-settings';
-
-  static const _kPayloadKey = 'mobile_default_settings_payload';
+  /// Where the single JSON flag `mobile-default-settings`, which these
+  /// flags replaced, cached its payload.
+  static const _kLegacyPayloadKey = 'mobile_default_settings_payload';
 
   /// Set once the values stored before "user set" markers existed were
   /// sorted into user choices and defaults.
@@ -226,8 +248,16 @@ class DefaultSettings {
   /// The settings handled.
   final List<DefaultSetting> settings;
 
+  final Future<String?> Function(String flagKey) _readVariant;
+
   SharedPreferences? _prefs;
   Map<String, Object> _remoteDefaults = const {};
+
+  static Future<String?> _readLiveVariant(String flagKey) async {
+    final result =
+        await Posthog().getFeatureFlagResult(flagKey, sendEvent: false);
+    return result?.enabled == true ? result?.variant : null;
+  }
 
   /// Marks the choices users made before this existed, then applies the
   /// cached defaults to the settings the user has not set.
@@ -238,32 +268,43 @@ class DefaultSettings {
   void initialize(SharedPreferences prefs) {
     _prefs = prefs;
     _markExistingChoices(prefs);
-    _remoteDefaults = parsePayload(_cachedPayload(prefs), settings);
+    if (prefs.containsKey(_kLegacyPayloadKey)) {
+      unawaited(prefs.remove(_kLegacyPayloadKey));
+    }
+    _remoteDefaults = parseVariants({
+      for (final setting in settings)
+        setting.id: prefs.getString(setting.cachedVariantKey),
+    }, settings);
     for (final setting in settings) {
       setting.follow(prefs, _remoteDefaults);
     }
   }
 
-  /// Reads the flag once PostHog loaded flags, caches its payload and
-  /// applies it. Returns the settings whose value changed.
+  /// Reads every setting's flag once PostHog loaded flags, caches the
+  /// variants and applies them. Returns the settings whose value changed.
   Future<List<DefaultSetting>> onFlagsLoaded() async {
-    try {
-      final result =
-          await Posthog().getFeatureFlagResult(flagKey, sendEvent: false);
-      return applyPayload(result?.enabled == true ? result?.payload : null);
-    } catch (e) {
-      developer.log('$flagKey flag read failed: $e');
-      return const [];
+    final variants = <String, String?>{};
+    for (final setting in settings) {
+      try {
+        variants[setting.id] = await _readVariant(setting.flagKey);
+      } catch (e) {
+        developer.log('${setting.flagKey} flag read failed: $e');
+        // Keeps the cached variant rather than dropping to the built-in.
+        variants[setting.id] = _prefs?.getString(setting.cachedVariantKey);
+      }
     }
+    return applyVariants(variants);
   }
 
-  /// Caches [payload] and makes the settings the user has not set follow
-  /// it. Returns the settings whose value changed.
-  List<DefaultSetting> applyPayload(Object? payload) {
+  /// Caches the flag [variants], by setting id, and makes the settings the
+  /// user has not set follow them. Returns the settings whose value changed.
+  List<DefaultSetting> applyVariants(Map<String, String?> variants) {
     final prefs = _prefs;
     if (prefs == null) return const [];
-    _cachePayload(prefs, payload);
-    _remoteDefaults = parsePayload(payload, settings);
+    for (final setting in settings) {
+      _cacheVariant(prefs, setting, variants[setting.id]);
+    }
+    _remoteDefaults = parseVariants(variants, settings);
     return [
       for (final setting in settings)
         if (setting.follow(prefs, _remoteDefaults)) setting,
@@ -281,20 +322,17 @@ class DefaultSettings {
   static bool isUserSet(SharedPreferences prefs, DefaultSetting setting) =>
       prefs.get(setting.userSetKey) == true;
 
-  /// The valid defaults in [payload] (a JSON map, or its text), by payload
-  /// key. Keys it has no valid value for are left out.
-  static Map<String, Object> parsePayload(
-    Object? payload,
+  /// The defaults the flag [variants] give, by setting id. Settings whose
+  /// variant names no value are left out.
+  static Map<String, Object> parseVariants(
+    Map<String, String?> variants,
     List<DefaultSetting> settings,
-  ) {
-    final map = _decode(payload);
-    if (map == null) return const {};
-    return {
-      for (final setting in settings)
-        if (setting.fromPayload(map[setting.payloadKey]) case final value?)
-          setting.payloadKey: value,
-    };
-  }
+  ) =>
+      {
+        for (final setting in settings)
+          if (setting.fromVariant(variants[setting.id]) case final value?)
+            setting.id: value,
+      };
 
   /// The value a setting takes: the user's choice once they made one, else
   /// PostHog's default, else the app's own.
@@ -329,30 +367,13 @@ class DefaultSettings {
     unawaited(prefs.setBool(_kMarkedExistingKey, true));
   }
 
-  static Object? _cachedPayload(SharedPreferences prefs) =>
-      prefs.getString(_kPayloadKey);
-
-  static void _cachePayload(SharedPreferences prefs, Object? payload) {
-    if (payload == null) {
-      unawaited(prefs.remove(_kPayloadKey));
-      return;
-    }
-    try {
-      unawaited(prefs.setString(
-          _kPayloadKey, payload is String ? payload : jsonEncode(payload)));
-    } catch (e) {
-      developer.log('$flagKey payload not cached: $e');
-    }
-  }
-
-  static Map<Object?, Object?>? _decode(Object? payload) {
-    if (payload is Map) return payload;
-    if (payload is! String) return null;
-    try {
-      // A payload sent as JSON text can arrive encoded twice.
-      return _decode(jsonDecode(payload));
-    } on FormatException {
-      return null;
-    }
+  static void _cacheVariant(
+    SharedPreferences prefs,
+    DefaultSetting setting,
+    String? variant,
+  ) {
+    final key = setting.cachedVariantKey;
+    unawaited(
+        variant == null ? prefs.remove(key) : prefs.setString(key, variant));
   }
 }

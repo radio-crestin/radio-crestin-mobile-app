@@ -7,27 +7,31 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Settings like the app's, each with its own notifier.
 class _Settings {
   final theme = EnumDefaultSetting<ThemeMode>(
-    payloadKey: 'themeMode',
+    id: 'themeMode',
+    flagKey: 'default-theme-mode',
     prefsKey: 'theme_mode',
     builtInDefault: ThemeMode.dark,
     values: ThemeMode.values,
     live: ValueNotifier(ThemeMode.dark),
   );
   final seekMode = EnumDefaultSetting<SeekMode>(
-    payloadKey: 'seekMode',
+    id: 'seekMode',
+    flagKey: 'default-seek-mode',
     prefsKey: 'seek_mode',
     builtInDefault: SeekMode.twoMinutes,
     values: SeekMode.values,
     live: ValueNotifier(SeekMode.twoMinutes),
   );
   final unstable = BoolDefaultSetting(
-    payloadKey: 'unstableConnection',
+    id: 'unstableConnection',
+    flagKey: 'default-unstable-connection',
     prefsKey: 'unstable_connection',
     builtInDefault: false,
     live: ValueNotifier(false),
   );
   final autoStart = BoolDefaultSetting(
-    payloadKey: 'autoStartStation',
+    id: 'autoStartStation',
+    flagKey: 'default-auto-start-station',
     prefsKey: '_autoStartStation',
     builtInDefault: true,
   );
@@ -41,60 +45,44 @@ void main() {
   setUp(() => settings = _Settings());
 
   Future<(DefaultSettings, SharedPreferences)> launch(
-      Map<String, Object> stored) async {
+    Map<String, Object> stored, {
+    Future<String?> Function(String flagKey)? readVariant,
+  }) async {
     SharedPreferences.setMockInitialValues(stored);
     final prefs = await SharedPreferences.getInstance();
-    return (DefaultSettings(settings.all)..initialize(prefs), prefs);
+    final defaults = DefaultSettings(settings.all, readVariant: readVariant)
+      ..initialize(prefs);
+    return (defaults, prefs);
   }
 
-  group('parsePayload', () {
-    test('reads every valid default, from a map or its JSON text', () {
-      const json = '{"themeMode":"light","seekMode":"instant",'
-          '"unstableConnection":true,"autoStartStation":false}';
-      final expected = {
-        'themeMode': ThemeMode.light,
-        'seekMode': SeekMode.instant,
-        'unstableConnection': true,
-        'autoStartStation': false,
-      };
-
-      expect(DefaultSettings.parsePayload(json, settings.all), expected);
+  group('parseVariants', () {
+    test('each variant names its value', () {
       expect(
-        DefaultSettings.parsePayload({
+        DefaultSettings.parseVariants({
           'themeMode': 'light',
           'seekMode': 'instant',
+          'unstableConnection': 'on',
+          'autoStartStation': 'off',
+        }, settings.all),
+        {
+          'themeMode': ThemeMode.light,
+          'seekMode': SeekMode.instant,
           'unstableConnection': true,
           'autoStartStation': false,
-        }, settings.all),
-        expected,
+        },
       );
     });
 
-    test('reads JSON text that was encoded twice', () {
-      expect(
-        DefaultSettings.parsePayload(
-            r'"{\"themeMode\":\"system\"}"', settings.all),
-        {'themeMode': ThemeMode.system},
-      );
-    });
-
-    test('leaves out invalid values and unknown keys, one by one', () {
-      final defaults = DefaultSettings.parsePayload({
+    test('leaves out unknown variants and missing flags, one by one', () {
+      final defaults = DefaultSettings.parseVariants({
         'themeMode': 'blue',
         'seekMode': 'fiveMinutes',
-        'unstableConnection': 'yes',
-        'autoStartStation': 1,
-        'volume': 11,
+        'unstableConnection': 'true',
+        'autoStartStation': null,
+        'volume': 'loud',
       }, settings.all);
 
       expect(defaults, {'seekMode': SeekMode.fiveMinutes});
-    });
-
-    test('a missing flag or invalid JSON gives no defaults', () {
-      for (final payload in [null, '', '{not json', '[1, 2]', 42]) {
-        expect(DefaultSettings.parsePayload(payload, settings.all), isEmpty,
-            reason: '$payload');
-      }
     });
   });
 
@@ -148,10 +136,10 @@ void main() {
       }
     });
 
-    test('the cached payload applies before flags load', () async {
+    test('the cached variants apply before flags load', () async {
       final (_, prefs) = await launch({
-        'mobile_default_settings_payload':
-            '{"themeMode":"light","autoStartStation":false}',
+        'default_setting_variant_themeMode': 'light',
+        'default_setting_variant_autoStartStation': 'off',
       });
 
       expect(settings.theme.live!.value, ThemeMode.light);
@@ -163,8 +151,8 @@ void main() {
       final (_, prefs) = await launch({
         'theme_mode': 'ThemeMode.system',
         '_autoStartStation': false,
-        'mobile_default_settings_payload':
-            '{"themeMode":"light","autoStartStation":true}',
+        'default_setting_variant_themeMode': 'light',
+        'default_setting_variant_autoStartStation': 'on',
       });
 
       expect(DefaultSettings.isUserSet(prefs, settings.theme), isTrue);
@@ -177,7 +165,7 @@ void main() {
       SharedPreferences.setMockInitialValues({
         'seek_mode': 'SeekMode.fiveMinutes',
         'unstable_connection': true,
-        'mobile_default_settings_payload': '{"seekMode":"instant"}',
+        'default_setting_variant_seekMode': 'instant',
       });
       final prefs = await SharedPreferences.getInstance();
       SeekModeManager.initializeFromPrefs(prefs);
@@ -192,7 +180,7 @@ void main() {
 
     test('a default PostHog stored is not taken for a choice later', () async {
       final (defaults, prefs) = await launch({});
-      defaults.applyPayload({'themeMode': 'light'});
+      defaults.applyVariants({'themeMode': 'light'});
 
       // The next launch, after PostHog dropped the default.
       SharedPreferences.setMockInitialValues({
@@ -201,9 +189,18 @@ void main() {
       final relaunched = await SharedPreferences.getInstance();
       DefaultSettings(settings.all)
         ..initialize(relaunched)
-        ..applyPayload(null);
+        ..applyVariants(const {});
 
       expect(DefaultSettings.isUserSet(relaunched, settings.theme), isFalse);
+      expect(settings.theme.live!.value, ThemeMode.dark);
+    });
+
+    test('the old JSON payload cache is dropped', () async {
+      final (_, prefs) = await launch({
+        'mobile_default_settings_payload': '{"themeMode":"light"}',
+      });
+
+      expect(prefs.containsKey('mobile_default_settings_payload'), isFalse);
       expect(settings.theme.live!.value, ThemeMode.dark);
     });
   });
@@ -213,10 +210,10 @@ void main() {
         () async {
       final (defaults, prefs) = await launch({});
 
-      final changed = defaults.applyPayload({
+      final changed = defaults.applyVariants({
         'themeMode': 'light',
         'seekMode': 'twoMinutes',
-        'unstableConnection': true,
+        'unstableConnection': 'on',
       });
 
       expect(changed, [settings.theme, settings.unstable]);
@@ -227,18 +224,18 @@ void main() {
 
     test('a later change of the default is followed too', () async {
       final (defaults, _) = await launch({});
-      defaults.applyPayload({'themeMode': 'light'});
+      defaults.applyVariants({'themeMode': 'light'});
 
-      defaults.applyPayload({'themeMode': 'system'});
+      defaults.applyVariants({'themeMode': 'system'});
 
       expect(settings.theme.live!.value, ThemeMode.system);
     });
 
-    test('a removed flag brings back the built-in defaults', () async {
+    test('a flag turned off brings back the built-in default', () async {
       final (defaults, prefs) = await launch({});
-      defaults.applyPayload({'autoStartStation': false});
+      defaults.applyVariants({'autoStartStation': 'off'});
 
-      final changed = defaults.applyPayload(null);
+      final changed = defaults.applyVariants({'autoStartStation': null});
 
       expect(changed, [settings.autoStart]);
       expect(prefs.getBool('_autoStartStation'), isTrue);
@@ -246,39 +243,62 @@ void main() {
 
     test("the user's choice wins for good once they made it", () async {
       final (defaults, prefs) = await launch({});
-      defaults.applyPayload({'seekMode': 'instant'});
+      defaults.applyVariants({'seekMode': 'instant'});
 
       // The user picks 5 minutes in Settings.
       settings.seekMode.live!.value = SeekMode.fiveMinutes;
       await prefs.setString('seek_mode', 'SeekMode.fiveMinutes');
       await DefaultSettings.markUserSet(settings.seekMode);
-      final changed = defaults.applyPayload({'seekMode': 'twoMinutes'});
+      final changed = defaults.applyVariants({'seekMode': 'twoMinutes'});
 
       expect(changed, isEmpty);
       expect(settings.seekMode.live!.value, SeekMode.fiveMinutes);
       expect(prefs.getString('seek_mode'), 'SeekMode.fiveMinutes');
     });
 
-    test('the payload is cached for the next launch', () async {
+    test('each variant is cached for the next launch', () async {
       final (defaults, prefs) = await launch({});
 
-      defaults.applyPayload({'themeMode': 'light'});
+      defaults.applyVariants({'themeMode': 'light'});
 
-      expect(prefs.getString('mobile_default_settings_payload'),
-          '{"themeMode":"light"}');
-      defaults.applyPayload(null);
-      expect(prefs.getString('mobile_default_settings_payload'), isNull);
+      expect(prefs.getString('default_setting_variant_themeMode'), 'light');
+      defaults.applyVariants({'themeMode': null});
+      expect(prefs.containsKey('default_setting_variant_themeMode'), isFalse);
+    });
+
+    test('reads each setting from its own flag', () async {
+      final flags = {
+        'default-theme-mode': 'light',
+        'default-auto-start-station': 'off',
+      };
+      final (defaults, _) =
+          await launch({}, readVariant: (key) async => flags[key]);
+
+      final changed = await defaults.onFlagsLoaded();
+
+      expect(changed, [settings.theme, settings.autoStart]);
+      expect(settings.theme.live!.value, ThemeMode.light);
+    });
+
+    test('a flag that fails to read keeps its cached variant', () async {
+      final (defaults, _) = await launch(
+        {'default_setting_variant_themeMode': 'light'},
+        readVariant: (key) async =>
+            key == 'default-theme-mode' ? throw StateError('offline') : null,
+      );
+
+      await defaults.onFlagsLoaded();
+
+      expect(settings.theme.live!.value, ThemeMode.light);
     });
   });
 
   group('AppDefaultSettings', () {
     test("built-in defaults are today's", () {
-      final builtIn = {
+      expect({
         for (final setting in AppDefaultSettings.all)
-          setting.payloadKey: setting.builtInDefault,
-      };
-
-      expect(builtIn, {
+          setting.id: setting.builtInDefault,
+      }, {
         'themeMode': ThemeMode.dark,
         'seekMode': SeekMode.twoMinutes,
         'unstableConnection': false,
@@ -288,16 +308,30 @@ void main() {
       });
     });
 
-    test('a payload of the built-in defaults parses to them', () {
-      const payload = '{"themeMode":"dark","seekMode":"twoMinutes",'
-          '"unstableConnection":false,"autoStartStation":true,'
-          '"notificationsEnabled":true,"preferDirectStreams":false}';
+    test('each setting has its own flag', () {
+      expect([for (final setting in AppDefaultSettings.all) setting.flagKey], [
+        'default-theme-mode',
+        'default-seek-mode',
+        'default-unstable-connection',
+        'default-auto-start-station',
+        'default-notifications-enabled',
+        'default-prefer-direct-streams',
+      ]);
+    });
 
+    test('the variants of the built-in defaults parse to them', () {
       expect(
-        DefaultSettings.parsePayload(payload, AppDefaultSettings.all),
+        DefaultSettings.parseVariants({
+          'themeMode': 'dark',
+          'seekMode': 'twoMinutes',
+          'unstableConnection': 'off',
+          'autoStartStation': 'on',
+          'notificationsEnabled': 'on',
+          'preferDirectStreams': 'off',
+        }, AppDefaultSettings.all),
         {
           for (final setting in AppDefaultSettings.all)
-            setting.payloadKey: setting.builtInDefault,
+            setting.id: setting.builtInDefault,
         },
       );
     });
