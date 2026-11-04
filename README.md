@@ -99,6 +99,9 @@ where a station won't start.
   <img src="docs/readme/screenshots/widget-now-playing.jpg" alt="Now playing widget" width="200" />
 </p>
 <p>
+  <img src="docs/readme/screenshots/mac.jpg" alt="Radio Crestin on the Mac" width="612" />
+</p>
+<p>
   <img src="docs/readme/screenshots/apple-tv.jpg" alt="Radio Crestin on Apple TV" width="612" />
 </p>
 
