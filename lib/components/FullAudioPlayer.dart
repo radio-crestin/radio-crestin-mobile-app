@@ -148,6 +148,49 @@ PlayerLayoutMetrics computePlayerLayout({
   );
 }
 
+/// Sizes of the landscape transport controls.
+typedef LandscapeTransportSizes = ({
+  double playIconSize,
+  double skipIconSize,
+  double skipSpacing,
+});
+
+/// Height of the landscape right-hand column besides its text and the play
+/// button: the station row (56), the action icons with their padding (44)
+/// and the least gaps between the four groups (3 × 14).
+const double _landscapeChromeHeight = 142.0;
+
+/// Height of the landscape right-hand column text, which grows with the
+/// system text size: the song title slot, the artist line and the action
+/// labels.
+const double _landscapeTextHeight = 92.0;
+
+/// Room the play button's round tap target adds around its glyph.
+const double _playTargetPadding = 16.0;
+
+/// Sizes the landscape transport so the play button grows into the height
+/// the rest of the right-hand column leaves, between 56 and 72.
+///
+/// The skip glyphs and their gaps follow the play button, so the cluster
+/// keeps its proportions on every phone and tablet.
+LandscapeTransportSizes computeLandscapeTransportSizes({
+  required double columnHeight,
+  required double textScale,
+}) {
+  final scale = textScale.clamp(1.0, _maxTextScale);
+  final free = columnHeight -
+      _landscapeChromeHeight -
+      _landscapeTextHeight * scale -
+      _playTargetPadding;
+  final play = free.clamp(56.0, 72.0).toDouble();
+  return (
+    playIconSize: play,
+    // The rewind / fast-forward glyphs fill less of their box than play's.
+    skipIconSize: play * 0.7,
+    skipSpacing: play * 0.65,
+  );
+}
+
 /// The song as copied to the clipboard: "title - artist".
 String songClipboardText({required String title, required String artist}) =>
     _joinSongParts([title, artist]);
@@ -345,13 +388,6 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     // verifiable. See computePlayerLayout above.
     // Aspect-specific lookups so keyboard viewInsets changes (e.g. the search
     // dialog opening above the panel) don't rebuild the player every frame.
-    final screen = MediaQuery.sizeOf(context);
-    final layout = computePlayerLayout(
-      screenWidth: screen.width,
-      screenHeight: screen.height,
-      textScale: MediaQuery.textScalerOf(context).scale(1.0),
-    );
-
     // In landscape the tall portrait column wastes the wide canvas, so we
     // switch to a TV-style split: artwork on the left, all metadata + controls
     // stacked in a column on the right. Applies to phones and tablets alike;
@@ -361,8 +397,15 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
     final isLandscape =
         MediaQuery.orientationOf(context) == Orientation.landscape;
     if (isLandscape) {
-      return _buildLandscapeLayout(context, layout);
+      return _buildLandscapeLayout(context);
     }
+
+    final screen = MediaQuery.sizeOf(context);
+    final layout = computePlayerLayout(
+      screenWidth: screen.width,
+      screenHeight: screen.height,
+      textScale: MediaQuery.textScalerOf(context).scale(1.0),
+    );
 
     // Under the wider video, the song info spans the side margins instead.
     final infoWidth = _isVideoMode
@@ -404,101 +447,120 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   /// same content widgets as the portrait layout so behaviour and animations
   /// stay identical — only the arrangement changes.
   ///
-  /// Adapts to the caller's height: on a phone in landscape the panel content
-  /// is only ~300–360 logical px tall, so a [compact] mode tightens every
-  /// vertical gap and derives its own control sizes (the shared
-  /// [computePlayerLayout] metrics are tuned for portrait height budgets). The
-  /// [SingleChildScrollView] remains as an overflow safety net.
-  Widget _buildLandscapeLayout(
-    BuildContext context,
-    PlayerLayoutMetrics layout,
-  ) {
+  /// The right-hand column spans the panel's height, at most
+  /// [_landscapeMaxColumnHeight], with its four groups spread evenly: the
+  /// station and cast button at the top, the actions at the bottom, and the
+  /// play button grown into the height left (see
+  /// [computeLandscapeTransportSizes]). The [SingleChildScrollView] is an
+  /// overflow safety net for large system text.
+  Widget _buildLandscapeLayout(BuildContext context) {
     return _PlayerPanel(
       bottomInset: widget.bottomInset,
+      // Sides only: the panel already keeps its content above the bottom
+      // inset, so a bottom safe area would leave that space twice.
       child: SafeArea(
         top: false,
+        bottom: false,
         child: Column(
           children: [
             _buildDragHandle(context),
             const SizedBox(height: 8.0),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16.0, 4.0, 16.0, 8.0),
+                padding: const EdgeInsets.fromLTRB(16.0, 4.0, 16.0, 12.0),
                 child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    // Short heights (phone landscape) get the compact
-                    // treatment. Tablets in landscape have >=~520px of
-                    // content height, so the 380 threshold cleanly separates
-                    // the two form factors.
-                    final compact = constraints.maxHeight < 380.0;
-
-                    // Left slot dimensions. In video mode the media is 16:9
-                    // and must keep the info column at least ~45% of the
-                    // width; the audio artwork stays square.
-                    final (double slotW, double slotH) = _landscapeMediaSize(
-                      maxWidth: constraints.maxWidth,
-                      maxHeight: constraints.maxHeight,
-                      isVideo: _isVideoMode,
-                    );
-
-                    final artGap = compact ? 20.0 : 24.0;
-
-                    return Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        SizedBox(
-                          width: slotW,
-                          height: slotH,
-                          child: Center(child: _buildArtwork(context, slotW)),
-                        ),
-                        SizedBox(width: artGap),
-                        Expanded(
-                          child: SingleChildScrollView(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: _buildStationTitle(context,
-                                          textAlign: TextAlign.start),
-                                    ),
-                                    _buildCastButton(context),
-                                  ],
-                                ),
-                                SizedBox(height: compact ? 6.0 : 12.0),
-                                _buildSongInfo(context),
-                                SizedBox(height: compact ? 12.0 : 24.0),
-                                // Compact phones keep a prominent play button
-                                // with modest skips so the cluster fits the
-                                // short height; tablets keep the portrait
-                                // metrics.
-                                _buildTransportControls(
-                                  context,
-                                  playIconSize:
-                                      compact ? 60.0 : layout.playIconSize,
-                                  skipIconSize:
-                                      compact ? 32.0 : layout.skipIconSize,
-                                  skipSpacing:
-                                      compact ? 24.0 : layout.skipSpacing,
-                                  alignStart: true,
-                                ),
-                                SizedBox(height: compact ? 8.0 : 16.0),
-                                _buildBottomActionRow(context,
-                                    alignStart: true),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    );
-                  },
+                  builder: (context, constraints) => _buildLandscapeSplit(
+                    context,
+                    width: constraints.maxWidth,
+                    height: constraints.maxHeight,
+                  ),
                 ),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// Tallest landscape right-hand column, so a tablet's groups stay close
+  /// together instead of spreading over its whole height.
+  static const double _landscapeMaxColumnHeight = 460.0;
+
+  /// Gap between the landscape media and the right-hand column.
+  static const double _landscapeMediaGap = 40.0;
+
+  /// The landscape media on the left and the info column on the right.
+  Widget _buildLandscapeSplit(
+    BuildContext context, {
+    required double width,
+    required double height,
+  }) {
+    final (double slotW, double slotH) = _landscapeMediaSize(
+      maxWidth: width,
+      maxHeight: height,
+      isVideo: _isVideoMode,
+    );
+    return Row(
+      children: [
+        SizedBox(
+          width: slotW,
+          height: slotH,
+          child: Center(child: _buildArtwork(context, slotW)),
+        ),
+        const SizedBox(width: _landscapeMediaGap),
+        Expanded(
+          child: Center(
+            child: SingleChildScrollView(
+              child: _buildLandscapeInfoColumn(
+                context,
+                height: math.min(height, _landscapeMaxColumnHeight),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Station, song, transport and actions, spread over [height].
+  Widget _buildLandscapeInfoColumn(
+    BuildContext context, {
+    required double height,
+  }) {
+    final sizes = computeLandscapeTransportSizes(
+      columnHeight: height,
+      textScale: MediaQuery.textScalerOf(context).scale(1.0),
+    );
+    // A minimum, not a fixed height: inside the scroll view the column
+    // spreads its groups over it, and grows past it for large text.
+    return ConstrainedBox(
+      constraints: BoxConstraints(minHeight: height),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _buildStationTitle(
+                  context,
+                  textAlign: TextAlign.start,
+                  fontSize: _landscapeStationTitleFontSize,
+                ),
+              ),
+              _buildCastButton(context),
+            ],
+          ),
+          _buildSongInfo(context),
+          _buildTransportControls(
+            context,
+            playIconSize: sizes.playIconSize,
+            skipIconSize: sizes.skipIconSize,
+            skipSpacing: sizes.skipSpacing,
+          ),
+          _buildBottomActionRow(context, spreadToEdges: true),
+        ],
       ),
     );
   }
@@ -529,11 +591,11 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
       return (videoW, videoH);
     }
 
-    // Square artwork sized to the row height, but never wider than ~44% of the
-    // row so the info column keeps room.
+    // Square artwork a little shorter than the row, so it doesn't crowd the
+    // info column, and never wider than 40% of the row.
     final maxByWidth =
-        (maxWidth * 0.44).clamp(140.0, double.infinity).toDouble();
-    final artSize = maxHeight
+        (maxWidth * 0.40).clamp(140.0, double.infinity).toDouble();
+    final artSize = (maxHeight * 0.85)
         .clamp(140.0, 360.0)
         .clamp(140.0, maxByWidth)
         .toDouble();
@@ -592,11 +654,17 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   /// that the name ends in an ellipsis.
   static const double _stationTitleMinFontSize = 16;
 
+  /// Size of the station name in landscape, where it heads a wide column.
+  static const double _landscapeStationTitleFontSize = 22;
+
   /// The station name, crossfading between stations. A name too long for
-  /// 18px shrinks to fit one line, so the header keeps its height and the
-  /// artwork below never moves between stations.
-  Widget _buildStationTitle(BuildContext context,
-      {TextAlign textAlign = TextAlign.center}) {
+  /// [fontSize] shrinks to fit one line, so the header keeps its height and
+  /// the artwork below never moves between stations.
+  Widget _buildStationTitle(
+    BuildContext context, {
+    TextAlign textAlign = TextAlign.center,
+    double fontSize = 18,
+  }) {
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 250),
       transitionBuilder: (Widget child, Animation<double> animation) {
@@ -605,9 +673,9 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
       child: ShrinkToFitText(
         currentStation?.displayTitle ?? "",
         key: ValueKey('title-${currentStation?.id}'),
-        style: const TextStyle(
+        style: TextStyle(
           fontWeight: FontWeight.bold,
-          fontSize: 18,
+          fontSize: fontSize,
         ),
         minFontSize: _stationTitleMinFontSize,
         textAlign: textAlign,
@@ -720,20 +788,17 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   }
 
   /// Transport controls: prev | play/pause | next, as bare glyphs in the
-  /// text color, the way Apple Music shows them. [alignStart] left-aligns the
-  /// cluster for the landscape right-hand column. Skipping leaves the song
+  /// text color, the way Apple Music shows them. Skipping leaves the song
   /// search tip up, for the next station's song.
   Widget _buildTransportControls(
     BuildContext context, {
     required double playIconSize,
     required double skipIconSize,
     required double skipSpacing,
-    bool alignStart = false,
   }) {
     final glyphColor = Theme.of(context).colorScheme.onSurface;
     return Row(
-      mainAxisAlignment:
-          alignStart ? MainAxisAlignment.start : MainAxisAlignment.center,
+      mainAxisAlignment: MainAxisAlignment.center,
       children: <Widget>[
         SongSearchTipTapRegion(
           child: IconButton(
@@ -774,10 +839,11 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   }
 
   /// Bottom action row: favorit | somn | trimite | istoric.
-  /// Portrait gives each action an equal share of the width; [alignStart]
-  /// packs them at the start of the landscape right-hand column instead.
+  /// Portrait gives each action an equal share of the width;
+  /// [spreadToEdges] puts the first and last at the edges of the landscape
+  /// right-hand column, in line with the station name and the cast button.
   Widget _buildBottomActionRow(BuildContext context,
-      {bool alignStart = false}) {
+      {bool spreadToEdges = false}) {
     final actions = <Widget>[
       _buildFavoriteButton(context),
       SleepTimerButton(
@@ -809,12 +875,14 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
       key: _actionRowKey,
       child: MediaQuery.withClampedTextScaling(
         maxScaleFactor: _maxActionLabelTextScale,
-        child: alignStart
-            // Scales down rather than overflowing a narrow column.
-            ? FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: AlignmentDirectional.centerStart,
-                child: Row(mainAxisSize: MainAxisSize.min, children: actions),
+        child: spreadToEdges
+            // Flexible, so a narrow column squeezes the actions instead of
+            // overflowing.
+            ? Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  for (final action in actions) Flexible(child: action),
+                ],
               )
             // On tablets the row spans no wider than the largest artwork and
             // its margins, so the actions stay close together.
@@ -854,23 +922,30 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            IgnorePointer(
-              // Sized like the other actions' icons so the labels line up;
-              // the bubbles overflow it.
-              child: LikeButton(
-                key: _likeButtonKey,
-                size: 24,
-                bubblesSize: 30,
-                isLiked: currentStation != null && _favoriteSlugs.contains(currentStation!.slug),
-                likeBuilder: (bool isLiked) {
-                  return Icon(
-                    isLiked ? Icons.favorite_sharp : Icons.favorite_border_sharp,
-                    color: isLiked
-                        ? Theme.of(context).primaryColor
-                        : Theme.of(context).colorScheme.onSurface,
-                    size: 23,
-                  );
-                },
+            // Sized like the other actions' icons so the labels line up;
+            // the bubbles overflow it. LikeButton is a Row as wide as it is
+            // allowed; IntrinsicWidth keeps it, and so the action, as narrow
+            // as its heart.
+            IntrinsicWidth(
+              child: IgnorePointer(
+                child: LikeButton(
+                  key: _likeButtonKey,
+                  size: 24,
+                  bubblesSize: 30,
+                  isLiked: currentStation != null &&
+                      _favoriteSlugs.contains(currentStation!.slug),
+                  likeBuilder: (bool isLiked) {
+                    return Icon(
+                      isLiked
+                          ? Icons.favorite_sharp
+                          : Icons.favorite_border_sharp,
+                      color: isLiked
+                          ? Theme.of(context).primaryColor
+                          : Theme.of(context).colorScheme.onSurface,
+                      size: 23,
+                    );
+                  },
+                ),
               ),
             ),
             const _ActionLabel('favorit'),

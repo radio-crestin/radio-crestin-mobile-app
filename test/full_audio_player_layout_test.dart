@@ -136,4 +136,36 @@ void main() {
       expect(small.skipSpacing, inInclusiveRange(28.0, 44.0));
     });
   });
+  group('computeLandscapeTransportSizes', () {
+    test('play grows into the height the column leaves, up to 72', () {
+      final phone = computeLandscapeTransportSizes(
+          columnHeight: 310, textScale: 1.0);
+      final tablet = computeLandscapeTransportSizes(
+          columnHeight: 460, textScale: 1.0);
+
+      expect(phone.playIconSize, 60.0);
+      expect(tablet.playIconSize, 72.0);
+    });
+
+    test('a short column or large text keeps play at least 56', () {
+      expect(
+        computeLandscapeTransportSizes(columnHeight: 0, textScale: 1.0)
+            .playIconSize,
+        56.0,
+      );
+      expect(
+        computeLandscapeTransportSizes(columnHeight: 310, textScale: 2.0)
+            .playIconSize,
+        56.0,
+      );
+    });
+
+    test('skip glyphs and gaps follow the play size', () {
+      final sizes = computeLandscapeTransportSizes(
+          columnHeight: 460, textScale: 1.0);
+
+      expect(sizes.skipIconSize, closeTo(72.0 * 0.7, 0.001));
+      expect(sizes.skipSpacing, closeTo(72.0 * 0.65, 0.001));
+    });
+  });
 }
