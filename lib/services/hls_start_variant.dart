@@ -1,4 +1,3 @@
-import 'dart:async' show TimeoutException;
 import 'dart:io' show Platform;
 
 import 'package:just_audio/just_audio.dart' show PlayerException;
@@ -66,10 +65,12 @@ class HlsStartVariant {
   /// AVPlayer answers a missing playlist at once with its HTTP status
   /// ([httpStatus]). ExoPlayer ([android]) does not: it retries a playlist
   /// 404 three times, 0, 1 and 2 s apart, before failing it as a source
-  /// error (type 0, like a dropped connection), so the load times out
-  /// first. There a failed variant load falls back, unless the internet
-  /// is known to be out ([offline]): the network then explains the
-  /// failure, and `index.m3u8` would only time out again.
+  /// error (type 0, like a dropped connection), well within the Android
+  /// load timeout (`StreamFailover.hlsLoadTimeoutAndroid`, 10 s). There a
+  /// source error falls back, unless the internet is known to be out
+  /// ([offline]): the network then explains the failure, and `index.m3u8`
+  /// would only fail again. A timeout is a slow network, not a missing
+  /// variant: falling back would only wait out a second timeout.
   static bool mayBeMissing(
     Object error, {
     required bool httpStatus,
@@ -78,9 +79,7 @@ class HlsStartVariant {
   }) =>
       // A status is the origin answering, whatever the offline flag says.
       httpStatus ||
-      (android &&
-          !offline &&
-          (error is TimeoutException || error is PlayerException));
+      (android && !offline && error is PlayerException);
 
   /// What a live load still needs to play at the listening offset
   /// ([currentOffset]), when it loaded the variant starting [variantOffset]

@@ -168,17 +168,23 @@ void main() {
       }
     });
 
+    test('Android: ExoPlayer\'s 404 (a type-0 source error) falls back',
+        () {
+      expect(
+        HlsStartVariant.mayBeMissing(exoSourceError,
+            httpStatus: false, android: true, offline: false),
+        isTrue,
+      );
+    });
+
     test(
-        'Android: ExoPlayer\'s 404 (a load timeout, or a type-0 source '
-        'error) falls back', () {
-      for (final error in [timeout, exoSourceError]) {
-        expect(
-          HlsStartVariant.mayBeMissing(error,
-              httpStatus: false, android: true, offline: false),
-          isTrue,
-          reason: '$error',
-        );
-      }
+        'Android: a timeout is a slow network, not a missing variant: '
+        'no fallback that would wait out a second timeout', () {
+      expect(
+        HlsStartVariant.mayBeMissing(timeout,
+            httpStatus: false, android: true, offline: false),
+        isFalse,
+      );
     });
 
     test(

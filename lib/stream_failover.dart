@@ -21,6 +21,15 @@ class StreamFailover {
   /// retry loop has shipped with — it must not delay a healthy fast start.
   static const Duration hlsLoadTimeout = Duration(seconds: 3);
 
+  /// Cap on an HLS load on Android. ExoPlayer is ready, and the load done,
+  /// only once 1.5 s of audio is buffered (`bufferForPlaybackDuration`):
+  /// the playlist and the first segment. On mobile data in a car that
+  /// often took more than 3 s, so HLS counted as failed and the station
+  /// played its MP3 stream instead, which has no audio loaded ahead, and
+  /// every coverage gap was heard. A stream that is really down fails fast
+  /// (an HTTP error, no DNS), not by this timeout.
+  static const Duration hlsLoadTimeoutAndroid = Duration(seconds: 10);
+
   /// Hard cap on a direct/MP3 source load. Was 10s — halved because 10s of
   /// silence before advancing to the next stream reads as "stuck" to the
   /// user, and a direct stream that can't produce its first bytes in 5s
@@ -51,8 +60,10 @@ class StreamFailover {
   final Map<String, DateTime> _lastFailureAt = {};
 
   /// Timeout to apply to a single source load.
-  static Duration loadTimeout({required bool isHls}) =>
-      isHls ? hlsLoadTimeout : directLoadTimeout;
+  static Duration loadTimeout({required bool isHls, bool android = false}) {
+    if (!isHls) return directLoadTimeout;
+    return android ? hlsLoadTimeoutAndroid : hlsLoadTimeout;
+  }
 
   /// Delay to apply before attempt [retry] (0-based). Zero within a cycle
   /// (streams fail over to each other instantly); at each cycle boundary

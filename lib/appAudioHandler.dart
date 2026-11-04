@@ -3514,7 +3514,8 @@ class AppAudioHandler extends BaseAudioHandler {
     // Hard load timeout — a hanging playlist/stream request counts as
     // a failure and advances to the next stream (StreamFailover owns
     // the values so they are asserted in tests).
-    final timeout = StreamFailover.loadTimeout(isHls: isHls);
+    final timeout =
+        StreamFailover.loadTimeout(isHls: isHls, android: Platform.isAndroid);
     Future<void> loadPlayer(String uri) async {
       // Race setAudioSource against the canceller so playStation() can
       // break this await immediately instead of waiting for the timeout.

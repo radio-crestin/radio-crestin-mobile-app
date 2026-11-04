@@ -24,11 +24,22 @@ void main() {
           const Duration(seconds: 5));
     });
 
-    test('every load is bounded by at most 5s', () {
+    test('every load is bounded by at most 5s, except HLS on Android', () {
       expect(StreamFailover.hlsLoadTimeout,
           lessThanOrEqualTo(const Duration(seconds: 5)));
       expect(StreamFailover.directLoadTimeout,
           lessThanOrEqualTo(const Duration(seconds: 5)));
+    });
+
+    test('HLS on Android waits 10s: ExoPlayer is ready only with audio',
+        () {
+      expect(StreamFailover.loadTimeout(isHls: true, android: true),
+          const Duration(seconds: 10));
+    });
+
+    test('direct streams keep 5s on Android', () {
+      expect(StreamFailover.loadTimeout(isHls: false, android: true),
+          const Duration(seconds: 5));
     });
   });
 
