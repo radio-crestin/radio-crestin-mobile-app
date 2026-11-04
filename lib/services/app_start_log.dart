@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../seek_mode_manager.dart';
 import '../tv/tv_platform.dart';
 import 'analytics_service.dart';
+import 'android_renderer.dart';
 import 'hls_health_watchdog_flag.dart';
 import 'hls_hold_proxy_flag.dart';
 import 'remote_debug_controller.dart';
@@ -58,6 +59,7 @@ abstract final class AppStartLog {
     required DateTime now,
   }) {
     final remoteDebug = RemoteDebugController.instance.config;
+    final renderer = AndroidRenderer.instance;
     return {
       'app_version': appVersion,
       'build_number': buildNumber,
@@ -76,6 +78,16 @@ abstract final class AppStartLog {
       'hls_watchdog': HlsHealthWatchdogFlag.instance.enabled,
       // Only where the proxy runs (see AppAudioHandler.holdProxyPlatform).
       if (Platform.isIOS) 'hls_hold_proxy': HlsHoldProxyFlag.instance.enabled,
+      // What draws this launch: shader image filters exist under Impeller
+      // only.
+      'renderer': ui.ImageFilter.isShaderFilterSupported ? 'impeller' : 'skia',
+      // On Android, what the launch asked the engine for (Skia, from the
+      // android-stable-renderer flag or Settings, or Flutter's default),
+      // and the Settings choice behind it.
+      if (renderer.supported) ...{
+        'renderer_requested': renderer.launchUsesSkia ? 'skia' : 'default',
+        'renderer_choice': renderer.choice.name,
+      },
       'remote_debug': remoteDebug.enabled,
       if (remoteDebug.enabled) ...{
         'remote_verbose_logs': remoteDebug.verboseLogs,

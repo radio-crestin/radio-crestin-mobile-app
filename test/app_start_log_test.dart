@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:radio_crestin/seek_mode_manager.dart';
 import 'package:radio_crestin/services/analytics_service.dart';
+import 'package:radio_crestin/services/android_renderer.dart';
 import 'package:radio_crestin/services/app_start_log.dart';
 import 'package:radio_crestin/services/remote_debug_controller.dart';
 
@@ -81,6 +82,26 @@ void main() {
     expect(on['remote_debug'], isTrue);
     expect(on['remote_verbose_logs'], isTrue);
     expect(on['remote_upload_logs'], isFalse);
+  });
+
+  test('names the renderer, and on Android what the launch asked for',
+      () async {
+    final elsewhere = await attributesWith({});
+    expect(elsewhere['renderer'], anyOf('impeller', 'skia'));
+    expect(elsewhere.containsKey('renderer_requested'), isFalse);
+
+    SharedPreferences.setMockInitialValues({
+      AndroidRenderer.useSkiaKey: true,
+      'android_renderer_choice': 'skia',
+    });
+    final android = AndroidRenderer(supported: true);
+    await android.loadCache(await SharedPreferences.getInstance());
+    AndroidRenderer.debugInstance = android;
+    addTearDown(() => AndroidRenderer.debugInstance = AndroidRenderer());
+
+    final onAndroid = await attributesWith({});
+    expect(onAndroid['renderer_requested'], 'skia');
+    expect(onAndroid['renderer_choice'], 'skia');
   });
 
   test('never carries the device id', () async {
