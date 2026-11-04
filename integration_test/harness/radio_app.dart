@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
 import 'package:path_provider/path_provider.dart';
@@ -242,6 +243,42 @@ class RadioApp {
     return at;
   }
 
+  /// Presses the system BACK button: the top route pops or, on the home
+  /// screen, Android takes the app off the screen.
+  Future<DateTime> pressBack() async {
+    final at = DateTime.now();
+    await tester.binding.handlePopRoute();
+    await _waitInRealTime(() => !_onScreen,
+        reason: 'the app to leave the screen');
+    return at;
+  }
+
+  /// Whether the app is on the screen, waiting in the background (paused)
+  /// or closed (detached).
+  AppLifecycleState? get lifecycle => WidgetsBinding.instance.lifecycleState;
+
+  /// The app is on the screen and draws frames. Off the screen it draws
+  /// none, so waiting must not pump. Not read from [lifecycle], which the
+  /// test framework clears after each test.
+  bool get _onScreen => SchedulerBinding.instance.framesEnabled;
+
+  /// Waits for [condition] without drawing frames, as a pump would never
+  /// return while the app changes between on and off the screen.
+  Future<void> _waitInRealTime(
+    bool Function() condition, {
+    required String reason,
+    Duration timeout = const Duration(seconds: 10),
+  }) async {
+    final end = DateTime.now().add(timeout);
+    while (!condition()) {
+      if (DateTime.now().isAfter(end)) {
+        fail('Timed out after ${timeout.inSeconds}s waiting for $reason; '
+            'lifecycle=${lifecycle?.name}');
+      }
+      await Future<void>.delayed(_tickInterval);
+    }
+  }
+
   // ── What the listener hears and sees ───────────────────────────────────
 
   /// The station the player has, as the fake server knows it.
@@ -361,13 +398,20 @@ class RadioApp {
 
   // ── Time ───────────────────────────────────────────────────────────────
 
-  /// Lets [duration] of real time pass, drawing frames.
+  /// Lets [duration] of real time pass, drawing frames while the app is on
+  /// the screen.
   Future<void> pumpFor(Duration duration) async {
     final end = DateTime.now().add(duration);
     while (DateTime.now().isBefore(end)) {
-      await tester.pump(const Duration(milliseconds: 200));
+      await _tick();
     }
   }
+
+  static const _tickInterval = Duration(milliseconds: 200);
+
+  Future<void> _tick() => _onScreen
+      ? tester.pump(_tickInterval)
+      : Future<void>.delayed(_tickInterval);
 
   /// Draws frames until [condition] holds, failing after [timeout].
   Future<void> waitFor(
@@ -381,7 +425,7 @@ class RadioApp {
         fail('Timed out after ${timeout.inSeconds}s waiting for $reason; '
             '${describe()}');
       }
-      await tester.pump(const Duration(milliseconds: 200));
+      await _tick();
     }
   }
 
@@ -418,8 +462,9 @@ void e2eTest(
   Future<void> Function(RadioApp app) body, {
   required FakeRadioServer Function() server,
   Timeout timeout = const Timeout(Duration(minutes: 3)),
+  bool skip = false,
 }) {
-  testWidgets(description, (tester) async {
+  testWidgets(skip: skip, description, (tester) async {
     RadioApp.captureBindingErrorHandler();
     final app = await RadioApp.open(tester, server());
     try {

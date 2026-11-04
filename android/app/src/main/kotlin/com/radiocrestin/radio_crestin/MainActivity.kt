@@ -155,6 +155,16 @@ class MainActivity : AudioServiceActivity() {
         Runtime.getRuntime().exit(0)
     }
 
+    // BACK on the last screen leaves the app the way Android 12+ leaves a
+    // launcher app: to the background, still running. Flutter's default
+    // finishes the activity, which tears down the Flutter view and, with it,
+    // the radio (Home stops audio once detached). On TV, BACK still exits.
+    override fun popSystemNavigator(): Boolean {
+        if (isRunningOnTv()) return false
+        moveTaskToBack(true)
+        return true
+    }
+
     override fun onDestroy() {
         tvChannelScope.cancel()
         super.onDestroy()

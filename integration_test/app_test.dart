@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 
@@ -22,8 +25,12 @@ void main() {
   });
   tearDownAll(() => server.close());
 
-  void test(String description, Future<void> Function(RadioApp app) body) =>
-      e2eTest(description, body, server: () => server);
+  void test(
+    String description,
+    Future<void> Function(RadioApp app) body, {
+    bool skip = false,
+  }) =>
+      e2eTest(description, body, server: () => server, skip: skip);
 
   group('Start', () {
     test('shows every station, even when the API answers slowly',
@@ -194,6 +201,24 @@ void main() {
         origins: [Origin.api, Origin.images],
       );
       await app.expectAudioAdvances(const Duration(seconds: 30));
+    });
+  });
+
+  // Last: it leaves the app in the background, where the tests above could
+  // not drive it. Android doesn't let an app bring itself back.
+  group('Leaving the app', () {
+    test('BACK on Home leaves the station playing in the background',
+        skip: !Platform.isAndroid, (app) async {
+      await app.expectPlaying(Stations.alpha,
+          since: await app.tapStation(Stations.alpha));
+
+      final leftAt = await app.pressBack();
+      await app.expectAudioAdvances(const Duration(seconds: 8));
+      expect(server.mediaBytesSent(Stations.alpha, since: leftAt),
+          greaterThan(0),
+          reason: 'the stream kept coming in the background');
+      expect(app.lifecycle, AppLifecycleState.paused,
+          reason: 'the app waits in the background, not closed');
     });
   });
 }
