@@ -38,6 +38,7 @@ import 'package:flutter_chrome_cast/flutter_chrome_cast.dart'
 import 'services/tv_channel_service.dart';
 import 'package:flutter_airplay/flutter_airplay.dart' as flutter_airplay;
 import 'services/analytics_service.dart';
+import 'services/android_renderer.dart';
 import 'services/app_start_log.dart';
 import 'services/desktop_menu_service.dart';
 import 'services/default_settings.dart';
@@ -346,6 +347,7 @@ void main() async {
   SessionReplayController.instance.loadCache(prefs);
   await HlsHealthWatchdogFlag.instance.loadCache(prefs);
   await HlsHoldProxyFlag.instance.loadCache(prefs);
+  await AndroidRenderer.instance.loadCache(prefs);
 
   // Developer mode (Settings hidden gesture) ships debug-level logs.
   AnalyticsService.instance
@@ -367,6 +369,7 @@ void main() async {
       unawaited(RemoteDebugController.instance.onFlagsLoaded());
       unawaited(HlsHealthWatchdogFlag.instance.onFlagsLoaded());
       unawaited(HlsHoldProxyFlag.instance.onFlagsLoaded());
+      unawaited(AndroidRenderer.instance.onFlagsLoaded());
       unawaited(_applyDefaultSettings());
     },
     appVersion: packageInfo.version,
