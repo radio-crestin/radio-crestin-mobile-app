@@ -124,13 +124,22 @@ Always upload to Play's internal testing track through Play Console in Chrome
 
 1. `make release-android-aab` builds `dist/radio-crestin-android.aab` from the
    committed version.
-2. Open the internal testing track in Chrome:
-   https://play.google.com/console/u/0/developers/8868187498740609824/app/4976094058297658387/tracks/internal-testing
-3. **Create new release**, upload the AAB under **App bundles**, and check the
-   version it shows matches `pubspec.yaml`.
-4. Paste the release notes (en-US, from `release-notes/vX.Y.Z.md`, short), then
-   **Next** → **Save and publish**. Internal testing reaches only the testers'
-   list, so it needs no review.
+2. Open the internal testing track in Chrome, as iosifnicolae2@gmail.com (the
+   Google account that owns the Radio Crestin developer account; the `u/N` in
+   the URL is that account's position in Chrome's account list):
+   https://play.google.com/console/u/2/developers/8868187498740609824/app/4976094058297658387/tracks/internal-testing
+3. **Create new release** (or **Edit release** on a draft already there), and
+   check the version Play shows for the AAB matches `pubspec.yaml`. The AAB
+   (~90 MB) is over Claude in Chrome's 10 MB upload limit, so Claude shows it
+   in Finder (`open -R dist/radio-crestin-android.aab`) and the user drags it
+   onto **App bundles**; Claude does the rest.
+4. Fill **Release notes** inside the `<ro>` tags: the app's default language on
+   Play is Romanian, so Codex writes them (`codex exec`) from
+   `release-notes/vX.Y.Z.md`, a few short lines, under 500 characters. Leave
+   earlier versions under **Previous release** not included.
+5. **Next**, check the review shows "Ready to release" with no device losing
+   support, then **Save and publish** and confirm. Internal testing reaches
+   only the testers' list, so it needs no review.
 
 **1Password items needed** (all in vault `radio-crestin-app`, secure note with
 the value pasted into the `notesPlain` field):
