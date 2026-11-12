@@ -44,6 +44,14 @@
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
               />
+            <!-- The app opens its links itself (app_links). Flutter's own deep
+                 linking, on by default since Flutter 3.27, pushed each link's
+                 path as a named route the app doesn't have, and the Navigator
+                 threw "Null check operator used on a null value" in
+                 _onUnknownRoute. iOS turns it off in Info.plist. -->
+            <meta-data
+              android:name="flutter_deeplinking_enabled"
+              android:value="false" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
