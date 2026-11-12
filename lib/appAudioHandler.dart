@@ -3549,9 +3549,11 @@ class AppAudioHandler extends BaseAudioHandler {
       _awaitingAudioStart = true;
       _audioStartRequestedAt = null;
     }
+    // iOS only: elsewhere a play's errors reach the playback event stream,
+    // whose reconnect logic must keep the station wanted, not pause it.
     final playback = player.play().catchError(
       _onAudioSessionRefused,
-      test: (e) => e is PlatformException,
+      test: (e) => Platform.isIOS && e is PlatformException,
     );
     // Taken after play(): the event it emits itself predates the play.
     if (awaitsStart) _audioStartRequestedAt = DateTime.now();
