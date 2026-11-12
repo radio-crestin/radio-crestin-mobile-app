@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -131,7 +132,7 @@ class _AnnouncementFormSheetState extends State<AnnouncementFormSheet> {
     final sameOrigin = uri.scheme == origin.scheme &&
         uri.host == origin.host &&
         uri.port == origin.port;
-    if (sameOrigin && (uri.scheme == 'https' || _isLocalTest(uri))) {
+    if (sameOrigin && (uri.scheme == 'https' || _isLocalDevApi(uri))) {
       return NavigationDecision.navigate;
     }
     if (AnnouncementActions.safeLink(request.url) != null) {
@@ -141,9 +142,13 @@ class _AnnouncementFormSheetState extends State<AnnouncementFormSheet> {
     return NavigationDecision.prevent;
   }
 
-  /// The e2e tests' fake API, served over http on the device's loopback.
-  static bool _isLocalTest(Uri uri) =>
-      uri.scheme == 'http' && uri.host == '127.0.0.1';
+  /// A debug build's API on this computer (the e2e tests' fake API, a
+  /// local backend), served over http on the loopback. Debug builds only:
+  /// profile and release builds keep only https.
+  static bool _isLocalDevApi(Uri uri) =>
+      kDebugMode &&
+      uri.scheme == 'http' &&
+      const {'127.0.0.1', 'localhost', '10.0.2.2'}.contains(uri.host);
 
   void _onMessage(String raw) {
     final Object? message;
