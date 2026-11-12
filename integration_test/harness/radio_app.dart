@@ -299,14 +299,17 @@ class RadioApp {
     Duration within = const Duration(seconds: 20),
     Duration listenFor = const Duration(seconds: 5),
   }) async {
+    // Its stream fetched since [since] too: the player can still be
+    // playing what it buffered before (an outage drains it), and its
+    // position starts over once the new load replaces it.
     await waitFor(
-      () => _isPlaying(station),
-      reason: '${station.title} to play',
+      () =>
+          _isPlaying(station) &&
+          server.mediaBytesSent(station, since: since) > 0,
+      reason: '${station.title} to play from its stream',
       timeout: within,
     );
     await expectAudioAdvances(listenFor);
-    expect(server.mediaBytesSent(station, since: since), greaterThan(0),
-        reason: 'the audio of ${station.title} came from its stream');
     expect(
       find.descendant(of: _miniPlayer, matching: find.text(station.title)),
       findsWidgets,
