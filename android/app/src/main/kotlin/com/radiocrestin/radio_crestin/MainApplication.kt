@@ -1,6 +1,9 @@
 package com.radiocrestin.radio_crestin
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.Context
+import android.os.Build
 import android.util.Log
 import io.flutter.FlutterInjector
 import io.flutter.app.FlutterApplication
@@ -23,6 +26,29 @@ class MainApplication : FlutterApplication() {
     override fun onCreate() {
         super.onCreate()
         if (stableRendererRequested()) startFlutterWithSkia()
+        createAnnouncementsChannel()
+    }
+
+    /**
+     * The channel the backend's announcement pushes name
+     * (`android.notification.channel_id = announcements`); without it,
+     * Android files them under FCM's "Miscellaneous".
+     */
+    private fun createAnnouncementsChannel() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        try {
+            val channel = NotificationChannel(
+                ANNOUNCEMENTS_CHANNEL_ID,
+                getString(R.string.announcements_channel_name),
+                NotificationManager.IMPORTANCE_DEFAULT,
+            ).apply {
+                description = getString(R.string.announcements_channel_description)
+            }
+            getSystemService(NotificationManager::class.java)
+                ?.createNotificationChannel(channel)
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not create the announcements channel", e)
+        }
     }
 
     private fun stableRendererRequested(): Boolean = try {
@@ -48,6 +74,9 @@ class MainApplication : FlutterApplication() {
 
     private companion object {
         const val TAG = "RadioCrestinRenderer"
+
+        /** The announcements spec's Android channel. */
+        const val ANNOUNCEMENTS_CHANNEL_ID = "announcements"
 
         /** The file the shared_preferences plugin's legacy API writes. */
         const val FLUTTER_PREFERENCES = "FlutterSharedPreferences"
