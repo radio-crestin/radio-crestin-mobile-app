@@ -1927,6 +1927,13 @@ class _AnnouncementSlot extends StatelessWidget {
                 key: const ValueKey('announcements'),
                 items: promo.announcements.items,
                 service: service,
+                // As wide as the station cards under it.
+                margin: const EdgeInsets.fromLTRB(
+                  StationsList.cardSideInset,
+                  12,
+                  StationsList.cardSideInset,
+                  4,
+                ),
               )
             : const SizedBox(
                 key: ValueKey('no-announcements'),

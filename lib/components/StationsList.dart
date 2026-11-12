@@ -87,9 +87,13 @@ class StationsList extends StatelessWidget {
 
   static const double _cardMargin = 4;
 
+  /// How far a row's card sits from the list's sides; the announcement
+  /// card above the list lines up with it.
+  static const double cardSideInset = 6;
+
   /// Around a row's card, within its slot.
-  static const EdgeInsets _cardInset =
-      EdgeInsets.symmetric(vertical: _cardMargin, horizontal: 6);
+  static const EdgeInsets _cardInset = EdgeInsets.symmetric(
+      vertical: _cardMargin, horizontal: cardSideInset);
 
   static const double _cardBorder = 1.5;
   static const double _thumbnailSize = 70;
