@@ -19,6 +19,7 @@ class AnnouncementFixtures {
   static const formButton = 'Vote now';
   static const webOnlySlug = 'e2e-web-only';
   static const webOnlyTitle = 'Only on the website';
+  static const newestTitle = 'Just published';
 
   /// A WhatsApp invitation with an external link, for phones and tablets
   /// from 1.0.0.
@@ -186,6 +187,14 @@ Or open it [on YouTube](https://www.youtube.com/watch?v=dQw4w9WgXcQ) yourself.
           'icon': 'auto',
           'action': {'type': 'external', 'url': 'https://example.com/news'},
         },
+      };
+
+  /// Published after the others, first in the list.
+  static Map<String, Object?> newest() => {
+        ...verse(),
+        'slug': 'e2e-newest',
+        'title': newestTitle,
+        'priority': 30,
       };
 
   /// For the website only: a phone never shows it.

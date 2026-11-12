@@ -255,8 +255,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     });
 
     _listenToStatusSnackbarSources();
-    // The card shows from the kept list in the first frame, so it never
-    // appears late and pushes the stations down.
+    // The card is ready before the first frame (loaded with the stations at
+    // startup), so it shows with them instead of pushing them down later.
     final announcements = _announcements.announcements.value;
     if (announcements.items.isNotEmpty) {
       _homePromo = AnnouncementPromo(announcements);
@@ -305,7 +305,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     // Defer non-critical work to after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(_announcements.refresh());
       AnnouncementPush.attach(_announcements);
       _loadHomePromo();
       _loadShareLinkData();
@@ -502,8 +501,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     try {
       await Future.wait([
         _stationDataService.refreshStations(),
-        // The listener asked for news: new announcements show at once.
-        _announcements.refresh(showChanges: true),
+        _announcements.refresh(),
         _loadHomePromo(),
         _loadShareLinkData(),
       ]).timeout(const Duration(seconds: 3));

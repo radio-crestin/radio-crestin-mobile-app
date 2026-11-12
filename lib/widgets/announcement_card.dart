@@ -23,8 +23,9 @@ import 'inline_markdown.dart';
 /// color. Tapping the card anywhere runs its main button.
 ///
 /// The card is as tall as the announcement it shows. Its height changes
-/// only after the listener's own swipe, dot tap or "Ascunde", and then
-/// eases over [_resizeDuration]; on the first frame it is already right.
+/// only after the listener's own swipe, arrow tap or "Ascunde", or a
+/// refresh that changed the list, and then eases over [_resizeDuration];
+/// on the first frame it is already right.
 class AnnouncementCard extends StatefulWidget {
   const AnnouncementCard({
     super.key,
@@ -58,14 +59,19 @@ class _AnnouncementCardState extends State<AnnouncementCard> {
   @override
   void didUpdateWidget(AnnouncementCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final oldSlugs = oldWidget.items.map((item) => item.slug).join('\n');
-    if (oldSlugs == _items.map((item) => item.slug).join('\n')) return;
-    // One was closed: the next one takes its place.
+    final old = oldWidget.items;
+    if (identical(old, _items) || _items.isEmpty) return;
+    // A refresh or a close: the height eases to the new content.
     _resizeAnimates = true;
-    if (_index >= _items.length && _items.isNotEmpty) {
-      _index = _items.length - 1;
-      if (_pages.hasClients) _pages.jumpToPage(_index);
-    }
+    // The announcement on screen stays on screen; a closed one gives its
+    // place to the next.
+    final shownSlug =
+        old.isEmpty ? null : old[_index.clamp(0, old.length - 1)].slug;
+    final kept = _items.indexWhere((item) => item.slug == shownSlug);
+    final target = kept >= 0 ? kept : _index.clamp(0, _items.length - 1);
+    if (target == _index) return;
+    _index = target;
+    if (_pages.hasClients) _pages.jumpToPage(target);
   }
 
   @override

@@ -340,11 +340,12 @@ Future<void> runRadioCrestin([
   getIt.registerSingleton<PlayCountService>(playCountService);
 
   // The announcement card on the phone and tablet home, and its pushes.
-  getIt.registerSingleton<AnnouncementsService>(AnnouncementsService(
+  final announcementsService = AnnouncementsService(
     prefs: prefs,
     client: apiHttpClient,
     pushEnabled: options.registersForPush,
-  ));
+  );
+  getIt.registerSingleton<AnnouncementsService>(announcementsService);
 
   final songLikeService = await songLikeFuture;
   getIt.registerSingleton<SongLikeService>(songLikeService);
@@ -370,7 +371,15 @@ Future<void> runRadioCrestin([
 
   // StationDataService init runs in parallel with audio (thumbnail pre-caching
   // depends on ImageCacheService which is already initialized).
-  await PerformanceMonitor.trackAsync('station_data_init', () => stationDataService.initialize());
+  // The announcements load alongside the stations, so the home screen's
+  // first frame has their card; their filters need the app version.
+  globals.appVersion = (await packageInfoFuture).version;
+  await Future.wait([
+    PerformanceMonitor.trackAsync(
+        'station_data_init', () => stationDataService.initialize()),
+    PerformanceMonitor.trackAsync(
+        'announcements_init', () => announcementsService.loadAtStartup()),
+  ]);
 
   // Now await Firebase (likely already done since audio init takes longer)
   await firebaseInitFuture;

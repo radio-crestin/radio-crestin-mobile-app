@@ -267,18 +267,22 @@ void main() {
     }
 
     announcementTest(
-        'a new announcement waits for the next launch, then shows at once',
+        'a first launch has the card in its first home frame, with the '
+        'stations', (app) async {
+      // A healthy API, even when this test is the run's first, slow one.
+      server.conditions.restore();
+      server.announcements.add(AnnouncementFixtures.verse());
+      // No list kept on the device: the launch asks the API.
+      await app.coldStartAnnouncements();
+      expect(app.cardInFirstHomeFrame, isTrue,
+          reason: 'the card is there from the first frame; ${app.describe()}');
+      expect(app.showsText(AnnouncementFixtures.verseTitle), isTrue);
+    });
+
+    announcementTest('a cold start has the kept card in its first home frame',
         (app) async {
       server.announcements.add(AnnouncementFixtures.verse());
-      await app.relaunch();
-      await app.waitFor(
-          () => server.requests.any(
-              (r) => r.path == '/api/v1/announcements/' && r.bytesSent > 0),
-          reason: 'the list to be fetched in the background');
-      await app.pumpFor(const Duration(seconds: 2));
-      expect(RadioApp.announcementCard, findsNothing,
-          reason: 'nothing pops in above the stations while they show');
-
+      await app.coldStartAnnouncements();
       // The API is down at the next launch: the card can only come from
       // the list the device kept.
       server.conditions.set(
@@ -286,8 +290,36 @@ void main() {
         origins: [Origin.api],
       );
       await app.coldStartAnnouncements();
-      expect(app.showsText(AnnouncementFixtures.verseTitle), isTrue,
+      expect(app.cardInFirstHomeFrame, isTrue,
           reason: 'the kept list shows in the first frame; ${app.describe()}');
+      expect(app.showsText(AnnouncementFixtures.verseTitle), isTrue);
+    });
+
+    announcementTest(
+        'a list slower than the stations still shows in the same launch',
+        (app) async {
+      server
+        ..announcements.add(AnnouncementFixtures.verse())
+        ..announcementListDelay = const Duration(seconds: 3);
+      await app.coldStartAnnouncements();
+      expect(app.cardInFirstHomeFrame, isFalse,
+          reason: 'the stations did not wait for a slow list');
+      await app.waitFor(() => app.showsText(AnnouncementFixtures.verseTitle),
+          reason: 'the card to grow in when the list arrives');
+    });
+
+    announcementTest(
+        'a refresh keeps the announcement on screen where it is', (app) async {
+      await showAnnouncements(app);
+      await app.swipeAnnouncement();
+      await app.waitFor(() => app.showsText(AnnouncementFixtures.concertTitle),
+          reason: 'the second announcement');
+      server.announcements.insert(0, AnnouncementFixtures.newest());
+      await app.pullToRefresh();
+      await app.waitFor(() => app.showsText('3 din 3'),
+          reason: 'the new announcement counted; ${app.describe()}');
+      expect(app.showsText(AnnouncementFixtures.concertTitle), isTrue,
+          reason: 'the card still shows the announcement it showed');
     });
 
     announcementTest(

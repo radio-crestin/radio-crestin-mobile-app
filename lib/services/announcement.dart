@@ -348,18 +348,6 @@ class Announcement {
       (startsAt == null || !startsAt!.isAfter(now)) &&
       (endsAt == null || endsAt!.isAfter(now));
 
-  /// What decides the card's height: the same signature means an update
-  /// can apply while the card is on screen without moving anything.
-  String get layoutSignature => [
-        title,
-        bodyMarkdown,
-        category.name,
-        iconUrl != null,
-        button?.isVisible == true ? button!.label : '',
-        button?.style.name,
-        dismissible,
-      ].join('\u0000');
-
   /// Parses one item, or null when it lacks a slug or a title.
   static Announcement? fromJson(Object? json) {
     if (json is! Map) return null;

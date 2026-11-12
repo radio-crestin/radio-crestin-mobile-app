@@ -52,12 +52,11 @@ class AnnouncementList {
 /// remembers about them, and reports what the listener does with them.
 ///
 /// The list is the same for everyone (Cloudflare caches it); this service
-/// keeps the last one, shows the home card from it at once on a cold
-/// start, refreshes it in the background with `If-None-Match`, and checks
-/// each announcement's filters on the device. So that the card never
-/// appears, vanishes or changes height under the listener's finger, new
-/// and removed announcements wait for the next cold start, a resume after
-/// [_staleAfter] in the background, or a pull-to-refresh.
+/// keeps the last one and has the home card ready for the first frame:
+/// from the kept list, or on a first launch from the API if it answers
+/// within [startupWait]. It checks each announcement's filters on the
+/// device. Every refresh shows the list as it is: the card grows in or
+/// shrinks away smoothly, and the announcement on screen stays there.
 class AnnouncementsService with WidgetsBindingObserver {
   AnnouncementsService({
     required SharedPreferences prefs,
@@ -91,11 +90,10 @@ class AnnouncementsService with WidgetsBindingObserver {
       BehaviorSubject.seeded(_store.seen);
 
   _Feed _feed = _Feed.empty;
-  DateTime? _backgroundedAt;
 
-  /// A resume after this long in the background shows new and removed
-  /// announcements, as a cold start does.
-  static const _staleAfter = Duration(minutes: 30);
+  /// The longest a launch without a kept list waits for the API before
+  /// the home screen shows; a later answer still shows this launch.
+  static const startupWait = Duration(milliseconds: 1500);
 
   /// The events not sent yet.
   final List<Map<String, Object?>> _queue = [];
@@ -135,34 +133,30 @@ class AnnouncementsService with WidgetsBindingObserver {
 
   // ── Loading ────────────────────────────────────────────────────────────
 
-  /// Fetches the list in the background and keeps it for the next launch.
-  ///
-  /// With [showChanges] (pull-to-refresh, a long resume, a preview) new and
-  /// removed announcements show at once; otherwise only changes that keep
-  /// every card's height apply now.
-  Future<void> refresh({bool showChanges = false}) {
-    _showChangesAfterRefresh |= showChanges;
-    return _inFlight ??= _refresh().whenComplete(() => _inFlight = null);
+  /// Readies the home card before the app's first frame, alongside the
+  /// stations: the kept list shows at once while the API is asked; with no
+  /// kept list (a first launch, a preview) the API gets up to [wait].
+  Future<void> loadAtStartup({Duration wait = startupWait}) async {
+    // The app version is known now; the filters need it.
+    _publishAll();
+    final fetching = refresh();
+    if (_store.feed != null && _store.previewToken == null) return;
+    await fetching.timeout(wait, onTimeout: () {});
   }
 
-  Future<void>? _inFlight;
+  /// Fetches the list, keeps it for the next launch and shows it.
+  Future<void> refresh() =>
+      _inFlight ??= _refresh().whenComplete(() => _inFlight = null);
 
-  /// Whether a refresh asked for while another ran wants new and removed
-  /// announcements shown (a pull-to-refresh during the startup refresh).
-  bool _showChangesAfterRefresh = false;
+  Future<void>? _inFlight;
 
   Future<void> _refresh() async {
     final preview = _store.previewToken;
     final fetched =
         preview == null ? await _fetchCached() : await _fetchPreview(preview);
-    if (fetched != null) _feed = fetched;
-    final showChanges = _showChangesAfterRefresh || preview != null;
-    _showChangesAfterRefresh = false;
-    if (showChanges) {
-      _publishAll();
-    } else if (fetched != null) {
-      _publishContentChanges();
-    }
+    if (fetched == null) return;
+    _feed = fetched;
+    _publishAll();
   }
 
   /// The list from Cloudflare's cache (the kept one when unchanged, 304),
@@ -216,7 +210,7 @@ class AnnouncementsService with WidgetsBindingObserver {
     await _store.savePreviewToken(token);
     _details.clear();
     _rotationStartSlug = null;
-    await refresh(showChanges: true);
+    await refresh();
   }
 
   /// One announcement with its page's markdown (a page, a push tap), or
@@ -264,6 +258,8 @@ class AnnouncementsService with WidgetsBindingObserver {
   // ── What shows ─────────────────────────────────────────────────────────
 
   /// Shows the feed as it is now: new and removed announcements included.
+  /// The order keeps this launch's first announcement first, so the card
+  /// on screen does not change under the listener.
   void _publishAll() {
     final now = DateTime.now();
     final home = _feed.items
@@ -273,23 +269,6 @@ class AnnouncementsService with WidgetsBindingObserver {
         .toList();
     announcements.add(AnnouncementList(_ordered(home), _feed.settings));
     _publishStations(now);
-  }
-
-  /// Updates the cards on screen whose height cannot change; anything else
-  /// waits for the next cold start or long resume.
-  void _publishContentChanges() {
-    final fresh = {for (final item in _feed.items) item.slug: item};
-    final shown = announcements.value;
-    final updated = [
-      for (final item in shown.items)
-        if (fresh[item.slug] case final next?
-            when next.layoutSignature == item.layoutSignature)
-          next
-        else
-          item,
-    ];
-    announcements.add(AnnouncementList(updated, shown.settings));
-    _publishStations(DateTime.now());
   }
 
   /// Station announcements sit in a sheet, not in the page's flow: they
@@ -317,7 +296,11 @@ class AnnouncementsService with WidgetsBindingObserver {
         ) &&
         !_store.dismissed.contains(item.slug) &&
         !_hiddenThisLaunch.contains(item.slug) &&
-        (max == null || max <= 0 || _store.impressions(item.slug) < max);
+        // Seen this launch: its last allowed impression stays on screen.
+        (max == null ||
+            max <= 0 ||
+            _seenThisLaunch.contains(item.slug) ||
+            _store.impressions(item.slug) < max);
   }
 
   /// Puts the item this launch starts with first, as the rotation mode
@@ -477,18 +460,18 @@ class AnnouncementsService with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     switch (state) {
       case AppLifecycleState.paused:
-        _backgroundedAt ??= DateTime.now();
+        _wasBackgrounded = true;
         unawaited(flush());
       case AppLifecycleState.resumed:
-        final away = _backgroundedAt;
-        _backgroundedAt = null;
-        if (away == null) return;
-        final stale = DateTime.now().difference(away) > _staleAfter;
-        unawaited(refresh(showChanges: stale));
+        if (!_wasBackgrounded) return;
+        _wasBackgrounded = false;
+        unawaited(refresh());
       default:
         break;
     }
   }
+
+  bool _wasBackgrounded = false;
 
   /// Stops listening to the app's lifecycle (a test's simulated restart).
   void dispose() => WidgetsBinding.instance.removeObserver(this);

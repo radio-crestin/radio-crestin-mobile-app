@@ -73,8 +73,28 @@ class RadioApp {
   Future<void> relaunch() async {
     runApp(const SizedBox.shrink());
     await tester.pump();
+    _watchFirstHomeFrame();
     runApp(const RadioCrestinApp(promptsForUpdates: false));
     await _waitForStationList();
+  }
+
+  /// Whether the first frame with the station list, at the last relaunch,
+  /// already had the announcement card, settled: not growing or fading in.
+  bool? cardInFirstHomeFrame;
+
+  void _watchFirstHomeFrame() {
+    cardInFirstHomeFrame = null;
+    void check(Duration _) {
+      if (find.byKey(_rowKey(Stations.alpha)).evaluate().isEmpty) {
+        SchedulerBinding.instance.addPostFrameCallback(check);
+        return;
+      }
+      cardInFirstHomeFrame = announcementCard.evaluate().isNotEmpty &&
+          // The empty slot is still there while the card switches in.
+          find.byKey(const ValueKey('no-announcements')).evaluate().isEmpty;
+    }
+
+    SchedulerBinding.instance.addPostFrameCallback(check);
   }
 
   Future<void> _waitForStationList() => waitFor(
@@ -319,16 +339,18 @@ class RadioApp {
   }
 
   /// A cold start as far as announcements go: the service starts again
-  /// from what it kept on the device, and Home is built anew. The rest of
-  /// the app (audio, stations) runs on.
+  /// from what it kept on the device and loads as the app's startup does,
+  /// and Home is built anew. The rest of the app (audio, stations) runs on.
   Future<void> coldStartAnnouncements() async {
     final getIt = GetIt.instance;
     getIt<AnnouncementsService>().dispose();
     await getIt.unregister<AnnouncementsService>();
-    getIt.registerSingleton<AnnouncementsService>(AnnouncementsService(
+    final service = AnnouncementsService(
       prefs: await SharedPreferences.getInstance(),
       pushEnabled: false,
-    ));
+    );
+    getIt.registerSingleton<AnnouncementsService>(service);
+    await service.loadAtStartup();
     await relaunch();
   }
 

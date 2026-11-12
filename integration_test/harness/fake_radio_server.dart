@@ -58,6 +58,10 @@ class FakeRadioServer {
   /// The list's `settings`.
   Map<String, Object?> announcementSettings = defaultAnnouncementSettings;
 
+  /// How long `GET /announcements/` takes to answer; the rest of the API
+  /// stays fast.
+  Duration announcementListDelay = Duration.zero;
+
   static const defaultAnnouncementSettings = {
     'rotation_mode': 'fixed',
     'max_per_load': 5,
@@ -101,6 +105,7 @@ class FakeRadioServer {
     announcements.clear();
     announcementEvents.clear();
     announcementSettings = defaultAnnouncementSettings;
+    announcementListDelay = Duration.zero;
     forms.clear();
     for (final stream in _hls.values) {
       stream.unfreeze();
@@ -230,7 +235,8 @@ class FakeRadioServer {
 
   /// The list as the API caches it: no page markdown (it comes with the
   /// single announcement), an ETag, and 304 when the app has it already.
-  Future<void> _announcementList(_Connection connection) {
+  Future<void> _announcementList(_Connection connection) async {
+    await Future<void>.delayed(announcementListDelay);
     final body = utf8.encode(jsonEncode({
       'settings': announcementSettings,
       'announcements': [
