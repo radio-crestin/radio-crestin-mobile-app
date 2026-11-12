@@ -367,7 +367,10 @@ class _Slide extends StatelessWidget {
           onTap: hasPrimary ? () => _runPrimary(ClickTarget.card) : null,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(14, iconRowTop, 16, 16),
+            // As tall as its content wherever it sits: the push banner gives
+            // it the whole screen.
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _IconRow(item: item, position: position, count: count),

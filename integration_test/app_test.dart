@@ -5,7 +5,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:radio_crestin/appAudioHandler.dart';
 
+import 'package:get_it/get_it.dart';
+import 'package:radio_crestin/services/announcement.dart';
+import 'package:radio_crestin/services/announcements_service.dart';
 import 'package:radio_crestin/theme.dart';
+import 'package:radio_crestin/widgets/announcement_banner.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'harness/announcement_fixtures.dart';
@@ -363,6 +367,27 @@ void main() {
       expect(fillOf(AnnouncementFixtures.uncoloredCategory, Container),
           miniPlayer,
           reason: "the tag takes the mini player's color");
+    });
+
+    announcementTest(
+        'a push while the app is open slides down a card as tall as its '
+        'content', (app) async {
+      // What a push in the foreground does once it has the announcement
+      // (FCM can't reach the simulator).
+      AnnouncementBanner.show(
+        Announcement.fromJson(AnnouncementFixtures.concert())!,
+        GetIt.instance<AnnouncementsService>(),
+      );
+      final card = find.byKey(const ValueKey(
+          'announcement-static-${AnnouncementFixtures.concertSlug}'));
+      await app.waitFor(() => card.hitTestable().evaluate().isNotEmpty,
+          reason: 'the banner to slide down');
+      final height = app.tester.getSize(card).height;
+      expect(height, lessThan(260),
+          reason: 'the banner is as tall as its card, not the screen');
+      await app.tapDismiss();
+      await app.waitFor(() => card.evaluate().isEmpty,
+          reason: 'the banner to go after "Ascunde"');
     });
 
     announcementTest('a launch forgets what the removed "later" button kept',
