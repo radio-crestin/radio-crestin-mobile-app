@@ -5,6 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:radio_crestin/appAudioHandler.dart';
 
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'harness/announcement_fixtures.dart';
 import 'harness/fake_radio_server.dart';
 import 'harness/network_conditions.dart';
 import 'harness/radio_app.dart';
@@ -223,6 +226,83 @@ void main() {
         origins: [Origin.api, Origin.images],
       );
       await app.expectAudioAdvances(const Duration(seconds: 30));
+    });
+  });
+
+  group('Announcements', () {
+    /// Serves the two fixtures and launches Home anew, which loads them.
+    Future<void> showAnnouncements(RadioApp app) async {
+      server.announcements
+        ..add(AnnouncementFixtures.verse())
+        ..add(AnnouncementFixtures.concert());
+      // Long enough that the card does not move on by itself mid-test.
+      server.announcementSettings = const {
+        'rotation_mode': 'fixed',
+        'autoplay_seconds': 120,
+      };
+      await app.relaunch();
+      await app.waitFor(() => app.showsText(AnnouncementFixtures.verseTitle),
+          reason: 'the announcement card to show');
+    }
+
+    test('the card swipes to the next one, whose button opens its page',
+        (app) async {
+      await showAnnouncements(app);
+      expect(app.showsText('1 din 2'), isTrue, reason: app.describe());
+
+      await app.swipeAnnouncement();
+      await app.waitFor(() => app.showsText(AnnouncementFixtures.concertTitle),
+          reason: 'the second announcement after a swipe');
+      expect(app.showsText('2 din 2'), isTrue);
+
+      await app.tapText(AnnouncementFixtures.concertButton);
+      await app.waitFor(() => app.showsText(AnnouncementFixtures.pageTitle),
+          reason: 'the announcement page to open');
+      expect(app.showsText(AnnouncementFixtures.pageHeading), isTrue,
+          reason: 'the page renders its markdown');
+      await app.waitFor(
+          () => server.announcementEvents.any((e) =>
+              e['slug'] == AnnouncementFixtures.concertSlug &&
+              e['type'] == 'clicked'),
+          reason: 'the click to reach the backend');
+
+      await app.tapTooltip('Înapoi');
+      await app.waitFor(() => app.showsText(AnnouncementFixtures.concertTitle),
+          reason: 'Home with the card, after the page');
+    });
+
+    test('a closed announcement stays closed after a relaunch', (app) async {
+      await showAnnouncements(app);
+
+      await app.tapTooltip('Închide');
+      await app.waitFor(() => app.showsText(AnnouncementFixtures.concertTitle),
+          reason: 'the next announcement after closing the first');
+      await app.tapTooltip('Închide');
+      await app.waitFor(() => RadioApp.announcementCard.evaluate().isEmpty,
+          reason: 'the card to go once both are closed');
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.reload();
+      expect(
+        prefs.getStringList('announcements_dismissed'),
+        containsAll(
+            [AnnouncementFixtures.verseSlug, AnnouncementFixtures.concertSlug]),
+        reason: 'the closed slugs are saved on the device',
+      );
+
+      await app.relaunch();
+      await app.pumpFor(const Duration(seconds: 3));
+      expect(app.showsText(AnnouncementFixtures.verseTitle), isFalse,
+          reason: 'a closed announcement does not come back');
+      expect(RadioApp.announcementCard, findsNothing);
+      await app.waitFor(
+          () =>
+              server.announcementEvents
+                  .where((e) => e['type'] == 'dismissed')
+                  .length ==
+              2,
+          reason: 'both dismissals to reach the backend',
+          timeout: const Duration(seconds: 15));
     });
   });
 

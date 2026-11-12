@@ -67,6 +67,15 @@ class RadioApp {
     return app;
   }
 
+  /// Builds the app's screens anew, as a launch does: Home loads what the
+  /// API serves now. The process, and so its services, stay.
+  Future<void> relaunch() async {
+    runApp(const SizedBox.shrink());
+    await tester.pump();
+    runApp(const RadioCrestinApp(promptsForUpdates: false));
+    await _waitForStationList();
+  }
+
   Future<void> _waitForStationList() => waitFor(
         () => find.byKey(_rowKey(Stations.alpha)).evaluate().isNotEmpty,
         reason: 'the station list to show',
@@ -283,6 +292,26 @@ class RadioApp {
       await Future<void>.delayed(_tickInterval);
     }
   }
+
+  /// The announcement card on Home.
+  static final announcementCard =
+      find.byKey(const ValueKey('announcement-card'));
+
+  /// Swipes the announcement card to the next announcement.
+  Future<void> swipeAnnouncement() async {
+    await tester.drag(announcementCard.hitTestable(), const Offset(-300, 0));
+    await pumpFor(const Duration(seconds: 1));
+  }
+
+  /// Taps the on-screen text [text], such as a button's label.
+  Future<void> tapText(String text) async {
+    await tester.tap(find.text(text).hitTestable());
+    await pumpFor(const Duration(seconds: 1));
+  }
+
+  /// Whether [text] is on the screen where a listener could tap it.
+  bool showsText(String text) =>
+      find.text(text, findRichText: true).hitTestable().evaluate().isNotEmpty;
 
   // ── What the listener hears and sees ───────────────────────────────────
 

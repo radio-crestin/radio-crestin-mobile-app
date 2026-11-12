@@ -23,6 +23,9 @@ class ServedRequest {
   /// Response body bytes sent so far; grows while a stream plays.
   int bytesSent = 0;
 
+  /// The body the app posted, if any.
+  String? body;
+
   bool get isMedia => origin == Origin.hls || origin == Origin.mp3;
 }
 
@@ -43,6 +46,20 @@ class FakeRadioServer {
   final StationCatalog catalog;
   final NetworkConditions conditions = NetworkConditions();
   final List<ServedRequest> requests = [];
+
+  /// What `GET /announcements/` lists, as the API's JSON items; empty
+  /// unless a test sets it.
+  final List<Map<String, Object?>> announcements = [];
+
+  /// The list's `settings`.
+  Map<String, Object?> announcementSettings = const {
+    'rotation_mode': 'fixed',
+    'autoplay_seconds': 8,
+    'max_per_load': 5,
+  };
+
+  /// The events the app reported to `POST /announcements/events/`.
+  final List<Map<String, Object?>> announcementEvents = [];
   final Map<String, LiveHlsStream> _hls = {
     for (final station in Stations.all) station.slug: LiveHlsStream(),
   };
@@ -73,6 +90,8 @@ class FakeRadioServer {
   /// Back to a healthy network and live streams, between tests.
   void reset() {
     conditions.restore();
+    announcements.clear();
+    announcementEvents.clear();
     for (final stream in _hls.values) {
       stream.unfreeze();
     }
@@ -86,6 +105,9 @@ class FakeRadioServer {
     final served = ServedRequest(origin, path, _stationOf(request.uri, origin),
         DateTime.now());
     requests.add(served);
+    if (request.method == 'POST') {
+      served.body = await utf8.decoder.bind(request).join();
+    }
     // The raw socket lets a test drop a connection mid-body, as a real
     // network does, which HttpResponse cannot once headers are out.
     final socket = await request.response.detachSocket(writeHeaders: false);
@@ -161,6 +183,15 @@ class FakeRadioServer {
   Future<void> _api(Uri uri, _Connection connection) {
     final path = uri.path;
     final body = switch (path) {
+      '/api/v1/announcements/' => {
+          'settings': announcementSettings,
+          'announcements': announcements,
+        },
+      '/api/v1/announcements/events/' =>
+        _acceptEvents(connection.served.body),
+      _ when path.startsWith('/api/v1/announcements/') => announcements
+          .where((a) => a['slug'] == uri.pathSegments[3])
+          .firstOrNull,
       _ when path.startsWith('/api/v1/share-links/') =>
         catalog.shareLinkResponse(uri.pathSegments[3]),
       '/api/v1/stations' => catalog.stationsResponse(),
@@ -177,6 +208,15 @@ class FakeRadioServer {
     if (body == null) return connection.status(HttpStatus.notFound);
     return connection.send(
         utf8.encode(jsonEncode(body)), 'application/json; charset=utf-8');
+  }
+
+  /// Keeps the events of an events report; the app sends JSON, the
+  /// website text/plain, both parsed whatever the Content-Type.
+  Map<String, Object?> _acceptEvents(String? body) {
+    final events =
+        (jsonDecode(body ?? '{}') as Map)['events'] as List? ?? [];
+    announcementEvents.addAll(events.cast<Map<String, Object?>>());
+    return {'status': 'ok', 'accepted': events.length};
   }
 
   Future<void> _hlsRequest(Uri uri, _Connection connection) {
