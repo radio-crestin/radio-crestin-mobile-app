@@ -6,6 +6,7 @@ import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 import '../services/playlist_controller.dart';
 import '../types/playlist_item.dart';
 import 'video_fullscreen_chrome.dart';
+import 'youtube_playlist_loader.dart';
 
 /// Renders a playlist YouTube item inline via `youtube_player_iframe` and wires
 /// it back to the [PlaylistController] contract:
@@ -114,11 +115,13 @@ class _YoutubeIframePlayerState extends State<YoutubeIframePlayer> {
 
     if (item.type == PlaylistItemType.youtubePlaylist) {
       final listId = youtubePlaylistIdFromUrl(item.url);
-      if (listId == null || listId.isEmpty) {
+      if (listId == null || !isYoutubePlaylistId(listId)) {
         widget.controller.notifyYoutubeItemError(itemId: item.id);
         return;
       }
-      _yt.loadPlaylist(list: [listId], listType: ListType.playlist);
+      unawaited(_yt.loadPlaylistById(listId).catchError((Object _) {
+        widget.controller.notifyYoutubeItemError(itemId: item.id);
+      }));
       return;
     }
 

@@ -13,6 +13,7 @@ import 'package:radio_crestin/widgets/announcement_banner.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher_platform_interface/url_launcher_platform_interface.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 
 import 'harness/announcement_fixtures.dart';
 import 'harness/fake_radio_server.dart';
@@ -627,6 +628,32 @@ void main() {
       await app.tapTooltip('Închide');
       await app.waitFor(() => app.showsText(AnnouncementFixtures.formButton),
           reason: 'Home again after closing the form');
+    });
+  });
+
+  group('Playlist stations', () {
+    test('a YouTube playlist item loads the whole playlist', (app) async {
+      await app.tapStation(Stations.youtubePlaylist);
+      await app.waitFor(
+          () =>
+              app.audio.currentStation.valueOrNull?.slug ==
+              Stations.youtubePlaylist.slug,
+          reason: 'the playlist station to start');
+      await app.openFullPlayer();
+      final player = find.byType(YoutubePlayer);
+      await app.waitFor(() => player.evaluate().isNotEmpty,
+          reason: 'the YouTube player in the full player');
+      final youtube = app.tester.widget<YoutubePlayer>(player).controller;
+
+      // A player given the list ID as an array stays blank, with no videos.
+      var videos = <String>[];
+      final end = DateTime.now().add(const Duration(seconds: 45));
+      while (videos.isEmpty && DateTime.now().isBefore(end)) {
+        await app.pumpFor(const Duration(seconds: 1));
+        videos = await youtube.playlist;
+      }
+      expect(videos, isNotEmpty,
+          reason: "the player holds the playlist's videos");
     });
   });
 

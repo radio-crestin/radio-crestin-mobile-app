@@ -212,6 +212,8 @@ class FakeRadioServer {
         catalog.shareLinkResponse(uri.pathSegments[3]),
       '/api/v1/stations' => catalog.stationsResponse(),
       '/api/v1/stations-metadata' => catalog.metadataResponse(),
+      '/api/v1/station-playlist' =>
+        catalog.stationPlaylistResponse(uri.queryParameters['station_slug']),
       '/api/v1/private-stations' => {
           'data': {'stations': <Object>[]},
         },
