@@ -34,7 +34,9 @@ IconData? actionIcon(AnnouncementActionType type) => switch (type) {
       AnnouncementActionType.external ||
       AnnouncementActionType.androidIntent =>
         Icons.north_east_rounded,
-      AnnouncementActionType.page => Icons.chevron_right_rounded,
+      AnnouncementActionType.page ||
+      AnnouncementActionType.form =>
+        Icons.chevron_right_rounded,
       AnnouncementActionType.inAppBrowser => Icons.web_asset_rounded,
       AnnouncementActionType.station => Icons.play_arrow_rounded,
       AnnouncementActionType.none => null,

@@ -132,11 +132,9 @@ class _BannerState extends State<_Banner> with SingleTickerProviderStateMixin {
                   ),
                   child: Material(
                     type: MaterialType.transparency,
-                    child: AnnouncementCard(
-                      items: [widget.item],
-                      settings: const AnnouncementSettings(autoplaySeconds: 0),
+                    child: AnnouncementStaticCard(
+                      item: widget.item,
                       service: widget.service,
-                      margin: EdgeInsets.zero,
                       onDone: () => unawaited(_hide()),
                     ),
                   ),

@@ -51,6 +51,8 @@ class AnnouncementColors {
     required this.control,
     required this.dot,
     required this.tint,
+    required this.sheet,
+    required this.stationSheet,
     required this.shadows,
     required this.isDark,
     this.backButton = AppColors.announcementBackButton,
@@ -65,6 +67,8 @@ class AnnouncementColors {
     control: AppColors.announcementControl,
     dot: AppColors.announcementDot,
     tint: 0.09,
+    sheet: AppColors.announcementSheet,
+    stationSheet: AppColors.announcementStationSheet,
     shadows: [
       BoxShadow(
         color: AppColors.announcementShadowFine,
@@ -90,6 +94,8 @@ class AnnouncementColors {
     control: AppColors.announcementControlDark,
     dot: AppColors.announcementDotDark,
     tint: 0.16,
+    sheet: AppColors.announcementSheetDark,
+    stationSheet: AppColors.announcementSheetDark,
     shadows: [],
     isDark: true,
   );
@@ -117,6 +123,12 @@ class AnnouncementColors {
 
   /// How much of the accent washes over the card's corner.
   final double tint;
+
+  /// A form's sheet.
+  final Color sheet;
+
+  /// The sheet of a station's announcements.
+  final Color stationSheet;
 
   final List<BoxShadow> shadows;
   final bool isDark;
@@ -460,6 +472,11 @@ class AppColors {
   static const Color announcementShadowFine = Color(0x0a000000);
   // The round back button on an announcement's page, in both themes.
   static const Color announcementBackButton = Color(0x267f7f7f);
+  // A form's sheet (white / near-black, as the form page), and the
+  // station announcements' sheet (the page's background in light).
+  static const Color announcementSheet = Colors.white;
+  static const Color announcementSheetDark = Color(0xff1a1a1a);
+  static const Color announcementStationSheet = lightBackground;
   // The shadow under an announcement pushed over the screen.
   static const Color announcementBannerShadow = Color(0x40000000);
 

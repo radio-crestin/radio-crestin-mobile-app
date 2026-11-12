@@ -13,9 +13,13 @@ class InlineMarkdownText extends StatefulWidget {
     required this.emphasisColor,
     required this.linkColor,
     required this.onTapLink,
+    this.maxLines,
   });
 
   final String data;
+
+  /// Lines shown at most; the rest ends in an ellipsis.
+  final int? maxLines;
   final TextStyle style;
   final Color strongColor;
   final Color emphasisColor;
@@ -50,6 +54,8 @@ class _InlineMarkdownTextState extends State<InlineMarkdownText> {
     return Text.rich(
       TextSpan(children: nodes.map((node) => _span(node, null)).toList()),
       style: widget.style,
+      maxLines: widget.maxLines,
+      overflow: widget.maxLines == null ? null : TextOverflow.ellipsis,
     );
   }
 
