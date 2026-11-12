@@ -11,6 +11,7 @@ import 'package:radio_crestin/app_launch_options.dart';
 import 'package:radio_crestin/components/MiniAudioPlayer.dart';
 import 'package:radio_crestin/main.dart';
 import 'package:radio_crestin/pages/SettingsPage.dart';
+import 'package:radio_crestin/services/announcements_service.dart';
 import 'package:radio_crestin/services/network_service.dart';
 import 'package:radio_crestin/services/playback_preferences.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -293,6 +294,33 @@ class RadioApp {
     }
   }
 
+  /// A cold start as far as announcements go: the service starts again
+  /// from what it kept on the device, and Home is built anew. The rest of
+  /// the app (audio, stations) runs on.
+  Future<void> coldStartAnnouncements() async {
+    final getIt = GetIt.instance;
+    getIt<AnnouncementsService>().dispose();
+    await getIt.unregister<AnnouncementsService>();
+    getIt.registerSingleton<AnnouncementsService>(AnnouncementsService(
+      prefs: await SharedPreferences.getInstance(),
+      pushEnabled: false,
+    ));
+    await relaunch();
+  }
+
+  /// Pulls the station list down from its top, as a listener refreshes.
+  Future<void> pullToRefresh() async {
+    final position = Scrollable.of(_anyRow.evaluate().first).position;
+    for (var step = 0; step < 40; step++) {
+      if (position.pixels <= position.minScrollExtent) break;
+      await _dragList(up: true);
+    }
+    // Far enough to arm the indicator through iOS's bounce friction.
+    await tester.timedDrag(_anyRow.hitTestable().first, const Offset(0, 600),
+        const Duration(milliseconds: 800));
+    await pumpFor(const Duration(seconds: 3));
+  }
+
   /// The announcement card on Home.
   static final announcementCard =
       find.byKey(const ValueKey('announcement-card'));
@@ -306,6 +334,19 @@ class RadioApp {
   /// Taps the on-screen text [text], such as a button's label.
   Future<void> tapText(String text) async {
     await tester.tap(find.text(text).hitTestable());
+    await pumpFor(const Duration(seconds: 1));
+  }
+
+  /// Taps "Ascunde" on the announcement on screen.
+  Future<void> tapDismiss() => tapKey('announcement-dismiss');
+
+  /// Whether a widget keyed [key] is on the screen where it can be tapped.
+  bool findsKey(String key) =>
+      find.byKey(ValueKey(key)).hitTestable().evaluate().isNotEmpty;
+
+  /// Taps the widget keyed [key].
+  Future<void> tapKey(String key) async {
+    await tester.tap(find.byKey(ValueKey(key)).hitTestable().first);
     await pumpFor(const Duration(seconds: 1));
   }
 

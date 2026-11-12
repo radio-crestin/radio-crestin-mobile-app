@@ -10,6 +10,32 @@ class AnnouncementFixtures {
   static const concertButton = 'See the program';
   static const pageTitle = 'The Christmas concert program';
   static const pageHeading = 'Program';
+  static const stationNewsSlug = 'e2e-station-news';
+  static const stationNewsTitle = 'Prayer hour tonight';
+  static const formAnnouncementSlug = 'e2e-poll-announcement';
+  static const formSlug = 'e2e-poll';
+  static const formButton = 'Vote now';
+
+  /// An announcement inside [station] only.
+  static Map<String, Object?> stationNews(String station) => {
+        ...concert(),
+        'slug': stationNewsSlug,
+        'title': stationNewsTitle,
+        'placement': 'station',
+        'station_slugs': [station],
+        'secondary_button': null,
+      };
+
+  /// A poll: its button opens a form.
+  static Map<String, Object?> poll() => {
+        ...verse(),
+        'slug': formAnnouncementSlug,
+        'title': 'Which station do you listen to in the morning?',
+        'button': _button(formButton, '#2563EB', {
+          'type': 'form',
+          'form_slug': formSlug,
+        }),
+      };
 
   /// A WhatsApp invitation with an external link.
   static Map<String, Object?> verse() => {
@@ -30,6 +56,16 @@ class AnnouncementFixtures {
         'ends_at': null,
         'hide_after_seconds': null,
         'max_impressions': null,
+        'placement': 'home',
+        'station_slugs': <String>[],
+        'filters': {
+          'platforms': ['android', 'ios'],
+          'countries_include': <String>[],
+          'countries_exclude': <String>[],
+          'locales': <String>[],
+          'min_app_version': '1.0.0',
+          'max_app_version': null,
+        },
       };
 
   /// An event whose button opens its own page.
@@ -71,6 +107,19 @@ On **December 20th at 19:00**, live.
         'ends_at': null,
         'hide_after_seconds': null,
         'max_impressions': null,
+        'placement': 'home',
+        'station_slugs': <String>[],
+        'filters': <String, Object?>{},
+      };
+
+  /// Shown only where the country is known to be [country].
+  static Map<String, Object?> onlyIn(
+          Map<String, Object?> item, String country) =>
+      {
+        ...item,
+        'filters': {
+          'countries_include': [country],
+        },
       };
 
   static Map<String, Object?> _category(String slug, String name, String hex) =>

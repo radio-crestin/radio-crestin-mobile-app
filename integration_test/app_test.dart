@@ -230,22 +230,58 @@ void main() {
   });
 
   group('Announcements', () {
-    /// Serves the two fixtures and launches Home anew, which loads them.
+    /// Runs [body] from a device that never saw an announcement, and
+    /// leaves none behind for the tests after it.
+    void announcementTest(
+      String description,
+      Future<void> Function(RadioApp app) body,
+    ) =>
+        test(description, (app) async {
+          await _forgetAnnouncements(app);
+          try {
+            await body(app);
+          } finally {
+            server.announcements.clear();
+            await _forgetAnnouncements(app);
+          }
+        });
+
+    /// Serves the two home fixtures and pulls Home to refresh, which shows
+    /// new announcements at once.
     Future<void> showAnnouncements(RadioApp app) async {
       server.announcements
         ..add(AnnouncementFixtures.verse())
         ..add(AnnouncementFixtures.concert());
-      // Long enough that the card does not move on by itself mid-test.
-      server.announcementSettings = const {
-        'rotation_mode': 'fixed',
-        'autoplay_seconds': 120,
-      };
-      await app.relaunch();
+      await app.pullToRefresh();
       await app.waitFor(() => app.showsText(AnnouncementFixtures.verseTitle),
           reason: 'the announcement card to show');
     }
 
-    test('the card swipes to the next one, whose button opens its page',
+    announcementTest(
+        'a new announcement waits for the next launch, then shows at once',
+        (app) async {
+      server.announcements.add(AnnouncementFixtures.verse());
+      await app.relaunch();
+      await app.waitFor(
+          () => server.requests.any(
+              (r) => r.path == '/api/v1/announcements/' && r.bytesSent > 0),
+          reason: 'the list to be fetched in the background');
+      await app.pumpFor(const Duration(seconds: 2));
+      expect(RadioApp.announcementCard, findsNothing,
+          reason: 'nothing pops in above the stations while they show');
+
+      // The API is down at the next launch: the card can only come from
+      // the list the device kept.
+      server.conditions.set(
+        const Link(outage: Outage.serverError),
+        origins: [Origin.api],
+      );
+      await app.coldStartAnnouncements();
+      expect(app.showsText(AnnouncementFixtures.verseTitle), isTrue,
+          reason: 'the kept list shows in the first frame; ${app.describe()}');
+    });
+
+    announcementTest('the card swipes, and a tap on it opens its page',
         (app) async {
       await showAnnouncements(app);
       expect(app.showsText('1 din 2'), isTrue, reason: app.describe());
@@ -255,31 +291,32 @@ void main() {
           reason: 'the second announcement after a swipe');
       expect(app.showsText('2 din 2'), isTrue);
 
-      await app.tapText(AnnouncementFixtures.concertButton);
+      await app.tapText(AnnouncementFixtures.concertTitle);
       await app.waitFor(() => app.showsText(AnnouncementFixtures.pageTitle),
           reason: 'the announcement page to open');
-      expect(app.showsText(AnnouncementFixtures.pageHeading), isTrue,
-          reason: 'the page renders its markdown');
+      await app.waitFor(() => app.showsText(AnnouncementFixtures.pageHeading),
+          reason: 'the page markdown, from the single announcement');
       await app.waitFor(
           () => server.announcementEvents.any((e) =>
               e['slug'] == AnnouncementFixtures.concertSlug &&
-              e['type'] == 'clicked'),
-          reason: 'the click to reach the backend');
+              e['type'] == 'clicked' &&
+              e['target'] == 'card'),
+          reason: 'the card tap to reach the backend');
 
       await app.tapTooltip('Înapoi');
       await app.waitFor(() => app.showsText(AnnouncementFixtures.concertTitle),
           reason: 'Home with the card, after the page');
     });
 
-    test('a closed announcement stays closed after a relaunch', (app) async {
+    announcementTest('"Ascunde" hides an announcement for good', (app) async {
       await showAnnouncements(app);
 
-      await app.tapTooltip('Închide');
+      await app.tapDismiss();
       await app.waitFor(() => app.showsText(AnnouncementFixtures.concertTitle),
-          reason: 'the next announcement after closing the first');
-      await app.tapTooltip('Închide');
+          reason: 'the next announcement after hiding the first');
+      await app.tapDismiss();
       await app.waitFor(() => RadioApp.announcementCard.evaluate().isEmpty,
-          reason: 'the card to go once both are closed');
+          reason: 'the card to go once both are hidden');
 
       final prefs = await SharedPreferences.getInstance();
       await prefs.reload();
@@ -287,14 +324,13 @@ void main() {
         prefs.getStringList('announcements_dismissed'),
         containsAll(
             [AnnouncementFixtures.verseSlug, AnnouncementFixtures.concertSlug]),
-        reason: 'the closed slugs are saved on the device',
+        reason: 'the hidden slugs are saved on the device',
       );
 
-      await app.relaunch();
+      await app.coldStartAnnouncements();
       await app.pumpFor(const Duration(seconds: 3));
-      expect(app.showsText(AnnouncementFixtures.verseTitle), isFalse,
-          reason: 'a closed announcement does not come back');
-      expect(RadioApp.announcementCard, findsNothing);
+      expect(RadioApp.announcementCard, findsNothing,
+          reason: 'a hidden announcement does not come back');
       await app.waitFor(
           () =>
               server.announcementEvents
@@ -303,6 +339,60 @@ void main() {
               2,
           reason: 'both dismissals to reach the backend',
           timeout: const Duration(seconds: 15));
+    });
+
+    announcementTest(
+        "a station's announcements show on its mini player and in a sheet",
+        (app) async {
+      server.announcements
+          .add(AnnouncementFixtures.stationNews(Stations.alpha.slug));
+      await app.pullToRefresh();
+      expect(RadioApp.announcementCard, findsNothing,
+          reason: 'a station announcement never goes in the home card');
+
+      await app.tapStation(Stations.alpha);
+      await app.waitFor(() => app.findsKey('station-announcements-strip'),
+          reason: 'the unread strip on top of the mini player');
+      expect(app.findsKey('station-announcements-bell'), isTrue,
+          reason: 'the bell on the mini player');
+
+      await app.tapKey('station-announcements-strip');
+      await app.waitFor(() => app.showsText('Anunțuri ale postului'),
+          reason: "the station's announcements sheet");
+      expect(app.showsText(AnnouncementFixtures.stationNewsTitle), isTrue);
+
+      await app.tapTooltip('Închide');
+      await app.waitFor(() => !app.findsKey('station-announcements-strip'),
+          reason: 'the strip to go once the announcements were opened');
+      expect(app.findsKey('station-announcements-bell'), isTrue,
+          reason: 'the bell stays');
+    });
+
+    announcementTest('a form opens in a sheet, themed like the app',
+        (app) async {
+      server.announcements.add(AnnouncementFixtures.poll());
+      await app.pullToRefresh();
+      await app.waitFor(() => app.showsText(AnnouncementFixtures.formButton),
+          reason: 'the poll card');
+
+      await app.tapText(AnnouncementFixtures.formButton);
+      await app.waitFor(
+          () => server.requests.any((r) =>
+              r.path ==
+                  '/api/v1/forms/${AnnouncementFixtures.formSlug}/page/' &&
+              {'dark', 'light'}.contains(r.query['theme'])),
+          reason: 'the form page to load with the theme');
+      final page = server.requests.lastWhere((r) =>
+          r.path == '/api/v1/forms/${AnnouncementFixtures.formSlug}/page/');
+      expect(page.query.containsKey('device_id'), isFalse,
+          reason: 'the device stays in the fragment, out of the cache key');
+      await app.waitFor(() => !app.findsKey('form-skeleton'),
+          reason: 'the page to say it is ready',
+          timeout: const Duration(seconds: 30));
+
+      await app.tapTooltip('Închide');
+      await app.waitFor(() => app.showsText(AnnouncementFixtures.formButton),
+          reason: 'Home again after closing the form');
     });
   });
 
@@ -316,11 +406,21 @@ void main() {
 
       final leftAt = await app.pressBack();
       await app.expectAudioAdvances(const Duration(seconds: 8));
-      expect(server.mediaBytesSent(Stations.alpha, since: leftAt),
-          greaterThan(0),
+      expect(
+          server.mediaBytesSent(Stations.alpha, since: leftAt), greaterThan(0),
           reason: 'the stream kept coming in the background');
       expect(app.lifecycle, AppLifecycleState.paused,
           reason: 'the app waits in the background, not closed');
     });
   });
+}
+
+/// Forgets every announcement the device kept or was told, as a fresh
+/// install, and starts the announcements anew.
+Future<void> _forgetAnnouncements(RadioApp app) async {
+  final prefs = await SharedPreferences.getInstance();
+  for (final key in prefs.getKeys().toList()) {
+    if (key.startsWith('announcements_')) await prefs.remove(key);
+  }
+  await app.coldStartAnnouncements();
 }

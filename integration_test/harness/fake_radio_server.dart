@@ -26,6 +26,10 @@ class ServedRequest {
   /// The body the app posted, if any.
   String? body;
 
+  /// The query and the `If-None-Match` header the app sent.
+  Map<String, String> query = const {};
+  String? ifNoneMatch;
+
   bool get isMedia => origin == Origin.hls || origin == Origin.mp3;
 }
 
@@ -54,7 +58,6 @@ class FakeRadioServer {
   /// The list's `settings`.
   Map<String, Object?> announcementSettings = const {
     'rotation_mode': 'fixed',
-    'autoplay_seconds': 8,
     'max_per_load': 5,
   };
 
@@ -105,6 +108,9 @@ class FakeRadioServer {
     final served = ServedRequest(origin, path, _stationOf(request.uri, origin),
         DateTime.now());
     requests.add(served);
+    served
+      ..query = request.uri.queryParameters
+      ..ifNoneMatch = request.headers.value('if-none-match');
     if (request.method == 'POST') {
       served.body = await utf8.decoder.bind(request).join();
     }
@@ -182,11 +188,12 @@ class FakeRadioServer {
 
   Future<void> _api(Uri uri, _Connection connection) {
     final path = uri.path;
+    if (path == '/api/v1/announcements/') return _announcementList(connection);
+    if (path.startsWith('/api/v1/forms/') && path.endsWith('/page/')) {
+      return connection.send(
+          utf8.encode(_formPage(uri.pathSegments[3])), 'text/html');
+    }
     final body = switch (path) {
-      '/api/v1/announcements/' => {
-          'settings': announcementSettings,
-          'announcements': announcements,
-        },
       '/api/v1/announcements/events/' =>
         _acceptEvents(connection.served.body),
       _ when path.startsWith('/api/v1/announcements/') => announcements
@@ -210,13 +217,46 @@ class FakeRadioServer {
         utf8.encode(jsonEncode(body)), 'application/json; charset=utf-8');
   }
 
+  /// The list as the API caches it: no page markdown (it comes with the
+  /// single announcement), an ETag, and 304 when the app has it already.
+  Future<void> _announcementList(_Connection connection) {
+    final body = utf8.encode(jsonEncode({
+      'settings': announcementSettings,
+      'announcements': [
+        for (final item in announcements)
+          {
+            ...item,
+            if (item['page'] case final Map<String, Object?> page)
+              'page': {...page}..remove('markdown'),
+          },
+      ],
+    }));
+    final hash = body.fold<int>(0, (a, b) => (a * 31 + b) & 0x7fffffff);
+    final etag = '"${body.length}-$hash"';
+    if (connection.served.ifNoneMatch == etag) {
+      return connection.status(HttpStatus.notModified);
+    }
+    return connection.send(body, 'application/json; charset=utf-8',
+        headers: {'ETag': etag});
+  }
+
+  /// A form page that tells the app it is ready, as the backend's does.
+  static String _formPage(String slug) => '''
+<!doctype html><html><body style="font-family:system-ui">
+<h1 id="title">Form $slug</h1>
+<script>
+  var msg = JSON.stringify({type: "rc-form", event: "ready", slug: "$slug"});
+  if (window.RadioCrestinForm) window.RadioCrestinForm.postMessage(msg);
+</script>
+</body></html>''';
+
   /// Keeps the events of an events report; the app sends JSON, the
   /// website text/plain, both parsed whatever the Content-Type.
   Map<String, Object?> _acceptEvents(String? body) {
     final events =
         (jsonDecode(body ?? '{}') as Map)['events'] as List? ?? [];
     announcementEvents.addAll(events.cast<Map<String, Object?>>());
-    return {'status': 'ok', 'accepted': events.length};
+    return {'status': 'ok', 'accepted': events.length, 'country': 'RO'};
   }
 
   Future<void> _hlsRequest(Uri uri, _Connection connection) {
@@ -309,11 +349,16 @@ class _Connection {
   }
 
   /// A whole response with [body].
-  Future<void> send(List<int> body, String contentType) async {
+  Future<void> send(
+    List<int> body,
+    String contentType, {
+    Map<String, String> headers = const {},
+  }) async {
     head(HttpStatus.ok, {
       'Content-Type': contentType,
       'Content-Length': '${body.length}',
       'Cache-Control': 'no-store',
+      ...headers,
     });
     await write(body);
     await _end();
@@ -356,6 +401,7 @@ class _Connection {
   static const _reasons = {
     200: 'OK',
     204: 'No Content',
+    304: 'Not Modified',
     404: 'Not Found',
     503: 'Service Unavailable',
   };
