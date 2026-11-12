@@ -513,6 +513,12 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
         Expanded(
           child: Center(
             child: SingleChildScrollView(
+              // The home page's list is the page's scroll view. Attached to
+              // the PrimaryScrollController too, this one made two, and a
+              // keyboard's arrow or space key on iPad threw "Too many
+              // elements" (ScrollAction reads the controller's single
+              // position).
+              primary: false,
               child: _buildLandscapeInfoColumn(
                 context,
                 height: math.min(height, _landscapeMaxColumnHeight),
