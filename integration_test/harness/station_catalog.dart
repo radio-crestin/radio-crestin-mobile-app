@@ -6,6 +6,7 @@ class FakeStation {
     required this.title,
     this.hasHls = true,
     this.hasMp3 = true,
+    this.youtubePlaylistId,
   });
 
   final int id;
@@ -17,6 +18,11 @@ class FakeStation {
 
   /// Whether it streams MP3 from its own server, the fallback.
   final bool hasMp3;
+
+  /// Set for a playlist station: its one item, a whole YouTube playlist.
+  final String? youtubePlaylistId;
+
+  bool get isPlaylist => youtubePlaylistId != null;
 
   String get songTitle => 'Song of $title';
   String get songArtist => 'Artist of $title';
@@ -34,6 +40,17 @@ abstract final class Stations {
       id: 9003, slug: 'e2e-gamma', title: 'E2E Gamma', hasHls: false);
   static const delta = FakeStation(id: 9004, slug: 'e2e-delta', title: 'E2E Delta');
 
+  /// A playlist station whose only item is a real, public YouTube playlist:
+  /// the YouTube player itself can't be faked.
+  static const youtubePlaylist = FakeStation(
+    id: 9013,
+    slug: 'e2e-youtube-playlist',
+    title: 'E2E YouTube Playlist',
+    hasHls: false,
+    hasMp3: false,
+    youtubePlaylistId: 'PLNc6Yf0WBybl9EfntZafveKMipp8aPq9Y',
+  );
+
   static final all = [
     alpha,
     beta,
@@ -41,6 +58,7 @@ abstract final class Stations {
     delta,
     for (var n = 5; n <= 12; n++)
       FakeStation(id: 9000 + n, slug: 'e2e-filler-$n', title: 'E2E Filler $n'),
+    youtubePlaylist,
   ];
 
   static FakeStation bySlug(String slug) =>
@@ -88,6 +106,31 @@ class StationCatalog {
           ],
         },
       };
+
+  /// `GET /api/v1/station-playlist?station_slug=<slug>`.
+  Map<String, Object?> stationPlaylistResponse(String? slug) => {
+        'data': {
+          'stations': [
+            for (final station in stations)
+              if (station.slug == slug)
+                {'slug': station.slug, 'playlist_items': _playlistItems(station)},
+          ],
+        },
+      };
+
+  List<Map<String, Object?>> _playlistItems(FakeStation station) => [
+        if (station.youtubePlaylistId case final listId?)
+          {
+            '__typename': 'StationPlaylistItemType',
+            'id': station.id * 10 + 1,
+            'order': 0,
+            'type': 'youtube_playlist',
+            'url': 'https://www.youtube.com/playlist?list=$listId',
+            'title': '${station.title} videos',
+            'thumbnail_url': null,
+            'duration_seconds': null,
+          },
+      ];
 
   /// `GET /api/v1/stations-metadata`.
   Map<String, Object?> metadataResponse() => {
@@ -151,12 +194,12 @@ class StationCatalog {
         'description_link': null,
         'feature_latest_post': false,
         'facebook_page_id': null,
-        'station_type': 'radio',
+        'station_type': station.isPlaylist ? 'playlist' : 'radio',
         'station_streams': [
           if (station.hasHls) _stream(0, 'HLS', hlsUrl(station)),
           if (station.hasMp3) _stream(1, 'direct_stream', mp3Url(station)),
         ],
-        'playlist_items': <Object>[],
+        'playlist_items': _playlistItems(station),
         'posts': <Object>[],
         'uptime': {'__typename': 'StationUptimeType', ..._uptime()},
         'now_playing': _nowPlaying(station),
