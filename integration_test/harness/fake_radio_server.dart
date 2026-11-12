@@ -56,7 +56,9 @@ class FakeRadioServer {
   final List<Map<String, Object?>> announcements = [];
 
   /// The list's `settings`.
-  Map<String, Object?> announcementSettings = const {
+  Map<String, Object?> announcementSettings = defaultAnnouncementSettings;
+
+  static const defaultAnnouncementSettings = {
     'rotation_mode': 'fixed',
     'max_per_load': 5,
   };
@@ -95,6 +97,7 @@ class FakeRadioServer {
     conditions.restore();
     announcements.clear();
     announcementEvents.clear();
+    announcementSettings = defaultAnnouncementSettings;
     for (final stream in _hls.values) {
       stream.unfreeze();
     }

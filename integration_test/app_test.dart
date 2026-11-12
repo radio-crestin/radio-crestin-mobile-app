@@ -281,6 +281,26 @@ void main() {
           reason: 'the kept list shows in the first frame; ${app.describe()}');
     });
 
+    announcementTest(
+        'max_per_load counts only the announcements meant for this phone',
+        (app) async {
+      server.announcementSettings = const {
+        'rotation_mode': 'fixed',
+        'max_per_load': 1,
+      };
+      server.announcements
+        ..add(AnnouncementFixtures.webOnly())
+        ..add(AnnouncementFixtures.verse())
+        ..add(AnnouncementFixtures.concert());
+      await app.pullToRefresh();
+      await app.waitFor(() => app.showsText(AnnouncementFixtures.verseTitle),
+          reason: 'the first announcement meant for a phone');
+      expect(app.showsText(AnnouncementFixtures.webOnlyTitle), isFalse,
+          reason: 'a website-only announcement never shows in the app');
+      expect(app.showsText('1 din 2'), isFalse,
+          reason: 'one announcement at most, so no count and no dots');
+    });
+
     announcementTest('the card swipes, and a tap on it opens its page',
         (app) async {
       await showAnnouncements(app);
