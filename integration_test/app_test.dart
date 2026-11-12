@@ -301,6 +301,26 @@ void main() {
           reason: 'one announcement at most, so no count and no dots');
     });
 
+    announcementTest(
+        'when the buttons wrap, "Ascunde" stays level with the main one',
+        (app) async {
+      server.announcements.add(AnnouncementFixtures.longButtons());
+      await app.pullToRefresh();
+      await app.waitFor(() => app.showsText(AnnouncementFixtures.longPrimary),
+          reason: 'the card with long buttons');
+      final tester = app.tester;
+      double middleOf(Finder finder) =>
+          tester.getCenter(finder.hitTestable().first).dy;
+      final primary = middleOf(find.text(AnnouncementFixtures.longPrimary));
+      final second = middleOf(find.text(AnnouncementFixtures.longSecondary));
+      final dismiss =
+          middleOf(find.byKey(const ValueKey('announcement-dismiss')));
+      expect(second, greaterThan(primary + 30),
+          reason: 'the second button wrapped to a new line');
+      expect((dismiss - primary).abs(), lessThan(2),
+          reason: '"Ascunde" stays on the first line, beside the main button');
+    });
+
     announcementTest('the card swipes, and a tap on it opens its page',
         (app) async {
       await showAnnouncements(app);

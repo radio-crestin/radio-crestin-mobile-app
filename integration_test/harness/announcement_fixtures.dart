@@ -104,6 +104,26 @@ On **December 20th at 19:00**, live.
         }),
       };
 
+  static const longPrimary = 'Answer the four short questions';
+  static const longSecondary = 'Remind me in a few days';
+
+  /// Buttons too long for one line: the second one wraps under the
+  /// first.
+  static Map<String, Object?> longButtons() => {
+        ...verse(),
+        'slug': 'e2e-long-buttons',
+        'title': 'Tell us what you think',
+        'button': _button(longPrimary, '#4F46E5', {
+          'type': 'external',
+          'url': 'https://example.com/survey',
+        }),
+        'secondary_button': {
+          'label': longSecondary,
+          'kind': 'later',
+          'later_days': 3,
+        },
+      };
+
   /// For the website only: a phone never shows it.
   static Map<String, Object?> webOnly() => {
         ...verse(),
