@@ -532,7 +532,11 @@ class HlsHoldProxy {
   /// when that port is taken, or nothing can listen (then reported).
   Future<HttpServer?> _bindLoopback(int port) async {
     try {
-      return await HttpServer.bind(InternetAddress.loopbackIPv4, port);
+      final socket =
+          await ServerSocket.bind(InternetAddress.loopbackIPv4, port);
+      final server = HttpServer.listenOn(_OpenConnections(socket));
+      _listeningSockets[server] = socket;
+      return server;
     } catch (e) {
       if (port == 0) {
         _emit(HlsHoldProxyEvent(HlsHoldProxyEventKind.internalError,
@@ -557,8 +561,13 @@ class HlsHoldProxy {
   static Future<void> _closeQuietly(HttpServer server) async {
     try {
       await server.close(force: true);
+      // A server made by HttpServer.listenOn leaves its socket open.
+      await _listeningSockets[server]?.close();
     } catch (_) {}
   }
+
+  /// The socket each server listens on (see [_OpenConnections]).
+  static final _listeningSockets = Expando<ServerSocket>('listening socket');
 
   static Future<bool> _accepts(int port) async {
     try {
@@ -1349,4 +1358,42 @@ class _Client {
     404: 'Not Found',
     405: 'Method Not Allowed',
   };
+}
+
+/// The proxy's listening socket, handing [HttpServer] only the connections
+/// still open.
+///
+/// HttpServer sets TCP_NODELAY on each connection it accepts, outside any
+/// handler the proxy can give it. On iOS that throws for a connection the
+/// player closed before it was accepted (it gave up a load: a station
+/// switch, a reload), and the error reached the app's unhandled error
+/// handler ("OS Error: Invalid argument, errno = 22" in PostHog, 57
+/// listeners in two weeks). Setting the option here first drops those
+/// connections: the player is no longer waiting on them.
+class _OpenConnections extends StreamView<Socket> implements ServerSocket {
+  _OpenConnections(this._socket) : super(_socket.where(_isOpen));
+
+  final ServerSocket _socket;
+
+  static bool _isOpen(Socket connection) {
+    try {
+      connection.setOption(SocketOption.tcpNoDelay, true);
+      return true;
+    } on Exception {
+      connection.destroy();
+      return false;
+    }
+  }
+
+  @override
+  InternetAddress get address => _socket.address;
+
+  @override
+  int get port => _socket.port;
+
+  @override
+  Future<ServerSocket> close() async {
+    await _socket.close();
+    return this;
+  }
 }
