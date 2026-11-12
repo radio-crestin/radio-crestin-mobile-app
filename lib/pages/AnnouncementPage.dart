@@ -245,6 +245,8 @@ class _Markdown extends StatelessWidget {
     final body = TextStyle(fontSize: 15, height: 1.6, color: onSurface);
     return MarkdownBody(
       data: data,
+      // Quotes and pictures as wide as the text column, as on the website.
+      fitContent: false,
       onTapLink: (text, href, title) => _openLink(href),
       imageBuilder: (uri, title, alt) =>
           _MarkdownImage(uri: uri, caption: title ?? alt),

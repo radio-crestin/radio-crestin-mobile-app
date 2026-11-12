@@ -501,20 +501,24 @@ class AnnouncementTag extends StatelessWidget {
     return Container(
       height: 21,
       padding: const EdgeInsets.symmetric(horizontal: 9),
-      alignment: Alignment.center,
       decoration: BoxDecoration(
         color: category.color,
         borderRadius: BorderRadius.circular(999),
       ),
-      child: Text(
-        category.name,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          fontSize: 11.5,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.12,
-          color: category.textColor,
+      // As wide as the name: a Container's own alignment would fill the
+      // row.
+      child: Align(
+        widthFactor: 1,
+        child: Text(
+          category.name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 11.5,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.12,
+            color: category.textColor,
+          ),
         ),
       ),
     );
@@ -655,13 +659,15 @@ class _SecondaryButton extends StatelessWidget {
         child: Container(
           height: 36,
           padding: const EdgeInsets.symmetric(horizontal: 10),
-          alignment: Alignment.center,
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 13.5,
-              fontWeight: FontWeight.w500,
-              color: colors.muted,
+          child: Align(
+            widthFactor: 1,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w500,
+                color: colors.muted,
+              ),
             ),
           ),
         ),
