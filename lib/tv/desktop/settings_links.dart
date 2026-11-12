@@ -72,13 +72,3 @@ Uri contactPageUri({
       'app_version': appVersion,
       if (deviceId.isNotEmpty) 'device_id': deviceId,
     });
-
-/// The desktop system as support messages name it ("macOS"), from
-/// `Platform.operatingSystem`; empty for the phones, which name themselves.
-String desktopPlatformLabel(String operatingSystem) =>
-    switch (operatingSystem) {
-      'macos' => 'macOS',
-      'windows' => 'Windows',
-      'linux' => 'Linux',
-      _ => '',
-    };
