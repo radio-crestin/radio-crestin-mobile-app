@@ -3314,6 +3314,7 @@ class AppAudioHandler extends BaseAudioHandler {
         final loaded = await _loadStreamSource(
           streamUrl,
           isHls: isHls,
+          onlyStream: totalStreams == 1,
           canceller: canceller.future,
           opId: myOpId,
         );
@@ -3603,18 +3604,25 @@ class AppAudioHandler extends BaseAudioHandler {
   /// [_mayBypassHoldProxy]): the URL then loads again at once directly,
   /// and once that succeeds, the stream skips the proxy until the device
   /// moves to another network.
+  ///
+  /// [onlyStream]: the station has no other stream, so a slow load gets
+  /// longer (see [StreamFailover.onlyDirectStreamLoadTimeout]).
   Future<({String url, String? proxyUrl, Duration? startVariantOffset})>
       _loadStreamSource(
     String streamUrl, {
     required bool isHls,
+    required bool onlyStream,
     required Future<void> canceller,
     required int opId,
   }) async {
     // Hard load timeout — a hanging playlist/stream request counts as
     // a failure and advances to the next stream (StreamFailover owns
     // the values so they are asserted in tests).
-    final timeout =
-        StreamFailover.loadTimeout(isHls: isHls, android: Platform.isAndroid);
+    final timeout = StreamFailover.loadTimeout(
+      isHls: isHls,
+      android: Platform.isAndroid,
+      onlyStream: onlyStream,
+    );
     Future<void> loadPlayer(String uri, {HlsHoldProxy? via}) async {
       // Race setAudioSource against the canceller so playStation() can
       // break this await immediately instead of waiting for the timeout.

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
+import 'package:radio_crestin/appAudioHandler.dart';
 
 import 'harness/fake_radio_server.dart';
 import 'harness/network_conditions.dart';
@@ -150,6 +151,27 @@ void main() {
         isTrue,
         reason: 'the audio came from the MP3 stream',
       );
+    });
+
+    test('a station with only an MP3 stream plays when it is slow to start',
+        (app) async {
+      // On iPhone, AVPlayer opens an MP3 stream in two or three requests,
+      // one after the other: its load takes 8-12 s, longer than the 5 s a
+      // load may take when another stream could take over (a 320 kb/s
+      // stream on mobile data).
+      server.conditions.set(
+        const Link(latency: Duration(seconds: 4)),
+        origins: [Origin.mp3],
+      );
+      final errors = <ConnectionError>[];
+      final errorsShown = app.audio.connectionError.listen(errors.add);
+      addTearDown(errorsShown.cancel);
+
+      final tappedAt = await app.tapStation(Stations.gamma);
+      await app.expectPlaying(Stations.gamma,
+          since: tappedAt, within: const Duration(seconds: 30));
+      expect(errors, isEmpty,
+          reason: 'no connection error while the station was loading');
     });
 
     test('reconnects by itself after the connection drops', (app) async {

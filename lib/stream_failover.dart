@@ -45,6 +45,16 @@ class StreamFailover {
   /// won't play smoothly anyway.
   static const Duration directLoadTimeout = Duration(seconds: 5);
 
+  /// Cap on the load of a direct/MP3 stream the station has no other
+  /// stream to fall back to. [directLoadTimeout] is there to move on to the
+  /// next stream; with none, a timeout only started the same load over,
+  /// from nothing. On iPhone, on mobile data, a 320 kb/s stream often
+  /// needed more than 5 s, so it never played: in PostHog, 42% of the loads
+  /// of one such station timed out, each a "Playback: all streams failed
+  /// (timeout)" and an error shown to the listener. A load that hangs still
+  /// ends here, and the retry loop starts it over.
+  static const Duration onlyDirectStreamLoadTimeout = Duration(seconds: 15);
+
   /// How long a URL failure is remembered. Chosen to outlive one full
   /// position-watchdog detection cycle (~22s worst case) plus a couple of
   /// stall-timer reconnects, so a repeatedly-freezing HLS stays skipped
@@ -68,9 +78,16 @@ class StreamFailover {
 
   final Map<String, DateTime> _lastFailureAt = {};
 
-  /// Timeout to apply to a single source load.
-  static Duration loadTimeout({required bool isHls, bool android = false}) {
-    if (!isHls) return directLoadTimeout;
+  /// Timeout to apply to a single source load; [onlyStream] when the
+  /// station has no other stream to fall back to.
+  static Duration loadTimeout({
+    required bool isHls,
+    bool android = false,
+    bool onlyStream = false,
+  }) {
+    if (!isHls) {
+      return onlyStream ? onlyDirectStreamLoadTimeout : directLoadTimeout;
+    }
     return android ? hlsLoadTimeoutAndroid : hlsLoadTimeout;
   }
 
