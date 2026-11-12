@@ -355,7 +355,6 @@ class _Slide extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.announcementColors;
-    final accent = theme.announcementAccent(item);
     final hasPrimary = item.button != null;
     return Semantics(
       key: ValueKey('announcement-${item.slug}'),
@@ -397,7 +396,8 @@ class _Slide extends StatelessWidget {
                     ),
                     strongColor: colors.strong,
                     emphasisColor: colors.text,
-                    linkColor: colors.inkOf(accent),
+                    // Links read as text: the button is the one accent.
+                    linkColor: colors.strong,
                     onTapLink: _onLink,
                   ),
                 ],
@@ -542,7 +542,7 @@ class AnnouncementTag extends StatelessWidget {
   }
 }
 
-/// The 44 px tile: the uploaded image, or a glyph on a tint of the color.
+/// The 44 px tile: the uploaded image, or a glyph on a neutral surface.
 class AnnouncementIconTile extends StatelessWidget {
   const AnnouncementIconTile({super.key, required this.item, this.size = 44});
 
@@ -580,20 +580,22 @@ class _GlyphTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.announcementColors;
-    final accent = theme.announcementAccent(item);
     final icon =
         announcementIcons[item.iconName] ?? announcementIcons['megaphone']!;
+    // A quiet raised surface, like "Ascunde" and the arrows: the button is
+    // the card's one accent.
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: accent.withValues(alpha: 0.18),
+        color: theme.announcementIconTileColor(item.category),
         borderRadius: radius,
+        border: Border.all(color: colors.border),
       ),
       child: Icon(
         icon,
         size: size * 23 / 44 * announcementIconScale(icon),
-        color: colors.inkOf(accent),
+        color: colors.muted,
       ),
     );
   }

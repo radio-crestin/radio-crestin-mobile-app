@@ -327,7 +327,8 @@ void main() {
     });
 
     announcementTest(
-        'colors left unset come from the app; colors set stay', (app) async {
+        'the button is the one accent: its color is the admin\'s or the '
+        'app\'s, and the tag stays quiet', (app) async {
       server.announcements
         ..add(AnnouncementFixtures.verse())
         ..add(AnnouncementFixtures.uncolored());
@@ -350,8 +351,10 @@ void main() {
 
       expect(fillOf('Join the group', Material), const Color(0xFF0F6E63),
           reason: "the admin's button color stays");
-      expect(fillOf('Community', Container), const Color(0xFF0F6E63),
-          reason: "the admin's category color stays");
+      final tag = fillOf('Community', Container);
+      expect(tag.withValues(alpha: 1), const Color(0xFF0F6E63),
+          reason: "the tag is tinted with the admin's category color");
+      expect(tag.a, lessThan(0.3), reason: 'only a faint tint of it');
 
       await app.tapKey('announcement-next');
       await app.waitFor(
@@ -360,13 +363,13 @@ void main() {
       expect(fillOf(AnnouncementFixtures.uncoloredButton, Material),
           AppColors.announcementButton,
           reason: "the button takes the app's pink");
-      final miniPlayer = Theme.of(app.tester
+      final neutral = Theme.of(app.tester
               .element(find.text(AnnouncementFixtures.uncoloredTitle).first))
-          .bottomAppBarTheme
-          .color;
+          .announcementColors
+          .control;
       expect(fillOf(AnnouncementFixtures.uncoloredCategory, Container),
-          miniPlayer,
-          reason: "the tag takes the mini player's color");
+          neutral,
+          reason: 'a tag without a color is neutral');
     });
 
     announcementTest(

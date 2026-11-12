@@ -438,12 +438,11 @@ class AppColors {
   static const Color announcementSheet = Colors.white;
   static const Color announcementSheetDark = Color(0xff1a1a1a);
   static const Color announcementStationSheet = lightBackground;
-  // An announcement's colors when the admin set none: its button is the
-  // app's filled-button pink (deviceAction, white label at 4.5:1) and its
-  // category tag the mini player's color, with white text.
+  // An announcement's button when the admin set no color: the app's
+  // filled-button pink (deviceAction, white label at 4.5:1). Everything
+  // else on the card stays neutral (spec: "Color hierarchy by importance").
   static const Color announcementButton = deviceAction;
   static const Color announcementButtonLabel = Colors.white;
-  static const Color announcementTagLabel = Colors.white;
   // The play button over a video's thumbnail in an announcement's page.
   static const Color videoPlayButton = Color(0x99000000);
   static const Color videoPlayIcon = Colors.white;

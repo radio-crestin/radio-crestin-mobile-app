@@ -11,7 +11,6 @@ import '../theme.dart';
 import '../types/Station.dart';
 import 'announcement_card.dart';
 import 'announcement_icons.dart';
-import 'announcement_theme_colors.dart';
 
 /// A station's announcements and how many of them were never opened.
 typedef StationNews = ({List<Announcement> items, int unseen});
@@ -293,16 +292,15 @@ class _Strip extends StatelessWidget {
                   Container(
                     width: 24,
                     height: 24,
+                    // Quiet on the bar, like the bell beside it.
                     decoration: BoxDecoration(
-                      color:
-                          first.category.color ?? AppColors.announcementButton,
+                      color: Colors.white.withValues(alpha: 0.18),
                       borderRadius: BorderRadius.circular(7),
                     ),
                     child: Icon(
                       icon,
                       size: 14 * announcementIconScale(icon),
-                      color: Theme.of(context)
-                          .announcementTagLabel(first.category),
+                      color: Colors.white,
                     ),
                   ),
                   const SizedBox(width: 10),

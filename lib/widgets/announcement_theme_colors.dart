@@ -24,14 +24,33 @@ extension AnnouncementThemeColors on ThemeData {
         (color == null ? AppColors.announcementButtonLabel : readableOn(color));
   }
 
-  /// A category tag's fill: the mini player's color when none is set.
-  Color announcementTagColor(AnnouncementCategory category) =>
-      category.color ?? bottomAppBarTheme.color ?? AppColors.primaryDark;
+  /// A category tag's fill: quiet, as the button is the card's one accent
+  /// (spec: "Color hierarchy by importance"). A faint tint of the
+  /// category's color, or the neutral control surface when it has none.
+  Color announcementTagColor(AnnouncementCategory category) {
+    final color = category.color;
+    if (color == null) return announcementColors.control;
+    final alpha = brightness == Brightness.dark ? 0.2 : 0.14;
+    return color.withValues(alpha: alpha);
+  }
 
-  /// A category tag's text.
+  /// A category tag's text: the category's color made readable on its
+  /// tint, or secondary text when it has none.
   Color announcementTagLabel(AnnouncementCategory category) {
     final color = category.color;
-    return category.textColor ??
-        (color == null ? AppColors.announcementTagLabel : readableOn(color));
+    final colors = announcementColors;
+    if (color == null) return colors.muted;
+    return colors.isDark
+        ? colors.inkOf(color)
+        : Color.lerp(color, colors.strong, 0.25)!;
+  }
+
+  /// The icon tile's fill: the neutral control surface, faintly tinted by
+  /// an explicit category color.
+  Color announcementIconTileColor(AnnouncementCategory category) {
+    final color = category.color;
+    return color == null
+        ? announcementColors.control
+        : color.withValues(alpha: 0.1);
   }
 }
