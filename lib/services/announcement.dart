@@ -398,17 +398,26 @@ enum RotationMode { fixed, rotate, random }
 
 /// The list's settings, sent with every list.
 class AnnouncementSettings {
-  const AnnouncementSettings({this.rotationMode = RotationMode.fixed});
+  const AnnouncementSettings({
+    this.rotationMode = RotationMode.fixed,
+    this.maxPerLoad,
+  });
 
   final RotationMode rotationMode;
 
+  /// How many home announcements show at most, counted after the device
+  /// dropped those not meant for it; null shows them all.
+  final int? maxPerLoad;
+
   static AnnouncementSettings fromJson(Object? json) {
     if (json is! Map) return const AnnouncementSettings();
+    final max = (json['max_per_load'] as num?)?.toInt();
     return AnnouncementSettings(
       rotationMode: RotationMode.values.firstWhere(
         (mode) => mode.name == json['rotation_mode'],
         orElse: () => RotationMode.fixed,
       ),
+      maxPerLoad: max != null && max > 0 ? max : null,
     );
   }
 }

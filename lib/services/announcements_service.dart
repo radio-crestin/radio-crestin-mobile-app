@@ -264,6 +264,7 @@ class AnnouncementsService with WidgetsBindingObserver {
     final home = _feed.items
         .where((item) => item.placement == AnnouncementPlacement.home)
         .where((item) => _isShowable(item, now))
+        .take(_feed.settings.maxPerLoad ?? _feed.items.length)
         .toList();
     announcements.add(AnnouncementList(_ordered(home), _feed.settings));
     _publishStations(now);
