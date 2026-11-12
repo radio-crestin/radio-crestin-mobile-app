@@ -20,6 +20,7 @@ import 'package:get_it/get_it.dart';
 import 'package:radio_crestin/services/station_data_service.dart';
 import '../appAudioHandler.dart';
 import '../types/Station.dart';
+import '../widgets/station_announcements.dart';
 import '../widgets/animated_play_button.dart';
 import '../widgets/cast_button.dart';
 import '../widgets/copied_toast.dart';
@@ -640,15 +641,29 @@ class _FullAudioPlayerState extends State<FullAudioPlayer> {
   /// icon sits where it did in a 48pt target.
   Widget _buildHeader(BuildContext context, {bool showCast = true}) {
     const slot = SizedBox.square(dimension: PlayerCastButton.size);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4.0),
-      child: Row(
-        children: [
-          slot,
-          Expanded(child: _buildStationTitle(context)),
-          showCast ? _buildCastButton(context) : slot,
-        ],
-      ),
+    // The station's announcements bell sits left of the cast button; an
+    // empty slot on the left keeps the name centered.
+    return StationNewsBuilder(
+      station: currentStation,
+      builder: (context, news) {
+        final hasBell = news.items.isNotEmpty;
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4.0),
+          child: Row(
+            children: [
+              slot,
+              if (hasBell) slot,
+              Expanded(child: _buildStationTitle(context)),
+              if (hasBell)
+                StationAnnouncementsBell(
+                  station: currentStation,
+                  place: StationBellPlace.fullPlayer,
+                ),
+              showCast ? _buildCastButton(context) : slot,
+            ],
+          ),
+        );
+      },
     );
   }
 

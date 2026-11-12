@@ -10,6 +10,7 @@ import 'package:radio_crestin/widgets/station_type_badge.dart';
 import 'package:sliding_up_panel2/sliding_up_panel2.dart';
 
 import '../services/playlist_controller.dart';
+import '../widgets/station_announcements.dart';
 import '../types/playlist_item.dart';
 import '../utils/station_ui.dart';
 
@@ -122,6 +123,12 @@ class MiniAudioPlayer extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8.0),
+                  IgnoreDraggableWidget(
+                    child: StationAnnouncementsBell(
+                      station: currentStation,
+                      place: StationBellPlace.miniPlayer,
+                    ),
+                  ),
                   IgnoreDraggableWidget(
                     child: AnimatedPlayButton(
                       playbackStateStream: audioHandler.playbackState,

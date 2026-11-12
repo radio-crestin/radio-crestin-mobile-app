@@ -3,10 +3,15 @@ import 'dart:developer' as developer;
 import 'dart:io' show Platform;
 
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../appAudioHandler.dart';
+import '../globals.dart' as globals;
 import '../tv/tv_platform.dart';
 import '../widgets/announcement_banner.dart';
+import '../widgets/station_announcements.dart';
+import 'announcement.dart';
 import 'announcement_actions.dart';
 import 'announcements_service.dart';
 
@@ -60,7 +65,8 @@ class AnnouncementPush {
   }
 
   /// A tap on the notification: runs the announcement's button, or shows
-  /// its card when it has none.
+  /// its card when it has none. A station's announcement starts the
+  /// station and opens its announcements.
   static Future<void> _onTap(
     RemoteMessage message,
     AnnouncementsService service,
@@ -69,12 +75,41 @@ class AnnouncementPush {
     if (slug == null) return;
     final item = await service.fetch(slug);
     if (item == null) return;
+    if (item.placement == AnnouncementPlacement.station) {
+      await _openInStation(item, service);
+      return;
+    }
     service.report(AnnouncementEvent.pushOpened, item, 0);
     final button = item.button;
     if (button != null) {
       await AnnouncementActions.run(item, button.action);
     } else {
       AnnouncementBanner.show(item, service);
+    }
+  }
+
+  /// Plays the announcement's station (the one playing, when it is one of
+  /// them) and opens that station's announcements.
+  static Future<void> _openInStation(
+    Announcement item,
+    AnnouncementsService service,
+  ) async {
+    final playing =
+        GetIt.instance<AppAudioHandler>().currentStation.valueOrNull?.slug;
+    final slug = item.stationSlugs.contains(playing)
+        ? playing
+        : item.stationSlugs.firstOrNull;
+    service.report(AnnouncementEvent.pushOpened, item, 0, station: slug);
+    final station =
+        slug == null ? null : await AnnouncementActions.findStation(slug);
+    if (station == null) return;
+    if (slug != playing) {
+      unawaited(GetIt.instance<AppAudioHandler>()
+          .playStation(station, fromFavorites: false));
+    }
+    final context = globals.navigatorKey.currentContext;
+    if (context != null && context.mounted) {
+      await StationAnnouncementsSheet.show(context, station);
     }
   }
 

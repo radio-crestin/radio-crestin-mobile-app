@@ -51,6 +51,7 @@ import '../widgets/station_group_chip.dart';
 import '../widgets/station_group_filter_sheet.dart';
 import '../widgets/status_snackbar.dart';
 import '../widgets/status_snackbar_controller.dart';
+import '../widgets/station_announcements.dart';
 import '../widgets/station_reorder.dart';
 import '../widgets/station_row_transition.dart';
 import 'SettingsPage.dart';
@@ -253,8 +254,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     });
 
     _listenToStatusSnackbarSources();
-    _announcementsSub =
-        _announcements.announcements.listen(_onAnnouncementsChanged);
+    // The card shows from the kept list in the first frame, so it never
+    // appears late and pushes the stations down.
+    final announcements = _announcements.announcements.value;
+    if (announcements.items.isNotEmpty) {
+      _homePromo = AnnouncementPromo(announcements);
+    }
+    _announcementsSub = _announcements.announcements
+        .skip(1)
+        .listen(_onAnnouncementsChanged);
 
     // Listen for custom events from notification/Android Auto actions
     _customEventSub = _audioHandler.customEvent.listen((event) {
@@ -296,7 +304,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     // Defer non-critical work to after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(_announcements.load());
+      unawaited(_announcements.refresh());
       AnnouncementPush.attach(_announcements);
       _loadHomePromo();
       _loadShareLinkData();
@@ -493,7 +501,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     try {
       await Future.wait([
         _stationDataService.refreshStations(),
-        _announcements.load(),
+        // The listener asked for news: new announcements show at once.
+        _announcements.refresh(showChanges: true),
         _loadHomePromo(),
         _loadShareLinkData(),
       ]).timeout(const Duration(seconds: 3));
@@ -840,7 +849,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         _wasBackgrounded = false;
         // Full refresh + resume polling (picks up all changes while backgrounded)
         _stationDataService.onAppResumed();
-        unawaited(_announcements.load());
         // iOS-only: warm resume mirrors cold start. The platform exposes no
         // way to tell "user tapped icon" from "user tapped app-switcher card",
         // so we treat every foreground as "user wants playback" when the
@@ -1371,7 +1379,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           // screen's bottom edge.
                           MiniPlayerBottomInset(
                             visible: currentStation != null,
-                            bottomInset: panelBottomInset,
+                            // Plus the station's unread announcements strip.
+                            bottomInset: panelBottomInset +
+                                (StationAnnouncementsStrip.showsFor(
+                                        currentStation)
+                                    ? StationAnnouncementsStrip.height
+                                    : 0),
                           ),
                           // Plus room for the docked offline snackbar while
                           // it shows, so the last rows stay reachable.
@@ -1413,6 +1426,25 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     : null,
               ),
             ),
+              // The station's unread announcements, on top of the mini
+              // player; gone while the full player opens over it.
+              if (hasMiniPlayer)
+                Positioned(
+                  left: 18,
+                  right: 18,
+                  bottom: panelMinHeight,
+                  child: ValueListenableBuilder<double>(
+                    valueListenable: _panelSlide,
+                    builder: (context, slide, child) => IgnorePointer(
+                      ignoring: slide > 0,
+                      child: Opacity(
+                        opacity: (1 - slide * 4).clamp(0.0, 1.0),
+                        child: child,
+                      ),
+                    ),
+                    child: StationAnnouncementsStrip(station: currentStation),
+                  ),
+                ),
               // Offline, back online and station errors, one at a time,
               // above the mini player and rising with the full player.
               Positioned.fill(
@@ -1478,6 +1510,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         return;
       }
       if (_isDuplicateLink(uri)) return;
+      // An admin's preview link: unpublished announcements on this phone.
+      if (uri.scheme == 'radiocrestin' && uri.host == 'anunturi-preview') {
+        unawaited(_announcements
+            .setPreviewToken(uri.queryParameters['token']));
+        playerAutoplay();
+        return;
+      }
 
       final stationSlug = Utils.stationSlugFromUri(uri);
       if (stationSlug.isEmpty) {
@@ -1887,7 +1926,6 @@ class _AnnouncementSlot extends StatelessWidget {
             ? AnnouncementCard(
                 key: const ValueKey('announcements'),
                 items: promo.announcements.items,
-                settings: promo.announcements.settings,
                 service: service,
               )
             : const SizedBox(
