@@ -53,7 +53,7 @@ final class SiriMediaHandler: NSObject, INPlayMediaIntentHandling {
     ) {
         let query = intent.mediaSearch?.mediaName ?? ""
         let id = intent.mediaSearch?.mediaIdentifier ?? ""
-        NSLog("SiriMediaHandler: find \"\(query)\" (\(id))")
+        NSLog("%@", "SiriMediaHandler: find \"\(query)\" (\(id))")
         invoke("find", ["query": query, "id": id]) { reply in
             guard let station = reply as? [String: String],
                   let id = station["id"],
@@ -79,7 +79,7 @@ final class SiriMediaHandler: NSObject, INPlayMediaIntentHandling {
             completion(INPlayMediaIntentResponse(code: .failure, userActivity: nil))
             return
         }
-        NSLog("SiriMediaHandler: play \(id)")
+        NSLog("%@", "SiriMediaHandler: play \(id)")
         invoke("play", ["id": id]) { reply in
             let code: INPlayMediaIntentResponseCode =
                 (reply as? Bool) == true ? .success : .failure
@@ -101,7 +101,7 @@ final class SiriMediaHandler: NSObject, INPlayMediaIntentHandling {
                 pronunciationHint: nil
             )
         })
-        NSLog("SiriMediaHandler: \(vocabulary.count) station names for Siri "
+        NSLog("%@", "SiriMediaHandler: \(vocabulary.count) station names for Siri "
             + "(Siri access \(INPreferences.siriAuthorizationStatus().rawValue))")
         // Saving them can take a while.
         DispatchQueue.global(qos: .utility).async {
@@ -121,7 +121,7 @@ final class SiriMediaHandler: NSObject, INPlayMediaIntentHandling {
         DispatchQueue.main.async {
             self.whenFlutterReady { ready in
                 guard ready, let channel = self.channel else {
-                    NSLog("SiriMediaHandler: Flutter didn't start, dropped \(method)")
+                    NSLog("%@", "SiriMediaHandler: Flutter didn't start, dropped \(method)")
                     reply(nil)
                     return
                 }

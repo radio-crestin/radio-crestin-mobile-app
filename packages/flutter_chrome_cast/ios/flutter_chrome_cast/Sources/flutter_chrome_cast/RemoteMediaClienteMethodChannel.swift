@@ -225,12 +225,12 @@ class RemoteMediaClienteMethodChannel :UIResponder, FlutterPlugin, GCKRemoteMedi
     }
     
     private  func loadMedia(_ arguments : Dictionary<String,Any>, result : FlutterResult )  {
-        NSLog("[GoogleCast] loadMedia() called — keys: \(arguments.keys.sorted())")
-        NSLog("[GoogleCast] loadMedia() contentURL: \(arguments["contentURL"] ?? "nil")")
-        NSLog("[GoogleCast] loadMedia() contentType: \(arguments["contentType"] ?? "nil")")
-        NSLog("[GoogleCast] loadMedia() streamType: \(arguments["streamType"] ?? "nil")")
-        NSLog("[GoogleCast] loadMedia() autoPlay: \(arguments["autoPlay"] ?? "nil")")
-        NSLog("[GoogleCast] loadMedia() metadata keys: \((arguments["metadata"] as? [String: Any])?.keys.sorted() ?? [])")
+        NSLog("%@", "[GoogleCast] loadMedia() called — keys: \(arguments.keys.sorted())")
+        NSLog("%@", "[GoogleCast] loadMedia() contentURL: \(arguments["contentURL"] ?? "nil")")
+        NSLog("%@", "[GoogleCast] loadMedia() contentType: \(arguments["contentType"] ?? "nil")")
+        NSLog("%@", "[GoogleCast] loadMedia() streamType: \(arguments["streamType"] ?? "nil")")
+        NSLog("%@", "[GoogleCast] loadMedia() autoPlay: \(arguments["autoPlay"] ?? "nil")")
+        NSLog("%@", "[GoogleCast] loadMedia() metadata keys: \((arguments["metadata"] as? [String: Any])?.keys.sorted() ?? [])")
 
         guard let mediaInfo = GCKMediaInformation.fromMap(arguments) else {
             NSLog("[GoogleCast] loadMedia() FAILED to create GCKMediaInformation — check contentURL is present and valid")
@@ -238,10 +238,10 @@ class RemoteMediaClienteMethodChannel :UIResponder, FlutterPlugin, GCKRemoteMedi
             return
         }
 
-        NSLog("[GoogleCast] loadMedia() mediaInfo OK — contentID: \(mediaInfo.contentID ?? "nil"), contentType: \(mediaInfo.contentType ?? "nil"), streamType: \(mediaInfo.streamType.rawValue)")
-        NSLog("[GoogleCast] loadMedia() metadata title: \(mediaInfo.metadata?.string(forKey: kGCKMetadataKeyTitle) ?? "nil")")
-        NSLog("[GoogleCast] loadMedia() metadata artist: \(mediaInfo.metadata?.string(forKey: kGCKMetadataKeyArtist) ?? "nil")")
-        NSLog("[GoogleCast] loadMedia() metadata images: \(mediaInfo.metadata?.images().count ?? 0)")
+        NSLog("%@", "[GoogleCast] loadMedia() mediaInfo OK — contentID: \(mediaInfo.contentID ?? "nil"), contentType: \(mediaInfo.contentType ?? "nil"), streamType: \(mediaInfo.streamType.rawValue)")
+        NSLog("%@", "[GoogleCast] loadMedia() metadata title: \(mediaInfo.metadata?.string(forKey: kGCKMetadataKeyTitle) ?? "nil")")
+        NSLog("%@", "[GoogleCast] loadMedia() metadata artist: \(mediaInfo.metadata?.string(forKey: kGCKMetadataKeyArtist) ?? "nil")")
+        NSLog("%@", "[GoogleCast] loadMedia() metadata images: \(mediaInfo.metadata?.images().count ?? 0)")
 
         let requestDataBuilder = GCKMediaLoadRequestDataBuilder()
         requestDataBuilder.mediaInformation = mediaInfo
@@ -268,9 +268,9 @@ class RemoteMediaClienteMethodChannel :UIResponder, FlutterPlugin, GCKRemoteMedi
         }
         let requestData = requestDataBuilder.build()
 
-        NSLog("[GoogleCast] loadMedia() remoteMediaClient exists: \(currentRemoteMediaCliente != nil)")
+        NSLog("%@", "[GoogleCast] loadMedia() remoteMediaClient exists: \(currentRemoteMediaCliente != nil)")
         let request = currentRemoteMediaCliente?.loadMedia(with: requestData)
-        NSLog("[GoogleCast] loadMedia() request sent: \(request != nil), requestID: \(request?.requestID ?? -1)")
+        NSLog("%@", "[GoogleCast] loadMedia() request sent: \(request != nil), requestID: \(request?.requestID ?? -1)")
         result(request?.toMap())
     }
     

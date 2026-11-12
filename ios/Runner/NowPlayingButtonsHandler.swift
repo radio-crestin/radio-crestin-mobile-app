@@ -77,7 +77,7 @@ class NowPlayingButtonsHandler: NSObject, FlutterPlugin, CPNowPlayingTemplateObs
                     return
                 }
                 #if DEBUG
-                NSLog("NowPlayingButtonsHandler: syncPlaybackState rate -> \(rate)")
+                NSLog("%@", "NowPlayingButtonsHandler: syncPlaybackState rate -> \(rate)")
                 #endif
                 info[MPNowPlayingInfoPropertyPlaybackRate] = rate
                 // Live items have no duration; keep their elapsed at 0. Items

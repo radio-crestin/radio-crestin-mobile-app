@@ -42,7 +42,7 @@ enum WidgetStorage {
             try encoder.encode(snapshot).write(to: url, options: .atomic)
             return true
         } catch {
-            NSLog("WidgetStorage: saving the snapshot failed: \(error)")
+            NSLog("%@", "WidgetStorage: saving the snapshot failed: \(error)")
             return false
         }
     }

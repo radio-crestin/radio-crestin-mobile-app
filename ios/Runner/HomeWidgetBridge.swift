@@ -79,7 +79,7 @@ final class HomeWidgetBridge {
     /// Carries out a widget button in Flutter; returns once Flutter has,
     /// so the widget redraws with its outcome.
     private func send(_ command: WidgetCommand) async {
-        NSLog("HomeWidgetBridge: \(command.arguments)")
+        NSLog("%@", "HomeWidgetBridge: \(command.arguments)")
         guard await waitForFlutter() else {
             NSLog("HomeWidgetBridge: Flutter didn't start, dropped the button")
             return
@@ -182,7 +182,7 @@ actor WidgetSnapshotStore {
         do {
             payload = try JSONDecoder().decode(WidgetPayload.self, from: json)
         } catch {
-            NSLog("WidgetSnapshotStore: unreadable payload: \(error)")
+            NSLog("%@", "WidgetSnapshotStore: unreadable payload: \(error)")
             return
         }
         let snapshot = await snapshot(of: payload)
@@ -323,7 +323,10 @@ enum WidgetImages {
         guard let data = await load(image),
               let square = squared(data, side: kind.side)
         else {
-            NSLog("WidgetImages: couldn't load \(image.url)")
+            // The message is NSLog's argument, never its format: a cover's
+            // URL escapes (%20, %C8) read as format specifiers and crashed
+            // the app (SIGSEGV/SIGBUS here in PostHog).
+            NSLog("%@", "WidgetImages: couldn't load \(image.url)")
             return nil
         }
         return write(square, to: target, type: kind.type) ? name : nil
