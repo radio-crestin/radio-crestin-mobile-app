@@ -11,10 +11,13 @@ import 'package:radio_crestin/services/announcements_service.dart';
 import 'package:radio_crestin/theme.dart';
 import 'package:radio_crestin/widgets/announcement_banner.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher_platform_interface/url_launcher_platform_interface.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
 import 'harness/announcement_fixtures.dart';
 import 'harness/fake_radio_server.dart';
 import 'harness/network_conditions.dart';
+import 'harness/recording_launcher.dart';
 import 'harness/radio_app.dart';
 import 'harness/station_catalog.dart';
 
@@ -394,9 +397,11 @@ void main() {
     });
 
     announcementTest(
-        "a page's YouTube links become players; a tap starts one",
-        (app) async {
+        "a page's YouTube links are thumbnails that open YouTube, pausing "
+        'the radio', (app) async {
       server.announcements.add(AnnouncementFixtures.videos());
+      await app.expectPlaying(Stations.alpha,
+          since: await app.tapStation(Stations.alpha));
       await app.pullToRefresh();
       await app.waitFor(() => app.showsText(AnnouncementFixtures.videoTitle),
           reason: 'the card');
@@ -413,25 +418,53 @@ void main() {
           findsOneWidget,
           reason: 'the link inside a sentence stays text');
 
-      final player = find.byKey(const ValueKey('youtube-player'));
-      await app.tester.tap(facades.first);
-      await app.waitFor(() => player.evaluate().isNotEmpty,
-          reason: 'the tap to start the player in place');
-      // The tapped one's thumbnail fades out as the player comes in.
-      await app.waitFor(() => facades.evaluate().length == 2,
-          reason: 'only the tapped one became a player');
-      await app.waitFor(
-          () => server.announcementEvents.any((e) =>
-              e['slug'] == AnnouncementFixtures.videoSlug &&
-              e['type'] == 'video_play' &&
-              e['provider'] == 'youtube' &&
-              e['kind'] == 'video'),
-          reason: 'video_play to reach the backend',
-          timeout: const Duration(seconds: 15));
+      final launcher = RecordingLauncher();
+      final systemLauncher = UrlLauncherPlatform.instance;
+      UrlLauncherPlatform.instance = launcher;
+      try {
+        await app.tester.tap(facades.first);
+        await app.waitFor(() => launcher.launches.isNotEmpty,
+            reason: 'the tap to open YouTube');
+        expect(launcher.launches.single.url,
+            'https://www.youtube.com/watch?v=${AnnouncementFixtures.videoId}'
+            '&t=65s',
+            reason: 'the canonical link, from the start time');
+        expect(launcher.launches.single.mode,
+            PreferredLaunchMode.externalNonBrowserApplication,
+            reason: 'in the YouTube app');
+        await app.waitFor(() => !app.audio.playbackState.value.playing,
+            reason: 'the radio to pause for the video');
+        await app.waitFor(
+            () => server.announcementEvents.any((e) =>
+                e['slug'] == AnnouncementFixtures.videoSlug &&
+                e['type'] == 'video_play' &&
+                e['provider'] == 'youtube' &&
+                e['kind'] == 'video'),
+            reason: 'video_play to reach the backend',
+            timeout: const Duration(seconds: 15));
 
-      await app.tapTooltip('Înapoi');
-      await app.waitFor(() => player.evaluate().isEmpty,
-          reason: 'leaving the page to stop the player');
+        // Without the YouTube app, the browser opens it.
+        launcher
+          ..launches.clear()
+          ..appInstalled = false;
+        await app.tester.ensureVisible(facades.at(1));
+        await app.tester.tap(facades.at(1));
+        await app.waitFor(() => launcher.launches.length == 2,
+            reason: 'the app, then the browser');
+        expect(
+            launcher.launches.map((launch) => launch.mode),
+            [
+              PreferredLaunchMode.externalNonBrowserApplication,
+              PreferredLaunchMode.externalApplication,
+            ],
+            reason: 'the browser when no app takes it');
+        expect(launcher.launches.last.url,
+            'https://www.youtube.com/shorts/${AnnouncementFixtures.shortId}');
+      } finally {
+        UrlLauncherPlatform.instance = systemLauncher;
+      }
+      expect(find.byType(WebViewWidget), findsNothing,
+          reason: 'no player inside the app');
     });
 
     announcementTest('a launch forgets what the removed "later" button kept',

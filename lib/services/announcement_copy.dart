@@ -21,11 +21,8 @@ class AnnouncementCopy {
   static const dismiss = 'Ascunde';
   static const dismissLabel = 'Ascunde acest anunț';
 
-  /// YouTube in an announcement's page: what the thumbnail shows (the
-  /// backend's words) and what its play button does (made with Codex).
-  static const videoThumbnail = 'Miniatură video YouTube';
-  static const shortThumbnail = 'Miniatură YouTube Shorts';
-  static const playlistOnYoutube = 'Listă de redare pe YouTube';
+  /// A video's thumbnail in an announcement's page: what a tap does, read
+  /// out when the backend has no title for it (made with Codex).
   static const playVideo = 'Redă videoclipul';
   static const playShort = 'Redă clipul scurt';
   static const playPlaylist = 'Redă lista de redare';

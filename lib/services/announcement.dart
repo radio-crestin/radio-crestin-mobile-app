@@ -131,17 +131,22 @@ class AnnouncementCategory {
 }
 
 /// The full-screen page an announcement can open. The list sends only its
-/// title and cover; the markdown comes with the single announcement.
+/// title and cover; the markdown and the embeds come with the single
+/// announcement.
 class AnnouncementPageContent {
   const AnnouncementPageContent({
     required this.title,
     this.markdown,
     this.coverImageUrl,
+    this.embeds = const [],
   });
 
   final String title;
   final String? markdown;
   final String? coverImageUrl;
+
+  /// What the backend knows about the page's video links, in page order.
+  final List<PageEmbed> embeds;
 
   static AnnouncementPageContent? fromJson(Object? json, String fallbackTitle) {
     if (json is! Map) return null;
@@ -149,6 +154,49 @@ class AnnouncementPageContent {
       title: _string(json['title']) ?? fallbackTitle,
       markdown: _string(json['markdown']),
       coverImageUrl: _string(json['cover_image_url']),
+      embeds: [
+        for (final entry in json['embeds'] as List? ?? const [])
+          if (PageEmbed.fromJson(entry) case final embed?) embed,
+      ],
+    );
+  }
+}
+
+/// A video link of a page as the backend describes it (`page.embeds`): its
+/// title and thumbnail, which YouTube gave when the announcement was saved.
+class PageEmbed {
+  const PageEmbed({
+    required this.url,
+    required this.kind,
+    this.videoId,
+    this.listId,
+    this.title,
+    this.thumbnail,
+  });
+
+  final String url;
+
+  /// `video`, `short` or `playlist`.
+  final String kind;
+  final String? videoId;
+  final String? listId;
+
+  /// The video's title: for screen readers only.
+  final String? title;
+  final String? thumbnail;
+
+  static PageEmbed? fromJson(Object? json) {
+    if (json is! Map || json['provider'] != 'youtube') return null;
+    final url = _string(json['url']);
+    final kind = _string(json['kind']);
+    if (url == null || kind == null) return null;
+    return PageEmbed(
+      url: url,
+      kind: kind,
+      videoId: _string(json['video_id']),
+      listId: _string(json['list_id']),
+      title: _string(json['title']),
+      thumbnail: _string(json['thumbnail']),
     );
   }
 }

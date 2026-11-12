@@ -122,6 +122,9 @@ On **December 20th at 19:00**, live.
   static const videoSlug = 'e2e-videos';
   static const videoTitle = 'Watch the concert';
   static const videoPageTitle = 'Videos from the concert';
+  static const videoId = 'dQw4w9WgXcQ';
+  static const videoEmbedTitle = 'The concert, live';
+  static const shortId = 'aqz-KE-bpKQ';
 
   /// A page with a YouTube video (with a start time), a Short and a
   /// playlist, each a paragraph of its own, and a YouTube link inside a
@@ -135,16 +138,34 @@ On **December 20th at 19:00**, live.
           'markdown': '''
 The concert, from the start:
 
-https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=1m5s
+https://www.youtube.com/watch?v=$videoId&t=1m5s
 
 A short moment:
 
-<https://youtube.com/shorts/aqz-KE-bpKQ>
+<https://youtube.com/shorts/$shortId>
 
 [https://www.youtube.com/playlist?list=PLFgquLnL59alCl_2TQvOiD5Vgm1hCaGSI](https://www.youtube.com/playlist?list=PLFgquLnL59alCl_2TQvOiD5Vgm1hCaGSI)
 
 Or open it [on YouTube](https://www.youtube.com/watch?v=dQw4w9WgXcQ) yourself.
 ''',
+          // What the single announcement adds: titles and thumbnails.
+          'embeds': [
+            {
+              'url': 'https://www.youtube.com/watch?v=$videoId&t=65s',
+              'provider': 'youtube',
+              'kind': 'video',
+              'video_id': videoId,
+              'start': 65,
+              'title': videoEmbedTitle,
+              'thumbnail': 'https://i.ytimg.com/vi/$videoId/hqdefault.jpg',
+            },
+            {
+              'url': 'https://www.youtube.com/shorts/$shortId',
+              'provider': 'youtube',
+              'kind': 'short',
+              'video_id': shortId,
+            },
+          ],
         },
       };
 

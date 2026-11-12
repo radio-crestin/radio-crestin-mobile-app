@@ -37,22 +37,22 @@ class AnnouncementPage extends StatefulWidget {
 class _AnnouncementPageState extends State<AnnouncementPage> {
   AnnouncementsService get _service => GetIt.instance<AnnouncementsService>();
 
-  /// The page's markdown: the list leaves it out, so it comes with the
-  /// single announcement (Cloudflare caches it too).
-  late Future<String?> _markdown;
+  /// The page's markdown and video links: the list leaves them out, so
+  /// they come with the single announcement (Cloudflare caches it too).
+  late Future<AnnouncementPageContent?> _page;
 
   @override
   void initState() {
     super.initState();
     _service.report(AnnouncementEvent.pageViewed, widget.item, 0);
-    _markdown = _loadMarkdown();
+    _page = _loadPage();
   }
 
-  Future<String?> _loadMarkdown() async {
-    final known = widget.item.page?.markdown;
-    if (known != null) return known;
+  Future<AnnouncementPageContent?> _loadPage() async {
+    final known = widget.item.page;
+    if (known?.markdown != null) return known;
     final item = await _service.fetch(widget.item.slug);
-    return item?.page?.markdown ?? item?.bodyMarkdown;
+    return item?.page;
   }
 
   /// The button pinned under the page: the main one, unless it is the one
@@ -94,7 +94,7 @@ class _AnnouncementPageState extends State<AnnouncementPage> {
                         ? 32 + MediaQuery.paddingOf(context).bottom
                         : 110 + MediaQuery.paddingOf(context).bottom,
                   ),
-                  child: _Content(item: widget.item, markdown: _markdown),
+                  child: _Content(item: widget.item, page: _page),
                 ),
               ),
             ],
@@ -153,10 +153,10 @@ class _TopBar extends StatelessWidget {
 
 /// The cover, tag, title, date and markdown.
 class _Content extends StatelessWidget {
-  const _Content({required this.item, required this.markdown});
+  const _Content({required this.item, required this.page});
 
   final Announcement item;
-  final Future<String?> markdown;
+  final Future<AnnouncementPageContent?> page;
 
   @override
   Widget build(BuildContext context) {
@@ -193,15 +193,16 @@ class _Content extends StatelessWidget {
             ),
           ),
         const SizedBox(height: 16),
-        FutureBuilder<String?>(
-          future: markdown,
+        FutureBuilder<AnnouncementPageContent?>(
+          future: this.page,
           builder: (context, snapshot) => AnimatedSwitcher(
             duration: const Duration(milliseconds: 250),
             child: snapshot.connectionState == ConnectionState.done
                 ? _Markdown(
                     key: const ValueKey('markdown'),
                     item: item,
-                    data: snapshot.data ?? item.bodyMarkdown,
+                    data: snapshot.data?.markdown ?? item.bodyMarkdown,
+                    embeds: snapshot.data?.embeds ?? const [],
                     accent: Theme.of(context).announcementAccent(item),
                   )
                 : const _MarkdownSkeleton(key: ValueKey('loading')),
@@ -246,14 +247,26 @@ class _Markdown extends StatelessWidget {
     required this.item,
     required this.data,
     required this.accent,
+    this.embeds = const [],
   });
 
   final Announcement item;
   final String data;
   final Color accent;
 
+  /// The backend's titles and thumbnails for the page's video links.
+  final List<PageEmbed> embeds;
+
+  /// The backend's entry for [embed]: the same kind and IDs.
+  PageEmbed? _detailsOf(YoutubeEmbed embed) => embeds
+      .where((entry) =>
+          entry.kind == embed.kind.name &&
+          entry.videoId == embed.videoId &&
+          entry.listId == embed.listId)
+      .firstOrNull;
+
   /// The markdown cut where a paragraph is only a YouTube link: those
-  /// become players, the rest stays markdown.
+  /// become video thumbnails, the rest stays markdown.
   static List<Object> _segments(String markdown) {
     final segments = <Object>[];
     final text = <String>[];
@@ -284,7 +297,11 @@ class _Markdown extends StatelessWidget {
       children: [
         for (final segment in _segments(data))
           if (segment is YoutubeEmbed)
-            AnnouncementYoutubeEmbed(embed: segment, announcement: item)
+            AnnouncementYoutubeEmbed(
+              embed: segment,
+              announcement: item,
+              details: _detailsOf(segment),
+            )
           else
             _MarkdownText(data: segment as String, accent: accent),
       ],

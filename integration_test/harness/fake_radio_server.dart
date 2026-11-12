@@ -236,7 +236,9 @@ class FakeRadioServer {
           {
             ...item,
             if (item['page'] case final Map<String, Object?> page)
-              'page': {...page}..remove('markdown'),
+              'page': {...page}
+                ..remove('markdown')
+                ..remove('embeds'),
           },
       ],
     }));
