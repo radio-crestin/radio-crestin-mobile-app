@@ -244,7 +244,7 @@ class StationAnnouncementsStrip extends StatelessWidget {
           duration: const Duration(milliseconds: 250),
           transitionBuilder: (child, animation) => SizeTransition(
             sizeFactor: animation,
-            axisAlignment: 1,
+            alignment: Alignment.bottomCenter,
             child: child,
           ),
           child: current == null || news.unseen == 0

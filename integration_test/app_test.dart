@@ -302,7 +302,8 @@ void main() {
     });
 
     announcementTest(
-        'when the buttons wrap, "Ascunde" stays level with the main one',
+        'one line: the main button and "Ascunde"; an old second button is '
+        'ignored',
         (app) async {
       server.announcements.add(AnnouncementFixtures.longButtons());
       await app.pullToRefresh();
@@ -312,13 +313,22 @@ void main() {
       double middleOf(Finder finder) =>
           tester.getCenter(finder.hitTestable().first).dy;
       final primary = middleOf(find.text(AnnouncementFixtures.longPrimary));
-      final second = middleOf(find.text(AnnouncementFixtures.longSecondary));
       final dismiss =
           middleOf(find.byKey(const ValueKey('announcement-dismiss')));
-      expect(second, greaterThan(primary + 30),
-          reason: 'the second button wrapped to a new line');
       expect((dismiss - primary).abs(), lessThan(2),
-          reason: '"Ascunde" stays on the first line, beside the main button');
+          reason: '"Ascunde" sits on the main button\'s line');
+      expect(app.showsText(AnnouncementFixtures.legacySecondary), isFalse,
+          reason: 'a second button from an older list is not drawn');
+    });
+
+    announcementTest('a launch forgets what the removed "later" button kept',
+        (app) async {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('announcements_snoozed',
+          '{"${AnnouncementFixtures.verseSlug}":"2099-01-01T00:00:00Z"}');
+      await app.coldStartAnnouncements();
+      await app.waitFor(() => !prefs.containsKey('announcements_snoozed'),
+          reason: 'the old snoozes to be removed');
     });
 
     announcementTest(

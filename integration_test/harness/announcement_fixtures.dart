@@ -59,11 +59,6 @@ class AnnouncementFixtures {
           ..._button(concertButton, '#7C3AED', {'type': 'page'}),
           'style': 'text',
         },
-        'secondary_button': {
-          'label': 'Later',
-          'kind': 'later',
-          'later_days': 3
-        },
         'page': {
           'title': pageTitle,
           'markdown': '''
@@ -91,7 +86,7 @@ On **December 20th at 19:00**, live.
         'title': stationNewsTitle,
         'placement': 'station',
         'station_slugs': [station],
-      }..remove('secondary_button');
+      };
 
   /// A poll: its button opens a form.
   static Map<String, Object?> poll() => {
@@ -105,10 +100,10 @@ On **December 20th at 19:00**, live.
       };
 
   static const longPrimary = 'Answer the four short questions';
-  static const longSecondary = 'Remind me in a few days';
+  static const legacySecondary = 'Remind me in a few days';
 
-  /// Buttons too long for one line: the second one wraps under the
-  /// first.
+  /// A long main button, and the second button an older list kept on the
+  /// device may still carry: the app ignores it.
   static Map<String, Object?> longButtons() => {
         ...verse(),
         'slug': 'e2e-long-buttons',
@@ -118,7 +113,7 @@ On **December 20th at 19:00**, live.
           'url': 'https://example.com/survey',
         }),
         'secondary_button': {
-          'label': longSecondary,
+          'label': legacySecondary,
           'kind': 'later',
           'later_days': 3,
         },

@@ -102,45 +102,6 @@ class AnnouncementButton {
   }
 }
 
-/// What the second button does besides being tapped.
-enum SecondaryButtonKind { close, later, action }
-
-/// The second, quieter button: close for good, later, or an action.
-class AnnouncementSecondaryButton {
-  const AnnouncementSecondaryButton({
-    required this.label,
-    required this.kind,
-    this.laterDays,
-    this.action,
-  });
-
-  final String label;
-  final SecondaryButtonKind kind;
-
-  /// For [SecondaryButtonKind.later]: how many days to hide it.
-  final int? laterDays;
-
-  /// For [SecondaryButtonKind.action].
-  final AnnouncementAction? action;
-
-  static AnnouncementSecondaryButton? fromJson(Object? json) {
-    if (json is! Map) return null;
-    final label = _string(json['label']);
-    final kind = SecondaryButtonKind.values
-        .where((kind) => kind.name == json['kind'])
-        .firstOrNull;
-    if (label == null || kind == null) return null;
-    final action = AnnouncementAction.fromJson(json['action']);
-    if (kind == SecondaryButtonKind.action && action == null) return null;
-    return AnnouncementSecondaryButton(
-      label: label,
-      kind: kind,
-      laterDays: (json['later_days'] as num?)?.toInt(),
-      action: action,
-    );
-  }
-}
-
 /// The category tag: a name on a colored pill.
 class AnnouncementCategory {
   const AnnouncementCategory({
@@ -304,7 +265,6 @@ class Announcement {
     this.iconName,
     this.iconUrl,
     this.button,
-    this.secondaryButton,
     this.page,
     this.startsAt,
     this.endsAt,
@@ -324,7 +284,6 @@ class Announcement {
   final String title;
   final String bodyMarkdown;
   final AnnouncementButton? button;
-  final AnnouncementSecondaryButton? secondaryButton;
   final AnnouncementPageContent? page;
   final bool dismissible;
   final DateTime? startsAt;
@@ -353,7 +312,6 @@ class Announcement {
         iconUrl != null,
         button?.isVisible == true ? button!.label : '',
         button?.style.name,
-        secondaryButton?.label,
         dismissible,
       ].join('\u0000');
 
@@ -380,9 +338,9 @@ class Announcement {
       iconUrl: _string(icon['url']),
       title: title,
       bodyMarkdown: _string(json['body_markdown']) ?? '',
+      // A list kept from before still has `secondary_button`: the second
+      // button is gone, so it is ignored.
       button: AnnouncementButton.fromJson(json['button'], category.color),
-      secondaryButton:
-          AnnouncementSecondaryButton.fromJson(json['secondary_button']),
       page: AnnouncementPageContent.fromJson(json['page'], title),
       dismissible: json['dismissible'] != false,
       startsAt: DateTime.tryParse(_string(json['starts_at']) ?? ''),

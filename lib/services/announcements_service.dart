@@ -22,13 +22,11 @@ import 'image_cache_service.dart';
 enum AnnouncementEvent {
   impression,
   clicked,
-  secondaryClicked,
   dismissed,
   pageViewed,
   pushOpened;
 
   String get apiName => switch (this) {
-        secondaryClicked => 'secondary_clicked',
         pageViewed => 'page_viewed',
         pushOpened => 'push_opened',
         _ => name,
@@ -68,6 +66,7 @@ class AnnouncementsService with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _feed = _Feed.parse(_store.feed);
     _publishAll();
+    unawaited(_store.forgetRetired());
   }
 
   /// Whether announcement pushes are handled (off in the e2e tests).
@@ -244,8 +243,9 @@ class AnnouncementsService with WidgetsBindingObserver {
     if (!_imageCacheReady) return;
     for (final item in feed.items) {
       for (final url in [item.iconUrl, item.page?.coverImageUrl]) {
-        if (url != null)
+        if (url != null) {
           unawaited(ImageCacheService.instance.getOrDownload(url));
+        }
       }
     }
   }
@@ -315,7 +315,6 @@ class AnnouncementsService with WidgetsBindingObserver {
         ) &&
         !_store.dismissed.contains(item.slug) &&
         !_hiddenThisLaunch.contains(item.slug) &&
-        !_store.isSnoozed(item.slug, now) &&
         (max == null || max <= 0 || _store.impressions(item.slug) < max);
   }
 
@@ -349,17 +348,11 @@ class AnnouncementsService with WidgetsBindingObserver {
     report(AnnouncementEvent.impression, item, position, station: station);
   }
 
-  /// Hides [item] for good on this device ("Ascunde", or "close").
+  /// Hides [item] for good on this device ("Ascunde").
   Future<void> dismiss(Announcement item, int position,
       {String? station}) async {
     report(AnnouncementEvent.dismissed, item, position, station: station);
     await _store.dismiss(item.slug);
-    _removeFromScreen(item.slug);
-  }
-
-  /// Hides [item] for [days] days ("later").
-  Future<void> snooze(Announcement item, int days) async {
-    await _store.snooze(item.slug, DateTime.now().add(Duration(days: days)));
     _removeFromScreen(item.slug);
   }
 
@@ -421,7 +414,6 @@ class AnnouncementsService with WidgetsBindingObserver {
       'at': DateTime.now().toUtc().toIso8601String(),
     });
     final urgent = event == AnnouncementEvent.clicked ||
-        event == AnnouncementEvent.secondaryClicked ||
         event == AnnouncementEvent.pushOpened;
     if (urgent) {
       unawaited(flush());

@@ -338,20 +338,6 @@ class _Slide extends StatelessWidget {
     onDone?.call();
   }
 
-  void _onSecondary(AnnouncementSecondaryButton button) {
-    service.report(AnnouncementEvent.secondaryClicked, item, position,
-        station: station);
-    switch (button.kind) {
-      case SecondaryButtonKind.close:
-        unawaited(service.dismiss(item, position, station: station));
-      case SecondaryButtonKind.later:
-        unawaited(service.snooze(item, button.laterDays ?? 1));
-      case SecondaryButtonKind.action:
-        unawaited(AnnouncementActions.run(item, button.action!));
-    }
-    onDone?.call();
-  }
-
   void _onDismiss() {
     unawaited(service.dismiss(item, position, station: station));
     onDone?.call();
@@ -413,7 +399,6 @@ class _Slide extends StatelessWidget {
                 _Actions(
                   item: item,
                   onPrimary: () => _runPrimary(ClickTarget.button),
-                  onSecondary: _onSecondary,
                   onDismiss: _onDismiss,
                 ),
               ],
@@ -477,59 +462,33 @@ class _IconRow extends StatelessWidget {
   }
 }
 
-/// The main button, the second one, and "Ascunde" on the right.
+/// The main button on the left and "Ascunde" on the right, on one line.
 class _Actions extends StatelessWidget {
   const _Actions({
     required this.item,
     required this.onPrimary,
-    required this.onSecondary,
     required this.onDismiss,
   });
 
   final Announcement item;
   final VoidCallback onPrimary;
-  final ValueChanged<AnnouncementSecondaryButton> onSecondary;
   final VoidCallback onDismiss;
-
-  /// The height of "Ascunde" and of each row of buttons.
-  static const double _rowHeight = 36;
 
   @override
   Widget build(BuildContext context) {
     final button = item.button;
-    final secondary = item.secondaryButton;
-    // "Ascunde" already closes a dismissible one.
-    final showSecondary = secondary != null &&
-        !(item.dismissible && secondary.kind == SecondaryButtonKind.close);
-    final buttons = [
-      if (button != null && button.isVisible)
-        AnnouncementPrimaryButton(button: button, onTap: onPrimary),
-      if (showSecondary)
-        _SecondaryButton(
-          label: secondary.label,
-          onTap: () => onSecondary(secondary),
-        ),
-    ];
-    if (buttons.isEmpty && !item.dismissible) return const SizedBox.shrink();
-    // Every button sits in a row as tall as "Ascunde", which stays on the
-    // first one, level with the main button, when the others wrap.
+    final showsButton = button != null && button.isVisible;
+    if (!showsButton && !item.dismissible) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.only(top: 12),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
-            child: Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                for (final button in buttons)
-                  SizedBox(
-                    height: _rowHeight,
-                    child: Align(widthFactor: 1, child: button),
-                  ),
-              ],
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: showsButton
+                  ? AnnouncementPrimaryButton(button: button, onTap: onPrimary)
+                  : const SizedBox.shrink(),
             ),
           ),
           if (item.dismissible) ...[
@@ -694,42 +653,6 @@ class AnnouncementPrimaryButton extends StatelessWidget {
                 ),
               ],
             ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// The quiet second button: "Mai târziu" or another action.
-class _SecondaryButton extends StatelessWidget {
-  const _SecondaryButton({required this.label, required this.onTap});
-
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).announcementColors;
-    return Material(
-      type: MaterialType.transparency,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
-        highlightColor: colors.control,
-        child: Container(
-          height: 36,
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          child: Align(
-            widthFactor: 1,
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 13.5,
-                fontWeight: FontWeight.w500,
-                color: colors.muted,
-              ),
-            ),
           ),
         ),
       ),

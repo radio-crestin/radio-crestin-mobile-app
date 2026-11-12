@@ -53,34 +53,16 @@ class _AnnouncementPageState extends State<AnnouncementPage> {
   }
 
   /// The button pinned under the page: the main one, unless it is the one
-  /// that opened this page; then the second one, when it has an action.
+  /// that opened this page.
   ({AnnouncementButton button, AnnouncementEvent event})? get _cta {
-    final item = widget.item;
-    final main = item.button;
-    if (main != null &&
-        main.isVisible &&
-        main.label.isNotEmpty &&
-        main.action.type != AnnouncementActionType.page) {
-      return (button: main, event: AnnouncementEvent.clicked);
-    }
-    final second = item.secondaryButton;
-    final action = second?.action;
-    if (second == null ||
-        action == null ||
-        action.type == AnnouncementActionType.page) {
+    final main = widget.item.button;
+    if (main == null ||
+        !main.isVisible ||
+        main.label.isEmpty ||
+        main.action.type == AnnouncementActionType.page) {
       return null;
     }
-    return (
-      button: AnnouncementButton(
-        label: second.label,
-        style: AnnouncementButtonStyle.filled,
-        color: item.color,
-        textColor: readableOn(item.color),
-        icon: 'auto',
-        action: action,
-      ),
-      event: AnnouncementEvent.secondaryClicked,
-    );
+    return (button: main, event: AnnouncementEvent.clicked);
   }
 
   void _onCta(AnnouncementButton button, AnnouncementEvent event) {
