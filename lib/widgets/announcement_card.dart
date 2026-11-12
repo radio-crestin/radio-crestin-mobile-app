@@ -469,6 +469,9 @@ class _Actions extends StatelessWidget {
   final ValueChanged<AnnouncementSecondaryButton> onSecondary;
   final VoidCallback onDismiss;
 
+  /// The height of "Ascunde" and of each row of buttons.
+  static const double _rowHeight = 36;
+
   @override
   Widget build(BuildContext context) {
     final button = item.button;
@@ -486,17 +489,25 @@ class _Actions extends StatelessWidget {
         ),
     ];
     if (buttons.isEmpty && !item.dismissible) return const SizedBox.shrink();
+    // Every button sits in a row as tall as "Ascunde", which stays on the
+    // first one, level with the main button, when the others wrap.
     return Padding(
       padding: const EdgeInsets.only(top: 12),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
             child: Wrap(
               spacing: 6,
               runSpacing: 6,
               crossAxisAlignment: WrapCrossAlignment.center,
-              children: buttons,
+              children: [
+                for (final button in buttons)
+                  SizedBox(
+                    height: _rowHeight,
+                    child: Align(widthFactor: 1, child: button),
+                  ),
+              ],
             ),
           ),
           if (item.dismissible) ...[
