@@ -113,14 +113,33 @@ class _AnnouncementYoutubeEmbedState extends State<AnnouncementYoutubeEmbed> {
     final listId = _embed.listId;
     if (listId != null) {
       _seekVideoInList = _embed.videoId != null;
-      unawaited(
-          player.loadPlaylist(list: [listId], listType: ListType.playlist));
+      unawaited(_loadPlaylist(player, listId));
       return;
     }
     unawaited(player.loadVideoById(
       videoId: _embed.videoId!,
       startSeconds: _embed.start?.toDouble(),
     ));
+  }
+
+  /// Loads the playlist [listId].
+  ///
+  /// youtube_player_iframe sends a single list as an array, which the
+  /// IFrame API does not take as a playlist ID: the player stays blank. Its
+  /// own call waits until the player is ready; the list then loads again
+  /// with the ID as a string (checked against `[A-Za-z0-9_-]`, so it is safe
+  /// inside the script).
+  Future<void> _loadPlaylist(
+    YoutubePlayerController player,
+    String listId,
+  ) async {
+    try {
+      await player.loadPlaylist(list: [listId], listType: ListType.playlist);
+      await player.webViewController.runJavaScript(
+          "player.loadPlaylist({list: '$listId', listType: 'playlist'});");
+    } catch (_) {
+      await _fallBackOutside();
+    }
   }
 
   void _onPlayerValue(YoutubePlayerValue value) {
