@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:extended_image/extended_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:get_it/get_it.dart';
@@ -13,7 +12,7 @@ import '../services/announcements_service.dart';
 import '../theme.dart';
 import '../widgets/announcement_card.dart';
 import '../widgets/announcement_icons.dart';
-import '../widgets/retrying_network_image.dart';
+import '../widgets/announcement_image.dart';
 
 /// An announcement's own page: a cover, its title and date, and full
 /// markdown, with its button pinned at the bottom (the design's
@@ -35,10 +34,22 @@ class AnnouncementPage extends StatefulWidget {
 class _AnnouncementPageState extends State<AnnouncementPage> {
   AnnouncementsService get _service => GetIt.instance<AnnouncementsService>();
 
+  /// The page's markdown: the list leaves it out, so it comes with the
+  /// single announcement (Cloudflare caches it too).
+  late Future<String?> _markdown;
+
   @override
   void initState() {
     super.initState();
     _service.report(AnnouncementEvent.pageViewed, widget.item, 0);
+    _markdown = _loadMarkdown();
+  }
+
+  Future<String?> _loadMarkdown() async {
+    final known = widget.item.page?.markdown;
+    if (known != null) return known;
+    final item = await _service.fetch(widget.item.slug);
+    return item?.page?.markdown ?? item?.bodyMarkdown;
   }
 
   /// The button pinned under the page: the main one, unless it is the one
@@ -46,7 +57,10 @@ class _AnnouncementPageState extends State<AnnouncementPage> {
   ({AnnouncementButton button, AnnouncementEvent event})? get _cta {
     final item = widget.item;
     final main = item.button;
-    if (main != null && main.action.type != AnnouncementActionType.page) {
+    if (main != null &&
+        main.isVisible &&
+        main.label.isNotEmpty &&
+        main.action.type != AnnouncementActionType.page) {
       return (button: main, event: AnnouncementEvent.clicked);
     }
     final second = item.secondaryButton;
@@ -95,7 +109,7 @@ class _AnnouncementPageState extends State<AnnouncementPage> {
                         ? 32 + MediaQuery.paddingOf(context).bottom
                         : 110 + MediaQuery.paddingOf(context).bottom,
                   ),
-                  child: _Content(item: widget.item),
+                  child: _Content(item: widget.item, markdown: _markdown),
                 ),
               ),
             ],
@@ -154,9 +168,10 @@ class _TopBar extends StatelessWidget {
 
 /// The cover, tag, title, date and markdown.
 class _Content extends StatelessWidget {
-  const _Content({required this.item});
+  const _Content({required this.item, required this.markdown});
 
   final Announcement item;
+  final Future<String?> markdown;
 
   @override
   Widget build(BuildContext context) {
@@ -192,9 +207,18 @@ class _Content extends StatelessWidget {
             ),
           ),
         const SizedBox(height: 16),
-        _Markdown(
-          data: page?.markdown ?? item.bodyMarkdown,
-          accent: item.category.color,
+        FutureBuilder<String?>(
+          future: markdown,
+          builder: (context, snapshot) => AnimatedSwitcher(
+            duration: const Duration(milliseconds: 250),
+            child: snapshot.connectionState == ConnectionState.done
+                ? _Markdown(
+                    key: const ValueKey('markdown'),
+                    data: snapshot.data ?? item.bodyMarkdown,
+                    accent: item.category.color,
+                  )
+                : const _MarkdownSkeleton(key: ValueKey('loading')),
+          ),
         ),
       ],
     );
@@ -218,11 +242,9 @@ class _Cover extends StatelessWidget {
         child: SizedBox(
           height: 170,
           width: double.infinity,
-          child: RetryingNetworkImage(
+          child: AnnouncementImage(
             url: url,
-            cache: true,
-            loading: placeholder,
-            failed: placeholder,
+            placeholder: placeholder(context),
           ),
         ),
       ),
@@ -232,7 +254,7 @@ class _Cover extends StatelessWidget {
 
 /// The page's markdown: headings, lists, quotes, images and links.
 class _Markdown extends StatelessWidget {
-  const _Markdown({required this.data, required this.accent});
+  const _Markdown({super.key, required this.data, required this.accent});
 
   final String data;
   final Color accent;
@@ -278,11 +300,37 @@ class _Markdown extends StatelessWidget {
     );
   }
 
-  static void _openLink(String? href) {
-    final uri = href == null ? null : Uri.tryParse(href);
-    if (uri != null) {
-      unawaited(launchUrl(uri, mode: LaunchMode.externalApplication));
-    }
+  static void _openLink(String? href) => unawaited(
+      AnnouncementActions.openLink(href, LaunchMode.externalApplication));
+}
+
+/// Grey lines where the text comes, while it loads.
+class _MarkdownSkeleton extends StatelessWidget {
+  const _MarkdownSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final color =
+        Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.08);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final widthFactor in const [1.0, 0.94, 0.97, 0.6])
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: FractionallySizedBox(
+              widthFactor: widthFactor,
+              child: Container(
+                height: 14,
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(7),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
   }
 }
 
@@ -304,20 +352,17 @@ class _MarkdownImage extends StatelessWidget {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
-            child: ExtendedImage.network(
-              uri.toString(),
-              cache: true,
-              width: double.infinity,
-              fit: BoxFit.fitWidth,
-              loadStateChanged: (state) =>
-                  switch (state.extendedImageLoadState) {
-                LoadState.completed => null,
-                _ => Container(
-                    height: 130,
-                    color: onSurface.withValues(alpha: 0.06),
+            child: AnnouncementActions.safeLink(uri.toString()) == null
+                ? const SizedBox.shrink()
+                : AnnouncementImage(
+                    url: uri.toString(),
+                    fit: BoxFit.fitWidth,
+                    fillsBox: false,
+                    placeholder: Container(
+                      height: 130,
+                      color: onSurface.withValues(alpha: 0.06),
+                    ),
                   ),
-              },
-            ),
           ),
           if (caption != null && caption.isNotEmpty) ...[
             const SizedBox(height: 6),

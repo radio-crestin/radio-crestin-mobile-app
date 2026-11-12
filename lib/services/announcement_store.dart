@@ -4,7 +4,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 /// What this device remembers about announcements, in the
 /// SharedPreferences keys the announcements spec names: which were closed,
-/// which wait until later, how often each was seen, and where rotation is.
+/// which wait until later, how often each was seen, where rotation is,
+/// which station announcements were opened, the device's country, a
+/// preview token, and the last list with its ETag.
 class AnnouncementStore {
   AnnouncementStore(this._prefs);
 
@@ -12,8 +14,51 @@ class AnnouncementStore {
   static const snoozedKey = 'announcements_snoozed';
   static const impressionsKey = 'announcements_impressions';
   static const rotationCursorKey = 'announcements_rotation_cursor';
+  static const seenKey = 'announcements_seen';
+  static const countryKey = 'announcements_country';
+  static const previewTokenKey = 'announcements_preview_token';
+  static const feedKey = 'announcements_feed';
+  static const feedEtagKey = 'announcements_feed_etag';
 
   final SharedPreferences _prefs;
+
+  /// The station announcements whose sheet was opened on this device.
+  Set<String> get seen => (_prefs.getStringList(seenKey) ?? const []).toSet();
+
+  Future<void> markSeen(Iterable<String> slugs) async {
+    final all = seen..addAll(slugs);
+    await _prefs.setStringList(seenKey, all.toList());
+  }
+
+  /// The device's country (ISO-2) as the API last saw it, or null.
+  String? get country => _prefs.getString(countryKey);
+
+  Future<void> saveCountry(String? country) async {
+    if (country == null || country.isEmpty || country == this.country) return;
+    await _prefs.setString(countryKey, country.toUpperCase());
+  }
+
+  /// The token of an admin's preview link, which shows unpublished
+  /// announcements; null when not previewing.
+  String? get previewToken => _prefs.getString(previewTokenKey);
+
+  Future<void> savePreviewToken(String? token) => token == null || token.isEmpty
+      ? _prefs.remove(previewTokenKey)
+      : _prefs.setString(previewTokenKey, token);
+
+  /// The last list the API sent (its JSON body), or null.
+  String? get feed => _prefs.getString(feedKey);
+
+  String? get feedEtag => _prefs.getString(feedEtagKey);
+
+  Future<void> saveFeed(String body, String? etag) async {
+    await _prefs.setString(feedKey, body);
+    if (etag == null) {
+      await _prefs.remove(feedEtagKey);
+    } else {
+      await _prefs.setString(feedEtagKey, etag);
+    }
+  }
 
   /// The slugs closed for good on this device.
   Set<String> get dismissed =>

@@ -7,6 +7,7 @@ enum AnnouncementActionType {
   androidIntent,
   page,
   station,
+  form,
   none;
 
   /// The API's name for this type, also sent to PostHog as `action_type`.
@@ -20,7 +21,7 @@ enum AnnouncementActionType {
       values.firstWhere((type) => type.apiName == value, orElse: () => none);
 }
 
-/// A button's action: open a link, an app, a page or a station.
+/// A button's action: open a link, an app, a page, a station or a form.
 class AnnouncementAction {
   const AnnouncementAction({
     required this.type,
@@ -28,6 +29,7 @@ class AnnouncementAction {
     this.androidIntentUri,
     this.fallbackUrl,
     this.stationSlug,
+    this.formSlug,
   });
 
   final AnnouncementActionType type;
@@ -35,6 +37,7 @@ class AnnouncementAction {
   final String? androidIntentUri;
   final String? fallbackUrl;
   final String? stationSlug;
+  final String? formSlug;
 
   static AnnouncementAction? fromJson(Object? json) {
     if (json is! Map) return null;
@@ -44,12 +47,14 @@ class AnnouncementAction {
       androidIntentUri: _string(json['android_intent_uri']),
       fallbackUrl: _string(json['fallback_url']),
       stationSlug: _string(json['station_slug']),
+      formSlug: _string(json['form_slug']),
     );
   }
 }
 
-/// The look of the primary button.
-enum AnnouncementButtonStyle { filled, outline, text }
+/// The look of the primary button; [hidden] draws none, but the card
+/// still runs its action when tapped.
+enum AnnouncementButtonStyle { filled, outline, text, hidden }
 
 /// The primary button: a label, a look and an action.
 class AnnouncementButton {
@@ -65,21 +70,26 @@ class AnnouncementButton {
   final String label;
   final AnnouncementButtonStyle style;
   final Color color;
+
+  /// The label's color, as the admin set it (or the server's contrast
+  /// pick); computed here only when the API sends none.
   final Color textColor;
 
   /// `auto` (from the action), `none`, or an icon name.
   final String icon;
   final AnnouncementAction action;
 
+  bool get isVisible => style != AnnouncementButtonStyle.hidden;
+
   static AnnouncementButton? fromJson(Object? json, Color fallbackColor) {
     if (json is! Map) return null;
     final action = AnnouncementAction.fromJson(json['action']);
-    final label = _string(json['label']);
-    if (label == null || action == null) return null;
-    if (action.type == AnnouncementActionType.none) return null;
+    if (action == null || action.type == AnnouncementActionType.none) {
+      return null;
+    }
     final color = parseHexColor(json['color']) ?? fallbackColor;
     return AnnouncementButton(
-      label: label,
+      label: _string(json['label']) ?? '',
       style: AnnouncementButtonStyle.values.firstWhere(
         (style) => style.name == json['style'],
         orElse: () => AnnouncementButtonStyle.filled,
@@ -159,26 +169,125 @@ class AnnouncementCategory {
   }
 }
 
-/// The full-screen page an announcement can open.
+/// The full-screen page an announcement can open. The list sends only its
+/// title and cover; the markdown comes with the single announcement.
 class AnnouncementPageContent {
   const AnnouncementPageContent({
     required this.title,
-    required this.markdown,
+    this.markdown,
     this.coverImageUrl,
   });
 
   final String title;
-  final String markdown;
+  final String? markdown;
   final String? coverImageUrl;
 
   static AnnouncementPageContent? fromJson(Object? json, String fallbackTitle) {
     if (json is! Map) return null;
     return AnnouncementPageContent(
       title: _string(json['title']) ?? fallbackTitle,
-      markdown: _string(json['markdown']) ?? '',
+      markdown: _string(json['markdown']),
       coverImageUrl: _string(json['cover_image_url']),
     );
   }
+}
+
+/// Where an announcement shows: the home card, or inside the stations it
+/// names.
+enum AnnouncementPlacement { home, station }
+
+/// Who an announcement is for, checked on the device (the list is the same
+/// for everyone, so Cloudflare can cache it). Empty lists match everyone.
+class AnnouncementFilters {
+  const AnnouncementFilters({
+    this.platforms = const [],
+    this.countriesInclude = const [],
+    this.countriesExclude = const [],
+    this.locales = const [],
+    this.minAppVersion,
+    this.maxAppVersion,
+  });
+
+  final List<String> platforms;
+  final List<String> countriesInclude;
+  final List<String> countriesExclude;
+  final List<String> locales;
+  final String? minAppVersion;
+  final String? maxAppVersion;
+
+  static AnnouncementFilters fromJson(Object? json) {
+    if (json is! Map) return const AnnouncementFilters();
+    List<String> list(String key) => [
+          for (final value in json[key] as List? ?? const [])
+            if (value is String && value.isNotEmpty) value,
+        ];
+    return AnnouncementFilters(
+      platforms: list('platforms'),
+      countriesInclude: list('countries_include'),
+      countriesExclude: list('countries_exclude'),
+      locales: list('locales'),
+      minAppVersion: _string(json['min_app_version']),
+      maxAppVersion: _string(json['max_app_version']),
+    );
+  }
+
+  /// Whether a device on [platform] (`android`/`ios`), with [locale] (a
+  /// tag like `ro-RO`), [appVersion] and [country] (ISO-2, or null when
+  /// not known yet) is meant to see it.
+  bool matches({
+    required String platform,
+    required String locale,
+    required String appVersion,
+    required String? country,
+  }) =>
+      (platforms.isEmpty || platforms.contains(platform)) &&
+      (locales.isEmpty ||
+          locales.any((wanted) => _localeMatches(wanted, locale))) &&
+      _versionInRange(appVersion) &&
+      _countryMatches(country);
+
+  /// A country rule hides it while the country is unknown.
+  bool _countryMatches(String? country) {
+    if (countriesInclude.isEmpty && countriesExclude.isEmpty) return true;
+    if (country == null) return false;
+    final code = country.toUpperCase();
+    bool has(List<String> codes) =>
+        codes.any((value) => value.toUpperCase() == code);
+    return (countriesInclude.isEmpty || has(countriesInclude)) &&
+        !has(countriesExclude);
+  }
+
+  bool _versionInRange(String appVersion) {
+    final min = minAppVersion, max = maxAppVersion;
+    if (min != null && compareVersions(appVersion, min) < 0) return false;
+    if (max != null && compareVersions(appVersion, max) > 0) return false;
+    return true;
+  }
+
+  /// `ro` matches `ro-RO` and `ro_RO`; `ro-RO` matches only itself.
+  static bool _localeMatches(String wanted, String locale) {
+    String normal(String tag) => tag.replaceAll('_', '-').toLowerCase();
+    final want = normal(wanted), have = normal(locale);
+    return have == want || have.startsWith('$want-');
+  }
+}
+
+/// Compares dotted versions number by number (`1.10.0` > `1.9.2`); a
+/// missing part counts as 0 and anything after `+` or `-` is ignored.
+int compareVersions(String a, String b) {
+  List<int> parts(String version) => version
+      .split(RegExp(r'[+-]'))
+      .first
+      .split('.')
+      .map((part) => int.tryParse(part.trim()) ?? 0)
+      .toList();
+  final left = parts(a), right = parts(b);
+  for (var i = 0; i < left.length || i < right.length; i++) {
+    final x = i < left.length ? left[i] : 0;
+    final y = i < right.length ? right[i] : 0;
+    if (x != y) return x.compareTo(y);
+  }
+  return 0;
 }
 
 /// One announcement, as `GET /announcements/` lists it.
@@ -189,6 +298,9 @@ class Announcement {
     required this.title,
     required this.bodyMarkdown,
     required this.dismissible,
+    this.placement = AnnouncementPlacement.home,
+    this.stationSlugs = const [],
+    this.filters = const AnnouncementFilters(),
     this.iconName,
     this.iconUrl,
     this.button,
@@ -202,6 +314,11 @@ class Announcement {
 
   final String slug;
   final AnnouncementCategory category;
+  final AnnouncementPlacement placement;
+
+  /// For [AnnouncementPlacement.station]: the stations it shows inside.
+  final List<String> stationSlugs;
+  final AnnouncementFilters filters;
   final String? iconName;
   final String? iconUrl;
   final String title;
@@ -222,6 +339,24 @@ class Announcement {
   String get actionType =>
       (button?.action.type ?? AnnouncementActionType.none).apiName;
 
+  /// Whether it shows between its start and end at [now].
+  bool isLiveAt(DateTime now) =>
+      (startsAt == null || !startsAt!.isAfter(now)) &&
+      (endsAt == null || endsAt!.isAfter(now));
+
+  /// What decides the card's height: the same signature means an update
+  /// can apply while the card is on screen without moving anything.
+  String get layoutSignature => [
+        title,
+        bodyMarkdown,
+        category.name,
+        iconUrl != null,
+        button?.isVisible == true ? button!.label : '',
+        button?.style.name,
+        secondaryButton?.label,
+        dismissible,
+      ].join('\u0000');
+
   /// Parses one item, or null when it lacks a slug or a title.
   static Announcement? fromJson(Object? json) {
     if (json is! Map) return null;
@@ -233,6 +368,14 @@ class Announcement {
     return Announcement(
       slug: slug,
       category: category,
+      placement: json['placement'] == 'station'
+          ? AnnouncementPlacement.station
+          : AnnouncementPlacement.home,
+      stationSlugs: [
+        for (final value in json['station_slugs'] as List? ?? const [])
+          if (value is String) value,
+      ],
+      filters: AnnouncementFilters.fromJson(json['filters']),
       iconName: _string(icon['name']),
       iconUrl: _string(icon['url']),
       title: title,
@@ -255,15 +398,9 @@ enum RotationMode { fixed, rotate, random }
 
 /// The list's settings, sent with every list.
 class AnnouncementSettings {
-  const AnnouncementSettings({
-    this.rotationMode = RotationMode.fixed,
-    this.autoplaySeconds = 8,
-  });
+  const AnnouncementSettings({this.rotationMode = RotationMode.fixed});
 
   final RotationMode rotationMode;
-
-  /// Seconds each card shows before the next one; 0 turns autoplay off.
-  final int autoplaySeconds;
 
   static AnnouncementSettings fromJson(Object? json) {
     if (json is! Map) return const AnnouncementSettings();
@@ -272,7 +409,6 @@ class AnnouncementSettings {
         (mode) => mode.name == json['rotation_mode'],
         orElse: () => RotationMode.fixed,
       ),
-      autoplaySeconds: (json['autoplay_seconds'] as num?)?.toInt() ?? 8,
     );
   }
 }
