@@ -1,11 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 
 import '../services/playlist_controller.dart';
 import '../types/playlist_item.dart';
+import 'video_fullscreen_chrome.dart';
 
 /// Renders a playlist YouTube item inline via `youtube_player_iframe` and wires
 /// it back to the [PlaylistController] contract:
@@ -56,8 +56,7 @@ class _YoutubeIframePlayerState extends State<YoutubeIframePlayer> {
   Duration _duration = Duration.zero;
   bool _isFullscreen = false;
 
-  bool get _isPlaylist =>
-      widget.item.type == PlaylistItemType.youtubePlaylist;
+  bool get _isPlaylist => widget.item.type == PlaylistItemType.youtubePlaylist;
 
   @override
   void initState() {
@@ -92,32 +91,11 @@ class _YoutubeIframePlayerState extends State<YoutubeIframePlayer> {
     _loadItem(widget.item);
   }
 
-  /// Applies the platform chrome for the player's fullscreen transitions. The
-  /// player widget handles the actual fullscreen layout; here we rotate to
-  /// landscape and hide the system bars when entering, and restore portrait and
-  /// the system bars when exiting.
+  /// Applies the platform chrome for the player's fullscreen transitions
+  /// (the player itself handles the fullscreen layout).
   void _onFullscreenChanged(bool fullscreen) {
     _isFullscreen = fullscreen;
-    if (fullscreen) {
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-      SystemChrome.setPreferredOrientations(const [
-        DeviceOrientation.landscapeLeft,
-        DeviceOrientation.landscapeRight,
-      ]);
-    } else {
-      _restorePortraitChrome();
-    }
-  }
-
-  /// Restores portrait orientation and the normal (edge-to-edge) system UI.
-  void _restorePortraitChrome() {
-    SystemChrome.setEnabledSystemUIMode(
-      SystemUiMode.edgeToEdge,
-      overlays: SystemUiOverlay.values,
-    );
-    SystemChrome.setPreferredOrientations(const [
-      DeviceOrientation.portraitUp,
-    ]);
+    applyVideoFullscreenChrome(fullscreen);
   }
 
   @override
@@ -213,8 +191,8 @@ class _YoutubeIframePlayerState extends State<YoutubeIframePlayer> {
   }
 
   void _onPosition(YoutubeVideoState state) {
-    widget.controller
-        .notifyYoutubePosition(state.position, _duration, itemId: widget.item.id);
+    widget.controller.notifyYoutubePosition(state.position, _duration,
+        itemId: widget.item.id);
   }
 
   void _onShouldPlay(bool shouldPlay) {
@@ -234,7 +212,7 @@ class _YoutubeIframePlayerState extends State<YoutubeIframePlayer> {
     // Defensively restore portrait if the player is torn down while fullscreen
     // (e.g. the item advances mid-fullscreen) so the app never gets stuck
     // landscape / immersive.
-    if (_isFullscreen) _restorePortraitChrome();
+    if (_isFullscreen) applyVideoFullscreenChrome(false);
     _stateSub?.cancel();
     _positionSub?.cancel();
     _shouldPlaySub?.cancel();
