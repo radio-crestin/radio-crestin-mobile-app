@@ -63,6 +63,9 @@ class FakeRadioServer {
     'max_per_load': 5,
   };
 
+  /// Forms by slug: their question and options, for the form page.
+  final Map<String, ({String question, List<String> options})> forms = {};
+
   /// The events the app reported to `POST /announcements/events/`.
   final List<Map<String, Object?>> announcementEvents = [];
   final Map<String, LiveHlsStream> _hls = {
@@ -98,6 +101,7 @@ class FakeRadioServer {
     announcements.clear();
     announcementEvents.clear();
     announcementSettings = defaultAnnouncementSettings;
+    forms.clear();
     for (final stream in _hls.values) {
       stream.unfreeze();
     }
@@ -194,7 +198,9 @@ class FakeRadioServer {
     if (path == '/api/v1/announcements/') return _announcementList(connection);
     if (path.startsWith('/api/v1/forms/') && path.endsWith('/page/')) {
       return connection.send(
-          utf8.encode(_formPage(uri.pathSegments[3])), 'text/html');
+          utf8.encode(_formPage(uri.pathSegments[3],
+              dark: uri.queryParameters['theme'] == 'dark')),
+          'text/html; charset=utf-8');
     }
     final body = switch (path) {
       '/api/v1/announcements/events/' =>
@@ -243,15 +249,30 @@ class FakeRadioServer {
         headers: {'ETag': etag});
   }
 
-  /// A form page that tells the app it is ready, as the backend's does.
-  static String _formPage(String slug) => '''
-<!doctype html><html><body style="font-family:system-ui">
-<h1 id="title">Form $slug</h1>
+  /// A form page that tells the app it is ready, as the backend's does,
+  /// in the spec's card colors for the theme asked.
+  String _formPage(String slug, {required bool dark}) {
+    final form = forms[slug] ?? (question: 'Form $slug', options: ['A', 'B']);
+    final (surface, text, border) = dark
+        ? ('#1A1A1A', '#EDEDED', '#2F2F2F')
+        : ('#FFFFFF', '#1A1A1A', '#E7E7E7');
+    return '''
+<!doctype html><html><head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  body { margin: 0; padding: 4px 20px; background: $surface; color: $text;
+         font-family: system-ui, -apple-system, Roboto, sans-serif; }
+  .option { border: 1px solid $border; border-radius: 12px; padding: 14px;
+            margin: 10px 0; font-size: 15px; }
+</style></head><body>
+<h2 id="title">${form.question}</h2>
+${form.options.map((option) => '<div class="option">$option</div>').join()}
 <script>
   var msg = JSON.stringify({type: "rc-form", event: "ready", slug: "$slug"});
   if (window.RadioCrestinForm) window.RadioCrestinForm.postMessage(msg);
 </script>
 </body></html>''';
+  }
 
   /// Keeps the events of an events report; the app sends JSON, the
   /// website text/plain, both parsed whatever the Content-Type.
