@@ -1034,6 +1034,19 @@ class _SettingsPageState extends State<SettingsPage> {
                   },
                 ),
                 _buildSettingsTile(
+                  icon: Icons.mail_outline_rounded,
+                  title: 'Scrie-ne',
+                  subtitle: 'Propune un post sau un anunț ori întreabă-ne orice',
+                  onTap: () {
+                    AnalyticsService.instance.capture('button_clicked', {'button_name': 'contact_form'});
+                    final platform = Platform.isAndroid ? 'android' : Platform.isIOS ? 'ios' : Platform.operatingSystem;
+                    launchUrl(
+                      contactPageUri(platform: platform, appVersion: globals.appVersion, deviceId: globals.deviceId),
+                      mode: LaunchMode.externalApplication,
+                    );
+                  },
+                ),
+                _buildSettingsTile(
                   icon: Icons.chat,
                   title: 'Contactează-ne pe WhatsApp',
                   onTap: () async {

@@ -58,6 +58,21 @@ Future<bool> _launchExternally(Uri url,
         {LaunchMode mode = LaunchMode.platformDefault}) =>
     launchUrl(url, mode: mode);
 
+/// The website's contact page (general message, new station, announcement
+/// request). The app's details travel along so the message arrives tagged
+/// with the platform, version and device it came from.
+Uri contactPageUri({
+  required String platform,
+  required String appVersion,
+  required String deviceId,
+}) =>
+    Uri.https('www.radiocrestin.ro', '/contact/', {
+      'source': 'app',
+      'platform': platform,
+      'app_version': appVersion,
+      if (deviceId.isNotEmpty) 'device_id': deviceId,
+    });
+
 /// The desktop system as support messages name it ("macOS"), from
 /// `Platform.operatingSystem`; empty for the phones, which name themselves.
 String desktopPlatformLabel(String operatingSystem) =>
