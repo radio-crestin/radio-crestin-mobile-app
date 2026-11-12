@@ -23,6 +23,12 @@ import 'package:flutter/foundation.dart';
 ///   * `Session activation failed` — iOS AVAudioSession could not activate
 ///     (transient OS state, e.g. an incoming call). just_audio retries.
 ///     (019d929b…)
+///   * `libCachedImageData` storage — flutter_cache_manager, which
+///     audio_service uses for the lock screen's artwork, could not create
+///     its folder or open its database: the disk is full (`No space left
+///     on device`) or not yet readable. It starts both before anyone
+///     listens, so the failure goes unhandled; the lock screen then shows no
+///     artwork. (01a175a3…, 01a1c706…)
 ///
 /// [install] wraps the handlers PostHog installed during setup, so it MUST be
 /// called AFTER `Posthog().setup(...)`. Benign errors are dropped; everything
@@ -104,6 +110,14 @@ class ErrorFilter {
 
     // audio_session (iOS): AVAudioSession activation failed transiently.
     if (message.contains('Session activation failed')) {
+      return true;
+    }
+
+    // flutter_cache_manager: the artwork cache's storage (DefaultCacheManager,
+    // key `libCachedImageData`) couldn't be created or opened.
+    if (message.contains('libCachedImageData') &&
+        (type == 'FileSystemException' ||
+            type == 'SqfliteDatabaseException')) {
       return true;
     }
 
