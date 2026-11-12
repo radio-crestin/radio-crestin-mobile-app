@@ -58,15 +58,16 @@ Future<bool> _launchExternally(Uri url,
         {LaunchMode mode = LaunchMode.platformDefault}) =>
     launchUrl(url, mode: mode);
 
-/// The website's contact page (general message, new station, announcement
-/// request). The app's details travel along so the message arrives tagged
-/// with the platform, version and device it came from.
+/// The website's contact page, or one of its forms ([path], e.g.
+/// `/contact/problema/`). The app's details travel along so the message
+/// arrives tagged with the platform, version and device it came from.
 Uri contactPageUri({
   required String platform,
   required String appVersion,
   required String deviceId,
+  String path = '/contact/',
 }) =>
-    Uri.https('www.radiocrestin.ro', '/contact/', {
+    Uri.https('www.radiocrestin.ro', path, {
       'source': 'app',
       'platform': platform,
       'app_version': appVersion,
