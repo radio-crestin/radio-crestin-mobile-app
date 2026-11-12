@@ -43,67 +43,43 @@ extension CustomThemeColors on ThemeData {
 @immutable
 class AnnouncementColors {
   const AnnouncementColors({
-    required this.surface,
     required this.border,
     required this.text,
     required this.muted,
     required this.strong,
     required this.control,
     required this.dot,
-    required this.tint,
     required this.sheet,
     required this.stationSheet,
-    required this.shadows,
     required this.isDark,
     this.backButton = AppColors.announcementBackButton,
   });
 
   static const light = AnnouncementColors(
-    surface: AppColors.announcementSurface,
     border: AppColors.announcementBorder,
     text: AppColors.announcementText,
     muted: AppColors.announcementMuted,
     strong: AppColors.announcementStrong,
     control: AppColors.announcementControl,
     dot: AppColors.announcementDot,
-    tint: 0.09,
     sheet: AppColors.announcementSheet,
     stationSheet: AppColors.announcementStationSheet,
-    shadows: [
-      BoxShadow(
-        color: AppColors.announcementShadowFine,
-        blurRadius: 2,
-        offset: Offset(0, 1),
-      ),
-      BoxShadow(
-        color: AppColors.announcementShadow,
-        blurRadius: 20,
-        spreadRadius: -8,
-        offset: Offset(0, 6),
-      ),
-    ],
     isDark: false,
   );
 
   static const dark = AnnouncementColors(
-    surface: AppColors.announcementSurfaceDark,
     border: AppColors.announcementBorderDark,
     text: AppColors.announcementTextDark,
     muted: AppColors.announcementMutedDark,
     strong: AppColors.announcementStrongDark,
     control: AppColors.announcementControlDark,
     dot: AppColors.announcementDotDark,
-    tint: 0.16,
     sheet: AppColors.announcementSheetDark,
     stationSheet: AppColors.announcementSheetDark,
-    shadows: [],
     isDark: true,
   );
 
-  /// The card.
-  final Color surface;
-
-  /// Its 1 px outline.
+  /// The outline of a card on a sheet, and of "Ascunde".
   final Color border;
 
   /// Italic text in the body.
@@ -121,16 +97,12 @@ class AnnouncementColors {
   /// An inactive dot.
   final Color dot;
 
-  /// How much of the accent washes over the card's corner.
-  final double tint;
-
   /// A form's sheet.
   final Color sheet;
 
   /// The sheet of a station's announcements.
   final Color stationSheet;
 
-  final List<BoxShadow> shadows;
   final bool isDark;
 
   /// The circle behind the page's back arrow.
@@ -140,14 +112,6 @@ class AnnouncementColors {
   /// white on dark, so a dark accent stays readable.
   Color inkOf(Color accent) =>
       isDark ? Color.lerp(Colors.white, accent, 0.52)! : accent;
-
-  /// The card's background: a 140° wash of [accent] fading into [surface].
-  Gradient washOf(Color accent) => LinearGradient(
-        begin: const Alignment(-0.64, -0.77),
-        end: const Alignment(0.64, 0.77),
-        stops: const [0, 0.62],
-        colors: [Color.lerp(surface, accent, tint)!, surface],
-      );
 }
 
 /// Colors of the device sheet, for one theme brightness.
@@ -450,12 +414,11 @@ class AppColors {
   // themes: the brand pink deepened so a white label keeps 4.5:1 contrast.
   static const Color deviceAction = Color(0xffd81b60);
 
-  // The announcement card above the station list: its surface, outline,
-  // text (body, emphasis, title), the close button's hover and the dots.
-  // The `...Dark` ones are the dark theme's. The accent (tag, icon tile,
-  // button) comes from the API.
-  static const Color announcementSurface = Colors.white;
-  static const Color announcementSurfaceDark = darkSurface;
+  // The announcement card above the station list (its surface is the
+  // station cards' `cardColor`): the outline of a card on a sheet and of
+  // "Ascunde", text (body, emphasis, title), a pressed button's fill and
+  // the dots. The `...Dark` ones are the dark theme's. The accent (tag,
+  // icon tile, button) comes from the API.
   static const Color announcementBorder = Color(0xffe7e7e7);
   static const Color announcementBorderDark = Color(0xff2f2f2f);
   static const Color announcementText = Color(0xff1a1a1a);
@@ -468,8 +431,6 @@ class AppColors {
   static const Color announcementControlDark = Color(0x14ffffff);
   static const Color announcementDot = Color(0x29000000);
   static const Color announcementDotDark = Color(0x38ffffff);
-  static const Color announcementShadow = Color(0x1a000000);
-  static const Color announcementShadowFine = Color(0x0a000000);
   // The round back button on an announcement's page, in both themes.
   static const Color announcementBackButton = Color(0x267f7f7f);
   // A form's sheet (white / near-black, as the form page), and the

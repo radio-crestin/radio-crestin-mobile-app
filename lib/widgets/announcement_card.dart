@@ -180,6 +180,7 @@ class AnnouncementStaticCard extends StatelessWidget {
     return _CardFrame(
       key: ValueKey('announcement-static-${item.slug}'),
       margin: margin,
+      outlined: true,
       child: _ImpressionCounter(
         item: item,
         position: position,
@@ -201,23 +202,37 @@ class AnnouncementStaticCard extends StatelessWidget {
 /// The card's surface: theme color, 1 px outline, 16 px corners and, in
 /// the light theme, a soft shadow.
 class _CardFrame extends StatelessWidget {
-  const _CardFrame({super.key, required this.margin, required this.child});
+  const _CardFrame({
+    super.key,
+    required this.margin,
+    required this.child,
+    this.outlined = false,
+  });
 
   final EdgeInsetsGeometry margin;
   final Widget child;
 
+  /// A 1 px outline, for a card on a sheet or over the screen, where the
+  /// background is close to the card's.
+  final bool outlined;
+
+  static final _radius = BorderRadius.circular(16);
+
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).announcementColors;
+    final theme = Theme.of(context);
     return Container(
       margin: margin,
       decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: colors.border),
-        boxShadow: colors.shadows,
+        // The station cards' surface, made opaque on the page background
+        // so a card in a sheet or over the screen looks the same.
+        color: Color.alphaBlend(theme.cardColor, theme.scaffoldBackgroundColor),
+        borderRadius: _radius,
+        border: outlined
+            ? Border.all(color: theme.announcementColors.border)
+            : null,
       ),
-      child: ClipRRect(borderRadius: BorderRadius.circular(15), child: child),
+      child: ClipRRect(borderRadius: _radius, child: child),
     );
   }
 }
@@ -352,51 +367,48 @@ class _Slide extends StatelessWidget {
           count > 1 ? AnnouncementCopy.slideLabel(position + 1, count) : null,
       child: Material(
         type: MaterialType.transparency,
-        child: Ink(
-          decoration: BoxDecoration(gradient: colors.washOf(accent)),
-          child: InkWell(
-            onTap: hasPrimary ? () => _runPrimary(ClickTarget.card) : null,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, iconRowTop, 16, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _IconRow(item: item, position: position, count: count),
-                  const SizedBox(height: 12),
-                  Text(
-                    item.title,
-                    style: TextStyle(
-                      fontSize: 16,
-                      height: 1.3,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.08,
-                      color: colors.strong,
-                    ),
+        child: InkWell(
+          onTap: hasPrimary ? () => _runPrimary(ClickTarget.card) : null,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, iconRowTop, 16, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _IconRow(item: item, position: position, count: count),
+                const SizedBox(height: 12),
+                Text(
+                  item.title,
+                  style: TextStyle(
+                    fontSize: 16,
+                    height: 1.3,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.08,
+                    color: colors.strong,
                   ),
-                  if (item.bodyMarkdown.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    InlineMarkdownText(
-                      item.bodyMarkdown,
-                      maxLines: 3,
-                      style: TextStyle(
-                        fontSize: 13.5,
-                        height: 1.48,
-                        color: colors.muted,
-                      ),
-                      strongColor: colors.strong,
-                      emphasisColor: colors.text,
-                      linkColor: colors.inkOf(accent),
-                      onTapLink: _onLink,
+                ),
+                if (item.bodyMarkdown.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  InlineMarkdownText(
+                    item.bodyMarkdown,
+                    maxLines: 3,
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      height: 1.48,
+                      color: colors.muted,
                     ),
-                  ],
-                  _Actions(
-                    item: item,
-                    onPrimary: () => _runPrimary(ClickTarget.button),
-                    onSecondary: _onSecondary,
-                    onDismiss: _onDismiss,
+                    strongColor: colors.strong,
+                    emphasisColor: colors.text,
+                    linkColor: colors.inkOf(accent),
+                    onTapLink: _onLink,
                   ),
                 ],
-              ),
+                _Actions(
+                  item: item,
+                  onPrimary: () => _runPrimary(ClickTarget.button),
+                  onSecondary: _onSecondary,
+                  onDismiss: _onDismiss,
+                ),
+              ],
             ),
           ),
         ),
