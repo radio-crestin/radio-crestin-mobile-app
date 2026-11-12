@@ -11,6 +11,7 @@ import '../services/announcements_service.dart';
 import '../theme.dart';
 import 'announcement_icons.dart';
 import 'announcement_image.dart';
+import 'announcement_theme_colors.dart';
 import 'inline_markdown.dart';
 
 /// The home announcements: one card that swipes between them, with a dot
@@ -352,8 +353,9 @@ class _Slide extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).announcementColors;
-    final accent = item.color;
+    final theme = Theme.of(context);
+    final colors = theme.announcementColors;
+    final accent = theme.announcementAccent(item);
     final hasPrimary = item.button != null;
     return Semantics(
       key: ValueKey('announcement-${item.slug}'),
@@ -509,11 +511,12 @@ class AnnouncementTag extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Container(
       height: 21,
       padding: const EdgeInsets.symmetric(horizontal: 9),
       decoration: BoxDecoration(
-        color: category.color,
+        color: theme.announcementTagColor(category),
         borderRadius: BorderRadius.circular(999),
       ),
       // As wide as the name: a Container's own alignment would fill the
@@ -528,7 +531,7 @@ class AnnouncementTag extends StatelessWidget {
             fontSize: 11.5,
             fontWeight: FontWeight.w600,
             letterSpacing: 0.12,
-            color: category.textColor,
+            color: theme.announcementTagLabel(category),
           ),
         ),
       ),
@@ -572,20 +575,22 @@ class _GlyphTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).announcementColors;
+    final theme = Theme.of(context);
+    final colors = theme.announcementColors;
+    final accent = theme.announcementAccent(item);
     final icon =
         announcementIcons[item.iconName] ?? announcementIcons['megaphone']!;
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: item.color.withValues(alpha: 0.18),
+        color: accent.withValues(alpha: 0.18),
         borderRadius: radius,
       ),
       child: Icon(
         icon,
         size: size * 23 / 44 * announcementIconScale(icon),
-        color: colors.inkOf(item.color),
+        color: colors.inkOf(accent),
       ),
     );
   }
@@ -605,11 +610,13 @@ class AnnouncementPrimaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).announcementColors;
-    final ink = colors.inkOf(button.color);
+    final theme = Theme.of(context);
+    final colors = theme.announcementColors;
+    final fill = theme.announcementButtonColor(button);
+    final ink = colors.inkOf(fill);
     final filled = button.style == AnnouncementButtonStyle.filled;
     final isText = button.style == AnnouncementButtonStyle.text;
-    final foreground = filled ? button.textColor : ink;
+    final foreground = filled ? theme.announcementButtonLabel(button) : ink;
     final icon = announcementButtonIcon(button);
     final shape = RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(10),
@@ -618,7 +625,7 @@ class AnnouncementPrimaryButton extends StatelessWidget {
           : BorderSide.none,
     );
     return Material(
-      color: filled ? button.color : Colors.transparent,
+      color: filled ? fill : Colors.transparent,
       shape: shape,
       clipBehavior: Clip.antiAlias,
       child: InkWell(

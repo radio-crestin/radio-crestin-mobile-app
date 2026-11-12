@@ -438,6 +438,12 @@ class AppColors {
   static const Color announcementSheet = Colors.white;
   static const Color announcementSheetDark = Color(0xff1a1a1a);
   static const Color announcementStationSheet = lightBackground;
+  // An announcement's colors when the admin set none: its button is the
+  // app's filled-button pink (deviceAction, white label at 4.5:1) and its
+  // category tag the mini player's color, with white text.
+  static const Color announcementButton = deviceAction;
+  static const Color announcementButtonLabel = Colors.white;
+  static const Color announcementTagLabel = Colors.white;
   // The shadow under an announcement pushed over the screen.
   static const Color announcementBannerShadow = Color(0x40000000);
 

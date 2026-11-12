@@ -1,10 +1,11 @@
 import 'dart:io';
 
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:radio_crestin/appAudioHandler.dart';
 
+import 'package:radio_crestin/theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'harness/announcement_fixtures.dart';
@@ -321,6 +322,49 @@ void main() {
           reason: 'a second button from an older list is not drawn');
     });
 
+    announcementTest(
+        'colors left unset come from the app; colors set stay', (app) async {
+      server.announcements
+        ..add(AnnouncementFixtures.verse())
+        ..add(AnnouncementFixtures.uncolored());
+      await app.pullToRefresh();
+      await app.waitFor(() => app.showsText(AnnouncementFixtures.verseTitle),
+          reason: 'the card');
+      Color fillOf(String text, Type type) {
+        final box = find
+            .ancestor(
+                of: find.text(text).hitTestable(),
+                matching: find.byType(type))
+            .first;
+        final widget = app.tester.widget(box);
+        return switch (widget) {
+          Material(:final color?) => color,
+          Container(decoration: BoxDecoration(:final color?)) => color,
+          _ => throw StateError('no fill on $text'),
+        };
+      }
+
+      expect(fillOf('Join the group', Material), const Color(0xFF0F6E63),
+          reason: "the admin's button color stays");
+      expect(fillOf('Community', Container), const Color(0xFF0F6E63),
+          reason: "the admin's category color stays");
+
+      await app.tapKey('announcement-next');
+      await app.waitFor(
+          () => app.showsText(AnnouncementFixtures.uncoloredTitle),
+          reason: 'the card without colors');
+      expect(fillOf(AnnouncementFixtures.uncoloredButton, Material),
+          AppColors.announcementButton,
+          reason: "the button takes the app's pink");
+      final miniPlayer = Theme.of(app.tester
+              .element(find.text(AnnouncementFixtures.uncoloredTitle).first))
+          .bottomAppBarTheme
+          .color;
+      expect(fillOf(AnnouncementFixtures.uncoloredCategory, Container),
+          miniPlayer,
+          reason: "the tag takes the mini player's color");
+    });
+
     announcementTest('a launch forgets what the removed "later" button kept',
         (app) async {
       final prefs = await SharedPreferences.getInstance();
@@ -347,7 +391,7 @@ void main() {
       final semantics = app.tester.ensureSemantics();
       void expectEnabled(String button, bool enabled) => expect(
             app.tester.getSemantics(find.byKey(ValueKey(button))),
-            containsSemantics(hasEnabledState: true, isEnabled: enabled),
+            isSemantics(hasEnabledState: true, isEnabled: enabled),
             reason: '$button is ${enabled ? 'enabled' : 'disabled'}',
           );
       Future<void> step(String button, String counter, String title) async {

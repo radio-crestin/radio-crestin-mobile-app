@@ -13,6 +13,7 @@ import '../theme.dart';
 import '../widgets/announcement_card.dart';
 import '../widgets/announcement_icons.dart';
 import '../widgets/announcement_image.dart';
+import '../widgets/announcement_theme_colors.dart';
 
 /// An announcement's own page: a cover, its title and date, and full
 /// markdown, with its button pinned at the bottom (the design's
@@ -164,7 +165,8 @@ class _Content extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (cover != null) _Cover(url: cover, color: item.category.color),
+        if (cover != null)
+          _Cover(url: cover, color: Theme.of(context).announcementAccent(item)),
         if (item.category.name.isNotEmpty) ...[
           AnnouncementTag(category: item.category),
           const SizedBox(height: 8),
@@ -197,7 +199,7 @@ class _Content extends StatelessWidget {
                 ? _Markdown(
                     key: const ValueKey('markdown'),
                     data: snapshot.data ?? item.bodyMarkdown,
-                    accent: item.category.color,
+                    accent: Theme.of(context).announcementAccent(item),
                   )
                 : const _MarkdownSkeleton(key: ValueKey('loading')),
           ),
@@ -391,7 +393,7 @@ class _StickyButton extends StatelessWidget {
         padding: EdgeInsets.fromLTRB(
             20, 14, 20, bottomInset > 0 ? bottomInset + 8 : 26),
         child: Material(
-          color: button.color,
+          color: Theme.of(context).announcementButtonColor(button),
           borderRadius: BorderRadius.circular(14),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
@@ -406,7 +408,7 @@ class _StickyButton extends StatelessWidget {
                     Icon(
                       icon,
                       size: 18 * announcementIconScale(icon),
-                      color: button.textColor,
+                      color: Theme.of(context).announcementButtonLabel(button),
                     ),
                     const SizedBox(width: 8),
                   ],
@@ -418,7 +420,8 @@ class _StickyButton extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
-                        color: button.textColor,
+                        color:
+                            Theme.of(context).announcementButtonLabel(button),
                       ),
                     ),
                   ),

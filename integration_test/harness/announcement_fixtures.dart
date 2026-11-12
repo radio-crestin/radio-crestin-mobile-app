@@ -119,6 +119,25 @@ On **December 20th at 19:00**, live.
         },
       };
 
+  static const uncoloredTitle = 'Colors from the app';
+  static const uncoloredCategory = 'News';
+  static const uncoloredButton = 'Read on';
+
+  /// No colors at all, as the API sends one the admin left on the
+  /// default: the app colors it from its theme.
+  static Map<String, Object?> uncolored() => {
+        ...verse(),
+        'slug': 'e2e-uncolored',
+        'title': uncoloredTitle,
+        'category': {'slug': 'news', 'name': uncoloredCategory},
+        'button': {
+          'label': uncoloredButton,
+          'style': 'filled',
+          'icon': 'auto',
+          'action': {'type': 'external', 'url': 'https://example.com/news'},
+        },
+      };
+
   /// For the website only: a phone never shows it.
   static Map<String, Object?> webOnly() => {
         ...verse(),

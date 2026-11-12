@@ -61,19 +61,21 @@ class AnnouncementButton {
   const AnnouncementButton({
     required this.label,
     required this.style,
-    required this.color,
-    required this.textColor,
+    this.color,
+    this.textColor,
     required this.icon,
     required this.action,
   });
 
   final String label;
   final AnnouncementButtonStyle style;
-  final Color color;
 
-  /// The label's color, as the admin set it (or the server's contrast
-  /// pick); computed here only when the API sends none.
-  final Color textColor;
+  /// The admin's color, or null for the app's own (see
+  /// `AnnouncementThemeColors`).
+  final Color? color;
+
+  /// The label's color, as the admin set it; null for the readable one.
+  final Color? textColor;
 
   /// `auto` (from the action), `none`, or an icon name.
   final String icon;
@@ -81,21 +83,20 @@ class AnnouncementButton {
 
   bool get isVisible => style != AnnouncementButtonStyle.hidden;
 
-  static AnnouncementButton? fromJson(Object? json, Color fallbackColor) {
+  static AnnouncementButton? fromJson(Object? json) {
     if (json is! Map) return null;
     final action = AnnouncementAction.fromJson(json['action']);
     if (action == null || action.type == AnnouncementActionType.none) {
       return null;
     }
-    final color = parseHexColor(json['color']) ?? fallbackColor;
     return AnnouncementButton(
       label: _string(json['label']) ?? '',
       style: AnnouncementButtonStyle.values.firstWhere(
         (style) => style.name == json['style'],
         orElse: () => AnnouncementButtonStyle.filled,
       ),
-      color: color,
-      textColor: parseHexColor(json['text_color']) ?? readableOn(color),
+      color: parseHexColor(json['color']),
+      textColor: parseHexColor(json['text_color']),
       icon: _string(json['icon']) ?? 'auto',
       action: action,
     );
@@ -107,25 +108,24 @@ class AnnouncementCategory {
   const AnnouncementCategory({
     required this.slug,
     required this.name,
-    required this.color,
-    required this.textColor,
+    this.color,
+    this.textColor,
   });
 
   final String slug;
   final String name;
-  final Color color;
-  final Color textColor;
 
-  static const _fallbackColor = Color(0xFF0F6E63);
+  /// The admin's colors, or null for the app's own.
+  final Color? color;
+  final Color? textColor;
 
   static AnnouncementCategory fromJson(Object? json) {
     final map = json is Map ? json : const {};
-    final color = parseHexColor(map['color']) ?? _fallbackColor;
     return AnnouncementCategory(
       slug: _string(map['slug']) ?? '',
       name: _string(map['name']) ?? '',
-      color: color,
-      textColor: parseHexColor(map['text_color']) ?? readableOn(color),
+      color: parseHexColor(map['color']),
+      textColor: parseHexColor(map['text_color']),
     );
   }
 }
@@ -291,9 +291,6 @@ class Announcement {
   final int? hideAfterSeconds;
   final int? maxImpressions;
 
-  /// The card's accent: the button's color, else the category's.
-  Color get color => button?.color ?? category.color;
-
   /// The type of the primary button's action, for analytics.
   String get actionType =>
       (button?.action.type ?? AnnouncementActionType.none).apiName;
@@ -340,7 +337,7 @@ class Announcement {
       bodyMarkdown: _string(json['body_markdown']) ?? '',
       // A list kept from before still has `secondary_button`: the second
       // button is gone, so it is ignored.
-      button: AnnouncementButton.fromJson(json['button'], category.color),
+      button: AnnouncementButton.fromJson(json['button']),
       page: AnnouncementPageContent.fromJson(json['page'], title),
       dismissible: json['dismissible'] != false,
       startsAt: DateTime.tryParse(_string(json['starts_at']) ?? ''),
