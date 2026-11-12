@@ -9,6 +9,7 @@ import '../services/announcement.dart';
 import '../services/announcement_actions.dart';
 import '../services/announcement_copy.dart';
 import '../services/announcements_service.dart';
+import '../services/autoplay_hold.dart';
 import '../services/youtube_embed.dart';
 import '../theme.dart';
 import 'announcement_image.dart';
@@ -59,11 +60,15 @@ class AnnouncementYoutubeEmbed extends StatelessWidget {
       details: {'provider': 'youtube', 'kind': embed.kind.name},
     );
     final uri = Uri.parse(embed.url);
+    // Coming back must not start the radio again (iOS autoplay on resume).
+    AutoplayHold.holdNextResume();
     // The YouTube app takes https links (iOS universal links, Android
     // intents), so no app scheme or LSApplicationQueriesSchemes is needed;
     // without the app, the browser opens it.
     if (await _launch(uri, LaunchMode.externalNonBrowserApplication)) return;
-    await _launch(uri, LaunchMode.externalApplication);
+    if (!await _launch(uri, LaunchMode.externalApplication)) {
+      AutoplayHold.release();
+    }
   }
 
   static Future<bool> _launch(Uri uri, LaunchMode mode) async {

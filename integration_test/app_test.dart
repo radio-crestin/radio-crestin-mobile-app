@@ -443,6 +443,14 @@ void main() {
             reason: 'video_play to reach the backend',
             timeout: const Duration(seconds: 15));
 
+        // Back from YouTube, the radio stays paused, even where a return
+        // starts the last station (iOS, with auto-start on).
+        await app.turnOnAutoStart();
+        await app.leaveAndReturn();
+        await app.pumpFor(const Duration(seconds: 10));
+        expect(app.audio.playbackState.value.playing, isFalse,
+            reason: 'no autoplay after the video; ${app.describe()}');
+
         // Without the YouTube app, the browser opens it.
         launcher
           ..launches.clear()

@@ -268,6 +268,30 @@ class RadioApp {
     return at;
   }
 
+  /// Turns on Settings' "start the last station", which on iOS also starts
+  /// it on every return to the app.
+  Future<void> turnOnAutoStart() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_autoStartPrefsKey, true);
+  }
+
+  /// Switches to another app and back, as the system reports it: through
+  /// the background and on the screen again.
+  Future<void> leaveAndReturn() async {
+    for (final state in const [
+      AppLifecycleState.inactive,
+      AppLifecycleState.hidden,
+      AppLifecycleState.paused,
+      AppLifecycleState.hidden,
+      AppLifecycleState.inactive,
+      AppLifecycleState.resumed,
+    ]) {
+      tester.binding.handleAppLifecycleStateChanged(state);
+    }
+    await _waitInRealTime(() => _onScreen,
+        reason: 'the app to be on the screen again');
+  }
+
   /// Whether the app is on the screen, waiting in the background (paused)
   /// or closed (detached).
   AppLifecycleState? get lifecycle => WidgetsBinding.instance.lifecycleState;

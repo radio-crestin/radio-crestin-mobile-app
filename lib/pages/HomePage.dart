@@ -37,6 +37,7 @@ import '../widgets/mini_player_bottom_inset.dart';
 import '../widgets/announcement_card.dart';
 import '../widgets/promo_notification_card.dart';
 import '../services/announcement_push.dart';
+import '../services/autoplay_hold.dart';
 import '../services/announcements_service.dart';
 import '../services/home_promo_slot.dart';
 import '../services/analytics_service.dart';
@@ -1590,6 +1591,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   /// are skipped here. `playStation` short-circuits when the station is
   /// already playing/loading, so a quick app-switch round-trip is a no-op.
   Future<void> _resumeAutoplayIfNeeded() async {
+    // The listener left for a video: the radio stays paused.
+    if (AutoplayHold.consume()) return;
     if (_audioHandler.playbackState.value.playing) return;
     if (_audioHandler.isCasting) return;
     if (_audioHandler.isCarConnected) return;
