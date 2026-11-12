@@ -23,6 +23,12 @@ class CONSTANTS {
   // Device/client registration upsert. Trailing slash is required so Django's
   // APPEND_SLASH never 301-redirects the POST (which would drop the body).
   static String get DEVICE_REGISTER_URL => "$API_BASE_URL/devices/register/";
+  // The announcements card and its pushes; the contract is the
+  // announcements spec shared with the backend and the website. One item:
+  // "$ANNOUNCEMENTS_URL/<slug>/".
+  static String get ANNOUNCEMENTS_URL => "$API_BASE_URL/announcements";
+  static String get ANNOUNCEMENT_EVENTS_URL =>
+      "$API_BASE_URL/announcements/events/";
   static String DEFAULT_STATION_THUMBNAIL_URL = "";
   static String IMAGE_PROXY_PREFIX = "";
   static String STATIC_MP3_URL =

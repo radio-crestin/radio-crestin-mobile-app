@@ -109,6 +109,10 @@ dependencies:
   # player; the playback engine only orchestrates (skip in car/cast, pause in
   # background) and receives ended/error callbacks from the UI.
   youtube_player_iframe: ^6.0.2
+  flutter_markdown_plus: ^1.0.12
+  android_intent_plus: ^6.1.0
+  visibility_detector: ^0.4.0+2
+  markdown: ^7.3.1
 
 dev_dependencies:
   dependency_validator: ^5.0.3
