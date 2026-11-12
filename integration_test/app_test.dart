@@ -1,16 +1,19 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:radio_crestin/appAudioHandler.dart';
 
 import 'package:get_it/get_it.dart';
+import 'package:radio_crestin/components/StationsList.dart';
 import 'package:radio_crestin/services/announcement.dart';
 import 'package:radio_crestin/services/announcements_service.dart';
 import 'package:radio_crestin/theme.dart';
 import 'package:radio_crestin/widgets/announcement_banner.dart';
+import 'package:radio_crestin/widgets/announcement_card.dart';
 import 'package:radio_crestin/widgets/inline_markdown.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher_platform_interface/url_launcher_platform_interface.dart';
@@ -478,6 +481,72 @@ void main() {
           reason: 'the page, loaded');
       expect(find.byType(MarkdownBody), findsNothing,
           reason: 'the page has no empty text block');
+    });
+
+    announcementTest(
+        'a long button label wraps in its button and "Ascunde" stays in the '
+        'card, on a small phone with large text', (app) async {
+      final item = Announcement.fromJson(AnnouncementFixtures.whatsappVerse())!;
+      final service = GetIt.instance<AnnouncementsService>();
+      const sizes = [(320.0, 1.3), (375.0, 1.3), (375.0, 1.0)];
+      Key frameKey(double width, double scale) => ValueKey('fit-$width-$scale');
+      await app.tester.pumpWidget(MaterialApp(
+        theme: darkTheme,
+        home: Scaffold(
+          body: SafeArea(
+            child: SingleChildScrollView(
+              child: Column(children: [
+                for (final (width, scale) in sizes)
+                  Builder(
+                    builder: (context) => MediaQuery(
+                      data: MediaQuery.of(context)
+                          .copyWith(textScaler: TextScaler.linear(scale)),
+                      child: Container(
+                        key: frameKey(width, scale),
+                        width: width,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: StationsList.cardSideInset,
+                            vertical: 8),
+                        child:
+                            AnnouncementStaticCard(item: item, service: service),
+                      ),
+                    ),
+                  ),
+              ]),
+            ),
+          ),
+        ),
+      ));
+      await app.pumpFor(const Duration(seconds: 1));
+
+      final tester = app.tester;
+      for (final (width, scale) in sizes) {
+        final frame = find.byKey(frameKey(width, scale));
+        Finder inFrame(Finder finder) =>
+            find.descendant(of: frame, matching: finder);
+        final card = tester.getRect(frame).deflate(StationsList.cardSideInset);
+        final dismiss =
+            tester.getRect(inFrame(find.byKey(const ValueKey(
+                'announcement-dismiss'))));
+        final label = inFrame(find.text(AnnouncementFixtures.whatsappButton));
+        final where = '${width.toInt()} px at text ${scale}x';
+        expect(dismiss.right, lessThanOrEqualTo(card.right),
+            reason: '"Ascunde" inside the card, $where');
+        expect(card.right - dismiss.right, lessThan(24),
+            reason: '"Ascunde" on the right, $where');
+        expect(tester.renderObject<RenderParagraph>(label).didExceedMaxLines,
+            isFalse,
+            reason: 'the whole label shows, $where');
+        // Beside the button, or under it when two lines are not enough.
+        final button = tester.getRect(find
+            .ancestor(of: label, matching: find.byType(InkWell))
+            .first);
+        expect(
+            button.right <= dismiss.left || button.bottom <= dismiss.top,
+            isTrue,
+            reason: 'the button and "Ascunde" do not overlap, $where');
+      }
+      expect(tester.takeException(), isNull, reason: 'no overflow');
     });
 
     announcementTest(

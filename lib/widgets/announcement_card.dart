@@ -490,26 +490,77 @@ class _Actions extends StatelessWidget {
     final button = item.button;
     final showsButton = button != null && button.isVisible;
     if (!showsButton && !item.dismissible) return const SizedBox.shrink();
+    final primary = showsButton
+        ? AnnouncementPrimaryButton(button: button, onTap: onPrimary)
+        : const SizedBox.shrink();
+    final dismiss = _DismissButton(onTap: onDismiss);
     return Padding(
       padding: const EdgeInsets.only(top: 12),
-      child: Row(
-        children: [
-          Expanded(
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: showsButton
-                  ? AnnouncementPrimaryButton(button: button, onTap: onPrimary)
-                  : const SizedBox.shrink(),
+      child: LayoutBuilder(builder: (context, constraints) {
+        final dismissWidth =
+            item.dismissible ? _DismissButton.widthIn(context) + _gap : 0.0;
+        // The label takes two lines before "Ascunde" leaves its line.
+        final oneLine = !showsButton ||
+            AnnouncementPrimaryButton.fits(
+                context, button, constraints.maxWidth - dismissWidth);
+        if (!oneLine) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              primary,
+              if (item.dismissible) ...[
+                const SizedBox(height: 8),
+                Align(alignment: Alignment.centerRight, child: dismiss),
+              ],
+            ],
+          );
+        }
+        return Row(
+          children: [
+            Expanded(
+              child: Align(alignment: Alignment.centerLeft, child: primary),
             ),
-          ),
-          if (item.dismissible) ...[
-            const SizedBox(width: 6),
-            _DismissButton(onTap: onDismiss),
+            if (item.dismissible) ...[
+              const SizedBox(width: _gap),
+              dismiss,
+            ],
           ],
-        ],
-      ),
+        );
+      }),
     );
   }
+
+  static const double _gap = 6;
+}
+
+/// [text] in [style], laid out at the text size the listener chose.
+TextPainter _paint(BuildContext context, String text, TextStyle style,
+        {double maxWidth = double.infinity, int? maxLines}) =>
+    TextPainter(
+      text: TextSpan(
+          text: text, style: DefaultTextStyle.of(context).style.merge(style)),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+      maxLines: maxLines,
+    )..layout(maxWidth: maxWidth);
+
+/// The width [text] takes on one line in [style].
+double _textWidth(BuildContext context, String text, TextStyle style) {
+  final painter = _paint(context, text, style);
+  final width = painter.width;
+  painter.dispose();
+  return width;
+}
+
+/// Whether [text] in [style] fits in [maxLines] lines of [maxWidth].
+bool _textFits(BuildContext context, String text, TextStyle style,
+    {required double maxWidth, required int maxLines}) {
+  if (maxWidth <= 0) return false;
+  final painter =
+      _paint(context, text, style, maxWidth: maxWidth, maxLines: maxLines);
+  final fits = !painter.didExceedMaxLines;
+  painter.dispose();
+  return fits;
 }
 
 /// The category's name on a pill of its color.
@@ -619,6 +670,32 @@ class AnnouncementPrimaryButton extends StatelessWidget {
   final AnnouncementButton button;
   final VoidCallback onTap;
 
+  static const _labelStyle = TextStyle(
+    fontSize: 13.5,
+    fontWeight: FontWeight.w700,
+    letterSpacing: 0.07,
+  );
+  static const _labelLines = 2;
+  static const _iconGap = 7.0;
+
+  static EdgeInsets _padding(bool isText) => isText
+      ? const EdgeInsets.symmetric(horizontal: 4, vertical: 6)
+      : const EdgeInsets.only(left: 15, right: 14, top: 8, bottom: 8);
+
+  static double _iconSize(IconData icon) => 15 * announcementIconScale(icon);
+
+  /// Whether [button]'s label fits in its two lines on a button at most
+  /// [maxWidth] wide.
+  static bool fits(
+      BuildContext context, AnnouncementButton button, double maxWidth) {
+    final icon = announcementButtonIcon(button);
+    final chrome = _padding(button.style == AnnouncementButtonStyle.text)
+            .horizontal +
+        (icon == null ? 0 : _iconGap + _iconSize(icon));
+    return _textFits(context, button.label, _labelStyle,
+        maxWidth: maxWidth - chrome, maxLines: _labelLines);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -642,35 +719,36 @@ class AnnouncementPrimaryButton extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Container(
-          height: isText ? 32 : 36,
-          padding: isText
-              ? const EdgeInsets.symmetric(horizontal: 4)
-              : const EdgeInsets.only(left: 15, right: 14),
-          child: Row(
+          // One line keeps the old height; a second line grows it.
+          constraints: BoxConstraints(minHeight: isText ? 32 : 36),
+          padding: _padding(isText),
+          // As wide as its content, and centered in the minimum height.
+          child: Align(
+            widthFactor: 1,
+            heightFactor: 1,
+            child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Flexible(
                 child: Text(
                   button.label,
-                  maxLines: 1,
+                  maxLines: _labelLines,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.07,
-                    color: foreground,
-                  ),
+                  // Two lines hug the text, so the icon follows it.
+                  textWidthBasis: TextWidthBasis.longestLine,
+                  style: _labelStyle.copyWith(color: foreground, height: 1.25),
                 ),
               ),
               if (icon != null) ...[
-                const SizedBox(width: 7),
+                const SizedBox(width: _iconGap),
                 Icon(
                   icon,
-                  size: 15 * announcementIconScale(icon),
+                  size: _iconSize(icon),
                   color: foreground.withValues(alpha: 0.9),
                 ),
               ],
             ],
+          ),
           ),
         ),
       ),
@@ -685,12 +763,25 @@ class _DismissButton extends StatefulWidget {
 
   final VoidCallback onTap;
 
+  /// Its width at the text size the listener chose.
+  static double widthIn(BuildContext context) =>
+      _DismissButtonState._padding.horizontal +
+      _DismissButtonState._iconSize +
+      _DismissButtonState._iconGap +
+      _textWidth(context, AnnouncementCopy.dismiss,
+          _DismissButtonState._labelStyle);
+
   @override
   State<_DismissButton> createState() => _DismissButtonState();
 }
 
 class _DismissButtonState extends State<_DismissButton> {
   bool _pressed = false;
+
+  static const _labelStyle = TextStyle(fontSize: 13, fontWeight: FontWeight.w600);
+  static const _padding = EdgeInsets.only(left: 11, right: 13);
+  static const _iconSize = 14.0;
+  static const _iconGap = 6.0;
 
   @override
   Widget build(BuildContext context) {
@@ -716,20 +807,18 @@ class _DismissButtonState extends State<_DismissButton> {
             onHighlightChanged: (pressed) => setState(() => _pressed = pressed),
             highlightColor: colors.dot,
             child: Container(
-              height: 36,
-              padding: const EdgeInsets.only(left: 11, right: 13),
+              constraints: const BoxConstraints(minHeight: 36),
+              padding: _padding,
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.close_rounded, size: 14, color: colors.text),
-                  const SizedBox(width: 6),
+                  Icon(Icons.close_rounded, size: _iconSize, color: colors.text),
+                  const SizedBox(width: _iconGap),
                   Text(
                     AnnouncementCopy.dismiss,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: colors.text,
-                    ),
+                    maxLines: 1,
+                    softWrap: false,
+                    style: _labelStyle.copyWith(color: colors.text),
                   ),
                 ],
               ),

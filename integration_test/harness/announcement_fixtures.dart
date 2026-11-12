@@ -20,6 +20,7 @@ class AnnouncementFixtures {
   static const webOnlySlug = 'e2e-web-only';
   static const webOnlyTitle = 'Only on the website';
   static const newestTitle = 'Just published';
+  static const whatsappButton = 'Primește-l zilnic pe WhatsApp';
   static const titleOnlySlug = 'e2e-title-only';
   static const titleOnlyTitle = 'The Daily Verse';
   static const titleOnlyButton = 'Get it daily on WhatsApp';
@@ -201,6 +202,20 @@ Or open it [on YouTube](https://www.youtube.com/watch?v=dQw4w9WgXcQ) yourself.
         'body_markdown': '',
         'button': _button(titleOnlyButton, '#0F6E63', {'type': 'page'}),
         'page': {'markdown': ''},
+      };
+
+  /// The website's WhatsApp announcement, word for word: its long button
+  /// label once pushed "Ascunde" out of the card on the website.
+  static Map<String, Object?> whatsappVerse() => {
+        ...verse(),
+        'slug': 'e2e-whatsapp-verse',
+        'title': 'Versetul Zilei',
+        'body_markdown': '',
+        'button': _button(whatsappButton, '#0F6E63', {
+          'type': 'external',
+          'url': 'https://example.com/whatsapp',
+          'web_target': 'new_tab',
+        }),
       };
 
   /// Published after the others, first in the list.
