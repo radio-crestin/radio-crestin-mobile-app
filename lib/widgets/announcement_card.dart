@@ -78,8 +78,13 @@ class _AnnouncementCardState extends State<AnnouncementCard> {
         _resizeAnimates = true;
       });
 
-  void _goTo(int index) =>
-      _pages.animateToPage(index, duration: _slideDuration, curve: _easing);
+  /// Moves [by] one announcement, wrapping around at the ends; the card's
+  /// height then follows, as after a swipe.
+  void _step(int by) {
+    final count = _items.length;
+    _pages.animateToPage((_shown + by) % count,
+        duration: _slideDuration, curve: _easing);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -122,9 +127,12 @@ class _AnnouncementCardState extends State<AnnouncementCard> {
               if (count > 1)
                 Positioned(
                   top: _Slide.iconRowTop,
-                  right: 10,
+                  right: _PagerButtons.rightInset,
                   height: _Slide.iconSize,
-                  child: _Dots(count: count, index: _shown, onTap: _goTo),
+                  child: _PagerButtons(
+                    onPrevious: () => _step(-1),
+                    onNext: () => _step(1),
+                  ),
                 ),
             ],
           ),
@@ -441,7 +449,9 @@ class _IconRow extends StatelessWidget {
           Expanded(
             child: Padding(
               // Clear of the dots in the corner.
-              padding: EdgeInsets.only(right: count > 1 ? 66 : 0),
+              padding: EdgeInsets.only(
+                right: count > 1 ? _PagerButtons.reservedWidth : 0,
+              ),
               child: Row(
                 children: [
                   if (item.category.name.isNotEmpty)
@@ -790,48 +800,86 @@ class _DismissButtonState extends State<_DismissButton> {
   }
 }
 
-/// One dot per announcement; the shown one is longer. A dot takes the
-/// card to its announcement.
-class _Dots extends StatelessWidget {
-  const _Dots({required this.count, required this.index, required this.onTap});
+/// "Previous" and "next", at the end of the icon row: quiet round buttons
+/// like "Ascunde", each in a 44 pt touch area as tall as the row.
+class _PagerButtons extends StatelessWidget {
+  const _PagerButtons({required this.onPrevious, required this.onNext});
 
-  final int count;
-  final int index;
-  final ValueChanged<int> onTap;
+  final VoidCallback onPrevious;
+  final VoidCallback onNext;
+
+  static const double _target = 44;
+
+  /// From the card's right edge, so the circles sit 10 px in from it.
+  static const double rightInset = 4;
+
+  /// Room the tag row leaves for them, past the slide's own padding.
+  static const double reservedWidth = 2 * _target + rightInset - 16 + 4;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _PagerButton(
+          key: const ValueKey('announcement-previous'),
+          icon: Icons.chevron_left_rounded,
+          label: AnnouncementCopy.previous,
+          onTap: onPrevious,
+        ),
+        _PagerButton(
+          key: const ValueKey('announcement-next'),
+          icon: Icons.chevron_right_rounded,
+          label: AnnouncementCopy.next,
+          onTap: onNext,
+        ),
+      ],
+    );
+  }
+}
+
+class _PagerButton extends StatelessWidget {
+  const _PagerButton({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).announcementColors;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (var i = 0; i < count; i++)
-          Semantics(
-            button: true,
-            selected: i == index,
-            label: AnnouncementCopy.slideLabel(i + 1, count),
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => onTap(i),
-              child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 2.5, vertical: 13),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut,
-                  width: i == index ? 22 : 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: i == index
-                        ? colors.strong.withValues(alpha: 0.85)
-                        : colors.dot,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
+    return Tooltip(
+      message: label,
+      child: Semantics(
+        button: true,
+        label: label,
+        excludeSemantics: true,
+        child: InkResponse(
+          onTap: onTap,
+          radius: 18,
+          highlightColor: colors.dot,
+          child: SizedBox.square(
+            dimension: _PagerButtons._target,
+            child: Center(
+              child: Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: colors.control,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: colors.border),
                 ),
+                child: Icon(icon, size: 20, color: colors.text),
               ),
             ),
           ),
-      ],
+        ),
+      ),
     );
   }
 }

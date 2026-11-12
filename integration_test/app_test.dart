@@ -321,7 +321,8 @@ void main() {
           reason: '"Ascunde" stays on the first line, beside the main button');
     });
 
-    announcementTest('the card swipes, and a tap on it opens its page',
+    announcementTest(
+        'the card swipes and steps with its buttons, and a tap opens its page',
         (app) async {
       await showAnnouncements(app);
       expect(app.showsText('1 din 2'), isTrue, reason: app.describe());
@@ -330,6 +331,23 @@ void main() {
       await app.waitFor(() => app.showsText(AnnouncementFixtures.concertTitle),
           reason: 'the second announcement after a swipe');
       expect(app.showsText('2 din 2'), isTrue);
+
+      // The buttons go round, as the counter says.
+      Future<void> step(String button, String counter, String title) async {
+        await app.tapKey(button);
+        await app.waitFor(
+            () => app.showsText(counter) && app.showsText(title),
+            reason: '$button to show $counter, "$title"');
+      }
+
+      await step(
+          'announcement-next', '1 din 2', AnnouncementFixtures.verseTitle);
+      await step('announcement-previous', '2 din 2',
+          AnnouncementFixtures.concertTitle);
+      await step('announcement-previous', '1 din 2',
+          AnnouncementFixtures.verseTitle);
+      await step('announcement-next', '2 din 2',
+          AnnouncementFixtures.concertTitle);
 
       await app.tapText(AnnouncementFixtures.concertTitle);
       await app.waitFor(() => app.showsText(AnnouncementFixtures.pageTitle),

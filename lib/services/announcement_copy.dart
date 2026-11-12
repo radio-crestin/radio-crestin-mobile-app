@@ -8,6 +8,11 @@ class AnnouncementCopy {
   static const close = 'Închide';
   static const back = 'Înapoi';
   static const carouselLabel = 'Anunțuri';
+
+  /// The buttons that move the home card between announcements (the
+  /// design's copy, made with Codex).
+  static const previous = 'Anunțul anterior';
+  static const next = 'Anunțul următor';
   static const linkFailed = 'Nu s-a putut deschide linkul';
   static const linkFailedHint = 'Încearcă din nou mai târziu.';
 
