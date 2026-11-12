@@ -21,6 +21,15 @@ class AnnouncementCopy {
   static const dismiss = 'Ascunde';
   static const dismissLabel = 'Ascunde acest anunț';
 
+  /// YouTube in an announcement's page: what the thumbnail shows (the
+  /// backend's words) and what its play button does (made with Codex).
+  static const videoThumbnail = 'Miniatură video YouTube';
+  static const shortThumbnail = 'Miniatură YouTube Shorts';
+  static const playlistOnYoutube = 'Listă de redare pe YouTube';
+  static const playVideo = 'Redă videoclipul';
+  static const playShort = 'Redă clipul scurt';
+  static const playPlaylist = 'Redă lista de redare';
+
   /// The station announcements' sheet, bells and unread strip.
   static const stationSheetTitle = 'Anunțuri ale postului';
   static String stationSheetSubtitle(String station) => 'De la $station';

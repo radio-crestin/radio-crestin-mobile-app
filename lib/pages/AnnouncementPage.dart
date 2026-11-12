@@ -12,7 +12,9 @@ import '../services/announcements_service.dart';
 import '../theme.dart';
 import '../widgets/announcement_card.dart';
 import '../widgets/announcement_icons.dart';
+import '../services/youtube_embed.dart';
 import '../widgets/announcement_image.dart';
+import '../widgets/announcement_youtube_embed.dart';
 import '../widgets/announcement_theme_colors.dart';
 
 /// An announcement's own page: a cover, its title and date, and full
@@ -198,6 +200,7 @@ class _Content extends StatelessWidget {
             child: snapshot.connectionState == ConnectionState.done
                 ? _Markdown(
                     key: const ValueKey('markdown'),
+                    item: item,
                     data: snapshot.data ?? item.bodyMarkdown,
                     accent: Theme.of(context).announcementAccent(item),
                   )
@@ -238,7 +241,60 @@ class _Cover extends StatelessWidget {
 
 /// The page's markdown: headings, lists, quotes, images and links.
 class _Markdown extends StatelessWidget {
-  const _Markdown({super.key, required this.data, required this.accent});
+  const _Markdown({
+    super.key,
+    required this.item,
+    required this.data,
+    required this.accent,
+  });
+
+  final Announcement item;
+  final String data;
+  final Color accent;
+
+  /// The markdown cut where a paragraph is only a YouTube link: those
+  /// become players, the rest stays markdown.
+  static List<Object> _segments(String markdown) {
+    final segments = <Object>[];
+    final text = <String>[];
+    void flush() {
+      if (text.isEmpty) return;
+      segments.add(text.join('\n\n'));
+      text.clear();
+    }
+
+    for (final paragraph in markdown.split(RegExp(r'\n[ \t]*\n'))) {
+      final link = YoutubeEmbed.paragraphLink(paragraph);
+      final embed = link == null ? null : YoutubeEmbed.parse(link);
+      if (embed == null) {
+        text.add(paragraph);
+      } else {
+        flush();
+        segments.add(embed);
+      }
+    }
+    flush();
+    return segments;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final segment in _segments(data))
+          if (segment is YoutubeEmbed)
+            AnnouncementYoutubeEmbed(embed: segment, announcement: item)
+          else
+            _MarkdownText(data: segment as String, accent: accent),
+      ],
+    );
+  }
+}
+
+/// Markdown text: headings, lists, quotes, images and links.
+class _MarkdownText extends StatelessWidget {
+  const _MarkdownText({required this.data, required this.accent});
 
   final String data;
   final Color accent;

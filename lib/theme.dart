@@ -444,6 +444,9 @@ class AppColors {
   static const Color announcementButton = deviceAction;
   static const Color announcementButtonLabel = Colors.white;
   static const Color announcementTagLabel = Colors.white;
+  // The play button over a video's thumbnail in an announcement's page.
+  static const Color videoPlayButton = Color(0x99000000);
+  static const Color videoPlayIcon = Colors.white;
   // The shadow under an announcement pushed over the screen.
   static const Color announcementBannerShadow = Color(0x40000000);
 

@@ -390,6 +390,47 @@ void main() {
           reason: 'the banner to go after "Ascunde"');
     });
 
+    announcementTest(
+        "a page's YouTube links become players; a tap starts one",
+        (app) async {
+      server.announcements.add(AnnouncementFixtures.videos());
+      await app.pullToRefresh();
+      await app.waitFor(() => app.showsText(AnnouncementFixtures.videoTitle),
+          reason: 'the card');
+      await app.tapText(AnnouncementFixtures.videoTitle);
+      await app.waitFor(
+          () => app.showsText(AnnouncementFixtures.videoPageTitle),
+          reason: 'the page');
+      final facades = find.byKey(const ValueKey('youtube-facade'));
+      await app.waitFor(() => facades.evaluate().length == 3,
+          reason: 'a video, a Short and a playlist; the link in a sentence '
+              'stays a link');
+      expect(
+          find.textContaining('on YouTube', findRichText: true),
+          findsOneWidget,
+          reason: 'the link inside a sentence stays text');
+
+      final player = find.byKey(const ValueKey('youtube-player'));
+      await app.tester.tap(facades.first);
+      await app.waitFor(() => player.evaluate().isNotEmpty,
+          reason: 'the tap to start the player in place');
+      // The tapped one's thumbnail fades out as the player comes in.
+      await app.waitFor(() => facades.evaluate().length == 2,
+          reason: 'only the tapped one became a player');
+      await app.waitFor(
+          () => server.announcementEvents.any((e) =>
+              e['slug'] == AnnouncementFixtures.videoSlug &&
+              e['type'] == 'video_play' &&
+              e['provider'] == 'youtube' &&
+              e['kind'] == 'video'),
+          reason: 'video_play to reach the backend',
+          timeout: const Duration(seconds: 15));
+
+      await app.tapTooltip('Înapoi');
+      await app.waitFor(() => player.evaluate().isEmpty,
+          reason: 'leaving the page to stop the player');
+    });
+
     announcementTest('a launch forgets what the removed "later" button kept',
         (app) async {
       final prefs = await SharedPreferences.getInstance();

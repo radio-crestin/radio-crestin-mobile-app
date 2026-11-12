@@ -24,11 +24,13 @@ enum AnnouncementEvent {
   clicked,
   dismissed,
   pageViewed,
-  pushOpened;
+  pushOpened,
+  videoPlay;
 
   String get apiName => switch (this) {
         pageViewed => 'page_viewed',
         pushOpened => 'push_opened',
+        videoPlay => 'video_play',
         _ => name,
       };
 }
@@ -384,12 +386,14 @@ class AnnouncementsService with WidgetsBindingObserver {
   /// sent at once, as it may take the listener out of the app.
   ///
   /// [station]: the station playing, for a station announcement.
+  /// [details]: what else the event carries (a video's provider and kind).
   void report(
     AnnouncementEvent event,
     Announcement item,
     int position, {
     ClickTarget? target,
     String? station,
+    Map<String, String> details = const {},
   }) {
     final stationSlug =
         item.placement == AnnouncementPlacement.station ? station : null;
@@ -402,6 +406,7 @@ class AnnouncementsService with WidgetsBindingObserver {
       'placement': item.placement.name,
       if (stationSlug != null) 'station_slug': stationSlug,
       if (target != null) 'target': target.name,
+      ...details,
     });
     if (_queue.length >= _maxQueuedEvents) _queue.removeAt(0);
     _queue.add({
@@ -411,6 +416,7 @@ class AnnouncementsService with WidgetsBindingObserver {
       'target': target?.name,
       'placement': item.placement.name,
       'station_slug': stationSlug,
+      ...details,
       'at': DateTime.now().toUtc().toIso8601String(),
     });
     final urgent = event == AnnouncementEvent.clicked ||

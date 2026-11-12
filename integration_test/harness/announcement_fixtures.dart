@@ -119,6 +119,35 @@ On **December 20th at 19:00**, live.
         },
       };
 
+  static const videoSlug = 'e2e-videos';
+  static const videoTitle = 'Watch the concert';
+  static const videoPageTitle = 'Videos from the concert';
+
+  /// A page with a YouTube video (with a start time), a Short and a
+  /// playlist, each a paragraph of its own, and a YouTube link inside a
+  /// sentence, which stays a link.
+  static Map<String, Object?> videos() => {
+        ...concert(),
+        'slug': videoSlug,
+        'title': videoTitle,
+        'page': {
+          'title': videoPageTitle,
+          'markdown': '''
+The concert, from the start:
+
+https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=1m5s
+
+A short moment:
+
+<https://youtube.com/shorts/aqz-KE-bpKQ>
+
+[https://www.youtube.com/playlist?list=PLFgquLnL59alCl_2TQvOiD5Vgm1hCaGSI](https://www.youtube.com/playlist?list=PLFgquLnL59alCl_2TQvOiD5Vgm1hCaGSI)
+
+Or open it [on YouTube](https://www.youtube.com/watch?v=dQw4w9WgXcQ) yourself.
+''',
+        },
+      };
+
   static const uncoloredTitle = 'Colors from the app';
   static const uncoloredCategory = 'News';
   static const uncoloredButton = 'Read on';
