@@ -113,6 +113,7 @@ dependencies:
   android_intent_plus: ^6.1.0
   visibility_detector: ^0.4.0+2
   markdown: ^7.3.1
+  webview_flutter: ^4.14.1
 
 dev_dependencies:
   dependency_validator: ^5.0.3
