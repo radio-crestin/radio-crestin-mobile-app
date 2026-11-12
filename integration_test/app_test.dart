@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:radio_crestin/appAudioHandler.dart';
@@ -10,6 +11,7 @@ import 'package:radio_crestin/services/announcement.dart';
 import 'package:radio_crestin/services/announcements_service.dart';
 import 'package:radio_crestin/theme.dart';
 import 'package:radio_crestin/widgets/announcement_banner.dart';
+import 'package:radio_crestin/widgets/inline_markdown.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher_platform_interface/url_launcher_platform_interface.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -427,6 +429,55 @@ void main() {
       await app.tapDismiss();
       await app.waitFor(() => card.evaluate().isEmpty,
           reason: 'the banner to go after "Ascunde"');
+    });
+
+    announcementTest(
+        'a title-only announcement leaves no gap for its empty body in the '
+        'card, the push banner and the page', (app) async {
+      server.announcements.add(AnnouncementFixtures.titleOnly());
+      await app.pullToRefresh();
+      await app.waitFor(
+          () => app.showsText(AnnouncementFixtures.titleOnlyTitle),
+          reason: 'the card');
+      final card = RadioApp.announcementCard;
+      expect(
+          find.descendant(of: card, matching: find.byType(InlineMarkdownText)),
+          findsNothing,
+          reason: 'no body line');
+      // The card also lays out an invisible copy of the slide; the last
+      // one is the slide on screen.
+      final titleBottom = app.tester
+          .getBottomLeft(find.text(AnnouncementFixtures.titleOnlyTitle).last)
+          .dy;
+      final buttonTop = app.tester
+          .getTopLeft(find.text(AnnouncementFixtures.titleOnlyButton).last)
+          .dy;
+      expect(buttonTop - titleBottom, lessThan(36),
+          reason: 'the button sits right under the title');
+
+      // The push banner shows the same slide.
+      AnnouncementBanner.show(
+        Announcement.fromJson(AnnouncementFixtures.titleOnly())!,
+        GetIt.instance<AnnouncementsService>(),
+      );
+      final banner = find.byKey(const ValueKey(
+          'announcement-static-${AnnouncementFixtures.titleOnlySlug}'));
+      await app.waitFor(() => banner.hitTestable().evaluate().isNotEmpty,
+          reason: 'the banner to slide down');
+      expect(
+          find.descendant(
+              of: banner, matching: find.byType(InlineMarkdownText)),
+          findsNothing,
+          reason: 'no body line in the banner');
+      AnnouncementBanner.hide();
+      await app.pumpFor(const Duration(milliseconds: 500));
+
+      await app.tapText(AnnouncementFixtures.titleOnlyButton);
+      await app.waitFor(
+          () => find.byKey(const ValueKey('markdown')).evaluate().isNotEmpty,
+          reason: 'the page, loaded');
+      expect(find.byType(MarkdownBody), findsNothing,
+          reason: 'the page has no empty text block');
     });
 
     announcementTest(

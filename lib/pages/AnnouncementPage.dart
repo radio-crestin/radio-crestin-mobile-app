@@ -277,6 +277,8 @@ class _Markdown extends StatelessWidget {
     }
 
     for (final paragraph in markdown.split(RegExp(r'\n[ \t]*\n'))) {
+      // An empty body (a title-only announcement) draws nothing.
+      if (paragraph.trim().isEmpty) continue;
       final link = YoutubeEmbed.paragraphLink(paragraph);
       final embed = link == null ? null : YoutubeEmbed.parse(link);
       if (embed == null) {

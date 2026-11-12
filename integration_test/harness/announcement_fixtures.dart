@@ -20,6 +20,9 @@ class AnnouncementFixtures {
   static const webOnlySlug = 'e2e-web-only';
   static const webOnlyTitle = 'Only on the website';
   static const newestTitle = 'Just published';
+  static const titleOnlySlug = 'e2e-title-only';
+  static const titleOnlyTitle = 'The Daily Verse';
+  static const titleOnlyButton = 'Get it daily on WhatsApp';
 
   /// A WhatsApp invitation with an external link, for phones and tablets
   /// from 1.0.0.
@@ -187,6 +190,17 @@ Or open it [on YouTube](https://www.youtube.com/watch?v=dQw4w9WgXcQ) yourself.
           'icon': 'auto',
           'action': {'type': 'external', 'url': 'https://example.com/news'},
         },
+      };
+
+  /// A title and a button, with an empty body, and a page with nothing
+  /// more to say.
+  static Map<String, Object?> titleOnly() => {
+        ...verse(),
+        'slug': titleOnlySlug,
+        'title': titleOnlyTitle,
+        'body_markdown': '',
+        'button': _button(titleOnlyButton, '#0F6E63', {'type': 'page'}),
+        'page': {'markdown': ''},
       };
 
   /// Published after the others, first in the list.
