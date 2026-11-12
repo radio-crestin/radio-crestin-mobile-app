@@ -38,6 +38,7 @@ import 'package:flutter_chrome_cast/flutter_chrome_cast.dart'
 import 'services/tv_channel_service.dart';
 import 'package:flutter_airplay/flutter_airplay.dart' as flutter_airplay;
 import 'services/analytics_service.dart';
+import 'services/anr_reporter.dart';
 import 'services/android_renderer.dart';
 import 'services/app_start_log.dart';
 import 'services/desktop_menu_service.dart';
@@ -408,6 +409,10 @@ Future<void> runRadioCrestin([
     buildNumber: packageInfo.buildNumber,
     platform: Platform.isAndroid ? 'android' : Platform.isIOS ? 'ios' : Platform.isMacOS ? 'macos' : Platform.isWindows ? 'windows' : Platform.isLinux ? 'linux' : 'other',
   );
+
+  // After identify, so the ANR (a freeze at the last launch, most likely)
+  // is attributed to this device.
+  unawaited(AnrReporter.reportRecorded());
 
   // After identify, so the install reaches the device's person.
   unawaited(InstallReporter.reportOnce(

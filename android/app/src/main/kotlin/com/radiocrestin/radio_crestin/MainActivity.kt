@@ -98,6 +98,12 @@ class MainActivity : AudioServiceActivity() {
                         result.success(null)
                         restartProcess()
                     }
+                    "takeAnrReports" -> {
+                        tvChannelScope.launch(Dispatchers.IO) {
+                            val reports = AnrReports.takeNew(applicationContext)
+                            launch(Dispatchers.Main) { result.success(reports) }
+                        }
+                    }
                     else -> result.notImplemented()
                 }
             }

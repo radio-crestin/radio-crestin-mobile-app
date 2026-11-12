@@ -304,7 +304,7 @@ lib/
 4. Throttle concurrent image downloads (max 5 via `ImageCacheService`).
 5. Defer non-critical init to post-frame callbacks (see `CarPlayService`).
 6. Use `PerformanceMonitor` for profiling (automatically no-op in release).
-7. **Never block the UI isolate for long.** On Android it is the main thread (Flutter 3.29+, no opt-out since 3.47): 5 s of synchronous Dart work while the listener taps is an ANR. Parse or decode anything that grows with use (files, caches, large JSON) off it, with `Isolate.run`.
+7. **Never block the UI isolate for long.** On Android it is the main thread (Flutter 3.29+, no opt-out since 3.47): 5 s of synchronous Dart work while the listener taps is an ANR. Parse or decode anything that grows with use (files, caches, large JSON) off it, with `Isolate.run`. The app reports Android's recorded ANRs to PostHog at the next launch (`AnrReporter`, issues titled `ANR: …`).
 
 ### Error Handling
 1. GraphQL: errors come back in the result (`ErrorPolicy.none`); check `result.exception`.
