@@ -36,6 +36,17 @@ drives its own scrolling (or dpad's smooth `scrollToFocus` runs), the two fight
 and you see jump-then-scroll. We now pass `dpadRequestFocusNoAutoScroll`, which
 only requests focus; smooth scrolling is left to dpad's `scrollToFocus`.
 
+## The patch — `lib/src/core/dpad_core.dart`
+
+`Dpad.scrollToFocus` with `duration: Duration.zero` (the instant jump
+`DpadFocusable` makes for its first autofocus scroll) called
+`ScrollPosition.animateTo` with a zero duration. Its `DrivenScrollActivity`
+then ran its first tick inside its own constructor and threw
+`LateInitializationError: Field '_controller' has not been initialized`, so
+coming back to the grid didn't scroll to the focused card (PostHog
+01a1a737…, Android TV). `_scrollInScrollable` now jumps when the duration is
+zero, as `Scrollable.ensureVisible` does.
+
 ## Upgrading
 
 If bumping dpad, re-apply these guards (or confirm upstream fixed it) before

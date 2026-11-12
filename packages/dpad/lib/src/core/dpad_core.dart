@@ -475,11 +475,18 @@ final class Dpad {
 
     // Only animate if there's actually a change
     if ((newOffset - currentOffset).abs() > 0.5) {
-      position.animateTo(
-        newOffset,
-        duration: duration,
-        curve: curve,
-      );
+      // animateTo needs a duration: with none, its animation ran its first
+      // tick inside its own constructor and threw LateInitializationError
+      // instead of scrolling (see PATCH.md).
+      if (duration == Duration.zero) {
+        position.jumpTo(newOffset);
+      } else {
+        position.animateTo(
+          newOffset,
+          duration: duration,
+          curve: curve,
+        );
+      }
     }
   }
 
