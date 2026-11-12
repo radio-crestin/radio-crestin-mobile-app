@@ -164,8 +164,8 @@ class AnnouncementsService with WidgetsBindingObserver {
     }
   }
 
-  /// The list from Cloudflare's cache, or null when unchanged (304) or
-  /// unreachable.
+  /// The list from Cloudflare's cache (the kept one when unchanged, 304),
+  /// or null when unreachable.
   Future<_Feed?> _fetchCached() async {
     final etag = _store.feedEtag;
     try {
@@ -175,6 +175,9 @@ class AnnouncementsService with WidgetsBindingObserver {
           if (etag != null && _store.feed != null) 'If-None-Match': etag,
         },
       ).timeout(_timeout);
+      // Unchanged: the list kept on the device is the current one, even
+      // when this launch has not read it yet.
+      if (response.statusCode == 304) return _Feed.parse(_store.feed);
       if (response.statusCode != 200) return null;
       final body = utf8.decode(response.bodyBytes);
       final feed = _Feed.parse(body);
