@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as developer;
-import 'dart:io' show PathNotFoundException;
 
 import 'package:flutter/foundation.dart';
 import 'package:posthog_flutter/posthog_flutter.dart';
@@ -284,12 +283,6 @@ class AnalyticsService {
   }) {
     if (!_initialized) {
       developer.log('PostHog not initialized, dropping error: $error');
-      return;
-    }
-    // Skip benign Hive compaction errors from concurrent Flutter engines.
-    if (error is PathNotFoundException &&
-        stackTrace != null &&
-        stackTrace.toString().contains('StorageBackendVm.compact')) {
       return;
     }
     final extra = _filterNulls(properties);

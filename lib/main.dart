@@ -15,7 +15,6 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:posthog_flutter/posthog_flutter.dart' show PostHogWidget;
 import 'package:radio_crestin/graphql_rest_mappings.dart';
 import 'package:radio_crestin/performance_monitor.dart';
-import 'package:radio_crestin/resilient_hive_store.dart';
 import 'package:radio_crestin/graphql_to_rest_interceptor.dart';
 import 'package:radio_crestin/pages/HomePage.dart';
 import 'package:upgrader/upgrader.dart';
@@ -53,6 +52,7 @@ import 'services/home_widget_service.dart';
 import 'services/image_cache_service.dart';
 import 'services/device_id_service.dart';
 import 'services/install_reporter.dart';
+import 'services/legacy_graphql_cache.dart';
 import 'services/log_context.dart';
 import 'services/log_flush_guard.dart';
 import 'services/remote_debug_controller.dart';
@@ -169,7 +169,7 @@ Future<void> runRadioCrestin([
   // path for the common audio-only launch (measured on first video instead).
 
   // Phase 1: Start ALL independent async operations in parallel.
-  // Firebase, Hive, SharedPreferences, image cache, network, and PackageInfo
+  // Firebase, SharedPreferences, image cache, network, and PackageInfo
   // have no dependencies on each other — run them all concurrently.
   final Future<void> firebaseInitFuture = _firebaseSupported
       ? PerformanceMonitor.trackAsync('firebase_init', () =>
@@ -177,15 +177,8 @@ Future<void> runRadioCrestin([
         )
       : Future.value();
 
-  final hiveStoreFuture = PerformanceMonitor.trackAsync<Store>('hive_store_init', () async {
-    try {
-      await initHiveForFlutter();
-      return await ResilientHiveStore.create();
-    } catch (e) {
-      developer.log('HiveStore init failed, using InMemoryStore: $e');
-      return InMemoryStore() as Store;
-    }
-  });
+  // Removed, never read: opening it is what froze launches (see the class).
+  unawaited(LegacyGraphqlCache.delete());
 
   final prefsFuture = SharedPreferences.getInstance();
   final packageInfoFuture = PackageInfo.fromPlatform();
@@ -201,7 +194,7 @@ Future<void> runRadioCrestin([
   });
 
   // Construct services early (sync constructors) and start their async init
-  // in parallel with hive — they only need path_provider / connectivity, not hive.
+  // in parallel with prefs — they only need path_provider / connectivity.
   final networkService = NetworkService(probes: options.internetProbes);
   final imageCacheService = ImageCacheService();
 
@@ -209,11 +202,8 @@ Future<void> runRadioCrestin([
   final imageCacheInitFuture = PerformanceMonitor.trackAsync('image_cache_init',
     () => imageCacheService.initialize());
 
-  // Phase 2: Wait for hive + prefs (needed for GraphQL client).
-  // Image cache and network init run in parallel — likely finish before hive.
-  final hivePrefsResults = await Future.wait([hiveStoreFuture, prefsFuture]);
-  final Store graphQlStore = hivePrefsResults[0] as Store;
-  final SharedPreferences prefs = hivePrefsResults[1] as SharedPreferences;
+  // Phase 2: Wait for prefs. Image cache and network init run in parallel.
+  final SharedPreferences prefs = await prefsFuture;
 
   // Also ensure image cache and network are ready (should already be done)
   await Future.wait([imageCacheInitFuture, networkInitFuture]);
@@ -238,7 +228,7 @@ Future<void> runRadioCrestin([
     prefs.setString('_reviewStatus', json.encode(defaultReviewStatus));
   }
 
-  // GraphQL client setup (only needs hiveStore, not Firebase)
+  // GraphQL client setup (doesn't need Firebase)
   final HttpLink httpLink = HttpLink(
     CONSTANTS.GRAPHQL_ENDPOINT,
   );
@@ -259,7 +249,11 @@ Future<void> runRadioCrestin([
   );
 
   final Link graphqlLink = graphqlToRestInterceptor.concat(authLink.concat(httpLink));
-  final graphQlCache = GraphQLCache(store: graphQlStore);
+  // In memory only: no query reads a cached result from a previous launch
+  // (the station list's cold-start copy lives in prefs, see
+  // StationDataService), and a disk store has to be parsed on the UI
+  // isolate before the first query.
+  final graphQlCache = GraphQLCache(store: InMemoryStore());
 
   GraphQLClient graphqlClient = GraphQLClient(
     link: graphqlLink,

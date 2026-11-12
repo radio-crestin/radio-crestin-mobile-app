@@ -165,7 +165,6 @@ lib/
   globals.dart                       # Runtime globals (FCM token, device ID)
   tracking.dart                      # Firebase Analytics
   performance_monitor.dart           # Performance profiling (no-op in release)
-  resilient_hive_store.dart          # GraphQL cache with fallback
   graphql_to_rest_interceptor.dart   # GraphQL-to-REST bridge
   types/
     Station.dart                     # Station model wrapping GraphQL type
@@ -296,7 +295,7 @@ lib/
 2. Local UI state (panel position, scroll offset) stays in `State` classes.
 3. Never directly mutate `BehaviorSubject.value` - use `.add()`.
 4. Always seed `BehaviorSubject` with an initial value.
-5. Persistence: `SharedPreferences` for simple values, Hive for GraphQL cache.
+5. Persistence: `SharedPreferences` for simple values. The GraphQL cache is in memory only (see Cache Strategy).
 
 ### Performance Rules
 1. Use `SliverFixedExtentList` for long lists (not `ListView.builder`).
@@ -305,9 +304,10 @@ lib/
 4. Throttle concurrent image downloads (max 5 via `ImageCacheService`).
 5. Defer non-critical init to post-frame callbacks (see `CarPlayService`).
 6. Use `PerformanceMonitor` for profiling (automatically no-op in release).
+7. **Never block the UI isolate for long.** On Android it is the main thread (Flutter 3.29+, no opt-out since 3.47): 5 s of synchronous Dart work while the listener taps is an ANR. Parse or decode anything that grows with use (files, caches, large JSON) off it, with `Isolate.run`.
 
 ### Error Handling
-1. GraphQL: Use `ResilientHiveStore` - auto-falls back to `InMemoryStore`.
+1. GraphQL: errors come back in the result (`ErrorPolicy.none`); check `result.exception`.
 2. Image loading: Graceful fallback chain: disk cache -> network -> placeholder.
 3. Audio: `AnimatedPlayButton` handles buffering/failure states automatically.
 4. Never let exceptions crash the app - wrap external calls in try/catch.
@@ -384,7 +384,7 @@ All files in `lib/queries/*.graphql.dart` and `lib/queries/schema.graphql.dart` 
 
 ### Cache Strategy
 - **Policy:** `cacheAndNetwork` with `mergeOptimistic` reread.
-- **Storage:** `ResilientHiveStore` (Hive-backed with InMemory fallback).
+- **Storage:** `InMemoryStore`. No query reads a result cached by a previous launch; the station list's cold-start copy lives in prefs (`StationDataService`). Don't put a disk store back: Hive parses its whole file on the UI isolate, which caused the 1.6.1 startup ANRs (`lib/services/legacy_graphql_cache.dart`).
 - **Polling:** `watchQuery` with 5-second poll interval for live station data.
 
 ### REST Interceptor
@@ -448,6 +448,6 @@ video, plus the builds.
 
 1. **Don't edit `*.graphql.dart` files** - they are generated. Edit `.graphql` sources and run `build_runner`.
 2. **GetIt registration order** - `ImageCacheService` must be registered before `AppAudioHandler`.
-3. **Multi-engine conflicts** - CarPlay/Android Auto spawn separate Flutter engines. `ResilientHiveStore` handles concurrent Hive access.
+3. **Multi-engine conflicts** - CarPlay/Android Auto spawn separate Flutter engines; state on disk is shared between them.
 4. **BehaviorSubject disposal** - Always cancel stream subscriptions. Leaks cause stale `setState()` calls on disposed widgets.
 5. **Image cache paths** - `Station.artUri` returns `file://` URIs when cached. Native code (`FAAHelpers.kt`) must detect and handle both URL schemes.

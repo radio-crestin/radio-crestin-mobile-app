@@ -10,6 +10,7 @@ Open it before you write or debug an e2e test. The rule that there are no unit t
 xcrun simctl list devices booted; adb devices      # find a device id
 flutter test integration_test/app_test.dart -d <device id>
 flutter test integration_test/app_test.dart -d <device id> --plain-name "pause"   # one test
+flutter test integration_test/launch_test.dart -d <device id>   # what a launch does with an older version's data
 ```
 
 A run takes about 10 minutes on a simulator, most of it spent listening to audio. Keep the simulator to
@@ -42,12 +43,19 @@ app back on its home screen, silent, on a healthy network.
 - **`harness/media.g.dart`** holds the audio: tiny, nearly silent AAC and MP3 clips. Regenerate it with
   `tool/generate_media.sh` (needs ffmpeg).
 
+## Launch tests
+
+The app's launch logic runs once per process, and every test in a file shares one, so launch tests live in
+their own file, `launch_test.dart`. `e2eTest(beforeLaunch: ...)` leaves data on the fresh install before the
+app starts, as an older version would have: `harness/legacy_graphql_cache.dart` writes the GraphQL cache
+file 1.6.1 and earlier kept, and `harness/ui_stalls.dart` measures how long the UI isolate (Android's main
+thread) goes without a turn, the wait that becomes an ANR at 5 s.
+
 ## Not covered yet
 
-- **What a launch does** (auto-start of the last station, a link or widget that opened the app). The app's
-  launch logic runs once per process, and every test shares one, so it needs its own test file, launched
-  with a seeded station cache: a fresh install starts a station from the app's bundled list, which streams
-  from the real internet.
+- **Launch behaviour beyond old data** (auto-start of the last station, a link or widget that opened the
+  app). Each needs its own test file, launched with a seeded station cache: a fresh install starts a station
+  from the app's bundled list, which streams from the real internet.
 
 ## Add a test
 

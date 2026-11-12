@@ -45,14 +45,18 @@ class RadioApp {
 
   /// Launches the app on a fresh install, or puts the running one back on
   /// its home screen.
+  ///
+  /// [beforeLaunch] runs on the fresh install, before the app starts: to
+  /// leave on the device what an older version would have.
   static Future<RadioApp> open(
     WidgetTester tester,
-    FakeRadioServer server,
-  ) async {
+    FakeRadioServer server, {
+    Future<void> Function()? beforeLaunch,
+  }) async {
     var app = _current;
     if (app == null) {
       app = _current = RadioApp._(server)..tester = tester;
-      await app._launch();
+      await app._launch(beforeLaunch);
     } else {
       app.tester = tester;
       FlutterError.onError = _appErrorHandler;
@@ -69,8 +73,9 @@ class RadioApp {
         timeout: const Duration(seconds: 30),
       );
 
-  Future<void> _launch() async {
+  Future<void> _launch(Future<void> Function()? beforeLaunch) async {
     await _wipeAppData();
+    await beforeLaunch?.call();
     await runRadioCrestin(AppLaunchOptions(
       apiBaseUrl: server.apiBaseUrl,
       internetProbes: [
@@ -461,12 +466,14 @@ void e2eTest(
   String description,
   Future<void> Function(RadioApp app) body, {
   required FakeRadioServer Function() server,
+  Future<void> Function()? beforeLaunch,
   Timeout timeout = const Timeout(Duration(minutes: 3)),
   bool skip = false,
 }) {
   testWidgets(skip: skip, description, (tester) async {
     RadioApp.captureBindingErrorHandler();
-    final app = await RadioApp.open(tester, server());
+    final app =
+        await RadioApp.open(tester, server(), beforeLaunch: beforeLaunch);
     try {
       await body(app);
     } finally {
