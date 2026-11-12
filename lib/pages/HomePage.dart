@@ -34,7 +34,10 @@ import '../widgets/cast_button.dart';
 import '../widgets/floating_sliver_header.dart';
 import '../widgets/keyboard_free_media_query.dart';
 import '../widgets/mini_player_bottom_inset.dart';
+import '../widgets/announcement_card.dart';
 import '../widgets/promo_notification_card.dart';
+import '../services/announcement_push.dart';
+import '../services/announcements_service.dart';
 import '../services/home_promo_slot.dart';
 import '../services/analytics_service.dart';
 import '../services/background_polling_policy.dart';
@@ -199,6 +202,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   /// The promo card above the station list: one at a time.
   HomePromo? _homePromo;
 
+  final AnnouncementsService _announcements = getIt<AnnouncementsService>();
+  StreamSubscription<AnnouncementList>? _announcementsSub;
+
   /// Whether the app bar is a search field: the list then shows only the
   /// stations whose names, or songs on now, match what the listener types
   /// into it.
@@ -247,6 +253,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     });
 
     _listenToStatusSnackbarSources();
+    _announcementsSub =
+        _announcements.announcements.listen(_onAnnouncementsChanged);
 
     // Listen for custom events from notification/Android Auto actions
     _customEventSub = _audioHandler.customEvent.listen((event) {
@@ -288,6 +296,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     // Defer non-critical work to after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_announcements.load());
+      AnnouncementPush.attach(_announcements);
       _loadHomePromo();
       _loadShareLinkData();
       // Well after startup, when station data has loaded and the first
@@ -483,6 +493,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     try {
       await Future.wait([
         _stationDataService.refreshStations(),
+        _announcements.load(),
         _loadHomePromo(),
         _loadShareLinkData(),
       ]).timeout(const Duration(seconds: 3));
@@ -497,8 +508,27 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   Future<void> _loadHomePromo() async {
-    final promo = await HomePromoSlot(getIt<SharedPreferences>()).current();
-    if (mounted) setState(() => _homePromo = promo);
+    final promo = await HomePromoSlot(getIt<SharedPreferences>())
+        .current(announcements: _announcements.announcements.value);
+    if (!mounted) return;
+    // Announcements that arrived meanwhile keep the slot.
+    final announcements = _announcements.announcements.value;
+    setState(() => _homePromo = announcements.items.isEmpty
+        ? promo
+        : AnnouncementPromo(announcements));
+  }
+
+  /// Puts the announcements in the slot, or frees it once the last one
+  /// was closed.
+  void _onAnnouncementsChanged(AnnouncementList announcements) {
+    if (!mounted) return;
+    final shown = _homePromo;
+    if (announcements.items.isNotEmpty) {
+      setState(() => _homePromo = AnnouncementPromo(announcements));
+    } else if (shown is AnnouncementPromo) {
+      setState(() => _homePromo = null);
+      unawaited(HomePromoSlot(getIt<SharedPreferences>()).close(shown));
+    }
   }
 
   Future<void> _closeHomePromo() async {
@@ -557,6 +587,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _videoContentSub?.cancel();
     _customEventSub?.cancel();
     _imageCachePruneTimer?.cancel();
+    _announcementsSub?.cancel();
     _statusSnackbar.dispose();
     _statusListInset.dispose();
     _rowTransitions.dispose();
@@ -809,6 +840,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         _wasBackgrounded = false;
         // Full refresh + resume polling (picks up all changes while backgrounded)
         _stationDataService.onAppResumed();
+        unawaited(_announcements.load());
         // iOS-only: warm resume mirrors cold start. The platform exposes no
         // way to tell "user tapped icon" from "user tapped app-switcher card",
         // so we treat every foreground as "user wants playback" when the
@@ -1115,6 +1147,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             ),
                           ),
                           // Search results come first.
+                          if (searchResults == null)
+                            SliverToBoxAdapter(
+                              child: _AnnouncementSlot(
+                                promo: _homePromo,
+                                service: _announcements,
+                              ),
+                            ),
                           if (_homePromo
                               case NotificationPromo(:final notification)
                               when searchResults == null)
@@ -1827,3 +1866,35 @@ class _SearchResults extends StatelessWidget {
   }
 }
 
+/// The announcement card, which grows in when announcements arrive and
+/// shrinks away when the last one is closed.
+class _AnnouncementSlot extends StatelessWidget {
+  const _AnnouncementSlot({required this.promo, required this.service});
+
+  final HomePromo? promo;
+  final AnnouncementsService service;
+
+  @override
+  Widget build(BuildContext context) {
+    final promo = this.promo;
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+      alignment: Alignment.topCenter,
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 250),
+        child: promo is AnnouncementPromo
+            ? AnnouncementCard(
+                key: const ValueKey('announcements'),
+                items: promo.announcements.items,
+                settings: promo.announcements.settings,
+                service: service,
+              )
+            : const SizedBox(
+                key: ValueKey('no-announcements'),
+                width: double.infinity,
+              ),
+      ),
+    );
+  }
+}

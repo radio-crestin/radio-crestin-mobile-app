@@ -460,6 +460,8 @@ class AppColors {
   static const Color announcementShadowFine = Color(0x0a000000);
   // The round back button on an announcement's page, in both themes.
   static const Color announcementBackButton = Color(0x267f7f7f);
+  // The shadow under an announcement pushed over the screen.
+  static const Color announcementBannerShadow = Color(0x40000000);
 
   // Common colors
   static const Color error = Color(0xffd32f2f);

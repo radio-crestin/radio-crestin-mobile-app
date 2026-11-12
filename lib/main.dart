@@ -38,6 +38,7 @@ import 'package:flutter_chrome_cast/flutter_chrome_cast.dart'
 import 'services/tv_channel_service.dart';
 import 'package:flutter_airplay/flutter_airplay.dart' as flutter_airplay;
 import 'services/analytics_service.dart';
+import 'services/announcements_service.dart';
 import 'services/anr_reporter.dart';
 import 'services/android_renderer.dart';
 import 'services/app_start_log.dart';
@@ -79,9 +80,15 @@ final getIt = GetIt.instance;
 
 Future<void> initializeFirebaseMessaging() async {
   try {
+    // FCM rotates tokens (and may deliver the first one late, after a
+    // failed getToken), so keep the backend's copy current.
+    FirebaseMessaging.instance.onTokenRefresh.listen((token) {
+      if (token == globals.fcmToken) return;
+      globals.fcmToken = token;
+      DeviceRegistrationService.instance.register();
+    }, onError: (Object _) {});
     if (Platform.isIOS) {
-      FirebaseMessaging messaging = FirebaseMessaging.instance;
-      await messaging.requestPermission(
+      final settings = await FirebaseMessaging.instance.requestPermission(
         alert: true,
         announcement: true,
         badge: true,
@@ -90,25 +97,29 @@ Future<void> initializeFirebaseMessaging() async {
         provisional: true,
         sound: true,
       );
+      final status = settings.authorizationStatus;
+      if (status != AuthorizationStatus.authorized &&
+          status != AuthorizationStatus.provisional) {
+        return;
+      }
+      // FCM's token needs the APNs one, which iOS hands over a moment
+      // after registerForRemoteNotifications (AppDelegate).
+      if (await _waitForApnsToken() == null) {
+        developer.log("No APNs token: push is off for this launch");
+        return;
+      }
     } else {
       await FirebaseMessaging.instance.setAutoInitEnabled(true);
-      try {
-        final fcmToken = await FirebaseMessaging.instance.getToken();
-        if (fcmToken != null) globals.fcmToken = fcmToken;
-        developer.log("FCMToken $fcmToken");
-      } catch (e) {
-        developer.log("Failed to get FCM token: $e");
-        if (e.toString().contains('SERVICE_NOT_AVAILABLE')) {
-          developer.log("Firebase Messaging service not available - likely running on emulator without Google Play Services");
-        }
+    }
+    try {
+      final fcmToken = await FirebaseMessaging.instance.getToken();
+      if (fcmToken != null) globals.fcmToken = fcmToken;
+      developer.log("FCMToken $fcmToken");
+    } catch (e) {
+      developer.log("Failed to get FCM token: $e");
+      if (e.toString().contains('SERVICE_NOT_AVAILABLE')) {
+        developer.log("Firebase Messaging service not available - likely running on emulator without Google Play Services");
       }
-      // FCM rotates tokens (and may deliver the first one late, after a
-      // failed getToken), so keep the backend's copy current.
-      FirebaseMessaging.instance.onTokenRefresh.listen((token) {
-        if (token == globals.fcmToken) return;
-        globals.fcmToken = token;
-        DeviceRegistrationService.instance.register();
-      }, onError: (Object _) {});
     }
   } catch (e, stackTrace) {
     developer.log("Firebase Messaging initialization failed", error: e, stackTrace: stackTrace);
@@ -116,6 +127,17 @@ Future<void> initializeFirebaseMessaging() async {
       AnalyticsService.instance.captureException(e, stackTrace, context: 'firebase_messaging_init');
     }
   }
+}
+
+/// The APNs token, polled for up to 10 s, or null (a simulator without
+/// push, or no `aps-environment` entitlement).
+Future<String?> _waitForApnsToken() async {
+  for (var attempt = 0; attempt < 20; attempt++) {
+    final token = await FirebaseMessaging.instance.getAPNSToken();
+    if (token != null) return token;
+    await Future<void>.delayed(const Duration(milliseconds: 500));
+  }
+  return null;
 }
 
 // Firebase plugins (messaging, app_installations, remote_config) don't support
@@ -316,6 +338,13 @@ Future<void> runRadioCrestin([
 
   final playCountService = PlayCountService();
   getIt.registerSingleton<PlayCountService>(playCountService);
+
+  // The announcement card on the phone and tablet home, and its pushes.
+  getIt.registerSingleton<AnnouncementsService>(AnnouncementsService(
+    prefs: prefs,
+    client: apiHttpClient,
+    pushEnabled: options.registersForPush,
+  ));
 
   final songLikeService = await songLikeFuture;
   getIt.registerSingleton<SongLikeService>(songLikeService);
@@ -532,10 +561,19 @@ Future<void> runRadioCrestin([
   // server-side. Deferred to post-frame so it never competes with first paint.
   // On a fresh install the FCM token needs a round trip to FCM, so wait for
   // it (bounded) or the backend would only get the token on the next launch.
+  // On iOS the token can take longer (APNs first): registered again once
+  // it arrives.
   WidgetsBinding.instance.addPostFrameCallback((_) {
     unawaited(fcmInitFuture
         .timeout(const Duration(seconds: 5), onTimeout: () {})
-        .whenComplete(() => DeviceRegistrationService.instance.register()));
+        .whenComplete(() async {
+      final sentToken = globals.fcmToken;
+      await DeviceRegistrationService.instance.register();
+      await fcmInitFuture;
+      if (globals.fcmToken != sentToken) {
+        await DeviceRegistrationService.instance.register();
+      }
+    }));
   });
 
   // Defer CarPlay/Android Auto init to after first frame (mobile only)

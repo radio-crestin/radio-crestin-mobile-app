@@ -163,7 +163,7 @@ class AnnouncementsService with WidgetsBindingObserver {
     List<Announcement> items,
     RotationMode mode,
   ) async {
-    if (items.length < 2) return items;
+    if (items.length < 2 || mode == RotationMode.fixed) return items;
     final start = _rotationStartSlug == null
         ? await _pickStart(items, mode)
         : items.indexWhere((item) => item.slug == _rotationStartSlug);
@@ -176,11 +176,9 @@ class AnnouncementsService with WidgetsBindingObserver {
   }
 
   Future<int> _pickStart(List<Announcement> items, RotationMode mode) async {
-    final start = switch (mode) {
-      RotationMode.fixed => 0,
-      RotationMode.rotate => _store.rotationCursor % items.length,
-      RotationMode.random => Random().nextInt(items.length),
-    };
+    final start = mode == RotationMode.rotate
+        ? _store.rotationCursor % items.length
+        : Random().nextInt(items.length);
     if (mode == RotationMode.rotate) await _store.advanceRotationCursor();
     _rotationStartSlug = items[start].slug;
     return start;
