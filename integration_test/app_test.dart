@@ -342,7 +342,14 @@ void main() {
           reason: 'the second announcement after a swipe');
       expect(app.showsText('2 din 2'), isTrue);
 
-      // The buttons go round, as the counter says.
+      // The buttons stop at the ends: the way out is disabled there, and a
+      // tap on it changes nothing.
+      final semantics = app.tester.ensureSemantics();
+      void expectEnabled(String button, bool enabled) => expect(
+            app.tester.getSemantics(find.byKey(ValueKey(button))),
+            containsSemantics(hasEnabledState: true, isEnabled: enabled),
+            reason: '$button is ${enabled ? 'enabled' : 'disabled'}',
+          );
       Future<void> step(String button, String counter, String title) async {
         await app.tapKey(button);
         await app.waitFor(
@@ -350,14 +357,19 @@ void main() {
             reason: '$button to show $counter, "$title"');
       }
 
-      await step(
-          'announcement-next', '1 din 2', AnnouncementFixtures.verseTitle);
-      await step('announcement-previous', '2 din 2',
+      expectEnabled('announcement-next', false);
+      expectEnabled('announcement-previous', true);
+      await step('announcement-next', '2 din 2',
           AnnouncementFixtures.concertTitle);
+      await step('announcement-previous', '1 din 2',
+          AnnouncementFixtures.verseTitle);
+      expectEnabled('announcement-previous', false);
+      expectEnabled('announcement-next', true);
       await step('announcement-previous', '1 din 2',
           AnnouncementFixtures.verseTitle);
       await step('announcement-next', '2 din 2',
           AnnouncementFixtures.concertTitle);
+      semantics.dispose();
 
       await app.tapText(AnnouncementFixtures.concertTitle);
       await app.waitFor(() => app.showsText(AnnouncementFixtures.pageTitle),

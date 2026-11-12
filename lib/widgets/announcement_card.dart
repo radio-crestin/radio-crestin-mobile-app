@@ -78,12 +78,12 @@ class _AnnouncementCardState extends State<AnnouncementCard> {
         _resizeAnimates = true;
       });
 
-  /// Moves [by] one announcement, wrapping around at the ends; the card's
-  /// height then follows, as after a swipe.
+  /// Moves [by] one announcement, stopping at the ends like a swipe; the
+  /// card's height then follows, as after a swipe.
   void _step(int by) {
-    final count = _items.length;
-    _pages.animateToPage((_shown + by) % count,
-        duration: _slideDuration, curve: _easing);
+    final target = _shown + by;
+    if (target < 0 || target >= _items.length) return;
+    _pages.animateToPage(target, duration: _slideDuration, curve: _easing);
   }
 
   @override
@@ -130,8 +130,8 @@ class _AnnouncementCardState extends State<AnnouncementCard> {
                   right: _PagerButtons.rightInset,
                   height: _Slide.iconSize,
                   child: _PagerButtons(
-                    onPrevious: () => _step(-1),
-                    onNext: () => _step(1),
+                    onPrevious: _shown > 0 ? () => _step(-1) : null,
+                    onNext: _shown < count - 1 ? () => _step(1) : null,
                   ),
                 ),
             ],
@@ -724,12 +724,16 @@ class _DismissButtonState extends State<_DismissButton> {
 }
 
 /// "Previous" and "next", at the end of the icon row: quiet round buttons
-/// like "Ascunde", each in a 44 pt touch area as tall as the row.
+/// like "Ascunde", each in a 44 pt touch area as tall as the row. At the
+/// first and the last announcement the way out is faded and disabled.
 class _PagerButtons extends StatelessWidget {
   const _PagerButtons({required this.onPrevious, required this.onNext});
 
-  final VoidCallback onPrevious;
-  final VoidCallback onNext;
+  /// Null on the first announcement.
+  final VoidCallback? onPrevious;
+
+  /// Null on the last announcement.
+  final VoidCallback? onNext;
 
   static const double _target = 44;
 
@@ -745,13 +749,13 @@ class _PagerButtons extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         _PagerButton(
-          key: const ValueKey('announcement-previous'),
+          semanticsKey: const ValueKey('announcement-previous'),
           icon: Icons.chevron_left_rounded,
           label: AnnouncementCopy.previous,
           onTap: onPrevious,
         ),
         _PagerButton(
-          key: const ValueKey('announcement-next'),
+          semanticsKey: const ValueKey('announcement-next'),
           icon: Icons.chevron_right_rounded,
           label: AnnouncementCopy.next,
           onTap: onNext,
@@ -763,41 +767,62 @@ class _PagerButtons extends StatelessWidget {
 
 class _PagerButton extends StatelessWidget {
   const _PagerButton({
-    super.key,
+    required this.semanticsKey,
     required this.icon,
     required this.label,
     required this.onTap,
   });
 
+  /// Keys the semantics node, which says whether the button is enabled.
+  final Key semanticsKey;
   final IconData icon;
   final String label;
-  final VoidCallback onTap;
+
+  /// Null when there is nothing that way: the button fades and is off.
+  final VoidCallback? onTap;
+
+  /// How much shows of a button that leads nowhere.
+  static const double _disabledOpacity = 0.38;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).announcementColors;
+    final enabled = onTap != null;
     return Tooltip(
       message: label,
       child: Semantics(
+        key: semanticsKey,
         button: true,
+        enabled: enabled,
         label: label,
         excludeSemantics: true,
-        child: InkResponse(
-          onTap: onTap,
-          radius: 18,
-          highlightColor: colors.dot,
-          child: SizedBox.square(
-            dimension: _PagerButtons._target,
-            child: Center(
-              child: Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: colors.control,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: colors.border),
+        // The whole touch area takes the tap, also when off, so it never
+        // reaches the card under it (which would open the announcement).
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {},
+          child: InkResponse(
+            onTap: onTap,
+            radius: 18,
+            highlightColor: colors.dot,
+            child: SizedBox.square(
+              dimension: _PagerButtons._target,
+              child: AnimatedOpacity(
+                opacity: enabled ? 1 : _disabledOpacity,
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeInOut,
+                child: Center(
+                  child: Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: colors.control,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: colors.border),
+                    ),
+                    child: Icon(icon, size: 20, color: colors.text),
+                  ),
                 ),
-                child: Icon(icon, size: 20, color: colors.text),
               ),
             ),
           ),
