@@ -3549,10 +3549,28 @@ class AppAudioHandler extends BaseAudioHandler {
       _awaitingAudioStart = true;
       _audioStartRequestedAt = null;
     }
-    final playback = player.play();
+    final playback = player.play().catchError(
+      _onAudioSessionRefused,
+      test: (e) => e is PlatformException,
+    );
     // Taken after play(): the event it emits itself predates the play.
     if (awaitsStart) _audioStartRequestedAt = DateTime.now();
     return playback;
+  }
+
+  /// iOS refused to activate the audio session for a play ([error], e.g.
+  /// `-50 Session lookup failed`): just_audio's play() then throws, and
+  /// leaves `playing` on with nothing playing. Nothing awaited it, so the
+  /// error went unhandled (PostHog 01a17354…) and the player showed a pause
+  /// button over silence. The play didn't happen, so the app pauses, as a
+  /// listener's pause would: the play button shows again, to try once more.
+  Future<void> _onAudioSessionRefused(Object error) async {
+    _awaitingAudioStart = false;
+    AnalyticsService.instance.logWarning('audio session activation failed', {
+      'station_slug': currentStation.valueOrNull?.slug,
+      'error': _shortErr(error),
+    });
+    await pause();
   }
 
   /// Ends the wait of [_playPlayer] at the player's first [event] since
