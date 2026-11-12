@@ -1036,7 +1036,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 _buildSettingsTile(
                   icon: Icons.mail_outline_rounded,
                   title: 'Scrie-ne',
-                  subtitle: 'Propune un post sau un anunț ori întreabă-ne orice',
+                  subtitle: 'Propune un post sau o idee, semnalează o problemă ori scrie-ne orice',
                   onTap: () {
                     AnalyticsService.instance.capture('button_clicked', {'button_name': 'contact_form'});
                     final platform = Platform.isAndroid ? 'android' : Platform.isIOS ? 'ios' : Platform.operatingSystem;
