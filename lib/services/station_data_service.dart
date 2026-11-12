@@ -1267,6 +1267,10 @@ class StationDataService {
     _log("setStationIsFavorite: ${station.slug} $isFavorite");
     if (isFavorite) {
       final current = favoriteStationSlugs.value;
+      // The lock screen, the car and the widgets send the heart's new state,
+      // not a toggle: a station already a favorite stays listed once (see
+      // [_initFavoriteStationSlugs]).
+      if (current.contains(station.slug)) return;
       final at = (index ?? current.length).clamp(0, current.length);
       favoriteStationSlugs.add([...current]..insert(at, station.slug));
     } else {
@@ -1280,8 +1284,18 @@ class StationDataService {
   Future<void> _initFavoriteStationSlugs() async {
     final SharedPreferences prefs = GetIt.instance<SharedPreferences>();
     final String? favoriteJson = prefs.getString(_favoriteStationsKey);
-    if (favoriteJson != null) {
-      favoriteStationSlugs.add(List<String>.from(json.decode(favoriteJson)));
+    if (favoriteJson == null) return;
+    final stored = List<String>.from(json.decode(favoriteJson));
+    final unique = stored.toSet().toList();
+    favoriteStationSlugs.add(unique);
+    // Versions up to 1.6.1 could store a favorite twice (a heart sent as
+    // "favorite" for a station already one). Listed twice, its two rows
+    // shared a key, and the Favorite list failed to lay out and paint
+    // ("Null check operator used on a null value", hundreds of times a
+    // day for one listener in PostHog).
+    if (unique.length != stored.length) {
+      _log("favorites: dropped ${stored.length - unique.length} duplicates");
+      await prefs.setString(_favoriteStationsKey, json.encode(unique));
     }
   }
 
