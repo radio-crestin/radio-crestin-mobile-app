@@ -638,6 +638,176 @@ void main() {
           reason: 'the old snoozes to be removed');
     });
 
+    /// Serves [items] in this order with [settings] and starts the app
+    /// again, so the card starts afresh.
+    Future<void> launchWith(
+      RadioApp app,
+      List<Map<String, Object?>> items, {
+      Map<String, Object?> settings = const {},
+    }) async {
+      // A healthy API, even when this test is the run's first, slow one.
+      server.conditions.restore();
+      server
+        ..announcements.clear()
+        ..announcements.addAll(items)
+        ..announcementSettings = {
+          ...FakeRadioServer.defaultAnnouncementSettings,
+          ...settings,
+        };
+      await app.coldStartAnnouncements();
+      await app.waitFor(() => app.showsText('1 din ${items.length}'),
+          reason: 'the card; ${app.describe()}');
+    }
+
+    /// Lets [duration] pass and expects the card still on [counter].
+    Future<void> expectStays(RadioApp app, String counter,
+        {Duration duration = const Duration(seconds: 7),
+        required String reason}) async {
+      await app.pumpFor(duration);
+      expect(app.showsText(counter), isTrue,
+          reason: '$reason; ${app.describe()}');
+    }
+
+    Future<void> waitForCounter(RadioApp app, String counter,
+            {required String reason}) =>
+        app.waitFor(() => app.showsText(counter),
+            reason: reason, timeout: const Duration(seconds: 8));
+
+    announcementTest("the card keeps the server's order", (app) async {
+      // Positions 1, 2, 0: the list order wins over any number.
+      await launchWith(app, [
+        AnnouncementFixtures.concert(),
+        AnnouncementFixtures.newest(),
+        AnnouncementFixtures.verse(),
+      ]);
+      expect(app.showsText(AnnouncementFixtures.concertTitle), isTrue);
+      await app.tapKey('announcement-next');
+      await app.waitFor(() => app.showsText('2 din 3'), reason: 'the second');
+      expect(app.showsText(AnnouncementFixtures.newestTitle), isTrue);
+      await app.tapKey('announcement-next');
+      await app.waitFor(() => app.showsText('3 din 3'), reason: 'the third');
+      expect(app.showsText(AnnouncementFixtures.verseTitle), isTrue);
+    });
+
+    announcementTest(
+        'rotate starts each launch one further, in the server\'s order, and '
+        'paging stops at the ends of that turn', (app) async {
+      final items = [
+        AnnouncementFixtures.verse(),
+        AnnouncementFixtures.concert(),
+        AnnouncementFixtures.newest(),
+      ];
+      const rotate = {'rotation_mode': 'rotate'};
+      await launchWith(app, items, settings: rotate);
+      expect(app.showsText(AnnouncementFixtures.verseTitle), isTrue,
+          reason: 'the first launch starts at the first');
+
+      await launchWith(app, items, settings: rotate);
+      expect(app.showsText(AnnouncementFixtures.concertTitle), isTrue,
+          reason: 'the next launch starts at the second');
+      // The turn: concert, newest, verse; the ends stop.
+      await app.tapKey('announcement-previous');
+      expect(app.showsText('1 din 3'), isTrue,
+          reason: 'nothing before the start of the turn');
+      for (final (counter, title) in [
+        ('2 din 3', AnnouncementFixtures.newestTitle),
+        ('3 din 3', AnnouncementFixtures.verseTitle),
+      ]) {
+        await app.tapKey('announcement-next');
+        await app.waitFor(
+            () => app.showsText(counter) && app.showsText(title),
+            reason: '$counter, "$title"');
+      }
+      await app.tapKey('announcement-next');
+      expect(app.showsText('3 din 3'), isTrue,
+          reason: 'nothing after the end of the turn');
+    });
+
+    announcementTest(
+        'autoplay moves on by itself to the last one, at the tallest '
+        "one's height all along", (app) async {
+      await launchWith(app, [
+        AnnouncementFixtures.titleOnly(),
+        AnnouncementFixtures.concert(),
+        AnnouncementFixtures.verse(),
+      ], settings: {'autoplay_seconds': 3});
+      final card = RadioApp.announcementCard;
+      final height = app.tester.getSize(card).height;
+      await waitForCounter(app, '2 din 3', reason: 'the first move');
+      await app.pumpFor(const Duration(seconds: 1));
+      expect(app.tester.getSize(card).height, height,
+          reason: 'the title-only card was already as tall as the tallest');
+      await waitForCounter(app, '3 din 3', reason: 'the second move');
+      await expectStays(app, '3 din 3',
+          reason: 'it stops at the last one, without going round');
+      expect(app.tester.getSize(card).height, height);
+    });
+
+    announcementTest(
+        'autoplay waits while the card is touched, half off the screen or '
+        'the app is in the background', (app) async {
+      await launchWith(app, [
+        AnnouncementFixtures.verse(),
+        AnnouncementFixtures.concert(),
+        AnnouncementFixtures.newest(),
+        AnnouncementFixtures.titleOnly(),
+      ], settings: {'autoplay_seconds': 3});
+
+      final touch = await app.tester
+          .startGesture(app.tester.getCenter(RadioApp.announcementCard));
+      await expectStays(app, '1 din 4', reason: 'a finger on the card');
+      await touch.cancel();
+      await waitForCounter(app, '2 din 4', reason: 'on once let go');
+
+      await app.scrollStations();
+      await app.pumpFor(const Duration(seconds: 7));
+      await app.scrollStations(up: true);
+      // Read once back: off the screen the counter can't be found.
+      expect(app.showsText('2 din 4'), isTrue,
+          reason: 'no move while the card was scrolled away');
+      await waitForCounter(app, '3 din 4', reason: 'on once back');
+
+      app.goToBackground();
+      await expectStays(app, '3 din 4', reason: 'the app in the background');
+      await app.comeBack();
+      await waitForCounter(app, '4 din 4', reason: 'on once back');
+    });
+
+    announcementTest(
+        'autoplay stops for good after a swipe, an arrow or "Ascunde", and '
+        'is off with reduced motion', (app) async {
+      final items = [
+        AnnouncementFixtures.verse(),
+        AnnouncementFixtures.concert(),
+        AnnouncementFixtures.newest(),
+      ];
+      const autoplay = {'autoplay_seconds': 3};
+
+      await launchWith(app, items, settings: autoplay);
+      await app.swipeAnnouncement();
+      await expectStays(app, '2 din 3', reason: 'stopped by a swipe');
+
+      await launchWith(app, items, settings: autoplay);
+      await app.tapKey('announcement-next');
+      await expectStays(app, '2 din 3', reason: 'stopped by an arrow');
+
+      final dispatcher = app.tester.platformDispatcher;
+      dispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(disableAnimations: true);
+      try {
+        await launchWith(app, items, settings: autoplay);
+        await expectStays(app, '1 din 3', reason: 'off with reduced motion');
+      } finally {
+        dispatcher.clearAccessibilityFeaturesTestValue();
+      }
+
+      // Last: the closed announcement stays closed.
+      await launchWith(app, items, settings: autoplay);
+      await app.tapDismiss();
+      await app.waitFor(() => app.showsText('1 din 2'), reason: 'closed');
+      await expectStays(app, '1 din 2', reason: 'stopped by "Ascunde"');
+    });
+
     announcementTest(
         'the card swipes and steps with its buttons, and a tap opens its page',
         (app) async {

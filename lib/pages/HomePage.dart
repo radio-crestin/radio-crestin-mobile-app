@@ -1928,6 +1928,7 @@ class _AnnouncementSlot extends StatelessWidget {
                 key: const ValueKey('announcements'),
                 items: promo.announcements.items,
                 service: service,
+                autoplaySeconds: promo.announcements.settings.autoplaySeconds,
                 // As wide as the station cards under it.
                 margin: const EdgeInsets.fromLTRB(
                   StationsList.cardSideInset,

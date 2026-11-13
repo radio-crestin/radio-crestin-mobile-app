@@ -154,7 +154,7 @@ class AnnouncementsService with WidgetsBindingObserver {
     final preview = _store.previewToken;
     final fetched =
         preview == null ? await _fetchCached() : await _fetchPreview(preview);
-    if (fetched == null) return;
+    if (fetched == null || _disposed) return;
     _feed = fetched;
     _publishAll();
   }
@@ -303,23 +303,21 @@ class AnnouncementsService with WidgetsBindingObserver {
             _store.impressions(item.slug) < max);
   }
 
-  /// Puts the item this launch starts with first, as the rotation mode
-  /// says. Fixed keeps the server's order.
+  /// The server's order (never re-sorted). Rotate and random turn it to
+  /// start with this launch's first announcement: k…n-1, then 0…k-1. That
+  /// start is kept across refreshes, so the card does not jump.
   List<Announcement> _ordered(List<Announcement> items) {
     final mode = _feed.settings.rotationMode;
     if (items.length < 2 || mode == RotationMode.fixed) return items;
     var start = items.indexWhere((item) => item.slug == _rotationStartSlug);
-    if (start < 0) start = _pickStart(items, mode);
+    if (start < 0) start = _pickStart(items.length, mode);
     _rotationStartSlug = items[start].slug;
-    return switch (mode) {
-      RotationMode.rotate => [...items.skip(start), ...items.take(start)],
-      _ => [items[start], ...items.where((item) => item != items[start])],
-    };
+    return [...items.skip(start), ...items.take(start)];
   }
 
-  int _pickStart(List<Announcement> items, RotationMode mode) {
-    if (mode == RotationMode.random) return Random().nextInt(items.length);
-    final start = _store.rotationCursor % items.length;
+  int _pickStart(int count, RotationMode mode) {
+    if (mode == RotationMode.random) return Random().nextInt(count);
+    final start = _store.rotationCursor % count;
     unawaited(_store.advanceRotationCursor());
     return start;
   }
@@ -473,8 +471,14 @@ class AnnouncementsService with WidgetsBindingObserver {
 
   bool _wasBackgrounded = false;
 
-  /// Stops listening to the app's lifecycle (a test's simulated restart).
-  void dispose() => WidgetsBinding.instance.removeObserver(this);
+  bool _disposed = false;
+
+  /// Stops listening to the app's lifecycle and shows nothing more (a
+  /// test's simulated restart).
+  void dispose() {
+    _disposed = true;
+    WidgetsBinding.instance.removeObserver(this);
+  }
 }
 
 /// A list as the API sends it: its settings and announcements.

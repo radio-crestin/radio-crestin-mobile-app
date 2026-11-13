@@ -392,9 +392,15 @@ class AnnouncementSettings {
   const AnnouncementSettings({
     this.rotationMode = RotationMode.fixed,
     this.maxPerLoad,
+    this.autoplaySeconds = 0,
   });
 
   final RotationMode rotationMode;
+
+  /// Seconds between automatic moves to the next announcement; 0 is off.
+  final int autoplaySeconds;
+
+  static const _autoplayRange = (min: 3, max: 60);
 
   /// How many home announcements show at most, counted after the device
   /// dropped those not meant for it; null shows them all.
@@ -403,12 +409,16 @@ class AnnouncementSettings {
   static AnnouncementSettings fromJson(Object? json) {
     if (json is! Map) return const AnnouncementSettings();
     final max = (json['max_per_load'] as num?)?.toInt();
+    final autoplay = (json['autoplay_seconds'] as num?)?.toInt() ?? 0;
     return AnnouncementSettings(
       rotationMode: RotationMode.values.firstWhere(
         (mode) => mode.name == json['rotation_mode'],
         orElse: () => RotationMode.fixed,
       ),
       maxPerLoad: max != null && max > 0 ? max : null,
+      autoplaySeconds: autoplay <= 0
+          ? 0
+          : autoplay.clamp(_autoplayRange.min, _autoplayRange.max),
     );
   }
 }

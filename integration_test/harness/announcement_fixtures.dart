@@ -29,7 +29,7 @@ class AnnouncementFixtures {
   /// from 1.0.0.
   static Map<String, Object?> verse() => {
         'slug': verseSlug,
-        'priority': 10,
+        'position': 0,
         'placement': 'home',
         'station_slugs': <String>[],
         'category': _category('community', 'Community', '#0F6E63'),
@@ -53,7 +53,7 @@ class AnnouncementFixtures {
   /// "later" second button.
   static Map<String, Object?> concert() => {
         'slug': concertSlug,
-        'priority': 5,
+        'position': 1,
         'placement': 'home',
         'station_slugs': <String>[],
         'category': _category('event', 'Event', '#7C3AED'),
@@ -223,7 +223,7 @@ Or open it [on YouTube](https://www.youtube.com/watch?v=dQw4w9WgXcQ) yourself.
         ...verse(),
         'slug': 'e2e-newest',
         'title': newestTitle,
-        'priority': 30,
+        'position': 2,
       };
 
   /// For the website only: a phone never shows it.
@@ -231,7 +231,7 @@ Or open it [on YouTube](https://www.youtube.com/watch?v=dQw4w9WgXcQ) yourself.
         ...verse(),
         'slug': webOnlySlug,
         'title': webOnlyTitle,
-        'priority': 20,
+        'position': 3,
         'filters': _filters(platforms: ['web_mobile', 'web_desktop']),
       };
 

@@ -26,28 +26,47 @@ import 'inline_markdown.dart';
 /// only after the listener's own swipe, arrow tap or "Ascunde", or a
 /// refresh that changed the list, and then eases over [_resizeDuration];
 /// on the first frame it is already right.
+///
+/// With [autoplaySeconds] it moves to the next announcement on its own,
+/// as the announcements spec says: it waits while touched, while the app
+/// is in the background and while less than half the card shows, and
+/// stops for good at the last one or after the listener pages or closes
+/// one. It is then as tall as its tallest announcement, from the first
+/// frame, so moving on its own never changes its height. Reduced motion
+/// turns it off.
 class AnnouncementCard extends StatefulWidget {
   const AnnouncementCard({
     super.key,
     required this.items,
     required this.service,
     this.margin = const EdgeInsets.fromLTRB(16, 12, 16, 4),
+    this.autoplaySeconds = 0,
   });
 
   final List<Announcement> items;
   final AnnouncementsService service;
   final EdgeInsetsGeometry margin;
 
+  /// Seconds between moves to the next announcement; 0 is off.
+  final int autoplaySeconds;
+
   @override
   State<AnnouncementCard> createState() => _AnnouncementCardState();
 }
 
-class _AnnouncementCardState extends State<AnnouncementCard> {
+class _AnnouncementCardState extends State<AnnouncementCard>
+    with WidgetsBindingObserver {
   final PageController _pages = PageController();
   int _index = 0;
 
-  /// Whether the listener moved the card, so its height may now animate.
-  bool _resizeAnimates = false;
+  // Autoplay: what holds it back right now, and whether it ended.
+  Timer? _autoplay;
+  bool _autoplayEnded = false;
+  bool _autoplayMoving = false;
+  bool _touched = false;
+  bool _halfVisible = false;
+  bool _foreground = true;
+  bool _reduceMotion = false;
 
   static const _resizeDuration = Duration(milliseconds: 280);
   static const _easing = Cubic(0.2, 0.8, 0.2, 1);
@@ -56,18 +75,102 @@ class _AnnouncementCardState extends State<AnnouncementCard> {
   List<Announcement> get _items => widget.items;
   int get _shown => _index.clamp(0, _items.length - 1);
 
+  /// Whether this card moves on its own (and so is as tall as its tallest
+  /// announcement).
+  bool get _autoplays =>
+      widget.autoplaySeconds > 0 && _items.length > 1 && !_reduceMotion;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _foreground = _onScreen(WidgetsBinding.instance.lifecycleState);
+  }
+
+  /// Whether the app shows: an inactive app (a system alert over it, the
+  /// Control Center) still does; a hidden or paused one is in the
+  /// background.
+  static bool _onScreen(AppLifecycleState? state) =>
+      state == null ||
+      state == AppLifecycleState.resumed ||
+      state == AppLifecycleState.inactive;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _reduceMotion = MediaQuery.disableAnimationsOf(context);
+    _scheduleAutoplay();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _foreground = _onScreen(state);
+    _scheduleAutoplay();
+  }
+
+  /// Starts the wait for the next move when nothing holds it back, and
+  /// cancels it when something does; a pause starts the wait over.
+  void _scheduleAutoplay() {
+    final runs = _autoplays &&
+        !_autoplayEnded &&
+        !_autoplayMoving &&
+        !_touched &&
+        _halfVisible &&
+        _foreground;
+    if (!runs) {
+      _autoplay?.cancel();
+      _autoplay = null;
+      return;
+    }
+    _autoplay ??=
+        Timer(Duration(seconds: widget.autoplaySeconds), _autoAdvance);
+  }
+
+  Future<void> _autoAdvance() async {
+    _autoplay = null;
+    if (!mounted || !_pages.hasClients) return;
+    final next = _shown + 1;
+    if (next >= _items.length) return _endAutoplay();
+    _autoplayMoving = true;
+    await _pages.animateToPage(next,
+        duration: _slideDuration, curve: _easing);
+    _autoplayMoving = false;
+    if (!mounted) return;
+    // It stops at the last announcement: paging stops at the ends.
+    if (_shown >= _items.length - 1) return _endAutoplay();
+    _scheduleAutoplay();
+  }
+
+  /// Stops autoplay for good: the listener took over, or it reached the
+  /// end.
+  void _endAutoplay() {
+    _autoplayEnded = true;
+    _scheduleAutoplay();
+  }
+
+  void _onTouch(bool touched) {
+    _touched = touched;
+    _scheduleAutoplay();
+  }
+
+  void _onCardVisibility(VisibilityInfo info) {
+    if (!mounted) return;
+    _halfVisible = info.visibleFraction >= 0.5;
+    _scheduleAutoplay();
+  }
+
   @override
   void didUpdateWidget(AnnouncementCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     final old = oldWidget.items;
     if (identical(old, _items) || _items.isEmpty) return;
-    // A refresh or a close: the height eases to the new content.
-    _resizeAnimates = true;
     // The announcement on screen stays on screen; a closed one gives its
     // place to the next.
     final shownSlug =
         old.isEmpty ? null : old[_index.clamp(0, old.length - 1)].slug;
     final kept = _items.indexWhere((item) => item.slug == shownSlug);
+    // The listener closed the one on screen: autoplay ends.
+    if (kept < 0) _endAutoplay();
     final target = kept >= 0 ? kept : _index.clamp(0, _items.length - 1);
     if (target == _index) return;
     _index = target;
@@ -76,18 +179,22 @@ class _AnnouncementCardState extends State<AnnouncementCard> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _autoplay?.cancel();
     _pages.dispose();
     super.dispose();
   }
 
-  void _onPageChanged(int index) => setState(() {
-        _index = index;
-        _resizeAnimates = true;
-      });
+  void _onPageChanged(int index) {
+    // A page the listener turned ends autoplay.
+    if (!_autoplayMoving) _endAutoplay();
+    setState(() => _index = index);
+  }
 
   /// Moves [by] one announcement, stopping at the ends like a swipe; the
   /// card's height then follows, as after a swipe.
   void _step(int by) {
+    _endAutoplay();
     final target = _shown + by;
     if (target < 0 || target >= _items.length) return;
     _pages.animateToPage(target, duration: _slideDuration, curve: _easing);
@@ -97,27 +204,34 @@ class _AnnouncementCardState extends State<AnnouncementCard> {
   Widget build(BuildContext context) {
     if (_items.isEmpty) return const SizedBox.shrink();
     final count = _items.length;
-    return Semantics(
+    final card = Semantics(
       container: true,
       label: AnnouncementCopy.carouselLabel,
       child: _CardFrame(
         key: const ValueKey('announcement-card'),
         margin: widget.margin,
         child: AnimatedSize(
-          duration: _resizeAnimates ? _resizeDuration : Duration.zero,
+          // Never zero: a zero-length AnimatedSize re-dirties itself in
+          // layout. The first frame does not animate anyway.
+          duration: _resizeDuration,
           curve: _easing,
           alignment: Alignment.topCenter,
           child: Stack(
             children: [
-              // The shown slide, invisible, sizes the card in the same
-              // frame; the pages fill that box.
-              Visibility(
-                visible: false,
-                maintainSize: true,
-                maintainAnimation: true,
-                maintainState: true,
-                child: ExcludeSemantics(child: _slide(_shown, measuring: true)),
-              ),
+              // The shown slide (with autoplay, every slide: the tallest
+              // wins), invisible, sizes the card in the same frame; the
+              // pages fill that box.
+              for (final index in _autoplays
+                  ? List.generate(count, (index) => index)
+                  : [_shown])
+                Visibility(
+                  visible: false,
+                  maintainSize: true,
+                  maintainAnimation: true,
+                  maintainState: true,
+                  child:
+                      ExcludeSemantics(child: _slide(index, measuring: true)),
+                ),
               Positioned.fill(
                 child: PageView.builder(
                   controller: _pages,
@@ -144,6 +258,17 @@ class _AnnouncementCardState extends State<AnnouncementCard> {
             ],
           ),
         ),
+      ),
+    );
+    if (widget.autoplaySeconds <= 0) return card;
+    return VisibilityDetector(
+      key: const ValueKey('announcement-card-visibility'),
+      onVisibilityChanged: _onCardVisibility,
+      child: Listener(
+        onPointerDown: (_) => _onTouch(true),
+        onPointerUp: (_) => _onTouch(false),
+        onPointerCancel: (_) => _onTouch(false),
+        child: card,
       ),
     );
   }

@@ -213,6 +213,10 @@ class RadioApp {
     await pumpFor(const Duration(milliseconds: 600));
   }
 
+  /// Scrolls the station list a third of the screen further down, or with
+  /// [up] back up.
+  Future<void> scrollStations({bool up = false}) => _dragList(up: up);
+
   /// Taps [station] in the station list.
   Future<DateTime> tapStation(FakeStation station) async {
     final row = await showStation(station);
@@ -301,10 +305,25 @@ class RadioApp {
   /// Switches to another app and back, as the system reports it: through
   /// the background and on the screen again.
   Future<void> leaveAndReturn() async {
+    goToBackground();
+    await comeBack();
+  }
+
+  /// Switches to another app, as the system reports it: the app waits in
+  /// the background (paused).
+  void goToBackground() {
     for (final state in const [
       AppLifecycleState.inactive,
       AppLifecycleState.hidden,
       AppLifecycleState.paused,
+    ]) {
+      tester.binding.handleAppLifecycleStateChanged(state);
+    }
+  }
+
+  /// Comes back from [goToBackground].
+  Future<void> comeBack() async {
+    for (final state in const [
       AppLifecycleState.hidden,
       AppLifecycleState.inactive,
       AppLifecycleState.resumed,
