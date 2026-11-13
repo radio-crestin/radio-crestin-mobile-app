@@ -576,7 +576,7 @@ class _IconRow extends StatelessWidget {
               child: Row(
                 children: [
                   if (item.category.name.isNotEmpty)
-                    Flexible(child: AnnouncementTag(category: item.category)),
+                    Flexible(child: AnnouncementTag(item: item)),
                   if (count > 1) ...[
                     const SizedBox(width: 8),
                     Text(
@@ -688,20 +688,24 @@ bool _textFits(BuildContext context, String text, TextStyle style,
   return fits;
 }
 
-/// The category's name on a pill of its color.
+/// The category's name on a soft pill of the announcement's hue.
 class AnnouncementTag extends StatelessWidget {
-  const AnnouncementTag({super.key, required this.category});
+  const AnnouncementTag({super.key, required this.item, this.surface});
 
-  final AnnouncementCategory category;
+  final Announcement item;
+
+  /// What the tag sits on, when not the card (the page).
+  final Color? surface;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final category = item.category;
     return Container(
       height: 21,
       padding: const EdgeInsets.symmetric(horizontal: 9),
       decoration: BoxDecoration(
-        color: theme.announcementTagColor(category),
+        color: theme.announcementTagColor(item),
         borderRadius: BorderRadius.circular(999),
       ),
       // As wide as the name: a Container's own alignment would fill the
@@ -716,7 +720,7 @@ class AnnouncementTag extends StatelessWidget {
             fontSize: 11.5,
             fontWeight: FontWeight.w600,
             letterSpacing: 0.12,
-            color: theme.announcementTagLabel(category),
+            color: theme.announcementTagLabel(item, surface: surface),
           ),
         ),
       ),
@@ -761,23 +765,23 @@ class _GlyphTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colors = theme.announcementColors;
     final icon =
         announcementIcons[item.iconName] ?? announcementIcons['megaphone']!;
-    // A quiet raised surface, like "Ascunde" and the arrows: the button is
-    // the card's one accent.
+    // A soft tint of the announcement's hue with the glyph in that hue;
+    // without one, a quiet raised surface like "Ascunde".
     return Container(
+      key: const ValueKey('announcement-icon-tile'),
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: theme.announcementIconTileColor(item.category),
+        color: theme.announcementIconTileColor(item),
         borderRadius: radius,
-        border: Border.all(color: colors.border),
+        border: Border.all(color: theme.announcementIconTileBorder(item)),
       ),
       child: Icon(
         icon,
         size: size * 23 / 44 * announcementIconScale(icon),
-        color: colors.muted,
+        color: theme.announcementGlyphColor(item),
       ),
     );
   }

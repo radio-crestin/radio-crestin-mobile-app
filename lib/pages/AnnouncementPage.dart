@@ -170,7 +170,10 @@ class _Content extends StatelessWidget {
         if (cover != null)
           _Cover(url: cover, color: Theme.of(context).announcementAccent(item)),
         if (item.category.name.isNotEmpty) ...[
-          AnnouncementTag(category: item.category),
+          AnnouncementTag(
+            item: item,
+            surface: Theme.of(context).scaffoldBackgroundColor,
+          ),
           const SizedBox(height: 8),
         ],
         Text(

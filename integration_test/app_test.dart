@@ -14,6 +14,8 @@ import 'package:radio_crestin/services/announcements_service.dart';
 import 'package:radio_crestin/theme.dart';
 import 'package:radio_crestin/widgets/announcement_banner.dart';
 import 'package:radio_crestin/widgets/announcement_card.dart';
+import 'package:radio_crestin/widgets/announcement_icons.dart';
+import 'package:radio_crestin/widgets/announcement_theme_colors.dart';
 import 'package:radio_crestin/widgets/inline_markdown.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher_platform_interface/url_launcher_platform_interface.dart';
@@ -564,6 +566,88 @@ void main() {
             reason: 'the button and "Ascunde" do not overlap, $where');
       }
       expect(tester.takeException(), isNull, reason: 'no overflow');
+    });
+
+    announcementTest(
+        "the icon tile and the tag take the announcement's hue, readable at "
+        'AA in both themes', (app) async {
+      // Hue: the button's color, else the category's, else none.
+      final themes = {'light': lightTheme, 'dark': darkTheme};
+      for (final MapEntry(key: name, value: theme) in themes.entries) {
+        for (final hex in ['#0D8040', '#075E54', '#0F6E63', '#F5C518']) {
+          for (final onButton in [true, false]) {
+            final item = Announcement.fromJson(
+                AnnouncementFixtures.hued(hex, onButton: onButton))!;
+            final where = '$hex on the ${onButton ? 'button' : 'category'}, '
+                '$name theme';
+            expect(theme.announcementHue(item), parseHexColor(hex),
+                reason: 'the hue, $where');
+            for (final surface in [
+              theme.announcementCardSurface,
+              theme.scaffoldBackgroundColor,
+            ]) {
+              final fill = Color.alphaBlend(
+                  theme.announcementTagColor(item), surface);
+              expect(
+                  contrastRatio(
+                      theme.announcementTagLabel(item, surface: surface),
+                      fill),
+                  greaterThanOrEqualTo(minTextContrast),
+                  reason: 'the tag reads at AA, $where');
+            }
+          }
+        }
+        final plain =
+            Announcement.fromJson(AnnouncementFixtures.hued(null))!;
+        expect(theme.announcementHue(plain), isNull);
+        expect(theme.announcementIconTileColor(plain),
+            theme.announcementColors.control,
+            reason: 'no hue: the tile stays neutral, $name theme');
+        expect(theme.announcementTagLabel(plain),
+            theme.announcementColors.muted);
+      }
+
+      // The live WhatsApp card, in both themes at 390 px.
+      final item = Announcement.fromJson(AnnouncementFixtures.whatsappLive())!;
+      final service = GetIt.instance<AnnouncementsService>();
+      await app.tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: SafeArea(
+            child: Column(children: [
+              for (final MapEntry(key: name, value: theme) in themes.entries)
+                Theme(
+                  data: theme,
+                  child: Container(
+                    key: ValueKey('hue-$name'),
+                    width: 390,
+                    color: theme.scaffoldBackgroundColor,
+                    padding: const EdgeInsets.all(StationsList.cardSideInset),
+                    child: AnnouncementStaticCard(item: item, service: service),
+                  ),
+                ),
+            ]),
+          ),
+        ),
+      ));
+      await app.pumpFor(const Duration(seconds: 1));
+      for (final MapEntry(key: name, value: theme) in themes.entries) {
+        final frame = find.byKey(ValueKey('hue-$name'));
+        Finder inFrame(Finder finder) =>
+            find.descendant(of: frame, matching: finder);
+        final glyph = app.tester.widget<Icon>(inFrame(find.descendant(
+            of: find.byKey(const ValueKey('announcement-icon-tile')),
+            matching: find.byType(Icon))));
+        expect(glyph.color, theme.announcementGlyphColor(item),
+            reason: 'the glyph in the hue, $name theme');
+        final label =
+            app.tester.widget<Text>(inFrame(find.text(AnnouncementFixtures.whatsappJoin)));
+        expect(label.style?.color, const Color(0xFFFFFFFF),
+            reason: 'the admin\'s white button text, $name theme');
+        expect(
+            inFrame(find.byIcon(announcementIcons['whatsapp']!)),
+            findsNWidgets(2),
+            reason: 'the WhatsApp icon on the tile and the button, $name');
+      }
     });
 
     announcementTest(

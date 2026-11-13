@@ -21,6 +21,7 @@ class AnnouncementFixtures {
   static const webOnlyTitle = 'Only on the website';
   static const newestTitle = 'Just published';
   static const whatsappButton = 'Primește-l zilnic pe WhatsApp';
+  static const whatsappJoin = 'Intră în grup';
   static const titleOnlySlug = 'e2e-title-only';
   static const titleOnlyTitle = 'The Daily Verse';
   static const titleOnlyButton = 'Get it daily on WhatsApp';
@@ -217,6 +218,41 @@ Or open it [on YouTube](https://www.youtube.com/watch?v=dQw4w9WgXcQ) yourself.
           'web_target': 'new_tab',
         }),
       };
+
+  /// The WhatsApp announcement as production has it now: a description,
+  /// and a green button with white text and the WhatsApp icon.
+  static Map<String, Object?> whatsappLive() => {
+        ...verse(),
+        'slug': 'e2e-whatsapp-live',
+        'title': 'Versetul Zilei',
+        'category': _category('community', 'Comunitate', '#0F6E63'),
+        'body_markdown':
+            'Primește un verset biblic în fiecare zi pe WhatsApp.',
+        'button': {
+          ..._button(whatsappJoin, '#0D8040', {
+            'type': 'external',
+            'url': 'https://example.com/whatsapp',
+            'web_target': 'new_tab',
+          }),
+          'icon': 'whatsapp',
+        },
+      };
+
+  /// [whatsappLive] with the button in [hex], or with no button color at
+  /// all and the category in [hex] (null: neither has a color).
+  static Map<String, Object?> hued(String? hex, {bool onButton = true}) {
+    final item = whatsappLive();
+    final button = {...item['button'] as Map<String, Object?>};
+    button['color'] = onButton ? hex : null;
+    return {
+      ...item,
+      'button': button,
+      'category': {
+        ...item['category'] as Map<String, Object?>,
+        'color': onButton ? null : hex,
+      },
+    };
+  }
 
   /// Published after the others, first in the list.
   static Map<String, Object?> newest() => {
