@@ -194,7 +194,9 @@ class AnnouncementsService with WidgetsBindingObserver {
       if (response.statusCode != 200) return null;
       final body = utf8.decode(response.bodyBytes);
       final feed = _Feed.parse(body);
-      await _store.saveFeed(body, response.headers['etag']);
+      // A disposed service (a test's restart) leaves the device's list to
+      // the new one.
+      if (!_disposed) await _store.saveFeed(body, response.headers['etag']);
       _prefetchImages(feed);
       return feed;
     } catch (e) {
