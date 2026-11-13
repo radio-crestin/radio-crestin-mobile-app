@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -247,10 +248,18 @@ class _AnnouncementCardState extends State<AnnouncementCard>
               ),
               if (count > 1)
                 Positioned(
-                  top: _Slide.iconRowTop,
+                  // In the top-right corner, centered on the shown icon's
+                  // row.
+                  top: _Slide.pagerTop -
+                      AnnouncementTag.labelInset(
+                              context, _items[_shown].category.name)
+                          .dy,
                   right: _PagerButtons.rightInset,
-                  height: _Slide.iconSize,
+                  height: _PagerButtons.target,
                   child: _PagerButtons(
+                    counter: _PagerButtons.showsCounter(context)
+                        ? AnnouncementCopy.count(_shown + 1, count)
+                        : null,
                     onPrevious: _shown > 0 ? () => _step(-1) : null,
                     onNext: _shown < count - 1 ? () => _step(1) : null,
                   ),
@@ -459,8 +468,12 @@ class _Slide extends StatelessWidget {
   final String? station;
   final VoidCallback? onDone;
 
-  static const double iconSize = 44;
-  static const double iconRowTop = 14;
+  static const double paddingTop = 14;
+
+  /// Where the pager goes: centered on the tag line (less the label's
+  /// lift, see [_Header]).
+  static const double pagerTop =
+      paddingTop + (_Header.tagHeight - _PagerButtons.target) / 2;
 
   void _runPrimary(ClickTarget target) {
     final button = item.button!;
@@ -496,27 +509,19 @@ class _Slide extends StatelessWidget {
         child: InkWell(
           onTap: hasPrimary ? () => _runPrimary(ClickTarget.card) : null,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, iconRowTop, 16, 16),
-            // As tall as its content wherever it sits: the push banner gives
-            // it the whole screen.
+            padding: const EdgeInsets.fromLTRB(14, paddingTop, 16, 16),
+            // The icon beside the tag over the title, exactly as tall as
+            // that block (the pager sits at the tag line's end, in the
+            // card's corner); then the description and buttons from the
+            // icon's left edge. As tall as its content wherever it sits:
+            // the push banner gives it the whole screen.
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _IconRow(item: item, position: position, count: count),
-                const SizedBox(height: 12),
-                Text(
-                  item.title,
-                  style: TextStyle(
-                    fontSize: 16,
-                    height: 1.3,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.08,
-                    color: colors.strong,
-                  ),
-                ),
+                _Header(item: item, count: count),
                 if (item.bodyMarkdown.isNotEmpty) ...[
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 10),
                   InlineMarkdownText(
                     item.bodyMarkdown,
                     maxLines: 3,
@@ -546,59 +551,131 @@ class _Slide extends StatelessWidget {
   }
 }
 
-/// The 44 px icon, then the category tag and "1 din 3", centered on it.
-class _IconRow extends StatelessWidget {
-  const _IconRow({
-    required this.item,
-    required this.position,
-    required this.count,
-  });
+/// The icon tile beside the tag over the title. The tile is a square as
+/// tall as that block, so nothing is left empty under it: at least the
+/// admin's icon size, at most [_maxTile] (a longer title then runs on
+/// beside a top-aligned tile).
+class _Header extends StatelessWidget {
+  const _Header({required this.item, required this.count});
 
   final Announcement item;
-  final int position;
   final int count;
+
+  /// The tag pill's height, and so the tag line's.
+  static const double tagHeight = AnnouncementTag.height;
+  static const double _tagGap = 6;
+  static const double _iconGap = 14;
+  static const double _maxTile = 72;
+
+  static const _titleStyle = TextStyle(
+    fontSize: 16,
+    height: 1.3,
+    fontWeight: FontWeight.w700,
+    letterSpacing: -0.08,
+  );
+
+  /// The tile's side for a header [width] wide.
+  double _tileSide(BuildContext context, double width) {
+    final hasTag = item.category.name.isNotEmpty || count > 1;
+    double blockBeside(double side) {
+      final title = _paint(context, item.title, _titleStyle,
+          maxWidth: width - side - _iconGap);
+      final height = title.height;
+      title.dispose();
+      return (hasTag ? tagHeight + _tagGap : 0) + height;
+    }
+
+    // The title's width depends on the tile's: settle in two rounds.
+    var side = item.iconSize.extent;
+    for (var round = 0; round < 2; round++) {
+      side = blockBeside(side).clamp(item.iconSize.extent, _maxTile);
+    }
+    return side;
+  }
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).announcementColors;
-    return SizedBox(
-      height: _Slide.iconSize,
-      child: Row(
+    return LayoutBuilder(builder: (context, constraints) {
+      final side = _tileSide(context, constraints.maxWidth);
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          AnnouncementIconTile(item: item),
-          const SizedBox(width: 12),
+          AnnouncementIconTile(item: item, size: side),
+          const SizedBox(width: _iconGap),
           Expanded(
-            child: Padding(
-              // Clear of the dots in the corner.
-              padding: EdgeInsets.only(
-                right: count > 1 ? _PagerButtons.reservedWidth : 0,
-              ),
-              child: Row(
-                children: [
-                  if (item.category.name.isNotEmpty)
-                    Flexible(child: AnnouncementTag(item: item)),
-                  if (count > 1) ...[
-                    const SizedBox(width: 8),
-                    Text(
-                      AnnouncementCopy.count(position + 1, count),
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: colors.muted,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (item.category.name.isNotEmpty || count > 1) ...[
+                  SizedBox(
+                    height: tagHeight,
+                    // The label itself, not its pill, starts on the title's
+                    // left edge and the icon's top.
+                    child: Transform.translate(
+                      offset: -AnnouncementTag.labelInset(
+                          context, item.category.name),
+                      child: _TagRow(item: item, count: count),
                     ),
-                  ],
+                  ),
+                  const SizedBox(height: _tagGap),
                 ],
-              ),
+                Text(
+                  item.title,
+                  key: const ValueKey('announcement-title'),
+                  style: _titleStyle.copyWith(color: colors.strong),
+                ),
+              ],
             ),
           ),
         ],
+      );
+    });
+  }
+}
+
+/// The category tag, clear of the pager in the card's corner.
+class _TagRow extends StatelessWidget {
+  const _TagRow({required this.item, required this.count});
+
+  final Announcement item;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final pager = count > 1
+        ? _PagerButtons.widthIn(
+            context,
+            _PagerButtons.showsCounter(context)
+                ? AnnouncementCopy.count(count, count)
+                : null)
+        : 0.0;
+    return Padding(
+      // The slide's own right padding already keeps some of it clear.
+      padding: EdgeInsets.only(
+        right: pager > 0 ? pager + _PagerButtons.rightInset - 16 + 4 : 0,
+      ),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: item.category.name.isEmpty
+            ? const SizedBox.shrink()
+            : AnnouncementTag(item: item),
       ),
     );
   }
 }
 
-/// The main button on the left and "Ascunde" on the right, on one line.
+/// Where "Ascunde" sits on the buttons' row: right after the main button,
+/// or at the row's end. The owner picks one from the renders.
+enum DismissPlacement { afterButton, end }
+
+/// The layout in use; flip it to [DismissPlacement.end] for the other.
+const DismissPlacement dismissPlacement = DismissPlacement.afterButton;
+
+/// The main button, then "Ascunde", under the text. Both fit their content.
+/// They share a row while the main button's label fits on one line beside
+/// "Ascunde"; otherwise the label may take two lines and "Ascunde" goes
+/// under it.
 class _Actions extends StatelessWidget {
   const _Actions({
     required this.item,
@@ -619,34 +696,38 @@ class _Actions extends StatelessWidget {
         ? AnnouncementPrimaryButton(button: button, onTap: onPrimary)
         : const SizedBox.shrink();
     final dismiss = _DismissButton(onTap: onDismiss);
+    final atEnd = dismissPlacement == DismissPlacement.end;
     return Padding(
       padding: const EdgeInsets.only(top: 12),
       child: LayoutBuilder(builder: (context, constraints) {
         final dismissWidth =
             item.dismissible ? _DismissButton.widthIn(context) + _gap : 0.0;
-        // The label takes two lines before "Ascunde" leaves its line.
-        final oneLine = !showsButton ||
+        final oneRow = !showsButton ||
             AnnouncementPrimaryButton.fits(
-                context, button, constraints.maxWidth - dismissWidth);
-        if (!oneLine) {
+                context, button, constraints.maxWidth - dismissWidth,
+                maxLines: 1);
+        if (!oneRow) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               primary,
               if (item.dismissible) ...[
                 const SizedBox(height: 8),
-                Align(alignment: Alignment.centerRight, child: dismiss),
+                Align(
+                  alignment:
+                      atEnd ? Alignment.centerRight : Alignment.centerLeft,
+                  child: dismiss,
+                ),
               ],
             ],
           );
         }
         return Row(
+          mainAxisSize: atEnd ? MainAxisSize.max : MainAxisSize.min,
           children: [
-            Expanded(
-              child: Align(alignment: Alignment.centerLeft, child: primary),
-            ),
+            Flexible(child: primary),
             if (item.dismissible) ...[
-              const SizedBox(width: _gap),
+              atEnd ? const Spacer() : const SizedBox(width: _gap),
               dismiss,
             ],
           ],
@@ -655,7 +736,7 @@ class _Actions extends StatelessWidget {
     );
   }
 
-  static const double _gap = 6;
+  static const double _gap = 8;
 }
 
 /// [text] in [style], laid out at the text size the listener chose.
@@ -697,13 +778,30 @@ class AnnouncementTag extends StatelessWidget {
   /// What the tag sits on, when not the card (the page).
   final Color? surface;
 
+  static const double height = 21;
+  static const double padding = 9;
+  static const labelStyle = TextStyle(
+    fontSize: 11.5,
+    fontWeight: FontWeight.w600,
+    letterSpacing: 0.12,
+  );
+
+  /// How far the label sits inside the pill: its padding across, and the
+  /// room over it down.
+  static Offset labelInset(BuildContext context, String name) {
+    final label = _paint(context, name, labelStyle);
+    final inset = Offset(padding, max(0, (height - label.height) / 2));
+    label.dispose();
+    return inset;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final category = item.category;
     return Container(
-      height: 21,
-      padding: const EdgeInsets.symmetric(horizontal: 9),
+      height: height,
+      padding: const EdgeInsets.symmetric(horizontal: padding),
       decoration: BoxDecoration(
         color: theme.announcementTagColor(item),
         borderRadius: BorderRadius.circular(999),
@@ -716,10 +814,7 @@ class AnnouncementTag extends StatelessWidget {
           category.name,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            fontSize: 11.5,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.12,
+          style: labelStyle.copyWith(
             color: theme.announcementTagLabel(item, surface: surface),
           ),
         ),
@@ -730,13 +825,16 @@ class AnnouncementTag extends StatelessWidget {
 
 /// The 44 px tile: the uploaded image, or a glyph on a neutral surface.
 class AnnouncementIconTile extends StatelessWidget {
-  const AnnouncementIconTile({super.key, required this.item, this.size = 44});
+  const AnnouncementIconTile({super.key, required this.item, this.size});
 
   final Announcement item;
-  final double size;
+
+  /// The tile's side; the admin's choice (`icon.size`) when not given.
+  final double? size;
 
   @override
   Widget build(BuildContext context) {
+    final size = this.size ?? item.iconSize.extent;
     final radius = BorderRadius.circular(size * 13 / 44);
     final url = item.iconUrl;
     final glyph = _GlyphTile(item: item, size: size, radius: radius);
@@ -780,7 +878,8 @@ class _GlyphTile extends StatelessWidget {
       ),
       child: Icon(
         icon,
-        size: size * 23 / 44 * announcementIconScale(icon),
+        // Just over half the tile, never under 18.
+        size: max(18.0, size * 0.55) * announcementIconScale(icon),
         color: theme.announcementGlyphColor(item),
       ),
     );
@@ -813,16 +912,17 @@ class AnnouncementPrimaryButton extends StatelessWidget {
 
   static double _iconSize(IconData icon) => 15 * announcementIconScale(icon);
 
-  /// Whether [button]'s label fits in its two lines on a button at most
-  /// [maxWidth] wide.
+  /// Whether [button]'s label fits in [maxLines] lines (two unless given)
+  /// on a button at most [maxWidth] wide.
   static bool fits(
-      BuildContext context, AnnouncementButton button, double maxWidth) {
+      BuildContext context, AnnouncementButton button, double maxWidth,
+      {int maxLines = _labelLines}) {
     final icon = announcementButtonIcon(button);
     final chrome = _padding(button.style == AnnouncementButtonStyle.text)
             .horizontal +
         (icon == null ? 0 : _iconGap + _iconSize(icon));
     return _textFits(context, button.label, _labelStyle,
-        maxWidth: maxWidth - chrome, maxLines: _labelLines);
+        maxWidth: maxWidth - chrome, maxLines: maxLines);
   }
 
   @override
@@ -963,7 +1063,14 @@ class _DismissButtonState extends State<_DismissButton> {
 /// like "Ascunde", each in a 44 pt touch area as tall as the row. At the
 /// first and the last announcement the way out is faded and disabled.
 class _PagerButtons extends StatelessWidget {
-  const _PagerButtons({required this.onPrevious, required this.onNext});
+  const _PagerButtons({
+    required this.counter,
+    required this.onPrevious,
+    required this.onNext,
+  });
+
+  /// "2 din 4" between the arrows; null on a narrow phone.
+  final String? counter;
 
   /// Null on the first announcement.
   final VoidCallback? onPrevious;
@@ -971,16 +1078,31 @@ class _PagerButtons extends StatelessWidget {
   /// Null on the last announcement.
   final VoidCallback? onNext;
 
-  static const double _target = 44;
+  /// Each arrow's touch area.
+  static const double target = 44;
 
   /// From the card's right edge, so the circles sit 10 px in from it.
   static const double rightInset = 4;
 
-  /// Room the tag row leaves for them, past the slide's own padding.
-  static const double reservedWidth = 2 * _target + rightInset - 16 + 4;
+  static const _counterStyle = TextStyle(
+    fontSize: 12.5,
+    fontFeatures: [FontFeature.tabularFigures()],
+  );
+
+  /// Phones narrower than this show the arrows only.
+  static const double _counterMinScreenWidth = 375;
+
+  static bool showsCounter(BuildContext context) =>
+      MediaQuery.sizeOf(context).width >= _counterMinScreenWidth;
+
+  /// How wide the pager is with [counter].
+  static double widthIn(BuildContext context, String? counter) =>
+      2 * target +
+      (counter == null ? 0 : _textWidth(context, counter, _counterStyle));
 
   @override
   Widget build(BuildContext context) {
+    final counter = this.counter;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -990,6 +1112,12 @@ class _PagerButtons extends StatelessWidget {
           label: AnnouncementCopy.previous,
           onTap: onPrevious,
         ),
+        if (counter != null)
+          Text(
+            counter,
+            style: _counterStyle.copyWith(
+                color: Theme.of(context).announcementColors.muted),
+          ),
         _PagerButton(
           semanticsKey: const ValueKey('announcement-next'),
           icon: Icons.chevron_right_rounded,
@@ -1042,7 +1170,7 @@ class _PagerButton extends StatelessWidget {
             radius: 18,
             highlightColor: colors.dot,
             child: SizedBox.square(
-              dimension: _PagerButtons._target,
+              dimension: _PagerButtons.target,
               child: AnimatedOpacity(
                 opacity: enabled ? 1 : _disabledOpacity,
                 duration: const Duration(milliseconds: 180),

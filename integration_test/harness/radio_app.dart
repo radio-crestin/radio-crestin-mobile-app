@@ -405,6 +405,15 @@ class RadioApp {
   static final announcementCard =
       find.byKey(const ValueKey('announcement-card'));
 
+  /// The texts the announcement card shows, for a failure's message.
+  String describeCard() => find
+      .descendant(of: announcementCard, matching: find.byType(Text))
+      .hitTestable()
+      .evaluate()
+      .map((element) => (element.widget as Text).data)
+      .whereType<String>()
+      .join(' | ');
+
   /// Swipes the announcement card to the next announcement.
   Future<void> swipeAnnouncement() async {
     await tester.drag(announcementCard.hitTestable(), const Offset(-300, 0));

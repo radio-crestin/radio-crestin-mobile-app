@@ -367,23 +367,134 @@ void main() {
     });
 
     announcementTest(
-        'one line: the main button and "Ascunde"; an old second button is '
-        'ignored',
-        (app) async {
+        'the buttons sit under the text, fit their content and keep to one '
+        'row while they can; an old second button is ignored', (app) async {
+      final tester = app.tester;
+      Rect rectOf(Finder finder) => tester.getRect(finder.hitTestable().first);
+      final dismissKey = find.byKey(const ValueKey('announcement-dismiss'));
+      Rect buttonOf(String label) => rectOf(
+          find.ancestor(of: find.text(label), matching: find.byType(InkWell)));
+
+      // A short label: the button hugs it, "Ascunde" follows on its row.
+      server.announcements.add(AnnouncementFixtures.whatsappLive());
+      await app.pullToRefresh();
+      await app.waitFor(() => app.showsText(AnnouncementFixtures.whatsappJoin),
+          reason: 'the WhatsApp card');
+      final title = rectOf(find.text('Versetul Zilei'));
+      var button = buttonOf(AnnouncementFixtures.whatsappJoin);
+      var dismiss = rectOf(dismissKey);
+      final tile = rectOf(find.byKey(const ValueKey('announcement-icon-tile')));
+      expect(button.left, closeTo(tile.left, 1),
+          reason: 'the buttons start on the icon\'s left edge');
+      expect(title.left, greaterThan(tile.right),
+          reason: 'the title beside the icon');
+      expect(button.top, greaterThan(title.bottom),
+          reason: 'the buttons sit under the text');
+      expect(button.width, lessThan(200), reason: 'the button fits its label');
+      expect((dismiss.center.dy - button.center.dy).abs(), lessThan(2),
+          reason: '"Ascunde" on the button\'s row');
+      expect(dismiss.left, greaterThan(button.right),
+          reason: '"Ascunde" after the button');
+
+      // A label too long for one line beside "Ascunde": the row wraps.
+      await app.tapDismiss();
       server.announcements.add(AnnouncementFixtures.longButtons());
       await app.pullToRefresh();
       await app.waitFor(() => app.showsText(AnnouncementFixtures.longPrimary),
           reason: 'the card with long buttons');
-      final tester = app.tester;
-      double middleOf(Finder finder) =>
-          tester.getCenter(finder.hitTestable().first).dy;
-      final primary = middleOf(find.text(AnnouncementFixtures.longPrimary));
-      final dismiss =
-          middleOf(find.byKey(const ValueKey('announcement-dismiss')));
-      expect((dismiss - primary).abs(), lessThan(2),
-          reason: '"Ascunde" sits on the main button\'s line');
+      button = buttonOf(AnnouncementFixtures.longPrimary);
+      dismiss = rectOf(dismissKey);
+      expect(dismiss.top, greaterThanOrEqualTo(button.bottom),
+          reason: '"Ascunde" under a button that needs the row');
       expect(app.showsText(AnnouncementFixtures.legacySecondary), isFalse,
           reason: 'a second button from an older list is not drawn');
+    });
+
+    announcementTest(
+        'the icon tile spans exactly the tag and the title, for a one-line '
+        'and a two-line title', (app) async {
+      server.announcements
+        ..add(AnnouncementFixtures.sized('small'))
+        ..add(AnnouncementFixtures.sized('small',
+            title: AnnouncementFixtures.twoLineTitle));
+      await app.pullToRefresh();
+      await app.waitFor(() => app.showsText('1 din 2'), reason: 'the card');
+      final tester = app.tester;
+      Rect visible(Finder finder) =>
+          tester.getRect(finder.hitTestable().first);
+      for (final (counter, lines) in [('1 din 2', 1), ('2 din 2', 2)]) {
+        if (counter != '1 din 2') {
+          await app.tapKey('announcement-next');
+          await app.waitFor(() => app.showsText(counter), reason: counter);
+          await app.pumpFor(const Duration(milliseconds: 600));
+        }
+        final tile =
+            visible(find.byKey(const ValueKey('announcement-icon-tile')));
+        // The label, not its pill: what the eye lines up.
+        final tag = visible(find.text('Comunitate'));
+        final title = visible(find.byKey(const ValueKey('announcement-title')));
+        final where = 'a $lines-line title';
+        expect(title.height, closeTo(lines * 16 * 1.3, 2),
+            reason: '$where takes $lines line(s)');
+        expect(tile.top, closeTo(tag.top, 1), reason: 'icon top, $where');
+        expect(tag.left, closeTo(title.left, 1),
+            reason: 'the label on the title\'s left edge, $where');
+        expect(tile.bottom, closeTo(title.bottom, 1),
+            reason: 'icon bottom on the title\'s, $where');
+        expect(tile.width, tile.height, reason: 'a square tile, $where');
+      }
+    });
+
+    announcementTest(
+        'the pager sits in the top-right corner on the tag\'s row, and the '
+        'icon tile takes the size the admin chose', (app) async {
+      server.announcements
+        ..add(AnnouncementFixtures.whatsappLive())
+        ..add(AnnouncementFixtures.sized('small'))
+        ..add(AnnouncementFixtures.sized('large'))
+        ..add(AnnouncementFixtures.sized(null));
+      await app.pullToRefresh();
+      await app.waitFor(() => app.showsText('1 din 4'), reason: 'the card');
+      final tester = app.tester;
+      final card = tester.getRect(RadioApp.announcementCard);
+      final next = tester.getRect(
+          find.byKey(const ValueKey('announcement-next')).hitTestable());
+      final tag = tester.getRect(find.text('Comunitate').hitTestable().first);
+      final counter = tester.getRect(find.text('1 din 4').hitTestable());
+      expect(card.right - next.right, lessThan(16),
+          reason: 'the pager in the right corner');
+      final tile = tester.getRect(find
+          .byKey(const ValueKey('announcement-icon-tile'))
+          .hitTestable()
+          .first);
+      expect((next.center.dy - tag.center.dy).abs(), lessThan(2),
+          reason: 'the pager on the tag\'s row');
+      expect(tag.top, closeTo(tile.top, 1),
+          reason: 'the tag on the icon\'s top edge');
+      expect(counter.right, lessThanOrEqualTo(next.left + 6),
+          reason: 'the counter between the arrows');
+
+      double tileSide() => tester
+          .getSize(find
+              .byKey(const ValueKey('announcement-icon-tile'))
+              .hitTestable()
+              .first)
+          .width;
+      // The admin's size is the least the tile takes beside the block.
+      for (final (counter, least, size) in [
+        ('1 din 4', 52.0, 'medium'),
+        ('2 din 4', 40.0, 'small'),
+        ('3 din 4', 72.0, 'large'),
+        ('4 din 4', 52.0, 'missing: medium'),
+      ]) {
+        if (counter != '1 din 4') {
+          await app.tapKey('announcement-next');
+          await app.waitFor(() => app.showsText(counter), reason: counter);
+          await app.pumpFor(const Duration(milliseconds: 600));
+        }
+        expect(tileSide(), inInclusiveRange(least, 72),
+            reason: 'the $size icon tile');
+      }
     });
 
     announcementTest(
@@ -551,8 +662,6 @@ void main() {
         final where = '${width.toInt()} px at text ${scale}x';
         expect(dismiss.right, lessThanOrEqualTo(card.right),
             reason: '"Ascunde" inside the card, $where');
-        expect(card.right - dismiss.right, lessThan(24),
-            reason: '"Ascunde" on the right, $where');
         expect(tester.renderObject<RenderParagraph>(label).didExceedMaxLines,
             isFalse,
             reason: 'the whole label shows, $where');
@@ -784,7 +893,8 @@ void main() {
         AnnouncementFixtures.newest(),
         AnnouncementFixtures.verse(),
       ]);
-      expect(app.showsText(AnnouncementFixtures.concertTitle), isTrue);
+      expect(app.showsText(AnnouncementFixtures.concertTitle), isTrue,
+          reason: 'the first in the list first; card: ${app.describeCard()}');
       await app.tapKey('announcement-next');
       await app.waitFor(() => app.showsText('2 din 3'), reason: 'the second');
       expect(app.showsText(AnnouncementFixtures.newestTitle), isTrue);

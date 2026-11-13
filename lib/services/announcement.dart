@@ -299,6 +299,24 @@ int compareVersions(String a, String b) {
   return 0;
 }
 
+/// How big the icon tile is, as the admin chose (`icon.size`).
+enum AnnouncementIconSize {
+  small(40),
+  medium(52),
+  large(72);
+
+  const AnnouncementIconSize(this.extent);
+
+  /// The tile's side, in logical pixels.
+  final double extent;
+
+  /// Medium unless [value] names another size.
+  static AnnouncementIconSize parse(Object? value) => values.firstWhere(
+        (size) => size.name == value,
+        orElse: () => medium,
+      );
+}
+
 /// One announcement, as `GET /announcements/` lists it.
 class Announcement {
   const Announcement({
@@ -312,6 +330,7 @@ class Announcement {
     this.filters = const AnnouncementFilters(),
     this.iconName,
     this.iconUrl,
+    this.iconSize = AnnouncementIconSize.medium,
     this.button,
     this.page,
     this.startsAt,
@@ -329,6 +348,7 @@ class Announcement {
   final AnnouncementFilters filters;
   final String? iconName;
   final String? iconUrl;
+  final AnnouncementIconSize iconSize;
   final String title;
   final String bodyMarkdown;
   final AnnouncementButton? button;
@@ -369,6 +389,7 @@ class Announcement {
       filters: AnnouncementFilters.fromJson(json['filters']),
       iconName: _string(icon['name']),
       iconUrl: _string(icon['url']),
+      iconSize: AnnouncementIconSize.parse(icon['size']),
       title: title,
       bodyMarkdown: _string(json['body_markdown']) ?? '',
       // A list kept from before still has `secondary_button`: the second

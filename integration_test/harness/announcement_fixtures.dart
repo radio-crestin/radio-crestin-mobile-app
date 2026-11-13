@@ -227,7 +227,7 @@ Or open it [on YouTube](https://www.youtube.com/watch?v=dQw4w9WgXcQ) yourself.
         'title': 'Versetul Zilei',
         'category': _category('community', 'Comunitate', '#0F6E63'),
         'body_markdown':
-            'Primește un verset biblic în fiecare zi pe WhatsApp.',
+            'Primește un verset biblic în fiecare dimineață pe WhatsApp.',
         'button': {
           ..._button(whatsappJoin, '#0D8040', {
             'type': 'external',
@@ -237,6 +237,19 @@ Or open it [on YouTube](https://www.youtube.com/watch?v=dQw4w9WgXcQ) yourself.
           'icon': 'whatsapp',
         },
       };
+
+  /// [whatsappLive] with its icon tile [size] (null: no size sent), and
+  /// [title] when given.
+  static Map<String, Object?> sized(String? size, {String? title}) => {
+        ...whatsappLive(),
+        'slug': 'e2e-icon-${size ?? 'unsized'}${title == null ? '' : '-long'}',
+        'icon': {'name': 'whatsapp', if (size != null) 'size': size},
+        if (title != null) 'title': title,
+      };
+
+  /// A title that takes two lines beside the icon on a phone.
+  static const twoLineTitle = 'Versetul Zilei, în fiecare dimineață, '
+      'direct pe telefonul tău';
 
   /// [whatsappLive] with the button in [hex], or with no button color at
   /// all and the category in [hex] (null: neither has a color).
