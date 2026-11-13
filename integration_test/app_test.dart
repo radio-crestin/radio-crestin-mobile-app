@@ -973,6 +973,32 @@ void main() {
     });
   });
 
+  group('Settings', () {
+    test("the contact button opens the website's contact page, with the "
+        "app's details", (app) async {
+      final launcher = RecordingLauncher();
+      final systemLauncher = UrlLauncherPlatform.instance;
+      UrlLauncherPlatform.instance = launcher;
+      try {
+        await app.openSettings();
+        await app.tapSetting('Contactează-ne');
+        await app.waitFor(() => launcher.launches.isNotEmpty,
+            reason: 'the contact page to open');
+        final page = Uri.parse(launcher.launches.single.url);
+        expect(page.host, 'www.radiocrestin.ro');
+        expect(page.path, '/contact/');
+        expect(page.queryParameters['source'], 'app');
+        expect(page.queryParameters['platform'],
+            Platform.isIOS ? 'ios' : 'android');
+        expect(page.queryParameters['app_version'], isNotEmpty);
+        expect(launcher.launches.single.mode,
+            PreferredLaunchMode.externalApplication);
+      } finally {
+        UrlLauncherPlatform.instance = systemLauncher;
+      }
+    });
+  });
+
   group('Playlist stations', () {
     test('a YouTube playlist item loads the whole playlist', (app) async {
       await app.tapStation(Stations.youtubePlaylist);

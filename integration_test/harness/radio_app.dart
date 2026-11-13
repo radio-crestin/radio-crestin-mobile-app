@@ -264,15 +264,27 @@ class RadioApp {
     await pumpFor(const Duration(seconds: 1));
   }
 
+  /// Scrolls Settings to the row titled [title] and taps it.
+  Future<void> tapSetting(String title) async {
+    final row = find.ancestor(
+        of: find.text(title), matching: find.byType(ListTile));
+    await tester.scrollUntilVisible(row, 200, scrollable: _settingsScrollable);
+    // Whole, at the top: at the bottom edge it may sit under the player.
+    await tester.ensureVisible(row);
+    await pumpFor(const Duration(milliseconds: 500));
+    await tester.tap(row.hitTestable());
+    await pumpFor(const Duration(seconds: 1));
+  }
+
+  Finder get _settingsScrollable => find
+      .descendant(of: find.byType(SettingsPage), matching: find.byType(Scrollable))
+      .first;
+
   /// Scrolls Settings to the switch of the row titled [title] and flips it.
   Future<DateTime> toggleSetting(String title) async {
     final row = find.ancestor(
         of: find.text(title), matching: find.byType(ListTile));
-    final scrollable = find
-        .descendant(
-            of: find.byType(SettingsPage), matching: find.byType(Scrollable))
-        .first;
-    await tester.scrollUntilVisible(row, 200, scrollable: scrollable);
+    await tester.scrollUntilVisible(row, 200, scrollable: _settingsScrollable);
     final toggle = find
         .descendant(of: row, matching: find.byType(Switch))
         .hitTestable();
