@@ -405,14 +405,19 @@ class RadioApp {
   static final announcementCard =
       find.byKey(const ValueKey('announcement-card'));
 
-  /// The texts the announcement card shows, for a failure's message.
-  String describeCard() => find
-      .descendant(of: announcementCard, matching: find.byType(Text))
-      .hitTestable()
-      .evaluate()
-      .map((element) => (element.widget as Text).data)
-      .whereType<String>()
-      .join(' | ');
+  /// The texts on the announcement card, for a failure's message: all of
+  /// them, and those a tap would reach (what is not covered).
+  String describeCard() {
+    String texts(Finder finder) => finder
+        .evaluate()
+        .map((element) => (element.widget as Text).data)
+        .whereType<String>()
+        .join(' | ');
+    final all = find.descendant(
+        of: announcementCard, matching: find.byType(Text));
+    return 'on the card: ${texts(all)}; reachable: '
+        '${texts(all.hitTestable())}';
+  }
 
   /// Swipes the announcement card to the next announcement.
   Future<void> swipeAnnouncement() async {
