@@ -802,7 +802,11 @@ void main() {
       final end = DateTime.now().add(const Duration(seconds: 45));
       while (videos.isEmpty && DateTime.now().isBefore(end)) {
         await app.pumpFor(const Duration(seconds: 1));
-        videos = await youtube.playlist;
+        try {
+          videos = await youtube.playlist;
+        } on ArgumentError {
+          // Not loaded yet: the player answers null.
+        }
       }
       expect(videos, isNotEmpty,
           reason: "the player holds the playlist's videos");

@@ -157,6 +157,9 @@ class RadioApp {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(PlaybackPreferences.preferDirectStreamsKey);
     await prefs.remove(_developerModePrefsKey);
+    // Off, as a fresh install has it here: on, every relaunch would start
+    // a station.
+    await prefs.setBool(_autoStartPrefsKey, false);
     // The test framework checks its handler is back when a test ends.
     FlutterError.onError = _bindingErrorHandler;
   }
