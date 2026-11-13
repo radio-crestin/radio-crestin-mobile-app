@@ -145,10 +145,28 @@ class AnnouncementsService with WidgetsBindingObserver {
   }
 
   /// Fetches the list, keeps it for the next launch and shows it.
-  Future<void> refresh() =>
-      _inFlight ??= _refresh().whenComplete(() => _inFlight = null);
+  ///
+  /// Asked for while another fetch runs (a pull-to-refresh during the
+  /// startup one), it fetches once more after it, so the list is never
+  /// older than the request.
+  Future<void> refresh() {
+    final running = _inFlight;
+    if (running != null) return _next ??= _refreshAfter(running);
+    return _inFlight = _refresh().whenComplete(() => _inFlight = null);
+  }
 
   Future<void>? _inFlight;
+  Future<void>? _next;
+
+  Future<void> _refreshAfter(Future<void> running) async {
+    try {
+      await running;
+    } catch (_) {
+      // Its failure is its own; this fetch starts anyway.
+    }
+    _next = null;
+    await refresh();
+  }
 
   Future<void> _refresh() async {
     final preview = _store.previewToken;

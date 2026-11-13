@@ -235,8 +235,9 @@ class FakeRadioServer {
 
   /// The list as the API caches it: no page markdown (it comes with the
   /// single announcement), an ETag, and 304 when the app has it already.
+  /// It is the list as it was when the request arrived, sent after
+  /// [announcementListDelay].
   Future<void> _announcementList(_Connection connection) async {
-    await Future<void>.delayed(announcementListDelay);
     final body = utf8.encode(jsonEncode({
       'settings': announcementSettings,
       'announcements': [
@@ -250,6 +251,7 @@ class FakeRadioServer {
           },
       ],
     }));
+    await Future<void>.delayed(announcementListDelay);
     final hash = body.fold<int>(0, (a, b) => (a * 31 + b) & 0x7fffffff);
     final etag = '"${body.length}-$hash"';
     if (connection.served.ifNoneMatch == etag) {

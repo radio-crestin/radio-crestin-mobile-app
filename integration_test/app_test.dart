@@ -314,6 +314,23 @@ void main() {
     });
 
     announcementTest(
+        'a pull-to-refresh during a slow fetch gets the list as it is after '
+        'the pull', (app) async {
+      // A healthy API, even when this test is the run's first, slow one.
+      server.conditions.restore();
+      server.announcementListDelay = const Duration(seconds: 12);
+      // Its fetch is still on the way: the launch waited 1.5 s, the list
+      // it asked for is empty.
+      await app.coldStartAnnouncements();
+      server
+        ..announcements.add(AnnouncementFixtures.verse())
+        ..announcementListDelay = Duration.zero;
+      await app.pullToRefresh();
+      await app.waitFor(() => app.showsText(AnnouncementFixtures.verseTitle),
+          reason: 'the list as it is after the pull');
+    });
+
+    announcementTest(
         'a refresh keeps the announcement on screen where it is', (app) async {
       await showAnnouncements(app);
       await app.swipeAnnouncement();
