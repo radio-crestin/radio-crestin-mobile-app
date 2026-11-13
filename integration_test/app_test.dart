@@ -674,6 +674,9 @@ void main() {
       await app.coldStartAnnouncements();
       await app.waitFor(() => app.showsText('1 din ${items.length}'),
           reason: 'the card; ${app.describe()}');
+      // A list that comes after the first frame grows the card in: let it
+      // settle before tapping its buttons.
+      await app.pumpFor(const Duration(seconds: 1));
     }
 
     /// Lets [duration] pass and expects the card still on [counter].
