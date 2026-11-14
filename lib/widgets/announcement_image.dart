@@ -1,10 +1,12 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../services/image_cache_service.dart';
 
-/// An announcement's picture (icon, cover, a picture in its page), kept
+/// An announcement's picture (icon, cover, a picture in its page): a
+/// bitmap or an SVG (an admin's own icon), kept
 /// on disk by [ImageCacheService]: drawn in the first frame when it is
 /// already there, faded in otherwise, with [placeholder] until it comes or
 /// when it can't.
@@ -72,15 +74,25 @@ class _AnnouncementImageState extends State<AnnouncementImage> {
       child: file == null
           ? KeyedSubtree(
               key: const ValueKey('placeholder'), child: widget.placeholder)
-          : Image.file(
-              file,
-              key: ValueKey(file.path),
-              fit: widget.fit,
-              width: double.infinity,
-              height: widget.fillsBox ? double.infinity : null,
-              gaplessPlayback: true,
-              errorBuilder: (context, error, stack) => widget.placeholder,
-            ),
+          : file.path.toLowerCase().endsWith('.svg')
+              ? SvgPicture.file(
+                  file,
+                  key: ValueKey(file.path),
+                  fit: widget.fit,
+                  width: double.infinity,
+                  height: widget.fillsBox ? double.infinity : null,
+                  placeholderBuilder: (context) => widget.placeholder,
+                  errorBuilder: (context, error, stack) => widget.placeholder,
+                )
+              : Image.file(
+                  file,
+                  key: ValueKey(file.path),
+                  fit: widget.fit,
+                  width: double.infinity,
+                  height: widget.fillsBox ? double.infinity : null,
+                  gaplessPlayback: true,
+                  errorBuilder: (context, error, stack) => widget.placeholder,
+                ),
     );
   }
 }

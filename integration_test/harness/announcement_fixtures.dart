@@ -194,6 +194,17 @@ Or open it [on YouTube](https://www.youtube.com/watch?v=dQw4w9WgXcQ) yourself.
         },
       };
 
+  static const svgIconTitle = 'Our own icon';
+
+  /// An announcement with the admin's own icon, an SVG served from
+  /// [baseUrl] (the fake server).
+  static Map<String, Object?> svgIcon(String baseUrl) => {
+        ...verse(),
+        'slug': 'e2e-svg-icon',
+        'title': svgIconTitle,
+        'icon': {'url': '$baseUrl/images/e2e-icon.svg', 'size': 'medium'},
+      };
+
   /// A title and a button, with an empty body, and a page with nothing
   /// more to say.
   static Map<String, Object?> titleOnly() => {

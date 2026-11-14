@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:radio_crestin/appAudioHandler.dart';
@@ -1379,6 +1380,24 @@ void main() {
               2,
           reason: 'both dismissals to reach the backend',
           timeout: const Duration(seconds: 15));
+    });
+
+    announcementTest("an admin's own SVG icon shows on the card", (app) async {
+      server.announcements.add(AnnouncementFixtures.svgIcon(server.baseUrl));
+      await app.pullToRefresh();
+      await app.waitFor(() => app.showsText(AnnouncementFixtures.svgIconTitle),
+          reason: 'the card with its own icon');
+      await app.waitFor(
+          () => find
+              .descendant(
+                  of: RadioApp.announcementCard,
+                  matching: find.byType(SvgPicture))
+              .evaluate()
+              .isNotEmpty,
+          reason: 'the SVG drawn in the icon tile; ${app.describeCard()}');
+      expect(
+          server.requests.any((r) => r.path == '/images/e2e-icon.svg'), isTrue,
+          reason: 'the icon fetched from its URL');
     });
 
     announcementTest(

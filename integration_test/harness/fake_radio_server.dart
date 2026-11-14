@@ -9,6 +9,11 @@ import 'media.g.dart';
 import 'network_conditions.dart';
 import 'station_catalog.dart';
 
+/// An admin's own announcement icon, as the backend stores an uploaded SVG.
+const iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">'
+    '<rect width="24" height="24" rx="6" fill="#0F6E63"/>'
+    '<circle cx="12" cy="12" r="6" fill="#ffffff"/></svg>';
+
 /// A request the server answered, or tried to.
 class ServedRequest {
   ServedRequest(this.origin, this.path, this.station, this.at);
@@ -191,6 +196,9 @@ class FakeRadioServer {
       case Origin.mp3:
         return _mp3Stream(connection);
       case Origin.images:
+        if (uri.path.endsWith('.svg')) {
+          return connection.send(utf8.encode(iconSvg), 'image/svg+xml');
+        }
         return connection.send(
             base64Decode(thumbnailPngBase64), 'image/png');
       case Origin.internetProbe:
