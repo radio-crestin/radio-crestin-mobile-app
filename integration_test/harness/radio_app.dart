@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -34,6 +35,9 @@ class RadioApp {
 
   /// Where Settings keeps "start the last station on launch".
   static const _autoStartPrefsKey = '_autoStartStation';
+
+  /// Where the app counts actions toward its review dialog.
+  static const _reviewStatusPrefsKey = '_reviewStatus';
 
   /// Where Settings keeps "Mod dezvoltator".
   static const _developerModePrefsKey = 'developer_mode_enabled';
@@ -160,6 +164,10 @@ class RadioApp {
     // Off, as a fresh install has it here: on, every relaunch would start
     // a station.
     await prefs.setBool(_autoStartPrefsKey, false);
+    // No "5 stars" review dialog: the actions it counts add up over a run,
+    // and its barrier would cover Home in the tests after it.
+    await prefs.setString(_reviewStatusPrefsKey,
+        jsonEncode({'actions_made': 0, 'review_completed': true}));
     // The test framework checks its handler is back when a test ends.
     FlutterError.onError = _bindingErrorHandler;
   }
