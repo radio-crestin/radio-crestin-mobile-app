@@ -109,6 +109,21 @@ void main() {
       await app.expectPlayingFrom(Stations.alpha, Origin.hls, since: hlsAt);
     });
 
+    test('playing a search result ends the search', (app) async {
+      await app.tapTooltip('Caută stații sau melodii');
+      await app.pumpFor(const Duration(seconds: 1));
+      await app.tester.enterText(find.byType(TextField), Stations.beta.title);
+      await app.pumpFor(const Duration(seconds: 1));
+
+      final tappedAt = await app.tapStation(Stations.beta);
+      await app.waitFor(() => find.byType(TextField).evaluate().isEmpty,
+          reason: 'the search field to give the app bar back');
+      expect(find.byTooltip('Caută stații sau melodii').hitTestable(),
+          findsOneWidget,
+          reason: 'the search button is back');
+      await app.expectPlaying(Stations.beta, since: tappedAt);
+    });
+
     test('a station with only an MP3 stream plays it', (app) async {
       final tappedAt = await app.tapStation(Stations.gamma);
       await app.expectPlaying(Stations.gamma, since: tappedAt);
@@ -1367,28 +1382,52 @@ void main() {
     });
 
     announcementTest(
-        "a station's announcements show on its mini player and in a sheet",
+        "the station playing leads the home card with its own announcements",
+        (app) async {
+      server.announcements
+        ..add(AnnouncementFixtures.stationNews(Stations.beta.slug))
+        ..add(AnnouncementFixtures.verse());
+      await app.tapStation(Stations.alpha);
+      await app.pullToRefresh();
+      await app.waitFor(() => app.showsText(AnnouncementFixtures.verseTitle),
+          reason: 'the home announcement while another station plays');
+      expect(app.showsText(AnnouncementFixtures.stationNewsTitle), isFalse,
+          reason: "another station's announcement stays out of the card");
+
+      await app.tapStation(Stations.beta);
+      await app.pullToRefresh();
+      await app.waitFor(
+          () => app.showsText(AnnouncementFixtures.stationNewsTitle),
+          reason: "the station's own announcement first in the card; "
+              '${app.describeCard()}');
+      expect(app.showsText(AnnouncementFixtures.verseTitle), isFalse,
+          reason: 'the home announcement comes after it');
+    });
+
+    announcementTest(
+        "a station's bell opens its announcements in a full-height sheet",
         (app) async {
       server.announcements
           .add(AnnouncementFixtures.stationNews(Stations.alpha.slug));
       await app.pullToRefresh();
-      expect(RadioApp.announcementCard, findsNothing,
-          reason: 'a station announcement never goes in the home card');
-
       await app.tapStation(Stations.alpha);
-      await app.waitFor(() => app.findsKey('station-announcements-strip'),
-          reason: 'the unread strip on top of the mini player');
-      expect(app.findsKey('station-announcements-bell'), isTrue,
+      await app.waitFor(() => app.findsKey('station-announcements-bell'),
           reason: 'the bell on the mini player');
+      expect(app.findsKey('station-announcements-strip'), isFalse,
+          reason: 'no strip on top of the mini player');
 
-      await app.tapKey('station-announcements-strip');
+      await app.tapKey('station-announcements-bell');
       await app.waitFor(() => app.showsText('Anunțuri ale postului'),
           reason: "the station's announcements sheet");
       expect(app.showsText(AnnouncementFixtures.stationNewsTitle), isTrue);
+      final screen = app.tester.view.physicalSize.height /
+          app.tester.view.devicePixelRatio;
+      expect(app.tester.getTopLeft(find.text('Anunțuri ale postului')).dy,
+          lessThan(screen * 0.2),
+          reason: 'the sheet rises to the top, like a page');
 
       await app.tapTooltip('Închide');
-      await app.waitFor(() => !app.findsKey('station-announcements-strip'),
-          reason: 'the strip to go once the announcements were opened');
+      await app.pumpFor(const Duration(seconds: 1));
       expect(app.findsKey('station-announcements-bell'), isTrue,
           reason: 'the bell stays');
     });

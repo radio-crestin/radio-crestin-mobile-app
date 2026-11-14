@@ -52,7 +52,6 @@ import '../widgets/station_group_chip.dart';
 import '../widgets/station_group_filter_sheet.dart';
 import '../widgets/status_snackbar.dart';
 import '../widgets/status_snackbar_controller.dart';
-import '../widgets/station_announcements.dart';
 import '../widgets/station_reorder.dart';
 import '../widgets/station_row_transition.dart';
 import 'SettingsPage.dart';
@@ -257,6 +256,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _listenToStatusSnackbarSources();
     // The card is ready before the first frame (loaded with the stations at
     // startup), so it shows with them instead of pushing them down later.
+    // The station playing leads it with its own announcements.
+    _announcements.leadWith(_audioHandler.currentStation.valueOrNull?.slug);
     final announcements = _announcements.announcements.value;
     if (announcements.items.isNotEmpty) {
       _homePromo = AnnouncementPromo(announcements);
@@ -360,8 +361,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             state.processingState == AudioProcessingState.ready,
       );
     });
-    _stationChangeSub = _audioHandler.currentStation.stream.listen(
-        (station) => _statusSnackbar.updateCurrentStation(station?.id));
+    _stationChangeSub = _audioHandler.currentStation.stream.listen((station) {
+      _statusSnackbar.updateCurrentStation(station?.id);
+      _announcements.leadWith(station?.slug);
+    });
   }
 
   void _updateStatusSnackbarNetwork() => _statusSnackbar.updateNetwork(
@@ -643,10 +646,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     setState(() => _query = query);
   }
 
-  /// Gives the app bar back, and the whole list where it was.
+  /// The search's cancel button or Back.
   void _endSearch() {
     AnalyticsService.instance
         .capture('button_clicked', {'button_name': 'search_cancel'});
+    _closeSearch();
+  }
+
+  /// Gives the app bar back, and the whole list where it was.
+  void _closeSearch() {
     _closeKeyboard();
     _search('');
     setState(() => _searching = false);
@@ -655,11 +663,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   /// Takes the keyboard away from the search field.
   void _closeKeyboard() => FocusManager.instance.primaryFocus?.unfocus();
 
-  /// A station tapped while searching starts, and the keyboard makes way
-  /// for its row and the mini player.
+  /// A station tapped while searching starts playing, and the search ends:
+  /// the app bar and the whole list come back.
   void _onSearchResultTap(Station station) {
-    _closeKeyboard();
-    if (_query.isEmpty) return;
+    if (_query.isNotEmpty) _reportSearchResultTap(station);
+    _closeSearch();
+  }
+
+  void _reportSearchResultTap(Station station) {
     _searchTracker.flush();
     AnalyticsService.instance.capture('button_clicked', {
       'button_name': 'search_result_tap',
@@ -1378,12 +1389,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           // screen's bottom edge.
                           MiniPlayerBottomInset(
                             visible: currentStation != null,
-                            // Plus the station's unread announcements strip.
-                            bottomInset: panelBottomInset +
-                                (StationAnnouncementsStrip.showsFor(
-                                        currentStation)
-                                    ? StationAnnouncementsStrip.height
-                                    : 0),
+                            bottomInset: panelBottomInset,
                           ),
                           // Plus room for the docked offline snackbar while
                           // it shows, so the last rows stay reachable.
@@ -1425,25 +1431,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     : null,
               ),
             ),
-              // The station's unread announcements, on top of the mini
-              // player; gone while the full player opens over it.
-              if (hasMiniPlayer)
-                Positioned(
-                  left: 18,
-                  right: 18,
-                  bottom: panelMinHeight,
-                  child: ValueListenableBuilder<double>(
-                    valueListenable: _panelSlide,
-                    builder: (context, slide, child) => IgnorePointer(
-                      ignoring: slide > 0,
-                      child: Opacity(
-                        opacity: (1 - slide * 4).clamp(0.0, 1.0),
-                        child: child,
-                      ),
-                    ),
-                    child: StationAnnouncementsStrip(station: currentStation),
-                  ),
-                ),
               // Offline, back online and station errors, one at a time,
               // above the mini player and rising with the full player.
               Positioned.fill(
@@ -1929,6 +1916,7 @@ class _AnnouncementSlot extends StatelessWidget {
                 items: promo.announcements.items,
                 service: service,
                 autoplaySeconds: promo.announcements.settings.autoplaySeconds,
+                leadStation: promo.announcements.leadStation,
                 // As wide as the station cards under it.
                 margin: const EdgeInsets.fromLTRB(
                   StationsList.cardSideInset,

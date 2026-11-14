@@ -40,12 +40,15 @@ enum ClickTarget { card, button }
 
 /// The announcements the home card shows, in the order it shows them.
 class AnnouncementList {
-  const AnnouncementList(this.items, this.settings);
+  const AnnouncementList(this.items, this.settings, {this.leadStation});
 
   static const empty = AnnouncementList([], AnnouncementSettings());
 
   final List<Announcement> items;
   final AnnouncementSettings settings;
+
+  /// The station playing, when its own announcements lead [items].
+  final String? leadStation;
 }
 
 /// Loads the announcements for this device, keeps what the device
@@ -101,6 +104,9 @@ class AnnouncementsService with WidgetsBindingObserver {
       BehaviorSubject.seeded(_store.seen);
 
   _Feed _feed = _Feed.empty;
+
+  /// The station playing, whose own announcements lead the home card.
+  String? _leadStation;
 
   /// The longest a launch without a kept list waits for the API before
   /// the home screen shows; a later answer still shows this launch.
@@ -289,9 +295,19 @@ class AnnouncementsService with WidgetsBindingObserver {
 
   // ── What shows ─────────────────────────────────────────────────────────
 
+  /// Puts the announcements of the station [slug] (the one playing) first
+  /// in the home card; null leaves the card to the home ones.
+  void leadWith(String? slug) {
+    if (slug == _leadStation) return;
+    _leadStation = slug;
+    _publishAll();
+  }
+
   /// Shows the feed as it is now: new and removed announcements included.
-  /// The order keeps this launch's first announcement first, so the card
-  /// on screen does not change under the listener.
+  /// The station playing leads with its own announcements, in the feed's
+  /// order; then the home ones, whose order keeps this launch's first
+  /// announcement first, so the card on screen does not change under the
+  /// listener.
   void _publishAll() {
     final now = DateTime.now();
     final home = _feed.items
@@ -299,12 +315,17 @@ class AnnouncementsService with WidgetsBindingObserver {
         .where((item) => _isShowable(item, now))
         .take(_feed.settings.maxPerLoad ?? _feed.items.length)
         .toList();
-    announcements.add(AnnouncementList(_ordered(home), _feed.settings));
     _publishStations(now);
+    final own = forStation(_leadStation);
+    announcements.add(AnnouncementList(
+      [...own, ..._ordered(home)],
+      _feed.settings,
+      leadStation: own.isEmpty ? null : _leadStation,
+    ));
   }
 
-  /// Station announcements sit in a sheet, not in the page's flow: they
-  /// follow the feed at once.
+  /// Every station's announcements, for the station playing's lead in the
+  /// home card and its bell.
   void _publishStations(DateTime now) => stationAnnouncements.add(_feed.items
       .where((item) => item.placement == AnnouncementPlacement.station)
       .where((item) => _isShowable(item, now))
@@ -393,6 +414,7 @@ class AnnouncementsService with WidgetsBindingObserver {
     announcements.add(AnnouncementList(
       current.items.where((item) => item.slug != slug).toList(),
       current.settings,
+      leadStation: current.leadStation,
     ));
     stationAnnouncements.add(
         stationAnnouncements.value.where((item) => item.slug != slug).toList());

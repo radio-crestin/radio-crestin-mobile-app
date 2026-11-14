@@ -27,11 +27,10 @@ class AnnouncementCopy {
   static const playShort = 'Redă clipul scurt';
   static const playPlaylist = 'Redă lista de redare';
 
-  /// The station announcements' sheet, bells and unread strip.
+  /// The station announcements' sheet and bells.
   static const stationSheetTitle = 'Anunțuri ale postului';
   static String stationSheetSubtitle(String station) => 'De la $station';
   static const bellLabel = 'Anunțuri pentru acest post';
-  static const newBadge = 'nou';
 
   /// "1 din 3" above the title when there are several.
   static String count(int index, int count) => '$index din $count';

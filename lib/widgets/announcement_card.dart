@@ -42,11 +42,16 @@ class AnnouncementCard extends StatefulWidget {
     required this.service,
     this.margin = const EdgeInsets.fromLTRB(16, 12, 16, 4),
     this.autoplaySeconds = 0,
+    this.leadStation,
   });
 
   final List<Announcement> items;
   final AnnouncementsService service;
   final EdgeInsetsGeometry margin;
+
+  /// The station playing, when its own announcements lead [items]: the
+  /// card opens on them, and their events name it.
+  final String? leadStation;
 
   /// Seconds between moves to the next announcement; 0 is off.
   final int autoplaySeconds;
@@ -165,14 +170,21 @@ class _AnnouncementCardState extends State<AnnouncementCard>
     super.didUpdateWidget(oldWidget);
     final old = oldWidget.items;
     if (identical(old, _items) || _items.isEmpty) return;
-    // The announcement on screen stays on screen; a closed one gives its
-    // place to the next.
+    // A station that starts playing shows its own announcements first.
+    final newLead = widget.leadStation != null &&
+        widget.leadStation != oldWidget.leadStation;
+    // Otherwise the announcement on screen stays on screen; a closed one
+    // gives its place to the next.
     final shownSlug =
         old.isEmpty ? null : old[_index.clamp(0, old.length - 1)].slug;
     final kept = _items.indexWhere((item) => item.slug == shownSlug);
     // The listener closed the one on screen: autoplay ends.
-    if (kept < 0) _endAutoplay();
-    final target = kept >= 0 ? kept : _index.clamp(0, _items.length - 1);
+    if (kept < 0 && !newLead) _endAutoplay();
+    final target = newLead
+        ? 0
+        : kept >= 0
+            ? kept
+            : _index.clamp(0, _items.length - 1);
     if (target == _index) return;
     _index = target;
     if (_pages.hasClients) _pages.jumpToPage(target);
@@ -284,6 +296,7 @@ class _AnnouncementCardState extends State<AnnouncementCard>
       position: index,
       count: _items.length,
       service: widget.service,
+      station: widget.leadStation,
       stationTile: true,
     );
     if (measuring) return slide;
@@ -291,6 +304,7 @@ class _AnnouncementCardState extends State<AnnouncementCard>
       item: item,
       position: index,
       service: widget.service,
+      station: widget.leadStation,
       child: slide,
     );
   }

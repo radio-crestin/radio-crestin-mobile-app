@@ -10,7 +10,6 @@ import '../services/announcements_service.dart';
 import '../theme.dart';
 import '../types/Station.dart';
 import 'announcement_card.dart';
-import 'announcement_icons.dart';
 
 /// A station's announcements and how many of them were never opened.
 typedef StationNews = ({List<Announcement> items, int unseen});
@@ -53,7 +52,8 @@ class StationNewsBuilder extends StatelessWidget {
 }
 
 /// The sheet listing the announcements of the station playing, opened
-/// from its bell, its unread strip or a push. Opening it marks them seen.
+/// from its bell or a push: nearly a full page, from just under the status
+/// bar. Opening it marks them seen.
 class StationAnnouncementsSheet extends StatelessWidget {
   const StationAnnouncementsSheet({super.key, required this.station});
 
@@ -67,9 +67,9 @@ class StationAnnouncementsSheet extends StatelessWidget {
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: Theme.of(context).announcementColors.stationSheet,
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.sizeOf(context).height * 0.78,
-      ),
+      // Like a page: the sheet takes the whole height under the status
+      // bar, however few announcements it lists.
+      constraints: const BoxConstraints.expand(),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -201,143 +201,6 @@ class _SheetHeader extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// The strip on top of the mini player while the station playing has
-/// announcements not opened yet: the first one's title and "nou".
-class StationAnnouncementsStrip extends StatelessWidget {
-  const StationAnnouncementsStrip({super.key, required this.station});
-
-  final Station? station;
-
-  /// Its height, which the station list keeps clear while it shows.
-  static const double height = 40;
-
-  /// Whether [station] has an announcement not opened yet.
-  static bool showsFor(Station? station) {
-    final getIt = GetIt.instance;
-    if (station == null || !getIt.isRegistered<AnnouncementsService>()) {
-      return false;
-    }
-    final service = getIt<AnnouncementsService>();
-    final seen = service.seen.value;
-    return service
-        .forStation(station.slug)
-        .any((item) => !seen.contains(item.slug));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final current = station;
-    return StationNewsBuilder(
-      station: current,
-      builder: (context, news) {
-        final unseen = news.items.where((item) =>
-            !GetIt.instance<AnnouncementsService>()
-                .seen
-                .value
-                .contains(item.slug));
-        return AnimatedSwitcher(
-          duration: const Duration(milliseconds: 250),
-          transitionBuilder: (child, animation) => SizeTransition(
-            sizeFactor: animation,
-            alignment: Alignment.bottomCenter,
-            child: child,
-          ),
-          child: current == null || news.unseen == 0
-              ? const SizedBox(key: ValueKey('none'), width: double.infinity)
-              : _Strip(
-                  key: ValueKey('strip-${current.slug}'),
-                  station: current,
-                  first: unseen.first,
-                ),
-        );
-      },
-    );
-  }
-}
-
-class _Strip extends StatelessWidget {
-  const _Strip({super.key, required this.station, required this.first});
-
-  final Station station;
-  final Announcement first;
-
-  @override
-  Widget build(BuildContext context) {
-    final mini =
-        Theme.of(context).bottomAppBarTheme.color ?? AppColors.playerBarLight;
-    final background = Color.lerp(mini, Colors.white, 0.18)!;
-    final icon =
-        announcementIcons[first.iconName] ?? announcementIcons['megaphone']!;
-    return Semantics(
-      button: true,
-      label: AnnouncementCopy.bellLabel,
-      child: Material(
-        color: background,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          key: const ValueKey('station-announcements-strip'),
-          onTap: () => StationAnnouncementsSheet.show(context, station),
-          child: SizedBox(
-            height: StationAnnouncementsStrip.height,
-            child: Padding(
-              padding: const EdgeInsets.only(left: 8, right: 10),
-              child: Row(
-                children: [
-                  Container(
-                    width: 24,
-                    height: 24,
-                    // Quiet on the bar, like the bell beside it.
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.18),
-                      borderRadius: BorderRadius.circular(7),
-                    ),
-                    child: Icon(
-                      icon,
-                      size: 14 * announcementIconScale(icon),
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      first.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(
-                      AnnouncementCopy.newBadge,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: mini,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }
