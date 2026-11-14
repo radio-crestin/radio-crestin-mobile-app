@@ -383,13 +383,16 @@ class RadioApp {
   /// A cold start as far as announcements go: the service starts again
   /// from what it kept on the device and loads as the app's startup does,
   /// and Home is built anew. The rest of the app (audio, stations) runs on.
-  Future<void> coldStartAnnouncements() async {
+  ///
+  /// [alwaysShow]: as a build with `ANNOUNCEMENTS_ALWAYS_SHOW=true`.
+  Future<void> coldStartAnnouncements({bool alwaysShow = false}) async {
     final getIt = GetIt.instance;
     getIt<AnnouncementsService>().dispose();
     await getIt.unregister<AnnouncementsService>();
     final service = AnnouncementsService(
       prefs: await SharedPreferences.getInstance(),
       pushEnabled: false,
+      alwaysShow: alwaysShow,
     );
     getIt.registerSingleton<AnnouncementsService>(service);
     await service.loadAtStartup();

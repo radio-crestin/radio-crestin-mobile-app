@@ -304,6 +304,52 @@ void main() {
     });
 
     announcementTest(
+        'with ANNOUNCEMENTS_ALWAYS_SHOW a closed announcement shows again at '
+        'the next launch; without it, it stays closed', (app) async {
+      server.announcements.add(AnnouncementFixtures.verse());
+      Future<bool> closeAndRelaunch({required bool alwaysShow}) async {
+        await app.coldStartAnnouncements(alwaysShow: alwaysShow);
+        await app.waitFor(
+            () => app.showsText(AnnouncementFixtures.verseTitle),
+            reason: 'the card');
+        await app.tapDismiss();
+        await app.waitFor(() => RadioApp.announcementCard.evaluate().isEmpty,
+            reason: 'the card to close');
+        await app.coldStartAnnouncements(alwaysShow: alwaysShow);
+        await app.pumpFor(const Duration(seconds: 2));
+        return app.showsText(AnnouncementFixtures.verseTitle);
+      }
+
+      expect(await closeAndRelaunch(alwaysShow: true), isTrue,
+          reason: 'a test build shows it again');
+      expect(await closeAndRelaunch(alwaysShow: false), isFalse,
+          reason: 'a store build keeps it closed');
+    });
+
+    announcementTest(
+        'with ANNOUNCEMENTS_ALWAYS_SHOW, hide_after_seconds and '
+        'max_impressions do not take the card away', (app) async {
+      server.announcements.add({
+        ...AnnouncementFixtures.verse(),
+        'hide_after_seconds': 2,
+        'max_impressions': 1,
+      });
+      for (final launch in [1, 2]) {
+        await app.coldStartAnnouncements(alwaysShow: true);
+        await app.waitFor(
+            () => app.showsText(AnnouncementFixtures.verseTitle),
+            reason: 'the card at launch $launch');
+        await app.pumpFor(const Duration(seconds: 4));
+        expect(app.showsText(AnnouncementFixtures.verseTitle), isTrue,
+            reason: 'still on screen past its 2 s at launch $launch');
+      }
+      await app.coldStartAnnouncements();
+      await app.pumpFor(const Duration(seconds: 2));
+      expect(app.showsText(AnnouncementFixtures.verseTitle), isFalse,
+          reason: 'a store build stops at its one impression');
+    });
+
+    announcementTest(
         'a list slower than the stations still shows in the same launch',
         (app) async {
       server

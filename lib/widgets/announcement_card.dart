@@ -437,7 +437,7 @@ class _ImpressionCounterState extends State<_ImpressionCounter> {
     widget.service
         .recordImpression(item, widget.position, station: widget.station);
     final seconds = item.hideAfterSeconds;
-    if (seconds != null && seconds > 0) {
+    if (seconds != null && seconds > 0 && !widget.service.alwaysShow) {
       _hide ??= Timer(Duration(seconds: seconds),
           () => widget.service.hideForThisLaunch(item));
     }

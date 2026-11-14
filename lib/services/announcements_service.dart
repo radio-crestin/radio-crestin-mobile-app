@@ -61,6 +61,7 @@ class AnnouncementsService with WidgetsBindingObserver {
   AnnouncementsService({
     required SharedPreferences prefs,
     this.pushEnabled = true,
+    this.alwaysShow = alwaysShowAnnouncements,
     http.Client? client,
   })  : _store = AnnouncementStore(prefs),
         _client = client ?? http.Client() {
@@ -69,6 +70,16 @@ class AnnouncementsService with WidgetsBindingObserver {
     _publishAll();
     unawaited(_store.forgetRetired());
   }
+
+  /// A test build's `--dart-define=ANNOUNCEMENTS_ALWAYS_SHOW=true`: every
+  /// launch shows the live home announcements. Store builds leave it off.
+  static const alwaysShowAnnouncements =
+      bool.fromEnvironment('ANNOUNCEMENTS_ALWAYS_SHOW');
+
+  /// Whether this device's history is ignored, for testing: closed,
+  /// already seen and timed-out announcements show again, "Ascunde" lasts
+  /// until the next launch, and each launch waits for the API's list.
+  final bool alwaysShow;
 
   /// Whether announcement pushes are handled (off in the e2e tests).
   final bool pushEnabled;
@@ -140,7 +151,8 @@ class AnnouncementsService with WidgetsBindingObserver {
     // The app version is known now; the filters need it.
     _publishAll();
     final fetching = refresh();
-    if (_store.feed != null && _store.previewToken == null) return;
+    final kept = _store.feed != null && _store.previewToken == null;
+    if (kept && !alwaysShow) return;
     await fetching.timeout(wait, onTimeout: () {});
   }
 
@@ -314,13 +326,14 @@ class AnnouncementsService with WidgetsBindingObserver {
           appVersion: globals.appVersion,
           country: _store.country,
         ) &&
-        !_store.dismissed.contains(item.slug) &&
         !_hiddenThisLaunch.contains(item.slug) &&
-        // Seen this launch: its last allowed impression stays on screen.
-        (max == null ||
-            max <= 0 ||
-            _seenThisLaunch.contains(item.slug) ||
-            _store.impressions(item.slug) < max);
+        (alwaysShow ||
+            (!_store.dismissed.contains(item.slug) &&
+                // Seen this launch: its last allowed impression stays.
+                (max == null ||
+                    max <= 0 ||
+                    _seenThisLaunch.contains(item.slug) ||
+                    _store.impressions(item.slug) < max)));
   }
 
   /// The server's order (never re-sorted). Rotate and random turn it to
@@ -351,10 +364,12 @@ class AnnouncementsService with WidgetsBindingObserver {
     report(AnnouncementEvent.impression, item, position, station: station);
   }
 
-  /// Hides [item] for good on this device ("Ascunde").
+  /// Hides [item] for good on this device ("Ascunde"); with [alwaysShow],
+  /// until the next launch.
   Future<void> dismiss(Announcement item, int position,
       {String? station}) async {
     report(AnnouncementEvent.dismissed, item, position, station: station);
+    if (alwaysShow) return hideForThisLaunch(item);
     await _store.dismiss(item.slug);
     _removeFromScreen(item.slug);
   }
