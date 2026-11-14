@@ -829,17 +829,11 @@ class _TagRow extends StatelessWidget {
   }
 }
 
-/// Where "Ascunde" sits on the buttons' row: right after the main button,
-/// or at the row's end. The owner picks one from the renders.
-enum DismissPlacement { afterButton, end }
-
-/// The layout in use; flip it to [DismissPlacement.end] for the other.
-const DismissPlacement dismissPlacement = DismissPlacement.afterButton;
-
-/// The main button, then "Ascunde", under the text. Both fit their content.
-/// They share a row while the main button's label fits on one line beside
-/// "Ascunde"; otherwise the label may take two lines and "Ascunde" goes
-/// under it.
+/// The main button, then "Ascunde", under the text and right-aligned like
+/// a station tile's heart. Labels keep to one line at their own width,
+/// and both buttons are one height. When they don't fit side by side,
+/// "Ascunde" goes to the next line, still on the right; only a label wider
+/// than the card is cut, its full text still read out.
 class _Actions extends StatelessWidget {
   const _Actions({
     required this.item,
@@ -856,45 +850,44 @@ class _Actions extends StatelessWidget {
     final button = item.button;
     final showsButton = button != null && button.isVisible;
     if (!showsButton && !item.dismissible) return const SizedBox.shrink();
+    // One height for both, from whichever label is taller at this text size.
+    final height = max(
+      showsButton ? AnnouncementPrimaryButton.heightIn(context) : 0.0,
+      item.dismissible ? _DismissButton.heightIn(context) : 0.0,
+    );
     final primary = showsButton
-        ? AnnouncementPrimaryButton(button: button, onTap: onPrimary)
-        : const SizedBox.shrink();
-    final dismiss = _DismissButton(onTap: onDismiss);
-    final atEnd = dismissPlacement == DismissPlacement.end;
+        ? AnnouncementPrimaryButton(
+            button: button, onTap: onPrimary, height: height)
+        : null;
+    final dismiss =
+        item.dismissible ? _DismissButton(onTap: onDismiss, height: height) : null;
     return Padding(
       padding: const EdgeInsets.only(top: 12),
       child: LayoutBuilder(builder: (context, constraints) {
         final dismissWidth =
-            item.dismissible ? _DismissButton.widthIn(context) + _gap : 0.0;
-        final oneRow = !showsButton ||
+            dismiss == null ? 0.0 : _DismissButton.widthIn(context) + _gap;
+        final oneRow = primary == null ||
+            dismiss == null ||
             AnnouncementPrimaryButton.fits(
-                context, button, constraints.maxWidth - dismissWidth,
+                context, button!, constraints.maxWidth - dismissWidth,
                 maxLines: 1);
-        if (!oneRow) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              primary,
-              if (item.dismissible) ...[
-                const SizedBox(height: 8),
-                Align(
-                  alignment:
-                      atEnd ? Alignment.centerRight : Alignment.centerLeft,
-                  child: dismiss,
+        // The content's full width, so the right edge is the card's.
+        return SizedBox(
+          width: constraints.maxWidth,
+          child: oneRow
+              ? Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    if (primary != null) Flexible(child: primary),
+                    if (primary != null && dismiss != null)
+                      const SizedBox(width: _gap),
+                    if (dismiss != null) dismiss,
+                  ],
+                )
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [primary, const SizedBox(height: 8), dismiss],
                 ),
-              ],
-            ],
-          );
-        }
-        return Row(
-          mainAxisSize: atEnd ? MainAxisSize.max : MainAxisSize.min,
-          children: [
-            Flexible(child: primary),
-            if (item.dismissible) ...[
-              atEnd ? const Spacer() : const SizedBox(width: _gap),
-              dismiss,
-            ],
-          ],
         );
       }),
     );
@@ -1061,26 +1054,43 @@ class AnnouncementPrimaryButton extends StatelessWidget {
     super.key,
     required this.button,
     required this.onTap,
+    this.height,
   });
 
   final AnnouncementButton button;
   final VoidCallback onTap;
+
+  /// Its height, shared with "Ascunde"; its own when not given.
+  final double? height;
 
   static const _labelStyle = TextStyle(
     fontSize: 13.5,
     fontWeight: FontWeight.w700,
     letterSpacing: 0.07,
   );
-  static const _labelLines = 2;
+  static const _labelLines = 1;
   static const _iconGap = 7.0;
 
   static EdgeInsets _padding(bool isText) => isText
-      ? const EdgeInsets.symmetric(horizontal: 4, vertical: 6)
-      : const EdgeInsets.only(left: 15, right: 14, top: 8, bottom: 8);
+      ? const EdgeInsets.symmetric(horizontal: 4)
+      : const EdgeInsets.only(left: 15, right: 14);
+
+  static const double _minHeight = 36;
+  static const double _labelLineHeight = 1.25;
+
+  /// The button's height at this text size: its label's line and some air,
+  /// at least [_minHeight].
+  static double heightIn(BuildContext context) {
+    final line = _paint(context, ' ',
+        _labelStyle.copyWith(height: _labelLineHeight));
+    final height = line.height;
+    line.dispose();
+    return max(_minHeight, height + 16);
+  }
 
   static double _iconSize(IconData icon) => 15 * announcementIconScale(icon);
 
-  /// Whether [button]'s label fits in [maxLines] lines (two unless given)
+  /// Whether [button]'s label fits in [maxLines] lines (one unless given)
   /// on a button at most [maxWidth] wide.
   static bool fits(
       BuildContext context, AnnouncementButton button, double maxWidth,
@@ -1116,8 +1126,7 @@ class AnnouncementPrimaryButton extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Container(
-          // One line keeps the old height; a second line grows it.
-          constraints: BoxConstraints(minHeight: isText ? 32 : 36),
+          height: height ?? heightIn(context),
           padding: _padding(isText),
           // As wide as its content, and centered in the minimum height.
           child: Align(
@@ -1133,7 +1142,8 @@ class AnnouncementPrimaryButton extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   // Two lines hug the text, so the icon follows it.
                   textWidthBasis: TextWidthBasis.longestLine,
-                  style: _labelStyle.copyWith(color: foreground, height: 1.25),
+                  style: _labelStyle.copyWith(
+                      color: foreground, height: _labelLineHeight),
                 ),
               ),
               if (icon != null) ...[
@@ -1156,9 +1166,21 @@ class AnnouncementPrimaryButton extends StatelessWidget {
 /// "✕ Ascunde": hides the announcement for good on this device. A quiet
 /// outlined button that sinks a little while pressed.
 class _DismissButton extends StatefulWidget {
-  const _DismissButton({required this.onTap});
+  const _DismissButton({required this.onTap, required this.height});
 
   final VoidCallback onTap;
+
+  /// Its height, shared with the main button.
+  final double height;
+
+  /// Its own height at this text size: its label's line and some air, at
+  /// least 36.
+  static double heightIn(BuildContext context) {
+    final line = _paint(context, ' ', _DismissButtonState._labelStyle);
+    final height = line.height;
+    line.dispose();
+    return max(36, height + 16);
+  }
 
   /// Its width at the text size the listener chose.
   static double widthIn(BuildContext context) =>
@@ -1204,7 +1226,7 @@ class _DismissButtonState extends State<_DismissButton> {
             onHighlightChanged: (pressed) => setState(() => _pressed = pressed),
             highlightColor: colors.dot,
             child: Container(
-              constraints: const BoxConstraints(minHeight: 36),
+              height: widget.height,
               padding: _padding,
               child: Row(
                 mainAxisSize: MainAxisSize.min,

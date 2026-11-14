@@ -368,8 +368,9 @@ void main() {
     });
 
     announcementTest(
-        'the buttons sit under the text, fit their content and keep to one '
-        'row while they can; an old second button is ignored', (app) async {
+        'the buttons sit under the text on the right, fit their content and '
+        'keep to one row while they can; an old second button is ignored',
+        (app) async {
       final tester = app.tester;
       Rect rectOf(Finder finder) => tester.getRect(finder.hitTestable().first);
       final dismissKey = find.byKey(const ValueKey('announcement-dismiss'));
@@ -385,8 +386,14 @@ void main() {
       var button = buttonOf(AnnouncementFixtures.whatsappJoin);
       var dismiss = rectOf(dismissKey);
       final tile = rectOf(find.byKey(const ValueKey('announcement-icon-tile')));
-      expect(button.left, closeTo(tile.left, 1),
-          reason: 'the buttons start on the icon\'s left edge');
+      final card = tester.getRect(find
+          .descendant(
+              of: RadioApp.announcementCard, matching: find.byType(DecoratedBox))
+          .first);
+      final contentRight =
+          card.right - StationTileMetrics.contentPadding.right;
+      expect(dismiss.right, closeTo(contentRight, 1),
+          reason: 'the buttons end on the card\'s right padding');
       expect(title.left, greaterThan(tile.right),
           reason: 'the title beside the icon');
       expect(button.top, greaterThan(title.bottom),
@@ -407,6 +414,9 @@ void main() {
       dismiss = rectOf(dismissKey);
       expect(dismiss.top, greaterThanOrEqualTo(button.bottom),
           reason: '"Ascunde" under a button that needs the row');
+      expect(button.right, closeTo(contentRight, 1),
+          reason: 'each line on the right');
+      expect(dismiss.right, closeTo(contentRight, 1));
       expect(app.showsText(AnnouncementFixtures.legacySecondary), isFalse,
           reason: 'a second button from an older list is not drawn');
     });
@@ -656,67 +666,89 @@ void main() {
     });
 
     announcementTest(
-        'a long button label wraps in its button and "Ascunde" stays in the '
-        'card, on a small phone with large text', (app) async {
-      final item = Announcement.fromJson(AnnouncementFixtures.whatsappVerse())!;
+        'button labels keep to one line, both buttons are one height and the '
+        'row sits on the right; "Ascunde" goes under the main button only '
+        'when they don\'t fit side by side', (app) async {
+      final items = [
+        Announcement.fromJson(AnnouncementFixtures.whatsappVerse())!,
+        Announcement.fromJson(AnnouncementFixtures.longButtons())!,
+        Announcement.fromJson(AnnouncementFixtures.poll())!,
+      ];
       final service = GetIt.instance<AnnouncementsService>();
-      const sizes = [(320.0, 1.3), (375.0, 1.3), (375.0, 1.0)];
-      Key frameKey(double width, double scale) => ValueKey('fit-$width-$scale');
-      await app.tester.pumpWidget(MaterialApp(
-        theme: darkTheme,
-        home: Scaffold(
-          body: SafeArea(
-            child: SingleChildScrollView(
-              child: Column(children: [
-                for (final (width, scale) in sizes)
-                  Builder(
-                    builder: (context) => MediaQuery(
-                      data: MediaQuery.of(context)
-                          .copyWith(textScaler: TextScaler.linear(scale)),
-                      child: Container(
-                        key: frameKey(width, scale),
-                        width: width,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: StationsList.cardSideInset,
-                            vertical: 8),
-                        child:
-                            AnnouncementStaticCard(item: item, service: service),
-                      ),
-                    ),
-                  ),
-              ]),
-            ),
-          ),
-        ),
-      ));
-      await app.pumpFor(const Duration(seconds: 1));
-
       final tester = app.tester;
-      for (final (width, scale) in sizes) {
-        final frame = find.byKey(frameKey(width, scale));
-        Finder inFrame(Finder finder) =>
-            find.descendant(of: frame, matching: finder);
-        final card = tester.getRect(frame).deflate(StationsList.cardSideInset);
-        final dismiss =
-            tester.getRect(inFrame(find.byKey(const ValueKey(
-                'announcement-dismiss'))));
-        final label = inFrame(find.text(AnnouncementFixtures.whatsappButton));
-        final where = '${width.toInt()} px at text ${scale}x';
-        expect(dismiss.right, lessThanOrEqualTo(card.right),
-            reason: '"Ascunde" inside the card, $where');
-        expect(tester.renderObject<RenderParagraph>(label).didExceedMaxLines,
-            isFalse,
-            reason: 'the whole label shows, $where');
-        // Beside the button, or under it when two lines are not enough.
-        final button = tester.getRect(find
-            .ancestor(of: label, matching: find.byType(InkWell))
-            .first);
-        expect(
-            button.right <= dismiss.left || button.bottom <= dismiss.top,
-            isTrue,
-            reason: 'the button and "Ascunde" do not overlap, $where');
+      for (final width in [375.0, 402.0]) {
+        for (final scale in [1.0, 1.3]) {
+          await tester.pumpWidget(MaterialApp(
+            theme: darkTheme,
+            home: Scaffold(
+              body: Builder(
+                builder: (context) => MediaQuery(
+                  data: MediaQuery.of(context)
+                      .copyWith(textScaler: TextScaler.linear(scale)),
+                  child: SingleChildScrollView(
+                    child: Column(children: [
+                      for (final (index, item) in items.indexed)
+                        SizedBox(
+                          key: ValueKey('buttons-$index'),
+                          width: width,
+                          child: AnnouncementCard(
+                            items: [item],
+                            service: service,
+                            margin: const EdgeInsets.all(
+                                StationsList.cardSideInset),
+                          ),
+                        ),
+                    ]),
+                  ),
+                ),
+              ),
+            ),
+          ));
+          await app.pumpFor(const Duration(milliseconds: 600));
+          for (final (index, item) in items.indexed) {
+            final frame = find.byKey(ValueKey('buttons-$index'));
+            Finder inFrame(Finder finder) =>
+                find.descendant(of: frame, matching: finder).last;
+            final where = '"${item.button!.label}", ${width.toInt()} px, '
+                'text ${scale}x';
+            final labelFinder = inFrame(find.text(item.button!.label));
+            final label = tester.renderObject<RenderParagraph>(labelFinder);
+            final lines = label
+                .getBoxesForSelection(TextSelection(
+                    baseOffset: 0, extentOffset: item.button!.label.length))
+                .map((box) => box.top.round())
+                .toSet();
+            expect(lines.length, 1, reason: 'one line, $where');
+            final button = tester.getRect(find
+                .ancestor(of: labelFinder, matching: find.byType(InkWell))
+                .first);
+            final dismiss = tester.getRect(
+                inFrame(find.byKey(const ValueKey('announcement-dismiss'))));
+            expect(button.height, closeTo(dismiss.height, 0.5),
+                reason: 'one height, $where');
+            // The card's content ends at its right padding, as a station
+            // tile's heart does.
+            final contentRight = tester.getRect(frame).right -
+                StationsList.cardSideInset -
+                StationTileMetrics.contentPadding.right;
+            expect(dismiss.right, closeTo(contentRight, 1),
+                reason: '"Ascunde" on the right, $where');
+            final sideBySide = (button.center.dy - dismiss.center.dy).abs() < 1;
+            if (sideBySide) {
+              expect(button.right, lessThanOrEqualTo(dismiss.left),
+                  reason: 'the main button before "Ascunde", $where');
+            } else {
+              expect(dismiss.top, greaterThanOrEqualTo(button.bottom),
+                  reason: '"Ascunde" under the main button, $where');
+              expect(button.right, closeTo(contentRight, 1),
+                  reason: 'the main button on the right too, $where');
+            }
+            expect(label.didExceedMaxLines, isFalse,
+                reason: 'the whole label shows, $where');
+          }
+          expect(tester.takeException(), isNull, reason: 'no overflow');
+        }
       }
-      expect(tester.takeException(), isNull, reason: 'no overflow');
     });
 
     announcementTest(
