@@ -414,8 +414,9 @@ void main() {
     });
 
     announcementTest(
-        'the buttons sit under the text on the right, fit their content and '
-        'keep to one row while they can; an old second button is ignored',
+        'the buttons sit under the text and span the card from the icon\'s '
+        'left edge, on one row while they can; an old second button is '
+        'ignored',
         (app) async {
       final tester = app.tester;
       Rect rectOf(Finder finder) => tester.getRect(finder.hitTestable().first);
@@ -423,7 +424,7 @@ void main() {
       Rect buttonOf(String label) => rectOf(
           find.ancestor(of: find.text(label), matching: find.byType(InkWell)));
 
-      // A short label: the button hugs it, "Ascunde" follows on its row.
+      // A short label: the button takes the row "Ascunde" leaves.
       server.announcements.add(AnnouncementFixtures.whatsappLive());
       await app.pullToRefresh();
       await app.waitFor(() => app.showsText(AnnouncementFixtures.whatsappJoin),
@@ -444,11 +445,12 @@ void main() {
           reason: 'the title beside the icon');
       expect(button.top, greaterThan(title.bottom),
           reason: 'the buttons sit under the text');
-      expect(button.width, lessThan(200), reason: 'the button fits its label');
+      expect(button.left, closeTo(tile.left, 1),
+          reason: 'the button starts under the icon: no empty corner');
       expect((dismiss.center.dy - button.center.dy).abs(), lessThan(2),
           reason: '"Ascunde" on the button\'s row');
-      expect(dismiss.left, greaterThan(button.right),
-          reason: '"Ascunde" after the button');
+      expect(dismiss.left - button.right, closeTo(8, 1),
+          reason: '"Ascunde" right after the button');
 
       // A label too long for one line beside "Ascunde": the row wraps.
       await app.tapDismiss();
@@ -460,9 +462,12 @@ void main() {
       dismiss = rectOf(dismissKey);
       expect(dismiss.top, greaterThanOrEqualTo(button.bottom),
           reason: '"Ascunde" under a button that needs the row');
-      expect(button.right, closeTo(contentRight, 1),
-          reason: 'each line on the right');
-      expect(dismiss.right, closeTo(contentRight, 1));
+      for (final line in [button, dismiss]) {
+        expect(line.left, closeTo(tile.left, 1),
+            reason: 'each line spans the card');
+        expect(line.right, closeTo(contentRight, 1),
+            reason: 'each line spans the card');
+      }
       expect(app.showsText(AnnouncementFixtures.legacySecondary), isFalse,
           reason: 'a second button from an older list is not drawn');
     });
@@ -731,12 +736,15 @@ void main() {
 
     announcementTest(
         'button labels keep to one line, both buttons are one height and the '
-        'row sits on the right; "Ascunde" goes under the main button only '
-        'when they don\'t fit side by side', (app) async {
+        'row spans the card; "Ascunde" goes under the main button, both full '
+        'width, only when they don\'t fit side by side', (app) async {
       final items = [
         Announcement.fromJson(AnnouncementFixtures.whatsappVerse())!,
         Announcement.fromJson(AnnouncementFixtures.longButtons())!,
         Announcement.fromJson(AnnouncementFixtures.poll())!,
+        Announcement.fromJson(AnnouncementFixtures.whatsappLive())!,
+        // A text-link button keeps its own width.
+        Announcement.fromJson(AnnouncementFixtures.concert())!,
       ];
       final service = GetIt.instance<AnnouncementsService>();
       final tester = app.tester;
@@ -792,20 +800,36 @@ void main() {
                 reason: 'one height, $where');
             // The card's content ends at its right padding, as a station
             // tile's heart does.
+            final contentLeft = tester.getRect(frame).left +
+                StationsList.cardSideInset +
+                StationTileMetrics.contentPadding.left;
             final contentRight = tester.getRect(frame).right -
                 StationsList.cardSideInset -
                 StationTileMetrics.contentPadding.right;
             expect(dismiss.right, closeTo(contentRight, 1),
                 reason: '"Ascunde" on the right, $where');
+            expect(button.left, closeTo(contentLeft, 1),
+                reason: 'the main button from the left edge, $where');
+            final isLink =
+                item.button!.style == AnnouncementButtonStyle.text;
             final sideBySide = (button.center.dy - dismiss.center.dy).abs() < 1;
             if (sideBySide) {
-              expect(button.right, lessThanOrEqualTo(dismiss.left),
-                  reason: 'the main button before "Ascunde", $where');
+              if (isLink) {
+                expect(button.right, lessThanOrEqualTo(dismiss.left - 8),
+                    reason: 'a link before "Ascunde", $where');
+              } else {
+                expect(dismiss.left - button.right, closeTo(8, 1),
+                    reason: 'the main button fills up to "Ascunde", $where');
+              }
             } else {
               expect(dismiss.top, greaterThanOrEqualTo(button.bottom),
                   reason: '"Ascunde" under the main button, $where');
-              expect(button.right, closeTo(contentRight, 1),
-                  reason: 'the main button on the right too, $where');
+              for (final line in [button, dismiss]) {
+                expect(line.left, closeTo(contentLeft, 1),
+                    reason: 'each line full width, $where');
+                expect(line.right, closeTo(contentRight, 1),
+                    reason: 'each line full width, $where');
+              }
             }
             expect(label.didExceedMaxLines, isFalse,
                 reason: 'the whole label shows, $where');

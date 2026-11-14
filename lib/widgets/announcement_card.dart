@@ -801,11 +801,14 @@ class _TagRow extends StatelessWidget {
   }
 }
 
-/// The main button, then "Ascunde", under the text and right-aligned like
-/// a station tile's heart. Labels keep to one line at their own width,
-/// and both buttons are one height. When they don't fit side by side,
-/// "Ascunde" goes to the next line, still on the right; only a label wider
-/// than the card is cut, its full text still read out.
+/// The main button, then "Ascunde", under the text, spanning the card's
+/// content from the icon's left edge to the right padding, so no corner of
+/// the card is left empty. The main button takes the row's width that
+/// "Ascunde" leaves (a text-link button keeps its own width, on the left);
+/// labels keep to one line and both buttons are one height. When they
+/// don't fit side by side, each takes a full-width line, "Ascunde" under
+/// the main button; only a label wider than the card is cut, its full text
+/// still read out. "Ascunde" alone keeps its width, on the right.
 class _Actions extends StatelessWidget {
   const _Actions({
     required this.item,
@@ -843,22 +846,26 @@ class _Actions extends StatelessWidget {
             AnnouncementPrimaryButton.fits(
                 context, button!, constraints.maxWidth - dismissWidth,
                 maxLines: 1);
+        final isLink = button?.style == AnnouncementButtonStyle.text;
         // The content's full width, so the right edge is the card's.
         return SizedBox(
           width: constraints.maxWidth,
           child: oneRow
               ? Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+                  mainAxisAlignment: primary == null
+                      ? MainAxisAlignment.end
+                      : MainAxisAlignment.spaceBetween,
                   children: [
-                    if (primary != null) Flexible(child: primary),
+                    if (primary != null)
+                      isLink ? Flexible(child: primary) : Expanded(child: primary),
                     if (primary != null && dismiss != null)
                       const SizedBox(width: _gap),
                     if (dismiss != null) dismiss,
                   ],
                 )
               : Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [primary, const SizedBox(height: 8), dismiss],
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [primary, const SizedBox(height: _gap), dismiss],
                 ),
         );
       }),
@@ -1202,6 +1209,8 @@ class _DismissButtonState extends State<_DismissButton> {
               padding: _padding,
               child: Row(
                 mainAxisSize: MainAxisSize.min,
+                // Centered when it is given a full-width line.
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.close_rounded, size: _iconSize, color: colors.text),
                   const SizedBox(width: _iconGap),
