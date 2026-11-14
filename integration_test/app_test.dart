@@ -505,10 +505,21 @@ void main() {
           reason: 'the station-title weight');
       expect(line.top, greaterThanOrEqualTo(title.bottom),
           reason: 'the category line under the title');
-      expect(card.right - next.right, lessThan(16),
-          reason: 'the pager in the right corner');
-      expect((next.center.dy - title.top - 9.5).abs(), lessThan(3),
-          reason: 'the pager on the title\'s first line');
+      // The pager mirrors the station tile's heart: as far from the top-right
+      // corner as the heart is from the bottom-right one.
+      final heart = tester.getRect(find
+          .descendant(of: row, matching: find.byIcon(Icons.favorite_border_sharp))
+          .first);
+      final circle = visible(find.descendant(
+          of: find.byKey(const ValueKey('announcement-next')),
+          matching: find.byKey(const ValueKey('announcement-pager-circle'))));
+      expect(card.right - circle.right,
+          closeTo(stationCard.right - heart.right, 1),
+          reason: 'the pager as far from the right as the heart');
+      expect(circle.top - card.top,
+          closeTo(stationCard.bottom - heart.bottom, 1),
+          reason: 'the pager as far from the top as the heart from the bottom');
+      expect(next.right, lessThanOrEqualTo(card.right));
 
       // The admin's size does not change the home card's tile.
       await app.tapKey('announcement-next');

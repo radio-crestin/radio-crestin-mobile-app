@@ -250,10 +250,10 @@ class _AnnouncementCardState extends State<AnnouncementCard>
               ),
               if (count > 1)
                 Positioned(
-                  // In the top-right corner, centered on the title's first
-                  // line, where a station shows its listeners.
-                  top: StationTileMetrics.pagerTop(context),
-                  right: _PagerButtons.rightInset,
+                  // In the top-right corner, mirroring a station tile's
+                  // heart in the bottom-right one.
+                  top: StationTileMetrics.pagerTop,
+                  right: StationTileMetrics.pagerRight,
                   height: _PagerButtons.target,
                   child: _PagerButtons(
                     counter: StationTileMetrics.showsCounter(
@@ -598,13 +598,18 @@ abstract final class StationTileMetrics {
               _PagerButtons.widthIn(context, '0 din 0') >=
           _counterMinTitleWidth;
 
-  /// Where the pager goes: centered on the title's first line.
-  static double pagerTop(BuildContext context) {
-    final line = _paint(context, ' ', const TextStyle(fontSize: titleSize));
-    final height = line.height;
-    line.dispose();
-    return contentPadding.top + (height - _PagerButtons.target) / 2;
-  }
+  /// A station tile's one corner control, the heart, sits this far from
+  /// the card's bottom-right corner (its icon box): across, the row's
+  /// border and padding, less its -7 offset, plus its 8 px padding; down,
+  /// the border plus that padding.
+  static const double cornerRight = 12.5;
+  static const double cornerEdge = 9.5;
+
+  /// The pager mirrors it in the top-right corner: its next circle as far
+  /// from the card's top and right as the heart is from the bottom and
+  /// right.
+  static const double pagerTop = cornerEdge - _PagerButtons.circleInset;
+  static const double pagerRight = cornerRight - _PagerButtons.circleInset;
 }
 
 /// The home card's top, as a station tile: the icon tile at the logo's
@@ -656,7 +661,7 @@ class _StationTileHeader extends StatelessWidget {
                     right: pager > 0
                         ? pager -
                             StationTileMetrics.contentPadding.right +
-                            _PagerButtons.rightInset
+                            StationTileMetrics.pagerRight
                         : 0,
                   ),
                   child: Text(
@@ -1244,6 +1249,10 @@ class _PagerButtons extends StatelessWidget {
   /// Each arrow's touch area.
   static const double target = 44;
 
+  /// Each arrow's circle, centered in its touch area.
+  static const double circle = 32;
+  static const double circleInset = (target - circle) / 2;
+
   /// From the card's right edge, so the circles sit 10 px in from it.
   static const double rightInset = 4;
 
@@ -1340,8 +1349,9 @@ class _PagerButton extends StatelessWidget {
                 curve: Curves.easeInOut,
                 child: Center(
                   child: Container(
-                    width: 32,
-                    height: 32,
+                    key: const ValueKey('announcement-pager-circle'),
+                    width: _PagerButtons.circle,
+                    height: _PagerButtons.circle,
                     decoration: BoxDecoration(
                       color: colors.control,
                       shape: BoxShape.circle,
