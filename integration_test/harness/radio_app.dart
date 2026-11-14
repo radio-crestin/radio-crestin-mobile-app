@@ -415,8 +415,20 @@ class RadioApp {
         .join(' | ');
     final all = find.descendant(
         of: announcementCard, matching: find.byType(Text));
+    var hit = '';
+    if (all.evaluate().isNotEmpty) {
+      // What a tap at the first text's center reaches first.
+      final path = tester.hitTestOnBinding(tester.getCenter(all.first)).path;
+      hit = path.take(4).map((entry) {
+        final target = entry.target;
+        final creator = target is RenderObject ? target.debugCreator : null;
+        return creator is DebugCreator
+            ? creator.element.widget.runtimeType.toString()
+            : target.runtimeType.toString();
+      }).join(' > ');
+    }
     return 'on the card: ${texts(all)}; reachable: '
-        '${texts(all.hitTestable())}';
+        '${texts(all.hitTestable())}; a tap there hits: $hit';
   }
 
   /// Swipes the announcement card to the next announcement.
