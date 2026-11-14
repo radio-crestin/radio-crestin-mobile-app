@@ -1033,19 +1033,19 @@ class _SettingsPageState extends State<SettingsPage> {
                     launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
                   },
                 ),
+                // One contact button: the website's contact page has every form,
+                // with WhatsApp as its last option.
                 _buildSettingsTile(
                   icon: Icons.chat,
-                  title: 'Contactează-ne pe WhatsApp',
-                  onTap: () async {
-                    AnalyticsService.instance.capture('whatsapp_contact');
-
-                    final platform = Platform.isAndroid ? "Android" : Platform.isIOS ? "iOS" : desktopPlatformLabel(Platform.operatingSystem);
-                    final message = "[RadioCrestin/$platform/v${globals.appVersion}/${globals.deviceId}]\n\nBuna ziua,\n";
+                  title: 'Contactează-ne',
+                  subtitle: 'Trimite-ne un mesaj, sugerează o idee sau scrie-ne pe WhatsApp.',
+                  onTap: () {
+                    AnalyticsService.instance.capture('button_clicked', {'button_name': 'contact_form'});
+                    final platform = Platform.isAndroid ? 'android' : Platform.isIOS ? 'ios' : Platform.operatingSystem;
                     launchUrl(
-                        Uri.parse(
-                            "https://wa.me/40766338046?text=${Uri.encodeFull(message)}"
-                        ),
-                        mode: LaunchMode.externalApplication);
+                      contactPageUri(platform: platform, appVersion: globals.appVersion, deviceId: globals.deviceId),
+                      mode: LaunchMode.externalApplication,
+                    );
                   },
                 ),
               ]),

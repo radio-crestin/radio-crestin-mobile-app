@@ -23,6 +23,13 @@ class ServedRequest {
   /// Response body bytes sent so far; grows while a stream plays.
   int bytesSent = 0;
 
+  /// The body the app posted, if any.
+  String? body;
+
+  /// The query and the `If-None-Match` header the app sent.
+  Map<String, String> query = const {};
+  String? ifNoneMatch;
+
   bool get isMedia => origin == Origin.hls || origin == Origin.mp3;
 }
 
@@ -43,6 +50,28 @@ class FakeRadioServer {
   final StationCatalog catalog;
   final NetworkConditions conditions = NetworkConditions();
   final List<ServedRequest> requests = [];
+
+  /// What `GET /announcements/` lists, as the API's JSON items; empty
+  /// unless a test sets it.
+  final List<Map<String, Object?>> announcements = [];
+
+  /// The list's `settings`.
+  Map<String, Object?> announcementSettings = defaultAnnouncementSettings;
+
+  /// How long `GET /announcements/` takes to answer; the rest of the API
+  /// stays fast.
+  Duration announcementListDelay = Duration.zero;
+
+  static const defaultAnnouncementSettings = {
+    'rotation_mode': 'fixed',
+    'max_per_load': 5,
+  };
+
+  /// Forms by slug: their question and options, for the form page.
+  final Map<String, ({String question, List<String> options})> forms = {};
+
+  /// The events the app reported to `POST /announcements/events/`.
+  final List<Map<String, Object?>> announcementEvents = [];
   final Map<String, LiveHlsStream> _hls = {
     for (final station in Stations.all) station.slug: LiveHlsStream(),
   };
@@ -73,6 +102,11 @@ class FakeRadioServer {
   /// Back to a healthy network and live streams, between tests.
   void reset() {
     conditions.restore();
+    announcements.clear();
+    announcementEvents.clear();
+    announcementSettings = defaultAnnouncementSettings;
+    announcementListDelay = Duration.zero;
+    forms.clear();
     for (final stream in _hls.values) {
       stream.unfreeze();
     }
@@ -86,6 +120,12 @@ class FakeRadioServer {
     final served = ServedRequest(origin, path, _stationOf(request.uri, origin),
         DateTime.now());
     requests.add(served);
+    served
+      ..query = request.uri.queryParameters
+      ..ifNoneMatch = request.headers.value('if-none-match');
+    if (request.method == 'POST') {
+      served.body = await utf8.decoder.bind(request).join();
+    }
     // The raw socket lets a test drop a connection mid-body, as a real
     // network does, which HttpResponse cannot once headers are out.
     final socket = await request.response.detachSocket(writeHeaders: false);
@@ -160,11 +200,25 @@ class FakeRadioServer {
 
   Future<void> _api(Uri uri, _Connection connection) {
     final path = uri.path;
+    if (path == '/api/v1/announcements/') return _announcementList(connection);
+    if (path.startsWith('/api/v1/forms/') && path.endsWith('/page/')) {
+      return connection.send(
+          utf8.encode(_formPage(uri.pathSegments[3],
+              dark: uri.queryParameters['theme'] == 'dark')),
+          'text/html; charset=utf-8');
+    }
     final body = switch (path) {
+      '/api/v1/announcements/events/' =>
+        _acceptEvents(connection.served.body),
+      _ when path.startsWith('/api/v1/announcements/') => announcements
+          .where((a) => a['slug'] == uri.pathSegments[3])
+          .firstOrNull,
       _ when path.startsWith('/api/v1/share-links/') =>
         catalog.shareLinkResponse(uri.pathSegments[3]),
       '/api/v1/stations' => catalog.stationsResponse(),
       '/api/v1/stations-metadata' => catalog.metadataResponse(),
+      '/api/v1/station-playlist' =>
+        catalog.stationPlaylistResponse(uri.queryParameters['station_slug']),
       '/api/v1/private-stations' => {
           'data': {'stations': <Object>[]},
         },
@@ -177,6 +231,68 @@ class FakeRadioServer {
     if (body == null) return connection.status(HttpStatus.notFound);
     return connection.send(
         utf8.encode(jsonEncode(body)), 'application/json; charset=utf-8');
+  }
+
+  /// The list as the API caches it: no page markdown (it comes with the
+  /// single announcement), an ETag, and 304 when the app has it already.
+  /// It is the list as it was when the request arrived, sent after
+  /// [announcementListDelay].
+  Future<void> _announcementList(_Connection connection) async {
+    final body = utf8.encode(jsonEncode({
+      'settings': announcementSettings,
+      'announcements': [
+        for (final item in announcements)
+          {
+            ...item,
+            if (item['page'] case final Map<String, Object?> page)
+              'page': {...page}
+                ..remove('markdown')
+                ..remove('embeds'),
+          },
+      ],
+    }));
+    await Future<void>.delayed(announcementListDelay);
+    final hash = body.fold<int>(0, (a, b) => (a * 31 + b) & 0x7fffffff);
+    final etag = '"${body.length}-$hash"';
+    if (connection.served.ifNoneMatch == etag) {
+      return connection.status(HttpStatus.notModified);
+    }
+    return connection.send(body, 'application/json; charset=utf-8',
+        headers: {'ETag': etag});
+  }
+
+  /// A form page that tells the app it is ready, as the backend's does,
+  /// in the spec's card colors for the theme asked.
+  String _formPage(String slug, {required bool dark}) {
+    final form = forms[slug] ?? (question: 'Form $slug', options: ['A', 'B']);
+    final (surface, text, border) = dark
+        ? ('#1A1A1A', '#EDEDED', '#2F2F2F')
+        : ('#FFFFFF', '#1A1A1A', '#E7E7E7');
+    return '''
+<!doctype html><html><head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  body { margin: 0; padding: 4px 20px; background: $surface; color: $text;
+         font-family: system-ui, -apple-system, Roboto, sans-serif; }
+  .option { border: 1px solid $border; border-radius: 12px; padding: 14px;
+            margin: 10px 0; font-size: 15px; }
+</style></head><body>
+<h2 id="title">${form.question}</h2>
+${form.options.map((option) => '<div class="option">$option</div>').join()}
+<script>
+  var msg = JSON.stringify({type: "rc-form", event: "ready", slug: "$slug"});
+  if (window.RadioCrestinForm) window.RadioCrestinForm.postMessage(msg);
+</script>
+</body></html>''';
+  }
+
+  /// Keeps the events of an events report; the app sends JSON, the
+  /// website text/plain, both parsed whatever the Content-Type.
+  Map<String, Object?> _acceptEvents(String? body) {
+    final events =
+        (jsonDecode(body ?? '{}') as Map)['events'] as List? ?? [];
+    announcementEvents.addAll(events.cast<Map<String, Object?>>());
+    return {'status': 'ok', 'accepted': events.length, 'country': 'RO'};
   }
 
   Future<void> _hlsRequest(Uri uri, _Connection connection) {
@@ -269,11 +385,16 @@ class _Connection {
   }
 
   /// A whole response with [body].
-  Future<void> send(List<int> body, String contentType) async {
+  Future<void> send(
+    List<int> body,
+    String contentType, {
+    Map<String, String> headers = const {},
+  }) async {
     head(HttpStatus.ok, {
       'Content-Type': contentType,
       'Content-Length': '${body.length}',
       'Cache-Control': 'no-store',
+      ...headers,
     });
     await write(body);
     await _end();
@@ -316,6 +437,7 @@ class _Connection {
   static const _reasons = {
     200: 'OK',
     204: 'No Content',
+    304: 'Not Modified',
     404: 'Not Found',
     503: 'Service Unavailable',
   };

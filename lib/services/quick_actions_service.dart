@@ -6,6 +6,7 @@ import 'analytics_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../globals.dart' as globals;
+import '../tv/desktop/settings_links.dart';
 
 class QuickActionsService {
   static const QuickActions _quickActions = QuickActions();
@@ -49,31 +50,27 @@ class QuickActionsService {
     }
   }
 
-  static String _buildPlatformInfo() {
-    final platform = Platform.isAndroid ? "Android" : Platform.isIOS ? "iOS" : "";
-    return "[RadioCrestin/$platform/v${globals.appVersion}/${globals.deviceId}]";
-  }
-
-  static Future<void> _openWhatsApp(String message) async {
-    final encoded = Uri.encodeFull(message);
-    final appUrl = Uri.parse("https://wa.me/40766338046?text=$encoded");
-
-    final launched = await launchUrl(appUrl, mode: LaunchMode.externalApplication);
-    if (!launched) {
-      // Fallback: open WhatsApp Web in browser
-      await launchUrl(appUrl, mode: LaunchMode.inAppBrowserView);
-    }
+  /// Opens one of the website's contact forms, tagged with this app's details;
+  /// [type] picks what a suggestion is about ("bug" for a problem).
+  static Future<void> _openContactForm(String path, {String? type}) async {
+    final base = contactPageUri(
+      platform: Platform.isAndroid ? 'android' : 'ios',
+      appVersion: globals.appVersion,
+      deviceId: globals.deviceId,
+      path: path,
+    );
+    final uri = type == null ? base : base.replace(queryParameters: {...base.queryParameters, 'type': type});
+    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!launched) await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
   }
 
   static Future<void> _openDeleteFeedback() async {
     AnalyticsService.instance.capture('quick_action_feedback_delete');
-    final info = _buildPlatformInfo();
-    await _openWhatsApp("$info\n\nBuna ziua,\n\nAs dori sa va ofer feedback despre aplicatie:\n");
+    await _openContactForm('/contact/sugestie/');
   }
 
   static Future<void> _openReportProblem() async {
     AnalyticsService.instance.capture('quick_action_report_problem');
-    final info = _buildPlatformInfo();
-    await _openWhatsApp("$info\n\nBuna ziua,\n\nAs dori sa raportez urmatoarea problema:\n");
+    await _openContactForm('/contact/sugestie/', type: 'bug');
   }
 }

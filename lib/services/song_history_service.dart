@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:radio_crestin/constants.dart';
 import 'package:radio_crestin/services/audible_song_policy.dart';
 import 'package:radio_crestin/services/now_playing_sanitizer.dart';
+import 'package:radio_crestin/utils/romanian_months.dart';
 
 /// A single item in the song history timeline.
 class SongHistoryItem {
@@ -310,12 +311,8 @@ class SongHistoryService {
 
   static String _formatDate(DateTime date) {
     const days = ['luni', 'marți', 'miercuri', 'joi', 'vineri', 'sâmbătă', 'duminică'];
-    const months = [
-      'ianuarie', 'februarie', 'martie', 'aprilie', 'mai', 'iunie',
-      'iulie', 'august', 'septembrie', 'octombrie', 'noiembrie', 'decembrie'
-    ];
     final dayName = days[date.weekday - 1];
-    final monthName = months[date.month - 1];
+    final monthName = romanianMonths[date.month - 1];
     return '$dayName, ${date.day} $monthName ${date.year}';
   }
 }

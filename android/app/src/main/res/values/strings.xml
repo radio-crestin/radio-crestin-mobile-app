@@ -11,4 +11,8 @@
   <string name="aa_all_stations">All Stations</string>
   <string name="aa_favorites_count">Favorites (%1$d)</string>
   <string name="aa_all_count">All (%1$d)</string>
+
+  <!-- The notification channel of announcement pushes -->
+  <string name="announcements_channel_name">Announcements</string>
+  <string name="announcements_channel_description">News and messages from Radio Creștin</string>
 </resources>

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -11,6 +12,7 @@ import 'package:radio_crestin/app_launch_options.dart';
 import 'package:radio_crestin/components/MiniAudioPlayer.dart';
 import 'package:radio_crestin/main.dart';
 import 'package:radio_crestin/pages/SettingsPage.dart';
+import 'package:radio_crestin/services/announcements_service.dart';
 import 'package:radio_crestin/services/network_service.dart';
 import 'package:radio_crestin/services/playback_preferences.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -33,6 +35,9 @@ class RadioApp {
 
   /// Where Settings keeps "start the last station on launch".
   static const _autoStartPrefsKey = '_autoStartStation';
+
+  /// Where the app counts actions toward its review dialog.
+  static const _reviewStatusPrefsKey = '_reviewStatus';
 
   /// Where Settings keeps "Mod dezvoltator".
   static const _developerModePrefsKey = 'developer_mode_enabled';
@@ -65,6 +70,35 @@ class RadioApp {
     }
     await app._waitForStationList();
     return app;
+  }
+
+  /// Builds the app's screens anew, as a launch does: Home loads what the
+  /// API serves now. The process, and so its services, stay.
+  Future<void> relaunch() async {
+    runApp(const SizedBox.shrink());
+    await tester.pump();
+    _watchFirstHomeFrame();
+    runApp(const RadioCrestinApp(promptsForUpdates: false));
+    await _waitForStationList();
+  }
+
+  /// Whether the first frame with the station list, at the last relaunch,
+  /// already had the announcement card, settled: not growing or fading in.
+  bool? cardInFirstHomeFrame;
+
+  void _watchFirstHomeFrame() {
+    cardInFirstHomeFrame = null;
+    void check(Duration _) {
+      if (find.byKey(_rowKey(Stations.alpha)).evaluate().isEmpty) {
+        SchedulerBinding.instance.addPostFrameCallback(check);
+        return;
+      }
+      cardInFirstHomeFrame = announcementCard.evaluate().isNotEmpty &&
+          // The empty slot is still there while the card switches in.
+          find.byKey(const ValueKey('no-announcements')).evaluate().isEmpty;
+    }
+
+    SchedulerBinding.instance.addPostFrameCallback(check);
   }
 
   Future<void> _waitForStationList() => waitFor(
@@ -127,6 +161,13 @@ class RadioApp {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(PlaybackPreferences.preferDirectStreamsKey);
     await prefs.remove(_developerModePrefsKey);
+    // Off, as a fresh install has it here: on, every relaunch would start
+    // a station.
+    await prefs.setBool(_autoStartPrefsKey, false);
+    // No "5 stars" review dialog: the actions it counts add up over a run,
+    // and its barrier would cover Home in the tests after it.
+    await prefs.setString(_reviewStatusPrefsKey,
+        jsonEncode({'actions_made': 0, 'review_completed': true}));
     // The test framework checks its handler is back when a test ends.
     FlutterError.onError = _bindingErrorHandler;
   }
@@ -180,6 +221,10 @@ class RadioApp {
     await pumpFor(const Duration(milliseconds: 600));
   }
 
+  /// Scrolls the station list a third of the screen further down, or with
+  /// [up] back up.
+  Future<void> scrollStations({bool up = false}) => _dragList(up: up);
+
   /// Taps [station] in the station list.
   Future<DateTime> tapStation(FakeStation station) async {
     final row = await showStation(station);
@@ -227,15 +272,27 @@ class RadioApp {
     await pumpFor(const Duration(seconds: 1));
   }
 
+  /// Scrolls Settings to the row titled [title] and taps it.
+  Future<void> tapSetting(String title) async {
+    final row = find.ancestor(
+        of: find.text(title), matching: find.byType(ListTile));
+    await tester.scrollUntilVisible(row, 200, scrollable: _settingsScrollable);
+    // Whole, at the top: at the bottom edge it may sit under the player.
+    await tester.ensureVisible(row);
+    await pumpFor(const Duration(milliseconds: 500));
+    await tester.tap(row.hitTestable());
+    await pumpFor(const Duration(seconds: 1));
+  }
+
+  Finder get _settingsScrollable => find
+      .descendant(of: find.byType(SettingsPage), matching: find.byType(Scrollable))
+      .first;
+
   /// Scrolls Settings to the switch of the row titled [title] and flips it.
   Future<DateTime> toggleSetting(String title) async {
     final row = find.ancestor(
         of: find.text(title), matching: find.byType(ListTile));
-    final scrollable = find
-        .descendant(
-            of: find.byType(SettingsPage), matching: find.byType(Scrollable))
-        .first;
-    await tester.scrollUntilVisible(row, 200, scrollable: scrollable);
+    await tester.scrollUntilVisible(row, 200, scrollable: _settingsScrollable);
     final toggle = find
         .descendant(of: row, matching: find.byType(Switch))
         .hitTestable();
@@ -256,6 +313,45 @@ class RadioApp {
     await _waitInRealTime(() => !_onScreen,
         reason: 'the app to leave the screen');
     return at;
+  }
+
+  /// Turns on Settings' "start the last station", which on iOS also starts
+  /// it on every return to the app.
+  Future<void> turnOnAutoStart() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_autoStartPrefsKey, true);
+  }
+
+  /// Switches to another app and back, as the system reports it: through
+  /// the background and on the screen again.
+  Future<void> leaveAndReturn() async {
+    goToBackground();
+    await comeBack();
+  }
+
+  /// Switches to another app, as the system reports it: the app waits in
+  /// the background (paused).
+  void goToBackground() {
+    for (final state in const [
+      AppLifecycleState.inactive,
+      AppLifecycleState.hidden,
+      AppLifecycleState.paused,
+    ]) {
+      tester.binding.handleAppLifecycleStateChanged(state);
+    }
+  }
+
+  /// Comes back from [goToBackground].
+  Future<void> comeBack() async {
+    for (final state in const [
+      AppLifecycleState.hidden,
+      AppLifecycleState.inactive,
+      AppLifecycleState.resumed,
+    ]) {
+      tester.binding.handleAppLifecycleStateChanged(state);
+    }
+    await _waitInRealTime(() => _onScreen,
+        reason: 'the app to be on the screen again');
   }
 
   /// Whether the app is on the screen, waiting in the background (paused)
@@ -283,6 +379,110 @@ class RadioApp {
       await Future<void>.delayed(_tickInterval);
     }
   }
+
+  /// A cold start as far as announcements go: the service starts again
+  /// from what it kept on the device and loads as the app's startup does,
+  /// and Home is built anew. The rest of the app (audio, stations) runs on.
+  ///
+  /// [alwaysShow]: as a build with `ANNOUNCEMENTS_ALWAYS_SHOW=true`.
+  Future<void> coldStartAnnouncements({bool alwaysShow = false}) async {
+    final getIt = GetIt.instance;
+    getIt<AnnouncementsService>().dispose();
+    await getIt.unregister<AnnouncementsService>();
+    final service = AnnouncementsService(
+      prefs: await SharedPreferences.getInstance(),
+      pushEnabled: false,
+      alwaysShow: alwaysShow,
+    );
+    getIt.registerSingleton<AnnouncementsService>(service);
+    await service.loadAtStartup();
+    await relaunch();
+  }
+
+  /// Pulls the station list down from its top, as a listener refreshes.
+  Future<void> pullToRefresh() async {
+    final position = Scrollable.of(_anyRow.evaluate().first).position;
+    for (var step = 0; step < 40; step++) {
+      if (position.pixels <= position.minScrollExtent) break;
+      await _dragList(up: true);
+    }
+    // Far enough to arm the indicator through iOS's bounce friction.
+    await tester.timedDrag(_anyRow.hitTestable().first, const Offset(0, 600),
+        const Duration(milliseconds: 800));
+    await pumpFor(const Duration(seconds: 3));
+  }
+
+  /// The announcement card on Home.
+  static final announcementCard =
+      find.byKey(const ValueKey('announcement-card'));
+
+  /// The texts on the announcement card, for a failure's message: all of
+  /// them, and those a tap would reach (what is not covered).
+  String describeCard() {
+    String texts(Finder finder) => finder
+        .evaluate()
+        .map((element) => (element.widget as Text).data)
+        .whereType<String>()
+        .join(' | ');
+    final all = find.descendant(
+        of: announcementCard, matching: find.byType(Text));
+    var hit = '';
+    if (all.evaluate().isNotEmpty) {
+      // What a tap at the first text's center reaches first.
+      final path = tester.hitTestOnBinding(tester.getCenter(all.first)).path;
+      hit = path.take(4).map((entry) {
+        final target = entry.target;
+        final creator = target is RenderObject ? target.debugCreator : null;
+        return creator is DebugCreator
+            ? creator.element.widget.runtimeType.toString()
+            : target.runtimeType.toString();
+      }).join(' > ');
+    }
+    return 'on the card: ${texts(all)}; reachable: '
+        '${texts(all.hitTestable())}; a tap there hits: $hit';
+  }
+
+  /// Swipes the announcement card to the next announcement.
+  Future<void> swipeAnnouncement() async {
+    await tester.drag(announcementCard.hitTestable(), const Offset(-300, 0));
+    await pumpFor(const Duration(seconds: 1));
+  }
+
+  /// Taps the on-screen text [text], such as a button's label.
+  Future<void> tapText(String text) async {
+    await tester.tap(find.text(text).hitTestable());
+    await pumpFor(const Duration(seconds: 1));
+  }
+
+  /// Taps "Ascunde" on the announcement on screen.
+  Future<void> tapDismiss() => tapKey('announcement-dismiss');
+
+  /// Whether a widget keyed [key] is on the screen where it can be tapped.
+  bool findsKey(String key) =>
+      find.byKey(ValueKey(key)).hitTestable().evaluate().isNotEmpty;
+
+  /// Taps the widget keyed [key].
+  Future<void> tapKey(String key) async {
+    await tester.tap(find.byKey(ValueKey(key)).hitTestable().first);
+    await pumpFor(const Duration(seconds: 1));
+  }
+
+  /// Whether [text] is on the screen where a listener could tap it.
+  bool showsText(String text) =>
+      find.text(text, findRichText: true).hitTestable().evaluate().isNotEmpty;
+
+  /// The home card's place in its list, "i din n", as a screen reader reads
+  /// it: the card shows only the arrows. Null with one announcement or none.
+  String? get announcementPosition {
+    final found = find
+        .byKey(const ValueKey('announcement-position'))
+        .hitTestable()
+        .evaluate();
+    if (found.isEmpty) return null;
+    return (found.first.widget as Semantics).properties.label;
+  }
+
+  bool showsPosition(String position) => announcementPosition == position;
 
   // ── What the listener hears and sees ───────────────────────────────────
 

@@ -34,7 +34,11 @@ import '../widgets/cast_button.dart';
 import '../widgets/floating_sliver_header.dart';
 import '../widgets/keyboard_free_media_query.dart';
 import '../widgets/mini_player_bottom_inset.dart';
+import '../widgets/announcement_card.dart';
 import '../widgets/promo_notification_card.dart';
+import '../services/announcement_push.dart';
+import '../services/autoplay_hold.dart';
+import '../services/announcements_service.dart';
 import '../services/home_promo_slot.dart';
 import '../services/analytics_service.dart';
 import '../services/background_polling_policy.dart';
@@ -48,6 +52,7 @@ import '../widgets/station_group_chip.dart';
 import '../widgets/station_group_filter_sheet.dart';
 import '../widgets/status_snackbar.dart';
 import '../widgets/status_snackbar_controller.dart';
+import '../widgets/station_announcements.dart';
 import '../widgets/station_reorder.dart';
 import '../widgets/station_row_transition.dart';
 import 'SettingsPage.dart';
@@ -199,6 +204,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   /// The promo card above the station list: one at a time.
   HomePromo? _homePromo;
 
+  final AnnouncementsService _announcements = getIt<AnnouncementsService>();
+  StreamSubscription<AnnouncementList>? _announcementsSub;
+
   /// Whether the app bar is a search field: the list then shows only the
   /// stations whose names, or songs on now, match what the listener types
   /// into it.
@@ -247,6 +255,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     });
 
     _listenToStatusSnackbarSources();
+    // The card is ready before the first frame (loaded with the stations at
+    // startup), so it shows with them instead of pushing them down later.
+    final announcements = _announcements.announcements.value;
+    if (announcements.items.isNotEmpty) {
+      _homePromo = AnnouncementPromo(announcements);
+    }
+    _announcementsSub = _announcements.announcements
+        .skip(1)
+        .listen(_onAnnouncementsChanged);
 
     // Listen for custom events from notification/Android Auto actions
     _customEventSub = _audioHandler.customEvent.listen((event) {
@@ -288,6 +305,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     // Defer non-critical work to after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      AnnouncementPush.attach(_announcements);
       _loadHomePromo();
       _loadShareLinkData();
       // Well after startup, when station data has loaded and the first
@@ -483,6 +501,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     try {
       await Future.wait([
         _stationDataService.refreshStations(),
+        _announcements.refresh(),
         _loadHomePromo(),
         _loadShareLinkData(),
       ]).timeout(const Duration(seconds: 3));
@@ -497,8 +516,27 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   Future<void> _loadHomePromo() async {
-    final promo = await HomePromoSlot(getIt<SharedPreferences>()).current();
-    if (mounted) setState(() => _homePromo = promo);
+    final promo = await HomePromoSlot(getIt<SharedPreferences>())
+        .current(announcements: _announcements.announcements.value);
+    if (!mounted) return;
+    // Announcements that arrived meanwhile keep the slot.
+    final announcements = _announcements.announcements.value;
+    setState(() => _homePromo = announcements.items.isEmpty
+        ? promo
+        : AnnouncementPromo(announcements));
+  }
+
+  /// Puts the announcements in the slot, or frees it once the last one
+  /// was closed.
+  void _onAnnouncementsChanged(AnnouncementList announcements) {
+    if (!mounted) return;
+    final shown = _homePromo;
+    if (announcements.items.isNotEmpty) {
+      setState(() => _homePromo = AnnouncementPromo(announcements));
+    } else if (shown is AnnouncementPromo) {
+      setState(() => _homePromo = null);
+      unawaited(HomePromoSlot(getIt<SharedPreferences>()).close(shown));
+    }
   }
 
   Future<void> _closeHomePromo() async {
@@ -557,6 +595,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _videoContentSub?.cancel();
     _customEventSub?.cancel();
     _imageCachePruneTimer?.cancel();
+    _announcementsSub?.cancel();
     _statusSnackbar.dispose();
     _statusListInset.dispose();
     _rowTransitions.dispose();
@@ -1115,6 +1154,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             ),
                           ),
                           // Search results come first.
+                          if (searchResults == null)
+                            SliverToBoxAdapter(
+                              child: _AnnouncementSlot(
+                                promo: _homePromo,
+                                service: _announcements,
+                              ),
+                            ),
                           if (_homePromo
                               case NotificationPromo(:final notification)
                               when searchResults == null)
@@ -1332,7 +1378,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           // screen's bottom edge.
                           MiniPlayerBottomInset(
                             visible: currentStation != null,
-                            bottomInset: panelBottomInset,
+                            // Plus the station's unread announcements strip.
+                            bottomInset: panelBottomInset +
+                                (StationAnnouncementsStrip.showsFor(
+                                        currentStation)
+                                    ? StationAnnouncementsStrip.height
+                                    : 0),
                           ),
                           // Plus room for the docked offline snackbar while
                           // it shows, so the last rows stay reachable.
@@ -1374,6 +1425,25 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     : null,
               ),
             ),
+              // The station's unread announcements, on top of the mini
+              // player; gone while the full player opens over it.
+              if (hasMiniPlayer)
+                Positioned(
+                  left: 18,
+                  right: 18,
+                  bottom: panelMinHeight,
+                  child: ValueListenableBuilder<double>(
+                    valueListenable: _panelSlide,
+                    builder: (context, slide, child) => IgnorePointer(
+                      ignoring: slide > 0,
+                      child: Opacity(
+                        opacity: (1 - slide * 4).clamp(0.0, 1.0),
+                        child: child,
+                      ),
+                    ),
+                    child: StationAnnouncementsStrip(station: currentStation),
+                  ),
+                ),
               // Offline, back online and station errors, one at a time,
               // above the mini player and rising with the full player.
               Positioned.fill(
@@ -1439,6 +1509,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         return;
       }
       if (_isDuplicateLink(uri)) return;
+      // An admin's preview link: unpublished announcements on this phone.
+      if (uri.scheme == 'radiocrestin' && uri.host == 'anunturi-preview') {
+        unawaited(_announcements
+            .setPreviewToken(uri.queryParameters['token']));
+        playerAutoplay();
+        return;
+      }
 
       final stationSlug = Utils.stationSlugFromUri(uri);
       if (stationSlug.isEmpty) {
@@ -1512,6 +1589,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   /// are skipped here. `playStation` short-circuits when the station is
   /// already playing/loading, so a quick app-switch round-trip is a no-op.
   Future<void> _resumeAutoplayIfNeeded() async {
+    // The listener left for a video: the radio stays paused.
+    if (AutoplayHold.consume()) return;
     if (_audioHandler.playbackState.value.playing) return;
     if (_audioHandler.isCasting) return;
     if (_audioHandler.isCarConnected) return;
@@ -1827,3 +1906,42 @@ class _SearchResults extends StatelessWidget {
   }
 }
 
+/// The announcement card, which grows in when announcements arrive and
+/// shrinks away when the last one is closed.
+class _AnnouncementSlot extends StatelessWidget {
+  const _AnnouncementSlot({required this.promo, required this.service});
+
+  final HomePromo? promo;
+  final AnnouncementsService service;
+
+  @override
+  Widget build(BuildContext context) {
+    final promo = this.promo;
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+      alignment: Alignment.topCenter,
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 250),
+        child: promo is AnnouncementPromo
+            ? AnnouncementCard(
+                key: const ValueKey('announcements'),
+                items: promo.announcements.items,
+                service: service,
+                autoplaySeconds: promo.announcements.settings.autoplaySeconds,
+                // As wide as the station cards under it.
+                margin: const EdgeInsets.fromLTRB(
+                  StationsList.cardSideInset,
+                  12,
+                  StationsList.cardSideInset,
+                  4,
+                ),
+              )
+            : const SizedBox(
+                key: ValueKey('no-announcements'),
+                width: double.infinity,
+              ),
+      ),
+    );
+  }
+}

@@ -8,4 +8,8 @@
   <string name="aa_all_stations">Toate Stațiile</string>
   <string name="aa_favorites_count">Favorite (%1$d)</string>
   <string name="aa_all_count">Toate (%1$d)</string>
+
+  <!-- The notification channel of announcement pushes -->
+  <string name="announcements_channel_name">Anunțuri</string>
+  <string name="announcements_channel_description">Noutăți și mesaje de la Radio Creștin</string>
 </resources>

@@ -76,6 +76,18 @@ class ImageCacheService {
     return _cache[url];
   }
 
+  /// The file of [url] already on disk, from this launch or an earlier
+  /// one, or null: so a cold start can draw it in its first frame.
+  File? cachedFileSync(String url) {
+    if (url.isEmpty || !_initialized) return null;
+    final known = _cache[url];
+    final file = File(known ?? _filePathForUrl(url));
+    // A 0-byte file is a download cut short: not an image.
+    if (!file.existsSync() || file.lengthSync() == 0) return null;
+    _cache[url] = file.path;
+    return file;
+  }
+
   /// Returns cached file or downloads and caches it. Returns null on failure.
   Future<File?> getOrDownload(String url) async {
     if (url.isEmpty || !_initialized) return null;

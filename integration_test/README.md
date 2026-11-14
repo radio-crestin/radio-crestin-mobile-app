@@ -39,7 +39,8 @@ app back on its home screen, silent, on a healthy network.
     player shows it with a pause button.
   - `expectSilent`: nothing plays, and the mini player offers to play.
 - **`harness/station_catalog.dart`** lists the stations: three with HLS and an MP3 fallback, as most real
-  stations have, and one with only MP3.
+  stations have, one with only MP3, and a playlist station whose only item is a real, public YouTube
+  playlist (its test needs the internet, as the YouTube player can't be faked).
 - **`harness/media.g.dart`** holds the audio: tiny, nearly silent AAC and MP3 clips. Regenerate it with
   `tool/generate_media.sh` (needs ffmpeg).
 

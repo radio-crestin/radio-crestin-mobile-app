@@ -5,10 +5,12 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:get_it/get_it.dart';
 import 'package:http/http.dart' as http;
 
 import '../constants.dart';
 import '../globals.dart' as globals;
+import 'announcements_service.dart';
 
 /// Registers this device with our backend on every launch.
 ///
@@ -52,12 +54,33 @@ class DeviceRegistrationService {
           .timeout(const Duration(seconds: 10));
       if (res.statusCode != 200) {
         developer.log('Device registration failed: HTTP ${res.statusCode}');
+      } else {
+        await _saveCountry(res.body);
       }
     } catch (e) {
       // Offline / transient — the next launch retries the upsert.
       developer.log('Device registration failed: $e');
     } finally {
       if (ownsClient) httpClient.close();
+    }
+  }
+
+  /// Keeps the country the backend saw this device in, which decides the
+  /// announcements with a country filter.
+  Future<void> _saveCountry(String body) async {
+    try {
+      final json = jsonDecode(body);
+      final country = json is Map
+          ? json['country'] ??
+              (json['data'] is Map ? json['data']['country'] : null)
+          : null;
+      if (country is! String ||
+          !GetIt.instance.isRegistered<AnnouncementsService>()) {
+        return;
+      }
+      await GetIt.instance<AnnouncementsService>().saveCountry(country);
+    } on FormatException {
+      // No JSON body: no country this time.
     }
   }
 

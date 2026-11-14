@@ -1,0 +1,470 @@
+import 'dart:ui' show Color;
+
+/// What tapping an announcement's button does (`action.type` in the API).
+enum AnnouncementActionType {
+  external,
+  inAppBrowser,
+  androidIntent,
+  page,
+  station,
+  form,
+  none;
+
+  /// The API's name for this type, also sent to PostHog as `action_type`.
+  String get apiName => switch (this) {
+        inAppBrowser => 'in_app_browser',
+        androidIntent => 'android_intent',
+        _ => name,
+      };
+
+  static AnnouncementActionType parse(Object? value) =>
+      values.firstWhere((type) => type.apiName == value, orElse: () => none);
+}
+
+/// A button's action: open a link, an app, a page, a station or a form.
+class AnnouncementAction {
+  const AnnouncementAction({
+    required this.type,
+    this.url,
+    this.androidIntentUri,
+    this.fallbackUrl,
+    this.stationSlug,
+    this.formSlug,
+  });
+
+  final AnnouncementActionType type;
+  final String? url;
+  final String? androidIntentUri;
+  final String? fallbackUrl;
+  final String? stationSlug;
+  final String? formSlug;
+
+  static AnnouncementAction? fromJson(Object? json) {
+    if (json is! Map) return null;
+    return AnnouncementAction(
+      type: AnnouncementActionType.parse(json['type']),
+      url: _string(json['url']),
+      androidIntentUri: _string(json['android_intent_uri']),
+      fallbackUrl: _string(json['fallback_url']),
+      stationSlug: _string(json['station_slug']),
+      formSlug: _string(json['form_slug']),
+    );
+  }
+}
+
+/// The look of the primary button; [hidden] draws none, but the card
+/// still runs its action when tapped.
+enum AnnouncementButtonStyle { filled, outline, text, hidden }
+
+/// The primary button: a label, a look and an action.
+class AnnouncementButton {
+  const AnnouncementButton({
+    required this.label,
+    required this.style,
+    this.color,
+    this.textColor,
+    required this.icon,
+    required this.action,
+  });
+
+  final String label;
+  final AnnouncementButtonStyle style;
+
+  /// The admin's color, or null for the app's own (see
+  /// `AnnouncementThemeColors`).
+  final Color? color;
+
+  /// The label's color, as the admin set it; null for the readable one.
+  final Color? textColor;
+
+  /// `auto` (from the action), `none`, or an icon name.
+  final String icon;
+  final AnnouncementAction action;
+
+  bool get isVisible => style != AnnouncementButtonStyle.hidden;
+
+  static AnnouncementButton? fromJson(Object? json) {
+    if (json is! Map) return null;
+    final action = AnnouncementAction.fromJson(json['action']);
+    if (action == null || action.type == AnnouncementActionType.none) {
+      return null;
+    }
+    return AnnouncementButton(
+      label: _string(json['label']) ?? '',
+      style: AnnouncementButtonStyle.values.firstWhere(
+        (style) => style.name == json['style'],
+        orElse: () => AnnouncementButtonStyle.filled,
+      ),
+      color: parseHexColor(json['color']),
+      textColor: parseHexColor(json['text_color']),
+      icon: _string(json['icon']) ?? 'auto',
+      action: action,
+    );
+  }
+}
+
+/// The category tag: a name on a colored pill.
+class AnnouncementCategory {
+  const AnnouncementCategory({
+    required this.slug,
+    required this.name,
+    this.color,
+    this.textColor,
+  });
+
+  final String slug;
+  final String name;
+
+  /// The admin's colors, or null for the app's own.
+  final Color? color;
+  final Color? textColor;
+
+  static AnnouncementCategory fromJson(Object? json) {
+    final map = json is Map ? json : const {};
+    return AnnouncementCategory(
+      slug: _string(map['slug']) ?? '',
+      name: _string(map['name']) ?? '',
+      color: parseHexColor(map['color']),
+      textColor: parseHexColor(map['text_color']),
+    );
+  }
+}
+
+/// The full-screen page an announcement can open. The list sends only its
+/// title and cover; the markdown and the embeds come with the single
+/// announcement.
+class AnnouncementPageContent {
+  const AnnouncementPageContent({
+    required this.title,
+    this.markdown,
+    this.coverImageUrl,
+    this.embeds = const [],
+  });
+
+  final String title;
+  final String? markdown;
+  final String? coverImageUrl;
+
+  /// What the backend knows about the page's video links, in page order.
+  final List<PageEmbed> embeds;
+
+  static AnnouncementPageContent? fromJson(Object? json, String fallbackTitle) {
+    if (json is! Map) return null;
+    return AnnouncementPageContent(
+      title: _string(json['title']) ?? fallbackTitle,
+      markdown: _string(json['markdown']),
+      coverImageUrl: _string(json['cover_image_url']),
+      embeds: [
+        for (final entry in json['embeds'] as List? ?? const [])
+          if (PageEmbed.fromJson(entry) case final embed?) embed,
+      ],
+    );
+  }
+}
+
+/// A video link of a page as the backend describes it (`page.embeds`): its
+/// title and thumbnail, which YouTube gave when the announcement was saved.
+class PageEmbed {
+  const PageEmbed({
+    required this.url,
+    required this.kind,
+    this.videoId,
+    this.listId,
+    this.title,
+    this.thumbnail,
+  });
+
+  final String url;
+
+  /// `video`, `short` or `playlist`.
+  final String kind;
+  final String? videoId;
+  final String? listId;
+
+  /// The video's title: for screen readers only.
+  final String? title;
+  final String? thumbnail;
+
+  static PageEmbed? fromJson(Object? json) {
+    if (json is! Map || json['provider'] != 'youtube') return null;
+    final url = _string(json['url']);
+    final kind = _string(json['kind']);
+    if (url == null || kind == null) return null;
+    return PageEmbed(
+      url: url,
+      kind: kind,
+      videoId: _string(json['video_id']),
+      listId: _string(json['list_id']),
+      title: _string(json['title']),
+      thumbnail: _string(json['thumbnail']),
+    );
+  }
+}
+
+/// Where an announcement shows: the home card, or inside the stations it
+/// names.
+enum AnnouncementPlacement { home, station }
+
+/// Who an announcement is for, checked on the device (the list is the same
+/// for everyone, so Cloudflare can cache it). Empty lists match everyone.
+class AnnouncementFilters {
+  const AnnouncementFilters({
+    this.platforms = const [],
+    this.countriesInclude = const [],
+    this.countriesExclude = const [],
+    this.locales = const [],
+    this.minAppVersion,
+    this.maxAppVersion,
+  });
+
+  final List<String> platforms;
+  final List<String> countriesInclude;
+  final List<String> countriesExclude;
+  final List<String> locales;
+  final String? minAppVersion;
+  final String? maxAppVersion;
+
+  static AnnouncementFilters fromJson(Object? json) {
+    if (json is! Map) return const AnnouncementFilters();
+    List<String> list(String key) => [
+          for (final value in json[key] as List? ?? const [])
+            if (value is String && value.isNotEmpty) value,
+        ];
+    return AnnouncementFilters(
+      platforms: list('platforms'),
+      countriesInclude: list('countries_include'),
+      countriesExclude: list('countries_exclude'),
+      locales: list('locales'),
+      minAppVersion: _string(json['min_app_version']),
+      maxAppVersion: _string(json['max_app_version']),
+    );
+  }
+
+  /// Whether a device on [platform] (`android`/`ios`), with [locale] (a
+  /// tag like `ro-RO`), [appVersion] and [country] (ISO-2, or null when
+  /// not known yet) is meant to see it.
+  bool matches({
+    required String platform,
+    required String locale,
+    required String appVersion,
+    required String? country,
+  }) =>
+      (platforms.isEmpty || platforms.contains(platform)) &&
+      (locales.isEmpty ||
+          locales.any((wanted) => _localeMatches(wanted, locale))) &&
+      _versionInRange(appVersion) &&
+      _countryMatches(country);
+
+  /// A country rule hides it while the country is unknown.
+  bool _countryMatches(String? country) {
+    if (countriesInclude.isEmpty && countriesExclude.isEmpty) return true;
+    if (country == null) return false;
+    final code = country.toUpperCase();
+    bool has(List<String> codes) =>
+        codes.any((value) => value.toUpperCase() == code);
+    return (countriesInclude.isEmpty || has(countriesInclude)) &&
+        !has(countriesExclude);
+  }
+
+  bool _versionInRange(String appVersion) {
+    final min = minAppVersion, max = maxAppVersion;
+    if (min != null && compareVersions(appVersion, min) < 0) return false;
+    if (max != null && compareVersions(appVersion, max) > 0) return false;
+    return true;
+  }
+
+  /// `ro` matches `ro-RO` and `ro_RO`; `ro-RO` matches only itself.
+  static bool _localeMatches(String wanted, String locale) {
+    String normal(String tag) => tag.replaceAll('_', '-').toLowerCase();
+    final want = normal(wanted), have = normal(locale);
+    return have == want || have.startsWith('$want-');
+  }
+}
+
+/// Compares dotted versions number by number (`1.10.0` > `1.9.2`); a
+/// missing part counts as 0 and anything after `+` or `-` is ignored.
+int compareVersions(String a, String b) {
+  List<int> parts(String version) => version
+      .split(RegExp(r'[+-]'))
+      .first
+      .split('.')
+      .map((part) => int.tryParse(part.trim()) ?? 0)
+      .toList();
+  final left = parts(a), right = parts(b);
+  for (var i = 0; i < left.length || i < right.length; i++) {
+    final x = i < left.length ? left[i] : 0;
+    final y = i < right.length ? right[i] : 0;
+    if (x != y) return x.compareTo(y);
+  }
+  return 0;
+}
+
+/// How big the icon tile is, as the admin chose (`icon.size`).
+enum AnnouncementIconSize {
+  small(40),
+  medium(52),
+  large(72);
+
+  const AnnouncementIconSize(this.extent);
+
+  /// The tile's side, in logical pixels.
+  final double extent;
+
+  /// Medium unless [value] names another size.
+  static AnnouncementIconSize parse(Object? value) => values.firstWhere(
+        (size) => size.name == value,
+        orElse: () => medium,
+      );
+}
+
+/// One announcement, as `GET /announcements/` lists it.
+class Announcement {
+  const Announcement({
+    required this.slug,
+    required this.category,
+    required this.title,
+    required this.bodyMarkdown,
+    required this.dismissible,
+    this.placement = AnnouncementPlacement.home,
+    this.stationSlugs = const [],
+    this.filters = const AnnouncementFilters(),
+    this.iconName,
+    this.iconUrl,
+    this.iconSize = AnnouncementIconSize.medium,
+    this.button,
+    this.page,
+    this.startsAt,
+    this.endsAt,
+    this.hideAfterSeconds,
+    this.maxImpressions,
+  });
+
+  final String slug;
+  final AnnouncementCategory category;
+  final AnnouncementPlacement placement;
+
+  /// For [AnnouncementPlacement.station]: the stations it shows inside.
+  final List<String> stationSlugs;
+  final AnnouncementFilters filters;
+  final String? iconName;
+  final String? iconUrl;
+  final AnnouncementIconSize iconSize;
+  final String title;
+  final String bodyMarkdown;
+  final AnnouncementButton? button;
+  final AnnouncementPageContent? page;
+  final bool dismissible;
+  final DateTime? startsAt;
+  final DateTime? endsAt;
+  final int? hideAfterSeconds;
+  final int? maxImpressions;
+
+  /// The type of the primary button's action, for analytics.
+  String get actionType =>
+      (button?.action.type ?? AnnouncementActionType.none).apiName;
+
+  /// Whether it shows between its start and end at [now].
+  bool isLiveAt(DateTime now) =>
+      (startsAt == null || !startsAt!.isAfter(now)) &&
+      (endsAt == null || endsAt!.isAfter(now));
+
+  /// Parses one item, or null when it lacks a slug or a title.
+  static Announcement? fromJson(Object? json) {
+    if (json is! Map) return null;
+    final slug = _string(json['slug']);
+    final title = _string(json['title']);
+    if (slug == null || title == null) return null;
+    final category = AnnouncementCategory.fromJson(json['category']);
+    final icon = json['icon'] is Map ? json['icon'] as Map : const {};
+    return Announcement(
+      slug: slug,
+      category: category,
+      placement: json['placement'] == 'station'
+          ? AnnouncementPlacement.station
+          : AnnouncementPlacement.home,
+      stationSlugs: [
+        for (final value in json['station_slugs'] as List? ?? const [])
+          if (value is String) value,
+      ],
+      filters: AnnouncementFilters.fromJson(json['filters']),
+      iconName: _string(icon['name']),
+      iconUrl: _string(icon['url']),
+      iconSize: AnnouncementIconSize.parse(icon['size']),
+      title: title,
+      bodyMarkdown: _string(json['body_markdown']) ?? '',
+      // A list kept from before still has `secondary_button`: the second
+      // button is gone, so it is ignored.
+      button: AnnouncementButton.fromJson(json['button']),
+      page: AnnouncementPageContent.fromJson(json['page'], title),
+      dismissible: json['dismissible'] != false,
+      startsAt: DateTime.tryParse(_string(json['starts_at']) ?? ''),
+      endsAt: DateTime.tryParse(_string(json['ends_at']) ?? ''),
+      hideAfterSeconds: (json['hide_after_seconds'] as num?)?.toInt(),
+      maxImpressions: (json['max_impressions'] as num?)?.toInt(),
+    );
+  }
+}
+
+/// How the first announcement is chosen (`settings.rotation_mode`).
+enum RotationMode { fixed, rotate, random }
+
+/// The list's settings, sent with every list.
+class AnnouncementSettings {
+  const AnnouncementSettings({
+    this.rotationMode = RotationMode.fixed,
+    this.maxPerLoad,
+    this.autoplaySeconds = 0,
+  });
+
+  final RotationMode rotationMode;
+
+  /// Seconds between automatic moves to the next announcement; 0 is off.
+  final int autoplaySeconds;
+
+  static const _autoplayRange = (min: 3, max: 60);
+
+  /// How many home announcements show at most, counted after the device
+  /// dropped those not meant for it; null shows them all.
+  final int? maxPerLoad;
+
+  static AnnouncementSettings fromJson(Object? json) {
+    if (json is! Map) return const AnnouncementSettings();
+    final max = (json['max_per_load'] as num?)?.toInt();
+    final autoplay = (json['autoplay_seconds'] as num?)?.toInt() ?? 0;
+    return AnnouncementSettings(
+      rotationMode: RotationMode.values.firstWhere(
+        (mode) => mode.name == json['rotation_mode'],
+        orElse: () => RotationMode.fixed,
+      ),
+      maxPerLoad: max != null && max > 0 ? max : null,
+      autoplaySeconds: autoplay <= 0
+          ? 0
+          : autoplay.clamp(_autoplayRange.min, _autoplayRange.max),
+    );
+  }
+}
+
+String? _string(Object? value) =>
+    value is String && value.trim().isNotEmpty ? value : null;
+
+/// Parses `#RRGGBB` (or `#AARRGGBB`), or null.
+Color? parseHexColor(Object? value) {
+  if (value is! String) return null;
+  final hex = value.replaceFirst('#', '');
+  final parsed = int.tryParse(hex, radix: 16);
+  if (parsed == null) return null;
+  return switch (hex.length) {
+    6 => Color(0xFF000000 | parsed),
+    8 => Color(parsed),
+    _ => null,
+  };
+}
+
+/// White or near-black, whichever reads better on [background], as the
+/// design's `inkOn`.
+Color readableOn(Color background) {
+  final luminance = background.computeLuminance();
+  final onWhite = 1.05 / (luminance + 0.05);
+  final onBlack = (luminance + 0.05) / 0.05;
+  return onWhite >= onBlack ? const Color(0xFFFFFFFF) : const Color(0xFF111111);
+}
