@@ -816,6 +816,89 @@ void main() {
     });
 
     announcementTest(
+        'the home card title wraps to three lines clear of the arrows, then '
+        'ends in "…"', (app) async {
+      final long = Announcement.fromJson(
+          AnnouncementFixtures.sized('small',
+              title: AnnouncementFixtures.twoLineTitle))!;
+      final tooLong =
+          Announcement.fromJson(AnnouncementFixtures.tooLongTitle())!;
+      final other = Announcement.fromJson(AnnouncementFixtures.whatsappLive())!;
+      final service = GetIt.instance<AnnouncementsService>();
+      final tester = app.tester;
+      for (final width in [375.0, 402.0]) {
+        for (final scale in [1.0, 1.3]) {
+          await tester.pumpWidget(MaterialApp(
+            theme: darkTheme,
+            home: Scaffold(
+              body: Builder(
+                builder: (context) => MediaQuery(
+                  data: MediaQuery.of(context).copyWith(
+                      size: Size(width, MediaQuery.of(context).size.height),
+                      textScaler: TextScaler.linear(scale)),
+                  child: SingleChildScrollView(
+                    child: Column(children: [
+                      for (final (index, item) in [long, tooLong].indexed)
+                        SizedBox(
+                          key: ValueKey('title-$index'),
+                          width: width,
+                          // Two announcements, so the arrows show.
+                          child: AnnouncementCard(
+                            items: [item, other],
+                            service: service,
+                            margin: const EdgeInsets.all(
+                                StationsList.cardSideInset),
+                          ),
+                        ),
+                    ]),
+                  ),
+                ),
+              ),
+            ),
+          ));
+          await app.pumpFor(const Duration(milliseconds: 600));
+          for (final (index, item) in [long, tooLong].indexed) {
+            final frame = find.byKey(ValueKey('title-$index'));
+            Finder inFrame(String key) => find
+                .descendant(of: frame, matching: find.byKey(ValueKey(key)))
+                .hitTestable()
+                .first;
+            final where = '"${item.title}", ${width.toInt()} px, '
+                'text ${scale}x';
+            final titleFinder = inFrame('announcement-title');
+            final title = tester.renderObject<RenderParagraph>(titleFinder);
+            final lines = title
+                .getBoxesForSelection(TextSelection(
+                    baseOffset: 0, extentOffset: item.title.length))
+                .map((box) => box.top.round())
+                .toSet()
+                .length;
+            final previous = tester.getRect(inFrame('announcement-previous'));
+            expect(
+                tester.getTopLeft(titleFinder).dx + title.constraints.maxWidth,
+                lessThanOrEqualTo(previous.left + 1),
+                reason: 'every title line clear of the arrows, $where');
+            expect(lines, lessThanOrEqualTo(StationTileMetrics.titleLines),
+                reason: 'three lines at most, $where');
+            if (item == tooLong || title.didExceedMaxLines) {
+              expect(title.didExceedMaxLines, isTrue,
+                  reason: 'cut short, $where');
+              expect(lines, StationTileMetrics.titleLines,
+                  reason: 'cut only after the third line, $where');
+              expect(title.overflow, TextOverflow.ellipsis,
+                  reason: 'ends in "…", $where');
+            }
+            if (item == long && scale == 1.0) {
+              expect(title.didExceedMaxLines, isFalse,
+                  reason: 'the whole title in three lines, $where');
+            }
+          }
+          expect(tester.takeException(), isNull, reason: 'no overflow');
+        }
+      }
+    });
+
+    announcementTest(
         "the icon tile and the tag take the announcement's hue, readable at "
         'AA in both themes', (app) async {
       // Hue: the button's color, else the category's, else none.

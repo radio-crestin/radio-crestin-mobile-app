@@ -251,6 +251,15 @@ Or open it [on YouTube](https://www.youtube.com/watch?v=dQw4w9WgXcQ) yourself.
   static const twoLineTitle = 'Versetul Zilei, în fiecare dimineață, '
       'direct pe telefonul tău';
 
+  /// A title too long for the home card's three lines on any phone.
+  static Map<String, Object?> tooLongTitle() => {
+        ...whatsappLive(),
+        'slug': 'e2e-too-long-title',
+        'title': 'A title far too long for three lines beside the icon, even '
+            'on the widest phone with the smallest text the app allows, '
+            'so it has to end early',
+      };
+
   /// [whatsappLive] with the button in [hex], or with no button color at
   /// all and the category in [hex] (null: neither has a color).
   static Map<String, Object?> hued(String? hex, {bool onButton = true}) {

@@ -581,6 +581,9 @@ abstract final class StationTileMetrics {
   static const double titleSize = 16;
   static const double subtitleSize = 13;
 
+  /// The title wraps to this many lines, then ends in "…".
+  static const int titleLines = 3;
+
   /// A station tile's one corner control, the heart, sits this far from
   /// the card's bottom-right corner (its icon box): across, the row's
   /// border and padding, less its -7 offset, plus its 8 px padding; down,
@@ -642,7 +645,7 @@ class _StationTileHeader extends StatelessWidget {
                   child: Text(
                     item.title,
                     key: const ValueKey('announcement-title'),
-                    maxLines: 2,
+                    maxLines: StationTileMetrics.titleLines,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: theme.colorScheme.onSurface,
