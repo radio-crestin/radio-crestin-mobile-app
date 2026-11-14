@@ -217,7 +217,9 @@ class _AnnouncementCardState extends State<AnnouncementCard>
           duration: _resizeDuration,
           curve: _easing,
           alignment: Alignment.topCenter,
-          child: Stack(
+          child: LayoutBuilder(builder: (context, constraints) {
+            final cardWidth = constraints.maxWidth;
+            return Stack(
             children: [
               // The shown slide (with autoplay, every slide: the tallest
               // wins), invisible, sizes the card in the same frame; the
@@ -248,16 +250,14 @@ class _AnnouncementCardState extends State<AnnouncementCard>
               ),
               if (count > 1)
                 Positioned(
-                  // In the top-right corner, centered on the shown icon's
-                  // row.
-                  top: _Slide.pagerTop -
-                      AnnouncementTag.labelInset(
-                              context, _items[_shown].category.name)
-                          .dy,
+                  // In the top-right corner, centered on the title's first
+                  // line, where a station shows its listeners.
+                  top: StationTileMetrics.pagerTop(context),
                   right: _PagerButtons.rightInset,
                   height: _PagerButtons.target,
                   child: _PagerButtons(
-                    counter: _PagerButtons.showsCounter(context)
+                    counter: StationTileMetrics.showsCounter(
+                            context, cardWidth)
                         ? AnnouncementCopy.count(_shown + 1, count)
                         : null,
                     onPrevious: _shown > 0 ? () => _step(-1) : null,
@@ -265,7 +265,8 @@ class _AnnouncementCardState extends State<AnnouncementCard>
                   ),
                 ),
             ],
-          ),
+            );
+          }),
         ),
       ),
     );
@@ -289,6 +290,7 @@ class _AnnouncementCardState extends State<AnnouncementCard>
       position: index,
       count: _items.length,
       service: widget.service,
+      stationTile: true,
     );
     if (measuring) return slide;
     return _ImpressionCounter(
@@ -459,6 +461,7 @@ class _Slide extends StatelessWidget {
     required this.service,
     this.station,
     this.onDone,
+    this.stationTile = false,
   });
 
   final Announcement item;
@@ -468,12 +471,11 @@ class _Slide extends StatelessWidget {
   final String? station;
   final VoidCallback? onDone;
 
-  static const double paddingTop = 14;
+  /// Laid out like a station tile in the list under it (the home card);
+  /// otherwise the compact header (the station sheet, the push banner).
+  final bool stationTile;
 
-  /// Where the pager goes: centered on the tag line (less the label's
-  /// lift, see [_Header]).
-  static const double pagerTop =
-      paddingTop + (_Header.tagHeight - _PagerButtons.target) / 2;
+  static const double paddingTop = 14;
 
   void _runPrimary(ClickTarget target) {
     final button = item.button!;
@@ -508,7 +510,24 @@ class _Slide extends StatelessWidget {
         type: MaterialType.transparency,
         child: InkWell(
           onTap: hasPrimary ? () => _runPrimary(ClickTarget.card) : null,
-          child: Padding(
+          child: stationTile
+              ? Padding(
+                  padding: StationTileMetrics.contentPadding,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _StationTileHeader(
+                          item: item, count: count, onLink: _onLink),
+                      _Actions(
+                        item: item,
+                        onPrimary: () => _runPrimary(ClickTarget.button),
+                        onDismiss: _onDismiss,
+                      ),
+                    ],
+                  ),
+                )
+              : Padding(
             padding: const EdgeInsets.fromLTRB(14, paddingTop, 16, 16),
             // The icon beside the tag over the title, exactly as tall as
             // that block (the pager sits at the tag line's end, in the
@@ -548,6 +567,146 @@ class _Slide extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// The station tile's measures (StationsList), which the home card takes
+/// so it reads as one of the list's tiles.
+abstract final class StationTileMetrics {
+  /// The logo's side and corner.
+  static const double logo = 70;
+  static const double logoRadius = AppRadius.thumbnail;
+
+  /// Between the logo and the text.
+  static const double logoGap = 14;
+
+  /// Inside the card: the row's padding plus its border.
+  static const EdgeInsets contentPadding =
+      EdgeInsets.symmetric(horizontal: 11.5, vertical: 13.5);
+
+  static const double titleSize = 16;
+  static const double subtitleSize = 13;
+
+  /// The text column's least width that still fits "i din n" beside the
+  /// title.
+  static const double _counterMinTitleWidth = 150;
+
+  /// Whether the pager shows "i din n" on a card [cardWidth] wide.
+  static bool showsCounter(BuildContext context, double cardWidth) =>
+      _PagerButtons.showsCounter(context) &&
+      cardWidth - contentPadding.horizontal - logo - logoGap -
+              _PagerButtons.widthIn(context, '0 din 0') >=
+          _counterMinTitleWidth;
+
+  /// Where the pager goes: centered on the title's first line.
+  static double pagerTop(BuildContext context) {
+    final line = _paint(context, ' ', const TextStyle(fontSize: titleSize));
+    final height = line.height;
+    line.dispose();
+    return contentPadding.top + (height - _PagerButtons.target) / 2;
+  }
+}
+
+/// The home card's top, as a station tile: the icon tile at the logo's
+/// size and place, the title in the station-title style, the category as
+/// a line in the announcement's hue, and the description as the grey
+/// subtitle.
+class _StationTileHeader extends StatelessWidget {
+  const _StationTileHeader({
+    required this.item,
+    required this.count,
+    required this.onLink,
+  });
+
+  final Announcement item;
+  final int count;
+  final void Function(String href) onLink;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.announcementColors;
+    final subtitle = theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7);
+    return LayoutBuilder(builder: (context, constraints) {
+      final cardWidth =
+          constraints.maxWidth + StationTileMetrics.contentPadding.horizontal;
+      final pager = count > 1
+          ? _PagerButtons.widthIn(
+              context,
+              StationTileMetrics.showsCounter(context, cardWidth)
+                  ? AnnouncementCopy.count(count, count)
+                  : null)
+          : 0.0;
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AnnouncementIconTile(
+            item: item,
+            size: StationTileMetrics.logo,
+            radius: StationTileMetrics.logoRadius,
+          ),
+          const SizedBox(width: StationTileMetrics.logoGap),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  // Clear of the pager in the card's corner.
+                  padding: EdgeInsets.only(
+                    right: pager > 0
+                        ? pager -
+                            StationTileMetrics.contentPadding.right +
+                            _PagerButtons.rightInset
+                        : 0,
+                  ),
+                  child: Text(
+                    item.title,
+                    key: const ValueKey('announcement-title'),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurface,
+                      fontWeight: FontWeight.normal,
+                      fontSize: StationTileMetrics.titleSize,
+                    ),
+                  ),
+                ),
+                if (item.category.name.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    item.category.name,
+                    key: const ValueKey('announcement-category-line'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: StationTileMetrics.subtitleSize,
+                      fontWeight: FontWeight.w600,
+                      color: theme.announcementCategoryLine(item),
+                    ),
+                  ),
+                ],
+                if (item.bodyMarkdown.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  InlineMarkdownText(
+                    item.bodyMarkdown,
+                    maxLines: 3,
+                    style: TextStyle(
+                      fontSize: StationTileMetrics.subtitleSize,
+                      height: 1.35,
+                      color: subtitle,
+                    ),
+                    strongColor: colors.strong,
+                    emphasisColor: colors.text,
+                    linkColor: colors.strong,
+                    onTapLink: onLink,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      );
+    });
   }
 }
 
@@ -825,17 +984,21 @@ class AnnouncementTag extends StatelessWidget {
 
 /// The 44 px tile: the uploaded image, or a glyph on a neutral surface.
 class AnnouncementIconTile extends StatelessWidget {
-  const AnnouncementIconTile({super.key, required this.item, this.size});
+  const AnnouncementIconTile(
+      {super.key, required this.item, this.size, this.radius});
 
   final Announcement item;
 
   /// The tile's side; the admin's choice (`icon.size`) when not given.
   final double? size;
 
+  /// Its corner; in proportion to its side when not given.
+  final double? radius;
+
   @override
   Widget build(BuildContext context) {
     final size = this.size ?? item.iconSize.extent;
-    final radius = BorderRadius.circular(size * 13 / 44);
+    final radius = BorderRadius.circular(this.radius ?? size * 13 / 44);
     final url = item.iconUrl;
     final glyph = _GlyphTile(item: item, size: size, radius: radius);
     if (url == null) return glyph;

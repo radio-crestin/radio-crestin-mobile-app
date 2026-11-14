@@ -70,6 +70,29 @@ extension AnnouncementThemeColors on ThemeData {
     return hue == null ? announcementColors.control : _tint(hue);
   }
 
+  /// The category as a line of text under the title (the home card, like
+  /// a station's subtitle): the hue, lighter in dark and darker in light,
+  /// mixed further until it reads at AA (4.5:1) on the card; secondary text
+  /// without a hue.
+  Color announcementCategoryLine(Announcement item) {
+    final hue = announcementHue(item);
+    if (hue == null) return announcementColors.muted;
+    return _readable(hue, announcementCardSurface, startMix: _isDark ? 0.35 : 0.3);
+  }
+
+  /// [hue] mixed toward white (dark) or black (light) from [startMix] on,
+  /// until it reads at AA on [background].
+  Color _readable(Color hue, Color background, {required double startMix}) {
+    final toward = _isDark ? Colors.white : Colors.black;
+    var mix = startMix;
+    var color = Color.lerp(hue, toward, mix)!;
+    while (contrastRatio(color, background) < minTextContrast && mix < 1) {
+      mix = (mix + 0.05).clamp(0, 1);
+      color = Color.lerp(hue, toward, mix)!;
+    }
+    return color;
+  }
+
   /// A tag's text: the hue mixed half with white in dark and 55% with
   /// black in light, then further until it reads at AA (4.5:1) on its fill
   /// over [surface] (the card's, unless given); secondary text without a
@@ -79,14 +102,7 @@ extension AnnouncementThemeColors on ThemeData {
     if (hue == null) return announcementColors.muted;
     final background = Color.alphaBlend(
         _tint(hue), surface ?? announcementCardSurface);
-    final toward = _isDark ? Colors.white : Colors.black;
-    var mix = _isDark ? 0.5 : 0.55;
-    var label = Color.lerp(hue, toward, mix)!;
-    while (contrastRatio(label, background) < minTextContrast && mix < 1) {
-      mix = (mix + 0.05).clamp(0, 1);
-      label = Color.lerp(hue, toward, mix)!;
-    }
-    return label;
+    return _readable(hue, background, startMix: _isDark ? 0.5 : 0.55);
   }
 }
 

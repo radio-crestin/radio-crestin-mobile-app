@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -411,28 +412,39 @@ void main() {
     });
 
     announcementTest(
-        'the icon tile spans exactly the tag and the title, for a one-line '
-        'and a two-line title', (app) async {
-      server.announcements
-        ..add(AnnouncementFixtures.sized('small'))
-        ..add(AnnouncementFixtures.sized('small',
-            title: AnnouncementFixtures.twoLineTitle));
-      await app.pullToRefresh();
-      await app.waitFor(() => app.showsText('1 din 2'), reason: 'the card');
+        'on the station sheet and the push banner the icon tile spans exactly '
+        'the tag and the title, for a one-line and a two-line title',
+        (app) async {
+      final service = GetIt.instance<AnnouncementsService>();
+      final items = [
+        Announcement.fromJson(AnnouncementFixtures.sized('small'))!,
+        Announcement.fromJson(AnnouncementFixtures.sized('small',
+            title: AnnouncementFixtures.twoLineTitle))!,
+      ];
+      await app.tester.pumpWidget(MaterialApp(
+        theme: darkTheme,
+        home: Scaffold(
+          body: SafeArea(
+            child: Column(children: [
+              for (final (index, item) in items.indexed)
+                Container(
+                  key: ValueKey('header-$index'),
+                  padding: const EdgeInsets.all(StationsList.cardSideInset),
+                  child: AnnouncementStaticCard(item: item, service: service),
+                ),
+            ]),
+          ),
+        ),
+      ));
+      await app.pumpFor(const Duration(seconds: 1));
       final tester = app.tester;
-      Rect visible(Finder finder) =>
-          tester.getRect(finder.hitTestable().first);
-      for (final (counter, lines) in [('1 din 2', 1), ('2 din 2', 2)]) {
-        if (counter != '1 din 2') {
-          await app.tapKey('announcement-next');
-          await app.waitFor(() => app.showsText(counter), reason: counter);
-          await app.pumpFor(const Duration(milliseconds: 600));
-        }
-        final tile =
-            visible(find.byKey(const ValueKey('announcement-icon-tile')));
+      for (final (index, lines) in [(0, 1), (1, 2)]) {
+        Rect inFrame(Finder finder) => tester.getRect(find.descendant(
+            of: find.byKey(ValueKey('header-$index')), matching: finder));
+        final tile = inFrame(find.byKey(const ValueKey('announcement-icon-tile')));
         // The label, not its pill: what the eye lines up.
-        final tag = visible(find.text('Comunitate'));
-        final title = visible(find.byKey(const ValueKey('announcement-title')));
+        final tag = inFrame(find.text('Comunitate'));
+        final title = inFrame(find.byKey(const ValueKey('announcement-title')));
         final where = 'a $lines-line title';
         expect(title.height, closeTo(lines * 16 * 1.3, 2),
             reason: '$where takes $lines line(s)');
@@ -446,60 +458,70 @@ void main() {
     });
 
     announcementTest(
-        'the pager sits in the top-right corner on the tag\'s row, and the '
-        'icon tile takes the size the admin chose', (app) async {
+        'the home card reads as a station tile: the logo\'s size and place, '
+        'the station title, a hue line, the pager where the listeners are',
+        (app) async {
       server.announcements
         ..add(AnnouncementFixtures.whatsappLive())
-        ..add(AnnouncementFixtures.sized('small'))
-        ..add(AnnouncementFixtures.sized('large'))
-        ..add(AnnouncementFixtures.sized(null));
+        ..add(AnnouncementFixtures.sized('large'));
       await app.pullToRefresh();
-      await app.waitFor(() => app.showsText('1 din 4'), reason: 'the card');
+      await app.waitFor(() => app.showsText('1 din 2'), reason: 'the card');
+      await app.pumpFor(const Duration(seconds: 1));
       final tester = app.tester;
-      final card = tester.getRect(RadioApp.announcementCard);
-      final next = tester.getRect(
-          find.byKey(const ValueKey('announcement-next')).hitTestable());
-      final tag = tester.getRect(find.text('Comunitate').hitTestable().first);
-      final counter = tester.getRect(find.text('1 din 4').hitTestable());
+      Rect visible(Finder finder) =>
+          tester.getRect(finder.hitTestable().first);
+
+      // A station tile under it.
+      final row = find.byKey(const ValueKey('station-e2e-alpha'));
+      final logo =
+          tester.getRect(find.descendant(of: row, matching: find.byType(ClipRRect)).first);
+      final stationTitle = find.descendant(of: row, matching: find.text('E2E Alpha'));
+      final stationStyle = tester.widget<Text>(stationTitle).style;
+
+      // The cards as drawn, without the space around them.
+      final card = tester.getRect(find
+          .descendant(
+              of: RadioApp.announcementCard, matching: find.byType(DecoratedBox))
+          .first);
+      final stationCard = tester.getRect(find
+          .descendant(of: row, matching: find.byType(DecoratedBox))
+          .first);
+      final tile = visible(find.byKey(const ValueKey('announcement-icon-tile')));
+      final titleFinder = find.byKey(const ValueKey('announcement-title'));
+      final title = visible(titleFinder);
+      final line = visible(find.byKey(const ValueKey('announcement-category-line')));
+      final next = visible(find.byKey(const ValueKey('announcement-next')));
+      expect(tile.size, logo.size, reason: 'the icon tile as big as a logo');
+      expect(tile.left, closeTo(logo.left, 1),
+          reason: 'where a logo sits in its card');
+      expect(tile.top - card.top, closeTo(logo.top - stationCard.top, 1),
+          reason: 'a logo\'s inset from its card\'s top');
+      expect(title.left, closeTo(tester.getRect(stationTitle).left, 1),
+          reason: 'the title where a station\'s is');
+      final style = tester.widget<Text>(titleFinder.hitTestable().first).style;
+      expect(style?.fontSize, stationStyle?.fontSize,
+          reason: 'the station-title size');
+      expect(style?.fontWeight, stationStyle?.fontWeight,
+          reason: 'the station-title weight');
+      expect(line.top, greaterThanOrEqualTo(title.bottom),
+          reason: 'the category line under the title');
       expect(card.right - next.right, lessThan(16),
           reason: 'the pager in the right corner');
-      final tile = tester.getRect(find
-          .byKey(const ValueKey('announcement-icon-tile'))
-          .hitTestable()
-          .first);
-      expect((next.center.dy - tag.center.dy).abs(), lessThan(2),
-          reason: 'the pager on the tag\'s row');
-      expect(tag.top, closeTo(tile.top, 1),
-          reason: 'the tag on the icon\'s top edge');
-      expect(counter.right, lessThanOrEqualTo(next.left + 6),
-          reason: 'the counter between the arrows');
+      expect((next.center.dy - title.top - 9.5).abs(), lessThan(3),
+          reason: 'the pager on the title\'s first line');
 
-      double tileSide() => tester
-          .getSize(find
-              .byKey(const ValueKey('announcement-icon-tile'))
-              .hitTestable()
-              .first)
-          .width;
-      // The admin's size is the least the tile takes beside the block.
-      for (final (counter, least, size) in [
-        ('1 din 4', 52.0, 'medium'),
-        ('2 din 4', 40.0, 'small'),
-        ('3 din 4', 72.0, 'large'),
-        ('4 din 4', 52.0, 'missing: medium'),
-      ]) {
-        if (counter != '1 din 4') {
-          await app.tapKey('announcement-next');
-          await app.waitFor(() => app.showsText(counter), reason: counter);
-          await app.pumpFor(const Duration(milliseconds: 600));
-        }
-        expect(tileSide(), inInclusiveRange(least, 72),
-            reason: 'the $size icon tile');
-      }
+      // The admin's size does not change the home card's tile.
+      await app.tapKey('announcement-next');
+      await app.waitFor(() => app.showsText('2 din 2'), reason: 'the second');
+      await app.pumpFor(const Duration(milliseconds: 600));
+      expect(visible(find.byKey(const ValueKey('announcement-icon-tile'))).size,
+          logo.size,
+          reason: 'a large icon still takes the logo size on the home card');
     });
 
     announcementTest(
-        'the button is the one accent: its color is the admin\'s or the '
-        'app\'s, and the tag stays quiet', (app) async {
+        'the button takes the admin\'s color or the app\'s, and the category '
+        'line the announcement\'s hue, or stays grey', (app) async {
       server.announcements
         ..add(AnnouncementFixtures.verse())
         ..add(AnnouncementFixtures.uncolored());
@@ -520,12 +542,19 @@ void main() {
         };
       }
 
+      Color textColorOf(String text) => app.tester
+          .widget<Text>(find.text(text).hitTestable().first)
+          .style!
+          .color!;
+      final theme =
+          Theme.of(app.tester.element(find.text('Community').first));
+
       expect(fillOf('Join the group', Material), const Color(0xFF0F6E63),
           reason: "the admin's button color stays");
-      final tag = fillOf('Community', Container);
-      expect(tag.withValues(alpha: 1), const Color(0xFF0F6E63),
-          reason: "the tag is tinted with the admin's category color");
-      expect(tag.a, lessThan(0.3), reason: 'only a faint tint of it');
+      expect(textColorOf('Community'),
+          theme.announcementCategoryLine(
+              Announcement.fromJson(AnnouncementFixtures.verse())!),
+          reason: "the category line in the announcement's hue");
 
       await app.tapKey('announcement-next');
       await app.waitFor(
@@ -534,13 +563,9 @@ void main() {
       expect(fillOf(AnnouncementFixtures.uncoloredButton, Material),
           AppColors.announcementButton,
           reason: "the button takes the app's pink");
-      final neutral = Theme.of(app.tester
-              .element(find.text(AnnouncementFixtures.uncoloredTitle).first))
-          .announcementColors
-          .control;
-      expect(fillOf(AnnouncementFixtures.uncoloredCategory, Container),
-          neutral,
-          reason: 'a tag without a color is neutral');
+      expect(textColorOf(AnnouncementFixtures.uncoloredCategory),
+          theme.announcementColors.muted,
+          reason: 'without a color the category line stays grey');
     });
 
     announcementTest(
@@ -585,8 +610,14 @@ void main() {
       final buttonTop = app.tester
           .getTopLeft(find.text(AnnouncementFixtures.titleOnlyButton).last)
           .dy;
-      expect(buttonTop - titleBottom, lessThan(36),
-          reason: 'the button sits right under the title');
+      final tileBottom = app.tester
+          .getRect(find
+              .byKey(const ValueKey('announcement-icon-tile'))
+              .hitTestable()
+              .first)
+          .bottom;
+      expect(buttonTop - max(titleBottom, tileBottom), lessThan(24),
+          reason: 'the button sits right under the logo and title');
 
       // The push banner shows the same slide.
       AnnouncementBanner.show(
@@ -705,6 +736,15 @@ void main() {
                   reason: 'the tag reads at AA, $where');
             }
           }
+        }
+        for (final hex in ['#0D8040', '#075E54', '#0F6E63', '#F5C518']) {
+          final item = Announcement.fromJson(AnnouncementFixtures.hued(hex))!;
+          expect(
+              contrastRatio(theme.announcementCategoryLine(item),
+                  theme.announcementCardSurface),
+              greaterThanOrEqualTo(minTextContrast),
+              reason: 'the home card\'s category line reads at AA, $hex, '
+                  '$name theme');
         }
         final plain =
             Announcement.fromJson(AnnouncementFixtures.hued(null))!;
