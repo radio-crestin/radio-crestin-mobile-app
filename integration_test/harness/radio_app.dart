@@ -471,6 +471,19 @@ class RadioApp {
   bool showsText(String text) =>
       find.text(text, findRichText: true).hitTestable().evaluate().isNotEmpty;
 
+  /// The home card's place in its list, "i din n", as a screen reader reads
+  /// it: the card shows only the arrows. Null with one announcement or none.
+  String? get announcementPosition {
+    final found = find
+        .byKey(const ValueKey('announcement-position'))
+        .hitTestable()
+        .evaluate();
+    if (found.isEmpty) return null;
+    return (found.first.widget as Semantics).properties.label;
+  }
+
+  bool showsPosition(String position) => announcementPosition == position;
+
   // ── What the listener hears and sees ───────────────────────────────────
 
   /// The station the player has, as the fake server knows it.

@@ -387,7 +387,7 @@ void main() {
           reason: 'the second announcement');
       server.announcements.insert(0, AnnouncementFixtures.newest());
       await app.pullToRefresh();
-      await app.waitFor(() => app.showsText('3 din 3'),
+      await app.waitFor(() => app.showsPosition('3 din 3'),
           reason: 'the new announcement counted; ${app.describe()}');
       expect(app.showsText(AnnouncementFixtures.concertTitle), isTrue,
           reason: 'the card still shows the announcement it showed');
@@ -409,7 +409,7 @@ void main() {
           reason: 'the first announcement meant for a phone');
       expect(app.showsText(AnnouncementFixtures.webOnlyTitle), isFalse,
           reason: 'a website-only announcement never shows in the app');
-      expect(app.showsText('1 din 2'), isFalse,
+      expect(app.showsPosition('1 din 2'), isFalse,
           reason: 'one announcement at most, so no count and no dots');
     });
 
@@ -515,13 +515,14 @@ void main() {
 
     announcementTest(
         'the home card reads as a station tile: the logo\'s size and place, '
-        'the station title, a hue line, the pager where the listeners are',
+        'the station title, a hue line, the pager where the listeners are, '
+        'its arrows only',
         (app) async {
       server.announcements
         ..add(AnnouncementFixtures.whatsappLive())
         ..add(AnnouncementFixtures.sized('large'));
       await app.pullToRefresh();
-      await app.waitFor(() => app.showsText('1 din 2'), reason: 'the card');
+      await app.waitFor(() => app.showsPosition('1 din 2'), reason: 'the card');
       await app.pumpFor(const Duration(seconds: 1));
       final tester = app.tester;
       Rect visible(Finder finder) =>
@@ -576,10 +577,27 @@ void main() {
           closeTo(stationCard.bottom - heart.bottom, 1),
           reason: 'the pager as far from the top as the heart from the bottom');
       expect(next.right, lessThanOrEqualTo(card.right));
+      // Only the arrows in the corner, no "i din n": the title gets the room.
+      expect(
+          find.descendant(
+              of: RadioApp.announcementCard,
+              matching: find.textContaining(RegExp(r'^\d+ din \d+$'))),
+          findsNothing,
+          reason: 'no "i din n" on the card');
+      final previous =
+          visible(find.byKey(const ValueKey('announcement-previous')));
+      expect(next.left, closeTo(previous.right, 1),
+          reason: 'the arrows side by side, nothing between them');
+      final titleRoom = (tester.renderObject(titleFinder.hitTestable().first)
+              as RenderBox)
+          .constraints
+          .maxWidth;
+      expect(title.left + titleRoom, closeTo(previous.left, 1),
+          reason: 'the title runs up to the arrows');
 
       // The admin's size does not change the home card's tile.
       await app.tapKey('announcement-next');
-      await app.waitFor(() => app.showsText('2 din 2'), reason: 'the second');
+      await app.waitFor(() => app.showsPosition('2 din 2'), reason: 'the second');
       await app.pumpFor(const Duration(milliseconds: 600));
       expect(visible(find.byKey(const ValueKey('announcement-icon-tile'))).size,
           logo.size,
@@ -994,7 +1012,7 @@ void main() {
           ...settings,
         };
       await app.coldStartAnnouncements();
-      await app.waitFor(() => app.showsText('1 din ${items.length}'),
+      await app.waitFor(() => app.showsPosition('1 din ${items.length}'),
           reason: 'the card; ${app.describe()}');
       // A list that comes after the first frame grows the card in: let it
       // settle before tapping its buttons.
@@ -1006,13 +1024,13 @@ void main() {
         {Duration duration = const Duration(seconds: 7),
         required String reason}) async {
       await app.pumpFor(duration);
-      expect(app.showsText(counter), isTrue,
+      expect(app.showsPosition(counter), isTrue,
           reason: '$reason; ${app.describe()}');
     }
 
     Future<void> waitForCounter(RadioApp app, String counter,
             {required String reason}) =>
-        app.waitFor(() => app.showsText(counter),
+        app.waitFor(() => app.showsPosition(counter),
             reason: reason, timeout: const Duration(seconds: 8));
 
     announcementTest("the card keeps the server's order", (app) async {
@@ -1025,10 +1043,10 @@ void main() {
       expect(app.showsText(AnnouncementFixtures.concertTitle), isTrue,
           reason: 'the first in the list first; card: ${app.describeCard()}');
       await app.tapKey('announcement-next');
-      await app.waitFor(() => app.showsText('2 din 3'), reason: 'the second');
+      await app.waitFor(() => app.showsPosition('2 din 3'), reason: 'the second');
       expect(app.showsText(AnnouncementFixtures.newestTitle), isTrue);
       await app.tapKey('announcement-next');
-      await app.waitFor(() => app.showsText('3 din 3'), reason: 'the third');
+      await app.waitFor(() => app.showsPosition('3 din 3'), reason: 'the third');
       expect(app.showsText(AnnouncementFixtures.verseTitle), isTrue);
     });
 
@@ -1050,7 +1068,7 @@ void main() {
           reason: 'the next launch starts at the second');
       // The turn: concert, newest, verse; the ends stop.
       await app.tapKey('announcement-previous');
-      expect(app.showsText('1 din 3'), isTrue,
+      expect(app.showsPosition('1 din 3'), isTrue,
           reason: 'nothing before the start of the turn');
       for (final (counter, title) in [
         ('2 din 3', AnnouncementFixtures.newestTitle),
@@ -1058,11 +1076,11 @@ void main() {
       ]) {
         await app.tapKey('announcement-next');
         await app.waitFor(
-            () => app.showsText(counter) && app.showsText(title),
+            () => app.showsPosition(counter) && app.showsText(title),
             reason: '$counter, "$title"');
       }
       await app.tapKey('announcement-next');
-      expect(app.showsText('3 din 3'), isTrue,
+      expect(app.showsPosition('3 din 3'), isTrue,
           reason: 'nothing after the end of the turn');
     });
 
@@ -1106,7 +1124,7 @@ void main() {
       await app.pumpFor(const Duration(seconds: 7));
       await app.scrollStations(up: true);
       // Read once back: off the screen the counter can't be found.
-      expect(app.showsText('2 din 4'), isTrue,
+      expect(app.showsPosition('2 din 4'), isTrue,
           reason: 'no move while the card was scrolled away');
       await waitForCounter(app, '3 din 4', reason: 'on once back');
 
@@ -1147,7 +1165,7 @@ void main() {
       // Last: the closed announcement stays closed.
       await launchWith(app, items, settings: autoplay);
       await app.tapDismiss();
-      await app.waitFor(() => app.showsText('1 din 2'), reason: 'closed');
+      await app.waitFor(() => app.showsPosition('1 din 2'), reason: 'closed');
       await expectStays(app, '1 din 2', reason: 'stopped by "Ascunde"');
     });
 
@@ -1155,12 +1173,12 @@ void main() {
         'the card swipes and steps with its buttons, and a tap opens its page',
         (app) async {
       await showAnnouncements(app);
-      expect(app.showsText('1 din 2'), isTrue, reason: app.describe());
+      expect(app.showsPosition('1 din 2'), isTrue, reason: app.describe());
 
       await app.swipeAnnouncement();
       await app.waitFor(() => app.showsText(AnnouncementFixtures.concertTitle),
           reason: 'the second announcement after a swipe');
-      expect(app.showsText('2 din 2'), isTrue);
+      expect(app.showsPosition('2 din 2'), isTrue);
 
       // The buttons stop at the ends: the way out is disabled there, and a
       // tap on it changes nothing.
@@ -1173,7 +1191,7 @@ void main() {
       Future<void> step(String button, String counter, String title) async {
         await app.tapKey(button);
         await app.waitFor(
-            () => app.showsText(counter) && app.showsText(title),
+            () => app.showsPosition(counter) && app.showsText(title),
             reason: '$button to show $counter, "$title"');
       }
 

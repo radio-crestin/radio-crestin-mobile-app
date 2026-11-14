@@ -217,9 +217,7 @@ class _AnnouncementCardState extends State<AnnouncementCard>
           duration: _resizeDuration,
           curve: _easing,
           alignment: Alignment.topCenter,
-          child: LayoutBuilder(builder: (context, constraints) {
-            final cardWidth = constraints.maxWidth;
-            return Stack(
+          child: Stack(
             children: [
               // The shown slide (with autoplay, every slide: the tallest
               // wins), invisible, sizes the card in the same frame; the
@@ -256,17 +254,13 @@ class _AnnouncementCardState extends State<AnnouncementCard>
                   right: StationTileMetrics.pagerRight,
                   height: _PagerButtons.target,
                   child: _PagerButtons(
-                    counter: StationTileMetrics.showsCounter(
-                            context, cardWidth)
-                        ? AnnouncementCopy.count(_shown + 1, count)
-                        : null,
+                    position: AnnouncementCopy.count(_shown + 1, count),
                     onPrevious: _shown > 0 ? () => _step(-1) : null,
                     onNext: _shown < count - 1 ? () => _step(1) : null,
                   ),
                 ),
             ],
-            );
-          }),
+          ),
         ),
       ),
     );
@@ -587,17 +581,6 @@ abstract final class StationTileMetrics {
   static const double titleSize = 16;
   static const double subtitleSize = 13;
 
-  /// The text column's least width that still fits "i din n" beside the
-  /// title.
-  static const double _counterMinTitleWidth = 150;
-
-  /// Whether the pager shows "i din n" on a card [cardWidth] wide.
-  static bool showsCounter(BuildContext context, double cardWidth) =>
-      _PagerButtons.showsCounter(context) &&
-      cardWidth - contentPadding.horizontal - logo - logoGap -
-              _PagerButtons.widthIn(context, '0 din 0') >=
-          _counterMinTitleWidth;
-
   /// A station tile's one corner control, the heart, sits this far from
   /// the card's bottom-right corner (its icon box): across, the row's
   /// border and padding, less its -7 offset, plus its 8 px padding; down,
@@ -633,15 +616,7 @@ class _StationTileHeader extends StatelessWidget {
     final colors = theme.announcementColors;
     final subtitle = theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7);
     return LayoutBuilder(builder: (context, constraints) {
-      final cardWidth =
-          constraints.maxWidth + StationTileMetrics.contentPadding.horizontal;
-      final pager = count > 1
-          ? _PagerButtons.widthIn(
-              context,
-              StationTileMetrics.showsCounter(context, cardWidth)
-                  ? AnnouncementCopy.count(count, count)
-                  : null)
-          : 0.0;
+      final pager = count > 1 ? _PagerButtons.width : 0.0;
       return Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -807,13 +782,7 @@ class _TagRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pager = count > 1
-        ? _PagerButtons.widthIn(
-            context,
-            _PagerButtons.showsCounter(context)
-                ? AnnouncementCopy.count(count, count)
-                : null)
-        : 0.0;
+    final pager = count > 1 ? _PagerButtons.width : 0.0;
     return Padding(
       // The slide's own right padding already keeps some of it clear.
       padding: EdgeInsets.only(
@@ -1254,13 +1223,14 @@ class _DismissButtonState extends State<_DismissButton> {
 /// first and the last announcement the way out is faded and disabled.
 class _PagerButtons extends StatelessWidget {
   const _PagerButtons({
-    required this.counter,
+    required this.position,
     required this.onPrevious,
     required this.onNext,
   });
 
-  /// "2 din 4" between the arrows; null on a narrow phone.
-  final String? counter;
+  /// "2 din 4": read out by a screen reader, never shown, so the title
+  /// gets the room.
+  final String position;
 
   /// Null on the first announcement.
   final VoidCallback? onPrevious;
@@ -1278,47 +1248,32 @@ class _PagerButtons extends StatelessWidget {
   /// From the card's right edge, so the circles sit 10 px in from it.
   static const double rightInset = 4;
 
-  static const _counterStyle = TextStyle(
-    fontSize: 12.5,
-    fontFeatures: [FontFeature.tabularFigures()],
-  );
-
-  /// Phones narrower than this show the arrows only.
-  static const double _counterMinScreenWidth = 375;
-
-  static bool showsCounter(BuildContext context) =>
-      MediaQuery.sizeOf(context).width >= _counterMinScreenWidth;
-
-  /// How wide the pager is with [counter].
-  static double widthIn(BuildContext context, String? counter) =>
-      2 * target +
-      (counter == null ? 0 : _textWidth(context, counter, _counterStyle));
+  /// The two arrows side by side.
+  static const double width = 2 * target;
 
   @override
   Widget build(BuildContext context) {
-    final counter = this.counter;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _PagerButton(
-          semanticsKey: const ValueKey('announcement-previous'),
-          icon: Icons.chevron_left_rounded,
-          label: AnnouncementCopy.previous,
-          onTap: onPrevious,
-        ),
-        if (counter != null)
-          Text(
-            counter,
-            style: _counterStyle.copyWith(
-                color: Theme.of(context).announcementColors.muted),
+    return Semantics(
+      key: const ValueKey('announcement-position'),
+      container: true,
+      label: position,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _PagerButton(
+            semanticsKey: const ValueKey('announcement-previous'),
+            icon: Icons.chevron_left_rounded,
+            label: AnnouncementCopy.previous,
+            onTap: onPrevious,
           ),
-        _PagerButton(
-          semanticsKey: const ValueKey('announcement-next'),
-          icon: Icons.chevron_right_rounded,
-          label: AnnouncementCopy.next,
-          onTap: onNext,
-        ),
-      ],
+          _PagerButton(
+            semanticsKey: const ValueKey('announcement-next'),
+            icon: Icons.chevron_right_rounded,
+            label: AnnouncementCopy.next,
+            onTap: onNext,
+          ),
+        ],
+      ),
     );
   }
 }
