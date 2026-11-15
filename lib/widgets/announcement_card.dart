@@ -551,7 +551,7 @@ class _Slide extends StatelessWidget {
                   const SizedBox(height: 10),
                   InlineMarkdownText(
                     item.bodyMarkdown,
-                    maxLines: 3,
+                    maxLines: StationTileMetrics.descriptionLines,
                     style: TextStyle(
                       fontSize: 13.5,
                       height: 1.48,
@@ -597,6 +597,11 @@ abstract final class StationTileMetrics {
 
   /// The title wraps to this many lines, then ends in "…".
   static const int titleLines = 3;
+
+  /// The description wraps to this many lines, then ends in "…": a
+  /// phone's narrow column needs five for two short paragraphs, the
+  /// second one's link included.
+  static const int descriptionLines = 5;
 
   /// A station tile's one corner control, the heart, sits this far from
   /// the card's bottom-right corner (its icon box): across, the row's
@@ -686,7 +691,7 @@ class _StationTileHeader extends StatelessWidget {
                   const SizedBox(height: 2),
                   InlineMarkdownText(
                     item.bodyMarkdown,
-                    maxLines: 3,
+                    maxLines: StationTileMetrics.descriptionLines,
                     style: TextStyle(
                       fontSize: StationTileMetrics.subtitleSize,
                       height: 1.35,

@@ -1119,6 +1119,59 @@ void main() {
           reason: 'the old snoozes to be removed');
     });
 
+    /// Expects the Share-A-Thon [description] whole, within the card's
+    /// lines, its second paragraph starting a line of its own.
+    Future<void> expectWholeDescription(RadioApp app, Finder description,
+        {required String where}) async {
+      final paragraph = app.tester.renderObject<RenderParagraph>(
+          find.descendant(of: description, matching: find.byType(RichText)));
+      const first = AnnouncementFixtures.shareAThonFirstLine;
+      const second = AnnouncementFixtures.shareAThonSecondLine;
+      expect(paragraph.text.toPlainText(), '$first\n$second',
+          reason: 'the two paragraphs, a line break between them, $where');
+      expect(paragraph.didExceedMaxLines, isFalse,
+          reason: 'the whole description shows, "Donează" included, $where');
+      final boxes = paragraph.getBoxesForSelection(TextSelection(
+          baseOffset: 0, extentOffset: first.length + 1 + second.length));
+      final lines = boxes.map((box) => box.top.round()).toSet().length;
+      expect(lines, lessThanOrEqualTo(StationTileMetrics.descriptionLines),
+          reason: 'at most ${StationTileMetrics.descriptionLines} lines, '
+              '$where');
+      final firstEnd = paragraph
+          .getBoxesForSelection(TextSelection(
+              baseOffset: first.length - 1, extentOffset: first.length))
+          .single;
+      final secondStart = paragraph
+          .getBoxesForSelection(TextSelection(
+              baseOffset: first.length + 1, extentOffset: first.length + 2))
+          .single;
+      expect(secondStart.top, greaterThan(firstEnd.top),
+          reason: 'the second paragraph below the first, $where');
+      expect(secondStart.left, closeTo(0, 0.5),
+          reason: 'the second paragraph at the start of a line, $where');
+      debugPrint('Share-A-Thon description, $where: $lines lines');
+    }
+
+    /// Taps "Donează" in [description] and expects the donation page to
+    /// open in the browser.
+    Future<void> expectLinkOpens(RadioApp app, Finder description) async {
+      final launcher = RecordingLauncher();
+      final systemLauncher = UrlLauncherPlatform.instance;
+      UrlLauncherPlatform.instance = launcher;
+      try {
+        await tapText(app, description, AnnouncementFixtures.shareAThonLink);
+        await app.waitFor(() => launcher.launches.isNotEmpty,
+            reason: 'the link to open');
+        expect(launcher.launches.single.url,
+            AnnouncementFixtures.shareAThonDonateUrl,
+            reason: 'the link, not the card\'s button');
+        expect(launcher.launches.single.mode,
+            PreferredLaunchMode.externalApplication);
+      } finally {
+        UrlLauncherPlatform.instance = systemLauncher;
+      }
+    }
+
     /// Serves [items] in this order with [settings] and starts the app
     /// again, so the card starts afresh.
     Future<void> launchWith(
@@ -1450,6 +1503,49 @@ void main() {
       await app.pumpFor(const Duration(seconds: 1));
       expect(app.findsKey('station-announcements-bell'), isTrue,
           reason: 'the bell stays');
+    });
+
+    announcementTest(
+        'the Share-A-Thon description fits whole at 375 and 402 px, its '
+        'second paragraph on a line of its own', (app) async {
+      final items = [
+        Announcement.fromJson(
+            AnnouncementFixtures.shareAThon(Stations.alpha.slug))!,
+        Announcement.fromJson(AnnouncementFixtures.verse())!,
+      ];
+      final service = GetIt.instance<AnnouncementsService>();
+      for (final width in [375.0, 402.0]) {
+        await app.tester.pumpWidget(MaterialApp(
+          theme: darkTheme,
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => MediaQuery(
+                data: MediaQuery.of(context).copyWith(
+                    size: Size(width, MediaQuery.of(context).size.height)),
+                child: Align(
+                  alignment: Alignment.topLeft,
+                  child: SizedBox(
+                    width: width,
+                    // Two announcements, as production has: the arrows show.
+                    child: AnnouncementCard(
+                      items: items,
+                      service: service,
+                      margin: const EdgeInsets.all(StationsList.cardSideInset),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ));
+        await app.pumpFor(const Duration(milliseconds: 600));
+        final description =
+            find.byType(InlineMarkdownText).hitTestable().first;
+        await expectWholeDescription(app, description,
+            where: '${width.toInt()} px');
+        await expectLinkOpens(app, description);
+        expect(app.tester.takeException(), isNull, reason: 'no overflow');
+      }
     });
 
     announcementTest(

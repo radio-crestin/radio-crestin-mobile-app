@@ -94,6 +94,42 @@ On **December 20th at 19:00**, live.
         'station_slugs': [station],
       };
 
+  static const shareAThonSlug = 'share-a-thon-2026-micul-samaritean';
+  static const shareAThonTitle = 'Share-A-Thon 2026 · 13–15 nov.';
+  static const shareAThonFirstLine = 'Din 1994, Radio Micul Samaritean duce '
+      'speranța Evangheliei în case, spitale și închisori.';
+  static const shareAThonSecondLine =
+      'Ajută-ne să ajungem la tot mai mulți: Donează';
+  static const shareAThonLink = 'Donează';
+  static const shareAThonDonateUrl = 'https://www.miculsamaritean.com/';
+
+  /// Production's Share-A-Thon announcement, inside [station] only: two
+  /// paragraphs, a link in the second.
+  static Map<String, Object?> shareAThon(String station) => {
+        'slug': shareAThonSlug,
+        'position': 1,
+        'placement': 'station',
+        'station_slugs': [station],
+        'category': _category('event', 'Eveniment', '#7C3AED'),
+        'icon': {'name': 'heart', 'size': 'medium'},
+        'title': shareAThonTitle,
+        'body_markdown': '$shareAThonFirstLine\n\n'
+            'Ajută-ne să ajungem la tot mai mulți: '
+            '[$shareAThonLink]($shareAThonDonateUrl)',
+        'button': {
+          ..._button('Urmărește transmisia', '#FDAE1C', {
+            'type': 'external',
+            'url': 'https://www.youtube.com/watch?v=wHZsvtSawrg',
+            'web_target': 'new_tab',
+          }),
+          'text_color': '#000000',
+          'icon': 'play',
+        },
+        'dismissible': true,
+        'starts_at': '2026-11-12T00:00:00Z',
+        'filters': _filters(),
+      };
+
   /// A poll: its button opens a form.
   static Map<String, Object?> poll() => {
         ...verse(),
