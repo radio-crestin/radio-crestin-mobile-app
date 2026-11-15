@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
@@ -1451,6 +1452,50 @@ void main() {
           reason: 'the bell stays');
     });
 
+    announcementTest(
+        "a description's blank line starts a new line, as the API's "
+        'body_html; a single line break is a space; links work on any line',
+        (app) async {
+      final tapped = <String>[];
+      final cases = {
+        'One\nTwo': 'One Two',
+        'One\n\nTwo': 'One\nTwo',
+        'One\r\n \r\n\r\nTwo\n': 'One\nTwo',
+        'One\n\nTwo\nthree\n\n**Four** [five](https://example.com/5)':
+            'One\nTwo three\nFour five',
+      };
+      await app.tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: Column(children: [
+            for (final (index, markdown) in cases.keys.indexed)
+              InlineMarkdownText(
+                markdown,
+                key: ValueKey('markdown-$index'),
+                style: const TextStyle(fontSize: 14),
+                strongColor: Colors.black,
+                emphasisColor: Colors.black,
+                linkColor: Colors.blue,
+                onTapLink: tapped.add,
+              ),
+          ]),
+        ),
+      ));
+      await app.tester.pump();
+      for (final (index, MapEntry(key: markdown, value: text))
+          in cases.entries.indexed) {
+        final paragraph = app.tester.renderObject<RenderParagraph>(find
+            .descendant(
+                of: find.byKey(ValueKey('markdown-$index')),
+                matching: find.byType(RichText))
+            .first);
+        expect(paragraph.text.toPlainText(), text,
+            reason: 'the text of ${jsonEncode(markdown)}');
+      }
+      await tapText(app, find.byKey(const ValueKey('markdown-3')), 'five');
+      expect(tapped, ['https://example.com/5'],
+          reason: 'the link after a paragraph break opens');
+    });
+
     announcementTest('a form opens in a sheet, themed like the app',
         (app) async {
       server.announcements.add(AnnouncementFixtures.poll());
@@ -1562,4 +1607,19 @@ Future<void> _forgetAnnouncements(RadioApp app) async {
     if (key.startsWith('announcements_')) await prefs.remove(key);
   }
   await app.coldStartAnnouncements();
+}
+
+/// Taps the first [text] inside the rich text under [within], as a finger
+/// on those words does.
+Future<void> tapText(RadioApp app, Finder within, String text) async {
+  final richText = find.descendant(of: within, matching: find.byType(RichText));
+  final paragraph = app.tester.renderObject<RenderParagraph>(richText.first);
+  final start = paragraph.text.toPlainText().indexOf(text);
+  expect(start, greaterThanOrEqualTo(0), reason: '"$text" in the text');
+  final box = paragraph
+      .getBoxesForSelection(
+          TextSelection(baseOffset: start, extentOffset: start + text.length))
+      .first;
+  await app.tester.tapAt(paragraph.localToGlobal(box.toRect().center));
+  await app.tester.pump();
 }

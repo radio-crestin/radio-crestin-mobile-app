@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:markdown/markdown.dart' as md;
 
 /// Short text with inline markdown only: `**bold**`, `*italic*` and
-/// `[links](url)`, as an announcement card's body allows.
+/// `[links](url)`, as an announcement card's body allows. A blank line
+/// starts a new line, as the API's `body_html` has it (`<br>`); a single
+/// line break is a space.
 class InlineMarkdownText extends StatefulWidget {
   const InlineMarkdownText(
     this.data, {
@@ -49,15 +51,29 @@ class _InlineMarkdownTextState extends State<InlineMarkdownText> {
   @override
   Widget build(BuildContext context) {
     _disposeRecognizers();
-    final nodes = md.Document(encodeHtml: false)
-        .parseInline(widget.data.replaceAll('\n', ' '));
+    final paragraphs = widget.data.trim().split(_paragraphBreak);
     return Text.rich(
-      TextSpan(children: nodes.map((node) => _span(node, null)).toList()),
+      TextSpan(children: [
+        for (final (index, paragraph) in paragraphs.indexed) ...[
+          if (index > 0) const TextSpan(text: '\n'),
+          ..._paragraph(paragraph),
+        ],
+      ]),
       style: widget.style,
       maxLines: widget.maxLines,
       overflow: widget.maxLines == null ? null : TextOverflow.ellipsis,
     );
   }
+
+  /// A blank line, which may hold spaces, between two paragraphs.
+  static final _paragraphBreak = RegExp(r'\r?\n(?:[ \t]*\r?\n)+');
+
+  static final _lineBreak = RegExp(r'\r?\n');
+
+  List<InlineSpan> _paragraph(String text) => md.Document(encodeHtml: false)
+      .parseInline(text.replaceAll(_lineBreak, ' '))
+      .map((node) => _span(node, null))
+      .toList();
 
   InlineSpan _span(md.Node node, TapGestureRecognizer? link) {
     if (node is! md.Element) {
