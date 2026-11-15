@@ -503,14 +503,21 @@ void main() {
         theme: darkTheme,
         home: Scaffold(
           body: SafeArea(
-            child: Column(children: [
-              for (final (index, item) in items.indexed)
-                Container(
-                  key: ValueKey('header-$index'),
-                  padding: const EdgeInsets.all(StationsList.cardSideInset),
-                  child: AnnouncementStaticCard(item: item, service: service),
-                ),
-            ]),
+            // As wide as the iPhone 17 the titles were written for, on any
+            // screen.
+            child: OverflowBox(
+              alignment: Alignment.topLeft,
+              minWidth: 402,
+              maxWidth: 402,
+              child: Column(children: [
+                for (final (index, item) in items.indexed)
+                  Container(
+                    key: ValueKey('header-$index'),
+                    padding: const EdgeInsets.all(StationsList.cardSideInset),
+                    child: AnnouncementStaticCard(item: item, service: service),
+                  ),
+              ]),
+            ),
           ),
         ),
       ));

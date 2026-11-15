@@ -11,7 +11,11 @@ xcrun simctl list devices booted; adb devices      # find a device id
 flutter test integration_test/app_test.dart -d <device id>
 flutter test integration_test/app_test.dart -d <device id> --plain-name "pause"   # one test
 flutter test integration_test/launch_test.dart -d <device id>   # what a launch does with an older version's data
+flutter test integration_test/app_test.dart -d <device id> --plain-name "Announcements" --dart-define=E2E_WIDTH=375   # one group, on a 375 px wide screen
 ```
+
+`E2E_WIDTH` lays the app out that many logical pixels wide, for a phone narrower than the simulator
+(the iPhone 17 is 402 px wide); the screen's right edge is then left empty.
 
 A run takes about 10 minutes on a simulator, most of it spent listening to audio. Keep the simulator to
 yourself during a run: another install on it replaces the app under test.

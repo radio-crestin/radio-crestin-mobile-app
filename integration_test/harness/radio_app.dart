@@ -675,6 +675,7 @@ void e2eTest(
 }) {
   testWidgets(skip: skip, description, (tester) async {
     RadioApp.captureBindingErrorHandler();
+    _narrowTo(_e2eWidth, tester.view);
     final app =
         await RadioApp.open(tester, server(), beforeLaunch: beforeLaunch);
     try {
@@ -683,4 +684,15 @@ void e2eTest(
       await app.reset();
     }
   }, timeout: timeout);
+}
+
+/// `--dart-define=E2E_WIDTH=375`: the screen's width, in logical pixels,
+/// for a run on a phone narrower than the simulator; 0 keeps its own.
+const _e2eWidth = int.fromEnvironment('E2E_WIDTH');
+
+void _narrowTo(int width, TestFlutterView view) {
+  if (width <= 0) return;
+  view.physicalSize =
+      Size(width * view.devicePixelRatio, view.physicalSize.height);
+  addTearDown(view.resetPhysicalSize);
 }
