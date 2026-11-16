@@ -1180,11 +1180,13 @@ void main() {
     }
 
     /// Serves [items] in this order with [settings] and starts the app
-    /// again, so the card starts afresh.
+    /// again, so the card starts afresh with [shown] of them (all unless
+    /// given).
     Future<void> launchWith(
       RadioApp app,
       List<Map<String, Object?>> items, {
       Map<String, Object?> settings = const {},
+      int? shown,
     }) async {
       // A healthy API, even when this test is the run's first, slow one.
       server.conditions.restore();
@@ -1196,7 +1198,12 @@ void main() {
           ...settings,
         };
       await app.coldStartAnnouncements();
-      await app.waitFor(() => app.showsPosition('1 din ${items.length}'),
+      final count = shown ?? items.length;
+      // One announcement alone has no count.
+      await app.waitFor(
+          () => count > 1
+              ? app.showsPosition('1 din $count')
+              : RadioApp.announcementCard.hitTestable().evaluate().isNotEmpty,
           reason: 'the card; ${app.describe()}');
       // A list that comes after the first frame grows the card in: let it
       // settle before tapping its buttons.
@@ -1510,6 +1517,126 @@ void main() {
       await app.pumpFor(const Duration(seconds: 1));
       expect(app.findsKey('station-announcements-bell'), isTrue,
           reason: 'the bell stays');
+    });
+
+    announcementTest(
+        "the station playing leads with all its own announcements, in the "
+        "feed's order, whatever the rotation; the home ones after them, and "
+        'without them, rotate as before', (app) async {
+      final second = {
+        ...AnnouncementFixtures.stationNews(Stations.alpha.slug),
+        'position': 3,
+      };
+      final items = [
+        AnnouncementFixtures.verse(),
+        AnnouncementFixtures.shareAThon(Stations.alpha.slug),
+        AnnouncementFixtures.concert(),
+        second,
+        AnnouncementFixtures.newest(),
+      ];
+      const rotate = {'rotation_mode': 'rotate'};
+      bool showsStationNews() => [
+            AnnouncementFixtures.shareAThonTitle,
+            AnnouncementFixtures.stationNewsTitle,
+          ].any((title) => find
+              .descendant(
+                  of: RadioApp.announcementCard, matching: find.text(title))
+              .hitTestable()
+              .evaluate()
+              .isNotEmpty);
+
+      // Another station: the home ones only, rotating launch by launch.
+      await app.tapStation(Stations.beta);
+      await launchWith(app, items, settings: rotate, shown: 3);
+      expect(app.showsText(AnnouncementFixtures.verseTitle), isTrue,
+          reason: 'the first launch starts at the first home one; '
+              'card: ${app.describeCard()}');
+      await launchWith(app, items, settings: rotate, shown: 3);
+      expect(app.showsText(AnnouncementFixtures.concertTitle), isTrue,
+          reason: 'the next launch starts one further; '
+              'card: ${app.describeCard()}');
+
+      // Its own station: its two first, as listed, then the home ones
+      // from this launch's start (the second).
+      Future<void> expectTurn(List<String> titles) async {
+        for (final (index, title) in titles.indexed) {
+          if (index > 0) await app.tapKey('announcement-next');
+          final counter = '${index + 1} din ${titles.length}';
+          await app.waitFor(
+              () => app.showsPosition(counter) && app.showsText(title),
+              reason: '$counter, "$title"; card: ${app.describeCard()}');
+        }
+      }
+
+      const own = [
+        AnnouncementFixtures.shareAThonTitle,
+        AnnouncementFixtures.stationNewsTitle,
+      ];
+      await app.tapStation(Stations.alpha);
+      await app.scrollToTop();
+      await expectTurn([
+        ...own,
+        AnnouncementFixtures.concertTitle,
+        AnnouncementFixtures.newestTitle,
+        AnnouncementFixtures.verseTitle,
+      ]);
+
+      // A launch while it plays: its own still lead, and the home ones
+      // start one further (the third).
+      await launchWith(app, items, settings: rotate);
+      await expectTurn([
+        ...own,
+        AnnouncementFixtures.newestTitle,
+        AnnouncementFixtures.verseTitle,
+        AnnouncementFixtures.concertTitle,
+      ]);
+
+      // Back on another station: the home ones, from this launch's start,
+      // and the one on screen (the last) stays there.
+      await app.tapStation(Stations.beta);
+      await app.scrollToTop();
+      for (final (counter, title) in [
+        ('3 din 3', AnnouncementFixtures.concertTitle),
+        ('2 din 3', AnnouncementFixtures.verseTitle),
+        ('1 din 3', AnnouncementFixtures.newestTitle),
+      ]) {
+        if (counter != '3 din 3') await app.tapKey('announcement-previous');
+        await app.waitFor(
+            () => app.showsPosition(counter) && app.showsText(title),
+            reason: 'the home ones, $counter "$title"; '
+                'card: ${app.describeCard()}');
+      }
+      expect(showsStationNews(), isFalse);
+    });
+
+    announcementTest(
+        "the Share-A-Thon card, led by its station playing, shows its whole "
+        'description, the second paragraph on a line of its own, and its '
+        'link opens', (app) async {
+      await app.tapStation(Stations.beta);
+      await launchWith(app, [
+        AnnouncementFixtures.verse(),
+        AnnouncementFixtures.shareAThon(Stations.alpha.slug),
+      ], shown: 1);
+      await app.tapStation(Stations.alpha);
+      await app.scrollToTop();
+      await app.waitFor(
+          () =>
+              app.showsPosition('1 din 2') &&
+              app.showsText(AnnouncementFixtures.shareAThonTitle),
+          reason: 'the Share-A-Thon card first; card: ${app.describeCard()}');
+      await app.pumpFor(const Duration(seconds: 1));
+      final width = app.tester.getSize(find.byType(Scaffold).first).width;
+      final description = find
+          .descendant(
+              of: find.byKey(const ValueKey(
+                  'announcement-${AnnouncementFixtures.shareAThonSlug}')),
+              matching: find.byType(InlineMarkdownText))
+          .hitTestable()
+          .first;
+      await expectWholeDescription(app, description,
+          where: 'Home, ${width.round()} px wide');
+      await expectLinkOpens(app, description);
     });
 
     announcementTest(

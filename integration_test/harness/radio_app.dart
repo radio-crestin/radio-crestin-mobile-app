@@ -196,11 +196,7 @@ class RadioApp {
   /// header's group), so those jump to the end of the list.
   Future<Finder> showStation(FakeStation station) async {
     final row = find.byKey(_rowKey(station)).hitTestable();
-    final position = Scrollable.of(_anyRow.evaluate().first).position;
-    for (var step = 0; step < 40; step++) {
-      if (position.pixels <= position.minScrollExtent) break;
-      await _dragList(up: true);
-    }
+    final position = await scrollToTop();
     for (var step = 0; step < 40 && row.evaluate().isEmpty; step++) {
       if (position.pixels >= position.maxScrollExtent) break;
       await _dragList(up: false);
@@ -209,6 +205,17 @@ class RadioApp {
       fail('${station.title} is not in the station list; ${describe()}');
     }
     return row;
+  }
+
+  /// Drags the station list back to its top, where the announcement card
+  /// is.
+  Future<ScrollPosition> scrollToTop() async {
+    final position = Scrollable.of(_anyRow.evaluate().first).position;
+    for (var step = 0; step < 40; step++) {
+      if (position.pixels <= position.minScrollExtent) break;
+      await _dragList(up: true);
+    }
+    return position;
   }
 
   /// Drags the station list by a third of a screen, then lets it settle.
