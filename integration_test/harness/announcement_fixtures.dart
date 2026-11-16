@@ -95,7 +95,7 @@ On **December 20th at 19:00**, live.
       };
 
   static const shareAThonSlug = 'share-a-thon-2026-micul-samaritean';
-  static const shareAThonTitle = 'Share-A-Thon 2026 · 13–15 nov.';
+  static const shareAThonTitle = 'Share-A-Thon 2026';
   static const shareAThonFirstLine = 'Din 1994, Radio Micul Samaritean duce '
       'speranța Evangheliei în case, spitale și închisori.';
   static const shareAThonSecondLine =
